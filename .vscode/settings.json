@@ -9,5 +9,8 @@
     "python.testing.unittestEnabled": true,
     "python.testing.pytestArgs": [
         "base_infrastructure"
+    ],
+    "python.analysis.extraPaths": [
+        "./src/application/managers/database_managers/config"
     ]
 }
