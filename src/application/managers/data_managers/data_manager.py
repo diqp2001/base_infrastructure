@@ -90,5 +90,8 @@ class DataManager:
         dataframe = self.wrangle_data(dataframe, handle_nulls)
         dataframe = self.scale_data(dataframe)
         return dataframe
+    def get_identification_data_from_dataframe(df,identification_column_list):
+        identification_data = df[identification_column_list].drop_duplicates()
+        return identification_data
 
     # Add more general data handling methods here if needed (e.g., transforming data, exporting data)

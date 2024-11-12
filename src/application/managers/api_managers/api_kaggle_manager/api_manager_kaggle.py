@@ -15,11 +15,21 @@ class KaggleAPIManager(APIManager):
 
     def authenticate(self):
         """
-        Authenticate using the Kaggle API credentials stored in kaggle.json.
+        Authenticate using the Kaggle API credentials stored in kaggle.json and verify by listing datasets.
         """
-        os.environ['KAGGLE_CONFIG_DIR'] = self.kaggle_json_path
-        kaggle.api.authenticate()
-        print("Authenticated with Kaggle API.")
+        # Set the directory containing kaggle.json
+        os.environ['KAGGLE_CONFIG_DIR'] = os.path.dirname(self.kaggle_json_path)
+        
+        # Authenticate with Kaggle
+        try:
+            kaggle.api.authenticate()
+            print("Authenticated with Kaggle API.")
+            
+            # Test the authentication by listing datasets
+            datasets = kaggle.api.dataset_list()
+            print("Successfully authenticated and retrieved dataset list.")
+        except Exception as e:
+            print(f"Authentication failed or failed to retrieve dataset list: {e}")
 
     def download_dataset(self, dataset_name: str, download_path: str = './data'):
         """
@@ -28,9 +38,12 @@ class KaggleAPIManager(APIManager):
         :param download_path: The folder to download the dataset to.
         :return: The local file path of the downloaded dataset.
         """
-        self.authenticate()
-        print(f"Downloading dataset {dataset_name}...")
-        kaggle.api.dataset_download_files(dataset_name, path=download_path, unzip=True)
-        dataset_file_path = os.path.join(download_path, dataset_name.split('/')[1] + '.csv')
-        print(f"Dataset {dataset_name} downloaded to {dataset_file_path}.")
-        return dataset_file_path
+        try:
+            self.authenticate()
+            print(f"Downloading dataset {dataset_name}...")
+            kaggle.api.dataset_download_files(dataset_name, path=download_path, unzip=True)
+            dataset_file_path = os.path.join(download_path, dataset_name.split('/')[1] + '.csv')
+            print(f"Dataset {dataset_name} downloaded to {dataset_file_path}.")
+            return dataset_file_path
+        except Exception as e:
+            print(f"Failed to download dataset {dataset_name}: {e}")

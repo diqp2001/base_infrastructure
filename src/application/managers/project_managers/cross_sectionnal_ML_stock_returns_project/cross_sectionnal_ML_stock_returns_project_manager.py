@@ -3,12 +3,14 @@
 import os
 from turtle import pd
 
+from application.managers.data_managers.data_manager import DataManager
 from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.config import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
 from infrastructure.database.base import create_engine_and_session
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.api_managers.api_kaggle_manager.api_manager_kaggle import KaggleAPIManager
 from application.managers.database_managers.database_manager import DatabaseManager
 from infrastructure.repositories.financial_assets.stock_repository import StockRepository
+from src.domain.entities.financial_assets.stock import Stock as Stock_Entity
 # (Import other managers as necessary)
 #import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
 class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
@@ -20,43 +22,65 @@ class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
         # Initialize required managers
         self.setup_api_manager(KaggleAPIManager())
         self.setup_database_manager(DatabaseManager(config['DB_TYPE']))
+        self.setup_data_manager(DataManager(self.database_manager))
         self.stock_repository = StockRepository()
         # Initialize other managers as required (DataManager, ModelManager, etc.)
     def execute_database_management_tasks(self):
         """
         Workflow to download dataset from Kaggle, set up database connection, and create tables.
         """
-        
-
         # Step 1: Create SQLite engine and session
-        current_directory = os.getcwd() #cd ..
+        current_directory = os.getcwd()  # Get current working directory
 
-        # Step 2: Download dataset from Kaggle
-        dataset_path = self.api_manager.download_dataset(config['dataset_name'])
-        
-        # Load dataset into a DataFrame
+        # Define the path to the CSV file in the dataset
+        dataset_path = os.path.join(current_directory, config['csv_stock_file'])
+
+        # Step 2: Check if the CSV file already exists in the dataset path
+        if not os.path.exists(dataset_path):
+            # If the file does not exist, download it from Kaggle
+            print("CSV file not found. Downloading dataset from Kaggle...")
+            try:
+                dataset_path = self.api_manager.download_dataset(config['dataset_name'],current_directory)
+            except Exception as e:
+                print(f"Error downloading dataset from Kaggle: {e}")
+                return
+        else:
+            # If the CSV file exists, no need to download
+            print(f"CSV file already exists at {dataset_path}. Skipping download.")
+
+        # Step 3: Load the dataset into a DataFrame
         try:
-            data_df = self.database_manager.csv_to_dataframe(os.path.join(dataset_path, config['csv_stock_file']))
+            data_df = self.database_manager.csv_to_dataframe(dataset_path)
         except Exception as e:
             print(f"Error reading CSV file: {e}")
-            return
+            
 
-        # Step 3: Process data and create Identification and FinancialAssetTimeSeries tables
+        # Step 4: Process data and create Identification and FinancialAssetTimeSeries tables
         # Extract identification information and time series data
-        identification_data = data_df[['ticker', 'company_name']].drop_duplicates()
+        identification_data = self.data_manager.get_identification_data_from_dataframe(data_df, ['ticker', 'company_name'])
         timeseries_data = data_df[['ticker', 'date', 'price', 'volume']]
 
-        # Step 4: Create Identification table in the database
-        # This may be stored as a Company table or similar depending on your setup
-        self.create_identification_table(self.database_manager.session, identification_data)
+        # Step 4.1: Create list of Stock_Entity objects from identification_data
+        stock_entities = []
+        for _, row in identification_data.iterrows():
+            stock_entity = Stock_Entity(
+                id=row['ticker'],  # Assuming 'ticker' is the primary key
+                name=row['company_name']  # Assuming 'company_name' is the stock's name
+            )
+            stock_entities.append(stock_entity)
+
+        # Step 4.2: Save list of Stock_Entity using the save_list method of StockRepository
+        try:
+            # Pass the session object from the database manager for saving the data
+            self.stock_repository.save_list(stock_entities, self.database_manager.session)
+        except Exception as e:
+            print(f"Error saving stock entities: {e}")
+            return
 
         # Step 5: Create FinancialAssetTimeSeries table in the database
         self.create_financial_asset_timeseries_table(self.database_manager.session, timeseries_data)
 
-        print("Database management tasks executed successfully.")
-        
 
-        return None
 
 
     def execute_entire_project(self):

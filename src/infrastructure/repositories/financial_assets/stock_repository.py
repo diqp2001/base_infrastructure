@@ -1,24 +1,29 @@
+from infrastructure.repositories.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.financial_assets.stock import Stock as Stock_Model
 from src.domain.entities.financial_assets.stock import Stock as Stock_Entity
-from src.infrastructure.database.connections import get_database_session
-from sqlalchemy.orm import Session
 
-class StockRepository:
+
+"""Provides an abstraction layer for database interaction."""
+### StockRepository (inherits from FinancialAssetRepository)
+from src.infrastructure.models.financial_assets.stock import Stock as Stock_Model
+from src.domain.entities.financial_assets.stock import Stock as Stock_Entity
+
+class StockRepository(FinancialAssetRepository):
     def get_by_id(self, id: int) -> Stock_Entity:
-        # Get a session from the database
-        db: Session = get_database_session(db_type="sqlite")  # Or use other db types like "sql_server"
+        """Fetches a Stock asset by its ID."""
         try:
-            # Perform the query
-            return db.query(Stock_Model).filter(Stock_Model.id == id).first()
+            return self.db.query(Stock_Model).filter(Stock_Model.id == id).first()
+        except Exception as e:
+            print(f"Error retrieving stock by ID: {e}")
+            return None
         finally:
-            db.close()  # Ensure the session is closed after use
+            self.db.close()
 
-    def save(self, asset: Stock_Entity) -> None:
-        # Get a session from the database
-        db: Session = get_database_session(db_type="sqlite")  # Or use other db types like "sql_server"
+    def save_list(self, list_stock_entity,db) -> None:
         try:
             # Add the asset and commit
-            db.add(asset)
-            db.commit()
+            for stock_entity in list_stock_entity:
+                db.add(stock_entity)
+                db.commit()
         finally:
             db.close()  # Ensure the session is closed after use
