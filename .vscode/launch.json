@@ -1,7 +1,6 @@
+
+
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -9,6 +8,23 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Flask App",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "src/application/managers/web_managers/flask/flask_web_manager.py", // Path to Flask main file
+                "FLASK_ENV": "development"
+            },
+            "args": [
+                "run"
+            ],
+            "jinja": true,
+            "justMyCode": true,
             "console": "integratedTerminal"
         }
     ]
