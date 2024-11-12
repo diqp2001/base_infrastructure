@@ -4,13 +4,16 @@ from typing import Dict, List, Union
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
+from infrastructure.database.base import create_engine_and_session
 from src.infrastructure.database.connections import get_database_session
-from config.config_data_source_manager import QUERIES, get_query
+
 
 class DatabaseManager:
     def __init__(self, db_type='sqlite'):
         self.db_type = db_type
-        self.session: Session = get_database_session(db_type)
+        self.session: Session  = get_database_session(db_type)
+
 
     def execute_config_query(self, query_key: str) -> list[dict]:
         """
@@ -90,6 +93,70 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error fetching data: {e}")
             return pd.DataFrame()
+    
+    def csv_to_db(self, file_path: str, table_name: str, if_exists: str = 'replace', index: bool = False):
+        """
+        Reads a CSV file and loads it into a specified database table.
+
+        :param file_path: Path to the CSV file.
+        :param table_name: Name of the database table to load the data into.
+        :param if_exists: Behavior if the table already exists ('replace', 'append', 'fail').
+        :param index: Whether to write row names (index) in the database.
+        """
+        try:
+            data = pd.read_csv(file_path)
+            data.to_sql(table_name, con=self.session.bind, if_exists=if_exists, index=index)
+            print(f"CSV data loaded into '{table_name}' table successfully.")
+        except Exception as e:
+            print(f"Error loading CSV to database: {e}")
+
+    def excel_to_db(self, file_path: str, table_name: str, sheet_name: Union[str, int] = 0, if_exists: str = 'replace', index: bool = False):
+        """
+        Reads an Excel file and loads it into a specified database table.
+
+        :param file_path: Path to the Excel file.
+        :param table_name: Name of the database table to load the data into.
+        :param sheet_name: Name or index of the sheet to read.
+        :param if_exists: Behavior if the table already exists ('replace', 'append', 'fail').
+        :param index: Whether to write row names (index) in the database.
+        """
+        try:
+            data = pd.read_excel(file_path, sheet_name=sheet_name)
+            data.to_sql(table_name, con=self.session.bind, if_exists=if_exists, index=index)
+            print(f"Excel data loaded into '{table_name}' table successfully.")
+        except Exception as e:
+            print(f"Error loading Excel to database: {e}")
+
     def close_session(self):
         self.session.close()
 
+    def csv_to_dataframe(self, file_path: str) -> pd.DataFrame:
+        """
+        Reads a CSV file into a Pandas DataFrame.
+        
+        :param file_path: Path to the CSV file.
+        :return: DataFrame containing the CSV data.
+        """
+        try:
+            df = pd.read_csv(file_path)
+            print(f"CSV data loaded into DataFrame successfully.")
+            return df
+        except Exception as e:
+            print(f"Error loading CSV to DataFrame: {e}")
+            return pd.DataFrame()
+
+    def excel_to_dataframe(self, file_path: str, sheet_name: Union[str, int] = 0) -> pd.DataFrame:
+        """
+        Reads an Excel file into a Pandas DataFrame.
+        
+        :param file_path: Path to the Excel file.
+        :param sheet_name: Name or index of the sheet to read.
+        :return: DataFrame containing the Excel data.
+        """
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+            print(f"Excel data loaded into DataFrame successfully.")
+            return df
+        except Exception as e:
+            print(f"Error loading Excel to DataFrame: {e}")
+            return pd.DataFrame()

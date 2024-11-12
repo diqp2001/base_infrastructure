@@ -1,10 +1,16 @@
-# src/application/managers/project_managers/cross_sectionnal_ML_stock_returns_project_manager.py
+# src/application/managers/project_managers/cross_sectionnal_ML_stock_returns_project/cross_sectionnal_ML_stock_returns_project_manager.py
 
-from src.application.managers.project_managers.project_manager import ProjectManager
-from src.application.managers.api_managers.api_kaggle_manager.api_manager_kaggle import KaggleAPIManager
-from src.application.managers.database_managers.database_manager import DatabaseManager
+import os
+from turtle import pd
+
+from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.config import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
+from infrastructure.database.base import create_engine_and_session
+from application.managers.project_managers.project_manager import ProjectManager
+from application.managers.api_managers.api_kaggle_manager.api_manager_kaggle import KaggleAPIManager
+from application.managers.database_managers.database_manager import DatabaseManager
+from infrastructure.repositories.financial_assets.stock_repository import StockRepository
 # (Import other managers as necessary)
-
+#import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
 class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
     """
     Project Manager for handling cross-sectional machine learning on stock returns.
@@ -13,10 +19,47 @@ class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
         super().__init__()
         # Initialize required managers
         self.setup_api_manager(KaggleAPIManager())
-        self.setup_database_manager(DatabaseManager())
+        self.setup_database_manager(DatabaseManager(config['DB_TYPE']))
+        self.stock_repository = StockRepository()
         # Initialize other managers as required (DataManager, ModelManager, etc.)
+    def execute_database_management_tasks(self):
+        """
+        Workflow to download dataset from Kaggle, set up database connection, and create tables.
+        """
+        
 
-    def execute(self):
+        # Step 1: Create SQLite engine and session
+        current_directory = os.getcwd() #cd ..
+
+        # Step 2: Download dataset from Kaggle
+        dataset_path = self.api_manager.download_dataset(config['dataset_name'])
+        
+        # Load dataset into a DataFrame
+        try:
+            data_df = self.database_manager.csv_to_dataframe(os.path.join(dataset_path, config['csv_stock_file']))
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return
+
+        # Step 3: Process data and create Identification and FinancialAssetTimeSeries tables
+        # Extract identification information and time series data
+        identification_data = data_df[['ticker', 'company_name']].drop_duplicates()
+        timeseries_data = data_df[['ticker', 'date', 'price', 'volume']]
+
+        # Step 4: Create Identification table in the database
+        # This may be stored as a Company table or similar depending on your setup
+        self.create_identification_table(self.database_manager.session, identification_data)
+
+        # Step 5: Create FinancialAssetTimeSeries table in the database
+        self.create_financial_asset_timeseries_table(self.database_manager.session, timeseries_data)
+
+        print("Database management tasks executed successfully.")
+        
+
+        return None
+
+
+    def execute_entire_project(self):
         """
         Define the workflow for the cross-sectional ML stock returns project.
         """
@@ -44,4 +87,6 @@ class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
         # self.reporting_manager.generate_report(trained_model)
 
         print("Cross-Sectional ML Stock Returns Project Execution Complete")
+
+    
 

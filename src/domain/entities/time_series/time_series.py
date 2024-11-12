@@ -15,7 +15,7 @@ class TimeSeries:
         self.values = values
 
     def __repr__(self):
-        return f"<TimeSeries(id={self.id}, asset_id={self.asset_id}, length={len(self.dates)})>"
+        return f"<TimeSeries(id={self.id}, length={len(self.dates)})>"
 
     def get_average_value(self):
         """
