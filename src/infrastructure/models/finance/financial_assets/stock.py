@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Date
-from src.domain.entities.financial_assets.stock import Stock
+from src.domain.entities.finance.financial_assets.stock import Stock
 from src.infrastructure.database.base import Base  # Import Base from the infrastructure layer
 
 
