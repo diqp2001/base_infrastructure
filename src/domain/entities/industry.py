@@ -2,7 +2,7 @@
 from typing import List
 
 class Industry:
-    def __init__(self, name: str, sectorId: int, description: str = "", key_metrics: List[str] = []):
+    def __init__(self, name: str, sector_id: int, description: str = "", key_metrics: List[str] = []):
         """
         Initialize an Industry object with essential details.
         
@@ -10,10 +10,9 @@ class Industry:
         :param sector: The broader sector the industry belongs to (e.g., 'Information Technology', 'Financials')
         :param description: A short description of the industry (optional).
         :param key_metrics: Key performance indicators relevant to the industry (e.g., ['Market Cap', 'Revenue Growth'])
-        :param companies: List of companies within the industry (e.g., ['Apple', 'Microsoft', 'Google'])
         """
         self.name = name
-        self.sectorId = sectorId
+        self.sector_id = sector_id
         self.description = description
         self.key_metrics = key_metrics
         
@@ -35,11 +34,10 @@ class Industry:
         """
         return {
             'name': self.name,
-            'sector': self.sector,
+            'sector_id': self.sector_id,
             'description': self.description,
-            'key_metrics': self.key_metrics,
-            'companies': self.companies
+            'key_metrics': self.key_metrics
         }
 
     def __repr__(self):
-        return f"Industry({self.name}, {self.sector}, {self.description}, {self.key_metrics}, {self.companies})"
+        return f"Industry({self.name}, {self.sector_id}, {self.description}, {self.key_metrics})"

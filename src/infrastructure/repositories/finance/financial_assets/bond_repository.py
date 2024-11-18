@@ -1,6 +1,6 @@
-from infrastructure.repositories.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.financial_assets.bond import Bond as Bond_Model
-from src.domain.entities.financial_assets.bond import Bond as Bond_Entity
+from infrastructure.repositories.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.models.finance.financial_assets.bond import Bond as Bond_Model
+from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 
 class BondRepository(FinancialAssetRepository):
     def get_by_id(self, id: int) -> Bond_Entity:

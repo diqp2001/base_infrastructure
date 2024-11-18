@@ -1,5 +1,5 @@
-from src.infrastructure.repositories.financial_assets.stock_repository import StockRepository
-from src.domain.entities.financial_assets.financial_asset import FinancialAsset
+from src.infrastructure.repositories.finance.financial_assets.stock_repository import StockRepository
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 class StockService:
     def __init__(self, repo: StockRepository = None):
