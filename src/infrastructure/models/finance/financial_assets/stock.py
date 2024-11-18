@@ -9,11 +9,13 @@ class Stock(DomainStock, Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     ticker = Column(String, nullable=False, unique=True)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     
     # Relationships
     company = relationship("Company", back_populates="stocks")
+    exchange = relationship("Exchange", back_populates="stocks")
 
     def __init__(self, ticker, company_id,start_date=None,end_date=None):
         self.ticker = ticker
