@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.domain.entities.finance.exchange import Exchange as DomainExchange
-from src.infrastructure.database.base import Base  # Import Base from the infrastructure layer
+from infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
 
 class Exchange(DomainExchange, Base):
     __tablename__ = 'exchanges'
@@ -17,6 +17,7 @@ class Exchange(DomainExchange, Base):
     # Relationships to the Country and Industry tables
     country = relationship("Country", back_populates="exchanges")
     stock = relationship("Stock", back_populates="exchanges")
+    company_stock = relationship("CompanyStock", back_populates="exchanges")
     
     def __init__(self, name, legal_name, country_id, start_date, end_date=None):
         self.name = name

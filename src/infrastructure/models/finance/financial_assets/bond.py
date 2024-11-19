@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Date
-from src.infrastructure.database.base import Base  # Base class for SQLAlchemy models
+from infrastructure.database.base_factory import Base  # Base class for SQLAlchemy models
 
 class Bond(Base):
     __tablename__ = 'bonds'

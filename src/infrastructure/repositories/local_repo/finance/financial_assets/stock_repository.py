@@ -1,12 +1,7 @@
-from financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.stock import Stock as Stock_Model
+from .financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.models import Stock as Stock_Model
 from src.domain.entities.finance.financial_assets.stock import Stock as Stock_Entity
 
-
-"""Provides an abstraction layer for database interaction."""
-### StockRepository (inherits from FinancialAssetRepository)
-from src.infrastructure.models.finance.financial_assets.stock import Stock as Stock_Model
-from src.domain.entities.finance.financial_assets.stock import Stock as Stock_Entity
 
 class StockRepository(FinancialAssetRepository):
     def __init__(self, db_type='sqlite'):

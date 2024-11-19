@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, Integer, Float, Date
 from sqlalchemy.orm import relationship
-from src.infrastructure.database.base import Base
+from infrastructure.database.base_factory import Base
 
 class StockMarketInformation(Base):
     __tablename__ = 'stock_market_information'

@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.database.base import Base
-
-class Industry(Base):
+from infrastructure.database.base_factory import Base
+from src.domain.entities.industry import Industry as DomainIndustry
+class Industry(DomainIndustry,Base):
     __tablename__ = 'industries'
     
     id = Column(Integer, primary_key=True)

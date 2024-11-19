@@ -1,7 +1,8 @@
 class FinancialAsset:
-    def __init__(self, id, start_date):
+    def __init__(self, id, start_date, end_date):
         self.id = id
         self.start_date = start_date
+        self.end_date = end_date
 
     @property
     def asset_type(self):

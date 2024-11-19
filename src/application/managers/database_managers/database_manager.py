@@ -5,14 +5,16 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
-from infrastructure.database.base import create_engine_and_session
-from src.infrastructure.database.connections import get_database_session
+from domain.entities.database_entity import DatabaseEntity
+
 
 
 class DatabaseManager:
     def __init__(self, db_type='sqlite'):
+     
         self.db_type = db_type
-        self.session: Session  = get_database_session(db_type)
+        self.db = DatabaseEntity(self.db_type)
+        self.session: Session  = self.db.SessionLocal
 
 
     def execute_config_query(self, query_key: str) -> list[dict]:

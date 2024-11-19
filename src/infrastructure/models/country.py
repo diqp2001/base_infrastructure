@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from src.infrastructure.database.base import Base
+from infrastructure.database.base_factory import Base
 
-from src.domain.entities import Country as DomainCountry
+from src.domain.entities.country import Country as DomainCountry
 
 
 class Country(DomainCountry,Base):

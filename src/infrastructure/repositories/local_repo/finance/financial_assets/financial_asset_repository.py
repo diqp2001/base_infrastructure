@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
 from abc import ABC, abstractmethod
-from src.infrastructure.database.connections import get_database_session
+
 
 class FinancialAssetRepository(ABC):
-    def __init__(self, db_type='sqlite'):
-        self.db_type = db_type
-        self.db: Session = get_database_session(db_type)
+    def __init__(self, db_session):
+        self.db = db_session
 
     @abstractmethod
     def get_by_id(self, id: int):
@@ -32,8 +31,16 @@ class FinancialAssetRepository(ABC):
         except Exception as e:
             self.db.rollback()
             print(f"Error saving asset list: {e}")
-        finally:
-            self.db.close()
+
+    '''def exists_by_id(self, id: int) -> bool:
+        """Checks if a stock exists by its ID."""
+        try:
+            # Query the database to check if a stock with the given ID exists
+            asset = self.db.query(CompanyStock_Model).filter(CompanyStock_Model.id == id).first()
+            return asset is not None  # If no stock is found, returns False
+        except Exception as e:
+            print(f"Error checking if stock exists by ID: {e}")
+            return False'''
 
     def close_session(self):
         """Closes the database session."""

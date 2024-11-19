@@ -1,5 +1,5 @@
 from typing import List
-from src.infrastructure.repositories.time_series.time_series_repository import TimeSeriesRepository
+from src.infrastructure.repositories.local_repo.time_series.time_series_repository import TimeSeriesRepository
 from src.domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
 from sqlalchemy.orm import Session
 

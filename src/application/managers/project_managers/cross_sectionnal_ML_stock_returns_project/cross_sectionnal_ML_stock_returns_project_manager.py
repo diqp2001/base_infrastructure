@@ -5,12 +5,12 @@ from turtle import pd
 
 from application.managers.data_managers.data_manager import DataManager
 from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.config import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
-from infrastructure.database.base import create_engine_and_session
+
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.api_managers.api_kaggle_manager.api_manager_kaggle import KaggleAPIManager
 from application.managers.database_managers.database_manager import DatabaseManager
-from infrastructure.repositories.financial_assets.stock_repository import StockRepository
-from src.domain.entities.financial_assets.stock import Stock as Stock_Entity
+from infrastructure.repositories.local_repo.finance.financial_assets.stock_repository import StockRepository
+from src.domain.entities.finance.financial_assets.stock import Stock as Stock_Entity
 # (Import other managers as necessary)
 #import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
 class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
