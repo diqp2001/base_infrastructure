@@ -13,9 +13,9 @@ class CompanyStock(DomainCompanyStock, Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
 
-    company = relationship("Company", back_populates="company_stocks")
-    exchange = relationship("Exchange", back_populates="company_stocks")
-
+    # Relationships
+    companies = relationship("Company", back_populates="company_stocks")
+    exchanges = relationship("Exchange", back_populates="company_stocks")
     def __init__(self, domain_entity: DomainCompanyStock):
         # Initialize attributes from the domain entity
         super().__init__(

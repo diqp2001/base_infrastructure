@@ -27,7 +27,7 @@ class CompanyStockRepository(FinancialAssetRepository):
             for company_stock_entity in list_company_stock_entity:
                 company_stock_model = CompanyStock_Model(company_stock_entity)
                 self.db.add(company_stock_model)
-            self.commit()
+            self.db.commit()
         except Exception as e:
             self.db.rollback()  # Rollback in case of an error
             print(f"An error occurred while saving: {e}")

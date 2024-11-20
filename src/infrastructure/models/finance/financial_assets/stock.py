@@ -13,8 +13,8 @@ class Stock(DomainStock, Base):
     end_date = Column(Date, nullable=True)
     
     # Relationships
-    exchange = relationship("Exchange", back_populates="stocks")
-
+    exchanges = relationship("Exchange", back_populates="stocks")
+    
     def __init__(self, ticker,start_date=None,end_date=None):
         self.ticker = ticker
         self.start_date = start_date

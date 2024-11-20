@@ -15,9 +15,10 @@ class Company(DomainCompany, Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
 
-    # Relationships to the Country and Industry tables
-    country = relationship("Country", back_populates="companies")
-    industry = relationship("Industry", back_populates="companies")
+    # Relationships
+    countries = relationship("Country", back_populates="companies")
+    industries = relationship("Industry", back_populates="companies")
+    company_stocks = relationship("CompanyStock", back_populates="companies")
     
     def __init__(self, name, legal_name, country_id, industry_id, start_date, end_date=None):
         self.name = name

@@ -14,11 +14,11 @@ class Exchange(DomainExchange, Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
 
-    # Relationships to the Country and Industry tables
-    country = relationship("Country", back_populates="exchanges")
-    stock = relationship("Stock", back_populates="exchanges")
-    company_stock = relationship("CompanyStock", back_populates="exchanges")
-    
+    # Relationships
+    countries = relationship("Country", back_populates="exchanges")
+    stocks = relationship("Stock", back_populates="exchanges")
+    company_stocks = relationship("CompanyStock", back_populates="exchanges")
+
     def __init__(self, name, legal_name, country_id, start_date, end_date=None):
         self.name = name
         self.legal_name = legal_name

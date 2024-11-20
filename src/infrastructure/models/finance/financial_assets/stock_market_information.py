@@ -14,7 +14,7 @@ class StockMarketInformation(Base):
     floating_shares = Column(Integer, nullable=True)
 
     # Relationship
-    stock = relationship("Stock", back_populates="market_information")
+    '''stock = relationship("Stock", back_populates="market_information")'''
 
     def __init__(self, stock_id, date, price, dividend=None, num_of_shares=0, floating_shares=None):
         self.stock_id = stock_id

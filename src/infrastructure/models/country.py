@@ -13,9 +13,9 @@ class Country(DomainCountry,Base):
     iso_code = Column(String(3), nullable=False, unique=True)  # e.g., 'USA', 'CAN'
     region = Column(String, nullable=True)  # Optional region classification (e.g., 'North America')
     
-    # Relationship to companies
-    companies = relationship("Company", back_populates="country")
-    
+    # Relationships
+    companies = relationship("Company", back_populates="countries")
+    exchanges = relationship("Exchange", back_populates="countries")
     def __init__(self, name, iso_code, region=None):
         self.name = name
         self.iso_code = iso_code
