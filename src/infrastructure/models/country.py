@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from infrastructure.database.base_factory import Base
+from src.infrastructure.models import ModelBase as Base
 
 from src.domain.entities.country import Country as DomainCountry
 

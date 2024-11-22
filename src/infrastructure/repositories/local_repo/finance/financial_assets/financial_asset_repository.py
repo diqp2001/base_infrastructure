@@ -3,8 +3,9 @@ from abc import ABC, abstractmethod
 
 
 class FinancialAssetRepository(ABC):
-    def __init__(self, db_session):
-        self.db = db_session
+    def __init__(self, db, session):
+        self.db = db
+        self.session = session
 
     @abstractmethod
     def get_by_id(self, id: int):

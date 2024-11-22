@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship
 from src.domain.entities.finance.financial_assets.stock import Stock as DomainStock
-from infrastructure.database.base_factory import Base
+from src.infrastructure.models import ModelBase as Base
 
 class Stock(DomainStock, Base):
     __tablename__ = 'stocks'

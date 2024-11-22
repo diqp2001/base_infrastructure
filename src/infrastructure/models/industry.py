@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from infrastructure.database.base_factory import Base
+from src.infrastructure.models import ModelBase as Base
 from src.domain.entities.industry import Industry as DomainIndustry
 class Industry(DomainIndustry,Base):
     __tablename__ = 'industries'
@@ -12,7 +12,8 @@ class Industry(DomainIndustry,Base):
     
     # Relationships
     companies = relationship("Company", back_populates="industries")
-
+    sectors = relationship("Sector", back_populates="industries")
+    
     def __init__(self, name, sector_id, description=None):
         self.name = name
         self.sector_id = sector_id

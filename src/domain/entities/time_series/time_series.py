@@ -160,5 +160,9 @@ class TimeSeries:
             
             # Call the single-column z-score function for each column
             self.add_z_score_column(column_name, new_column_name=new_column_name, replace=replace, groupby_columns=groupby_columns)
+            
+    def pivot_time_series(self,index_list,column_list,values_name):
+        self.time_series = self.time_series.pivot_table(index=index_list, columns=column_list,values=values_name).reset_index()
+    
     def __repr__(self):
         return f"TimeSeries({self.time_series.shape[0]} rows, {self.time_series.shape[1]} columns)"

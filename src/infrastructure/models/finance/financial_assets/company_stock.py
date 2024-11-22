@@ -1,13 +1,13 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Date
 from sqlalchemy.orm import relationship
 from src.domain.entities.finance.financial_assets.company_stock import CompanyStock as DomainCompanyStock
-from infrastructure.database.base_factory import Base
+from src.infrastructure.models import ModelBase as Base
 
 class CompanyStock(DomainCompanyStock, Base):
     __tablename__ = 'company_stocks'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String, nullable=False, unique=True)
+    ticker = Column(String, nullable=False)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
     start_date = Column(Date, nullable=False)
@@ -16,6 +16,7 @@ class CompanyStock(DomainCompanyStock, Base):
     # Relationships
     companies = relationship("Company", back_populates="company_stocks")
     exchanges = relationship("Exchange", back_populates="company_stocks")
+    key_company_stocks = relationship("KeyCompanyStock", back_populates="company_stock")
     def __init__(self, domain_entity: DomainCompanyStock):
         # Initialize attributes from the domain entity
         super().__init__(
