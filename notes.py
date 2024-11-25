@@ -10,4 +10,6 @@ https://code.visualstudio.com/docs/python/testing
 
 Il faut inataller pytest pour que cela marche
 
+py -m pip install optuna
+
 """ 

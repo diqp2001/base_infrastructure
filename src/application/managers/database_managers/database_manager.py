@@ -162,3 +162,29 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error loading Excel to DataFrame: {e}")
             return pd.DataFrame()
+        
+    def dataframe_replace_table(self, df: pd.DataFrame, table_name: str) -> None:
+        """
+        Replaces the existing database table with new data.
+
+        :param df: The DataFrame containing the data to load.
+        :param table_name: The name of the database table.
+        """
+        try:
+            df.to_sql(name=table_name, con=self.session.bind, if_exists='replace', index=False)
+            print(f"Table '{table_name}' successfully replaced with new data.")
+        except Exception as e:
+            print(f"Error replacing table '{table_name}': {e}")
+
+    def dataframe_append_to_table(self, df: pd.DataFrame, table_name: str) -> None:
+        """
+        Appends data to an existing database table.
+
+        :param df: The DataFrame containing the data to append.
+        :param table_name: The name of the database table.
+        """
+        try:
+            df.to_sql(name=table_name, con=self.session.bind, if_exists='append', index=False)
+            print(f"Data successfully appended to table '{table_name}'.")
+        except Exception as e:
+            print(f"Error appending data to table '{table_name}': {e}")

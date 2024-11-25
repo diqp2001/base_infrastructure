@@ -123,43 +123,81 @@ class TimeSeries:
         Add a new column to the DataFrame with z-scores calculated from a specific column.
         Optionally, replace the original column with the z-score values.
         Optionally, group the data by specific columns before calculating z-scores.
-
-        :param column_name: The name of the column to calculate z-scores.
-        :param new_column_name: The name of the new column. Defaults to "{column_name}_z_score".
-        :param replace: If True, replace the original column with the z-score column.
-        :param groupby_columns: List of columns to group by before calculating z-scores.
         """
         if column_name not in self.time_series.columns:
             raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
         if not new_column_name:
             new_column_name = f"{column_name}_z_score"
-        
+
+        # Compute z-scores with optional grouping
         if groupby_columns:
-            self.time_series[new_column_name] = self.time_series.groupby(groupby_columns)[column_name].apply(lambda x: (x - x.mean()) / x.std())
+            self.time_series[new_column_name] = self.time_series.groupby(groupby_columns)[column_name].apply(
+                lambda x: (x - x.mean()) / x.std()
+            )
         else:
             mean = self.time_series[column_name].mean()
             std = self.time_series[column_name].std()
             self.time_series[new_column_name] = (self.time_series[column_name] - mean) / std
-        
+
+        # Optionally replace original column
         if replace:
             self.time_series[column_name] = self.time_series[new_column_name]
+
     def add_z_score_columns(self, column_names, new_column_name=None, replace=False, groupby_columns=None):
         """
-        Add z-score columns to the DataFrame for each column in the provided list of columns.
-        :param column_names: List of columns to calculate z-scores.
-        :param new_column_name: The base name for new columns. Defaults to "{column_name}_z_score".
-        :param replace: If True, replace the original columns with the z-score columns.
-        :param groupby_columns: List of columns to group by before calculating z-scores.
+        Add z-score columns for a list of columns, using the single-column function.
+        """
+        for column_name in column_names:
+            # Generate default new column name if not specified
+            column_z_name = new_column_name or f"{column_name}_z_score"
+            self.add_z_score_column(
+                column_name, new_column_name=column_z_name, replace=replace, groupby_columns=groupby_columns
+            )
+
+    def calculate_iterative_z_scores(self, column_names, iterations, cap_range=None, replace=False, groupby_columns=None):
+        """
+        Iteratively calculate z-scores for specified columns, reusing the `add_z_score_column` function.
         """
         for column_name in column_names:
             if column_name not in self.time_series.columns:
                 raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
-            # Generate default new column name
-            if not new_column_name:
-                new_column_name = f"{column_name}_z_score"
-            
-            # Call the single-column z-score function for each column
-            self.add_z_score_column(column_name, new_column_name=new_column_name, replace=replace, groupby_columns=groupby_columns)
+
+            current_column = column_name
+            for i in range(1, iterations + 1):
+                # Construct the iterative column name
+                new_column_name = f"{column_name}_z_score_iter_{i}"
+
+                # Reuse the z-score function
+                self.add_z_score_column(
+                    current_column, new_column_name=new_column_name, groupby_columns=groupby_columns
+                )
+
+                # Apply capping if specified
+                if cap_range:
+                    min_cap, max_cap = cap_range
+                    self.time_series[new_column_name] = self.time_series[new_column_name].clip(lower=min_cap, upper=max_cap)
+
+                # Update current column for the next iteration
+                current_column = new_column_name
+
+            # Replace the original column if specified
+            if replace:
+                self.time_series[column_name] = self.time_series[current_column]
+
+    def remove_nulls(self, column_name, fill_value):
+        """
+        Replace null values in a single column with a specified value.
+        """
+        if column_name not in self.time_series.columns:
+            raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
+        self.time_series[column_name].fillna(fill_value, inplace=True)
+
+    def remove_nulls_from_columns(self, column_names, fill_value):
+        """
+        Replace null values in multiple columns using the single-column null removal function.
+        """
+        for column_name in column_names:
+            self.remove_nulls(column_name, fill_value)
             
     def pivot_time_series(self,index_list,column_list,values_name):
         self.time_series = self.time_series.pivot_table(index=index_list, columns=column_list,values=values_name).reset_index()

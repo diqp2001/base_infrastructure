@@ -1,33 +1,46 @@
 # src/application/managers/model_managers/model_manager.py
-
 import os
-from src.application.managers.manager import Manager
+import pickle
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Tuple
+import numpy as np
+import pandas as pd
 
-class ModelManager(Manager):
+class ModelManager(ABC):
     def __init__(self):
-        super().__init__()
         self.model = None
-    
-    def save_model(self, model_id: str, directory: str = "./models"):
-        """
-        Save model to specified directory. To be implemented by each subclass.
-        """
-        raise NotImplementedError("Each model manager must implement its save_model method.")
 
-    def load_model(self, model_id: str, directory: str = "./models"):
+    @abstractmethod
+    def train_model(self, X: np.ndarray, y: np.ndarray, **kwargs) -> None:
         """
-        Load model from specified directory. To be implemented by each subclass.
+        Train the model.
         """
-        raise NotImplementedError("Each model manager must implement its load_model method.")
+        pass
 
-    def train_model(self, X, y, **kwargs):
+    @abstractmethod
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """
-        Train model. To be implemented by each subclass.
+        Generate predictions.
         """
-        raise NotImplementedError("Each model manager must implement its train_model method.")
+        pass
 
-    def predict(self, X):
+    def save_model(self, model_id: str, directory: str = "./models") -> None:
         """
-        Generate predictions. To be implemented by each subclass.
+        Save the model to a specified directory.
         """
-        raise NotImplementedError("Each model manager must implement its predict method.")
+        os.makedirs(directory, exist_ok=True)
+        model_path = os.path.join(directory, f"{model_id}.pkl")
+        with open(model_path, 'wb') as f:
+            pickle.dump(self.model, f)
+        print(f"Model saved to {model_path}")
+
+    def load_model(self, model_id: str, directory: str = "./models") -> None:
+        """
+        Load the model from a specified directory.
+        """
+        model_path = os.path.join(directory, f"{model_id}.pkl")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file {model_path} does not exist.")
+        with open(model_path, 'rb') as f:
+            self.model = pickle.load(f)
+        print(f"Model loaded from {model_path}")
