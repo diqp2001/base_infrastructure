@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Union
 import pandas as pd
+import dask.dataframe as dd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
@@ -15,6 +16,7 @@ class DatabaseManager:
         self.db_type = db_type
         self.db = DatabaseEntity(self.db_type)
         self.session: Session  = self.db.SessionLocal
+        
 
 
     def execute_config_query(self, query_key: str) -> list[dict]:
@@ -186,5 +188,68 @@ class DatabaseManager:
         try:
             df.to_sql(name=table_name, con=self.session.bind, if_exists='append', index=False)
             print(f"Data successfully appended to table '{table_name}'.")
+        except Exception as e:
+            print(f"Error appending data to table '{table_name}': {e}")
+
+    def fetch_dask_dataframe_with_sql_query(
+        self,
+        query: str,
+        index_col: str,
+        **kwargs
+    ) -> dd.DataFrame:
+        """
+        Fetches a Dask DataFrame from a SQL query.
+
+        :param query: The SQL query to execute or the table name.
+        :param index_col: Column to use as the DataFrame index. Should be indexed in the SQL database.
+        :param kwargs: Additional keyword arguments for customization.
+        :return: Dask DataFrame.
+        """
+        try:
+            df = dd.read_sql(sql=query, con=self.connection_string, index_col=index_col, **kwargs)
+            print("Dask DataFrame successfully loaded from SQL.")
+            return df
+        except Exception as e:
+            print(f"Error loading Dask DataFrame from SQL: {e}")
+            return dd.from_pandas(pd.DataFrame(), npartitions=1)
+
+    def csv_to_dask_dataframe(self, file_path: str) -> dd.DataFrame:
+        """
+        Reads a CSV file into a Dask DataFrame.
+
+        :param file_path: Path to the CSV file.
+        :return: Dask DataFrame.
+        """
+        try:
+            df = dd.read_csv(file_path)
+            print(f"CSV data loaded into Dask DataFrame successfully.")
+            return df
+        except Exception as e:
+            print(f"Error loading CSV into Dask DataFrame: {e}")
+            return dd.from_pandas(pd.DataFrame(), npartitions=1)
+
+    def dask_dataframe_replace_table(self, df: dd.DataFrame, table_name: str) -> None:
+        """
+        Replaces the existing database table with new data using a Dask DataFrame.
+
+        :param df: The Dask DataFrame containing the data to load.
+        :param table_name: The name of the database table.
+        """
+        try:
+            df.compute().to_sql(name=table_name, con=self.engine, if_exists='replace', index=False)
+            print(f"Table '{table_name}' successfully replaced with new data from Dask DataFrame.")
+        except Exception as e:
+            print(f"Error replacing table '{table_name}': {e}")
+
+    def dask_dataframe_append_to_table(self, df: dd.DataFrame, table_name: str) -> None:
+        """
+        Appends data to an existing database table using a Dask DataFrame.
+
+        :param df: The Dask DataFrame containing the data to append.
+        :param table_name: The name of the database table.
+        """
+        try:
+            df.compute().to_sql(name=table_name, con=self.engine, if_exists='append', index=False)
+            print(f"Data successfully appended to table '{table_name}' from Dask DataFrame.")
         except Exception as e:
             print(f"Error appending data to table '{table_name}': {e}")
