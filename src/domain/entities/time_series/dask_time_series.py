@@ -51,6 +51,48 @@ class DaskTimeSeries:
         if replace:
             self.time_series[column_name] = self.time_series[new_column_name]
 
+    def add_quantile_column_index(self, column_name, num_quantiles, new_column_name=None, replace=False):
+        """
+        Add a quantile column to the DataFrame based on a specific column.
+
+        Parameters:
+            column_name (str): The name of the column for which quantiles are to be calculated.
+            num_quantiles (int): The number of quantiles to compute.
+            new_column_name (str, optional): The name of the new column. Defaults to a generated name.
+            replace (bool, optional): If True, replace the original column with the quantile column. Defaults to False.
+
+
+        """
+        def compute_group_quantiles(partition, column_name, num_quantiles):
+            """
+            Compute quantiles within each group (e.g., each date) in a single partition.
+
+            Parameters:
+                partition (pd.DataFrame): A partition of the Dask DataFrame.
+                column_name (str): The name of the column for which quantiles are to be calculated.
+                num_quantiles (int): The number of quantiles to compute.
+
+            Returns:
+                pd.Series: Quantile ranks for the specified column within the partition.
+            """
+            if column_name not in partition.columns:
+                raise KeyError(f"Column '{column_name}' not found in the partition.")
+            
+            return partition.groupby(partition.index)[column_name].transform(
+                lambda x: pd.qcut(x, q=num_quantiles, labels=False, duplicates="drop")
+            )
+        if column_name not in self.time_series.columns:
+            raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
+        if not new_column_name:
+            new_column_name = f"{column_name}_quantile_{num_quantiles}"
+
+        self.time_series[new_column_name] = self.time_series.map_partitions(
+            compute_group_quantiles,
+            column_name=column_name,
+            num_quantiles=num_quantiles,
+            meta=(new_column_name, "int"),  # Specify the new column's metadata
+        )        
+
     def add_quantile_column(self, column_name, quantiles, new_column_name=None, replace=False, groupby_columns=None):
         """
         Add a quantile column to the DataFrame based on a specific column.
@@ -95,6 +137,33 @@ class DaskTimeSeries:
     def compute_ddf(self):
         """Compute the Dask DataFrame and return a Pandas DataFrame."""
         return self.time_series.compute()
+    
+    def bring_in_memory_partition(self,partition_number):
+        partition = self.time_series.get_partition(partition_number)
+        pandas_partition = partition.compute()
+        return pandas_partition
+    
+    def remove_column(self, column_name):
+        """
+        Remove a column from the Dask DataFrame.
+        :param column_name: The name of the column to remove.
+        """
+        if column_name not in self.time_series.columns:
+            raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
+        self.time_series = self.time_series.drop(columns=[column_name])
+
+    def duplicate_column(self, column_name, new_column_name):
+        """
+        Duplicate a column in the Dask DataFrame with a new name.
+        :param column_name: The name of the column to duplicate.
+        :param new_column_name: The name of the new duplicated column.
+        """
+        if column_name not in self.time_series.columns:
+            raise KeyError(f"Column '{column_name}' not found in the DataFrame.")
+        if new_column_name in self.time_series.columns:
+            raise KeyError(f"Column '{new_column_name}' already exists in the DataFrame.")
+        self.time_series[new_column_name] = self.time_series[column_name]
+
 
     def __repr__(self):
         return f"DaskTimeSeries({len(self.time_series.columns)} columns)"
