@@ -4,7 +4,7 @@ from infrastructure.database.model_registry import ModelRegistry
 from src.domain.entities.finance.exchange import Exchange  # Example model
 from src.domain.entities.finance.financial_assets.company_stock import CompanyStock  # Example model
 
-class DatabaseEntity:
+class Database:
     """
     A domain object that encapsulates the database configuration, model registration,
     and session management for multiple projects.

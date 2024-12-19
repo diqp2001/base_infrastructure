@@ -1,9 +1,8 @@
 from sqlalchemy import MetaData
 
 from infrastructure.models.identification_tables.company_stock_identification_table import create_company_stock_identification_table, update_company_stock_identification_table
-from infrastructure.models import KeyCompanyStock as KeyCompanyStockModel
-from infrastructure.models import Key as KeyModel
-from .financial_asset_repository import FinancialAssetRepository
+from infrastructure.models import KeyCompanyStock
+from ..financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models import CompanyStock as CompanyStockModel
 from src.domain.entities.finance.financial_assets.company_stock import CompanyStock as CompanyStockEntity
 
@@ -145,6 +144,7 @@ class CompanyStockRepository(FinancialAssetRepository):
         except Exception as e:
             self.session.rollback()  # Rollback in case of an error
             print(f"An error occurred while saving the company stock: {e}")
+
             
     def exists_by_id(self, id: int) -> bool:
         """Checks if a stock exists by its ID."""
@@ -155,5 +155,3 @@ class CompanyStockRepository(FinancialAssetRepository):
         except Exception as e:
             print(f"Error checking if stock exists by ID: {e}")
             return False
-        
-    

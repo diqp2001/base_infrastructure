@@ -6,7 +6,7 @@ import dask.dataframe as dd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
-from domain.entities.database_entity import DatabaseEntity
+from domain.database import Database
 
 
 
@@ -14,7 +14,7 @@ class DatabaseManager:
     def __init__(self, db_type='sqlite'):
      
         self.db_type = db_type
-        self.db = DatabaseEntity(self.db_type)
+        self.db = Database(self.db_type)
         self.session: Session  = self.db.SessionLocal
         
 
