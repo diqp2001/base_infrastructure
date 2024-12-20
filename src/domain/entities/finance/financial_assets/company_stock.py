@@ -1,4 +1,4 @@
-# src/domain/entities/financial_assets/ETF.py
+
 from .stock import Stock
 
 class CompanyStock(Stock):

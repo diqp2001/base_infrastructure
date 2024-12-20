@@ -11,8 +11,8 @@ from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project import config
 from domain.entities.finance.financial_assets.company_stock import CompanyStock as CompanyStockEntity
 
-from infrastructure.repositories.local_repo.finance.financial_assets.company_stock_repository import CompanyStockRepository
-
+from infrastructure.repositories.local_repo.finance.financial_assets.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryLocal
+from infrastructure.repositories.afl_repo.finance.financial_assets.company_stock_repository.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryAFL
 
 class TestProjectManager(ProjectManager):
     """
@@ -22,7 +22,8 @@ class TestProjectManager(ProjectManager):
         super().__init__()
         # Initialize required managers
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_stock_repository = CompanyStockRepository(self.database_manager.db,self.database_manager.session)
+        self.company_stock_repository_local = CompanyStockRepositoryLocal(self.database_manager.session)
+        self.company_stock_repository_afl = CompanyStockRepositoryAFL(self.database_manager.session)
 
     def save_new_company_stock(self):
         id = 1
