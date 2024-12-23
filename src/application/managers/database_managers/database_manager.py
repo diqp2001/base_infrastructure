@@ -3,10 +3,11 @@
 from typing import Dict, List, Union
 import pandas as pd
 import dask.dataframe as dd
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy.orm import Session,sessionmaker
+from sqlalchemy import Tuple, create_engine, text
 from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
 from domain.database import Database
+from infrastructure.database.settings import get_database_url
 
 
 
@@ -16,7 +17,18 @@ class DatabaseManager:
         self.db_type = db_type
         self.db = Database(self.db_type)
         self.session: Session  = self.db.SessionLocal
-        
+
+    def set_local_db(self):
+        self.db = Database(self.db_type)
+        self.session: Session  = self.db.SessionLocal
+
+    def set_ext_db(self):
+        database_url = get_database_url(self.db_type)
+        self.engine = create_engine(database_url)
+        Session  = sessionmaker(bind=self.engine)
+        self.session = Session()
+
+
 
 
     def execute_config_query(self, query_key: str) -> list[dict]:
@@ -33,10 +45,20 @@ class DatabaseManager:
         try:
             result = self.session.execute(text(query))
             return [dict(row) for row in result]
+            print(f'SQL Statement executed succesfully at the {self.db_type}')
         except Exception as e:
             self.session.rollback()
             print(f"Error executing config query: {e}")
             return []
+    def execute_query(self, query:str):
+        try:
+            self.session.execute(text(query))
+            self.session.commit()
+            print(f'SQL Statement executed succesfully at the {self.db_type}')
+
+        except Exception as e:
+            self.session.rollback()
+            print(f'Error executing query: {e}')
 
     def insert_from_select_config(self, source_query_key: str, target_table: str) -> None:
         """
@@ -64,7 +86,7 @@ class DatabaseManager:
         query_key: str,
         table_name: str,
         columns: List[str] = None,
-        filters: Dict[str, Union[str, int, float]] = None,
+        filters: Dict[str, Tuple[str, Union[str, int, float]]] = None,
         top_n: int = None
     ) -> pd.DataFrame:
         """
@@ -74,6 +96,13 @@ class DatabaseManager:
         :param table_name: The table to dynamically insert into the query.
         :param columns: Optional list of columns to retrieve.
         :param filters: Optional dictionary for filtering results.
+        filters = {
+                    "age": (">", 30),         # Select rows where 'age' is greater than 30
+                    "salary": ("<=", 100000), # Select rows where 'salary' is less than or equal to 100000
+                    "department": ("=", "HR"), # Select rows where 'department' is equal to 'HR'
+                    "hire_date": (">=", "2022-01-01")  # Select rows where 'hire_date' is on or after January 1, 2022
+                    }
+
         :param top_n: Optional limit on the number of rows.
         :return: DataFrame of query results or empty on error.
         """
@@ -81,23 +110,28 @@ class DatabaseManager:
             # Construct the dynamic query with table name and columns
             columns_str = ', '.join(columns) if columns else '*'
             source_query = get_query(query_key, table_name=table_name, columns=columns_str)
-
             # Add optional filter conditions
             if filters:
-                filter_conditions = " AND ".join([f"{col} = :{col}" for col in filters.keys()])
+                filter_conditions = " AND ".join([f"{col} {op} :{col}" for col, (op, _) in filters.items()])
                 source_query += f" WHERE {filter_conditions}"
-            
+                filter_values = {col: value for col, (_, value) in filters.items()}
+            else:
+                filter_values = {}
+
             # Add limit for top rows
             if top_n:
                 source_query += f" LIMIT {top_n}"
 
             # Execute the query
-            df = pd.read_sql(text(source_query), con=self.session.bind, params=filters)
+            df = pd.read_sql(text(source_query), con=self.session.bind, params=filter_values)
+            print(f'SQL Statement executed succesfully at the {self.db_type}')
             return df
         except Exception as e:
             print(f"Error fetching data: {e}")
             return pd.DataFrame()
+        
     
+        
     def csv_to_db(self, file_path: str, table_name: str, if_exists: str = 'replace', index: bool = False):
         """
         Reads a CSV file and loads it into a specified database table.
