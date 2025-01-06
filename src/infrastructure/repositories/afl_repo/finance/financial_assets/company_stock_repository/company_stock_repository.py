@@ -1,6 +1,5 @@
 from sqlalchemy import MetaData
 
-from infrastructure.models.identification_tables.company_stock_identification_table import create_company_stock_identification_table, update_company_stock_identification_table
 from infrastructure.models import KeyCompanyStock
 from ..financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models import CompanyStock as CompanyStockModel

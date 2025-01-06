@@ -86,7 +86,7 @@ class DatabaseManager:
         query_key: str,
         table_name: str,
         columns: List[str] = None,
-        filters: Dict[str, Tuple[str, Union[str, int, float]]] = None,
+        filters: Dict[str,  Union[str, int, float]] = None,
         top_n: int = None
     ) -> pd.DataFrame:
         """
