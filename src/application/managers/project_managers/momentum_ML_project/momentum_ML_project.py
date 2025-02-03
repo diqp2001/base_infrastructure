@@ -1,5 +1,6 @@
 import pandas as pd
 
+from application.managers.api_managers.api_quandl_manager.api_quandl_manager import QuandlApiManager
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.api_managers.api_nasdaq_data_link_manager.api_nasdaq_data_link_manager import NasdaqDataLinkApiManager
 from application.managers.database_managers.database_manager import DatabaseManager
@@ -19,6 +20,10 @@ class MomentumMLProjectManager(ProjectManager):
             api_key=config["NASDAQ_API_KEY"],
             data_folder=config.get("DATA_FOLDER", "data/nasdaq_data_link"),
         )
+        '''self.api_manager2 = QuandlApiManager(
+            api_key=config["NASDAQ_API_KEY"],
+            data_folder=config.get("DATA_FOLDER", "data/nasdaq_data_link"),
+        )'''
         # Uncomment and configure DatabaseManager if needed
         # self.database_manager = DatabaseManager(config['DB_TYPE'])
 
@@ -45,9 +50,12 @@ class MomentumMLProjectManager(ProjectManager):
         """
         print(f"Fetching continuous futures data for instrument: {instrument}...")
         try:
+            #data = self.api_manager2.fetch_quandl_data()
+            #data = self.api_manager.fetch_data_from_url()
             data = self.api_manager.fetch_data(
                 dataset_code=instrument, database_code=database_code, params=params
             )
+
             print(f"Data successfully retrieved for {instrument}.")
             return data
         except Exception as e:

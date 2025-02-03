@@ -129,7 +129,7 @@ class QuandlApiManager(APIManager):
         )
         return filled_data.reset_index().set_index("date").drop(columns="index")
 
-    def fetch_quandl_data(self, codes: List[str], start_date: str = "2020-01-01", depth: int = 1):
+    def fetch_quandl_data(self, codes: List[str]=['CME'], start_date: str = "2020-01-01", depth: int = 1):
         """
         Fetch data from Quandl and save locally.
 
@@ -141,9 +141,8 @@ class QuandlApiManager(APIManager):
         for code in codes:
             print(f"Fetching data for: {code}")
             try:
-                quandl.ApiConfig.api_key = self.api_key
                 #data = quandl.get("EIA/PET_RWTC_D")
-                data = quandl.get("WIKI/AAPL", rows=5)
+                data = quandl.get('CHRIS-wiki-continuous-futures/',start_date='undefined',end_date='undefined')
                 #data = quandl.get(f"{code}{depth}", start_date=start_date)
             except Exception as ex:
                 print(f"Error fetching data for {code}: {ex}")

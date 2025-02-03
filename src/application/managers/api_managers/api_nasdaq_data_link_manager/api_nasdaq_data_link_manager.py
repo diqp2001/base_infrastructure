@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import nasdaqdatalink
+import requests
 from src.application.managers.api_managers.api_manager import APIManager
 
 
@@ -48,11 +49,46 @@ class NasdaqDataLinkApiManager(APIManager):
             full_code = f"{database_code}/{dataset_code}" if database_code else dataset_code
             print(f"Fetching data for {full_code}...")
             #data = nasdaqdatalink.get(full_code)
-            data = nasdaqdatalink.get_table('ZACKS/FC', ticker='AAPL')
+            #data = nasdaqdatalink.get_table('ZACKS/FC', ticker='AAPL')
+            data = nasdaqdatalink.get_table('CHRIS/CME', ticker='DC')
             print(f"Data successfully retrieved for {full_code}.")
             return data
         except Exception as e:
             print(f"Failed to fetch data for {dataset_code}: {e}")
+            raise
+    def fetch_data_from_url(self, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+        """
+        Fetch data from a hardcoded URL.
+
+        Args:
+        - start_date: Start date for the data (optional, default is undefined).
+        - end_date: End date for the data (optional, default is undefined).
+
+        Returns:
+        - DataFrame: Fetched data as a Pandas DataFrame.
+        """
+        base_url = "https://data.nasdaq.com/api/v3/datasets/CHRIS-wiki-continuous-futures/"
+        params = {
+            "start_date": start_date or "undefined",
+            "end_date": end_date or "undefined",
+            "api_key": self.api_key,
+        }
+
+        try:
+            print(f"Fetching data from {base_url} with parameters: {params}...")
+            base_url='https://data.nasdaq.com/api/v3/datasets/CHRIS-wiki-continuous-futures/?start_date=undefined&end_date=undefined&api_key=bh2-cWzMCw5e2K2ioUqV'
+            response = requests.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract and convert data into a DataFrame
+            df = pd.DataFrame(data["dataset"]["data"], columns=data["dataset"]["column_names"])
+            df["date"] = pd.to_datetime(df["date"])
+            df.set_index("date", inplace=True)
+            print(f"Data successfully retrieved from {base_url}.")
+            return df
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to fetch data from URL: {e}")
             raise
 
     def save_data(self, dataset_code: str, df: pd.DataFrame):
