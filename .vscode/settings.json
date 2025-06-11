@@ -1,15 +1,16 @@
 {
     "python.testing.unittestArgs": [
-     
-        "./base_infrastructure/tests",
+        
+        "./tests",
+        "-v",
+        "-s",
+        "-p",
         
         "test_*.py"
     ],
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
-    "python.testing.pytestArgs": [
-        "base_infrastructure"
-    ],
+   
     "python.analysis.extraPaths": [
         "./src/application/managers/database_managers/config"
     ]
