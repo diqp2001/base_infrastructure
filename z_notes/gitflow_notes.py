@@ -4,6 +4,7 @@
 bash
 Copier
 Modifier
+if doesnt exist git checkout -b develop
 git checkout develop
 git checkout -b feature/my-new-feature
 When done:
@@ -26,4 +27,7 @@ git merge release/1.0
 git tag -a v1.0 -m "Release 1.0"
 git checkout develop
 git merge release/1.0
-git branch -d release/1.0"""
+git branch -d release/1.0
+
+git branch         # shows all local branches
+git branch -r      # shows remote branches"""
