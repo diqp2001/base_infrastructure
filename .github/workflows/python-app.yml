@@ -5,9 +5,17 @@ name: Python application
 
 on:
   push:
-    branches: [ "main" ]
+  #Triggers the workflow when pushing to or making PRs from/to any GitFlow branch (feature/*, develop, etc.).
+    branches: 
+      - main
+      - develop
+      - feature/**
+      - hotfix/**
+      - release/**
   pull_request:
-    branches: [ "main" ]
+    branches: 
+      - main
+      - develop
 
 permissions:
   contents: read
