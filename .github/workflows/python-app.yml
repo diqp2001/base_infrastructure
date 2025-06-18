@@ -40,5 +40,5 @@ jobs:
         pip install -r requirements.txt
     - name: Test with unittests
       run: |
-        python -m unittest discover -s base_infrastructure/tests -p "test_*.py"
+        PYTHONPATH=${{ github.workspace }} python -m unittest discover -s base_infrastructure/tests -p "test_*.py"
 
