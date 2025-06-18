@@ -14,8 +14,7 @@ from application.managers.project_managers.cross_sectionnal_ML_stock_returns_pro
 from application.managers.project_managers.momentum_ML_project.momentum_ML_project import MomentumMLProjectManager
 from application.managers.project_managers.test_project.test_project_manager import TestProjectManager
 
-def increment(x: int) -> int:
-    return x + 1
+
 
 if __name__ == '__main__':
 
