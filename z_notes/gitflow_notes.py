@@ -1,5 +1,9 @@
 #✅ Typical Workflow Example
-"""Start a new feature:
+"""
+toute  la gestion du code en git ne peut se faire dans 'environnement Ubuntu
+
+
+Start a new feature:
 
 bash
 Copier

@@ -8,7 +8,7 @@ https://code.visualstudio.com/docs/python/debugging
 Testing
 https://code.visualstudio.com/docs/python/testing
 
-Il faut installer pytest pour que cela marche
+
 
 py -m pip install optuna
 
