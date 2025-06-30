@@ -16,11 +16,7 @@ from .interfaces import ITransactionHandler, IAlgorithm, IBrokerage
 from .enums import ComponentState
 
 # Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import (
+from ..common import (
     Order, OrderTicket, OrderEvent, OrderFill, OrderStatus, OrderType,
     OrderDirection, Symbol, Security
 )

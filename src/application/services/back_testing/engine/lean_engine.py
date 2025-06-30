@@ -25,12 +25,8 @@ from .setup_handlers import ConsoleSetupHandler, BacktestingSetupHandler
 from .realtime_handlers import BacktestingRealTimeHandler, LiveTradingRealTimeHandler
 from .algorithm_handlers import AlgorithmHandler
 
-# Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import Slice, OrderEvent
+# Import from common module using relative imports
+from ..common import Slice, OrderEvent
 
 
 class LeanEngine(BaseEngine):

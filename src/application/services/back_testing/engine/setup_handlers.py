@@ -18,10 +18,8 @@ from .engine_node_packet import EngineNodePacket
 from .enums import ComponentState, SetupMode
 
 # Import from common and algorithm_factory modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import Symbol, Securities, Portfolio
-from algorithm_factory import AlgorithmFactory, AlgorithmLoader
+from ..common import Symbol, Securities, Portfolio
+from ..algorithm_factory import AlgorithmFactory, AlgorithmLoader
 
 
 class BaseSetupHandler(ISetupHandler, ABC):

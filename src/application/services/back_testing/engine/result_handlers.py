@@ -19,11 +19,7 @@ from .engine_node_packet import EngineNodePacket
 from .enums import ComponentState, ResultMode
 
 # Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import OrderEvent, Portfolio
+from ..common import OrderEvent, Portfolio
 
 
 class BaseResultHandler(IResultHandler, ABC):

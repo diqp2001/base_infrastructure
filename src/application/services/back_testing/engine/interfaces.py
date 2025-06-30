@@ -8,12 +8,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union, Callable
 from decimal import Decimal
 
-# Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import IAlgorithm, BaseData, Symbol, Order, OrderEvent
+# Import from common module using relative imports
+from ..common import IAlgorithm, BaseData, Symbol, Order, OrderEvent
 
 
 class IEngine(ABC):
