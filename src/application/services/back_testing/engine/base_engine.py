@@ -21,11 +21,7 @@ from .enums import (
 from .engine_node_packet import EngineNodePacket
 
 # Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import IAlgorithm
+from ..common import IAlgorithm
 
 
 class BaseEngine(IEngine, ABC):

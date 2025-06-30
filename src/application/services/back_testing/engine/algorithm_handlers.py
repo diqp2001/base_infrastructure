@@ -16,11 +16,7 @@ from .engine_node_packet import EngineNodePacket
 from .enums import ComponentState, AlgorithmStatus
 
 # Import from common module
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import OrderEvent, Slice, Portfolio
+from ..common import OrderEvent, Slice, Portfolio
 
 
 class AlgorithmHandler(IAlgorithmHandler):

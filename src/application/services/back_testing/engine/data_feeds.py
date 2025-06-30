@@ -18,12 +18,9 @@ from .interfaces import IDataFeed, IAlgorithm
 from .engine_node_packet import EngineNodePacket
 from .enums import ComponentState, DataFeedMode
 
-# Import from common and data modules
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from common import BaseData, Symbol, Resolution, SecurityType
-from data import SubscriptionManager, DataReader
+# Import from common and data modules using relative imports
+from ..common import BaseData, Symbol, Resolution, SecurityType
+from ..data import SubscriptionManager, DataReader
 
 
 class BaseDataFeed(IDataFeed, ABC):
