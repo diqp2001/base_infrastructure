@@ -35,49 +35,59 @@ logger = logging.getLogger(__name__)
 # Import all necessary modules from our backtesting framework
 try:
     # Common module - core interfaces and data types
-    from common import (
-        IAlgorithm, BaseData, TradeBar, Slice, Symbol, Resolution, SecurityType,
-        OrderType, OrderDirection, Portfolio, Securities, OrderTicket
-    )
+    from .common.interfaces import IAlgorithm
+    from .common.data_types import BaseData, TradeBar, Slice
+    from .common.symbol import Symbol
+    from .common.enums import Resolution, SecurityType, OrderType, OrderDirection
+    from .common.securities import Portfolio, Securities
+    from .common.orders import OrderTicket
     
     # Data module - data management
-    from data import (
-        DataFeed, SubscriptionManager, DataReader, HistoryProvider,
-        DataManager, DataCache
-    )
+    from .data.data_feed import DataFeed
+    from .data.subscription_manager import SubscriptionManager
+    from .data.data_reader import DataReader
+    from .data.history_provider import HistoryProvider
+    from .data.data_manager import DataManager
+    from .data.data_cache import DataCache
     
     # Engine module - main engine components
-    from engine import (
-        LeanEngine, BacktestingDataFeed, BacktestingTransactionHandler,
-        BacktestingResultHandler, EngineNodePacket
-    )
+    from .engine.lean_engine import LeanEngine
+    from .engine.data_feeds import BacktestingDataFeed
+    from .engine.transaction_handlers import BacktestingTransactionHandler
+    from .engine.result_handlers import BacktestingResultHandler
+    from .engine.engine_node_packet import EngineNodePacket
     
     # Algorithm Factory module - algorithm loading
-    from algorithm_factory import AlgorithmFactory, AlgorithmManager
+    from .algorithm_factory.algorithm_factory import AlgorithmFactory
+    from .algorithm_factory.algorithm_manager import AlgorithmManager
     
     # Launcher module - configuration and bootstrap
-    from launcher import (
-        Launcher, ConfigurationProvider, LauncherConfiguration
-    )
+    from .launcher.launcher import Launcher
+    from .launcher.configuration import ConfigurationProvider, LauncherConfiguration
     
     # Optimizer module - parameter optimization
-    from optimizer import (
-        GeneticOptimizer, OptimizationParameter, OptimizerFactory,
-        OptimizationResult, PerformanceMetrics
-    )
+    from .optimizer.genetic_optimizer import GeneticOptimizer
+    from .optimizer.parameter_management import OptimizationParameter
+    from .optimizer.optimizer_factory import OptimizerFactory
+    from .optimizer.result_management import OptimizationResult, PerformanceMetrics
     
     # API module - external integrations
-    from api import QuantConnectApiClient, ApiConfiguration
+    from .api.clients import QuantConnectApiClient
+    from .api.models import ApiConfiguration
     
 except ImportError as e:
     logger.warning(f"Some modules not available for import: {e}")
     logger.info("Using mock implementations for demonstration")
     
-    # Create mock implementations for demonstration
-    class IAlgorithm:
-        def initialize(self): pass
-        def on_data(self, data): pass
-        def on_order_event(self, order_event): pass
+    # Import the real IAlgorithm interface even if other modules fail
+    try:
+        from .common.interfaces import IAlgorithm
+    except ImportError:
+        # Fallback to mock implementation if even the interface can't be imported
+        class IAlgorithm:
+            def initialize(self): pass
+            def on_data(self, data): pass
+            def on_order_event(self, order_event): pass
     
     class BaseData:
         def __init__(self, symbol, time, value):
