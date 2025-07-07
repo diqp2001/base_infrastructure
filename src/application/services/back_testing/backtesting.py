@@ -977,6 +977,600 @@ class BackTesting:
             'backtest_results': self.backtest_results,
             'optimization_results': self.optimization_results
         }
+    
+    def run_vx_csv_backtest(self, csv_file_path: str = None) -> Dict[str, Any]:
+        """
+        Run a backtest using VX (volatility futures) CSV data.
+        
+        This method loads VX futures data from a CSV file and runs a volatility-based
+        trading strategy. The strategy is designed specifically for volatility futures
+        trading patterns.
+        
+        Args:
+            csv_file_path: Path to the VX CSV file. If None, uses default path.
+        
+        Returns:
+            Dict containing backtest results and performance metrics
+        """
+        self.logger.info("=== Starting VX CSV Backtest ===")
+        
+        try:
+            # Default CSV path if not provided
+            if csv_file_path is None:
+                csv_file_path = "downloads/VX_2025-01-22.csv"
+            
+            # Step 1: Load and process VX data
+            vx_data = self._load_vx_csv_data(csv_file_path)
+            if not vx_data:
+                raise ValueError("Failed to load VX CSV data")
+            
+            # Step 2: Create VX trading algorithm
+            algorithm = VXVolatilityAlgorithm()
+            algorithm.initialize()
+            
+            # Step 3: Run VX backtest simulation
+            performance = self._run_vx_simulation(algorithm, vx_data)
+            
+            # Step 4: Generate VX-specific results
+            final_results = self._compile_vx_results(performance, vx_data)
+            
+            # Step 5: Export results (if enabled)
+            if self.config.save_results:
+                self._export_vx_results(final_results)
+            
+            # Step 6: Generate summary
+            self._generate_vx_summary(final_results)
+            
+            self.logger.info("=== VX CSV Backtest Complete ===")
+            return final_results
+            
+        except Exception as e:
+            self.logger.error(f"Error in VX CSV backtest: {e}")
+            raise
+    
+    def _load_vx_csv_data(self, csv_file_path: str) -> Optional[List[Dict]]:
+        """
+        Load and process VX futures data from CSV file.
+        
+        Args:
+            csv_file_path: Path to the VX CSV file
+        
+        Returns:
+            List of dictionaries containing processed VX data
+        """
+        try:
+            import csv
+            from datetime import datetime
+            import os
+            
+            # Check if file exists
+            abs_path = os.path.abspath(csv_file_path)
+            if not os.path.exists(abs_path):
+                self.logger.error(f"VX CSV file not found: {abs_path}")
+                return None
+            
+            self.logger.info(f"Loading VX data from: {abs_path}")
+            
+            vx_data = []
+            with open(abs_path, 'r') as file:
+                reader = csv.DictReader(file)
+                
+                for row in reader:
+                    try:
+                        # Parse the data row
+                        trade_date = datetime.strptime(row['Trade Date'], '%Y-%m-%d')
+                        
+                        # Convert price fields to float, handling empty values
+                        open_price = float(row['Open']) if row['Open'] and row['Open'] != '0.0000' else None
+                        high_price = float(row['High']) if row['High'] else 0.0
+                        low_price = float(row['Low']) if row['Low'] else 0.0
+                        close_price = float(row['Close']) if row['Close'] and row['Close'] != '0.0000' else None
+                        settle_price = float(row['Settle']) if row['Settle'] else 0.0
+                        volume = int(row['Total Volume']) if row['Total Volume'] else 0
+                        
+                        # Use settle price as the primary price if close is not available
+                        primary_price = close_price if close_price is not None else settle_price
+                        
+                        # Skip rows with no meaningful price data
+                        if primary_price <= 0:
+                            continue
+                        
+                        vx_entry = {
+                            'date': trade_date,
+                            'symbol': 'VX',
+                            'open': open_price or settle_price,
+                            'high': high_price,
+                            'low': low_price,
+                            'close': primary_price,
+                            'settle': settle_price,
+                            'volume': volume,
+                            'change': float(row['Change']) if row['Change'] else 0.0,
+                            'futures_contract': row['Futures'],
+                            'open_interest': int(row['Open Interest']) if row['Open Interest'] else 0
+                        }
+                        
+                        vx_data.append(vx_entry)
+                        
+                    except (ValueError, KeyError) as e:
+                        self.logger.warning(f"Skipping invalid row: {e}")
+                        continue
+            
+            self.logger.info(f"Loaded {len(vx_data)} VX data points from {trade_date.strftime('%Y-%m-%d') if vx_data else 'N/A'}")
+            return vx_data
+            
+        except Exception as e:
+            self.logger.error(f"Error loading VX CSV data: {e}")
+            return None
+    
+    def _run_vx_simulation(self, algorithm, vx_data: List[Dict]) -> Dict[str, Any]:
+        """
+        Run VX volatility futures simulation.
+        
+        Args:
+            algorithm: VX trading algorithm
+            vx_data: List of VX price data
+        
+        Returns:
+            Performance dictionary
+        """
+        try:
+            self.logger.info("Running VX simulation...")
+            
+            total_days = len(vx_data)
+            
+            for day_idx, daily_data in enumerate(vx_data):
+                # Feed data to algorithm
+                algorithm.on_data(daily_data)
+                
+                # Progress reporting
+                if day_idx % 20 == 0:
+                    progress = (day_idx / total_days) * 100
+                    self.logger.info(f"VX simulation progress: {progress:.1f}%")
+            
+            # Get final performance
+            performance = algorithm.get_performance_summary()
+            
+            self.logger.info("VX simulation completed")
+            return performance
+            
+        except Exception as e:
+            self.logger.error(f"Error in VX simulation: {e}")
+            return {}
+    
+    def _compile_vx_results(self, performance: Dict, vx_data: List[Dict]) -> Dict[str, Any]:
+        """
+        Compile VX-specific results.
+        
+        Args:
+            performance: Algorithm performance results
+            vx_data: Original VX data
+        
+        Returns:
+            Compiled results dictionary
+        """
+        try:
+            start_date = vx_data[0]['date'] if vx_data else datetime.now()
+            end_date = vx_data[-1]['date'] if vx_data else datetime.now()
+            
+            # Calculate VX-specific metrics
+            vx_prices = [d['close'] for d in vx_data]
+            vx_volatility = self._calculate_price_volatility(vx_prices)
+            avg_vx_level = sum(vx_prices) / len(vx_prices) if vx_prices else 0
+            
+            compiled_results = {
+                'timestamp': datetime.now().isoformat(),
+                'strategy_type': 'VX_Volatility_Trading',
+                'data_info': {
+                    'source': 'VX_CSV_Data',
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'total_days': len(vx_data),
+                    'avg_vx_level': avg_vx_level,
+                    'vx_volatility': vx_volatility
+                },
+                'backtest_results': performance,
+                'vx_metrics': {
+                    'avg_volatility_level': avg_vx_level,
+                    'volatility_of_volatility': vx_volatility,
+                    'high_vol_days': len([p for p in vx_prices if p > 20]),
+                    'low_vol_days': len([p for p in vx_prices if p < 16]),
+                    'max_vx_level': max(vx_prices) if vx_prices else 0,
+                    'min_vx_level': min(vx_prices) if vx_prices else 0
+                },
+                'framework_info': {
+                    'version': '1.0.0',
+                    'backtest_type': 'VX_CSV_Historical',
+                    'imports_available': IMPORTS_AVAILABLE
+                }
+            }
+            
+            return compiled_results
+            
+        except Exception as e:
+            self.logger.error(f"Error compiling VX results: {e}")
+            return {}
+    
+    def _calculate_price_volatility(self, prices: List[float]) -> float:
+        """
+        Calculate the volatility of price changes.
+        
+        Args:
+            prices: List of prices
+        
+        Returns:
+            Volatility measure
+        """
+        if len(prices) < 2:
+            return 0.0
+        
+        try:
+            # Calculate daily returns
+            returns = []
+            for i in range(1, len(prices)):
+                if prices[i-1] > 0:
+                    daily_return = (prices[i] - prices[i-1]) / prices[i-1]
+                    returns.append(daily_return)
+            
+            if not returns:
+                return 0.0
+            
+            # Calculate standard deviation of returns
+            mean_return = sum(returns) / len(returns)
+            variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+            volatility = variance ** 0.5
+            
+            return volatility * (252 ** 0.5)  # Annualized volatility
+            
+        except:
+            return 0.0
+    
+    def _export_vx_results(self, results: Dict[str, Any]):
+        """Export VX results to file."""
+        try:
+            import json
+            import os
+            
+            # Create results directory if it doesn't exist
+            os.makedirs(self.config.results_path, exist_ok=True)
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"vx_backtest_results_{timestamp}.json"
+            filepath = os.path.join(self.config.results_path, filename)
+            
+            # Export to JSON
+            with open(filepath, 'w') as f:
+                json.dump(results, f, indent=2, default=str)
+            
+            self.logger.info(f"VX results exported to: {filepath}")
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting VX results: {e}")
+    
+    def _generate_vx_summary(self, results: Dict[str, Any]):
+        """Generate and log a summary of VX results."""
+        self.logger.info("=== VX BACKTEST SUMMARY ===")
+        
+        data_info = results.get('data_info', {})
+        backtest = results.get('backtest_results', {})
+        vx_metrics = results.get('vx_metrics', {})
+        
+        self.logger.info(f"Strategy: VX Volatility Trading")
+        self.logger.info(f"Data Period: {data_info.get('start_date', 'N/A')} to {data_info.get('end_date', 'N/A')}")
+        self.logger.info(f"Total Trading Days: {data_info.get('total_days', 0)}")
+        self.logger.info(f"Average VX Level: {vx_metrics.get('avg_volatility_level', 0):.2f}")
+        self.logger.info(f"VX Volatility: {vx_metrics.get('volatility_of_volatility', 0):.2%}")
+        
+        if backtest:
+            self.logger.info(f"Initial Capital: ${backtest.get('initial_capital', 0):,.2f}")
+            self.logger.info(f"Final Value: ${backtest.get('final_value', 0):,.2f}")
+            self.logger.info(f"Total Return: {backtest.get('total_return', 0):.2%}")
+            self.logger.info(f"Max Drawdown: {backtest.get('max_drawdown', 0):.2%}")
+            self.logger.info(f"Sharpe Ratio: {backtest.get('sharpe_ratio', 0):.2f}")
+            self.logger.info(f"Total Trades: {backtest.get('total_trades', 0)}")
+            self.logger.info(f"Win Rate: {backtest.get('win_rate', 0):.2%}")
+        
+        self.logger.info(f"High Volatility Days (VX > 20): {vx_metrics.get('high_vol_days', 0)}")
+        self.logger.info(f"Low Volatility Days (VX < 16): {vx_metrics.get('low_vol_days', 0)}")
+        self.logger.info(f"Max VX Level: {vx_metrics.get('max_vx_level', 0):.2f}")
+        self.logger.info(f"Min VX Level: {vx_metrics.get('min_vx_level', 0):.2f}")
+        
+        self.logger.info("=== END VX SUMMARY ===")
+
+
+class VXVolatilityAlgorithm(IAlgorithm):
+    """
+    VX Volatility Trading Algorithm.
+    
+    This algorithm trades VX (volatility futures) based on volatility patterns.
+    It implements a mean-reversion strategy that:
+    1. Buys VX when volatility is low (VX < 16)
+    2. Sells VX when volatility is high (VX > 20)
+    3. Uses position sizing based on volatility levels
+    """
+    
+    def __init__(self):
+        """Initialize the VX volatility algorithm."""
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Algorithm parameters
+        self.low_vol_threshold = 16.0   # Buy below this level
+        self.high_vol_threshold = 20.0  # Sell above this level
+        self.position_size_base = 1000  # Base position size
+        
+        # State tracking
+        self.current_position = 0
+        self.price_history = []
+        self.trade_count = 0
+        self.profitable_trades = 0
+        
+        # Performance tracking
+        self.initial_capital = Decimal('100000')
+        self.current_value = self.initial_capital
+        self.max_drawdown = 0
+        self.peak_value = self.initial_capital
+        self.cash = self.initial_capital
+        
+        self.logger.info("VX Volatility Algorithm initialized")
+    
+    def initialize(self):
+        """Initialize the algorithm."""
+        self.logger.info("VX Algorithm initialization complete")
+    
+    def on_data(self, data):
+        """
+        Process new VX market data.
+        
+        Args:
+            data: Dictionary containing VX price data
+        """
+        try:
+            if not data or 'close' not in data:
+                return
+            
+            current_price = float(data['close'])
+            volume = data.get('volume', 0)
+            
+            # Skip if no meaningful volume or price
+            if current_price <= 0:
+                return
+            
+            # Update price history
+            self.price_history.append(current_price)
+            
+            # Calculate recent volatility trend (last 5 days)
+            if len(self.price_history) >= 5:
+                recent_avg = sum(self.price_history[-5:]) / 5
+                volatility_trend = (current_price - recent_avg) / recent_avg
+            else:
+                volatility_trend = 0
+            
+            # Generate trading signals
+            self._process_vx_signals(current_price, volume, volatility_trend, data)
+            
+            # Update performance metrics
+            self._update_vx_performance(current_price)
+            
+        except Exception as e:
+            self.logger.error(f"Error processing VX data: {e}")
+    
+    def _process_vx_signals(self, current_price: float, volume: int, trend: float, data: dict):
+        """
+        Process VX trading signals based on volatility levels.
+        
+        Args:
+            current_price: Current VX price
+            volume: Trading volume
+            trend: Recent volatility trend
+            data: Full data dictionary
+        """
+        try:
+            # Low volatility signal - Buy VX (expecting volatility to increase)
+            if current_price < self.low_vol_threshold and self.current_position <= 0:
+                position_size = self._calculate_vx_position_size(current_price, "BUY")
+                if position_size > 0 and volume > 100:  # Minimum volume filter
+                    self._place_vx_order("BUY", position_size, current_price)
+                    self.logger.info(f"LOW VOL BUY: VX={current_price:.2f}, Size={position_size}")
+            
+            # High volatility signal - Sell VX (expecting volatility to decrease)
+            elif current_price > self.high_vol_threshold and self.current_position > 0:
+                position_size = abs(self.current_position)
+                self._place_vx_order("SELL", position_size, current_price)
+                self.logger.info(f"HIGH VOL SELL: VX={current_price:.2f}, Size={position_size}")
+            
+            # Moderate volatility - partial position management
+            elif self.low_vol_threshold <= current_price <= self.high_vol_threshold:
+                # If we have a large position, consider taking partial profits
+                if abs(self.current_position) > self.position_size_base:
+                    if trend < -0.05:  # Strong downward trend
+                        partial_size = abs(self.current_position) // 2
+                        self._place_vx_order("SELL", partial_size, current_price)
+                        self.logger.info(f"PARTIAL SELL: VX={current_price:.2f}, Size={partial_size}")
+            
+        except Exception as e:
+            self.logger.error(f"Error processing VX signals: {e}")
+    
+    def _calculate_vx_position_size(self, price: float, direction: str) -> int:
+        """
+        Calculate position size for VX trade based on volatility level.
+        
+        Args:
+            price: Current VX price
+            direction: "BUY" or "SELL"
+        
+        Returns:
+            Position size
+        """
+        try:
+            # Base position size
+            base_size = self.position_size_base
+            
+            # Adjust based on volatility level
+            if price < 14:  # Very low volatility - larger position
+                size_multiplier = 1.5
+            elif price < 16:  # Low volatility - normal position
+                size_multiplier = 1.0
+            elif price > 22:  # Very high volatility - smaller position
+                size_multiplier = 0.5
+            else:  # Normal volatility - normal position
+                size_multiplier = 0.8
+            
+            position_size = int(base_size * size_multiplier)
+            
+            # Check available cash for buying
+            if direction == "BUY":
+                required_cash = position_size * price
+                if required_cash > float(self.cash):
+                    position_size = int(float(self.cash) / price)
+            
+            return max(position_size, 0)
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating VX position size: {e}")
+            return 0
+    
+    def _place_vx_order(self, direction: str, quantity: int, price: float):
+        """
+        Simulate VX order placement.
+        
+        Args:
+            direction: "BUY" or "SELL"
+            quantity: Number of contracts
+            price: VX price
+        """
+        try:
+            if quantity <= 0:
+                return
+            
+            # Calculate trade value
+            trade_value = quantity * price
+            commission = trade_value * 0.001  # 0.1% commission
+            
+            if direction == "BUY":
+                # Check available cash
+                total_cost = trade_value + commission
+                if total_cost <= float(self.cash):
+                    self.current_position += quantity
+                    self.cash -= Decimal(str(total_cost))
+                    self.trade_count += 1
+                    self.logger.debug(f"BUY: {quantity} VX at {price:.2f}, Cash: ${self.cash:.2f}")
+            
+            elif direction == "SELL":
+                # Sell position
+                if quantity <= self.current_position:
+                    self.current_position -= quantity
+                    proceeds = trade_value - commission
+                    self.cash += Decimal(str(proceeds))
+                    self.trade_count += 1
+                    
+                    # Track profitable trades (simplified)
+                    if proceeds > trade_value * 0.95:  # Rough profit check
+                        self.profitable_trades += 1
+                    
+                    self.logger.debug(f"SELL: {quantity} VX at {price:.2f}, Cash: ${self.cash:.2f}")
+            
+        except Exception as e:
+            self.logger.error(f"Error placing VX order: {e}")
+    
+    def _update_vx_performance(self, current_price: float):
+        """
+        Update VX algorithm performance metrics.
+        
+        Args:
+            current_price: Current VX price
+        """
+        try:
+            # Calculate current portfolio value
+            position_value = self.current_position * current_price
+            self.current_value = self.cash + Decimal(str(position_value))
+            
+            # Update peak value and drawdown
+            if self.current_value > self.peak_value:
+                self.peak_value = self.current_value
+            
+            current_drawdown = float((self.peak_value - self.current_value) / self.peak_value)
+            self.max_drawdown = max(self.max_drawdown, current_drawdown)
+            
+        except Exception as e:
+            self.logger.error(f"Error updating VX performance: {e}")
+    
+    def on_order_event(self, order_event):
+        """Handle order events."""
+        self.logger.debug(f"VX Order event: {order_event}")
+    
+    def get_performance_summary(self) -> Dict:
+        """
+        Get VX algorithm performance summary.
+        
+        Returns:
+            Dictionary with performance metrics
+        """
+        try:
+            total_return = float((self.current_value - self.initial_capital) / self.initial_capital)
+            win_rate = (self.profitable_trades / max(self.trade_count, 1)) if self.trade_count > 0 else 0
+            
+            # Calculate Sharpe ratio (simplified)
+            sharpe_ratio = self._calculate_vx_sharpe_ratio()
+            
+            return {
+                'initial_capital': float(self.initial_capital),
+                'final_value': float(self.current_value),
+                'total_return': total_return,
+                'total_trades': self.trade_count,
+                'profitable_trades': self.profitable_trades,
+                'win_rate': win_rate,
+                'max_drawdown': self.max_drawdown,
+                'sharpe_ratio': sharpe_ratio,
+                'current_position': self.current_position,
+                'cash_remaining': float(self.cash),
+                'algorithm_type': 'VX_Volatility_Trading'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error generating VX performance summary: {e}")
+            return {}
+    
+    def _calculate_vx_sharpe_ratio(self) -> float:
+        """
+        Calculate Sharpe ratio for VX strategy.
+        
+        Returns:
+            Sharpe ratio
+        """
+        try:
+            if len(self.price_history) < 10:
+                return 0.0
+            
+            # Calculate strategy returns (simplified)
+            total_return = float((self.current_value - self.initial_capital) / self.initial_capital)
+            
+            # Estimate volatility from price history
+            returns = []
+            for i in range(1, len(self.price_history)):
+                if self.price_history[i-1] > 0:
+                    ret = (self.price_history[i] - self.price_history[i-1]) / self.price_history[i-1]
+                    returns.append(ret)
+            
+            if not returns:
+                return 0.0
+            
+            mean_return = sum(returns) / len(returns)
+            variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+            volatility = variance ** 0.5
+            
+            # Simple Sharpe calculation
+            risk_free_rate = 0.02  # 2% risk-free rate
+            excess_return = total_return - risk_free_rate
+            
+            if volatility > 0:
+                sharpe_ratio = excess_return / volatility
+            else:
+                sharpe_ratio = 0.0
+            
+            return sharpe_ratio
+            
+        except:
+            return 0.0
 
 
 # Convenience function for quick backtesting
