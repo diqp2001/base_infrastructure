@@ -1,0 +1,81 @@
+{
+  "timestamp": "2025-07-07T16:11:16.959439",
+  "configuration": {
+    "algorithm_name": "MovingAverageCrossoverAlgorithm",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "IWM"
+    ],
+    "start_date": "2022-01-01T00:00:00",
+    "end_date": "2023-01-01T00:00:00",
+    "initial_capital": 100000.0,
+    "data_source": "random"
+  },
+  "backtest_results": {
+    "initial_capital": 100000.0,
+    "final_value": 116356.0811401664,
+    "total_return": 0.163560811401664,
+    "total_trades": 167,
+    "profitable_trades": 55,
+    "win_rate": 0.5976540302725646,
+    "max_drawdown": 0.20334459585390757,
+    "sharpe_ratio": 2.091083199237331,
+    "algorithm_params": {
+      "fast_period": 10,
+      "slow_period": 30,
+      "risk_per_trade": 0.02
+    }
+  },
+  "optimization_results": {
+    "best_parameters": {
+      "fast_period": 10,
+      "slow_period": 30,
+      "risk_per_trade": 0.02
+    },
+    "best_score": 0.8756309557411761,
+    "optimization_method": "grid_search",
+    "total_runs": 4,
+    "parameter_combinations_tested": [
+      {
+        "fast_period": 5,
+        "slow_period": 25,
+        "risk_per_trade": 0.01
+      },
+      {
+        "fast_period": 10,
+        "slow_period": 30,
+        "risk_per_trade": 0.02
+      },
+      {
+        "fast_period": 15,
+        "slow_period": 35,
+        "risk_per_trade": 0.025
+      },
+      {
+        "fast_period": 20,
+        "slow_period": 40,
+        "risk_per_trade": 0.03
+      }
+    ]
+  },
+  "performance_metrics": {
+    "risk_adjusted_return": 0.8043528804629452,
+    "performance_score": 0.705126987026807,
+    "excess_return": 0.14356081140166402,
+    "calmar_ratio": 0.8043528804629452,
+    "profit_factor": 0.32934131736526945
+  },
+  "framework_info": {
+    "version": "1.0.0",
+    "imports_available": false,
+    "modules_used": [
+      "common",
+      "data",
+      "engine",
+      "algorithm_factory",
+      "optimizer",
+      "optimizer_launcher"
+    ]
+  }
+}

@@ -27,9 +27,9 @@ if __name__ == '__main__':
     #TestProjectManager().save_new_company_stock()
     
     # Example usage of the centralized BackTesting class
-    # bt = BackTesting()
-    # results = bt.run_simple_backtest_optimization()
-    # print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
+    bt = BackTesting()
+    results = bt.run_simple_backtest_optimization()
+    print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
     
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
