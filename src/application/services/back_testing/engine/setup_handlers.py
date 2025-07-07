@@ -19,7 +19,7 @@ from .enums import ComponentState, SetupMode
 
 # Import from common and algorithm_factory modules
 from ..common import Symbol, Securities, Portfolio
-from ..algorithm_factory import AlgorithmFactory, AlgorithmLoader
+from ..algorithm_factory import AlgorithmFactory, BaseAlgorithmLoader
 
 
 class BaseSetupHandler(ISetupHandler, ABC):

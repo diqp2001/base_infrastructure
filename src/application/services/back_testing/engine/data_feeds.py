@@ -20,7 +20,7 @@ from .enums import ComponentState, DataFeedMode
 
 # Import from common and data modules using relative imports
 from ..common import BaseData, Symbol, Resolution, SecurityType
-from ..data import SubscriptionManager, DataReader
+from ..data import SubscriptionManager, BaseDataReader
 
 
 class BaseDataFeed(IDataFeed, ABC):
