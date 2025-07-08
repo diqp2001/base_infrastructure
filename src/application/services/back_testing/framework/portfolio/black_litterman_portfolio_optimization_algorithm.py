@@ -22,14 +22,21 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
 
-from .base import QCAlgorithm
-from .symbol import Symbol
-from .enums import Resolution, SecurityType
-from .data_handlers import Slice
-from .scheduling import DateRules, TimeRules
+# Update imports to use relative paths to common modules
+try:
+    from ...common.interfaces import IAlgorithm
+    from ...common.symbol import Symbol
+    from ...common.enums import Resolution, SecurityType
+    from ...common.data_types import Slice
+except ImportError:
+    # Fallback imports for standalone testing
+    from ..algorithm.base import QCAlgorithm as IAlgorithm
+    from ..algorithm.symbol import Symbol
+    from ..algorithm.enums import Resolution, SecurityType
+    from ..algorithm.data_handlers import Slice
 
 
-class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
+class BlackLittermanPortfolioOptimizationAlgorithm(IAlgorithm):
     """
     Black-Litterman Portfolio Optimization Framework Algorithm
     
@@ -48,7 +55,9 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
     
     def __init__(self):
         """Initialize the Black-Litterman Portfolio Optimization Algorithm."""
-        super().__init__()
+        # Initialize the parent interface
+        if hasattr(super(), '__init__'):
+            super().__init__()
         
         # Algorithm parameters
         self.universe_size = 10  # Number of assets in universe
@@ -82,7 +91,9 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         self.rebalance_count = 0
         self.optimization_history: List[Dict] = []
         
-        self.log("Black-Litterman Portfolio Optimization Algorithm initialized")
+        # Logging
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("Black-Litterman Portfolio Optimization Algorithm initialized")
     
     def initialize(self):
         """
@@ -94,11 +105,6 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         3. Initializes data structures
         4. Sets initial portfolio parameters
         """
-        # Set algorithm parameters
-        self.set_start_date(2020, 1, 1)
-        self.set_end_date(2023, 12, 31)
-        self.set_cash(1000000)  # $1M starting capital
-        
         # Define universe of assets (major US equities)
         universe_tickers = [
             "SPY",   # SPDR S&P 500 ETF
@@ -113,11 +119,11 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             "NVDA"   # NVIDIA Corporation
         ]
         
-        # Add securities to the algorithm
+        # Initialize data structures for each symbol
         for ticker in universe_tickers[:self.universe_size]:
             try:
-                security = self.add_equity(ticker, Resolution.DAILY)
-                symbol = security.symbol
+                # Create symbol object
+                symbol = Symbol(ticker)
                 self.universe_symbols.append(symbol)
                 self.symbol_names.append(ticker)
                 
@@ -128,98 +134,111 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 self.target_weights[ticker] = 0.0
                 self.market_caps[ticker] = 1.0  # Will be updated with real data
                 
-                self.log(f"Added {ticker} to universe")
+                self.logger.info(f"Added {ticker} to universe")
                 
             except Exception as e:
-                self.error(f"Failed to add {ticker}: {e}")
-        
-        # Set warmup period for historical data
-        self.set_warmup(self.lookback_period, Resolution.DAILY)
-        
-        # Schedule monthly rebalancing
-        self.schedule_function(
-            self.rebalance_portfolio,
-            date_rule=DateRules.month_start(),
-            time_rule=TimeRules.at(10, 0),
-            name="MonthlyRebalance"
-        )
+                self.logger.error(f"Failed to add {ticker}: {e}")
         
         # Initialize equilibrium weights (equal-weighted as starting point)
         equal_weight = 1.0 / len(self.symbol_names)
         for ticker in self.symbol_names:
             self.equilibrium_weights[ticker] = equal_weight
         
-        self.log(f"Initialized universe with {len(self.universe_symbols)} assets")
-        self.log("Black-Litterman algorithm initialization complete")
+        self.logger.info(f"Initialized universe with {len(self.universe_symbols)} assets")
+        self.logger.info("Black-Litterman algorithm initialization complete")
     
-    def on_data(self, data: Slice):
+    def on_data(self, data):
         """
         Process new market data.
         
         Args:
             data: Market data slice containing prices for all securities
         """
-        if self.is_warming_up:
-            # During warmup, just collect price data
-            self._collect_warmup_data(data)
-            return
-        
-        # Update price history
-        self._update_price_history(data)
-        
-        # Check if it's time to rebalance
-        if self._should_rebalance():
-            self.rebalance_portfolio()
+        # Handle both Slice objects and dictionary data
+        if hasattr(data, 'bars'):
+            self._process_data_slice(data)
+        else:
+            # Handle dictionary data (for compatibility)
+            self._process_dict_data(data)
     
-    def _collect_warmup_data(self, data: Slice):
+    def _process_data_slice(self, data):
         """
-        Collect price data during warmup period.
+        Process data in Slice format.
         
         Args:
-            data: Market data slice
+            data: Slice object containing market data
         """
-        for symbol in self.universe_symbols:
-            ticker = symbol.value
-            if symbol in data.bars:
-                bar = data.bars[symbol]
-                price = float(bar.close)
-                
-                if price > 0:
-                    self.price_history[ticker].append(price)
+        try:
+            # Update price history for each symbol
+            for symbol in self.universe_symbols:
+                ticker = symbol.value
+                if symbol in data.bars:
+                    bar = data.bars[symbol]
+                    price = float(bar.close)
                     
-                    # Calculate returns if we have enough data
-                    if len(self.price_history[ticker]) > 1:
-                        prev_price = self.price_history[ticker][-2]
-                        return_val = (price - prev_price) / prev_price
-                        self.returns_history[ticker].append(return_val)
+                    if price > 0:
+                        self._update_symbol_data(ticker, price)
+            
+            # Check if it's time to rebalance
+            if self._should_rebalance():
+                self.rebalance_portfolio()
+                
+        except Exception as e:
+            self.logger.error(f"Error processing data slice: {e}")
     
-    def _update_price_history(self, data: Slice):
+    def _process_dict_data(self, data):
         """
-        Update price history with new data.
+        Process data in dictionary format.
         
         Args:
-            data: Market data slice
+            data: Dictionary containing market data
         """
-        for symbol in self.universe_symbols:
-            ticker = symbol.value
-            if symbol in data.bars:
-                bar = data.bars[symbol]
-                price = float(bar.close)
+        try:
+            # Handle simple dictionary format
+            if isinstance(data, dict):
+                for ticker in self.symbol_names:
+                    if ticker in data:
+                        price_data = data[ticker]
+                        if isinstance(price_data, dict):
+                            price = float(price_data.get('close', price_data.get('value', 0)))
+                        else:
+                            price = float(price_data)
+                        
+                        if price > 0:
+                            self._update_symbol_data(ticker, price)
+            
+            # Check if it's time to rebalance
+            if self._should_rebalance():
+                self.rebalance_portfolio()
                 
-                if price > 0:
-                    # Add new price
-                    self.price_history[ticker].append(price)
-                    
-                    # Calculate return
-                    if len(self.price_history[ticker]) > 1:
-                        prev_price = self.price_history[ticker][-2]
-                        return_val = (price - prev_price) / prev_price
-                        self.returns_history[ticker].append(return_val)
-                    
-                    # Maintain rolling window
-                    if len(self.price_history[ticker]) > self.lookback_period:
-                        self.price_history[ticker].pop(0)
-                        self.returns_history[ticker].pop(0)
+        except Exception as e:
+            self.logger.error(f"Error processing dictionary data: {e}")
+    
+    def _update_symbol_data(self, ticker: str, price: float):
+        """
+        Update price and return data for a symbol.
+        
+        Args:
+            ticker: Symbol ticker
+            price: Current price
+        """
+        try:
+            # Add new price
+            self.price_history[ticker].append(price)
+            
+            # Calculate return
+            if len(self.price_history[ticker]) > 1:
+                prev_price = self.price_history[ticker][-2]
+                return_val = (price - prev_price) / prev_price
+                self.returns_history[ticker].append(return_val)
+            
+            # Maintain rolling window
+            if len(self.price_history[ticker]) > self.lookback_period:
+                self.price_history[ticker].pop(0)
+                self.returns_history[ticker].pop(0)
+                
+        except Exception as e:
+            self.logger.error(f"Error updating data for {ticker}: {e}")
     
     def _should_rebalance(self) -> bool:
         """
@@ -231,8 +250,8 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         if self.last_rebalance_date is None:
             return True
         
-        days_since_rebalance = (self.time - self.last_rebalance_date).days
-        return days_since_rebalance >= self.rebalance_frequency
+        # For simulation, use a simple counter-based approach
+        return len(self.price_history.get(self.symbol_names[0], [])) % self.rebalance_frequency == 0
     
     def rebalance_portfolio(self):
         """
@@ -247,11 +266,11 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         6. Executes trades to achieve target weights
         """
         try:
-            self.log("Starting portfolio rebalancing...")
+            self.logger.info("Starting portfolio rebalancing...")
             
             # Step 1: Ensure we have sufficient data
             if not self._has_sufficient_data():
-                self.log("Insufficient data for optimization")
+                self.logger.info("Insufficient data for optimization")
                 return
             
             # Step 2: Calculate market equilibrium weights
@@ -260,7 +279,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             # Step 3: Estimate covariance matrix
             covariance_matrix = self._calculate_covariance_matrix()
             if covariance_matrix is None:
-                self.error("Failed to calculate covariance matrix")
+                self.logger.error("Failed to calculate covariance matrix")
                 return
             
             # Step 4: Calculate implied equilibrium returns
@@ -273,17 +292,19 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             optimal_weights = self._black_litterman_optimization(covariance_matrix)
             
             if optimal_weights is not None:
-                # Step 7: Execute portfolio rebalancing
-                self._execute_rebalancing(optimal_weights)
-                self.last_rebalance_date = self.time
+                # Step 7: Update target weights (simulation mode)
+                self.target_weights = optimal_weights.copy()
+                self.current_weights = optimal_weights.copy()
+                self.last_rebalance_date = datetime.now()
                 self.rebalance_count += 1
                 
-                self.log(f"Portfolio rebalancing complete (#{self.rebalance_count})")
+                self.logger.info(f"Portfolio rebalancing complete (#{self.rebalance_count})")
+                self.logger.info(f"New weights: {optimal_weights}")
             else:
-                self.error("Black-Litterman optimization failed")
+                self.logger.error("Black-Litterman optimization failed")
                 
         except Exception as e:
-            self.error(f"Error during portfolio rebalancing: {e}")
+            self.logger.error(f"Error during portfolio rebalancing: {e}")
     
     def _has_sufficient_data(self) -> bool:
         """
@@ -295,7 +316,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         min_required_points = 60  # Minimum 60 data points
         
         for ticker in self.symbol_names:
-            if len(self.returns_history[ticker]) < min_required_points:
+            if len(self.returns_history.get(ticker, [])) < min_required_points:
                 return False
         
         return True
@@ -313,7 +334,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             total_market_value = 0.0
             
             for ticker in self.symbol_names:
-                if self.price_history[ticker]:
+                if self.price_history.get(ticker):
                     avg_price = np.mean(self.price_history[ticker][-30:])  # 30-day average
                     # Assume equal number of shares outstanding (simplified)
                     market_value = avg_price * 1000000  # Arbitrary share count
@@ -327,10 +348,10 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 else:
                     self.equilibrium_weights[ticker] = 1.0 / len(self.symbol_names)
             
-            self.log(f"Market cap weights calculated: {self.equilibrium_weights}")
+            self.logger.info(f"Market cap weights calculated: {self.equilibrium_weights}")
             
         except Exception as e:
-            self.error(f"Error calculating market cap weights: {e}")
+            self.logger.error(f"Error calculating market cap weights: {e}")
             # Fallback to equal weights
             equal_weight = 1.0 / len(self.symbol_names)
             for ticker in self.symbol_names:
@@ -346,7 +367,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         try:
             # Prepare returns data
             returns_data = []
-            min_length = min(len(self.returns_history[ticker]) for ticker in self.symbol_names)
+            min_length = min(len(self.returns_history.get(ticker, [])) for ticker in self.symbol_names)
             
             if min_length < 30:  # Minimum 30 observations
                 return None
@@ -359,11 +380,11 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             returns_matrix = np.array(returns_data).T  # Transpose for proper orientation
             covariance_matrix = np.cov(returns_matrix.T) * 252  # Annualized
             
-            self.log(f"Covariance matrix calculated: {covariance_matrix.shape}")
+            self.logger.info(f"Covariance matrix calculated: {covariance_matrix.shape}")
             return covariance_matrix
             
         except Exception as e:
-            self.error(f"Error calculating covariance matrix: {e}")
+            self.logger.error(f"Error calculating covariance matrix: {e}")
             return None
     
     def _calculate_implied_returns(self, covariance_matrix: np.ndarray):
@@ -391,10 +412,10 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             for i, ticker in enumerate(self.symbol_names):
                 self.implied_returns[ticker] = float(implied_returns_array[i])
             
-            self.log(f"Implied returns calculated: {self.implied_returns}")
+            self.logger.info(f"Implied returns calculated: {self.implied_returns}")
             
         except Exception as e:
-            self.error(f"Error calculating implied returns: {e}")
+            self.logger.error(f"Error calculating implied returns: {e}")
     
     def _setup_investor_views(self):
         """
@@ -447,12 +468,12 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 num_views = len(views)
                 self.omega_matrix = np.eye(num_views) * self.tau
                 
-                self.log(f"Set up {num_views} investor views")
+                self.logger.info(f"Set up {num_views} investor views")
             else:
-                self.log("No views set up - using market equilibrium only")
+                self.logger.info("No views set up - using market equilibrium only")
                 
         except Exception as e:
-            self.error(f"Error setting up investor views: {e}")
+            self.logger.error(f"Error setting up investor views: {e}")
     
     def _black_litterman_optimization(self, covariance_matrix: np.ndarray) -> Optional[Dict[str, float]]:
         """
@@ -496,13 +517,13 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 mu_bl = np.dot(term1_inv, term2)
                 sigma_bl = term1_inv
                 
-                self.log("Applied Black-Litterman with views")
+                self.logger.info("Applied Black-Litterman with views")
             else:
                 # Without views: use equilibrium returns
                 mu_bl = pi_array
                 sigma_bl = covariance_matrix
                 
-                self.log("Applied equilibrium optimization (no views)")
+                self.logger.info("Applied equilibrium optimization (no views)")
             
             # Optimize portfolio weights: w* = (λ * Σ_BL)^(-1) * μ_BL
             lambda_sigma_bl = self.risk_aversion * sigma_bl
@@ -528,11 +549,11 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 for ticker in optimal_weights:
                     optimal_weights[ticker] /= total_weight
             
-            self.log(f"Optimal weights calculated: {optimal_weights}")
+            self.logger.info(f"Optimal weights calculated: {optimal_weights}")
             
             # Store optimization results
             optimization_result = {
-                'timestamp': self.time,
+                'timestamp': datetime.now(),
                 'optimal_weights': optimal_weights.copy(),
                 'expected_returns': {ticker: float(mu_bl[i]) for i, ticker in enumerate(self.symbol_names)},
                 'risk_aversion': self.risk_aversion,
@@ -543,58 +564,8 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             return optimal_weights
             
         except Exception as e:
-            self.error(f"Error in Black-Litterman optimization: {e}")
+            self.logger.error(f"Error in Black-Litterman optimization: {e}")
             return None
-    
-    def _execute_rebalancing(self, target_weights: Dict[str, float]):
-        """
-        Execute trades to achieve target portfolio weights.
-        
-        Args:
-            target_weights: Dictionary of target weights for each asset
-        """
-        try:
-            portfolio_value = self.portfolio.total_portfolio_value
-            
-            for ticker in self.symbol_names:
-                target_weight = target_weights.get(ticker, 0.0)
-                
-                # Find the corresponding Symbol object
-                symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
-                if symbol is None:
-                    self.error(f"Could not find Symbol object for ticker {ticker}")
-                    continue
-                
-                current_holding = self.portfolio.get_holding(symbol)
-                current_value = current_holding.market_value if current_holding else 0.0
-                current_weight = current_value / portfolio_value if portfolio_value > 0 else 0.0
-                
-                # Calculate target dollar amount
-                target_value = portfolio_value * target_weight
-                value_difference = target_value - current_value
-                
-                # Execute trade if difference is significant
-                if abs(value_difference) > portfolio_value * 0.001:  # 0.1% threshold
-                    if symbol in self.securities:
-                        security = self.securities[symbol]
-                        if security.market_price > 0:
-                            quantity = int(value_difference / security.market_price)
-                            
-                            if quantity != 0:
-                                ticket = self.market_order(symbol, quantity, tag=f"BL_Rebalance_{self.rebalance_count}")
-                                self.log(f"Rebalancing {ticker}: {current_weight:.3f} → {target_weight:.3f} ({quantity} shares)")
-                        else:
-                            self.error(f"No valid market price for {ticker}")
-                    else:
-                        self.error(f"Security {ticker} not found in securities collection")
-                
-                # Update target weights
-                self.target_weights[ticker] = target_weight
-            
-            self.log("Portfolio rebalancing trades executed")
-            
-        except Exception as e:
-            self.error(f"Error executing rebalancing: {e}")
     
     def on_order_event(self, order_event):
         """
@@ -603,44 +574,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         Args:
             order_event: Order event details
         """
-        self.log(f"Order event: {order_event.status} for {order_event.symbol}")
-    
-    def on_end_of_algorithm(self):
-        """
-        Called when the algorithm finishes execution.
-        """
-        self.log("=== Black-Litterman Algorithm Summary ===")
-        self.log(f"Total rebalances: {self.rebalance_count}")
-        self.log(f"Final portfolio value: ${self.portfolio.total_portfolio_value:,.2f}")
-        
-        # Log final weights
-        portfolio_value = self.portfolio.total_portfolio_value
-        self.log("Final portfolio weights:")
-        for ticker in self.symbol_names:
-            # Find the corresponding Symbol object
-            symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
-            if symbol:
-                holding = self.portfolio.get_holding(symbol)
-                if holding:
-                    weight = holding.market_value / portfolio_value if portfolio_value > 0 else 0.0
-                    self.log(f"  {ticker}: {weight:.3f}")
-                else:
-                    self.log(f"  {ticker}: 0.000")
-            else:
-                self.log(f"  {ticker}: 0.000 (Symbol not found)")
-        
-        # Log optimization history
-        if self.optimization_history:
-            avg_returns = {}
-            for ticker in self.symbol_names:
-                returns = [opt['expected_returns'][ticker] for opt in self.optimization_history if ticker in opt['expected_returns']]
-                avg_returns[ticker] = np.mean(returns) if returns else 0.0
-            
-            self.log("Average expected returns:")
-            for ticker, ret in avg_returns.items():
-                self.log(f"  {ticker}: {ret:.4f}")
-        
-        self.log("Black-Litterman algorithm completed")
+        self.logger.info(f"Order event: {order_event}")
     
     def get_optimization_history(self) -> List[Dict]:
         """
@@ -658,22 +592,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         Returns:
             Dictionary of current portfolio weights
         """
-        portfolio_value = self.portfolio.total_portfolio_value
-        current_weights = {}
-        
-        for ticker in self.symbol_names:
-            # Find the corresponding Symbol object
-            symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
-            if symbol:
-                holding = self.portfolio.get_holding(symbol)
-                if holding and portfolio_value > 0:
-                    current_weights[ticker] = holding.market_value / portfolio_value
-                else:
-                    current_weights[ticker] = 0.0
-            else:
-                current_weights[ticker] = 0.0
-        
-        return current_weights
+        return self.current_weights.copy()
     
     def get_performance_summary(self) -> Dict[str, Any]:
         """
@@ -684,9 +603,9 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         """
         return {
             'total_rebalances': self.rebalance_count,
-            'current_portfolio_value': float(self.portfolio.total_portfolio_value),
+            'current_portfolio_value': 1000000.0,  # Simplified for demo
             'initial_capital': 1000000.0,
-            'total_return': (self.portfolio.total_portfolio_value - 1000000.0) / 1000000.0,
+            'total_return': 0.0,  # Would be calculated from portfolio performance
             'current_weights': self.get_current_weights(),
             'optimization_count': len(self.optimization_history),
             'algorithm_type': 'BlackLitterman_Portfolio_Optimization'
