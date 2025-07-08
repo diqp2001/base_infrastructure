@@ -16,6 +16,7 @@ Modules:
 - optimizer: Parameter optimization algorithms
 - optimizer_launcher: Distributed optimization orchestration
 - algorithm: Algorithm base classes and utilities
+- framework: Algorithm framework with portfolio and risk management components
 """
 
 # Re-export key components from all modules for easy access
@@ -27,6 +28,13 @@ from .api import *
 from .launcher import *
 from .optimizer import *
 from .optimizer_launcher import *
+
+# Import algorithm framework
+try:
+    from .framework import *
+except ImportError:
+    # Framework module might not be available in all contexts
+    pass
 
 # Import algorithm module separately to avoid circular imports
 try:

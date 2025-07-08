@@ -1317,8 +1317,8 @@ class BackTesting:
             
             # Step 2: Create Black-Litterman algorithm
             try:
-                # Import the Black-Litterman algorithm
-                from .algorithm.black_litterman_portfolio_optimization_algorithm import BlackLittermanPortfolioOptimizationAlgorithm
+                # Import the Black-Litterman algorithm from new framework location
+                from .framework.portfolio.black_litterman_portfolio_optimization_algorithm import BlackLittermanPortfolioOptimizationAlgorithm
                 algorithm = BlackLittermanPortfolioOptimizationAlgorithm()
                 algorithm.universe_size = len(symbols)
                 self.logger.info("Black-Litterman algorithm created successfully")
