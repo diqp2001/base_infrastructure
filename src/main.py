@@ -31,6 +31,11 @@ if __name__ == '__main__':
     results = bt.run_simple_backtest_optimization()
     print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
     
+    # Example usage of the Black-Litterman Portfolio Optimization backtest
+    # Uncomment the lines below to run the Black-Litterman backtest
+    # bl_results = bt.run_black_litterman_backtest()
+    # print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
+    
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
         (
