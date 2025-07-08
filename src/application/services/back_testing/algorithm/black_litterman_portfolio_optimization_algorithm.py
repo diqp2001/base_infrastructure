@@ -26,6 +26,7 @@ from .base import QCAlgorithm
 from .symbol import Symbol
 from .enums import Resolution, SecurityType
 from .data_handlers import Slice
+from .scheduling import DateRules, TimeRules
 
 
 class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
@@ -138,8 +139,8 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         # Schedule monthly rebalancing
         self.schedule_function(
             self.rebalance_portfolio,
-            date_rule={"frequency": "monthly", "day": 1},
-            time_rule={"hour": 10, "minute": 0},
+            date_rule=DateRules.month_start(),
+            time_rule=TimeRules.at(10, 0),
             name="MonthlyRebalance"
         )
         
@@ -557,7 +558,14 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
             
             for ticker in self.symbol_names:
                 target_weight = target_weights.get(ticker, 0.0)
-                current_holding = self.portfolio.get_holding(ticker)
+                
+                # Find the corresponding Symbol object
+                symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
+                if symbol is None:
+                    self.error(f"Could not find Symbol object for ticker {ticker}")
+                    continue
+                
+                current_holding = self.portfolio.get_holding(symbol)
                 current_value = current_holding.market_value if current_holding else 0.0
                 current_weight = current_value / portfolio_value if portfolio_value > 0 else 0.0
                 
@@ -567,8 +575,7 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                 
                 # Execute trade if difference is significant
                 if abs(value_difference) > portfolio_value * 0.001:  # 0.1% threshold
-                    symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
-                    if symbol:
+                    if symbol in self.securities:
                         security = self.securities[symbol]
                         if security.market_price > 0:
                             quantity = int(value_difference / security.market_price)
@@ -576,6 +583,10 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
                             if quantity != 0:
                                 ticket = self.market_order(symbol, quantity, tag=f"BL_Rebalance_{self.rebalance_count}")
                                 self.log(f"Rebalancing {ticker}: {current_weight:.3f} → {target_weight:.3f} ({quantity} shares)")
+                        else:
+                            self.error(f"No valid market price for {ticker}")
+                    else:
+                        self.error(f"Security {ticker} not found in securities collection")
                 
                 # Update target weights
                 self.target_weights[ticker] = target_weight
@@ -606,10 +617,17 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         portfolio_value = self.portfolio.total_portfolio_value
         self.log("Final portfolio weights:")
         for ticker in self.symbol_names:
-            holding = self.portfolio.get_holding(ticker)
-            if holding:
-                weight = holding.market_value / portfolio_value if portfolio_value > 0 else 0.0
-                self.log(f"  {ticker}: {weight:.3f}")
+            # Find the corresponding Symbol object
+            symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
+            if symbol:
+                holding = self.portfolio.get_holding(symbol)
+                if holding:
+                    weight = holding.market_value / portfolio_value if portfolio_value > 0 else 0.0
+                    self.log(f"  {ticker}: {weight:.3f}")
+                else:
+                    self.log(f"  {ticker}: 0.000")
+            else:
+                self.log(f"  {ticker}: 0.000 (Symbol not found)")
         
         # Log optimization history
         if self.optimization_history:
@@ -644,9 +662,14 @@ class BlackLittermanPortfolioOptimizationAlgorithm(QCAlgorithm):
         current_weights = {}
         
         for ticker in self.symbol_names:
-            holding = self.portfolio.get_holding(ticker)
-            if holding and portfolio_value > 0:
-                current_weights[ticker] = holding.market_value / portfolio_value
+            # Find the corresponding Symbol object
+            symbol = next((s for s in self.universe_symbols if s.value == ticker), None)
+            if symbol:
+                holding = self.portfolio.get_holding(symbol)
+                if holding and portfolio_value > 0:
+                    current_weights[ticker] = holding.market_value / portfolio_value
+                else:
+                    current_weights[ticker] = 0.0
             else:
                 current_weights[ticker] = 0.0
         
