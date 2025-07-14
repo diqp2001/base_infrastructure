@@ -4,6 +4,125 @@
 
 This is a comprehensive Python implementation of the QuantConnect Lean algorithmic trading engine, providing a complete framework for backtesting and live trading algorithmic strategies. The implementation follows Domain-Driven Design (DDD) principles and provides enterprise-grade functionality for quantitative trading.
 
+## How to Use the Backtesting Tool
+
+### Execution Flow
+The backtesting tool follows a structured execution flow similar to the QuantConnect Lean engine:
+
+1. **Launcher** (`launcher/`) - System bootstrap and configuration
+2. **Engine** (`engine/`) - Main backtesting and live trading engine
+3. **Handlers** - Various handlers for data, results, transactions, etc.
+4. **Algorithm Factory** (`algorithm_factory/`) - Algorithm loading and compilation
+5. **Algorithm** (`algorithm_framework/`) - Specific algorithm implementations
+6. **Algorithm Class** (`algorithm/`) - Base algorithm classes
+7. **Interfaces** (`common/interfaces/`) - Core contracts and interfaces
+
+### Step-by-Step Usage
+
+#### 1. Configure Your Environment
+```bash
+# Set up environment variables
+export QC_API_KEY="your_api_key"
+export QC_API_SECRET="your_api_secret"
+export DATA_FOLDER="/path/to/data"
+export RESULTS_FOLDER="/path/to/results"
+```
+
+#### 2. Create Your Algorithm
+Create your algorithm in the `algorithm_framework/` folder, inheriting from the base algorithm class:
+
+```python
+from back_testing.algorithm_framework.portfolio import BlackLittermanPortfolioOptimizationAlgorithm
+from back_testing.common.interfaces import IAlgorithm
+
+class MyTradingAlgorithm(IAlgorithm):
+    def initialize(self):
+        # Algorithm initialization
+        pass
+    
+    def on_data(self, data):
+        # Trading logic
+        pass
+```
+
+#### 3. Configure the Launcher
+```python
+from back_testing.launcher import Launcher, LauncherConfiguration
+
+config = LauncherConfiguration()
+config.algorithm = MyTradingAlgorithm
+config.start_date = datetime(2020, 1, 1)
+config.end_date = datetime(2021, 1, 1)
+config.initial_capital = 100000
+```
+
+#### 4. Run the Backtest
+```python
+launcher = Launcher()
+result = launcher.run(config)
+```
+
+### Architecture Flow Details
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                LAUNCHER                                          │
+│  • System bootstrap and configuration                                           │
+│  • Command line interface                                                       │
+│  • Configuration management                                                      │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                 ENGINE                                           │
+│  • Main backtesting orchestrator                                                │
+│  • Handler coordination                                                          │
+│  • Algorithm lifecycle management                                               │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                               HANDLERS                                           │
+│  • Data Feed Handlers (data/)                                                   │
+│  • Result Handlers (results/)                                                   │
+│  • Transaction Handlers (transactions/)                                         │
+│  • Algorithm Handlers (algorithm management/)                                   │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           ALGORITHM FACTORY                                      │
+│  • Algorithm loading and compilation                                            │
+│  • Algorithm validation                                                          │
+│  • Algorithm instance creation                                                   │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         ALGORITHM FRAMEWORK                                      │
+│  • Specific algorithm implementations                                           │
+│  • Portfolio construction models                                                │
+│  • Risk management models                                                       │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           ALGORITHM CLASS                                        │
+│  • Base algorithm classes                                                       │
+│  • Common algorithm utilities                                                   │
+│  • Security and order management                                                │
+└─────────────────────────┬───────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        COMMON INTERFACES                                        │
+│  • IAlgorithm - Core algorithm interface                                       │
+│  • IDataFeed - Data feed interface                                             │
+│  • IResultHandler - Result handling interface                                  │
+│  • All other core contracts                                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Architecture
 
 The framework is built using a modular, handler-based architecture that separates concerns and provides flexibility for different trading scenarios:
@@ -14,6 +133,7 @@ src/application/services/back_testing/
 ├── data/           # Data acquisition and management
 ├── engine/         # Main backtesting and live trading engine
 ├── algorithm_factory/ # Algorithm loading and compilation
+├── algorithm_framework/ # Specific algorithm implementations
 ├── api/            # REST API client for QuantConnect platform
 ├── launcher/       # System bootstrap and configuration
 ├── optimizer/      # Parameter optimization algorithms
