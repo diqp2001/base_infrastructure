@@ -31,7 +31,7 @@ from .optimizer_launcher import *
 
 # Import algorithm framework
 try:
-    from .framework import *
+    from .algorithm_framework import *
 except ImportError:
     # Framework module might not be available in all contexts
     pass
