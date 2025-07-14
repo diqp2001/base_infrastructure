@@ -22,6 +22,10 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
 
+# Import the base portfolio construction model
+from ...algorithm.portfolio.portfolio_contruction_model import PortfolioConstructionModel
+from ...common.data_types import Symbol
+
 
 
 
