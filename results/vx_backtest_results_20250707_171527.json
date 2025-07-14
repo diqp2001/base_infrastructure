@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-07-07T17:15:27.742405",
+  "strategy_type": "VX_Volatility_Trading",
+  "data_info": {
+    "source": "VX_CSV_Data",
+    "start_date": "2024-04-22T00:00:00",
+    "end_date": "2024-12-04T00:00:00",
+    "total_days": 158,
+    "avg_vx_level": 18.18487341772152,
+    "vx_volatility": 0.3906632198904589
+  },
+  "backtest_results": {
+    "initial_capital": 100000.0,
+    "final_value": 100234.09999999999,
+    "total_return": 0.00234099999999998,
+    "total_trades": 1,
+    "profitable_trades": 0,
+    "win_rate": 0.0,
+    "max_drawdown": 0.000159,
+    "sharpe_ratio": -0.7175693030204925,
+    "current_position": 1000,
+    "cash_remaining": 84084.1,
+    "algorithm_type": "VX_Volatility_Trading"
+  },
+  "vx_metrics": {
+    "avg_volatility_level": 18.18487341772152,
+    "volatility_of_volatility": 0.3906632198904589,
+    "high_vol_days": 7,
+    "low_vol_days": 1,
+    "max_vx_level": 23.11,
+    "min_vx_level": 15.9
+  },
+  "framework_info": {
+    "version": "1.0.0",
+    "backtest_type": "VX_CSV_Historical",
+    "imports_available": false
+  }
+}

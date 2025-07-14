@@ -28,7 +28,7 @@ if __name__ == '__main__':
     
     # Example usage of the centralized BackTesting class
     bt = BackTesting()
-    results = bt.run_simple_backtest_optimization()
+    results = bt.run_vx_csv_backtest()
     print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
     
     with Profile() as profile:
