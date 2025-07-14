@@ -606,3 +606,220 @@ class BlackLittermanPortfolioOptimizationAlgorithm(PortfolioConstructionModel):
             'optimization_count': len(self.optimization_history),
             'algorithm_type': 'BlackLitterman_Portfolio_Optimization'
         }
+    
+    # Implementation of missing abstract methods from PortfolioConstructionModel/IAlgorithm
+    
+    def create_targets(self, alpha_signals: Dict[str, float]) -> Dict[str, float]:
+        """
+        Create portfolio targets based on alpha signals.
+        
+        For Black-Litterman, we use the optimization results as targets.
+        
+        Args:
+            alpha_signals: Dictionary mapping symbols to alpha values
+            
+        Returns:
+            Dictionary mapping symbols to target portfolio weights
+        """
+        # Use current target weights from Black-Litterman optimization
+        if self.target_weights:
+            return self.target_weights.copy()
+        
+        # Fallback to equal weights if no optimization has been performed
+        if alpha_signals:
+            num_securities = len(alpha_signals)
+            equal_weight = 1.0 / num_securities
+            return {symbol: equal_weight for symbol in alpha_signals.keys()}
+        
+        return {}
+    
+    def on_assignment(self, assignment_event) -> None:
+        """
+        Handle option assignment events.
+        
+        Args:
+            assignment_event: The assignment event details
+        """
+        self.logger.info(f"Assignment event received: {assignment_event}")
+        # For equity portfolio, assignment events are not typically relevant
+        pass
+    
+    def on_delistings(self, delistings) -> None:
+        """
+        Handle security delistings.
+        
+        Args:
+            delistings: The delisting notifications
+        """
+        self.logger.info(f"Delisting event received: {delistings}")
+        # Remove delisted securities from universe and rebalance
+        if hasattr(delistings, 'securities'):
+            for security in delistings.securities:
+                ticker = str(security.symbol)
+                if ticker in self.symbol_names:
+                    self.symbol_names.remove(ticker)
+                    self.universe_symbols = [s for s in self.universe_symbols if s.value != ticker]
+                    # Clean up data structures
+                    self.price_history.pop(ticker, None)
+                    self.returns_history.pop(ticker, None)
+                    self.current_weights.pop(ticker, None)
+                    self.target_weights.pop(ticker, None)
+                    self.market_caps.pop(ticker, None)
+                    self.equilibrium_weights.pop(ticker, None)
+                    self.implied_returns.pop(ticker, None)
+                    self.logger.info(f"Removed delisted security: {ticker}")
+    
+    def on_dividend_events(self, dividend_events) -> None:
+        """
+        Handle dividend events.
+        
+        Args:
+            dividend_events: The dividend events
+        """
+        self.logger.info(f"Dividend event received: {dividend_events}")
+        # For Black-Litterman, dividend events don't typically affect the optimization
+        # In a more sophisticated implementation, dividends could be incorporated into return calculations
+        pass
+    
+    def on_end_of_algorithm(self) -> None:
+        """
+        Handle end of algorithm execution.
+        
+        This method is called when the algorithm is shutting down.
+        Use this for cleanup or final calculations.
+        """
+        self.logger.info("Black-Litterman algorithm ending")
+        self.logger.info(f"Total rebalances performed: {self.rebalance_count}")
+        self.logger.info(f"Final portfolio weights: {self.current_weights}")
+        self.logger.info(f"Optimization history length: {len(self.optimization_history)}")
+        
+        # Log final performance summary
+        summary = self.get_performance_summary()
+        self.logger.info(f"Final performance summary: {summary}")
+    
+    def on_end_of_day(self, symbol) -> None:
+        """
+        Handle end of day events.
+        
+        Args:
+            symbol: The symbol for which the trading day has ended
+        """
+        # For Black-Litterman, end of day events are not typically needed
+        # Could be used for daily portfolio analytics or risk calculations
+        pass
+    
+    def on_margin_call(self, requests: List) -> List:
+        """
+        Handle margin call events.
+        
+        Args:
+            requests: List of order requests to handle margin call
+            
+        Returns:
+            Modified list of order requests
+        """
+        self.logger.warning(f"Margin call received with {len(requests)} orders")
+        # For Black-Litterman, typically we would reduce positions proportionally
+        # This is a simplified implementation
+        return requests
+    
+    def on_securities_changed(self, changes) -> None:
+        """
+        Handle changes in the security universe.
+        
+        This method is called whenever securities are added or removed
+        from the algorithm's universe.
+        
+        Args:
+            changes: SecurityChanges object containing added/removed securities
+        """
+        self.logger.info(f"Securities changed: {changes}")
+        
+        # Handle added securities
+        if hasattr(changes, 'added_securities'):
+            for security in changes.added_securities:
+                ticker = str(security.symbol)
+                if ticker not in self.symbol_names:
+                    self.symbol_names.append(ticker)
+                    self.universe_symbols.append(security.symbol)
+                    # Initialize data structures
+                    self.price_history[ticker] = []
+                    self.returns_history[ticker] = []
+                    self.current_weights[ticker] = 0.0
+                    self.target_weights[ticker] = 0.0
+                    self.market_caps[ticker] = 1.0
+                    self.equilibrium_weights[ticker] = 0.0
+                    self.implied_returns[ticker] = 0.0
+                    self.logger.info(f"Added security to universe: {ticker}")
+        
+        # Handle removed securities
+        if hasattr(changes, 'removed_securities'):
+            for security in changes.removed_securities:
+                ticker = str(security.symbol)
+                if ticker in self.symbol_names:
+                    self.symbol_names.remove(ticker)
+                    self.universe_symbols = [s for s in self.universe_symbols if s.value != ticker]
+                    # Clean up data structures
+                    self.price_history.pop(ticker, None)
+                    self.returns_history.pop(ticker, None)
+                    self.current_weights.pop(ticker, None)
+                    self.target_weights.pop(ticker, None)
+                    self.market_caps.pop(ticker, None)
+                    self.equilibrium_weights.pop(ticker, None)
+                    self.implied_returns.pop(ticker, None)
+                    self.logger.info(f"Removed security from universe: {ticker}")
+        
+        # Trigger rebalancing if universe changed significantly
+        if hasattr(changes, 'added_securities') or hasattr(changes, 'removed_securities'):
+            self.logger.info("Universe changed - triggering rebalancing")
+            self.rebalance_portfolio()
+    
+    def on_split_events(self, split_events) -> None:
+        """
+        Handle stock split events.
+        
+        Args:
+            split_events: The split events
+        """
+        self.logger.info(f"Split event received: {split_events}")
+        # For Black-Litterman, split events should adjust historical prices
+        # This is a simplified implementation
+        if hasattr(split_events, 'splits'):
+            for split in split_events.splits:
+                ticker = str(split.symbol)
+                if ticker in self.symbol_names:
+                    split_factor = split.split_factor
+                    self.logger.info(f"Adjusting prices for split: {ticker} by factor {split_factor}")
+                    # Adjust price history for the split
+                    if ticker in self.price_history:
+                        self.price_history[ticker] = [price / split_factor for price in self.price_history[ticker]]
+    
+    def on_symbol_changed_events(self, symbol_changed_events) -> None:
+        """
+        Handle symbol change events.
+        
+        Args:
+            symbol_changed_events: The symbol change events
+        """
+        self.logger.info(f"Symbol changed event received: {symbol_changed_events}")
+        # Handle ticker symbol changes by updating internal mappings
+        if hasattr(symbol_changed_events, 'changes'):
+            for change in symbol_changed_events.changes:
+                old_symbol = str(change.old_symbol)
+                new_symbol = str(change.new_symbol)
+                
+                if old_symbol in self.symbol_names:
+                    # Update symbol name mapping
+                    index = self.symbol_names.index(old_symbol)
+                    self.symbol_names[index] = new_symbol
+                    
+                    # Update all data structures
+                    self.price_history[new_symbol] = self.price_history.pop(old_symbol, [])
+                    self.returns_history[new_symbol] = self.returns_history.pop(old_symbol, [])
+                    self.current_weights[new_symbol] = self.current_weights.pop(old_symbol, 0.0)
+                    self.target_weights[new_symbol] = self.target_weights.pop(old_symbol, 0.0)
+                    self.market_caps[new_symbol] = self.market_caps.pop(old_symbol, 1.0)
+                    self.equilibrium_weights[new_symbol] = self.equilibrium_weights.pop(old_symbol, 0.0)
+                    self.implied_returns[new_symbol] = self.implied_returns.pop(old_symbol, 0.0)
+                    
+                    self.logger.info(f"Updated symbol mapping: {old_symbol} -> {new_symbol}")

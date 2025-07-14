@@ -12,8 +12,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
+# Import the IAlgorithm interface to ensure proper relationship
+from ...common.interfaces.ialgorithm import IAlgorithm
 
-class PortfolioConstructionModel(ABC):
+
+class PortfolioConstructionModel(IAlgorithm):
     """
     Base class for portfolio construction models.
     
@@ -24,6 +27,8 @@ class PortfolioConstructionModel(ABC):
     This class provides the common interface that all portfolio construction
     models must implement, ensuring consistency across different optimization
     strategies.
+    
+    Inherits from IAlgorithm to ensure proper algorithm lifecycle management.
     """
     
     def __init__(self):
@@ -43,6 +48,37 @@ class PortfolioConstructionModel(ABC):
             
         Returns:
             Dictionary mapping symbols to target portfolio weights
+        """
+        pass
+    
+    # IAlgorithm interface methods that must be implemented by concrete classes
+    @abstractmethod
+    def initialize(self) -> None:
+        """
+        Called once at the start of the algorithm to setup initial state.
+        This is where you would configure your algorithm parameters,
+        add securities, set up indicators, etc.
+        """
+        pass
+    
+    @abstractmethod
+    def on_data(self, data: 'Slice') -> None:
+        """
+        Called when new market data arrives.
+        This is the main data event handler where you implement your trading logic.
+        
+        Args:
+            data: The current data slice containing market data for subscribed securities
+        """
+        pass
+    
+    @abstractmethod
+    def on_order_event(self, order_event: 'OrderEvent') -> None:
+        """
+        Called when an order event occurs (fill, partial fill, cancellation, etc.).
+        
+        Args:
+            order_event: The order event containing details about the order status change
         """
         pass
     
@@ -288,6 +324,18 @@ class EqualWeightPortfolioConstructionModel(PortfolioConstructionModel):
         
         targets = {symbol: equal_weight for symbol in alpha_signals.keys()}
         return self.validate_targets(targets)
+    
+    def initialize(self) -> None:
+        """Initialize the equal weight portfolio construction model."""
+        self.is_initialized = True
+        
+    def on_data(self, data: 'Slice') -> None:
+        """Process market data for equal weight model."""
+        pass
+        
+    def on_order_event(self, order_event: 'OrderEvent') -> None:
+        """Handle order events."""
+        pass
     
     def on_securities_changed(self, changes: 'SecurityChanges') -> None:
         """Handle security universe changes."""
