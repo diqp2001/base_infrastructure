@@ -23,9 +23,9 @@ class TestProjectManager(ProjectManager):
         # Initialize required managers
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
         self.company_stock_repository_local = CompanyStockRepositoryLocal(self.database_manager.session)
-        self.company_stock_repository_afl = CompanyStockRepositoryAFL(self.database_manager.session)
 
     def save_new_company_stock(self):
+        #add openfigi in the process
         id = 1
         ticker = 'XSU'
         exchange_id = 1
@@ -39,15 +39,15 @@ class TestProjectManager(ProjectManager):
         key_df = pd.DataFrame(key_data)
         
         
-        #self.database_manager.db.initialize_database_and_create_all_tables()
+        self.database_manager.db.initialize_database_and_create_all_tables()
         
         
-        
+        stock_to_add = CompanyStockEntity(id, ticker, exchange_id, company_id,  start_date, end_date)
         print(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys())
-        self.company_stock_repository.add(id, ticker, exchange_id, company_id, start_date, end_date, key_df)
-        t_o_n = self.company_stock_repository.exists_by_id(1)
+        self.company_stock_repository_local.add(domain_stock=stock_to_add, key_id=1, key_value=1,repo_id=1)
+        t_o_n = self.company_stock_repository_local.exists_by_id(1)
         print(t_o_n)
-        company_stock_entity_new = self.company_stock_repository.get_by_id(1)
+        company_stock_entity_new = self.company_stock_repository_local.get_by_id(1)
         print(company_stock_entity_new)
         print(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys())
 

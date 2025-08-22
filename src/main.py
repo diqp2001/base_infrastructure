@@ -24,20 +24,21 @@ if __name__ == '__main__':
     
     #consolidated_df = download_and_consolidate_csv()
     #CrossSectionalMLStockReturnsProjectManager().execute_database_management_tasks()
-    #TestProjectManager().save_new_company_stock()
+    #
     
     # Example usage of the centralized BackTesting class
-    bt = BackTesting()
+    #bt = BackTesting()
     #results = bt.run_vx_csv_backtest()
     #print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
     
     # Example usage of the Black-Litterman Portfolio Optimization backtest
     # Uncomment the lines below to run the Black-Litterman backtest
-    bl_results = bt.run_black_litterman_backtest()
-    print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
+    #bl_results = bt.run_black_litterman_backtest()
+    #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
     
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
+        TestProjectManager().save_new_company_stock()
         (
             Stats(profile).strip_dirs().sort_stats(SortKey.CALLS).print_stats()
         )
