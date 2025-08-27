@@ -1,9 +1,13 @@
 from sqlalchemy import MetaData
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from typing import List, Dict
+import logging
 from src.infrastructure.models.keys.finance.financial_assets.key_company_stock import KeyCompanyStock
 from src.infrastructure.models import CompanyStock as CompanyStockModel
 from src.domain.entities.finance.financial_assets.company_stock import CompanyStock as CompanyStockEntity
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -137,3 +141,99 @@ class CompanyStockRepository:
         if key_stock:
             return self.get_by_id(key_stock.company_stock_id)
         return None
+
+    def exists_by_id(self, company_stock_id: int) -> bool:
+        """Check if a CompanyStock exists by ID."""
+        return self.session.query(CompanyStockModel).filter(
+            CompanyStockModel.id == company_stock_id
+        ).first() is not None
+
+    def add_bulk(self, domain_stocks: List[CompanyStockEntity], key_mappings: List[Dict]) -> List[CompanyStockEntity]:
+        """
+        Add multiple CompanyStock records in a single transaction.
+        
+        Args:
+            domain_stocks: List of CompanyStock domain entities
+            key_mappings: List of dictionaries containing key_id, key_value, and repo_id for each stock
+            
+        Returns:
+            List of created CompanyStock domain entities
+        """
+        if len(domain_stocks) != len(key_mappings):
+            raise ValueError("Number of stocks must match number of key mappings")
+            
+        try:
+            created_stocks = []
+            
+            # Begin transaction
+            with self.session.begin():
+                for domain_stock, key_mapping in zip(domain_stocks, key_mappings):
+                    key_id = key_mapping['key_id']
+                    key_value = key_mapping['key_value']
+                    repo_id = key_mapping['repo_id']
+                    
+                    # Check if stock already exists
+                    existing_key = self.session.query(KeyCompanyStock).filter(
+                        KeyCompanyStock.key_value == key_value,
+                        KeyCompanyStock.key_id == key_id
+                    ).first()
+                    
+                    if existing_key:
+                        # Get existing stock
+                        existing_stock = self.get_by_id(existing_key.company_stock_id)
+                        created_stocks.append(existing_stock)
+                        continue
+                    
+                    # Create new stock
+                    new_stock = CompanyStockModel(domain_entity=domain_stock)
+                    self.session.add(new_stock)
+                    self.session.flush()  # Get the ID
+                    
+                    # Create key relationship
+                    new_key_stock = KeyCompanyStock(
+                        company_stock_id=new_stock.id,
+                        repo_id=repo_id,
+                        key_id=key_id,
+                        key_value=key_value,
+                        start_date=domain_stock.start_date,
+                        end_date=domain_stock.end_date
+                    )
+                    self.session.add(new_key_stock)
+                    
+                    created_stocks.append(self._to_domain(new_stock))
+                    
+                # Commit all changes
+                self.session.commit()
+                
+            logger.info(f"Successfully created {len(created_stocks)} company stocks in bulk")
+            return created_stocks
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error in bulk add operation: {str(e)}")
+            raise
+
+    def add_bulk_from_dicts(self, company_dicts: List[Dict], key_mappings: List[Dict]) -> List[CompanyStockEntity]:
+        """
+        Create and add multiple companies from dictionaries.
+        
+        Args:
+            company_dicts: List of dictionaries with company data
+            key_mappings: List of dictionaries containing key_id, key_value, and repo_id
+            
+        Returns:
+            List of created CompanyStock domain entities
+        """
+        domain_stocks = []
+        for company_dict in company_dicts:
+            domain_stock = CompanyStockEntity(
+                id=company_dict.get('id'),
+                ticker=company_dict['ticker'],
+                exchange_id=company_dict['exchange_id'],
+                company_id=company_dict['company_id'],
+                start_date=company_dict['start_date'],
+                end_date=company_dict['end_date']
+            )
+            domain_stocks.append(domain_stock)
+            
+        return self.add_bulk(domain_stocks, key_mappings)
