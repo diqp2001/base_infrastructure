@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from src.infrastructure.models.keys.finance.financial_assets.key_company_stock import KeyCompanyStock
 from src.infrastructure.models import CompanyStock as CompanyStockModel
-from src.domain.entities.finance.financial_assets.company_stock import CompanyStock as CompanyStockEntity
+from src.domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from src.domain.entities.finance.financial_assets.company_share import CompanyStock as CompanyStockEntity  # Legacy compatibility
 
 
 

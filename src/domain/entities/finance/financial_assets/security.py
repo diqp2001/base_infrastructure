@@ -14,12 +14,17 @@ from enum import Enum
 class SecurityType(Enum):
     """Types of financial securities."""
     EQUITY = "equity"
+    SHARE = "share"
     FOREX = "forex" 
     CRYPTO = "crypto"
     OPTION = "option"
     FUTURE = "future"
     BOND = "bond"
+    INDEX = "index"
     COMMODITY = "commodity"
+    DERIVATIVE = "derivative"
+    SWAP = "swap"
+    FORWARD = "forward"
 
 
 @dataclass

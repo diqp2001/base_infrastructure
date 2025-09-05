@@ -12,8 +12,10 @@ import pandas as pd
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project import config
-from domain.entities.finance.financial_assets.company_stock import CompanyStock as CompanyStockEntity
-from domain.entities.finance.financial_assets.stock import FundamentalData, Dividend, MarketData
+from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from domain.entities.finance.financial_assets.company_share import CompanyStock as CompanyStockEntity  # Legacy compatibility
+from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.security import MarketData
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryLocal
 from infrastructure.repositories.afl_repo.finance.financial_assets.company_stock_repository.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryAFL
