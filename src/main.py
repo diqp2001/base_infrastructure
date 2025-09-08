@@ -38,7 +38,7 @@ if __name__ == '__main__':
     
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
-        TestProjectManager().save_new_company_stock()
+        TestProjectManager().save_new_company_share()
         (
             Stats(profile).strip_dirs().sort_stats(SortKey.CALLS).print_stats()
         )
