@@ -16,30 +16,30 @@ from domain.entities.finance.financial_assets.company_share import CompanyShare 
 from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
-from infrastructure.repositories.local_repo.finance.financial_assets.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryLocal
+from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.afl_repo.finance.financial_assets.company_stock_repository.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryAFL
 
 class TestProjectManager(ProjectManager):
     """
-    Enhanced Project Manager for handling bulk database operations on company stocks.
+    Enhanced Project Manager for handling bulk database operations on company shares.
     Implements QuantConnect-style Security/Equity architecture with performance optimization.
     """
     def __init__(self):
         super().__init__()
         # Initialize required managers
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_stock_repository_local = CompanyStockRepositoryLocal(self.database_manager.session)
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
 
     def create_multiple_companies(self, companies_data: List[Dict], key_mappings: List[Dict]) -> List[CompanyShareEntity]:
         """
-        Create multiple CompanyStock entities in a single atomic transaction.
+        Create multiple CompanyShare entities in a single atomic transaction.
         
         Args:
-            companies_data: List of dicts containing company stock data
+            companies_data: List of dicts containing company share data
             key_mappings: List of dicts with key mapping information
             
         Returns:
-            List[CompanyShareEntity]: Successfully created company stock entities
+            List[CompanyShareEntity]: Successfully created company share entities
         """
         if not companies_data or not key_mappings:
             print("No data provided for bulk company creation")
@@ -56,10 +56,10 @@ class TestProjectManager(ProjectManager):
             self.database_manager.db.initialize_database_and_create_all_tables()
             
             # Validate and create domain entities
-            domain_stocks = []
+            domain_shares = []
             for i, data in enumerate(companies_data):
                 try:
-                    domain_stock = CompanyShareEntity(
+                    domain_share = CompanyShareEntity(
                         id=data['id'],
                         ticker=data['ticker'],
                         exchange_id=data['exchange_id'],
@@ -70,21 +70,21 @@ class TestProjectManager(ProjectManager):
                     
                     # Set company name if provided
                     if 'company_name' in data:
-                        domain_stock.set_company_name(data['company_name'])
+                        domain_share.set_company_name(data['company_name'])
                     
                     # Set sector information if provided  
                     if 'sector' in data:
                         fundamentals = FundamentalData(sector=data['sector'])
-                        domain_stock.update_company_fundamentals(fundamentals)
+                        domain_share.update_company_fundamentals(fundamentals)
                     
-                    domain_stocks.append(domain_stock)
+                    domain_shares.append(domain_share)
                     
                 except Exception as e:
                     print(f"Error creating domain entity {i}: {str(e)}")
                     raise
             
             # Use bulk repository operation
-            created_entities = self.company_stock_repository_local.add_bulk(domain_stocks, key_mappings)
+            created_entities = self.company_share_repository_local.add_bulk(domain_shares, key_mappings)
             
             end_time = time.time()
             elapsed = end_time - start_time
@@ -229,19 +229,19 @@ class TestProjectManager(ProjectManager):
                 for company in created_companies[:5]
             ]
             
-            updated_count = self.company_stock_repository_local.update_bulk(updates)
+            updated_count = self.company_share_repository_local.update_bulk(updates)
             print(f"📝 Bulk updated {updated_count} companies")
             
             # Test bulk delete (cleanup last 10 companies)
             cleanup_ids = [company.id for company in created_companies[-10:]]
-            deleted_count = self.company_stock_repository_local.delete_bulk(cleanup_ids)
+            deleted_count = self.company_share_repository_local.delete_bulk(cleanup_ids)
             print(f"🗑️ Bulk deleted {deleted_count} companies for cleanup")
 
-    def save_new_company_stock(self):
+    def save_new_company_share(self):
         """
         Legacy single company creation method (maintained for backwards compatibility).
         """
-        print("📝 Creating single company stock (legacy method)...")
+        print("📝 Creating single company share (legacy method)...")
         
         # Legacy single company creation
         id = 1
@@ -253,20 +253,20 @@ class TestProjectManager(ProjectManager):
         
         self.database_manager.db.initialize_database_and_create_all_tables()
         
-        stock_to_add = CompanyShareEntity(id, ticker, exchange_id, company_id, start_date, end_date)
+        share_to_add = CompanyShareEntity(id, ticker, exchange_id, company_id, start_date, end_date)
         print("Available tables:", list(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys()))
         
-        self.company_stock_repository_local.add(domain_stock=stock_to_add, key_id=1, key_value=1, repo_id=1)
+        self.company_share_repository_local.add(domain_share=share_to_add, key_id=1, key_value=1, repo_id=1)
         
-        exists = self.company_stock_repository_local.exists_by_id(1)
-        print(f"Company stock exists: {exists}")
+        exists = self.company_share_repository_local.exists_by_id(1)
+        print(f"Company share exists: {exists}")
         
-        company_stock_entity = self.company_stock_repository_local.get_by_id(1)
-        print(f"Retrieved entity: {company_stock_entity}")
+        company_share_entity = self.company_share_repository_local.get_by_id(1)
+        print(f"Retrieved entity: {company_share_entity}")
         
         print("✅ Legacy single company creation completed")
 
-    def save_multiple_company_stocks_example(self):
+    def save_multiple_company_shares_example(self):
         """
         Example demonstrating complete bulk operation workflow.
         Shows integration of bulk operations with QuantConnect-style architecture.
