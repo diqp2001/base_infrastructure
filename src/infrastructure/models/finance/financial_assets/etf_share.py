@@ -45,7 +45,7 @@ class ETFShare(Base):
     industry = Column(String(100), nullable=True)
 
     # Relationships
-    exchange = relationship("Exchange", back_populates="etf_shares")
+    exchanges = relationship("Exchange", back_populates="etf_shares")
 
     def __repr__(self):
         return f"<ETFShare(id={self.id}, ticker={self.ticker}, fund_name={self.fund_name})>"

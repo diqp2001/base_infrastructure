@@ -96,7 +96,7 @@ class Position(Base):
     position_closed_at = Column(DateTime, nullable=True)
 
     # Relationships
-    portfolio = relationship("Portfolio", back_populates="positions")
+    portfolios = relationship("Portfolio", back_populates="positions")
 
     def __repr__(self):
         return f"<Position(id={self.id}, portfolio_id={self.portfolio_id}, symbol={self.symbol}, qty={self.quantity}, value={self.market_value})>"

@@ -33,7 +33,7 @@ class Continent(Base):
     updated_at = Column(DateTime, nullable=True)
     
     # Relationships (assuming countries belong to continents)
-    countries = relationship("Country", back_populates="continent")
+    countries = relationship("Country", back_populates="continents")
 
     def __repr__(self):
         return f"<Continent(id={self.id}, name={self.name}, abbreviation={self.abbreviation})>"

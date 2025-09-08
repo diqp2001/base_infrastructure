@@ -78,7 +78,7 @@ class Portfolio(Base):
     last_valuation_date = Column(DateTime, nullable=True)
 
     # Relationships
-    positions = relationship("Position", back_populates="portfolio")
+    positions = relationship("Position", back_populates="portfolios")
 
     def __repr__(self):
         return f"<Portfolio(id={self.id}, name={self.name}, value={self.total_value}, currency={self.currency})>"

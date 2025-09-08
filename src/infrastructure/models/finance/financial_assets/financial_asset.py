@@ -64,7 +64,7 @@ class FinancialAsset(Base):
     sharpe_ratio = Column(Numeric(10, 4), nullable=True)
     
     # Additional metadata
-    metadata = Column(Text, nullable=True)  # JSON for additional properties
+    financial_asset_metadata = Column(String(100), nullable=True)  # JSON for additional properties
     tags = Column(String(500), nullable=True)  # Comma-separated tags
     
     # Timestamps

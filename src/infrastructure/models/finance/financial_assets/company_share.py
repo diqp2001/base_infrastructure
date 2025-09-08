@@ -40,8 +40,8 @@ class CompanyShare(Base):
     industry = Column(String(100), nullable=True)
 
     # Relationships
-    company = relationship("Company", back_populates="company_shares")
-    exchange = relationship("Exchange", back_populates="company_shares") 
+    companies = relationship("Company", back_populates="company_shares")
+    exchanges = relationship("Exchange", back_populates="company_shares") 
 
     def __repr__(self):
         return f"<CompanyShare(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"

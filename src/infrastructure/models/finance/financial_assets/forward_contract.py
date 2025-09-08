@@ -64,6 +64,10 @@ class ForwardContract(Base):
     updated_at = Column(DateTime, nullable=True)
     last_valuation_date = Column(DateTime, nullable=True)
 
+    # Relationship
+    commodity_forwards = relationship("CommodityForward", back_populates="forward_contracts")
+    currency_forwards = relationship("CurrencyForward", back_populates="forward_contracts")
+
     def __repr__(self):
         return f"<ForwardContract(id={self.id}, ticker={self.ticker}, forward_price={self.forward_price}, delivery={self.delivery_date})>"
 
@@ -90,7 +94,7 @@ class CommodityForward(Base):
     transportation_cost = Column(Numeric(15, 4), nullable=True)
     
     # Relationship
-    forward_contract = relationship("ForwardContract", back_populates="commodity_forward")
+    forward_contracts = relationship("ForwardContract", back_populates="commodity_forwards")
 
     def __repr__(self):
         return f"<CommodityForward(id={self.id}, commodity_type={self.commodity_type}, forward_id={self.forward_contract_id})>"
@@ -119,7 +123,7 @@ class CurrencyForward(Base):
     theoretical_rate = Column(Numeric(15, 8), nullable=True)
     
     # Relationship
-    forward_contract = relationship("ForwardContract", back_populates="currency_forward")
+    forward_contracts = relationship("ForwardContract", back_populates="currency_forwards")
 
     def __repr__(self):
         return f"<CurrencyForward(id={self.id}, {self.base_currency}/{self.quote_currency}, rate={self.forward_rate})>"

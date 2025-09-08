@@ -27,7 +27,6 @@ from src.infrastructure.models.finance.financial_assets.cash import Cash
 from src.infrastructure.models.finance.financial_assets.commodity import Commodity
 from src.infrastructure.models.finance.financial_assets.security import Security
 from src.infrastructure.models.finance.financial_assets.equity import Equity
-from src.infrastructure.models.finance.financial_assets.stock import Stock
 from src.infrastructure.models.finance.financial_assets.derivatives import Derivative, UnderlyingAsset
 from src.infrastructure.models.finance.financial_assets.forward_contract import (
     ForwardContract, CommodityForward, CurrencyForward

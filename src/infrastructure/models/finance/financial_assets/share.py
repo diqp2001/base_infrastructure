@@ -25,10 +25,9 @@ class Share(Base):
     
     # Status fields
     is_tradeable = Column(Boolean, default=True)
-    sector = Column(String(100), nullable=True)
-    industry = Column(String(100), nullable=True)
-
-    exchange = relationship("Exchange", back_populates="shares") 
+    sectors = Column(String(100), nullable=True)
+    industries = Column(String(100), nullable=True)
+    exchanges = relationship("Exchange", back_populates="shares") 
 
     def __repr__(self):
         return f"<Share(id={self.id}, ticker={self.ticker})>"
