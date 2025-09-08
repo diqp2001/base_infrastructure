@@ -11,7 +11,7 @@ https://code.visualstudio.com/docs/python/testing
 
 
 py -m pip install optuna
-
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 pip freeze > requirements.txt
 py -m unittest discover -s src/tests -p "test_*.py" -v
 .venv\Scripts\Activate.ps1
