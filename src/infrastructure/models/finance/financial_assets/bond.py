@@ -1,26 +1,56 @@
-from sqlalchemy import Column, Integer, String, Float, Date
-from src.infrastructure.models import ModelBase as Base # Base class for SQLAlchemy models
+"""
+ORM model for Bond - separate from domain entity to avoid metaclass conflicts.
+"""
+
+from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+from src.infrastructure.models import ModelBase as Base
+
 
 class Bond(Base):
+    """
+    SQLAlchemy ORM model for Bond.
+    Completely separate from domain entity to avoid metaclass conflicts.
+    """
     __tablename__ = 'bonds'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)  # Name of the bond (e.g., 'US Government Bond')
-    bond_type = Column(String, nullable=False)  # Type of bond (e.g., 'Government', 'Corporate')
-    coupon_rate = Column(Float, nullable=False)  # Coupon rate as a percentage
-    maturity_date = Column(Date, nullable=False)  # Maturity date of the bond
-    face_value = Column(Float, nullable=False)  # Face value (par value) of the bond
-    issue_date = Column(Date, nullable=True)  # Issue date of the bond
-    currency = Column(String, nullable=False)  # Currency (e.g., 'USD', 'EUR')
+    isin = Column(String(12), nullable=False, index=True, unique=True)  # International Securities Identification Number
+    cusip = Column(String(9), nullable=True, index=True)  # Committee on Uniform Securities Identification Procedures
+    name = Column(String(255), nullable=False)  # Name of the bond
+    issuer = Column(String(255), nullable=False)
+    bond_type = Column(String(50), nullable=False)  # Government, Corporate, Municipal, etc.
+    currency = Column(String(3), nullable=False, default='USD')  # Currency code
+    
+    # Bond terms
+    face_value = Column(Numeric(15, 2), nullable=False, default=1000)
+    coupon_rate = Column(Numeric(8, 4), nullable=False)  # Annual coupon rate
+    issue_date = Column(Date, nullable=False)
+    maturity_date = Column(Date, nullable=False)
+    payment_frequency = Column(Integer, nullable=False, default=2)  # Payments per year
+    
+    # Credit information
+    credit_rating = Column(String(10), nullable=True)  # AAA, AA+, etc.
+    rating_agency = Column(String(50), nullable=True)  # Moody's, S&P, Fitch
+    
+    # Market data fields
+    current_price = Column(Numeric(10, 4), nullable=True)  # % of face value
+    yield_to_maturity = Column(Numeric(8, 4), nullable=True)
+    duration = Column(Numeric(8, 4), nullable=True)  # Modified duration
+    convexity = Column(Numeric(10, 4), nullable=True)
+    accrued_interest = Column(Numeric(10, 4), nullable=True)
+    last_update = Column(DateTime, nullable=True)
+    
+    # Status fields
+    is_tradeable = Column(Boolean, default=True)
+    is_callable = Column(Boolean, default=False)
+    call_date = Column(Date, nullable=True)
+    call_price = Column(Numeric(10, 4), nullable=True)
+    
+    # Market information
+    outstanding_amount = Column(Numeric(20, 2), nullable=True)
+    minimum_denomination = Column(Numeric(15, 2), default=1000)
 
     def __repr__(self):
-        return f"<Bond(id={self.id}, name={self.name}, bond_type={self.bond_type}, coupon_rate={self.coupon_rate}, maturity_date={self.maturity_date}, face_value={self.face_value}, issue_date={self.issue_date}, currency={self.currency})>"
-
-    def __init__(self, name: str, bond_type: str, coupon_rate: float, maturity_date: str, face_value: float, issue_date: str, currency: str):
-        self.name = name
-        self.bond_type = bond_type
-        self.coupon_rate = coupon_rate
-        self.maturity_date = maturity_date
-        self.face_value = face_value
-        self.issue_date = issue_date
-        self.currency = currency
+        return f"<Bond(id={self.id}, isin={self.isin}, issuer={self.issuer})>"

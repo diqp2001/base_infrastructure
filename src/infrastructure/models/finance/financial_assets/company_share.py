@@ -1,6 +1,5 @@
 """
-ORM model for CompanyStock - separate from domain entity to avoid metaclass conflicts.
-Legacy model kept for backward compatibility - use CompanyShare for new code.
+ORM model for CompanyShare - separate from domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime
@@ -9,13 +8,12 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class CompanyStock(Base):
+class CompanyShare(Base):
     """
-    SQLAlchemy ORM model for CompanyStock (Legacy).
+    SQLAlchemy ORM model for CompanyShare.
     Completely separate from domain entity to avoid metaclass conflicts.
-    Use CompanyShare for new implementations.
     """
-    __tablename__ = 'company_stocks'
+    __tablename__ = 'company_shares'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     ticker = Column(String(20), nullable=False, index=True)
@@ -42,10 +40,9 @@ class CompanyStock(Base):
     industry = Column(String(100), nullable=True)
 
     # Relationships
-    companies = relationship("Company", back_populates="company_stocks")
-    exchanges = relationship("Exchange", back_populates="company_stocks")
-    key_company_stocks = relationship("KeyCompanyStock", back_populates="company_stock")
+    company = relationship("Company", back_populates="company_shares")
+    exchange = relationship("Exchange", back_populates="company_shares") 
+    key_company_shares = relationship("KeyCompanyShare", back_populates="company_share")
 
     def __repr__(self):
-        return f"<CompanyStock(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"
-
+        return f"<CompanyShare(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"
