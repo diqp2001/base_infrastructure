@@ -38,7 +38,23 @@ if __name__ == '__main__':
     
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
-        TestProjectManager().save_new_company_share()
+        manager = TestProjectManager()
+        
+        # Demonstrate legacy functionality
+        manager.save_new_company_share()  # This now uses the new share-based terminology
+        
+        # Demonstrate new OpenFIGI integration
+        print("\n" + "="*60)
+        print("🌐 DEMONSTRATING OPENFIGI INTEGRATION")
+        print("="*60)
+        manager.demonstrate_openfigi_integration()
+        
+        # Demonstrate complete bulk operations with back testing entities
+        print("\n" + "="*60)  
+        print("🚀 DEMONSTRATING COMPLETE BULK OPERATIONS + BACK TESTING ENTITIES")
+        print("="*60)
+        manager.save_multiple_company_shares_example()
+        
         (
             Stats(profile).strip_dirs().sort_stats(SortKey.CALLS).print_stats()
         )

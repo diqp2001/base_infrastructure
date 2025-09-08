@@ -251,6 +251,138 @@ class TestProjectManager(ProjectManager):
         
         print("✅ Legacy single company creation completed")
 
+    def add_company_with_openfigi(self, ticker: str, exchange_code: str = "US", use_openfigi: bool = True) -> CompanyShareEntity:
+        """
+        Add a single company using OpenFIGI API integration for data enrichment.
+        
+        Args:
+            ticker: Stock ticker symbol (e.g., 'AAPL')
+            exchange_code: Exchange code (e.g., 'US', 'LN', 'JP')
+            use_openfigi: Whether to use OpenFIGI API for data enrichment
+            
+        Returns:
+            CompanyShareEntity: Created company share entity
+        """
+        print(f"🌐 Adding company {ticker} with OpenFIGI integration (enabled: {use_openfigi})...")
+        
+        try:
+            # Initialize database if needed
+            self.database_manager.db.initialize_database_and_create_all_tables()
+            
+            # Use repository's OpenFIGI integration
+            created_entity = self.company_share_repository_local.add_with_openfigi(
+                ticker=ticker,
+                exchange_code=exchange_code,
+                use_openfigi=use_openfigi
+            )
+            
+            if created_entity:
+                print(f"✅ Successfully created company share: {created_entity.ticker}")
+                
+                # Display enriched data if available
+                metrics = created_entity.get_company_metrics()
+                print(f"📊 Company metrics: {metrics}")
+                
+                return created_entity
+            else:
+                print(f"❌ Failed to create company share for {ticker}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Error adding company {ticker} with OpenFIGI: {str(e)}")
+            raise
+
+    def add_multiple_companies_with_openfigi(self, tickers: List[str], exchange_code: str = "US", 
+                                           use_openfigi: bool = True) -> List[CompanyShareEntity]:
+        """
+        Add multiple companies using OpenFIGI API bulk integration.
+        
+        Args:
+            tickers: List of stock ticker symbols
+            exchange_code: Exchange code for all tickers
+            use_openfigi: Whether to use OpenFIGI API for data enrichment
+            
+        Returns:
+            List[CompanyShareEntity]: List of created company share entities
+        """
+        print(f"🚀 Adding {len(tickers)} companies with OpenFIGI bulk integration...")
+        start_time = time.time()
+        
+        try:
+            # Initialize database if needed
+            self.database_manager.db.initialize_database_and_create_all_tables()
+            
+            # Use repository's bulk OpenFIGI integration
+            created_entities = self.company_share_repository_local.bulk_add_with_openfigi(
+                tickers=tickers,
+                exchange_code=exchange_code,
+                use_openfigi=use_openfigi
+            )
+            
+            end_time = time.time()
+            elapsed = end_time - start_time
+            
+            print(f"✅ Successfully created {len(created_entities)} companies in {elapsed:.3f} seconds")
+            print(f"⚡ Performance: {len(created_entities)/elapsed:.1f} companies/second")
+            
+            if use_openfigi:
+                print("🌐 Data enriched with OpenFIGI API information")
+            else:
+                print("📊 Created with basic ticker information only")
+            
+            # Display summary of created companies
+            print(f"\n📋 Created companies summary:")
+            for company in created_entities[:5]:  # Show first 5
+                metrics = company.get_company_metrics()
+                print(f"  • {company.ticker}: {metrics.get('company_name', 'N/A')} - "
+                      f"Sector: {metrics.get('sector', 'N/A')}")
+            
+            if len(created_entities) > 5:
+                print(f"  ... and {len(created_entities) - 5} more companies")
+                
+            return created_entities
+            
+        except Exception as e:
+            print(f"❌ Error in bulk OpenFIGI company creation: {str(e)}")
+            raise
+
+    def demonstrate_openfigi_integration(self):
+        """
+        Demonstrate OpenFIGI integration capabilities with real market data.
+        """
+        print("🌐 Demonstrating OpenFIGI API integration...")
+        
+        # Test single company addition
+        print("\n1️⃣ Testing single company addition with OpenFIGI...")
+        apple_share = self.add_company_with_openfigi("AAPL", "US", use_openfigi=True)
+        
+        # Test fallback mode (no API)
+        print("\n2️⃣ Testing single company addition without OpenFIGI (fallback mode)...")
+        tesla_share = self.add_company_with_openfigi("TSLA", "US", use_openfigi=False)
+        
+        # Test bulk addition with OpenFIGI
+        print("\n3️⃣ Testing bulk companies addition with OpenFIGI...")
+        tech_tickers = ["MSFT", "GOOGL", "META", "NVDA", "AMD"]
+        tech_shares = self.add_multiple_companies_with_openfigi(
+            tickers=tech_tickers, 
+            use_openfigi=True
+        )
+        
+        # Test bulk addition without OpenFIGI (performance comparison)
+        print("\n4️⃣ Testing bulk companies addition without OpenFIGI (performance comparison)...")
+        finance_tickers = ["JPM", "BAC", "WFC", "GS", "MS"]
+        finance_shares = self.add_multiple_companies_with_openfigi(
+            tickers=finance_tickers, 
+            use_openfigi=False
+        )
+        
+        print("\n🎯 OpenFIGI Integration Summary:")
+        total_companies = 1 + 1 + len(tech_shares) + len(finance_shares)
+        print(f"  • Total companies added: {total_companies}")
+        print(f"  • With OpenFIGI enrichment: {1 + len(tech_shares)}")
+        print(f"  • Without OpenFIGI (fallback): {1 + len(finance_shares)}")
+        print("  • All operations completed successfully! ✅")
+
     def save_multiple_company_shares_example(self):
         """
         Example demonstrating complete bulk operation workflow.
@@ -273,6 +405,9 @@ class TestProjectManager(ProjectManager):
             
             # Demonstrate bulk operations performance
             self.demonstrate_bulk_operations(50)  # Test with 50 companies
+            
+            # Demonstrate OpenFIGI integration
+            self.demonstrate_openfigi_integration()
             
             print("\n🎉 Bulk operations example completed successfully!")
             
