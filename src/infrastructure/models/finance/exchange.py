@@ -4,7 +4,7 @@ from datetime import datetime
 from src.domain.entities.finance.exchange import Exchange as DomainExchange
 from infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
 
-class Exchange(DomainExchange, Base):
+class Exchange(Base):
     __tablename__ = 'exchanges'
     
     id = Column(Integer, primary_key=True)
@@ -16,8 +16,9 @@ class Exchange(DomainExchange, Base):
 
     # Relationships
     countries = relationship("Country", back_populates="exchanges")
-    stocks = relationship("Stock", back_populates="exchanges")
-    company_stocks = relationship("CompanyStock", back_populates="exchanges")
+    shares = relationship("Share", back_populates="exchanges")
+    company_shares = relationship("CompanyShare", back_populates="exchanges")
+    etf_shares = relationship("ETFShare", back_populates="exchanges")
 
     def __init__(self, name, legal_name, country_id, start_date, end_date=None):
         self.name = name

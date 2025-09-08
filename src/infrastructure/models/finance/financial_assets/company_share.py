@@ -42,7 +42,6 @@ class CompanyShare(Base):
     # Relationships
     company = relationship("Company", back_populates="company_shares")
     exchange = relationship("Exchange", back_populates="company_shares") 
-    key_company_shares = relationship("KeyCompanyShare", back_populates="company_share")
 
     def __repr__(self):
         return f"<CompanyShare(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"

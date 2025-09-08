@@ -17,7 +17,6 @@ from domain.entities.finance.financial_assets.equity import FundamentalData, Div
 from domain.entities.finance.financial_assets.security import MarketData
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from infrastructure.repositories.afl_repo.finance.financial_assets.company_stock_repository.company_stock_repository import CompanyStockRepository as CompanyStockRepositoryAFL
 
 class TestProjectManager(ProjectManager):
     """

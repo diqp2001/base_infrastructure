@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 from src.domain.entities.industry import Industry as DomainIndustry
-class Industry(DomainIndustry,Base):
+class Industry(Base):
     __tablename__ = 'industries'
     
     id = Column(Integer, primary_key=True)

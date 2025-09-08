@@ -1,7 +1,6 @@
 from sqlalchemy import MetaData
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from src.infrastructure.models.keys.finance.financial_assets.key_company_share import KeyCompanyShare
 from src.infrastructure.models import CompanyShare as CompanyShareModel
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper

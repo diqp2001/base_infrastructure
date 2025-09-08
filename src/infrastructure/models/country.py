@@ -5,7 +5,7 @@ from src.infrastructure.models import ModelBase as Base
 from src.domain.entities.country import Country as DomainCountry
 
 
-class Country(DomainCountry,Base):
+class Country(Base):
     __tablename__ = 'countries'
     
     id = Column(Integer, primary_key=True)

@@ -4,7 +4,7 @@ from datetime import datetime
 from src.domain.entities.finance.company import Company as DomainCompany
 from infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
 
-class Company(DomainCompany, Base):
+class Company(Base):
     __tablename__ = 'companies'
     
     id = Column(Integer, primary_key=True)
@@ -18,7 +18,7 @@ class Company(DomainCompany, Base):
     # Relationships
     countries = relationship("Country", back_populates="companies")
     industries = relationship("Industry", back_populates="companies")
-    company_stocks = relationship("CompanyStock", back_populates="companies")
+    company_shares = relationship("CompanyShare", back_populates="companies")
     
     def __init__(self, name, legal_name, country_id, industry_id, start_date, end_date=None):
         self.name = name
