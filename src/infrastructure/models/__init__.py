@@ -7,6 +7,13 @@ class ModelBase(DeclarativeBase):
 
 
 from src.infrastructure.models.finance.financial_assets.company_stock import CompanyStock
+from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare
+from src.infrastructure.models.finance.financial_assets.etf_share import ETFShare
+from src.infrastructure.models.finance.financial_assets.crypto import Crypto
+from src.infrastructure.models.finance.financial_assets.bond import Bond
+from src.infrastructure.models.finance.financial_assets.index import Index
+from src.infrastructure.models.finance.financial_assets.options import Options
+from src.infrastructure.models.finance.financial_assets.futures import Futures
 from src.infrastructure.models.finance.financial_assets.stock import Stock
 from src.infrastructure.models.finance.exchange import Exchange
 from src.infrastructure.models.finance.company import Company

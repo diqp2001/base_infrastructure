@@ -1,0 +1,1 @@
+"""Financial assets domain mappers."""

@@ -5,6 +5,7 @@ from src.infrastructure.models.keys.finance.financial_assets.key_company_stock i
 from src.infrastructure.models import CompanyStock as CompanyStockModel
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from src.domain.entities.finance.financial_assets.company_share import CompanyStock as CompanyStockEntity  # Legacy compatibility
+from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyStockMapper
 
 
 
@@ -14,17 +15,10 @@ class CompanyStockRepository:
         self.session = session
 
     def _to_domain(self, infra_stock: CompanyStockModel) -> CompanyStockEntity:
-        """Convert an infrastructure CompanyStock to a domain CompanyStock."""
+        """Convert an infrastructure CompanyStock to a domain CompanyStock using mapper."""
         if not infra_stock:
             return None
-        return CompanyStockEntity(
-            id=infra_stock.id,
-            ticker=infra_stock.ticker,
-            exchange_id=infra_stock.exchange_id,
-            company_id=infra_stock.company_id,
-            start_date=infra_stock.start_date,
-            end_date=infra_stock.end_date,
-        )
+        return CompanyStockMapper.to_domain(infra_stock)
 
     def get_all(self):
         """Retrieve all CompanyStock records from the database."""
@@ -62,8 +56,8 @@ class CompanyStockRepository:
             # Return the associated CompanyStock if it already exists
             return self.get_by_id(existing_stock.company_stock_id)
 
-        # Convert domain entity to infrastructure model and add it
-        new_stock = CompanyStockModel(domain_entity=domain_stock)
+        # Convert domain entity to infrastructure model using mapper and add it
+        new_stock = CompanyStockMapper.to_orm(domain_stock)
         self.session.add(new_stock)
         self.session.flush()  # Get the new stock ID before committing
 
@@ -197,8 +191,8 @@ class CompanyStockRepository:
                             created_entities.append(existing_entity)
                         continue
                     
-                    # Create new stock
-                    new_stock = CompanyStockModel(domain_entity=domain_stock)
+                    # Create new stock using mapper
+                    new_stock = CompanyStockMapper.to_orm(domain_stock)
                     new_stocks.append(new_stock)
                     self.session.add(new_stock)
                     
