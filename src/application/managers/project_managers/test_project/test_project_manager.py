@@ -29,23 +29,19 @@ class TestProjectManager(ProjectManager):
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
         self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
 
-    def create_multiple_companies(self, companies_data: List[Dict], key_mappings: List[Dict]) -> List[CompanyShareEntity]:
+    def create_multiple_companies(self, companies_data: List[Dict]) -> List[CompanyShareEntity]:
         """
         Create multiple CompanyShare entities in a single atomic transaction.
         
         Args:
             companies_data: List of dicts containing company share data
-            key_mappings: List of dicts with key mapping information
             
         Returns:
             List[CompanyShareEntity]: Successfully created company share entities
         """
-        if not companies_data or not key_mappings:
+        if not companies_data:
             print("No data provided for bulk company creation")
             return []
-            
-        if len(companies_data) != len(key_mappings):
-            raise ValueError("companies_data and key_mappings must have the same length")
         
         print(f"Creating {len(companies_data)} companies in bulk operation...")
         start_time = time.time()
@@ -82,8 +78,8 @@ class TestProjectManager(ProjectManager):
                     print(f"Error creating domain entity {i}: {str(e)}")
                     raise
             
-            # Use bulk repository operation
-            created_entities = self.company_share_repository_local.add_bulk(domain_shares, key_mappings)
+            # Use bulk repository operation (no more key mappings needed)
+            created_entities = self.company_share_repository_local.add_bulk(domain_shares)
             
             end_time = time.time()
             elapsed = end_time - start_time
@@ -123,13 +119,8 @@ class TestProjectManager(ProjectManager):
             }
         ]
         
-        key_mappings = [
-            {'key_id': i+1, 'key_value': f'KEY_{i+1}', 'repo_id': 1}
-            for i in range(len(companies_data))
-        ]
-        
-        # Create companies using bulk operation
-        created_companies = self.create_multiple_companies(companies_data, key_mappings)
+        # Create companies using bulk operation (no key mappings needed)
+        created_companies = self.create_multiple_companies(companies_data)
         
         if not created_companies:
             print("No companies were created")
@@ -199,16 +190,11 @@ class TestProjectManager(ProjectManager):
             for i in range(1, num_companies + 1)
         ]
         
-        key_mappings = [
-            {'key_id': i, 'key_value': f'BULK_KEY_{i}', 'repo_id': 1}
-            for i in range(1, num_companies + 1)
-        ]
-        
         print("⏱️ Performance comparison:")
         print(f"📊 Bulk operation (atomic transaction): Creating {num_companies} companies...")
         
         start_time = time.time()
-        created_companies = self.create_multiple_companies(companies_data, key_mappings)
+        created_companies = self.create_multiple_companies(companies_data)
         end_time = time.time()
         
         bulk_time = end_time - start_time
@@ -255,7 +241,7 @@ class TestProjectManager(ProjectManager):
         share_to_add = CompanyShareEntity(id, ticker, exchange_id, company_id, start_date, end_date)
         print("Available tables:", list(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys()))
         
-        self.company_share_repository_local.add(domain_share=share_to_add, key_id=1, key_value=1, repo_id=1)
+        self.company_share_repository_local.add(domain_share=share_to_add)
         
         exists = self.company_share_repository_local.exists_by_id(1)
         print(f"Company share exists: {exists}")
