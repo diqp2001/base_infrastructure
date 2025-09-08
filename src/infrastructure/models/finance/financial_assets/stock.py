@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from src.domain.entities.finance.financial_assets.stock import Stock as DomainStock
 from src.infrastructure.models import ModelBase as Base
 
-class Stock(DomainStock, Base):
+class Stock(Base):
     __tablename__ = 'stocks'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

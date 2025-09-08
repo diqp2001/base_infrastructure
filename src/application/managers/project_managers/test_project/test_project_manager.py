@@ -13,7 +13,6 @@ from application.managers.database_managers.database_manager import DatabaseMana
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project import config
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.financial_assets.company_share import CompanyStock as CompanyStockEntity  # Legacy compatibility
 from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
@@ -31,7 +30,7 @@ class TestProjectManager(ProjectManager):
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
         self.company_stock_repository_local = CompanyStockRepositoryLocal(self.database_manager.session)
 
-    def create_multiple_companies(self, companies_data: List[Dict], key_mappings: List[Dict]) -> List[CompanyStockEntity]:
+    def create_multiple_companies(self, companies_data: List[Dict], key_mappings: List[Dict]) -> List[CompanyShareEntity]:
         """
         Create multiple CompanyStock entities in a single atomic transaction.
         
@@ -40,7 +39,7 @@ class TestProjectManager(ProjectManager):
             key_mappings: List of dicts with key mapping information
             
         Returns:
-            List[CompanyStockEntity]: Successfully created company stock entities
+            List[CompanyShareEntity]: Successfully created company stock entities
         """
         if not companies_data or not key_mappings:
             print("No data provided for bulk company creation")
@@ -60,7 +59,7 @@ class TestProjectManager(ProjectManager):
             domain_stocks = []
             for i, data in enumerate(companies_data):
                 try:
-                    domain_stock = CompanyStockEntity(
+                    domain_stock = CompanyShareEntity(
                         id=data['id'],
                         ticker=data['ticker'],
                         exchange_id=data['exchange_id'],
@@ -99,7 +98,7 @@ class TestProjectManager(ProjectManager):
             print(f"❌ Error in bulk company creation: {str(e)}")
             raise
 
-    def create_sample_companies_with_market_data(self) -> List[CompanyStockEntity]:
+    def create_sample_companies_with_market_data(self) -> List[CompanyShareEntity]:
         """
         Create sample companies with QuantConnect-style market data and fundamentals.
         Demonstrates the Security/Equity architecture implementation.
@@ -254,7 +253,7 @@ class TestProjectManager(ProjectManager):
         
         self.database_manager.db.initialize_database_and_create_all_tables()
         
-        stock_to_add = CompanyStockEntity(id, ticker, exchange_id, company_id, start_date, end_date)
+        stock_to_add = CompanyShareEntity(id, ticker, exchange_id, company_id, start_date, end_date)
         print("Available tables:", list(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys()))
         
         self.company_stock_repository_local.add(domain_stock=stock_to_add, key_id=1, key_value=1, repo_id=1)
