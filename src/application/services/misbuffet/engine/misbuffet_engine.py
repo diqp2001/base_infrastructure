@@ -32,19 +32,60 @@ class MisbuffetEngine:
         self.logger.info("Starting backtest engine...")
         
         try:
-            # Initialize algorithm
+            # Initialize algorithm - create instance from class
             if hasattr(config, 'algorithm') and config.algorithm:
-                self.algorithm = config.algorithm()
+                self.logger.info(f"Creating algorithm instance from class: {config.algorithm}")
+                self.algorithm = config.algorithm()  # Instantiate the class
+                self.logger.info(f"Algorithm instance created: {self.algorithm}")
                 
             # Setup algorithm with config
             if self.algorithm:
                 # Mock portfolio setup
                 initial_capital = getattr(config, 'initial_capital', 100000)
                 self.algorithm.portfolio = MockPortfolio(initial_capital)
+                
+                # Setup time property (required by MyAlgorithm)
+                from datetime import datetime
+                self.algorithm.time = datetime.now()
+                
+                # Add log method if not present
+                if not hasattr(self.algorithm, 'log'):
+                    self.algorithm.log = lambda msg: self.logger.info(f"Algorithm: {msg}")
+                
+                # Add market_order method if not present  
+                if not hasattr(self.algorithm, 'market_order'):
+                    self.algorithm.market_order = lambda symbol, qty: self.logger.info(f"Market order: {symbol} qty={qty}")
+                
+                # Add add_equity method if not present
+                if not hasattr(self.algorithm, 'add_equity'):
+                    self.algorithm.add_equity = lambda symbol, resolution: self.logger.info(f"Added equity: {symbol} resolution={resolution}")
+                
+                # Add history method if not present
+                if not hasattr(self.algorithm, 'history'):
+                    def mock_history(*args, **kwargs):
+                        import pandas as pd
+                        import numpy as np
+                        # Return mock historical data
+                        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
+                        return pd.DataFrame({
+                            'time': dates,
+                            'close': np.random.normal(100, 10, 100),
+                            'open': np.random.normal(100, 10, 100),
+                            'high': np.random.normal(105, 10, 100),
+                            'low': np.random.normal(95, 10, 100),
+                            'volume': np.random.randint(1000, 10000, 100)
+                        })
+                    self.algorithm.history = mock_history
+                
+                self.logger.info(f"Portfolio setup complete with initial capital: {initial_capital}")
             
-            # Initialize algorithm
+            # Initialize algorithm - this is where initialize() should be called
             if self.algorithm and hasattr(self.algorithm, 'initialize'):
+                self.logger.info("Calling algorithm.initialize()...")
                 self.algorithm.initialize()
+                self.logger.info("Algorithm.initialize() completed successfully")
+            else:
+                self.logger.warning("Algorithm doesn't have initialize method or algorithm is None")
                 
             # Run simulation
             self._run_simulation(config)
