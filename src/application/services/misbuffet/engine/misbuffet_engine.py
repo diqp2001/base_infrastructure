@@ -6,7 +6,12 @@ for backtesting and live trading operations.
 """
 
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime
+from typing import Optional, List, Dict, Any
+import pandas as pd
+
+# Import the stock data repository for real data access
+from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
 
 class MisbuffetEngine:
@@ -18,6 +23,8 @@ class MisbuffetEngine:
         self.result_handler = None
         self.setup_handler = None
         self.algorithm = None
+        self.stock_data_repository = None
+        self.database_manager = None
         self.logger = logging.getLogger("misbuffet.engine")
         
     def setup(self, data_feed=None, transaction_handler=None, result_handler=None, setup_handler=None):
@@ -58,24 +65,24 @@ class MisbuffetEngine:
                 
                 # Add add_equity method if not present
                 if not hasattr(self.algorithm, 'add_equity'):
-                    self.algorithm.add_equity = lambda symbol, resolution: self.logger.info(f"Added equity: {symbol} resolution={resolution}")
+                    def add_equity_with_database(symbol, resolution):
+                        if self.stock_data_repository and self.stock_data_repository.table_exists(symbol):
+                            self.logger.info(f"✅ Added equity: {symbol} resolution={resolution} (database data available)")
+                        else:
+                            self.logger.info(f"⚠️ Added equity: {symbol} resolution={resolution} (using mock data - no database table found)")
+                    self.algorithm.add_equity = add_equity_with_database
                 
-                # Add history method if not present
+                # Setup database connection for real data access
+                if hasattr(config, 'database_manager'):
+                    self.database_manager = config.database_manager
+                    self.stock_data_repository = StockDataRepository(self.database_manager)
+                    self.logger.info("Database connection established for real stock data access")
+                
+                # Add history method that uses real data from database
                 if not hasattr(self.algorithm, 'history'):
-                    def mock_history(*args, **kwargs):
-                        import pandas as pd
-                        import numpy as np
-                        # Return mock historical data
-                        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
-                        return pd.DataFrame({
-                            'time': dates,
-                            'close': np.random.normal(100, 10, 100),
-                            'open': np.random.normal(100, 10, 100),
-                            'high': np.random.normal(105, 10, 100),
-                            'low': np.random.normal(95, 10, 100),
-                            'volume': np.random.randint(1000, 10000, 100)
-                        })
-                    self.algorithm.history = mock_history
+                    def real_history(tickers, periods, resolution, end_time=None):
+                        return self._get_historical_data(tickers, periods, end_time)
+                    self.algorithm.history = real_history
                 
                 self.logger.info(f"Portfolio setup complete with initial capital: {initial_capital}")
             
@@ -129,6 +136,85 @@ class MisbuffetEngine:
                     self.logger.warning(f"Algorithm on_data error: {e}")
                     
             current_date += timedelta(days=1)
+    
+    def _get_historical_data(self, tickers, periods, end_time=None):
+        """
+        Retrieve historical stock data from database.
+        
+        Args:
+            tickers: List of ticker symbols or single ticker
+            periods: Number of periods to retrieve
+            end_time: Optional end date for historical data
+            
+        Returns:
+            DataFrame or dictionary of DataFrames with historical data
+        """
+        if self.stock_data_repository is None:
+            self.logger.warning("No stock data repository available, using mock data")
+            return self._generate_mock_historical_data(tickers, periods)
+        
+        try:
+            # Handle single ticker or list of tickers
+            if isinstance(tickers, str):
+                tickers = [tickers]
+            elif not isinstance(tickers, list):
+                # Handle cases where tickers might be passed in other formats
+                tickers = list(tickers)
+            
+            # Get data from database for each ticker
+            result_data = {}
+            for ticker in tickers:
+                df = self.stock_data_repository.get_historical_data(ticker, periods, end_time)
+                if not df.empty:
+                    # Rename columns to match expected format
+                    df_standardized = df.rename(columns={
+                        'Date': 'time',
+                        'Open': 'open', 
+                        'High': 'high',
+                        'Low': 'low',
+                        'Close': 'close',
+                        'Volume': 'volume'
+                    })
+                    result_data[ticker] = df_standardized
+                    self.logger.info(f"Retrieved {len(df)} records for {ticker} from database")
+                else:
+                    self.logger.warning(f"No data found for {ticker}, using mock data")
+                    result_data[ticker] = self._generate_mock_historical_data([ticker], periods)
+            
+            # Return format based on input
+            if len(tickers) == 1:
+                return result_data.get(tickers[0], pd.DataFrame())
+            else:
+                return result_data
+                
+        except Exception as e:
+            self.logger.error(f"Error retrieving historical data: {e}")
+            return self._generate_mock_historical_data(tickers, periods)
+    
+    def _generate_mock_historical_data(self, tickers, periods):
+        """Fallback method to generate mock historical data."""
+        import numpy as np
+        
+        if isinstance(tickers, str):
+            tickers = [tickers]
+        
+        dates = pd.date_range(start='2023-01-01', periods=periods, freq='D')
+        result_data = {}
+        
+        for ticker in tickers:
+            result_data[ticker] = pd.DataFrame({
+                'time': dates,
+                'close': np.random.normal(100, 10, periods),
+                'open': np.random.normal(100, 10, periods),
+                'high': np.random.normal(105, 10, periods),
+                'low': np.random.normal(95, 10, periods),
+                'volume': np.random.randint(1000, 10000, periods)
+            })
+        
+        if len(tickers) == 1:
+            return result_data[tickers[0]]
+        else:
+            return result_data
 
 
 class MockPortfolio:
