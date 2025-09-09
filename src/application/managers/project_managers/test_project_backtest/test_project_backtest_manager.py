@@ -392,9 +392,29 @@ class TestProjectBacktestManager(ProjectManager):
         tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
         companies_data = []
 
-        # Path to stock data directory
-        stock_data_path = os.path.join(os.path.dirname(__file__), "../../../../data/stock_data")
+        # Path to stock data directory - find project root and build absolute path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = current_dir
+        
+        # Navigate up to find the project root (where data/ folder is located)
+        while not os.path.exists(os.path.join(project_root, 'data', 'stock_data')) and project_root != os.path.dirname(project_root):
+            project_root = os.path.dirname(project_root)
+        
+        stock_data_path = os.path.join(project_root, "data", "stock_data")
         print(f"📁 Loading stock data from: {stock_data_path}")
+        
+        # Verify the path exists before proceeding
+        if not os.path.exists(stock_data_path):
+            print(f"❌ Stock data directory not found at: {stock_data_path}")
+            print(f"Current working directory: {os.getcwd()}")
+            print(f"File location: {current_dir}")
+            print("Available directories in project root:")
+            if os.path.exists(project_root):
+                for item in os.listdir(project_root):
+                    if os.path.isdir(os.path.join(project_root, item)):
+                        print(f"  - {item}/")
+        else:
+            print(f"✅ Stock data directory found with {len(os.listdir(stock_data_path))} files")
 
         # Load actual stock data from CSV files
         stock_data_cache = {}
