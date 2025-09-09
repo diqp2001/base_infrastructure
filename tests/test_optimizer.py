@@ -11,7 +11,7 @@ from typing import List, Dict, Any
 from unittest.mock import Mock, AsyncMock, patch
 
 # Import optimizer modules
-from src.application.services.back_testing.optimizer import (
+from src.application.services.misbuffet.optimizer import (
     OptimizationType, SelectionType, CrossoverType, MutationType,
     OptimizationParameter, OptimizationParameterSet, ParameterSpace,
     OptimizationResult, PerformanceMetrics, OptimizationStatistics,
@@ -20,7 +20,7 @@ from src.application.services.back_testing.optimizer import (
     OptimizerFactory, Individual, Population,
     ParameterType, FitnessMetric, ObjectiveDirection
 )
-from src.application.services.back_testing.optimizer.interfaces import IOptimizationTarget
+from src.application.services.misbuffet.optimizer.interfaces import IOptimizationTarget
 
 
 class MockOptimizationTarget(IOptimizationTarget):

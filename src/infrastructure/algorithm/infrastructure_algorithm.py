@@ -7,10 +7,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from .base_algorithm import BaseAlgorithm
-from ...application.services.back_testing.common.symbol import Symbol
-from ...application.services.back_testing.algorithm.data_handlers import Slice
-from ...application.services.back_testing.algorithm.order import OrderEvent
-from ...application.services.back_testing.common.securities import SecurityChanges
+from ...application.services.misbuffet.common.symbol import Symbol
+from ...application.services.misbuffet.algorithm.data_handlers import Slice
+from ...application.services.misbuffet.algorithm.order import OrderEvent
+from ...application.services.misbuffet.common.securities import SecurityChanges
 
 
 class InfrastructureAlgorithm(BaseAlgorithm):

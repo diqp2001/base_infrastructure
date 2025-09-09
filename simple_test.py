@@ -8,10 +8,10 @@ from datetime import datetime
 
 # Test imports
 try:
-    from src.application.services.back_testing.algorithm.base import QCAlgorithm
-    from src.application.services.back_testing.algorithm.symbol import Symbol
-    from src.application.services.back_testing.algorithm.enums import SecurityType, Resolution
-    from src.application.services.back_testing.algorithm.data_handlers import TradeBar, Slice
+    from src.application.services.misbuffet.algorithm.base import QCAlgorithm
+    from src.application.services.misbuffet.algorithm.symbol import Symbol
+    from src.application.services.misbuffet.algorithm.enums import SecurityType, Resolution
+    from src.application.services.misbuffet.algorithm.data_handlers import TradeBar, Slice
     print("✅ All imports successful!")
 except ImportError as e:
     print(f"❌ Import error: {e}")

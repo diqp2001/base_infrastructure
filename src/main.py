@@ -12,10 +12,11 @@ from lightgbm.dask import DaskLGBMClassifier
 from application.managers.api_managers.api_cboe.api_cboe_manager import download_and_consolidate_csv
 from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.cross_sectionnal_ML_stock_returns_project_manager import CrossSectionalMLStockReturnsProjectManager
 from application.managers.project_managers.momentum_ML_project.momentum_ML_project import MomentumMLProjectManager
+from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_data.test_project_data_manager import TestProjectDataManager
-from application.services.back_testing.example_comprehensive_backtest import ComprehensiveBacktestRunner, main
-from application.services.back_testing.launcher.launcher import Launcher
-from application.services.back_testing.backtesting import BackTesting
+from application.services.misbuffet.example_comprehensive_backtest import ComprehensiveBacktestRunner, main
+from application.services.misbuffet.launcher.launcher import Launcher
+from application.services.misbuffet.backtesting import BackTesting
 
 
 
@@ -38,22 +39,13 @@ if __name__ == '__main__':
     
     with Profile() as profile:
         #MomentumMLProjectManager().test_single_future()
-        manager = TestProjectDataManager()
+        #manager = TestProjectDataManager()
+        manager = TestProjectBacktestManager()
         
         # Demonstrate legacy functionality
-        manager.save_new_company_share()  # This now uses the new share-based terminology
+        #manager.save_new_company_share()  # This now uses the new share-based terminology
         
-        """# Demonstrate new OpenFIGI integration
-        print("\n" + "="*60)
-        print("🌐 DEMONSTRATING OPENFIGI INTEGRATION")
-        print("="*60)
-        manager.demonstrate_openfigi_integration()
-        
-        # Demonstrate complete bulk operations with back testing entities
-        print("\n" + "="*60)  
-        print("🚀 DEMONSTRATING COMPLETE BULK OPERATIONS + BACK TESTING ENTITIES")
-        print("="*60)
-        manager.save_multiple_company_shares_example()"""
+        manager.demonstrate_backtesting_capabilities()  # This now uses the new share-based terminology
         
         (
             Stats(profile).strip_dirs().sort_stats(SortKey.CALLS).print_stats()

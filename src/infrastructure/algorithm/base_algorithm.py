@@ -5,11 +5,11 @@ Base algorithm implementation for the infrastructure layer.
 from abc import ABC
 from typing import List
 
-from ...application.services.back_testing.common.interfaces import IAlgorithm
-from ...application.services.back_testing.common.symbol import Symbol
-from ...application.services.back_testing.common.data_types import BaseData
-from ...application.services.back_testing.algorithm.data_handlers import Slice
-from ...application.services.back_testing.algorithm.order import OrderEvent
+from ...application.services.misbuffet.common.interfaces import IAlgorithm
+from ...application.services.misbuffet.common.symbol import Symbol
+from ...application.services.misbuffet.common.data_types import BaseData
+from ...application.services.misbuffet.algorithm.data_handlers import Slice
+from ...application.services.misbuffet.algorithm.order import OrderEvent
 
 
 class BaseAlgorithm(IAlgorithm, ABC):

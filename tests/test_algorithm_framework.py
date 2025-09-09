@@ -12,24 +12,24 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from application.services.back_testing.algorithm.base import QCAlgorithm
-from application.services.back_testing.algorithm.symbol import Symbol, SymbolProperties
-from application.services.back_testing.algorithm.enums import (
+from application.services.misbuffet.algorithm.base import QCAlgorithm
+from application.services.misbuffet.algorithm.symbol import Symbol, SymbolProperties
+from application.services.misbuffet.algorithm.enums import (
     SecurityType, Resolution, OrderType, OrderStatus, OrderDirection
 )
-from application.services.back_testing.algorithm.data_handlers import (
+from application.services.misbuffet.algorithm.data_handlers import (
     BaseData, TradeBar, QuoteBar, Tick, Slice, TradeBars, QuoteBars
 )
-from application.services.back_testing.algorithm.order import (
+from application.services.misbuffet.algorithm.order import (
     Order, OrderTicket, MarketOrder, LimitOrder, OrderBuilder, create_order
 )
-from application.services.back_testing.algorithm.security import (
+from application.services.misbuffet.algorithm.security import (
     Security, Securities, SecurityHolding, SecurityPortfolioManager
 )
-from application.services.back_testing.algorithm.scheduling import (
+from application.services.misbuffet.algorithm.scheduling import (
     ScheduleManager, DateRules, TimeRules, DayOfWeek
 )
-from application.services.back_testing.algorithm.utils import AlgorithmUtilities
+from application.services.misbuffet.algorithm.utils import AlgorithmUtilities
 
 
 class TestSymbol(unittest.TestCase):
