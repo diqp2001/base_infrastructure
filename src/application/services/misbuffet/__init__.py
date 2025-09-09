@@ -19,6 +19,8 @@ Modules:
 - framework: Algorithm framework with portfolio and risk management components
 """
 
+import logging
+
 # Re-export key components from all modules for easy access
 from .common import *
 from .data import *
@@ -46,7 +48,91 @@ except ImportError:
 __version__ = "1.0.0"
 __author__ = "QuantConnect Lean Python Implementation"
 
+# Import engine components from separate file
+from .misbuffet_engine import MisbuffetEngine, BacktestResult, MockPortfolio
+
+# Main Misbuffet class with engine integration
+class Misbuffet:
+    """Main Misbuffet class for launching and managing backtesting/live trading."""
+    
+    def __init__(self):
+        self.launcher = None
+        self.engine = None
+        self.logger = None
+        
+    @staticmethod
+    def launch(config_file=None, **kwargs):
+        """Launch the misbuffet package with configuration."""
+        import logging
+        import os
+        from .launcher import Launcher, ConfigurationProvider
+        
+        # Setup logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger("misbuffet")
+        logger.info("Launching Misbuffet package...")
+        
+        # Create instance
+        instance = Misbuffet()
+        instance.logger = logger
+        
+        # Load configuration
+        if config_file and os.path.exists(config_file):
+            # Try to load config file (launch_config.py)
+            config_globals = {}
+            with open(config_file, 'r') as f:
+                exec(f.read(), config_globals)
+            logger.info(f"Loaded configuration from {config_file}")
+        
+        # Initialize launcher
+        instance.launcher = Launcher()
+        logger.info("Misbuffet package launched successfully.")
+        
+        return instance
+    
+    def start_engine(self, config_file=None, **kwargs):
+        """Start the engine with configuration."""
+        import logging
+        import os
+        from .engine import LeanEngine, BacktestingDataFeed, BacktestingTransactionHandler
+        from .engine import BacktestingResultHandler, BacktestingSetupHandler
+        
+        if not self.logger:
+            self.logger = logging.getLogger("misbuffet")
+            
+        self.logger.info("Starting Misbuffet engine...")
+        
+        # Load engine configuration
+        if config_file and os.path.exists(config_file):
+            # Try to load config file (engine_config.py)
+            config_globals = {}
+            with open(config_file, 'r') as f:
+                exec(f.read(), config_globals)
+            self.logger.info(f"Loaded engine configuration from {config_file}")
+        
+        # Create engine with handlers
+        engine = MisbuffetEngine()
+        engine.setup(
+            data_feed=BacktestingDataFeed(),
+            transaction_handler=BacktestingTransactionHandler(),
+            result_handler=BacktestingResultHandler(),
+            setup_handler=BacktestingSetupHandler()
+        )
+        
+        self.engine = engine
+        self.logger.info("Misbuffet engine started successfully.")
+        
+        return engine
+
+
 __all__ = [
+    # Main class
+    "Misbuffet",
+    
+    # Engine classes
+    "MisbuffetEngine",
+    "BacktestResult",
+    
     # Core modules are exported via their own __all__ lists
     # This provides a clean namespace for users
 ]
