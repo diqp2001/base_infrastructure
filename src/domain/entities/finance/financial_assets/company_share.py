@@ -23,6 +23,8 @@ class CompanyShare(Share):
         # Company relationship
         self.company_id = company_id
         self._company_name: Optional[str] = None
+        self._sector: Optional[str] = None  # internal storage
+        self._industry: Optional[str] = None  # internal storage
         
     @property
     def company_name(self) -> Optional[str]:
@@ -32,6 +34,20 @@ class CompanyShare(Share):
     def set_company_name(self, name: str) -> None:
         """Set the company name."""
         self._company_name = name
+    @property
+    def sector(self) -> Optional[str]:
+        return self._sector
+
+    def set_sector(self, sector: str) -> None:
+        self._sector = sector
+
+    @property
+    def industry(self) -> Optional[str]:
+        return self._industry
+
+    def set_industry(self, industry: str) -> None:
+        self._industry = industry
+
     
     def update_market_data(self, data: MarketData) -> None:
         """Override to add company-specific market data processing."""
