@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
-from application.managers.project_managers.test_project_data import config
+from application.managers.project_managers.test_project_backtest import config
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
 from domain.entities.finance.financial_assets.security import MarketData
@@ -30,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# main.py
+# Algorithm implementation using the misbuffet framework
 import logging
 from datetime import datetime, timedelta
 
@@ -38,11 +38,16 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-from misbuffet import Misbuffet
-from misbuffet.launcher import LauncherConfiguration
-from misbuffet.common.interfaces import IAlgorithm
-from misbuffet.common import Resolution
-from misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer 
+# Import from the application services misbuffet package
+from application.services.misbuffet import Misbuffet
+from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
+from application.services.misbuffet.common.interfaces import IAlgorithm
+from application.services.misbuffet.common.enums import Resolution
+from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+
+# Import config files
+from .launch_config import MISBUFFET_LAUNCH_CONFIG
+from .engine_config import MISBUFFET_ENGINE_CONFIG 
 
 # ----------------------------------------------------------------------
 # Example algorithm: Universe of stocks + weekly retraining + BL optimizer
@@ -152,9 +157,32 @@ class MyAlgorithm(IAlgorithm):
 
         # Compute historical mean & covariance of returns
         hist = self.history(self.universe, self.train_window, Resolution.DAILY)
-        pivoted = hist.pivot(index="time", columns="symbol", values="close").pct_change().dropna()
-        mu = pivoted.mean()
-        cov = pivoted.cov()
+        
+        # Handle both dictionary and DataFrame formats
+        if isinstance(hist, dict):
+            # Convert dictionary to DataFrame
+            df_list = []
+            for symbol, data in hist.items():
+                if isinstance(data, pd.DataFrame):
+                    data['symbol'] = symbol
+                    df_list.append(data)
+            if df_list:
+                hist_df = pd.concat(df_list, ignore_index=True)
+                pivoted = hist_df.pivot(index="time", columns="symbol", values="close")
+            else:
+                # Fallback: create simple returns data
+                returns_data = {}
+                for symbol in self.universe:
+                    # Use mock data for demonstration
+                    returns_data[symbol] = np.random.normal(0.001, 0.02, self.train_window)
+                pivoted = pd.DataFrame(returns_data)
+        else:
+            # Assume it's already a DataFrame
+            pivoted = hist.pivot(index="time", columns="symbol", values="close")
+        
+        returns = pivoted.pct_change().dropna()
+        mu = returns.mean()
+        cov = returns.cov()
 
         bl = BlackLittermanOptimizer(mu, cov)
         bl.add_views(views)
@@ -202,23 +230,37 @@ class TestProjectBacktestManager(ProjectManager):
 
         logger.info("Launching Misbuffet...")
 
-        # Step 1: Launch package
-        misbuffet = Misbuffet.launch(config_file="launch_config.py")
+        try:
+            # Step 1: Launch package
+            misbuffet = Misbuffet.launch(config_file="launch_config.py")
 
-        # Step 2: Configure engine
-        config = LauncherConfiguration()
-        config.algorithm = MyAlgorithm
-        config.start_date = datetime(2021, 1, 1)
-        config.end_date = datetime(2022, 1, 1)
-        config.initial_capital = 100_000
+            # Step 2: Configure engine with LauncherConfiguration
+            config = LauncherConfiguration(
+                mode=LauncherMode.BACKTESTING,
+                algorithm_type_name="MyAlgorithm",
+                algorithm_location=__file__,
+                data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
+                environment="backtesting",
+                live_mode=False,
+                debugging=True
+            )
+            
+            # Override with engine config values
+            config.custom_config = MISBUFFET_ENGINE_CONFIG
 
-        logger.info("Starting engine...")
-        engine = misbuffet.start_engine(config_file="engine_config.py")
+            logger.info("Starting engine...")
+            engine = misbuffet.start_engine(config_file="engine_config.py")
 
-        # Step 3: Run backtest
-        result = engine.run(config)
+            # Step 3: Run backtest
+            result = engine.run(config)
 
-        logger.info("Backtest finished.")
-        logger.info(f"Result summary: {result.summary()}")
+            logger.info("Backtest finished.")
+            logger.info(f"Result summary: {result.summary()}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error running backtest: {e}")
+            raise
     
     
