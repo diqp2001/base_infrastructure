@@ -17,10 +17,23 @@ from infrastructure.repositories.local_repo.finance.financial_assets.company_sha
 
 # Import the actual backtesting framework components
 from application.services.misbuffet.common import (
-    IAlgorithm, BaseData, TradeBar, Slice, Symbol, Resolution, SecurityType, 
-    OrderType, OrderDirection, Securities, Portfolio, OrderTicket, TradeBars
+    IAlgorithm, BaseData, TradeBar, Slice, Resolution, 
+    OrderType, OrderDirection, Securities, OrderTicket, TradeBars
 )
 from application.services.misbuffet.algorithm.base import QCAlgorithm
+
+# Import domain entities following DDD structure
+from domain.entities.back_testing import (
+    MockPortfolio, MockSecurity, MockMarketData, Symbol, SecurityType
+)
+from infrastructure.models.back_testing import (
+    MockPortfolioModel, MockSecurityModel
+)
+
+# Import result handling
+from application.services.misbuffet.results import (
+    BacktestResultHandler, BacktestResult, PerformanceAnalyzer
+)
 
 # Configure logging
 logging.basicConfig(
