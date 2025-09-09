@@ -16,6 +16,7 @@ from domain.entities.finance.financial_assets.equity import FundamentalData, Div
 from domain.entities.finance.financial_assets.security import MarketData
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
+from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
 # Import the actual backtesting framework components
 from application.services.misbuffet.common import (
@@ -304,6 +305,11 @@ class TestProjectBacktestManager(ProjectManager):
             
             # Add algorithm class to config for engine to use
             config.algorithm = MyAlgorithm  # Pass the class, not an instance
+            
+            # Add database manager for real data access
+            config.database_manager = self.database_manager
+            
+            logger.info("Configuration setup with database access for real stock data")
 
             logger.info("Starting engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
@@ -453,7 +459,7 @@ class TestProjectBacktestManager(ProjectManager):
             print("❌ No companies were created")
             return []
 
-        # Step 2: Enhance with market and fundamental data using real stock data
+        # Step 2: Save CSV data to database and enhance with market and fundamental data
         for i, company in enumerate(created_companies):
             ticker = company.ticker
             try:
@@ -461,6 +467,11 @@ class TestProjectBacktestManager(ProjectManager):
                 stock_df = stock_data_cache.get(ticker)
                 
                 if stock_df is not None and not stock_df.empty:
+                    # Save CSV data to database for backtesting engine to use
+                    table_name = f"stock_price_data_{ticker.lower()}"
+                    print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
+                    self.database_manager.dataframe_replace_table(stock_df, table_name)
+                    
                     # Use the most recent data point for current market data
                     latest_data = stock_df.iloc[-1]
                     latest_price = Decimal(str(latest_data['Close']))
