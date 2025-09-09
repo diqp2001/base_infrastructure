@@ -69,7 +69,7 @@ from .engine_config import MISBUFFET_ENGINE_CONFIG
 class MyAlgorithm(IAlgorithm):
     def initialize(self):
         # Define universe
-        self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL", "META"]
+        self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
         for ticker in self.universe:
             self.add_equity(ticker, Resolution.DAILY)
 
@@ -259,11 +259,6 @@ class MyAlgorithm(IAlgorithm):
         self.log(f"Option assignment: {assignment_event}")
 
 
-
-
-
-
-
 class TestProjectBacktestManager(ProjectManager):
     """
     Enhanced Project Manager for backtesting operations.
@@ -282,6 +277,7 @@ class TestProjectBacktestManager(ProjectManager):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def run(self):
+        self.create_five_tech_companies_with_data()
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger("misbuffet-main")
 
@@ -322,5 +318,138 @@ class TestProjectBacktestManager(ProjectManager):
         except Exception as e:
             logger.error(f"Error running backtest: {e}")
             raise
+
+    def create_multiple_companies(self, companies_data: List[Dict]) -> List[CompanyShareEntity]:
+        """
+        Create multiple CompanyShare entities in a single atomic transaction.
+        
+        Args:
+            companies_data: List of dicts containing company share data
+            
+        Returns:
+            List[CompanyShareEntity]: Successfully created company share entities
+        """
+        if not companies_data:
+            print("No data provided for bulk company creation")
+            return []
+        
+        print(f"Creating {len(companies_data)} companies in bulk operation...")
+        start_time = time.time()
+        
+        try:
+            # Initialize database if needed
+            self.database_manager.db.initialize_database_and_create_all_tables()
+            
+            # Validate and create domain entities
+            domain_shares = []
+            for i, data in enumerate(companies_data):
+                try:
+                    domain_share = CompanyShareEntity(
+                        id=data['id'],
+                        ticker=data['ticker'],
+                        exchange_id=data['exchange_id'],
+                        company_id=data['company_id'],
+                        start_date=data['start_date'],
+                        end_date=data.get('end_date')
+                    )
+                    
+                    # Set company name if provided
+                    if 'company_name' in data:
+                        domain_share.set_company_name(data['company_name'])
+                    
+                    # Set sector information if provided  
+                    if 'sector' in data:
+                        fundamentals = FundamentalData(sector=data['sector'])
+                        domain_share.update_company_fundamentals(fundamentals)
+                    
+                    domain_shares.append(domain_share)
+                    
+                except Exception as e:
+                    print(f"Error creating domain entity {i}: {str(e)}")
+                    raise
+            
+            # Use bulk repository operation (no more key mappings needed)
+            created_entities = self.company_share_repository_local.add_bulk(domain_shares)
+            
+            end_time = time.time()
+            elapsed = end_time - start_time
+            
+            print(f"✅ Successfully created {len(created_entities)} companies in {elapsed:.3f} seconds")
+            print(f"⚡ Performance: {len(created_entities)/elapsed:.1f} companies/second")
+            
+            return created_entities
+            
+        except Exception as e:
+            print(f"❌ Error in bulk company creation: {str(e)}")
+            raise
+
+    def create_five_tech_companies_with_data(self) -> List[CompanyShareEntity]:
+        """
+        Create the 5 tech companies (AAPL, MSFT, AMZN, GOOGL) 
+        and populate them with market and fundamental data.
+        """
+        tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
+        companies_data = []
+
+        # Sample starting IDs and exchange/company IDs
+        start_id = 1
+        for i, ticker in enumerate(tickers, start=start_id):
+            companies_data.append({
+                'id': i,
+                'ticker': ticker,
+                'exchange_id': 1,
+                'company_id': i,
+                'start_date': datetime(2020, 1, 1),
+                'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
+                'sector': 'Technology'
+            })
+
+        # Step 1: Create companies in bulk
+        created_companies = self.create_multiple_companies(companies_data)
+        if not created_companies:
+            print("❌ No companies were created")
+            return []
+
+        # Step 2: Enhance with market and fundamental data
+        for i, company in enumerate(created_companies):
+            try:
+                # Market data (price + volume)
+                market_data = MarketData(
+                    timestamp=datetime.now(),
+                    price=Decimal(str(100 + i * 50)),  # Arbitrary example prices
+                    volume=Decimal(str(1_000_000 + i * 100_000))
+                )
+                company.update_market_data(market_data)
+
+                # Fundamental data
+                fundamentals = FundamentalData(
+                    pe_ratio=Decimal(str(15 + i * 5)),
+                    dividend_yield=Decimal(str(1.5 + i * 0.5)),
+                    market_cap=Decimal(str(1_000_000_000_000 + i * 500_000_000_000)),  # $1T+
+                    shares_outstanding=Decimal(str(1_000_000_000 + i * 100_000_000)),
+                    sector='Technology',
+                    industry='Software' if ticker != "GOOGL" else 'Internet Services'
+                )
+                company.update_company_fundamentals(fundamentals)
+
+                # Sample dividend
+                dividend = Dividend(
+                    amount=Decimal(str(0.25 + i * 0.1)),
+                    ex_date=datetime(2024, 3, 15),
+                    pay_date=datetime(2024, 3, 30)
+                )
+                company.add_dividend(dividend)
+
+                # Print metrics for confirmation
+                metrics = company.get_company_metrics()
+                print(f"📊 {company.ticker}: Price={metrics['current_price']}, "
+                    f"P/E={metrics['pe_ratio']}, Div Yield={metrics['dividend_yield']}%")
+
+            except Exception as e:
+                print(f"❌ Error enhancing company {company.ticker}: {str(e)}")
+                continue
+
+        return created_companies
+
     
     
