@@ -15,7 +15,7 @@ from ..common.interfaces import IDataFeed
 from ..common.data_types import BaseData, TradeBar, QuoteBar, Tick, Slice, SubscriptionDataConfig
 from ..common.symbol import Symbol
 from ..common.enums import Resolution, SecurityType
-from ..common.time_utils import Time
+#from ..common.time_utils import Time
 from .data_reader import BaseDataReader, LeanDataReader, CsvDataReader
 from .subscription_manager import SubscriptionManager
 

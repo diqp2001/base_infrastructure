@@ -237,3 +237,40 @@ class OptionStyle(Enum):
     """
     AMERICAN = "American"
     EUROPEAN = "European"
+
+class DataType(Enum):
+    """
+    High-level classification of data categories.
+    Useful for distinguishing between different domains of information.
+    """
+    MARKET = "Market"          # TradeBar, QuoteBar, Tick
+    FUNDAMENTAL = "Fundamental"  # Company fundamentals, ratios, statements
+    ALTERNATIVE = "Alternative"  # Alternative data (news, sentiment, satellite, etc.)
+    DERIVED = "Derived"        # Engineered features or synthetic indicators
+    CUSTOM = "Custom"          # User-provided or specialized data
+
+class Language(Enum):
+    """
+    Programming or scripting languages supported in the framework.
+    Can be used to indicate algorithm language preferences or parsing logic.
+    """
+    PYTHON = "Python"
+    CSHARP = "CSharp"
+    FSHARP = "FSharp"
+    JAVASCRIPT = "JavaScript"
+    TYPESCRIPT = "TypeScript"
+    R = "R"
+    JULIA = "Julia"
+    CPP = "C++"
+
+from enum import Enum
+
+class BrokerageEnvironment(Enum):
+    """
+    Represents the environment type of a brokerage.
+    Used to differentiate between live trading and simulated/backtesting environments.
+    """
+    LIVE = "Live"
+    PAPER = "Paper"
+    BACKTEST = "Backtest"
+

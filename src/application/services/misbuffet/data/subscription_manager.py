@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from ..common.data_types import SubscriptionDataConfig, BaseData
 from ..common.symbol import Symbol
 from ..common.enums import Resolution, SecurityType
-from ..common.time_utils import Time, get_market_hours_database
+from ..common.time_utils import Time
 
 
 class SubscriptionManager:
@@ -23,7 +23,7 @@ class SubscriptionManager:
         self._active_subscriptions: Set[str] = set()
         
         # Market hours database for subscription filtering
-        self._market_hours_db = get_market_hours_database()
+        self._market_hours_db = Time().get_market_hours_database()
     
     def add_subscription(self, config: SubscriptionDataConfig) -> bool:
         """Add a subscription configuration."""

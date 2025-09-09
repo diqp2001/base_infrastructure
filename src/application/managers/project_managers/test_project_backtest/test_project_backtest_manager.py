@@ -9,6 +9,7 @@ import pandas as pd
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
+from application.services.misbuffet.algorithm.order import OrderEvent
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
 from domain.entities.finance.financial_assets.security import MarketData
@@ -212,9 +213,52 @@ class MyAlgorithm(IAlgorithm):
             if qty != 0:
                 self.market_order(ticker, qty)
 
-# ----------------------------------------------------------------------
-# Application entry point
-# ----------------------------------------------------------------------
+    def on_order_event(self, order_event: OrderEvent) -> None:
+        """Called when an order is filled or updated."""
+        self.log(f"OrderEvent: {order_event.symbol} - Status: {order_event.status} - Qty: {order_event.quantity}")
+
+    # ---------------------------
+    # End of day
+    # ---------------------------
+    def on_end_of_day(self, symbol: Symbol) -> None:
+        """Called at the end of each trading day."""
+        self.log(f"End of day for {symbol.value}")
+
+    # ---------------------------
+    # End of algorithm
+    # ---------------------------
+    def on_end_of_algorithm(self) -> None:
+        """Called when the algorithm finishes execution."""
+        self.log("Algorithm execution completed.")
+    
+    # ---------------------------
+    # Securities changes
+    # ---------------------------
+    def on_securities_changed(self, changes: Dict[str, List[Any]]) -> None:
+        """Called when securities are added or removed."""
+        added = changes.get("added", [])
+        removed = changes.get("removed", [])
+        if added:
+            self.log(f"Securities added: {[s.value for s in added]}")
+        if removed:
+            self.log(f"Securities removed: {[s.value for s in removed]}")
+
+    # ---------------------------
+    # Margin call
+    # ---------------------------
+    def on_margin_call(self, requests: List[Dict[str, Any]]) -> None:
+        """Called when a margin call occurs."""
+        for req in requests:
+            self.log(f"Margin call: {req}")
+
+    # ---------------------------
+    # Option assignment
+    # ---------------------------
+    def on_assignment(self, assignment_event: Dict[str, Any]) -> None:
+        """Called when an option assignment occurs."""
+        self.log(f"Option assignment: {assignment_event}")
+
+
 
 
 
@@ -250,7 +294,7 @@ class TestProjectBacktestManager(ProjectManager):
             # Step 2: Configure engine with LauncherConfiguration
             config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
-                algorithm_type_name="MyAlgorithm",
+                algorithm_type_name=MyAlgorithm(),#"MyAlgorithm",
                 algorithm_location=__file__,
                 data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
                 environment="backtesting",

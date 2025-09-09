@@ -43,6 +43,25 @@ class AlgorithmFactory(IAlgorithmFactory):
         # Python compiler
         python_compiler = PythonCompiler()
         self._compilers[Language.PYTHON] = python_compiler
+
+    def create_algorithm(self, algorithm_cls: Type[IAlgorithm], *args, **kwargs) -> IAlgorithm:
+        """
+        Creates and returns an instance of a trading algorithm.
+
+        Args:
+            algorithm_cls (Type[IAlgorithm]): The class of the algorithm to instantiate.
+            *args: Positional arguments to pass to the algorithm constructor.
+            **kwargs: Keyword arguments to pass to the algorithm constructor.
+
+        Returns:
+            IAlgorithm: An instance of the requested algorithm.
+        """
+        if not issubclass(algorithm_cls, IAlgorithm):
+            raise TypeError(f"{algorithm_cls.__name__} must implement IAlgorithm interface")
+
+        # Instantiate the algorithm
+        algorithm_instance = algorithm_cls(*args, **kwargs)
+        return algorithm_instance
     
     def create_algorithm_instance(self, algorithm_name: str, **kwargs) -> IAlgorithm:
         """

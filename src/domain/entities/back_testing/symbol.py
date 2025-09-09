@@ -5,7 +5,7 @@ Pure domain entities following DDD principles.
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 from .enums import SecurityType, Market
 
 

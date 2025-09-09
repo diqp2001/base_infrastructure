@@ -20,6 +20,8 @@ Modules:
 """
 
 import logging
+from pathlib import Path
+from typing import Optional
 
 # Re-export key components from all modules for easy access
 from .common import *
@@ -184,7 +186,7 @@ __version__ = "1.0.0"
 __author__ = "QuantConnect Lean Python Implementation"
 
 # Import engine components from separate file
-from .misbuffet_engine import MisbuffetEngine, BacktestResult, MockPortfolio
+from .engine.misbuffet_engine import MisbuffetEngine, BacktestResult, MockPortfolio
 
 # Main Misbuffet class with engine integration
 class Misbuffet:

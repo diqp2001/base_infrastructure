@@ -284,3 +284,89 @@ class Slice:
     def has_data(self) -> bool:
         """Returns True if this slice contains any data"""
         return bool(self.bars or self.quote_bars or self.ticks)
+    
+
+    
+@dataclass
+class SubscriptionDataConfig:
+    """
+    Configuration for a data subscription.
+    Defines how market data should be requested and delivered
+    for a specific symbol.
+    """
+    symbol: Symbol
+    data_type: MarketDataType
+    resolution: str  # e.g., 'tick', 'minute', 'hour', 'daily'
+    fill_forward: bool = True
+    extended_hours: bool = False
+    market: str = "USA"
+    tick_type: Optional[TickType] = None
+    is_custom: bool = False
+    normalization_mode: str = "raw"  # could be 'raw', 'split_adjusted', etc.
+    data_timezone: str = "America/New_York"
+    exchange_timezone: str = "America/New_York"
+
+    def clone_for_symbol(self, new_symbol: Symbol) -> "SubscriptionDataConfig":
+        """
+        Creates a copy of this config for a different symbol.
+        
+        Args:
+            new_symbol: The symbol to apply the config to
+        
+        Returns:
+            A new SubscriptionDataConfig for the given symbol
+        """
+        return SubscriptionDataConfig(
+            symbol=new_symbol,
+            data_type=self.data_type,
+            resolution=self.resolution,
+            fill_forward=self.fill_forward,
+            extended_hours=self.extended_hours,
+            market=self.market,
+            tick_type=self.tick_type,
+            is_custom=self.is_custom,
+            normalization_mode=self.normalization_mode,
+            data_timezone=self.data_timezone,
+            exchange_timezone=self.exchange_timezone,
+        )
+
+
+
+@dataclass
+class Bar(BaseData):
+    """
+    Base class for bar data (OHLC).
+    Used as a foundation for TradeBar and QuoteBar.
+    """
+    open: float = 0.0
+    high: float = 0.0
+    low: float = 0.0
+    close: float = 0.0
+    volume: int = 0
+
+    data_type: MarketDataType = field(default=MarketDataType.BASE, init=False)
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Default representative value is close price
+        if self.value == 0.0:
+            self.value = self.close
+
+    @property
+    def price(self) -> float:
+        """Default bar price (close)."""
+        return self.close
+
+    def update(self, time: datetime, price: float, volume: int = 0):
+        """Update the bar with a new price and optional volume."""
+        if not hasattr(self, "_initialized") or not self._initialized:
+            self.open = self.high = self.low = self.close = price
+            self._initialized = True
+        else:
+            self.high = max(self.high, price)
+            self.low = min(self.low, price)
+            self.close = price
+
+        self.volume += volume
+        self.time = time
+        self.value = self.close
