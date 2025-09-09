@@ -294,7 +294,7 @@ class TestProjectBacktestManager(ProjectManager):
             # Step 2: Configure engine with LauncherConfiguration
             config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
-                algorithm_type_name=MyAlgorithm(),#"MyAlgorithm",
+                algorithm_type_name="MyAlgorithm",  # String name as expected by LauncherConfiguration
                 algorithm_location=__file__,
                 data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
                 environment="backtesting",
@@ -304,6 +304,9 @@ class TestProjectBacktestManager(ProjectManager):
             
             # Override with engine config values
             config.custom_config = MISBUFFET_ENGINE_CONFIG
+            
+            # Add algorithm class to config for engine to use
+            config.algorithm = MyAlgorithm  # Pass the class, not an instance
 
             logger.info("Starting engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
