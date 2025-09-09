@@ -1,6 +1,7 @@
 import time
 import logging
 import random
+import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
@@ -386,10 +387,32 @@ class TestProjectBacktestManager(ProjectManager):
     def create_five_tech_companies_with_data(self) -> List[CompanyShareEntity]:
         """
         Create the 5 tech companies (AAPL, MSFT, AMZN, GOOGL) 
-        and populate them with market and fundamental data.
+        and populate them with market and fundamental data loaded from CSV files.
         """
         tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
         companies_data = []
+
+        # Path to stock data directory
+        stock_data_path = os.path.join(os.path.dirname(__file__), "../../../../data/stock_data")
+        print(f"📁 Loading stock data from: {stock_data_path}")
+
+        # Load actual stock data from CSV files
+        stock_data_cache = {}
+        for ticker in tickers:
+            csv_path = os.path.join(stock_data_path, f"{ticker}.csv")
+            try:
+                if os.path.exists(csv_path):
+                    df = pd.read_csv(csv_path)
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    df = df.sort_values('Date')
+                    stock_data_cache[ticker] = df
+                    print(f"✅ Loaded {len(df)} data points for {ticker} from {df['Date'].min().date()} to {df['Date'].max().date()}")
+                else:
+                    print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
+                    stock_data_cache[ticker] = None
+            except Exception as e:
+                print(f"❌ Error loading data for {ticker}: {str(e)}")
+                stock_data_cache[ticker] = None
 
         # Sample starting IDs and exchange/company IDs
         start_id = 1
@@ -410,31 +433,68 @@ class TestProjectBacktestManager(ProjectManager):
             print("❌ No companies were created")
             return []
 
-        # Step 2: Enhance with market and fundamental data
+        # Step 2: Enhance with market and fundamental data using real stock data
         for i, company in enumerate(created_companies):
+            ticker = company.ticker
             try:
-                # Market data (price + volume)
+                # Get stock data for this ticker
+                stock_df = stock_data_cache.get(ticker)
+                
+                if stock_df is not None and not stock_df.empty:
+                    # Use the most recent data point for current market data
+                    latest_data = stock_df.iloc[-1]
+                    latest_price = Decimal(str(latest_data['Close']))
+                    latest_volume = Decimal(str(latest_data['Volume']))
+                    latest_date = latest_data['Date']
+                    
+                    # Historical data statistics for fundamental analysis
+                    recent_data = stock_df.tail(252)  # Last year of data
+                    avg_volume = Decimal(str(recent_data['Volume'].mean()))
+                    price_52w_high = Decimal(str(recent_data['High'].max()))
+                    price_52w_low = Decimal(str(recent_data['Low'].min()))
+                    
+                    print(f"📈 Using real data for {ticker}: Latest Close=${latest_price:.2f}, Volume={latest_volume:,}")
+                else:
+                    # Fallback to mock data if CSV not available
+                    latest_price = Decimal(str(100 + i * 50))
+                    latest_volume = Decimal(str(1_000_000 + i * 100_000))
+                    latest_date = datetime.now()
+                    avg_volume = latest_volume
+                    price_52w_high = latest_price * Decimal('1.2')
+                    price_52w_low = latest_price * Decimal('0.8')
+                    print(f"⚠️  Using fallback data for {ticker}")
+
+                # Market data (using real prices and volumes)
                 market_data = MarketData(
-                    timestamp=datetime.now(),
-                    price=Decimal(str(100 + i * 50)),  # Arbitrary example prices
-                    volume=Decimal(str(1_000_000 + i * 100_000))
+                    timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
+                    price=latest_price,
+                    volume=latest_volume
                 )
                 company.update_market_data(market_data)
 
-                # Fundamental data
+                # Fundamental data (mix of real-derived and estimated values)
+                # Calculate approximate market cap based on real price
+                estimated_shares_outstanding = Decimal(str(1_000_000_000 + i * 100_000_000))  # Estimate
+                market_cap = latest_price * estimated_shares_outstanding
+                
+                # Estimate P/E ratio based on sector averages
+                pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
+                pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
+                
                 fundamentals = FundamentalData(
-                    pe_ratio=Decimal(str(15 + i * 5)),
-                    dividend_yield=Decimal(str(1.5 + i * 0.5)),
-                    market_cap=Decimal(str(1_000_000_000_000 + i * 500_000_000_000)),  # $1T+
-                    shares_outstanding=Decimal(str(1_000_000_000 + i * 100_000_000)),
+                    pe_ratio=pe_ratio,
+                    dividend_yield=Decimal(str(1.0 + i * 0.3)),  # Estimated dividend yields
+                    market_cap=market_cap,
+                    shares_outstanding=estimated_shares_outstanding,
                     sector='Technology',
-                    industry='Software' if ticker != "GOOGL" else 'Internet Services'
+                    industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
                 )
                 company.update_company_fundamentals(fundamentals)
 
-                # Sample dividend
+                # Sample dividend (estimated based on dividend yield)
+                dividend_amount = (fundamentals.dividend_yield / 100) * latest_price / 4  # Quarterly dividend
                 dividend = Dividend(
-                    amount=Decimal(str(0.25 + i * 0.1)),
+                    amount=dividend_amount,
                     ex_date=datetime(2024, 3, 15),
                     pay_date=datetime(2024, 3, 30)
                 )
@@ -442,8 +502,9 @@ class TestProjectBacktestManager(ProjectManager):
 
                 # Print metrics for confirmation
                 metrics = company.get_company_metrics()
-                print(f"📊 {company.ticker}: Price={metrics['current_price']}, "
-                    f"P/E={metrics['pe_ratio']}, Div Yield={metrics['dividend_yield']}%")
+                print(f"📊 {company.ticker}: Price=${metrics['current_price']}, "
+                    f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
+                    f"Div Yield={metrics['dividend_yield']}%")
 
             except Exception as e:
                 print(f"❌ Error enhancing company {company.ticker}: {str(e)}")
