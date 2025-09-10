@@ -1,0 +1,1 @@
+"""Project managers for different trading strategies and systems."""
