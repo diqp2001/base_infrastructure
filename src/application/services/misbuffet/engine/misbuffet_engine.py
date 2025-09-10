@@ -13,36 +13,81 @@ import pandas as pd
 # Import the stock data repository for real data access
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
+# Import BaseEngine for proper inheritance
+from .base_engine import BaseEngine
+from .engine_node_packet import EngineNodePacket
 
-class MisbuffetEngine:
+
+class MisbuffetEngine(BaseEngine):
     """Misbuffet backtesting and live trading engine."""
     
     def __init__(self):
-        self.data_feed = None
-        self.transaction_handler = None
-        self.result_handler = None
-        self.setup_handler = None
-        self.algorithm = None
+        # Initialize BaseEngine first
+        super().__init__()
+        
+        # Additional MisbuffetEngine specific attributes
         self.stock_data_repository = None
         self.database_manager = None
+        
+        # Override logger to maintain existing naming
         self.logger = logging.getLogger("misbuffet.engine")
+        self._logger = self.logger  # Keep BaseEngine's logger reference
+        
+        # Maintain backward compatibility for algorithm attribute
+        self.algorithm = self._algorithm
         
     def setup(self, data_feed=None, transaction_handler=None, result_handler=None, setup_handler=None):
         """Setup the engine with handlers."""
-        self.data_feed = data_feed
-        self.transaction_handler = transaction_handler
-        self.result_handler = result_handler
-        self.setup_handler = setup_handler
+        # Use BaseEngine's handler attributes
+        if data_feed:
+            self._data_feed = data_feed
+        if transaction_handler:
+            self._transaction_handler = transaction_handler
+        if result_handler:
+            self._result_handler = result_handler
+        if setup_handler:
+            self._setup_handler = setup_handler
+            
+        # Maintain backward compatibility with old attribute names
+        self.data_feed = self._data_feed
+        self.transaction_handler = self._transaction_handler
+        self.result_handler = self._result_handler
+        self.setup_handler = self._setup_handler
         
     def run(self, config):
         """Run backtest with the given configuration."""
         self.logger.info("Starting backtest engine...")
         
+        # Create a simple EngineNodePacket from config for BaseEngine compatibility
+        try:
+            from .engine_node_packet import EngineNodePacket
+            from .enums import EngineMode, LogLevel
+            
+            # Create job packet from config
+            job = EngineNodePacket()
+            job.algorithm_id = getattr(config, 'algorithm_type_name', 'MisbuffetAlgorithm')
+            job.engine_mode = EngineMode.BACKTESTING
+            job.log_level = LogLevel.INFO
+            
+            # Set up basic configuration
+            engine_config = getattr(config, 'custom_config', {})
+            job.start_date = engine_config.get('start_date', datetime(2021, 1, 1))
+            job.end_date = engine_config.get('end_date', datetime(2022, 1, 1))
+            
+            # Store job for use in BaseEngine methods
+            self._job = job
+            
+        except ImportError:
+            # Fallback if engine components aren't available
+            self.logger.warning("Could not create EngineNodePacket, using legacy mode")
+            pass
+        
         try:
             # Initialize algorithm - create instance from class
             if hasattr(config, 'algorithm') and config.algorithm:
                 self.logger.info(f"Creating algorithm instance from class: {config.algorithm}")
-                self.algorithm = config.algorithm()  # Instantiate the class
+                self._algorithm = config.algorithm()  # Instantiate the class
+                self.algorithm = self._algorithm  # Maintain backward compatibility
                 self.logger.info(f"Algorithm instance created: {self.algorithm}")
                 
             # Setup algorithm with config
@@ -326,6 +371,126 @@ class MisbuffetEngine:
             return result_data[tickers[0]]
         else:
             return result_data
+
+    def _execute_main_loop(self) -> None:
+        """Execute the main engine loop. Required by BaseEngine."""
+        try:
+            # Use the existing simulation logic
+            if hasattr(self, '_job') and self._job:
+                # Get configuration from the job
+                engine_config = getattr(self._job, 'custom_config', {})
+                start_date = getattr(self._job, 'start_date', datetime(2021, 1, 1))
+                end_date = getattr(self._job, 'end_date', datetime(2022, 1, 1))
+            else:
+                # Fallback configuration
+                start_date = datetime(2021, 1, 1)
+                end_date = datetime(2022, 1, 1)
+            
+            self.logger.info(f"Running simulation from {start_date} to {end_date}")
+            
+            current_date = start_date
+            data_points_processed = 0
+            
+            # Track universe of symbols the algorithm is interested in
+            universe = getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
+            
+            # Simple simulation loop - process data daily
+            while current_date <= end_date:
+                if self._stop_requested():
+                    break
+                    
+                # Create data slice with real stock data for this date
+                if self.algorithm and hasattr(self.algorithm, 'on_data'):
+                    try:
+                        data_slice = self._create_data_slice(current_date, universe)
+                        
+                        # Only call on_data if we have data for this date
+                        if data_slice.has_data:
+                            # Update algorithm time
+                            self.algorithm.time = current_date
+                            
+                            # Call on_data with real data
+                            self.algorithm.on_data(data_slice)
+                            data_points_processed += 1
+                            
+                            if data_points_processed % 50 == 0:  # Log every 50 data points
+                                self.logger.info(f"Processed {data_points_processed} data points, current date: {current_date.date()}")
+                        
+                    except Exception as e:
+                        self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")
+                        
+                current_date += timedelta(days=1)
+            
+            self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
+            
+        except Exception as e:
+            self.logger.error(f"Error in main execution loop: {e}")
+            self._errors.append(f"Main loop error: {str(e)}")
+            raise
+
+    def _create_handlers(self) -> bool:
+        """Create and configure engine handlers. Required by BaseEngine."""
+        try:
+            self.logger.info("Creating MisbuffetEngine handlers")
+            
+            # Import handlers (these may be mock implementations)
+            try:
+                from ..data import BacktestingDataFeed
+                from ..handlers import (
+                    BacktestingTransactionHandler, BacktestingResultHandler, 
+                    BacktestingSetupHandler, BacktestingRealTimeHandler,
+                    AlgorithmHandler
+                )
+                
+                # Create handlers
+                if not self._setup_handler:
+                    self._setup_handler = BacktestingSetupHandler()
+                if not self._data_feed:
+                    self._data_feed = BacktestingDataFeed()
+                if not self._transaction_handler:
+                    self._transaction_handler = BacktestingTransactionHandler()
+                if not self._result_handler:
+                    self._result_handler = BacktestingResultHandler()
+                if not self._realtime_handler:
+                    self._realtime_handler = BacktestingRealTimeHandler()
+                if not self._algorithm_handler:
+                    self._algorithm_handler = AlgorithmHandler()
+                    
+                # Maintain backward compatibility
+                self.setup_handler = self._setup_handler
+                self.data_feed = self._data_feed
+                self.transaction_handler = self._transaction_handler
+                self.result_handler = self._result_handler
+                
+            except ImportError:
+                # Fallback to basic mock handlers if full handlers aren't available
+                self.logger.warning("Full handlers not available, using basic implementations")
+                
+                # Create minimal handlers for backward compatibility
+                class MockHandler:
+                    def __init__(self): pass
+                    def initialize(self, *args, **kwargs): return True
+                    def dispose(self): pass
+                
+                if not self._setup_handler:
+                    self._setup_handler = MockHandler()
+                if not self._data_feed:
+                    self._data_feed = MockHandler()
+                if not self._transaction_handler:
+                    self._transaction_handler = MockHandler()
+                if not self._result_handler:
+                    self._result_handler = MockHandler()
+                if not self._realtime_handler:
+                    self._realtime_handler = MockHandler()
+                if not self._algorithm_handler:
+                    self._algorithm_handler = MockHandler()
+            
+            self.logger.info("MisbuffetEngine handlers created successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error creating handlers: {e}")
+            return False
 
 
 class MockPortfolio:
