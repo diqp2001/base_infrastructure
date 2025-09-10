@@ -32,6 +32,7 @@ from .api import *
 from .launcher import *
 from .optimizer import *
 from .optimizer_launcher import *
+from .brokers import *
 
 # Import algorithm framework
 try:

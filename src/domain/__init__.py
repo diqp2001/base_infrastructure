@@ -1,0 +1,1 @@
+"""Domain layer following DDD principles."""
