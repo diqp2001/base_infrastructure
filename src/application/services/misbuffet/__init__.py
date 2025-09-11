@@ -20,6 +20,7 @@ Modules:
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -50,124 +51,6 @@ except ImportError:
 
 from .launcher.interfaces import LauncherConfiguration, LauncherMode
 from .launcher.launcher import Launcher
-
-
-class Misbuffet:
-    """
-    Main Misbuffet class for launching the backtesting framework.
-    
-    This class provides the entry point for initializing and running
-    backtesting operations as described in the architecture documentation.
-    """
-    
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self._launcher: Optional[Launcher] = None
-        self._initialized = False
-    
-    @classmethod
-    def launch(cls, config_file: Optional[str] = None) -> 'Misbuffet':
-        """
-        Launch the misbuffet package with optional configuration file.
-        
-        Args:
-            config_file: Optional path to launch configuration file
-            
-        Returns:
-            Misbuffet instance ready for engine startup
-        """
-        instance = cls()
-        
-        # Setup basic logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-        )
-        
-        instance.logger.info("Misbuffet package launched successfully")
-        
-        if config_file:
-            # Load launch configuration
-            config_path = Path(config_file)
-            if config_path.exists():
-                instance.logger.info(f"Loading launch configuration from: {config_file}")
-                # Configuration loading would be implemented here
-            else:
-                instance.logger.warning(f"Launch config file not found: {config_file}")
-        
-        instance._initialized = True
-        return instance
-    
-    def start_engine(self, config_file: Optional[str] = None):
-        """
-        Start the engine with optional engine configuration file.
-        
-        Args:
-            config_file: Optional path to engine configuration file
-            
-        Returns:
-            Engine instance ready to run algorithms
-        """
-        if not self._initialized:
-            raise RuntimeError("Misbuffet must be launched before starting engine")
-        
-        self.logger.info("Starting Misbuffet engine...")
-        
-        if config_file:
-            # Load engine configuration
-            config_path = Path(config_file)
-            if config_path.exists():
-                self.logger.info(f"Loading engine configuration from: {config_file}")
-                # Configuration loading would be implemented here
-            else:
-                self.logger.warning(f"Engine config file not found: {config_file}")
-        
-        # Create and return engine wrapper
-        return MisbuffetEngine(self.logger)
-
-
-class MisbuffetEngine:
-    """
-    Engine wrapper for running algorithms.
-    """
-    
-    def __init__(self, logger: logging.Logger):
-        self.logger = logger
-        self._launcher: Optional[Launcher] = None
-    
-    def run(self, config: LauncherConfiguration):
-        """
-        Run an algorithm with the given configuration.
-        
-        Args:
-            config: LauncherConfiguration containing algorithm and execution parameters
-            
-        Returns:
-            Results of the algorithm execution
-        """
-        try:
-            self.logger.info(f"Running algorithm: {config.algorithm_type_name}")
-            
-            # Create launcher if not exists
-            if self._launcher is None:
-                self._launcher = Launcher(self.logger)
-            
-            # Initialize and run
-            if self._launcher.initialize(config):
-                success = self._launcher.run()
-                if success:
-                    self.logger.info("Algorithm execution completed successfully")
-                    return AlgorithmResult(success=True, message="Execution completed")
-                else:
-                    self.logger.error("Algorithm execution failed")
-                    return AlgorithmResult(success=False, message="Execution failed")
-            else:
-                self.logger.error("Failed to initialize launcher")
-                return AlgorithmResult(success=False, message="Initialization failed")
-                
-        except Exception as e:
-            self.logger.error(f"Error running algorithm: {str(e)}")
-            return AlgorithmResult(success=False, message=str(e))
 
 
 class AlgorithmResult:
@@ -230,11 +113,6 @@ class Misbuffet:
     
     def start_engine(self, config_file=None, **kwargs):
         """Start the engine with configuration."""
-        import logging
-        import os
-        from .engine import LeanEngine, BacktestingDataFeed, BacktestingTransactionHandler
-        from .engine import BacktestingResultHandler, BacktestingSetupHandler
-        
         if not self.logger:
             self.logger = logging.getLogger("misbuffet")
             
@@ -250,12 +128,7 @@ class Misbuffet:
         
         # Create engine with handlers
         engine = MisbuffetEngine()
-        engine.setup(
-            data_feed=BacktestingDataFeed(),
-            transaction_handler=BacktestingTransactionHandler(),
-            result_handler=BacktestingResultHandler(),
-            setup_handler=BacktestingSetupHandler()
-        )
+        engine._create_handlers()
         
         self.engine = engine
         self.logger.info("Misbuffet engine started successfully.")

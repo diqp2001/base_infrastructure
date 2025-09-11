@@ -10,6 +10,8 @@ from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from enum import Enum
 
+from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+
 
 class SecurityType(Enum):
     """Types of financial securities."""
@@ -69,7 +71,7 @@ class Holdings:
         return abs(self.quantity) * self.average_cost * Decimal('0.001')  # 0.1% fee
 
 
-class Security(ABC):
+class Security(FinancialAsset):
     """
     Base class for all tradeable securities following QuantConnect architecture.
     Implements template method pattern for market data processing.

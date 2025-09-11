@@ -438,57 +438,36 @@ class MisbuffetEngine(BaseEngine):
         try:
             self.logger.info("Creating MisbuffetEngine handlers")
             
-            # Import handlers (these may be mock implementations)
-            try:
-                from ..data import BacktestingDataFeed
-                from ..handlers import (
-                    BacktestingTransactionHandler, BacktestingResultHandler, 
-                    BacktestingSetupHandler, BacktestingRealTimeHandler,
-                    AlgorithmHandler
-                )
+            
+            from . import BacktestingDataFeed
+            #Importing Handlers
+            from . import (
+                BacktestingTransactionHandler, BacktestingResultHandler, 
+                BacktestingSetupHandler, BacktestingRealTimeHandler,
+                AlgorithmHandler
+            )
+            
+            # Create handlers
+            if not self._setup_handler:
+                self._setup_handler = BacktestingSetupHandler()
+            if not self._data_feed:
+                self._data_feed = BacktestingDataFeed()
+            if not self._transaction_handler:
+                self._transaction_handler = BacktestingTransactionHandler()
+            if not self._result_handler:
+                self._result_handler = BacktestingResultHandler()
+            if not self._realtime_handler:
+                self._realtime_handler = BacktestingRealTimeHandler()
+            if not self._algorithm_handler:
+                self._algorithm_handler = AlgorithmHandler()
                 
-                # Create handlers
-                if not self._setup_handler:
-                    self._setup_handler = BacktestingSetupHandler()
-                if not self._data_feed:
-                    self._data_feed = BacktestingDataFeed()
-                if not self._transaction_handler:
-                    self._transaction_handler = BacktestingTransactionHandler()
-                if not self._result_handler:
-                    self._result_handler = BacktestingResultHandler()
-                if not self._realtime_handler:
-                    self._realtime_handler = BacktestingRealTimeHandler()
-                if not self._algorithm_handler:
-                    self._algorithm_handler = AlgorithmHandler()
-                    
-                # Maintain backward compatibility
-                self.setup_handler = self._setup_handler
-                self.data_feed = self._data_feed
-                self.transaction_handler = self._transaction_handler
-                self.result_handler = self._result_handler
+            # Maintain backward compatibility
+            self.setup_handler = self._setup_handler
+            self.data_feed = self._data_feed
+            self.transaction_handler = self._transaction_handler
+            self.result_handler = self._result_handler
                 
-            except ImportError:
-                # Fallback to basic mock handlers if full handlers aren't available
-                self.logger.warning("Full handlers not available, using basic implementations")
-                
-                # Create minimal handlers for backward compatibility
-                class MockHandler:
-                    def __init__(self): pass
-                    def initialize(self, *args, **kwargs): return True
-                    def dispose(self): pass
-                
-                if not self._setup_handler:
-                    self._setup_handler = MockHandler()
-                if not self._data_feed:
-                    self._data_feed = MockHandler()
-                if not self._transaction_handler:
-                    self._transaction_handler = MockHandler()
-                if not self._result_handler:
-                    self._result_handler = MockHandler()
-                if not self._realtime_handler:
-                    self._realtime_handler = MockHandler()
-                if not self._algorithm_handler:
-                    self._algorithm_handler = MockHandler()
+
             
             self.logger.info("MisbuffetEngine handlers created successfully")
             return True

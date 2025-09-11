@@ -1,6 +1,9 @@
 # src/domain/entities/finance/financial_assets/derivatives/derivative.py
 
-class Derivative:
+from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+
+
+class Derivative(FinancialAsset):
     def __init__(self, underlying_asset: str, notional_value: float, maturity_date: str, price: float):
         """
         Initialize a generic derivative object.
