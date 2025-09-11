@@ -76,8 +76,8 @@ class MisbuffetEngine(BaseEngine):
             
             # Set up basic configuration
             engine_config = getattr(config, 'custom_config', {})
-            job.start_date = engine_config.get('start_date', datetime(2021, 1, 1))
-            job.end_date = engine_config.get('end_date', datetime(2022, 1, 1))
+            job.start_date = engine_config.get('start_date')
+            job.end_date = engine_config.get('end_date')
             
             # Store job for use in BaseEngine methods
             self._job = job

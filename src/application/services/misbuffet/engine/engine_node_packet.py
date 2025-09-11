@@ -18,10 +18,10 @@ from .enums import (
 @dataclass
 class BaseNodePacket:
     """Base class for all node packets."""
-    type: PacketType
-    user_id: int
-    project_id: int
-    session_id: str
+    type: PacketType=PacketType.ALGORITHM_NODE_PACKET,
+    user_id: int = ""
+    project_id: int = ""
+    session_id: str = ""
     user_token: str = ""
     channel: str = ""
     version: str = "1.0.0"
