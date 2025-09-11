@@ -70,6 +70,11 @@ class BaseEngine(IEngine, ABC):
         """Get the current algorithm instance."""
         return self._algorithm
     
+    @algorithm.setter
+    def algorithm(self, value: Optional[IAlgorithm]) -> None:
+        """Set the current algorithm instance."""
+        self._algorithm = value
+    
     @property
     def job(self) -> Optional[EngineNodePacket]:
         """Get the current job configuration."""
