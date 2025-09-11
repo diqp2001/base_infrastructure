@@ -5,15 +5,17 @@ Handles persistence using infrastructure models and DDD principles.
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
-from infrastructure.models.back_testing import (
-    MockPortfolioModel, 
-    MockPortfolioSnapshot, 
-    MockSecurityModel,
-    MockSecurityPriceSnapshot
+from infrastructure.models.finance import (
+    Portfolio as PortfolioModel,
+    PortfolioHoldingsModel,
+    SecurityHoldingsModel,
+    PortfolioStatisticsModel,
+    MarketDataModel
 )
-from domain.entities.back_testing import MockPortfolio, MockSecurity
+from domain.entities.back_testing import Portfolio, Security, PortfolioStatistics, SecurityHoldings
 from .result_handler import BacktestResult
 
 
@@ -29,8 +31,8 @@ class ResultStorage:
     def save_backtest_result(
         self, 
         result: BacktestResult, 
-        portfolio: MockPortfolio
-    ) -> MockPortfolioModel:
+        portfolio: Portfolio
+    ) -> PortfolioModel:
         """
         Save complete backtest result to database.
         
@@ -39,7 +41,7 @@ class ResultStorage:
             portfolio: Final portfolio state
             
         Returns:
-            Saved MockPortfolioModel instance
+            Saved PortfolioModel instance
         """
         # Create portfolio model from domain entity
         portfolio_model = self._create_portfolio_model(result, portfolio)
@@ -48,320 +50,271 @@ class ResultStorage:
         self.db_session.add(portfolio_model)
         self.db_session.commit()
         
-        # Save securities
-        for symbol, security in portfolio._securities.items():
-            security_model = self._create_security_model(
-                security, portfolio_model.id, portfolio
-            )
-            self.db_session.add(security_model)
+        # Save portfolio statistics
+        if hasattr(result, 'portfolio_statistics'):
+            self._save_portfolio_statistics(portfolio_model.id, result.portfolio_statistics)
         
-        # Save portfolio snapshot
-        snapshot = self._create_portfolio_snapshot(portfolio_model, portfolio)
-        self.db_session.add(snapshot)
+        # Save holdings
+        self._save_portfolio_holdings(portfolio_model.id, portfolio)
         
-        self.db_session.commit()
         return portfolio_model
     
-    def save_portfolio_snapshot(
+    def create_portfolio_snapshot(
         self, 
-        portfolio_id: int, 
-        portfolio: MockPortfolio, 
-        timestamp: Optional[datetime] = None
-    ) -> MockPortfolioSnapshot:
-        """Save a snapshot of portfolio state at specific time."""
-        if timestamp is None:
-            timestamp = datetime.now()
+        portfolio_model: PortfolioModel, 
+        portfolio: Portfolio, 
+        snapshot_date: datetime
+    ) -> PortfolioHoldingsModel:
+        """Create portfolio snapshot for a specific point in time."""
         
-        snapshot = MockPortfolioSnapshot(
-            portfolio_id=portfolio_id,
-            snapshot_date=timestamp,
-            cash=portfolio.cash,
-            total_portfolio_value=portfolio.total_portfolio_value,
-            holdings_value=portfolio.holdings_value,
-            unrealized_pnl=sum(
-                security.holdings.unrealized_pnl 
-                for security in portfolio._securities.values()
-            ),
-            total_return_percent=(
-                (portfolio.total_portfolio_value - portfolio._initial_cash) / 
-                portfolio._initial_cash * 100
-            ),
-            drawdown_percent=portfolio.calculate_statistics().max_drawdown,
-            holdings_snapshot=json.dumps({
-                symbol: {
-                    'quantity': float(quantity),
-                    'price': float(portfolio.get_security(symbol).price) if portfolio.get_security(symbol) else 0,
-                    'value': float(portfolio.get_holding_value(symbol))
-                }
-                for symbol, quantity in portfolio.get_holdings().items()
-                if quantity != 0
-            })
+        snapshot = PortfolioHoldingsModel(
+            portfolio_id=portfolio_model.id,
+            cash_balance=float(portfolio.cash_balance),
+            total_value=float(portfolio.current_value),
+            holdings_value=float(portfolio.invested_amount),
+            holdings_data=self._serialize_holdings(portfolio.holdings),
+            snapshot_date=snapshot_date,
+            created_at=datetime.utcnow()
         )
         
         self.db_session.add(snapshot)
         self.db_session.commit()
         return snapshot
     
-    def save_security_price_snapshot(
+    def save_security_price_data(
         self, 
-        security_id: int, 
-        security: MockSecurity, 
-        timestamp: Optional[datetime] = None
-    ) -> MockSecurityPriceSnapshot:
-        """Save a snapshot of security price at specific time."""
-        if timestamp is None:
-            timestamp = datetime.now()
+        security: Security, 
+        timestamp: datetime, 
+        price_data: Dict
+    ) -> MarketDataModel:
+        """Save security price snapshot."""
         
-        # Calculate 1-day return if we have price history
-        return_1d = 0.0
-        if len(security._price_history) >= 2:
-            prev_price = security._price_history[-2].price
-            return_1d = float((security.price - prev_price) / prev_price)
-        
-        snapshot = MockSecurityPriceSnapshot(
-            security_id=security_id,
+        # Create market data model
+        market_data = MarketDataModel(
+            symbol_ticker=security.symbol.ticker,
+            symbol_exchange=security.symbol.exchange,
+            security_type=security.symbol.security_type.value,
             timestamp=timestamp,
-            price=security.price,
-            volume=security.volume,
-            bid=security.bid,
-            ask=security.ask,
-            open_price=security.open,
-            high_price=security.high,
-            low_price=security.low,
-            close_price=security.close,
-            return_1d=return_1d,
-            volatility_20d=security.calculate_volatility(20)
+            price=float(price_data.get('price', 0)),
+            volume=price_data.get('volume', 0),
+            bid=float(price_data.get('bid', 0)) if price_data.get('bid') else None,
+            ask=float(price_data.get('ask', 0)) if price_data.get('ask') else None,
+            open=float(price_data.get('open', 0)) if price_data.get('open') else None,
+            high=float(price_data.get('high', 0)) if price_data.get('high') else None,
+            low=float(price_data.get('low', 0)) if price_data.get('low') else None,
+            close=float(price_data.get('close', 0)) if price_data.get('close') else None,
+            created_at=datetime.utcnow()
         )
         
-        self.db_session.add(snapshot)
+        self.db_session.add(market_data)
         self.db_session.commit()
-        return snapshot
+        return market_data
     
-    def load_backtest_result(self, backtest_id: str) -> Optional[MockPortfolioModel]:
+    def load_backtest_result(self, backtest_id: str) -> Optional[PortfolioModel]:
         """Load backtest result by ID."""
-        return self.db_session.query(MockPortfolioModel).filter(
-            MockPortfolioModel.backtest_id == backtest_id
+        return self.db_session.query(PortfolioModel).filter(
+            PortfolioModel.backtest_id == backtest_id
         ).first()
     
-    def load_portfolio_snapshots(
-        self, 
-        portfolio_id: int, 
+    def get_portfolio_snapshots(
+        self,
+        portfolio_id: int,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
-    ) -> List[MockPortfolioSnapshot]:
-        """Load portfolio snapshots for given time range."""
-        query = self.db_session.query(MockPortfolioSnapshot).filter(
-            MockPortfolioSnapshot.portfolio_id == portfolio_id
+    ) -> List[PortfolioHoldingsModel]:
+        """Get portfolio snapshots within date range."""
+        
+        query = self.db_session.query(PortfolioHoldingsModel).filter(
+            PortfolioHoldingsModel.portfolio_id == portfolio_id
         )
         
         if start_date:
-            query = query.filter(MockPortfolioSnapshot.snapshot_date >= start_date)
+            query = query.filter(PortfolioHoldingsModel.snapshot_date >= start_date)
         if end_date:
-            query = query.filter(MockPortfolioSnapshot.snapshot_date <= end_date)
+            query = query.filter(PortfolioHoldingsModel.snapshot_date <= end_date)
         
-        return query.order_by(MockPortfolioSnapshot.snapshot_date).all()
+        return query.order_by(PortfolioHoldingsModel.snapshot_date).all()
     
-    def load_security_snapshots(
-        self, 
-        security_id: int, 
+    def get_security_price_history(
+        self,
+        symbol_ticker: str,
+        symbol_exchange: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
-    ) -> List[MockSecurityPriceSnapshot]:
-        """Load security price snapshots for given time range."""
-        query = self.db_session.query(MockSecurityPriceSnapshot).filter(
-            MockSecurityPriceSnapshot.security_id == security_id
+    ) -> List[MarketDataModel]:
+        """Get security price history within date range."""
+        
+        query = self.db_session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker,
+            MarketDataModel.symbol_exchange == symbol_exchange
         )
         
         if start_date:
-            query = query.filter(MockSecurityPriceSnapshot.timestamp >= start_date)
+            query = query.filter(MarketDataModel.timestamp >= start_date)
         if end_date:
-            query = query.filter(MockSecurityPriceSnapshot.timestamp <= end_date)
+            query = query.filter(MarketDataModel.timestamp <= end_date)
         
-        return query.order_by(MockSecurityPriceSnapshot.timestamp).all()
+        return query.order_by(MarketDataModel.timestamp).all()
     
-    def get_backtest_summary(self, limit: int = 50) -> List[Dict]:
-        """Get summary of recent backtests."""
-        portfolios = self.db_session.query(MockPortfolioModel).order_by(
-            MockPortfolioModel.created_at.desc()
+    def get_recent_backtests(self, limit: int = 10) -> List[PortfolioModel]:
+        """Get recent backtest results."""
+        portfolios = self.db_session.query(PortfolioModel).filter(
+            PortfolioModel.backtest_id.isnot(None)
+        ).order_by(
+            PortfolioModel.created_at.desc()
         ).limit(limit).all()
         
-        summaries = []
-        for portfolio in portfolios:
-            summaries.append({
-                'backtest_id': portfolio.backtest_id,
-                'name': portfolio.name,
-                'created_at': portfolio.created_at.isoformat(),
-                'total_return_percent': float(portfolio.total_return_percent) if portfolio.total_return_percent else 0,
-                'max_drawdown': float(portfolio.max_drawdown) if portfolio.max_drawdown else 0,
-                'total_trades': portfolio.total_trades,
-                'win_rate': float(portfolio.win_rate) if portfolio.win_rate else 0,
-                'final_value': float(portfolio.total_portfolio_value)
-            })
-        
-        return summaries
+        return portfolios
     
-    def delete_backtest_result(self, backtest_id: str) -> bool:
-        """Delete backtest result and all associated data."""
-        portfolio = self.load_backtest_result(backtest_id)
-        if not portfolio:
-            return False
+    def delete_backtest_result(self, portfolio: PortfolioModel):
+        """Delete backtest result and all related data."""
+        portfolio_id = portfolio.id
         
-        # Delete associated data
-        self.db_session.query(MockSecurityPriceSnapshot).filter(
-            MockSecurityPriceSnapshot.security_id.in_(
-                self.db_session.query(MockSecurityModel.id).filter(
-                    MockSecurityModel.portfolio_id == portfolio.id
-                )
-            )
-        ).delete(synchronize_session=False)
+        # Delete market data (if any direct relationships exist)
+        # Note: MarketDataModel doesn't have direct FK to portfolio, so skip
         
-        self.db_session.query(MockPortfolioSnapshot).filter(
-            MockPortfolioSnapshot.portfolio_id == portfolio.id
+        # Delete portfolio holdings snapshots
+        self.db_session.query(PortfolioHoldingsModel).filter(
+            PortfolioHoldingsModel.portfolio_id == portfolio_id
         ).delete()
         
-        self.db_session.query(MockSecurityModel).filter(
-            MockSecurityModel.portfolio_id == portfolio.id
+        # Delete security holdings
+        self.db_session.query(SecurityHoldingsModel).filter(
+            SecurityHoldingsModel.portfolio_id == portfolio_id
         ).delete()
         
+        # Delete portfolio statistics
+        self.db_session.query(PortfolioStatisticsModel).filter(
+            PortfolioStatisticsModel.portfolio_id == portfolio_id
+        ).delete()
+        
+        # Delete portfolio itself
         self.db_session.delete(portfolio)
         self.db_session.commit()
-        return True
     
     def _create_portfolio_model(
         self, 
         result: BacktestResult, 
-        portfolio: MockPortfolio
-    ) -> MockPortfolioModel:
-        """Create MockPortfolioModel from domain entities."""
-        stats = portfolio.calculate_statistics()
+        portfolio: Portfolio
+    ) -> PortfolioModel:
+        """Create PortfolioModel from domain entities."""
         
-        return MockPortfolioModel(
-            backtest_id=result.backtest_id,
-            name=result.algorithm_name,
-            description=f"Backtest from {result.start_date.date()} to {result.end_date.date()}",
-            initial_cash=portfolio._initial_cash,
-            current_cash=portfolio.cash,
-            total_portfolio_value=portfolio.total_portfolio_value,
-            holdings_value=portfolio.holdings_value,
-            total_return=result.total_return,
-            total_return_percent=result.total_return_percent,
-            unrealized_pnl=sum(
-                security.holdings.unrealized_pnl 
-                for security in portfolio._securities.values()
-            ),
-            realized_pnl=sum(
-                security.holdings.realized_pnl 
-                for security in portfolio._securities.values()
-            ),
-            max_drawdown=stats.max_drawdown,
-            high_water_mark=portfolio._high_water_mark,
-            total_trades=stats.trades_count,
-            winning_trades=stats.winning_trades,
-            losing_trades=stats.losing_trades,
-            win_rate=stats.win_rate,
-            volatility=result.volatility,
-            sharpe_ratio=result.sharpe_ratio,
-            holdings_data=json.dumps({
-                symbol: float(quantity) 
-                for symbol, quantity in portfolio.get_holdings().items()
-            }),
-            average_costs_data=json.dumps({
-                symbol: float(cost) 
-                for symbol, cost in portfolio._average_costs.items()
-            }),
-            securities_data=json.dumps({
-                symbol: {
-                    'security_type': security.security_type.value,
-                    'exchange': security.symbol.exchange
-                }
-                for symbol, security in portfolio._securities.items()
-            }),
-            transaction_history=json.dumps(portfolio.get_transaction_history()),
-            is_active=False,  # Backtest is completed
-            is_paper_trading=True,
-            created_at=result.start_date,
-            updated_at=datetime.now(),
-            backtest_start_date=result.start_date,
-            backtest_end_date=result.end_date
+        # Extract dates from result or use defaults
+        start_date = getattr(result, 'start_date', None)
+        end_date = getattr(result, 'end_date', None)
+        
+        return PortfolioModel(
+            name=portfolio.name,
+            portfolio_type=portfolio.portfolio_type.value,
+            backtest_id=portfolio.backtest_id,
+            initial_cash=float(portfolio.initial_cash),
+            current_cash=float(portfolio.cash_balance),
+            total_value=float(portfolio.current_value),
+            cash_balance=float(portfolio.cash_balance),
+            invested_amount=float(portfolio.invested_amount),
+            holdings_value=float(portfolio.invested_amount),
+            total_return=float(portfolio.statistics.total_return),
+            total_return_percent=float(portfolio.statistics.total_return_percent),
+            unrealized_pnl=float(portfolio.holdings.total_unrealized_pnl),
+            realized_pnl=float(portfolio.holdings.total_realized_pnl),
+            max_drawdown=float(portfolio.statistics.max_drawdown),
+            high_water_mark=float(portfolio.statistics.high_water_mark),
+            volatility=float(portfolio.statistics.volatility) if portfolio.statistics.volatility else None,
+            sharpe_ratio=float(portfolio.statistics.sharpe_ratio) if portfolio.statistics.sharpe_ratio else None,
+            beta=float(portfolio.statistics.beta) if portfolio.statistics.beta else None,
+            alpha=float(portfolio.statistics.alpha) if portfolio.statistics.alpha else None,
+            var_95=float(portfolio.statistics.var_95) if portfolio.statistics.var_95 else None,
+            total_trades=portfolio.statistics.total_trades,
+            winning_trades=portfolio.statistics.winning_trades,
+            losing_trades=portfolio.statistics.losing_trades,
+            win_rate=float(portfolio.statistics.win_rate),
+            currency=portfolio.currency,
+            is_active=portfolio.is_active,
+            is_paper_trading=portfolio.is_paper_trading,
+            inception_date=portfolio.inception_date,
+            backtest_start_date=start_date,
+            backtest_end_date=end_date,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            last_valuation_date=portfolio.last_valuation_date
         )
     
-    def _create_security_model(
-        self, 
-        security: MockSecurity, 
-        portfolio_id: int, 
-        portfolio: MockPortfolio
-    ) -> MockSecurityModel:
-        """Create MockSecurityModel from domain entity."""
-        symbol = security.symbol.ticker
-        holdings_quantity = portfolio.get_holding_quantity(symbol)
-        average_cost = portfolio.get_average_cost(symbol)
+    def _save_portfolio_statistics(self, portfolio_id: int, statistics: PortfolioStatistics) -> PortfolioStatisticsModel:
+        """Save portfolio statistics to database."""
         
-        return MockSecurityModel(
+        stats_model = PortfolioStatisticsModel(
             portfolio_id=portfolio_id,
-            symbol_ticker=security.symbol.ticker,
-            symbol_exchange=security.symbol.exchange,
-            security_type=security.security_type.value,
-            current_price=security.price,
-            bid_price=security.bid,
-            ask_price=security.ask,
-            volume=security.volume,
-            daily_open=security.open,
-            daily_high=security.high,
-            daily_low=security.low,
-            daily_close=security.close,
-            holdings_quantity=holdings_quantity,
-            average_cost=average_cost,
-            market_value=security.holdings.market_value,
-            unrealized_pnl=security.holdings.unrealized_pnl,
-            realized_pnl=security.holdings.realized_pnl,
-            volatility=security.calculate_volatility(),
-            beta=None,  # Would be calculated separately
-            correlation=None,  # Would be calculated separately
-            is_tradeable=security.is_tradeable,
-            is_delisted=security.is_delisted,
-            is_suspended=not security.is_tradeable and not security.is_delisted,
-            market_data_cache=json.dumps(security._market_data_cache),
-            price_history=json.dumps([
-                {
-                    'timestamp': data.timestamp.isoformat(),
-                    'price': float(data.price),
-                    'volume': data.volume
-                }
-                for data in security.get_price_history(50)  # Last 50 data points
-            ]),
-            contract_multiplier=security.get_contract_multiplier(),
-            tick_size=0.01,  # Default
-            margin_requirement=0.5,  # Default 50%
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            last_market_update=security.last_update
+            total_return=float(statistics.total_return),
+            total_return_percent=float(statistics.total_return_percent),
+            max_drawdown=float(statistics.max_drawdown),
+            high_water_mark=float(statistics.high_water_mark),
+            volatility=float(statistics.volatility) if statistics.volatility else None,
+            sharpe_ratio=float(statistics.sharpe_ratio) if statistics.sharpe_ratio else None,
+            beta=float(statistics.beta) if statistics.beta else None,
+            alpha=float(statistics.alpha) if statistics.alpha else None,
+            var_95=float(statistics.var_95) if statistics.var_95 else None,
+            tracking_error=float(statistics.tracking_error) if statistics.tracking_error else None,
+            win_rate=float(statistics.win_rate),
+            total_trades=statistics.total_trades,
+            winning_trades=statistics.winning_trades,
+            losing_trades=statistics.losing_trades,
+            calculation_date=datetime.utcnow(),
+            created_at=datetime.utcnow()
         )
+        
+        self.db_session.add(stats_model)
+        self.db_session.commit()
+        return stats_model
     
-    def _create_portfolio_snapshot(
+    def _save_portfolio_holdings(self, portfolio_id: int, portfolio: Portfolio):
+        """Save individual security holdings to database."""
+        
+        for symbol, holding in portfolio.holdings.holdings.items():
+            holding_model = SecurityHoldingsModel(
+                portfolio_id=portfolio_id,
+                symbol_ticker=symbol.ticker,
+                symbol_exchange=symbol.exchange,
+                security_type=symbol.security_type.value,
+                quantity=float(holding.quantity),
+                average_cost=float(holding.average_cost),
+                market_value=float(holding.market_value),
+                unrealized_pnl=float(holding.unrealized_pnl),
+                realized_pnl=float(holding.realized_pnl),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            
+            self.db_session.add(holding_model)
+        
+        self.db_session.commit()
+    
+    def _serialize_holdings(self, holdings) -> str:
+        """Serialize portfolio holdings to JSON."""
+        holdings_dict = {}
+        for symbol, holding in holdings.holdings.items():
+            holdings_dict[str(symbol)] = {
+                'quantity': float(holding.quantity),
+                'average_cost': float(holding.average_cost),
+                'market_value': float(holding.market_value),
+                'unrealized_pnl': float(holding.unrealized_pnl),
+                'realized_pnl': float(holding.realized_pnl)
+            }
+        
+        return json.dumps(holdings_dict)
+    
+    def _create_portfolio_snapshot_model(
         self, 
-        portfolio_model: MockPortfolioModel, 
-        portfolio: MockPortfolio
-    ) -> MockPortfolioSnapshot:
-        """Create portfolio snapshot from current state."""
-        return MockPortfolioSnapshot(
+        portfolio_model: PortfolioModel, 
+        portfolio: Portfolio
+    ) -> PortfolioHoldingsModel:
+        """Create holdings snapshot model."""
+        
+        return PortfolioHoldingsModel(
             portfolio_id=portfolio_model.id,
-            snapshot_date=datetime.now(),
-            cash=portfolio.cash,
-            total_portfolio_value=portfolio.total_portfolio_value,
-            holdings_value=portfolio.holdings_value,
-            unrealized_pnl=sum(
-                security.holdings.unrealized_pnl 
-                for security in portfolio._securities.values()
-            ),
-            total_return_percent=portfolio_model.total_return_percent,
-            drawdown_percent=portfolio_model.max_drawdown,
-            holdings_snapshot=json.dumps({
-                symbol: {
-                    'quantity': float(quantity),
-                    'price': float(portfolio.get_security(symbol).price) if portfolio.get_security(symbol) else 0,
-                    'value': float(portfolio.get_holding_value(symbol))
-                }
-                for symbol, quantity in portfolio.get_holdings().items()
-                if quantity != 0
-            })
+            cash_balance=float(portfolio.cash_balance),
+            total_value=float(portfolio.current_value),
+            holdings_value=float(portfolio.invested_amount),
+            holdings_data=self._serialize_holdings(portfolio.holdings),
+            snapshot_date=datetime.utcnow(),
+            created_at=datetime.utcnow()
         )

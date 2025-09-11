@@ -28,7 +28,7 @@ from application.services.misbuffet.algorithm.base import QCAlgorithm
 
 # Import domain entities following DDD structure
 from domain.entities.back_testing import (
-    MockPortfolio, MockSecurity, MockMarketData, Symbol, SecurityType
+    Portfolio, Security, MarketData, Symbol, SecurityType
 )
 
 # Import misbuffet components

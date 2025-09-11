@@ -108,7 +108,10 @@ class Portfolio(Base):
 
     # Relationships
     positions = relationship("Position", back_populates="portfolios")
-    mock_securities = relationship("MockSecurityModel", back_populates="portfolio")
+    holdings_snapshots = relationship("PortfolioHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
+    security_holdings = relationship("SecurityHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
+    statistics_history = relationship("PortfolioStatisticsModel", back_populates="portfolio", cascade="all, delete-orphan")
+    securities = relationship("Security", back_populates="portfolio", cascade="all, delete-orphan")
 
     def __repr__(self):
         return (
