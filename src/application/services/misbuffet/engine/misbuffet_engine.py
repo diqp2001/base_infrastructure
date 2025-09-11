@@ -61,10 +61,15 @@ class MisbuffetEngine(BaseEngine):
         # Create a simple EngineNodePacket from config for BaseEngine compatibility
         try:
             from .engine_node_packet import EngineNodePacket
-            from .enums import EngineMode, LogLevel
+            from .enums import EngineMode, LogLevel, PacketType
             
-            # Create job packet from config
-            job = EngineNodePacket()
+            # Create job packet from config with required arguments
+            job = EngineNodePacket(
+                type=PacketType.ALGORITHM_NODE_PACKET,
+                user_id=1,  # Default user ID
+                project_id=1,  # Default project ID
+                session_id="misbuffet_session"  # Default session ID
+            )
             job.algorithm_id = getattr(config, 'algorithm_type_name', 'MisbuffetAlgorithm')
             job.engine_mode = EngineMode.BACKTESTING
             job.log_level = LogLevel.INFO
