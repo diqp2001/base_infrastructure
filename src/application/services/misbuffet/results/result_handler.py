@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
-from domain.entities.back_testing import MockPortfolio, MockSecurity, MockPortfolioStatistics
+from domain.entities.back_testing import Portfolio, Security, PortfolioStatistics
 
 
 @dataclass
@@ -48,7 +48,7 @@ class BacktestResult:
     profit_factor: Decimal
     
     # Portfolio statistics
-    portfolio_statistics: MockPortfolioStatistics
+    portfolio_statistics: PortfolioStatistics
     
     # Holdings summary
     final_holdings: Dict[str, Dict[str, Any]]  # symbol -> {quantity, value, pnl}
@@ -128,7 +128,7 @@ class BacktestResultHandler:
         self,
         backtest_id: str,
         algorithm_name: str,
-        portfolio: MockPortfolio,
+        portfolio: Portfolio,
         start_date: datetime,
         end_date: datetime,
         data_points_processed: int = 0
@@ -239,7 +239,7 @@ class BacktestResultHandler:
             return Decimal('-100')  # Total loss
     
     def _calculate_trading_statistics(
-        self, transactions: List[Dict], portfolio: MockPortfolio
+        self, transactions: List[Dict], portfolio: Portfolio
     ) -> Dict[str, Any]:
         """Calculate trading performance statistics."""
         if not transactions:
@@ -324,7 +324,7 @@ class BacktestResultHandler:
         }
     
     def _calculate_risk_metrics(
-        self, portfolio: MockPortfolio, total_return_percent: Decimal, duration_days: int
+        self, portfolio: Portfolio, total_return_percent: Decimal, duration_days: int
     ) -> Dict[str, Decimal]:
         """Calculate risk-adjusted performance metrics."""
         # Simplified risk metrics for mock implementation
@@ -348,7 +348,7 @@ class BacktestResultHandler:
             'calmar_ratio': calmar_ratio
         }
     
-    def _build_holdings_summary(self, portfolio: MockPortfolio) -> Dict[str, Dict[str, Any]]:
+    def _build_holdings_summary(self, portfolio: Portfolio) -> Dict[str, Dict[str, Any]]:
         """Build summary of final holdings."""
         holdings_summary = {}
         
@@ -370,7 +370,7 @@ class BacktestResultHandler:
         
         return holdings_summary
     
-    def _generate_equity_curve(self, portfolio: MockPortfolio) -> List[Dict[str, Any]]:
+    def _generate_equity_curve(self, portfolio: Portfolio) -> List[Dict[str, Any]]:
         """Generate equity curve data points."""
         # Simplified - in real implementation, this would use historical snapshots
         current_time = datetime.now()
@@ -383,7 +383,7 @@ class BacktestResultHandler:
             }
         ]
     
-    def _generate_drawdown_curve(self, portfolio: MockPortfolio) -> List[Dict[str, Any]]:
+    def _generate_drawdown_curve(self, portfolio: Portfolio) -> List[Dict[str, Any]]:
         """Generate drawdown curve data points."""
         # Simplified - in real implementation, this would calculate drawdown over time
         current_time = datetime.now()

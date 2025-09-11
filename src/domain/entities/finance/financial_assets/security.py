@@ -42,19 +42,68 @@ class Symbol:
 
 @dataclass 
 class MarketData:
-    """Value object for market data updates."""
+    """Value object for market data updates with comprehensive OHLCV data."""
     timestamp: datetime
-    price: Decimal
+    price: Decimal  # Current/close price
     volume: Optional[int] = None
     bid: Optional[Decimal] = None
     ask: Optional[Decimal] = None
+    open: Optional[Decimal] = None
+    high: Optional[Decimal] = None
+    low: Optional[Decimal] = None
+    close: Optional[Decimal] = None
+    
+    # Additional market data
+    bid_size: Optional[int] = None
+    ask_size: Optional[int] = None
+    last_trade_time: Optional[datetime] = None
+    exchange: Optional[str] = None
+    
+    # Calculated fields
+    mid_price: Optional[Decimal] = field(init=False, default=None)
+    spread: Optional[Decimal] = field(init=False, default=None)
     
     def __post_init__(self):
-        """Validate market data on creation."""
+        """Validate market data on creation and calculate derived fields."""
         if self.price < 0:
             raise ValueError("Price cannot be negative")
         if self.volume is not None and self.volume < 0:
             raise ValueError("Volume cannot be negative")
+        
+        # Ensure decimal precision for all price fields
+        self.price = Decimal(str(self.price))
+        if self.bid:
+            self.bid = Decimal(str(self.bid))
+        if self.ask:
+            self.ask = Decimal(str(self.ask))
+        if self.open:
+            self.open = Decimal(str(self.open))
+        if self.high:
+            self.high = Decimal(str(self.high))
+        if self.low:
+            self.low = Decimal(str(self.low))
+        if self.close:
+            self.close = Decimal(str(self.close))
+        
+        # Set close price to price if not provided
+        if not self.close:
+            self.close = self.price
+        
+        # Calculate derived fields
+        if self.bid and self.ask:
+            self.mid_price = (self.bid + self.ask) / 2
+            self.spread = self.ask - self.bid
+    
+    def is_valid_ohlc(self) -> bool:
+        """Check if OHLC data is valid."""
+        if not all([self.open, self.high, self.low, self.close]):
+            return False
+        
+        # Validate OHLC relationships
+        if self.high < max(self.open, self.close) or self.low > min(self.open, self.close):
+            return False
+        
+        return True
 
 
 @dataclass

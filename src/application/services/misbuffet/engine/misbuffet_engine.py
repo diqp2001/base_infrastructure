@@ -97,9 +97,14 @@ class MisbuffetEngine(BaseEngine):
                 
             # Setup algorithm with config
             if self.algorithm:
-                # Mock portfolio setup
+                # Portfolio setup with domain entity
                 initial_capital = getattr(config, 'initial_capital', 100000)
-                self.algorithm.portfolio = MockPortfolio(initial_capital)
+                from domain.entities.back_testing import Portfolio
+                from decimal import Decimal
+                self.algorithm.portfolio = Portfolio(
+                    name=f"Algorithm_{self.algorithm.__class__.__name__}",
+                    initial_cash=Decimal(str(initial_capital))
+                )
                 
                 # Setup time property (required by MyAlgorithm)
                 from datetime import datetime
@@ -477,25 +482,7 @@ class MisbuffetEngine(BaseEngine):
             return False
 
 
-class MockPortfolio:
-    """Mock portfolio for testing purposes."""
-    
-    def __init__(self, initial_capital=100000):
-        self.total_portfolio_value = initial_capital
-        self._securities = {}
-    
-    def __getitem__(self, symbol):
-        if symbol not in self._securities:
-            self._securities[symbol] = MockSecurity()
-        return self._securities[symbol]
-
-
-class MockSecurity:
-    """Mock security for testing purposes."""
-    
-    def __init__(self):
-        self.holdings_value = 0
-        self.invested = False
+# Mock classes removed - using domain entities instead
 
 
 class BacktestResult:
@@ -593,7 +580,5 @@ class BacktestResult:
 
 __all__ = [
     'MisbuffetEngine',
-    'BacktestResult',
-    'MockPortfolio',
-    'MockSecurity'
+    'BacktestResult'
 ]

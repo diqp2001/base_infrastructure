@@ -41,3 +41,6 @@ from src.infrastructure.models.continent import Continent
 # New finance entity imports
 from src.infrastructure.models.finance.portfolio import Portfolio
 from src.infrastructure.models.finance.position import Position
+from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel, SecurityHoldingsModel
+from src.infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
+from src.infrastructure.models.finance.market_data import MarketDataModel
