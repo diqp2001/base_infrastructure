@@ -71,7 +71,7 @@ __author__ = "QuantConnect Lean Python Implementation"
 
 # Import engine components from separate file
 from .engine.misbuffet_engine import MisbuffetEngine, BacktestResult
-from domain.entities.back_testing import Portfolio
+
 
 # Main Misbuffet class with engine integration
 class Misbuffet:

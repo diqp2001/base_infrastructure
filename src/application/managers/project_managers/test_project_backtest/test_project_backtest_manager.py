@@ -25,13 +25,6 @@ from application.services.misbuffet.common import (
 )
 from application.services.misbuffet.algorithm.base import QCAlgorithm
 
-# Import domain entities following DDD structure
-from domain.entities.back_testing import (
-    Portfolio, Security, MarketData, Symbol, SecurityType
-)
-from infrastructure.models.finance import (
-    Portfolio as PortfolioModel, Security as SecurityModel
-)
 
 # Import result handling
 from application.services.misbuffet.results import (

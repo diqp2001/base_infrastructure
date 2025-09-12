@@ -8,7 +8,9 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
-from domain.entities.back_testing import Portfolio, Security, PortfolioStatistics
+
+from domain.entities.finance.portfolio import PortfolioStatistics, Portfolio
+
 
 
 @dataclass

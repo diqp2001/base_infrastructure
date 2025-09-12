@@ -8,14 +8,16 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
-from infrastructure.models.finance import (
-    Portfolio as PortfolioModel,
-    PortfolioHoldingsModel,
-    SecurityHoldingsModel,
-    PortfolioStatisticsModel,
-    MarketDataModel
-)
-from domain.entities.back_testing import Portfolio, Security, PortfolioStatistics, SecurityHoldings
+
+from domain.entities.finance.financial_assets.security import Security
+from domain.entities.finance.portfolio import Portfolio, PortfolioStatistics
+from infrastructure.models.finance.market_data import MarketDataModel
+from infrastructure.models.finance.portfolio import Portfolio as PortfolioModel
+from infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel, SecurityHoldingsModel
+from infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
+
+#from domain.entities.finance.portfolio import Portfolio
+
 from .result_handler import BacktestResult
 
 
