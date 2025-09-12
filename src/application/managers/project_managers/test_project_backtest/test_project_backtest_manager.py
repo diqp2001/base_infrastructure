@@ -153,7 +153,7 @@ class MyAlgorithm(IAlgorithm):
             if df.empty:
                 continue
 
-            X_live = df[["return_lag1", "return_lag2", "volatility"]].iloc[-1:].values
+            X_live = df[["return_lag1", "return_lag2", "volatility"]].iloc[-1:]
             pred = model.predict(X_live)[0]  # 1 = long, 0 = short
             signals[ticker] = pred
 

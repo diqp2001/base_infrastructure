@@ -258,7 +258,7 @@ class LiveTradingAlgorithm(IAlgorithm):
                     continue
                 
                 # Generate prediction
-                X_live = df[["return_lag1", "return_lag2", "volatility", "volume_ratio"]].iloc[-1:].values
+                X_live = df[["return_lag1", "return_lag2", "volatility", "volume_ratio"]].iloc[-1:]
                 pred_proba = model.predict_proba(X_live)[0]
                 confidence = max(pred_proba)
                 prediction = 1 if pred_proba[1] > pred_proba[0] else 0
