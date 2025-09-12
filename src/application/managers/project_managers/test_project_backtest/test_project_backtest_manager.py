@@ -198,7 +198,7 @@ class MyAlgorithm(IAlgorithm):
         weights = bl.solve()
 
         # Step 3: Execute trades based on BL weights
-        total_portfolio_value = self.portfolio.total_portfolio_value
+        total_portfolio_value = float(self.portfolio.total_portfolio_value)
         for ticker, w in weights.items():
             target_value = w * total_portfolio_value
             current_value = self.portfolio[ticker].holdings_value
