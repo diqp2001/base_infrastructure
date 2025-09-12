@@ -15,6 +15,7 @@ class Security(Base):
     Represents both live and mock/backtest securities with optional price snapshots.
     """
     __tablename__ = "securities"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=True)

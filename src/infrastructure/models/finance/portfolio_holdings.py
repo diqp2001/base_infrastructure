@@ -16,6 +16,7 @@ class PortfolioHoldingsModel(Base):
     Represents current holdings snapshot for a portfolio.
     """
     __tablename__ = "portfolio_holdings"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False, index=True)
@@ -49,6 +50,7 @@ class SecurityHoldingsModel(Base):
     Represents holdings for a specific security.
     """
     __tablename__ = "security_holdings"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False, index=True)

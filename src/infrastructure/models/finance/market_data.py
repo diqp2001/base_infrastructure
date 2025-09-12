@@ -16,6 +16,7 @@ class MarketDataModel(Base):
     Stores comprehensive market data with OHLCV information.
     """
     __tablename__ = "market_data"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     
