@@ -15,6 +15,7 @@ class Portfolio(Base):
     Represents both live portfolios and backtest/mock portfolios with snapshots.
     """
     __tablename__ = "portfolios"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
@@ -107,7 +108,7 @@ class Portfolio(Base):
     holdings_snapshot = Column(JSON, nullable=True)
 
     # Relationships
-    positions = relationship("Position", back_populates="portfolios")
+    positions = relationship("Position", back_populates="portfolio")
     holdings_snapshots = relationship("PortfolioHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
     security_holdings = relationship("SecurityHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
     statistics_history = relationship("PortfolioStatisticsModel", back_populates="portfolio", cascade="all, delete-orphan")
