@@ -87,7 +87,7 @@ class LiveTradingAlgorithm(IAlgorithm):
         # Performance tracking
         self.trades_today = 0
         self.daily_pnl = 0.0
-        self.start_of_day_value = self.portfolio.total_portfolio_value
+        self.start_of_day_value = float(self.portfolio.total_portfolio_value)
         
         # Schedule periodic tasks
         self.schedule.on(self.date_rules.every_day(), 
@@ -107,7 +107,7 @@ class LiveTradingAlgorithm(IAlgorithm):
         self.log("Market opened - resetting daily tracking")
         self.trades_today = 0
         self.daily_pnl = 0.0
-        self.start_of_day_value = self.portfolio.total_portfolio_value
+        self.start_of_day_value = float(self.portfolio.total_portfolio_value)
         
         # Force retrain models at market open
         self._train_models(self.time)
@@ -205,13 +205,13 @@ class LiveTradingAlgorithm(IAlgorithm):
     def _check_risk_limits(self) -> bool:
         """Check if risk limits are breached."""
         # Check daily loss limit
-        current_pnl = float(self.portfolio.total_portfolio_value - self.start_of_day_value)
+        current_pnl = float(self.portfolio.total_portfolio_value) - self.start_of_day_value
         if current_pnl < -self.daily_loss_limit:
             self.log(f"Daily loss limit breached: ${current_pnl:.2f}")
             return False
         
         # Check position sizes
-        total_value = self.portfolio.total_portfolio_value
+        total_value = float(self.portfolio.total_portfolio_value)
         for symbol, holding in self.portfolio.items():
             if abs(holding.holdings_value / total_value) > self.max_position_size:
                 self.log(f"Position size limit exceeded for {symbol}")
@@ -317,7 +317,7 @@ class LiveTradingAlgorithm(IAlgorithm):
     
     def _execute_portfolio_trades(self, weights: Dict[str, float], data):
         """Execute trades to achieve target portfolio weights."""
-        total_value = self.portfolio.total_portfolio_value
+        total_value = float(self.portfolio.total_portfolio_value)
         
         for ticker, target_weight in weights.items():
             if ticker not in data:
@@ -349,7 +349,7 @@ class LiveTradingAlgorithm(IAlgorithm):
     
     def _log_portfolio_status(self):
         """Log current portfolio status."""
-        total_value = self.portfolio.total_portfolio_value
+        total_value = float(self.portfolio.total_portfolio_value)
         self.log(f"Portfolio value: ${total_value:.2f}")
         
         for symbol, holding in self.portfolio.items():
@@ -366,8 +366,8 @@ class LiveTradingAlgorithm(IAlgorithm):
         
         # Update daily P&L tracking
         if order_event.status == "Filled":
-            current_value = self.portfolio.total_portfolio_value
-            self.daily_pnl = float(current_value - self.start_of_day_value)
+            current_value = float(self.portfolio.total_portfolio_value)
+            self.daily_pnl = current_value - self.start_of_day_value
     
     def on_end_of_day(self, symbol: Symbol) -> None:
         """Called at end of trading day."""

@@ -264,7 +264,7 @@ class Portfolio:
         """Execute a trade (buy/sell)."""
         quantity = Decimal(str(quantity))
         price = Decimal(str(price))
-        trade_value = abs(quantity) * price
+        trade_value = Decimal(str(abs(quantity))) * price
         
         try:
             if quantity > 0:  # Buy
@@ -301,11 +301,11 @@ class Portfolio:
                     return False  # Insufficient shares
                 
                 # Calculate realized P&L
-                realized_pnl = (price - holding.average_cost) * abs(quantity)
+                realized_pnl = (price - holding.average_cost) * Decimal(str(abs(quantity)))
                 holding.realized_pnl += realized_pnl
                 
                 # Update holding quantity
-                holding.quantity -= abs(quantity)
+                holding.quantity -= Decimal(str(abs(quantity)))
                 if holding.quantity == 0:
                     self.remove_security_holding(symbol)
                 else:
