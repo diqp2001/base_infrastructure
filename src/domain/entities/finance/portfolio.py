@@ -210,6 +210,11 @@ class Portfolio:
         return self.holdings.total_value
     
     @property
+    def total_portfolio_value(self) -> Decimal:
+        """Get total portfolio value (alias for current_value for compatibility)."""
+        return self.current_value
+    
+    @property
     def cash_balance(self) -> Decimal:
         """Get current cash balance."""
         return self.holdings.cash_balance
