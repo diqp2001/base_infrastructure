@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.infrastructure.models.repos.repo import Repo
+from src.infrastructure.repositories import Repo
 
 class RepoRepository:
     def __init__(self, session: Session):

@@ -99,7 +99,7 @@ class Portfolio(Base):
     last_valuation_date = Column(DateTime, nullable=True)
 
     # Snapshot fields (inline instead of separate table)
-    snapshot_date = Column(DateTime, nullable=True, index=True)
+    snapshot_date = Column(DateTime, nullable=True, index=True) #ix_portfolios_snapshot_date 
     snapshot_cash = Column(Numeric(20, 4), nullable=True)
     snapshot_holdings_value = Column(Numeric(20, 4), nullable=True)
     snapshot_unrealized_pnl = Column(Numeric(20, 4), nullable=True)
@@ -108,11 +108,11 @@ class Portfolio(Base):
     holdings_snapshot = Column(JSON, nullable=True)
 
     # Relationships
-    positions = relationship("Position", back_populates="portfolio")
-    holdings_snapshots = relationship("PortfolioHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
-    security_holdings = relationship("SecurityHoldingsModel", back_populates="portfolio", cascade="all, delete-orphan")
-    statistics_history = relationship("PortfolioStatisticsModel", back_populates="portfolio", cascade="all, delete-orphan")
-    securities = relationship("Security", back_populates="portfolio", cascade="all, delete-orphan")
+    positions = relationship("Position", back_populates="portfolios")
+    portfolio_holdings = relationship("PortfolioHoldingsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    security_holdings = relationship("SecurityHoldingsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    portfolio_statistics = relationship("PortfolioStatisticsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    securities = relationship("Security", back_populates="portfolios", cascade="all, delete-orphan")
 
     def __repr__(self):
         return (

@@ -31,9 +31,11 @@ from src.infrastructure.models.finance.financial_assets.derivatives import Deriv
 from src.infrastructure.models.finance.financial_assets.forward_contract import (
     ForwardContract, CommodityForward, CurrencyForward
 )
-from src.infrastructure.models.finance.financial_assets.swaps import (
-    Swap, SwapLeg, InterestRateSwap, CurrencySwap
-)
+from infrastructure.models.finance.financial_assets.swap.swap import Swap
+from infrastructure.models.finance.financial_assets.swap.currency_swap import CurrencySwap
+from infrastructure.models.finance.financial_assets.swap.interest_rate_swap import InterestRateSwap
+from infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLeg
+
 
 # New general entity imports
 from src.infrastructure.models.continent import Continent
@@ -41,6 +43,7 @@ from src.infrastructure.models.continent import Continent
 # New finance entity imports
 from src.infrastructure.models.finance.portfolio import Portfolio
 from src.infrastructure.models.finance.position import Position
-from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel, SecurityHoldingsModel
+from src.infrastructure.models.finance.security_holdings import SecurityHoldingsModel
+from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel
 from src.infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
 from src.infrastructure.models.finance.market_data import MarketDataModel

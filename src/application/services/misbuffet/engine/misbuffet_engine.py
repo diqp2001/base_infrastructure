@@ -10,8 +10,11 @@ from datetime import timedelta, datetime
 from typing import Optional, List, Dict, Any
 import pandas as pd
 
+from decimal import Decimal
 # Import the stock data repository for real data access
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
+
+from domain.entities.finance.back_testing import Portfolio
 
 # Import BaseEngine for proper inheritance
 from .base_engine import BaseEngine
@@ -99,8 +102,7 @@ class MisbuffetEngine(BaseEngine):
             if self.algorithm:
                 # Portfolio setup with domain entity
                 initial_capital = getattr(config, 'initial_capital', 100000)
-                from domain.entities.back_testing import Portfolio
-                from decimal import Decimal
+
                 self.algorithm.portfolio = Portfolio(
                     name=f"Algorithm_{self.algorithm.__class__.__name__}",
                     initial_cash=Decimal(str(initial_capital))

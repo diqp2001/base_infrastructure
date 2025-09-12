@@ -13,7 +13,7 @@ from application.managers.project_managers.test_project_backtest import config
 from application.services.misbuffet.algorithm.order import OrderEvent
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
-from domain.entities.finance.financial_assets.security import MarketData
+from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository

@@ -47,7 +47,7 @@ class PortfolioStatisticsModel(Base):
     updated_at = Column(DateTime, nullable=True)
     
     # Relationships
-    portfolio = relationship("Portfolio", back_populates="statistics_history")
+    portfolios = relationship("Portfolio", back_populates="portfolio_statistics")
     
     def __repr__(self):
         return (

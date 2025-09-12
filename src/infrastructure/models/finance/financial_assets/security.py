@@ -83,7 +83,7 @@ class Security(Base):
     last_market_update = Column(DateTime, nullable=True)
 
     # Relationships
-    portfolio = relationship("Portfolio", back_populates="securities")
+    portfolios = relationship("Portfolio", back_populates="securities")
     market_data_history = relationship("MarketDataModel", 
                                      primaryjoin="and_(Security.ticker==MarketDataModel.symbol_ticker, "
                                                "Security.exchange==MarketDataModel.symbol_exchange)",

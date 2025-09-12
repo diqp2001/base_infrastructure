@@ -33,7 +33,7 @@ class UnderlyingAsset(Base):
     is_active = Column(Boolean, default=True)
     
     # Relationships
-    derivatives = relationship("Derivative", back_populates="underlying_asset")
+    derivatives = relationship("Derivative", back_populates="underlying_assets")
 
     def __repr__(self):
         return f"<UnderlyingAsset(id={self.id}, symbol={self.symbol}, type={self.asset_type}, price={self.current_price})>"
@@ -112,7 +112,7 @@ class Derivative(Base):
     expiration_processed = Column(Boolean, default=False)
 
     # Relationships
-    underlying_asset = relationship("UnderlyingAsset", back_populates="derivatives")
+    underlying_assets = relationship("UnderlyingAsset", back_populates="derivatives")
 
     def __repr__(self):
         return f"<Derivative(id={self.id}, ticker={self.ticker}, type={self.security_type}, exp={self.expiration_date})>"
