@@ -16,6 +16,7 @@ class PortfolioStatisticsModel(Base):
     Stores performance and risk metrics for a portfolio.
     """
     __tablename__ = "portfolio_statistics"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False, index=True)
