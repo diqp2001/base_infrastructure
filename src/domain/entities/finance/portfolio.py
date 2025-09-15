@@ -354,6 +354,44 @@ class Portfolio:
     def __str__(self) -> str:
         return f"Portfolio({self.name}, {self.currency}{self.current_value})"
     
+    def __getitem__(self, symbol) -> Optional[SecurityHoldings]:
+        """Make Portfolio subscriptable to access holdings by symbol."""
+        # Handle both Symbol objects and string tickers
+        if isinstance(symbol, str):
+            # Find holding by ticker string
+            for sym, holding in self.holdings.holdings.items():
+                if hasattr(sym, 'ticker') and sym.ticker == symbol:
+                    return holding
+                elif str(sym) == symbol:
+                    return holding
+            # If no holding found, return empty holding for compatibility
+            from .financial_assets.security import Symbol, SecurityType
+            symbol_obj = Symbol(ticker=symbol, exchange="USA", security_type=SecurityType.EQUITY)
+            return SecurityHoldings(
+                symbol=symbol_obj,
+                quantity=Decimal('0'),
+                average_cost=Decimal('0'),
+                market_value=Decimal('0')
+            )
+        else:
+            # Handle Symbol objects directly
+            return self.holdings.get_holding(symbol)
+    
+    def __setitem__(self, symbol, holding: SecurityHoldings) -> None:
+        """Allow setting holdings via subscript notation."""
+        self.add_security_holding(holding)
+    
+    def __contains__(self, symbol) -> bool:
+        """Check if portfolio contains a holding for the given symbol."""
+        if isinstance(symbol, str):
+            return any(
+                (hasattr(sym, 'ticker') and sym.ticker == symbol) or
+                str(sym) == symbol
+                for sym in self.holdings.holdings.keys()
+            )
+        else:
+            return symbol in self.holdings.holdings
+
     def __repr__(self) -> str:
         return (f"Portfolio(name='{self.name}', value={self.current_value}, "
                 f"type={self.portfolio_type.value}, cash={self.cash_balance})")
