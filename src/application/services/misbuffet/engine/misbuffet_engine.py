@@ -317,9 +317,7 @@ class MisbuffetEngine(BaseEngine):
         Returns:
             DataFrame or dictionary of DataFrames with historical data
         """
-        if self.stock_data_repository is None:
-            self.logger.warning("No stock data repository available, using mock data")
-            return self._generate_mock_historical_data(tickers, periods)
+        
         
         try:
             # Handle single ticker or list of tickers
@@ -333,21 +331,19 @@ class MisbuffetEngine(BaseEngine):
             result_data = {}
             for ticker in tickers:
                 df = self.stock_data_repository.get_historical_data(ticker, periods, end_time)
-                if not df.empty:
-                    # Rename columns to match expected format
-                    df_standardized = df.rename(columns={
-                        'Date': 'time',
-                        'Open': 'open', 
-                        'High': 'high',
-                        'Low': 'low',
-                        'Close': 'close',
-                        'Volume': 'volume'
-                    })
-                    result_data[ticker] = df_standardized
-                    self.logger.info(f"Retrieved {len(df)} records for {ticker} from database")
-                else:
-                    self.logger.warning(f"No data found for {ticker}, using mock data")
-                    result_data[ticker] = self._generate_mock_historical_data([ticker], periods)
+                
+                # Rename columns to match expected format
+                df_standardized = df.rename(columns={
+                    'Date': 'time',
+                    'Open': 'open', 
+                    'High': 'high',
+                    'Low': 'low',
+                    'Close': 'close',
+                    'Volume': 'volume'
+                })
+                result_data[ticker] = df_standardized
+                self.logger.info(f"Retrieved {len(df)} records for {ticker} from database")
+                
             
             # Return format based on input
             if len(tickers) == 1:
@@ -357,32 +353,9 @@ class MisbuffetEngine(BaseEngine):
                 
         except Exception as e:
             self.logger.error(f"Error retrieving historical data: {e}")
-            return self._generate_mock_historical_data(tickers, periods)
+            
     
-    def _generate_mock_historical_data(self, tickers, periods):
-        """Fallback method to generate mock historical data."""
-        import numpy as np
-        
-        if isinstance(tickers, str):
-            tickers = [tickers]
-        
-        dates = pd.date_range(start='2023-01-01', periods=periods, freq='D')
-        result_data = {}
-        
-        for ticker in tickers:
-            result_data[ticker] = pd.DataFrame({
-                'time': dates,
-                'close': np.random.normal(100, 10, periods),
-                'open': np.random.normal(100, 10, periods),
-                'high': np.random.normal(105, 10, periods),
-                'low': np.random.normal(95, 10, periods),
-                'volume': np.random.randint(1000, 10000, periods)
-            })
-        
-        if len(tickers) == 1:
-            return result_data[tickers[0]]
-        else:
-            return result_data
+    
 
     def _execute_main_loop(self) -> None:
         """Execute the main engine loop. Required by BaseEngine."""

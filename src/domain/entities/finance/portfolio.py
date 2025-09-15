@@ -36,6 +36,7 @@ class SecurityHoldings:
     market_value: Decimal = field(default_factory=lambda: Decimal('0'))
     unrealized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
     realized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
+    holdings_value: Decimal = field(default_factory=lambda: Decimal('0'))
     
     def __post_init__(self):
         """Ensure decimal precision."""
@@ -44,6 +45,7 @@ class SecurityHoldings:
         self.market_value = Decimal(str(self.market_value))
         self.unrealized_pnl = Decimal(str(self.unrealized_pnl))
         self.realized_pnl = Decimal(str(self.realized_pnl))
+        self.holdings_value = Decimal(str(self.holdings_value))
     
     def update_market_value(self, current_price: Decimal) -> None:
         """Update market value and unrealized P&L based on current price."""
