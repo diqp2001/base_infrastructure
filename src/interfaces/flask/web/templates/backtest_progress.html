@@ -251,6 +251,9 @@
                         <button class="btn btn-outline-secondary btn-sm" onclick="downloadLog()">
                             <i class="fas fa-download"></i> Export Log
                         </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="stopServer()">
+                            <i class="fas fa-stop"></i> Stop Server
+                        </button>
                     </div>
                 </div>
             </div>
@@ -442,6 +445,32 @@
             document.body.removeChild(a);
         }
 
+        // Stop server function
+        function stopServer() {
+            if (confirm('Are you sure you want to stop the server? This will close the web interface.')) {
+                // Close event source first
+                if (eventSource) {
+                    eventSource.close();
+                }
+                
+                // Send shutdown request
+                fetch('/shutdown', {
+                    method: 'POST'
+                }).then(response => {
+                    if (response.ok) {
+                        // Show success message and close window
+                        alert('Server stopped successfully. You can close this window.');
+                        window.close();
+                    } else {
+                        alert('Failed to stop server. Please check the console.');
+                    }
+                }).catch(error => {
+                    console.error('Error stopping server:', error);
+                    alert('Error stopping server. Please close manually.');
+                });
+            }
+        }
+
         // Utility function to escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -457,10 +486,34 @@
             document.getElementById('start-time').textContent = startTime.toLocaleTimeString();
         });
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', function() {
+        // Cleanup and server shutdown on page unload
+        window.addEventListener('beforeunload', function(e) {
+            // Close event source connection
             if (eventSource) {
                 eventSource.close();
+            }
+            
+            // Attempt to shutdown server (fire and forget)
+            try {
+                navigator.sendBeacon('/shutdown', new FormData());
+            } catch (error) {
+                // Fallback for browsers that don't support sendBeacon
+                fetch('/shutdown', {
+                    method: 'POST',
+                    keepalive: true
+                }).catch(() => {});
+            }
+        });
+        
+        // Also handle regular page close/refresh
+        window.addEventListener('unload', function() {
+            try {
+                navigator.sendBeacon('/shutdown', new FormData());
+            } catch (error) {
+                fetch('/shutdown', {
+                    method: 'POST',
+                    keepalive: true
+                }).catch(() => {});
             }
         });
     </script>
