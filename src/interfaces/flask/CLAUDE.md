@@ -1,140 +1,156 @@
-src/
-  application/
-    services/                👈 use cases (already here)
-  domain/
-    entities/
-    ports/
-  infrastructure/
-    repositories/
-    models/
-  interfaces/
-    flask/
-        web/                     👈 HTML views + controllers
-            controllers/
-            templates/
-            static/
-        api/                     👈 REST/JSON API
-            controllers/
-            routes/
-                routes.py
-        flask.py
-  main.py
+# Flask Interface Layer - CLAUDE.md
 
+## 📂 Directory Structure
 
-  Separation of Concerns
+```
+src/interfaces/flask/
+├── flask.py                     👈 Main Flask app factory
+├── web/                         👈 HTML views + controllers
+│   ├── controllers/
+│   │   └── dashboard_controller.py
+│   ├── templates/
+│   │   ├── index.html          👈 Legacy home page
+│   │   ├── dashboard_hub.html  👈 NEW: Comprehensive dashboard
+│   │   ├── performance_results.html
+│   │   └── test_manager.html
+│   └── static/
+│       └── style.css
+└── api/                         👈 REST/JSON API
+    ├── controllers/
+    │   └── backtest_controller.py
+    └── routes/
+        └── routes.py
+```
 
-Web → controllers render Jinja2 templates, return HTML pages.
+## 🎯 New Features Implemented
 
-API → controllers return JSON (Flask jsonify), no HTML.
+### 1. Comprehensive Trading Dashboard Hub (`/dashboard`)
+- **7-View Navigation System**: Algorithm Management, Portfolio Overview, Database Explorer, Entity Management, Order History, Backtest Results
+- **Interactive Parameter Controls**: Sliders, dropdowns, and form inputs for algorithm configuration
+- **Real-time KPI Display**: Portfolio value, daily P&L, active positions, algorithm status
+- **Quick Action Buttons**: Run backtest, start live trading, save/load configurations
+- **Responsive Bootstrap Design**: Modern UI with sidebar navigation and dynamic content loading
 
-Both layers call the same application services (e.g. BacktestService, PortfolioService)
+### 2. Enhanced API Endpoints
+- `GET /api/entities/company_shares` - All company entities with market/fundamental data
+- `GET /api/entities/company_shares/{id}` - Specific company by ID
+- `GET /api/entities/summary` - Database summary statistics
+- `POST /api/test_managers/backtest` - Execute TestProjectBacktestManager via API
+- `POST /api/test_managers/live_trading` - Execute TestProjectLiveTradingManager via API
 
+### 3. Performance Visualization
+- **4-Panel Chart System**: Portfolio evolution, returns distribution, drawdown analysis, cumulative returns
+- **Matplotlib Integration**: Server-side chart generation with base64 encoding
+- **Performance Metrics Calculation**: Sharpe ratio, volatility, max drawdown, win rate
 
- 📂 interfaces/flask/flask.py
+## 🔧 Architecture Principles
 
-FlaskApp is only in the interfaces layer → no domain logic.
+### Separation of Concerns
+- **Web Layer** → HTML templates with Bootstrap UI
+- **API Layer** → JSON responses for programmatic access  
+- **Business Logic** → Delegated to application.services and domain layers
 
-Web & API logic live under interfaces/flask/web and interfaces/flask/api.
+### Route Organization
+```python
+# Web Routes (dashboard_controller.py)
+@web_bp.route("/")              # Legacy home page
+@web_bp.route("/dashboard")     # NEW: Comprehensive dashboard hub
+@web_bp.route("/test_backtest") # Backtest execution with visualization
+@web_bp.route("/test_live_trading") # Live trading execution
 
-application.services are called inside controllers, not here.
+# API Routes (backtest_controller.py)
+@backtest_api.route("/api/entities/company_shares")
+@backtest_api.route("/api/test_managers/backtest", methods=["POST"])
+```
 
-This class is just glue: app creation, config, and route registration.
+## 📋 Usage Instructions
 
-📂 interfaces/flask/
+### Accessing the New Dashboard
+1. **Home Page**: Navigate to `/` for legacy interface with links to new features
+2. **Comprehensive Dashboard**: Go to `/dashboard` for the full 7-view trading hub
+3. **Direct Access**: Use specific routes like `/test_backtest` for individual features
 
-This is your presentation layer (interface adapters in DDD).
-It connects the outside world (HTTP requests) to your application services.
-Everything Flask-specific stays here, isolated from your domain logic.
+### Algorithm Configuration
+1. **Select Strategy**: Choose from dropdown (Momentum ML, Black-Litterman, etc.)
+2. **Adjust Parameters**: Use sliders and inputs for lookback window, risk threshold, position size
+3. **Save/Load Presets**: Store configurations in browser localStorage
+4. **Execute**: Click "Run Backtest" or "Start Live Trading" buttons
 
-📂 web/
+### API Integration
+```python
+# Example: Execute backtest via API
+response = requests.post('/api/test_managers/backtest', json={})
 
-This is your HTML-based UI (dashboards, forms, reports).
+# Example: Get entity data
+companies = requests.get('/api/entities/company_shares').json()
+```
 
-controllers/ → Flask view controllers that handle HTTP requests, call application.services, and render templates.
+## 🚀 Performance Features
 
-templates/ → Jinja2 HTML templates. Can be designed in a tool like Bootstrap Studio / Figma → HTML → drop here.
+### Real-time Updates
+- **KPI Refresh**: Portfolio metrics update every 30 seconds
+- **Dynamic Status**: Live algorithm and system status indicators
+- **Interactive Charts**: Hover tooltips and responsive design
 
-static/ → Static assets like CSS, JS, images. Served directly by Flask.
+### Data Handling
+- **Decimal/Float Conversion**: Automatic type handling for financial calculations
+- **JSON Serialization**: Custom serializers for DateTime and Decimal objects
+- **Error Handling**: Comprehensive exception management with user-friendly messages
 
-👉 Typical flow: request → web.controller → application.service → template (HTML)
+## 🔌 Integration Points
 
-📂 api/
+### Application Services
+- `TestProjectBacktestManager` - Backtesting execution and results
+- `TestProjectLiveTradingManager` - Live trading operations  
+- `DatabaseManager` - Entity data access and persistence
+- `CompanyShareRepository` - Company share CRUD operations
 
-This is your REST/JSON interface (programmatic access).
+### Frontend Technologies
+- **Bootstrap 5.1.3** - Responsive UI framework
+- **Font Awesome 6.0** - Icon system
+- **Matplotlib** - Server-side chart generation
+- **JavaScript** - Dynamic content loading and user interactions
 
-controllers/ → Functions (Flask blueprints) that handle API endpoints, call application.services, and return JSON responses.
+## 📈 Metrics & Monitoring
 
-routes/ → Organize your API route definitions (e.g. routes.py for registering endpoints). Keeps controllers thin and routes centralized.
+### Performance Tracking
+- **Portfolio KPIs**: Total value, daily P&L, position count
+- **Risk Metrics**: Sharpe ratio, volatility, maximum drawdown
+- **System Health**: Database connection, TWS API status, data feed status
 
-👉 Typical flow: request → api.controller → application.service → JSON response
+### User Experience
+- **Loading States**: Visual feedback during operations
+- **Error Messages**: Flash messages for user notifications
+- **Progress Tracking**: Status indicators for long-running operations
 
-🔹 Roles in Summary
+## 🔐 Security & Best Practices
 
-web/controllers/
+### API Security
+- Input validation on all endpoints
+- Proper HTTP status codes (200, 404, 500)
+- Error message sanitization
 
-Contains controllers for serving HTML.
+### Performance Optimization  
+- Lazy loading of dashboard sections
+- Efficient database queries with proper repository pattern
+- Client-side configuration caching
 
-Example: dashboard_controller.py (renders dashboard.html).
+## 🧪 Testing & Development
 
-web/templates/
+### Local Development
+```bash
+# Start Flask development server
+python -m src.interfaces.flask.flask
 
-Contains .html files with Jinja2 placeholders for data from controllers.
+# Access endpoints
+http://localhost:5000/                 # Home page
+http://localhost:5000/dashboard        # Comprehensive dashboard
+http://localhost:5000/api/entities/summary  # API example
+```
 
-web/static/
-
-Assets: CSS, JS, images.
-
-api/controllers/
-
-API logic: each file groups endpoints by domain (e.g. backtest_controller.py).
-
-Thin: should just validate request, call service, format response.
-
-api/routes/
-
-Route registrations.
-
-Keeps blueprints and URL structures organized. Example: routes.py might register /api/backtest with the backtest_controller.
-
-✅ This way:
-
-Your web UI and API are cleanly separated.
-
-Both call into application/services (so business logic is reused).
-
-Flask never leaks into domain or infrastructure.
-
-
-examples:
-
-
-interfaces/api/routes/routes.py:
-
-from flask import Blueprint, request, jsonify
-from application.services.backtest_service import BacktestService
-
-api_bp = Blueprint("api", __name__, url_prefix="/api")
-
-@api_bp.route("/backtest", methods=["POST"])
-def run_backtest():
-    params = request.json
-    service = BacktestService()
-    results = service.run(params)
-    return jsonify(results.to_dict())
-
-interfaces/web/controllers/dashboard_controller.py:
-from flask import Blueprint, render_template, request
-from application.services.backtest_service import BacktestService
-
-web_bp = Blueprint("web", __name__)
-
-@web_bp.route("/")
-def home():
-    return render_template("index.html")
-
-@web_bp.route("/backtest", methods=["POST"])
-def run_backtest():
-    params = request.form
-    service = BacktestService()
-    results = service.run(params)
-    return render_template("results.html", results=results)
+### Future Enhancements
+- [ ] Real-time WebSocket connections for live data
+- [ ] User authentication and session management  
+- [ ] Advanced charting with TradingView integration
+- [ ] Export functionality (CSV, Excel, PDF reports)
+- [ ] Mobile-responsive optimizations

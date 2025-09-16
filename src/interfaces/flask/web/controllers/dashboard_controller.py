@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 def home():
     return render_template("index.html")
 
+@web_bp.route("/dashboard")
+def dashboard_hub():
+    """Main comprehensive dashboard hub with all 7 views"""
+    return render_template("dashboard_hub.html")
+
 @web_bp.route("/backtest", methods=["POST"])
 def run_backtest():
     params = request.form  # values from an HTML form

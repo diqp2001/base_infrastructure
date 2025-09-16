@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+        }
+        .feature-card {
+            transition: transform 0.2s;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        .algorithm-selector {
+            background-color: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+        .parameter-control {
+            margin-bottom: 1rem;
+        }
+        .quick-action-btn {
+            margin: 0.25rem;
+            padding: 0.75rem 1.5rem;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .kpi-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+        .sidebar {
+            background-color: #343a40;
+            color: white;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            z-index: 1000;
+        }
+        .sidebar .nav-link {
+            color: #adb5bd;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #495057;
+        }
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: #495057;
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: #007bff;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+        }
+        .algorithm-config {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #28a745; }
+        .status-stopped { background-color: #dc3545; }
+        .status-idle { background-color: #ffc107; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="p-3">
+            <h4><i class="fas fa-chart-line"></i> Trading Hub</h4>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('algorithms')">
+                    <i class="fas fa-cogs"></i> Algorithms
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('portfolio')">
+                    <i class="fas fa-briefcase"></i> Portfolio
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('database')">
+                    <i class="fas fa-database"></i> Database Explorer
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('entities')">
+                    <i class="fas fa-building"></i> Entity Management
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('orders')">
+                    <i class="fas fa-exchange-alt"></i> Orders & Trades
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('backtest')">
+                    <i class="fas fa-chart-area"></i> Backtest Results
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="content-section">
+            <div class="dashboard-header text-center">
+                <div class="container">
+                    <h1><i class="fas fa-chart-line"></i> Trading Dashboard Hub</h1>
+                    <p class="lead">Central command center for algorithmic trading operations</p>
+                </div>
+            </div>
+
+            <div class="container-fluid mt-4">
+                <!-- KPI Summary Row -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="portfolio-value">$125,430</div>
+                            <div class="kpi-label">Total Portfolio Value</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="daily-pnl" style="color: #28a745;">+$2,340</div>
+                            <div class="kpi-label">Daily P&L</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="active-positions">7</div>
+                            <div class="kpi-label">Active Positions</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="algorithm-status">
+                                <span class="status-indicator status-running"></span>2 Running
+                            </div>
+                            <div class="kpi-label">Algorithm Status</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Algorithm Selection and Configuration -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="algorithm-config">
+                            <h3><i class="fas fa-robot"></i> Algorithm Configuration</h3>
+                            
+                            <div class="algorithm-selector">
+                                <label for="algorithm-select" class="form-label"><strong>Select Strategy:</strong></label>
+                                <select class="form-select" id="algorithm-select" onchange="updateParameters()">
+                                    <option value="momentum">Momentum ML Strategy</option>
+                                    <option value="blacklitterman">Black-Litterman Optimizer</option>
+                                    <option value="meanreversion">Mean Reversion Strategy</option>
+                                    <option value="pairs">Pairs Trading Strategy</option>
+                                    <option value="custom">Custom Algorithm</option>
+                                </select>
+                            </div>
+
+                            <!-- Dynamic Parameters Section -->
+                            <div id="parameters-section">
+                                <h5>Strategy Parameters</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="parameter-control">
+                                            <label for="lookback-window" class="form-label">Lookback Window</label>
+                                            <input type="range" class="form-range" id="lookback-window" min="10" max="252" value="20" 
+                                                   oninput="document.getElementById('lookback-value').textContent = this.value">
+                                            <span id="lookback-value">20</span> days
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="parameter-control">
+                                            <label for="rebalance-freq" class="form-label">Rebalance Frequency</label>
+                                            <select class="form-select" id="rebalance-freq">
+                                                <option value="daily">Daily</option>
+                                                <option value="weekly" selected>Weekly</option>
+                                                <option value="monthly">Monthly</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="parameter-control">
+                                            <label for="risk-threshold" class="form-label">Risk Threshold</label>
+                                            <input type="number" class="form-control" id="risk-threshold" value="0.02" step="0.01" min="0.01" max="0.10">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="parameter-control">
+                                            <label for="position-size" class="form-label">Max Position Size (%)</label>
+                                            <input type="number" class="form-control" id="position-size" value="10" min="1" max="50">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Action Buttons -->
+                            <div class="mt-4">
+                                <h5>Quick Actions</h5>
+                                <button class="btn btn-success quick-action-btn" onclick="runBacktest()">
+                                    <i class="fas fa-play"></i> Run Backtest
+                                </button>
+                                <button class="btn btn-warning quick-action-btn" onclick="startLiveTrading()">
+                                    <i class="fas fa-broadcast-tower"></i> Start Live Trading
+                                </button>
+                                <button class="btn btn-info quick-action-btn" onclick="saveConfiguration()">
+                                    <i class="fas fa-save"></i> Save Configuration
+                                </button>
+                                <button class="btn btn-secondary quick-action-btn" onclick="loadConfiguration()">
+                                    <i class="fas fa-upload"></i> Load Preset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Links Panel -->
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-tachometer-alt"></i> Quick Links</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <a href="#" class="btn btn-outline-primary" onclick="showSection('portfolio')">
+                                        <i class="fas fa-briefcase"></i> Portfolio Dashboard
+                                    </a>
+                                    <a href="#" class="btn btn-outline-info" onclick="showSection('entities')">
+                                        <i class="fas fa-building"></i> Entity Management
+                                    </a>
+                                    <a href="#" class="btn btn-outline-warning" onclick="showSection('database')">
+                                        <i class="fas fa-database"></i> Database Explorer
+                                    </a>
+                                    <a href="/api/entities/summary" class="btn btn-outline-success" target="_blank">
+                                        <i class="fas fa-chart-bar"></i> API Explorer
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Status -->
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h5><i class="fas fa-server"></i> System Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Database Connection</span>
+                                    <span class="badge bg-success">Online</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>TWS API</span>
+                                    <span class="badge bg-warning">Connecting</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Data Feed</span>
+                                    <span class="badge bg-success">Active</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>ML Models</span>
+                                    <span class="badge bg-info">Ready</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other sections will be loaded here dynamically -->
+        <div id="algorithms-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-cogs"></i> Algorithm Management</h2>
+                <p>Loading algorithm management interface...</p>
+            </div>
+        </div>
+
+        <div id="portfolio-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-briefcase"></i> Portfolio Overview</h2>
+                <p>Loading portfolio dashboard...</p>
+            </div>
+        </div>
+
+        <div id="database-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-database"></i> Database Explorer</h2>
+                <p>Loading database explorer...</p>
+            </div>
+        </div>
+
+        <div id="entities-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-building"></i> Entity Management</h2>
+                <p>Loading entity management interface...</p>
+            </div>
+        </div>
+
+        <div id="orders-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-exchange-alt"></i> Orders & Trade History</h2>
+                <p>Loading orders and trade history...</p>
+            </div>
+        </div>
+
+        <div id="backtest-section" class="content-section" style="display: none;">
+            <div class="container-fluid">
+                <h2><i class="fas fa-chart-area"></i> Backtest Results</h2>
+                <p>Loading backtest results...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Navigation functionality
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').style.display = 'block';
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load section-specific content
+            loadSectionContent(sectionName);
+        }
+
+        // Load content for specific sections
+        function loadSectionContent(sectionName) {
+            const contentDiv = document.getElementById(sectionName + '-section');
+            
+            switch(sectionName) {
+                case 'algorithms':
+                    loadAlgorithmManagement(contentDiv);
+                    break;
+                case 'portfolio':
+                    loadPortfolioDashboard(contentDiv);
+                    break;
+                case 'database':
+                    loadDatabaseExplorer(contentDiv);
+                    break;
+                case 'entities':
+                    loadEntityManagement(contentDiv);
+                    break;
+                case 'orders':
+                    loadOrderHistory(contentDiv);
+                    break;
+                case 'backtest':
+                    loadBacktestResults(contentDiv);
+                    break;
+            }
+        }
+
+        // Algorithm parameter updates
+        function updateParameters() {
+            const algorithm = document.getElementById('algorithm-select').value;
+            const parametersSection = document.getElementById('parameters-section');
+            
+            // Update parameters based on selected algorithm
+            // This would be expanded with algorithm-specific parameters
+            console.log('Updating parameters for algorithm:', algorithm);
+        }
+
+        // Action handlers
+        function runBacktest() {
+            const config = {
+                algorithm: document.getElementById('algorithm-select').value,
+                lookback: document.getElementById('lookback-window').value,
+                rebalance_freq: document.getElementById('rebalance-freq').value,
+                risk_threshold: document.getElementById('risk-threshold').value,
+                position_size: document.getElementById('position-size').value
+            };
+            
+            // Show loading state
+            const btn = event.target;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+            btn.disabled = true;
+            
+            // Redirect to backtest execution
+            setTimeout(() => {
+                window.location.href = '/test_backtest';
+            }, 1000);
+        }
+
+        function startLiveTrading() {
+            if (confirm('Are you sure you want to start live trading with real money?')) {
+                const btn = event.target;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    window.location.href = '/test_live_trading';
+                }, 1000);
+            }
+        }
+
+        function saveConfiguration() {
+            const config = {
+                algorithm: document.getElementById('algorithm-select').value,
+                lookback: document.getElementById('lookback-window').value,
+                rebalance_freq: document.getElementById('rebalance-freq').value,
+                risk_threshold: document.getElementById('risk-threshold').value,
+                position_size: document.getElementById('position-size').value
+            };
+            
+            localStorage.setItem('tradingConfig', JSON.stringify(config));
+            alert('Configuration saved successfully!');
+        }
+
+        function loadConfiguration() {
+            const config = localStorage.getItem('tradingConfig');
+            if (config) {
+                const parsed = JSON.parse(config);
+                document.getElementById('algorithm-select').value = parsed.algorithm;
+                document.getElementById('lookback-window').value = parsed.lookback;
+                document.getElementById('rebalance-freq').value = parsed.rebalance_freq;
+                document.getElementById('risk-threshold').value = parsed.risk_threshold;
+                document.getElementById('position-size').value = parsed.position_size;
+                document.getElementById('lookback-value').textContent = parsed.lookback;
+                alert('Configuration loaded successfully!');
+            } else {
+                alert('No saved configuration found.');
+            }
+        }
+
+        // Placeholder functions for section loading (to be implemented)
+        function loadAlgorithmManagement(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-cogs"></i> Algorithm Management</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will contain algorithm metadata, version control, and configuration management.
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadPortfolioDashboard(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-briefcase"></i> Portfolio Overview</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will show live portfolio KPIs, positions, and risk metrics.
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadDatabaseExplorer(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-database"></i> Database Explorer</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will provide SSMS-like database exploration and CRUD operations.
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadEntityManagement(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-building"></i> Entity Management</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will manage domain-specific entities like companies, assets, and portfolios.
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadOrderHistory(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-exchange-alt"></i> Orders & Trade History</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will show order blotter, execution history, and trade analysis.
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadBacktestResults(container) {
+            container.innerHTML = `
+                <div class="container-fluid">
+                    <h2><i class="fas fa-chart-area"></i> Backtest Results</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> This section will display backtest results with performance charts and comparisons.
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize dashboard with live data updates
+        function updateKPIs() {
+            // This would be replaced with actual API calls
+            const portfolioValue = 125430 + Math.random() * 1000 - 500;
+            const dailyPnL = 2340 + Math.random() * 500 - 250;
+            
+            document.getElementById('portfolio-value').textContent = '$' + Math.floor(portfolioValue).toLocaleString();
+            
+            const pnlElement = document.getElementById('daily-pnl');
+            if (dailyPnL >= 0) {
+                pnlElement.textContent = '+$' + Math.floor(dailyPnL).toLocaleString();
+                pnlElement.style.color = '#28a745';
+            } else {
+                pnlElement.textContent = '-$' + Math.floor(Math.abs(dailyPnL)).toLocaleString();
+                pnlElement.style.color = '#dc3545';
+            }
+        }
+
+        // Update KPIs every 30 seconds
+        setInterval(updateKPIs, 30000);
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateKPIs();
+        });
+    </script>
+</body>
+</html>
