@@ -34,7 +34,6 @@ from domain.entities.finance.financial_assets.security import MarketData, Symbol
 # Import misbuffet components
 from application.services.misbuffet import Misbuffet
 from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
-from application.services.misbuffet.common.interfaces import IAlgorithm
 from application.services.misbuffet.common.enums import Resolution
 from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 
@@ -50,7 +49,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class LiveTradingAlgorithm(IAlgorithm):
+class LiveTradingAlgorithm(QCAlgorithm):
     """
     Live Trading Algorithm using ML signals and Black-Litterman optimization.
     
@@ -90,13 +89,19 @@ class LiveTradingAlgorithm(IAlgorithm):
         self.start_of_day_value = float(self.portfolio.total_portfolio_value)
         
         # Schedule periodic tasks
-        self.schedule.on(self.date_rules.every_day(), 
-                        self.time_rules.at(9, 29), 
-                        self.on_market_open)
+        self.schedule.schedule(
+            self.on_market_open, 
+            name="market_open",
+            date_rule=self.date_rules.every_day(),
+            time_rule=self.time_rules.at(9, 29)
+        )
         
-        self.schedule.on(self.date_rules.every_day(), 
-                        self.time_rules.at(16, 1), 
-                        self.on_market_close)
+        self.schedule.schedule(
+            self.on_market_close,
+            name="market_close", 
+            date_rule=self.date_rules.every_day(),
+            time_rule=self.time_rules.at(16, 1)
+        )
         
         # Initial model training
         self.log("Initializing Live Trading Algorithm...")

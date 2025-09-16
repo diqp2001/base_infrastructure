@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ manager_type }} Performance Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .plot-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .plot-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .result-details {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ manager_type }} Performance Results</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Performance Metrics -->
+        <div class="card">
+            <h2>📊 Performance Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value {{ 'positive' if metrics.total_return > 0 else 'negative' }}">
+                        {{ metrics.total_return }}%
+                    </div>
+                    <div class="metric-label">Total Return</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value">{{ metrics.sharpe_ratio }}</div>
+                    <div class="metric-label">Sharpe Ratio</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value">{{ metrics.volatility }}%</div>
+                    <div class="metric-label">Annualized Volatility</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value negative">{{ metrics.max_drawdown }}%</div>
+                    <div class="metric-label">Max Drawdown</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value">{{ metrics.win_rate }}%</div>
+                    <div class="metric-label">Win Rate</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value">${{ "{:,.2f}".format(metrics.final_value) }}</div>
+                    <div class="metric-label">Final Portfolio Value</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Visualization -->
+        <div class="card">
+            <h2>📈 Performance Visualization</h2>
+            <div class="plot-container">
+                <img src="data:image/png;base64,{{ plot_data }}" alt="Performance Charts">
+            </div>
+        </div>
+
+        <!-- Detailed Metrics -->
+        <div class="card">
+            <h2>📋 Detailed Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">${{ "{:,.2f}".format(metrics.initial_value) }}</div>
+                    <div class="metric-label">Initial Value</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value {{ 'positive' if metrics.avg_return > 0 else 'negative' }}">
+                        {{ metrics.avg_return }}%
+                    </div>
+                    <div class="metric-label">Average Daily Return</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value positive">{{ metrics.max_return }}%</div>
+                    <div class="metric-label">Best Day</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value negative">{{ metrics.min_return }}%</div>
+                    <div class="metric-label">Worst Day</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manager Result Details -->
+        {% if result %}
+        <div class="card">
+            <h2>🔧 Manager Execution Details</h2>
+            <div class="result-details">
+                <strong>Result:</strong> {{ result }}<br>
+                <strong>Manager Type:</strong> {{ manager_type }}<br>
+                <strong>Execution Time:</strong> {{ moment().format('YYYY-MM-DD HH:mm:ss') }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Navigation -->
+        <div class="card">
+            <h2>🔗 Actions</h2>
+            <a href="{{ url_for('web.home') }}" class="btn btn-secondary">← Back to Home</a>
+            {% if manager_type == "Backtest" %}
+                <a href="{{ url_for('web.run_test_backtest') }}" class="btn">🔄 Run Again</a>
+                <a href="{{ url_for('web.run_test_live_trading') }}" class="btn btn-secondary">Switch to Live Trading</a>
+            {% else %}
+                <a href="{{ url_for('web.run_test_live_trading') }}" class="btn">🔄 Run Again</a>
+                <a href="{{ url_for('web.run_test_backtest') }}" class="btn btn-secondary">Switch to Backtest</a>
+            {% endif %}
+        </div>
+
+        <!-- API Information -->
+        <div class="card">
+            <h2>🔌 API Access</h2>
+            <p>Access the same data programmatically:</p>
+            <ul>
+                <li><strong>GET /api/entities/company_shares</strong> - All company entities</li>
+                <li><strong>GET /api/entities/summary</strong> - Entities summary</li>
+                <li><strong>POST /api/test_managers/{{ 'backtest' if manager_type == 'Backtest' else 'live_trading' }}</strong> - Run manager via API</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
