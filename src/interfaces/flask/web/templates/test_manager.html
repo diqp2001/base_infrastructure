@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test {{ manager_type.title() }} Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .alert-error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .description {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-left: 4px solid #007bff;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test {{ manager_type.replace('_', ' ').title() }} Manager</h1>
+        
+        <div class="description">
+            {% if manager_type == "backtest" %}
+                <h3>TestProjectBacktestManager</h3>
+                <p>This will run the backtesting algorithm using historical data to test trading strategies. 
+                The backtest will simulate trading over a specified time period and provide performance analytics including:</p>
+                <ul>
+                    <li>Portfolio value evolution over time</li>
+                    <li>Returns distribution and risk metrics</li>
+                    <li>Maximum drawdown analysis</li>
+                    <li>Sharpe ratio and volatility calculations</li>
+                </ul>
+            {% else %}
+                <h3>TestProjectLiveTradingManager</h3>
+                <p>This will run the live trading manager which connects to Interactive Brokers TWS API for real-time trading. 
+                The system includes:</p>
+                <ul>
+                    <li>Real-time market data processing</li>
+                    <li>Risk management and position monitoring</li>
+                    <li>Live performance tracking</li>
+                    <li>Order execution and status monitoring</li>
+                </ul>
+                <p><strong>Note:</strong> Ensure TWS/IB Gateway is running and properly configured before executing.</p>
+            {% endif %}
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h2>Run {{ manager_type.replace('_', ' ').title() }} Manager</h2>
+            <p>Click the button below to execute the {{ manager_type.replace('_', ' ') }} manager and view performance visualization.</p>
+            
+            <form method="POST">
+                <button type="submit" class="btn">
+                    {% if manager_type == "backtest" %}
+                        🚀 Run Backtest Analysis
+                    {% else %}
+                        📊 Start Live Trading
+                    {% endif %}
+                </button>
+            </form>
+            
+            <div style="margin-top: 20px;">
+                <a href="{{ url_for('web.home') }}" class="btn btn-secondary">← Back to Home</a>
+                {% if manager_type == "backtest" %}
+                    <a href="{{ url_for('web.run_test_live_trading') }}" class="btn btn-secondary">Switch to Live Trading</a>
+                {% else %}
+                    <a href="{{ url_for('web.run_test_backtest') }}" class="btn btn-secondary">Switch to Backtest</a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>API Endpoints</h3>
+            <p>You can also access these managers programmatically via API:</p>
+            <ul>
+                <li><strong>POST /api/test_managers/{{ manager_type }}</strong> - Execute the manager via JSON API</li>
+                <li><strong>GET /api/entities/company_shares</strong> - Get all company entities data</li>
+                <li><strong>GET /api/entities/summary</strong> - Get entities summary statistics</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

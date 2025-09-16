@@ -53,6 +53,8 @@ class QCAlgorithm:
         
         # Scheduling
         self.schedule = ScheduleManager()
+        self.date_rules = DateRules()
+        self.time_rules = TimeRules()
         
         # Logging
         self.logger = AlgorithmLogger(name=self.__class__.__name__)
@@ -569,6 +571,67 @@ class QCAlgorithm:
     def current_slice(self) -> Optional[Slice]:
         """Returns the current data slice"""
         return self._current_slice
+    
+    # ===========================================
+    # Data Access Methods
+    # ===========================================
+    
+    def history(self, symbols: Union[List[str], str], periods: int, 
+                resolution: Resolution = Resolution.DAILY, 
+                end_time: Optional[datetime] = None) -> Dict[str, Any]:
+        """
+        Get historical data for specified symbols.
+        
+        Args:
+            symbols: Symbol or list of symbols
+            periods: Number of periods to retrieve
+            resolution: Data resolution
+            end_time: End time for historical data (None for current time)
+            
+        Returns:
+            Dictionary or DataFrame of historical data
+        """
+        # This is a placeholder implementation
+        # In a real system, this would fetch data from a data provider
+        import pandas as pd
+        
+        if isinstance(symbols, str):
+            symbols = [symbols]
+        
+        # Generate mock historical data for demonstration
+        if end_time is None:
+            end_time = self.time
+        
+        data = {}
+        for symbol in symbols:
+            dates = pd.date_range(
+                end=end_time, 
+                periods=periods, 
+                freq='D' if resolution == Resolution.DAILY else 'T'
+            )
+            
+            # Simple mock data generation
+            base_price = 100
+            prices = [base_price * (1 + 0.01 * (i % 10 - 5)) for i in range(len(dates))]
+            volumes = [1000000 + (i * 10000) for i in range(len(dates))]
+            
+            df = pd.DataFrame({
+                'time': dates,
+                'open': prices,
+                'high': [p * 1.02 for p in prices],
+                'low': [p * 0.98 for p in prices],
+                'close': prices,
+                'volume': volumes
+            })
+            df.set_index('time', inplace=True)
+            data[symbol] = df
+        
+        return data[symbols[0]] if len(symbols) == 1 else data
+    
+    def runtime_statistic(self, name: str, value: str):
+        """Add a runtime statistic for display"""
+        # This is a placeholder - would be implemented by the engine
+        self.log(f"Runtime Stat - {name}: {value}")
     
     # ===========================================
     # Runtime Configuration Methods

@@ -1,6 +1,6 @@
 from flask import Flask
-from interfaces.flask.web.controllers.dashboard_controller import web_bp
-from interfaces.flask.api.routes.routes import register_api_routes
+from src.interfaces.flask.web.controllers.dashboard_controller import web_bp
+from src.interfaces.flask.api.routes.routes import register_api_routes
 
 
 class FlaskApp:
