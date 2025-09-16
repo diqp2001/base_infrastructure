@@ -201,7 +201,7 @@ class MyAlgorithm(IAlgorithm):
         total_portfolio_value = float(self.portfolio.total_portfolio_value)
         for ticker, w in weights.items():
             target_value = w * total_portfolio_value
-            current_value = self.portfolio[ticker].holdings_value
+            current_value = float(self.portfolio[ticker].holdings_value)  # Convert Decimal to float
             diff_value = target_value - current_value
             price = data[ticker].close
             qty = int(diff_value / price)
