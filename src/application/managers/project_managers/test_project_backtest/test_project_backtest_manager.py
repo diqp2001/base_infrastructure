@@ -340,33 +340,61 @@ class TestProjectBacktestManager(ProjectManager):
         self.flask_app = FlaskApp()
         
         # Add progress streaming endpoint
-        @self.flask_app.app.route('/progress_stream')
-        
-        #"""Server-Sent Events endpoint for progress updates"""
         def generate_progress():
-            while True:
-                try:
-                    # Wait for new message with timeout
-                    message = self.progress_queue.get(timeout=1)
-                    yield f"data: {json.dumps(message)}\n\n"
-                except queue.Empty:
-                    # Send heartbeat to keep connection alive
-                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
-                except:
-                    break
+            """Server-Sent Events generator for progress updates"""
+            try:
+                while True:
+                    try:
+                        # Wait for new message with timeout
+                        message = self.progress_queue.get(timeout=1)
+                        yield f"data: {json.dumps(message)}\n\n"
+                    except queue.Empty:
+                        # Send heartbeat to keep connection alive
+                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
+            except GeneratorExit:
+                # Client disconnected, clean exit
+                print("🔌 Client disconnected from progress stream")
+                return
+            except Exception as e:
+                print(f"❌ Error in progress stream: {e}")
+                return
         
-            return Response(generate_progress(), mimetype='text/plain')
+        @self.flask_app.app.route('/progress_stream')
+        def progress_stream():
+            """Server-Sent Events endpoint for progress updates"""
+            return Response(generate_progress(), mimetype='text/event-stream', headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+            })
         
         # Add backtest progress page
         @self.flask_app.app.route('/backtest_progress')
-
         def backtest_progress():
             """Display backtest progress with real-time updates"""
             return render_template('backtest_progress.html')
         
+        # Add shutdown endpoint for clean server shutdown
+        @self.flask_app.app.route('/shutdown', methods=['POST'])
+        def shutdown_server():
+            """Shutdown the Flask server gracefully"""
+            print("🛑 Shutdown request received")
+            self.is_running = False
+            # Use Werkzeug's shutdown function
+            func = request.environ.get('werkzeug.server.shutdown')
+            if func is None:
+                return 'Server shutdown failed - not running with Werkzeug server', 500
+            func()
+            return 'Server shutting down...', 200
+        
         # Start Flask in separate thread
         def run_flask():
-            self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+            try:
+                self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, threaded=True)
+            except Exception as e:
+                print(f"❌ Flask server error: {e}")
+            finally:
+                print("🛑 Flask server stopped")
         
         self.flask_thread = threading.Thread(target=run_flask, daemon=True)
         self.flask_thread.start()
