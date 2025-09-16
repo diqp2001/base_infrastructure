@@ -25,7 +25,7 @@ try:
     from ..engine.setup_handlers import ConsoleSetupHandler, BacktestingSetupHandler
     from ..engine.realtime_handlers import BacktestingRealTimeHandler, LiveTradingRealTimeHandler
     from ..engine.algorithm_handlers import AlgorithmHandler
-    from ..api.clients import ApiClient
+    from ..api.clients import QuantConnectApiClient as ApiClient
     from ..data.history_provider import FileSystemHistoryProvider, CompositeHistoryProvider
     from ..data.data_manager import BacktestDataManager, LiveDataManager
     from ..common.interfaces import IApi, IDataFeed, IHistoryProvider
