@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from src.interfaces.flask.web.controllers.dashboard_controller import web_bp
 from src.interfaces.flask.api.routes.routes import register_api_routes
@@ -5,8 +6,15 @@ from src.interfaces.flask.api.routes.routes import register_api_routes
 
 class FlaskApp:
     def __init__(self):
-        # Create the Flask app
-        self.app = Flask(__name__)
+        # Define paths for templates and static files
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        template_dir = os.path.join(current_dir, 'web', 'templates')
+        static_dir = os.path.join(current_dir, 'web', 'static')
+        
+        # Create the Flask app with proper template and static directories
+        self.app = Flask(__name__, 
+                        template_folder=template_dir,
+                        static_folder=static_dir)
         
         # Register blueprints
         self._register_routes()

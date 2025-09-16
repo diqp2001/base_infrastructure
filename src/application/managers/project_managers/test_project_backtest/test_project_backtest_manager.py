@@ -66,10 +66,12 @@ from .engine_config import MISBUFFET_ENGINE_CONFIG
 # ----------------------------------------------------------------------
 class MyAlgorithm(IAlgorithm):
     def initialize(self):
-        # Define universe
+        # Define universe and store Security objects
         self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
+        self.securities = {}  # Store Security objects by ticker
         for ticker in self.universe:
-            self.add_equity(ticker, Resolution.DAILY)
+            security = self.add_equity(ticker, Resolution.DAILY)
+            self.securities[ticker] = security
 
         self.lookback_window = 20   # volatility window
         self.train_window = 252     # ~1 year
@@ -148,7 +150,7 @@ class MyAlgorithm(IAlgorithm):
         # Step 1: Collect signals
         signals = {}
         for ticker, model in self.models.items():
-            if ticker not in data:
+            if ticker not in self.securities or not data.contains_key(self.securities[ticker].symbol):
                 continue
 
             history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
@@ -203,13 +205,16 @@ class MyAlgorithm(IAlgorithm):
         # Step 3: Execute trades based on BL weights
         total_portfolio_value = float(self.portfolio.total_portfolio_value)
         for ticker, w in weights.items():
+            if ticker not in self.securities:
+                continue
+            security = self.securities[ticker]
             target_value = w * total_portfolio_value
-            current_value = float(self.portfolio[ticker].holdings_value)  # Convert Decimal to float
+            current_value = float(self.portfolio[security.symbol].holdings_value)  # Convert Decimal to float
             diff_value = target_value - current_value
-            price = data[ticker].close
+            price = data[security.symbol].close
             qty = int(diff_value / price)
             if qty != 0:
-                self.market_order(ticker, qty)
+                self.market_order(security.symbol, qty)
 
     def on_order_event(self, order_event: OrderEvent) -> None:
         """Called when an order is filled or updated."""
