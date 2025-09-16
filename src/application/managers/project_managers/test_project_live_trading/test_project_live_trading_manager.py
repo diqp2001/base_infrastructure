@@ -27,9 +27,9 @@ from application.services.misbuffet.common import (
 from application.services.misbuffet.algorithm.base import QCAlgorithm
 
 # Import domain entities following DDD structure
-from domain.entities.back_testing import (
-    Portfolio, Security, MarketData, Symbol, SecurityType
-)
+from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
 # Import misbuffet components
 from application.services.misbuffet import Misbuffet

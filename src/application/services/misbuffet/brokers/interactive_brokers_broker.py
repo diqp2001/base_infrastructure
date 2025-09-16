@@ -551,11 +551,13 @@ class InteractiveBrokersBroker(BaseBroker):
                     # Update account info less frequently
                     if datetime.now().second % 30 == 0:  # Every 30 seconds
                         self._update_account_info()
+
+            except Exception as e:
+                self.logger.error(f"Error ib_connection: {e}")
     
     def _process_order_updates(self) -> None:
         """Process order status updates from TWS."""
-        if not self.ib_connection:
-            return
+        
         
         try:
             # Check order status updates from TWS client
@@ -596,12 +598,9 @@ class InteractiveBrokersBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Error processing order updates: {e}")
                     
-            except Exception as e:
-                self.logger.error(f"Error in monitor worker: {e}")
             
-            # Wait before next update
-            if not self.stop_monitoring.wait(timeout=5):  # 5 second intervals
-                continue
+            
+            
     
     
     def get_broker_specific_info(self) -> Dict[str, Any]:

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Investment Strategy Dashboard</h1>
+    <form action="/backtest" method="POST">
+        <label for="symbol">Symbol:</label>
+        <input type="text" name="symbol" required>
+        <button type="submit">Run Backtest</button>
+    </form>
+</body>
+</html>
