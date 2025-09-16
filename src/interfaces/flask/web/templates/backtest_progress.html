@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtest Progress - TestProjectBacktestManager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .progress-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-left: 3px solid #6e7681;
+            background: #21262d;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .log-entry.info {
+            border-left-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.1);
+        }
+        
+        .log-entry.success {
+            border-left-color: #3fb950;
+            background: rgba(63, 185, 80, 0.1);
+        }
+        
+        .log-entry.error {
+            border-left-color: #f85149;
+            background: rgba(248, 81, 73, 0.1);
+        }
+        
+        .log-entry.warning {
+            border-left-color: #d29922;
+            background: rgba(210, 153, 34, 0.1);
+        }
+        
+        .timestamp {
+            color: #7d8590;
+            font-size: 0.8em;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-running {
+            background: #58a6ff;
+            animation: pulse 1s infinite;
+        }
+        
+        .status-success {
+            background: #3fb950;
+        }
+        
+        .status-error {
+            background: #f85149;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+        }
+        
+        .stats-card {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .btn-primary {
+            background: #238636;
+            border-color: #238636;
+        }
+        
+        .btn-primary:hover {
+            background: #2ea043;
+            border-color: #2ea043;
+        }
+        
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+        }
+        
+        .card-header {
+            background: #21262d;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        #connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            z-index: 1000;
+        }
+        
+        .connected {
+            background: rgba(63, 185, 80, 0.2);
+            border: 1px solid #3fb950;
+            color: #3fb950;
+        }
+        
+        .disconnected {
+            background: rgba(248, 81, 73, 0.2);
+            border: 1px solid #f85149;
+            color: #f85149;
+        }
+    </style>
+</head>
+<body>
+    <div id="connection-status" class="disconnected">
+        <i class="fas fa-circle"></i> Connecting...
+    </div>
+
+    <div class="container-fluid mt-4">
+        <div class="header-section">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h1 class="mb-0">
+                        <i class="fas fa-chart-line text-primary"></i>
+                        TestProject Backtest Manager
+                    </h1>
+                    <p class="text-muted mb-0">Real-time progress monitoring and execution logs</p>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center">
+                        <span id="status-indicator" class="status-indicator status-running"></span>
+                        <span id="current-status">Initializing...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Progress Log -->
+            <div class="col-lg-9">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-terminal"></i> Live Progress Log
+                        </h5>
+                        <div class="btn-group btn-group-sm">
+                            <button id="auto-scroll-btn" class="btn btn-outline-secondary active" onclick="toggleAutoScroll()">
+                                <i class="fas fa-arrow-down"></i> Auto-scroll
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="clearLog()">
+                                <i class="fas fa-trash"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="progress-log" class="progress-container">
+                            <div class="log-entry info">
+                                <span class="timestamp">[Loading...]</span>
+                                <span>Connecting to TestProjectBacktestManager...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Panel -->
+            <div class="col-lg-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-info-circle"></i> Session Statistics
+                    </h6>
+                    <div class="row text-center">
+                        <div class="col-12 mb-2">
+                            <div class="fw-bold text-primary fs-4" id="message-count">0</div>
+                            <div class="small text-muted">Total Messages</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold text-success" id="success-count">0</div>
+                            <div class="small text-muted">Success</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold text-danger" id="error-count">0</div>
+                            <div class="small text-muted">Errors</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-clock"></i> Timing Information
+                    </h6>
+                    <div class="small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Started:</span>
+                            <span id="start-time">--:--</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Duration:</span>
+                            <span id="duration">0:00</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Last Update:</span>
+                            <span id="last-update">--:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-cogs"></i> Quick Actions
+                    </h6>
+                    <div class="d-grid gap-2">
+                        <a href="/dashboard" class="btn btn-primary btn-sm">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        <a href="/api/entities/summary" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-database"></i> Entity Data
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="downloadLog()">
+                            <i class="fas fa-download"></i> Export Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let eventSource = null;
+        let autoScroll = true;
+        let messageCount = 0;
+        let successCount = 0;
+        let errorCount = 0;
+        let startTime = new Date();
+        let logMessages = [];
+
+        // DOM elements
+        const progressLog = document.getElementById('progress-log');
+        const statusIndicator = document.getElementById('status-indicator');
+        const currentStatus = document.getElementById('current-status');
+        const connectionStatus = document.getElementById('connection-status');
+
+        // Initialize connection
+        function initializeConnection() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/progress_stream');
+
+            eventSource.onopen = function(e) {
+                updateConnectionStatus(true);
+                console.log('Connected to progress stream');
+            };
+
+            eventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleMessage(data);
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            eventSource.onerror = function(e) {
+                updateConnectionStatus(false);
+                console.error('EventSource failed:', e);
+                
+                // Attempt to reconnect after 5 seconds
+                setTimeout(() => {
+                    console.log('Attempting to reconnect...');
+                    initializeConnection();
+                }, 5000);
+            };
+        }
+
+        // Handle incoming messages
+        function handleMessage(data) {
+            if (data.type === 'heartbeat') {
+                updateConnectionStatus(true);
+                return;
+            }
+
+            // Add to log
+            addLogEntry(data);
+            
+            // Update statistics
+            updateStatistics(data);
+            
+            // Update status
+            updateCurrentStatus(data);
+            
+            // Store message
+            logMessages.push(data);
+        }
+
+        // Add log entry to display
+        function addLogEntry(data) {
+            const logDiv = document.createElement('div');
+            logDiv.className = `log-entry ${data.level.toLowerCase()}`;
+            
+            const timestamp = new Date(data.timestamp).toLocaleTimeString();
+            logDiv.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <span>${escapeHtml(data.message)}</span>
+            `;
+
+            progressLog.appendChild(logDiv);
+
+            // Auto-scroll if enabled
+            if (autoScroll) {
+                progressLog.scrollTop = progressLog.scrollHeight;
+            }
+
+            // Limit log entries to prevent memory issues
+            while (progressLog.children.length > 1000) {
+                progressLog.removeChild(progressLog.firstChild);
+            }
+        }
+
+        // Update statistics
+        function updateStatistics(data) {
+            messageCount++;
+            document.getElementById('message-count').textContent = messageCount;
+
+            if (data.level === 'SUCCESS') {
+                successCount++;
+                document.getElementById('success-count').textContent = successCount;
+            } else if (data.level === 'ERROR') {
+                errorCount++;
+                document.getElementById('error-count').textContent = errorCount;
+            }
+
+            // Update timing
+            const now = new Date();
+            const duration = Math.floor((now - startTime) / 1000);
+            const minutes = Math.floor(duration / 60);
+            const seconds = duration % 60;
+            document.getElementById('duration').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('last-update').textContent = now.toLocaleTimeString();
+            document.getElementById('start-time').textContent = startTime.toLocaleTimeString();
+        }
+
+        // Update current status
+        function updateCurrentStatus(data) {
+            currentStatus.textContent = data.message.substring(0, 50) + (data.message.length > 50 ? '...' : '');
+            
+            // Update status indicator
+            statusIndicator.className = 'status-indicator';
+            if (data.level === 'SUCCESS') {
+                statusIndicator.classList.add('status-success');
+            } else if (data.level === 'ERROR') {
+                statusIndicator.classList.add('status-error');
+            } else {
+                statusIndicator.classList.add('status-running');
+            }
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.className = 'connected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Connected';
+            } else {
+                connectionStatus.className = 'disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+            }
+        }
+
+        // Toggle auto-scroll
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            const btn = document.getElementById('auto-scroll-btn');
+            if (autoScroll) {
+                btn.classList.add('active');
+                progressLog.scrollTop = progressLog.scrollHeight;
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+
+        // Clear log
+        function clearLog() {
+            progressLog.innerHTML = '<div class="log-entry info"><span class="timestamp">[Cleared]</span><span>Log cleared by user</span></div>';
+            logMessages = [];
+            messageCount = 0;
+            successCount = 0;
+            errorCount = 0;
+            document.getElementById('message-count').textContent = '0';
+            document.getElementById('success-count').textContent = '0';
+            document.getElementById('error-count').textContent = '0';
+        }
+
+        // Download log
+        function downloadLog() {
+            const logText = logMessages.map(msg => 
+                `[${new Date(msg.timestamp).toLocaleString()}] ${msg.level}: ${msg.message}`
+            ).join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backtest_log_${new Date().toISOString().slice(0, 19)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeConnection();
+            
+            // Set initial timestamp
+            document.getElementById('start-time').textContent = startTime.toLocaleTimeString();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

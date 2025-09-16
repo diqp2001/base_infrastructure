@@ -2,9 +2,12 @@ import time
 import logging
 import random
 import os
+import threading
+import webbrowser
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
+import queue
 
 import pandas as pd
 from application.managers.database_managers.database_manager import DatabaseManager
@@ -270,19 +273,140 @@ class TestProjectBacktestManager(ProjectManager):
         self.algorithm = None
         self.results = None
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Web interface components
+        self.flask_app = None
+        self.flask_thread = None
+        self.progress_queue = queue.Queue()
+        self.is_running = False
+        
+        # Set up shared progress handler
+        self._setup_progress_logging()
 
     def run(self):
+        """Main run method that launches web interface and executes backtest"""
+        # Start Flask web interface first
+        self._start_web_interface()
+        
+        # Give Flask a moment to start
+        time.sleep(2)
+        
+        # Open browser automatically
+        self._open_browser()
+        
+        # Start the actual backtest
+        return self._run_backtest()
+    
+    def _setup_progress_logging(self):
+        """Set up logging handler to capture progress messages"""
+        # Create custom handler that puts messages in queue
+        class ProgressHandler(logging.Handler):
+            def __init__(self, progress_queue):
+                super().__init__()
+                self.progress_queue = progress_queue
+                
+            def emit(self, record):
+                message = self.format(record)
+                self.progress_queue.put({
+                    'timestamp': datetime.now().isoformat(),
+                    'level': record.levelname,
+                    'message': message
+                })
+        
+        # Add handler to capture all misbuffet logs
+        progress_handler = ProgressHandler(self.progress_queue)
+        progress_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        
+        # Add to main loggers
+        logging.getLogger("misbuffet-main").addHandler(progress_handler)
+        logging.getLogger("misbuffet.engine").addHandler(progress_handler)
+        logging.getLogger(self.__class__.__name__).addHandler(progress_handler)
+    
+    def _start_web_interface(self):
+        """Start Flask web interface in a separate thread"""
+        from src.interfaces.flask.flask import FlaskApp
+        from flask import Flask, render_template, request, Response, jsonify
+        import json
+        
+        # Create Flask app instance
+        self.flask_app = FlaskApp()
+        
+        # Add progress streaming endpoint
+        @self.flask_app.app.route('/progress_stream')
+        def progress_stream():
+            """Server-Sent Events endpoint for progress updates"""
+            def generate_progress():
+                while True:
+                    try:
+                        # Wait for new message with timeout
+                        message = self.progress_queue.get(timeout=1)
+                        yield f"data: {json.dumps(message)}\n\n"
+                    except queue.Empty:
+                        # Send heartbeat to keep connection alive
+                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
+                    except:
+                        break
+            
+            return Response(generate_progress(), mimetype='text/plain')
+        
+        # Add backtest progress page
+        @self.flask_app.app.route('/backtest_progress')
+        def backtest_progress():
+            """Display backtest progress with real-time updates"""
+            return render_template('backtest_progress.html')
+        
+        # Start Flask in separate thread
+        def run_flask():
+            self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+        
+        self.flask_thread = threading.Thread(target=run_flask, daemon=True)
+        self.flask_thread.start()
+        
+        self.is_running = True
+        print("🌐 Flask web interface started at http://localhost:5000")
+        print("📊 Progress monitor available at http://localhost:5000/backtest_progress")
+    
+    def _open_browser(self):
+        """Automatically open browser to progress page"""
+        try:
+            webbrowser.open('http://localhost:5000/backtest_progress')
+            print("🖥️  Browser opened automatically to backtest progress page")
+        except Exception as e:
+            print(f"⚠️  Could not open browser automatically: {e}")
+            print("📍 Please manually navigate to: http://localhost:5000/backtest_progress")
+    
+    def _run_backtest(self):
+        """Execute the actual backtest with progress logging"""
         self.create_five_tech_companies_with_data()
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger("misbuffet-main")
+
+        # Send initial progress message
+        self.progress_queue.put({
+            'timestamp': datetime.now().isoformat(),
+            'level': 'INFO',
+            'message': 'Starting TestProjectBacktestManager...'
+        })
 
         logger.info("Launching Misbuffet...")
 
         try:
             # Step 1: Launch package
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'INFO',
+                'message': 'Loading Misbuffet framework...'
+            })
+            
             misbuffet = Misbuffet.launch(config_file="launch_config.py")
 
             # Step 2: Configure engine with LauncherConfiguration
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'INFO',
+                'message': 'Configuring backtest engine...'
+            })
+            
             config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
                 algorithm_type_name="MyAlgorithm",  # String name as expected by LauncherConfiguration
@@ -304,19 +428,42 @@ class TestProjectBacktestManager(ProjectManager):
             
             logger.info("Configuration setup with database access for real stock data")
 
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'INFO',
+                'message': 'Starting backtest engine...'
+            })
+            
             logger.info("Starting engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
 
             # Step 3: Run backtest
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'INFO',
+                'message': 'Executing backtest algorithm...'
+            })
+            
             result = engine.run(config)
 
             logger.info("Backtest finished.")
             logger.info(f"Result summary: {result.summary()}")
             
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'SUCCESS',
+                'message': f'Backtest completed successfully! Result: {result.summary()}'
+            })
+            
             return result
             
         except Exception as e:
             logger.error(f"Error running backtest: {e}")
+            self.progress_queue.put({
+                'timestamp': datetime.now().isoformat(),
+                'level': 'ERROR',
+                'message': f'Backtest failed: {str(e)}'
+            })
             raise
 
     def create_multiple_companies(self, companies_data: List[Dict]) -> List[CompanyShareEntity]:
