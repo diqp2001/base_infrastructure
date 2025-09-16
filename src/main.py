@@ -32,8 +32,8 @@ if __name__ == '__main__':
     # Uncomment the lines below to run the Black-Litterman backtest
     #bl_results = bt.run_black_litterman_backtest()
     #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
-    #manager = TestProjectBacktestManager()
-    manager = TestProjectLiveTradingManager()
+    manager = TestProjectBacktestManager()
+    #manager = TestProjectLiveTradingManager()
     
     manager.run()
     
@@ -44,7 +44,8 @@ if __name__ == '__main__':
     
     (
         Stats(profile).strip_dirs().sort_stats(SortKey.CALLS).print_stats()
-    )"""
+    )
+    """
    
 
 

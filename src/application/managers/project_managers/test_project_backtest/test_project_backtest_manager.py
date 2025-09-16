@@ -289,10 +289,13 @@ class TestProjectBacktestManager(ProjectManager):
         self._start_web_interface()
         
         # Give Flask a moment to start
-        time.sleep(2)
+        time.sleep(5)
         
         # Open browser automatically
         self._open_browser()
+
+        # Give Flask a moment to start
+        time.sleep(5)
         
         # Start the actual backtest
         return self._run_backtest()
@@ -333,24 +336,25 @@ class TestProjectBacktestManager(ProjectManager):
         
         # Add progress streaming endpoint
         @self.flask_app.app.route('/progress_stream')
-        def progress_stream():
-            """Server-Sent Events endpoint for progress updates"""
-            def generate_progress():
-                while True:
-                    try:
-                        # Wait for new message with timeout
-                        message = self.progress_queue.get(timeout=1)
-                        yield f"data: {json.dumps(message)}\n\n"
-                    except queue.Empty:
-                        # Send heartbeat to keep connection alive
-                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
-                    except:
-                        break
-            
+        
+        #"""Server-Sent Events endpoint for progress updates"""
+        def generate_progress():
+            while True:
+                try:
+                    # Wait for new message with timeout
+                    message = self.progress_queue.get(timeout=1)
+                    yield f"data: {json.dumps(message)}\n\n"
+                except queue.Empty:
+                    # Send heartbeat to keep connection alive
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
+                except:
+                    break
+        
             return Response(generate_progress(), mimetype='text/plain')
         
         # Add backtest progress page
         @self.flask_app.app.route('/backtest_progress')
+
         def backtest_progress():
             """Display backtest progress with real-time updates"""
             return render_template('backtest_progress.html')
