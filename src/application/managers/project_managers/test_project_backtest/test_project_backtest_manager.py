@@ -169,7 +169,7 @@ class MyAlgorithm(QCAlgorithm):
             elif self.my_securities[ticker] is None:
                 self.log(f"Warning: {ticker} security object is None")
                 continue
-            elif self.my_securities[ticker].symbol not in data:
+            elif not self._symbol_in_data(self.my_securities[ticker].symbol, data):
                 self.log(f"Warning: {ticker} symbol not found in current data slice")
                 continue
 
@@ -232,11 +232,67 @@ class MyAlgorithm(QCAlgorithm):
             target_value = w * total_portfolio_value
             current_value = float(self.portfolio[security.symbol].holdings_value)  # Convert Decimal to float
             diff_value = target_value - current_value
-            price = data[security.symbol].close
+            # Find the matching symbol in data and get its price
+            data_symbol = self._find_matching_symbol(security.symbol, data)
+            if data_symbol is None:
+                self.log(f"Warning: Cannot find price data for {ticker}")
+                continue
+            price = data[data_symbol].close
             qty = int(diff_value / price)
             if qty != 0:
                 self.market_order(security.symbol, qty)
 
+    def _symbol_in_data(self, security_symbol, data_slice) -> bool:
+        """
+        Check if a security symbol exists in the data slice.
+        Handles different symbol representations (e.g., with/without country codes).
+        
+        Args:
+            security_symbol: The Symbol object from the security
+            data_slice: The Slice object containing market data
+        
+        Returns:
+            bool: True if the symbol is found in the data slice
+        """
+        # Direct comparison first (fastest)
+        if security_symbol in data_slice:
+            return True
+        
+        # Check if any symbol in data matches the ticker
+        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
+        
+        for data_symbol in data_slice.bars.keys():
+            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
+            if security_ticker == data_ticker:
+                return True
+        
+        return False
+    
+    def _find_matching_symbol(self, security_symbol, data_slice):
+        """
+        Find the matching symbol in the data slice for a given security symbol.
+        
+        Args:
+            security_symbol: The Symbol object from the security
+            data_slice: The Slice object containing market data
+        
+        Returns:
+            Symbol: The matching symbol from data_slice, or None if not found
+        """
+        # Direct comparison first
+        if security_symbol in data_slice:
+            return security_symbol
+        
+        # Check if any symbol in data matches the ticker
+        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
+        
+        for data_symbol in data_slice.bars.keys():
+            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
+            if security_ticker == data_ticker:
+                return data_symbol
+        
+        return None
+    
     def on_order_event(self, order_event: OrderEvent) -> None:
         """Called when an order is filled or updated."""
         self.log(f"OrderEvent: {order_event.symbol} - Status: {order_event.status} - Qty: {order_event.quantity}")

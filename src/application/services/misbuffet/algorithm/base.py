@@ -607,7 +607,7 @@ class QCAlgorithm:
             dates = pd.date_range(
                 end=end_time, 
                 periods=periods, 
-                freq='D' if resolution == Resolution.DAILY else 'T'
+                freq='D' if resolution == Resolution.DAILY else 'min'
             )
             
             # Simple mock data generation
