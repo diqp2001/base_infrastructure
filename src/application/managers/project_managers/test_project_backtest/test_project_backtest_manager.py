@@ -150,7 +150,7 @@ class MyAlgorithm(IAlgorithm):
         # Step 1: Collect signals
         signals = {}
         for ticker, model in self.models.items():
-            if ticker not in self.securities or not data.contains_key(self.securities[ticker].symbol):
+            if ticker not in self.securities or not data.ContainsKey(self.securities[ticker].symbol):
                 continue
 
             history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)

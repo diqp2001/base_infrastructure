@@ -75,7 +75,7 @@ def get_company_shares():
         repository = CompanyShareRepository(db_manager.session)
         
         # Get all company shares
-        shares = repository.find_all()
+        shares = repository.get_all()
         
         # Convert to JSON serializable format
         shares_data = []
@@ -138,7 +138,7 @@ def get_company_share_by_id(share_id):
         repository = CompanyShareRepository(db_manager.session)
         
         # Get specific share
-        share = repository.find_by_id(share_id)
+        share = repository.get_by_id(share_id)
         
         if not share:
             return jsonify({
@@ -203,7 +203,7 @@ def get_entities_summary():
         repository = CompanyShareRepository(db_manager.session)
         
         # Get counts and basic info
-        all_shares = repository.find_all()
+        all_shares = repository.get_all()
         
         # Calculate summary statistics
         total_shares = len(all_shares)
