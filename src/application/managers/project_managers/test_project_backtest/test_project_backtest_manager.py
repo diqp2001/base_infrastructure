@@ -64,17 +64,22 @@ from .engine_config import MISBUFFET_ENGINE_CONFIG
 # ----------------------------------------------------------------------
 # Example algorithm: Universe of stocks + weekly retraining + BL optimizer
 # ----------------------------------------------------------------------
-class MyAlgorithm(IAlgorithm):
+class MyAlgorithm(QCAlgorithm):
     def initialize(self):
+        # Call parent initialization first
+        super().initialize()
+        
         # Define universe and store Security objects
         self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
-        self.securities = {}  # Dictionary to store Security objects by ticker
+        self.my_securities = {}  # Dictionary to store Security objects by ticker for easy lookup
+        
         for ticker in self.universe:
             try:
                 security = self.add_equity(ticker, Resolution.DAILY)
                 if security is not None:
-                    self.securities[ticker] = security
-                    self.log(f"Successfully added security: {ticker}")
+                    # Store in our custom dictionary for easy ticker-based lookup
+                    self.my_securities[ticker] = security
+                    self.log(f"Successfully added security: {ticker} -> {security.symbol}")
                 else:
                     self.log(f"Warning: Failed to add security {ticker} - got None")
             except Exception as e:
@@ -158,13 +163,13 @@ class MyAlgorithm(IAlgorithm):
         signals = {}
         for ticker, model in self.models.items():
             # Check if ticker exists in securities and the security object is not None
-            if ticker not in self.securities:
-                self.log(f"Warning: {ticker} not found in securities dictionary")
+            if ticker not in self.my_securities:
+                self.log(f"Warning: {ticker} not found in my_securities dictionary")
                 continue
-            elif self.securities[ticker] is None:
+            elif self.my_securities[ticker] is None:
                 self.log(f"Warning: {ticker} security object is None")
                 continue
-            elif self.securities[ticker].symbol not in data:
+            elif self.my_securities[ticker].symbol not in data:
                 self.log(f"Warning: {ticker} symbol not found in current data slice")
                 continue
 
@@ -220,10 +225,10 @@ class MyAlgorithm(IAlgorithm):
         # Step 3: Execute trades based on BL weights
         total_portfolio_value = float(self.portfolio.total_portfolio_value)
         for ticker, w in weights.items():
-            if ticker not in self.securities or self.securities[ticker] is None:
+            if ticker not in self.my_securities or self.my_securities[ticker] is None:
                 self.log(f"Warning: Cannot execute trade for {ticker} - security not available")
                 continue
-            security = self.securities[ticker]
+            security = self.my_securities[ticker]
             target_value = w * total_portfolio_value
             current_value = float(self.portfolio[security.symbol].holdings_value)  # Convert Decimal to float
             diff_value = target_value - current_value
