@@ -201,8 +201,8 @@ class MyAlgorithm(QCAlgorithm):
                     data['symbol'] = symbol
                     df_list.append(data)
             if df_list:
-                hist_df = pd.concat(df_list, ignore_index=True)
-                pivoted = hist_df.pivot(index="time", columns="symbol", values="close")
+                hist_df = pd.concat(df_list)
+                pivoted = hist_df.pivot( columns="symbol", values="close")
             else:
                 # Fallback: create simple returns data
                 returns_data = {}
