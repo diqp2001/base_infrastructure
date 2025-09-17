@@ -288,6 +288,7 @@ class MisbuffetEngine(BaseEngine):
             df = self.stock_data_repository.get_historical_data(ticker, periods=3, end_time=target_date + timedelta(days=1))
             
             if df is not None and not df.empty:
+                
                 # Convert Date column to datetime if it's not already
                 if 'Date' in df.columns:
                     df['Date'] = pd.to_datetime(df['Date'])

@@ -13,8 +13,8 @@ MISBUFFET_ENGINE_CONFIG = {
     "execution_mode": "synchronous",
     
     # Backtest parameters
-    "start_date": datetime(2021, 1, 1),
-    "end_date": datetime(2022, 1, 1),
+    "start_date": datetime(2015, 1, 1),
+    "end_date": datetime(2017, 1, 1),
     "initial_capital": 100_000,
     "benchmark": "SPY",
     
