@@ -230,7 +230,17 @@ class MyAlgorithm(QCAlgorithm):
                 continue
             security = self.my_securities[ticker]
             target_value = w * total_portfolio_value
-            current_value = float(self.portfolio[security.symbol].holdings_value)  # Convert Decimal to float
+            
+            # Check if we have a holding for this security, if not assume zero value
+            portfolio_holding = self.portfolio[security.symbol]
+            if portfolio_holding is None:
+                # No existing holding, current value is zero
+                current_value = 0.0
+                self.log(f"No existing holding for {ticker}, starting from zero")
+            else:
+                # Convert existing holding value to float
+                current_value = float(portfolio_holding.holdings_value)
+            
             diff_value = target_value - current_value
             # Find the matching symbol in data and get its price
             data_symbol = self._find_matching_symbol(security.symbol, data)
@@ -240,6 +250,7 @@ class MyAlgorithm(QCAlgorithm):
             price = data[data_symbol].close
             qty = int(diff_value / price)
             if qty != 0:
+                self.log(f"Executing order for {ticker}: target=${target_value:.2f}, current=${current_value:.2f}, qty={qty}")
                 self.market_order(security.symbol, qty)
 
     def _symbol_in_data(self, security_symbol, data_slice) -> bool:
