@@ -70,8 +70,15 @@ class MyAlgorithm(IAlgorithm):
         self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
         self.securities = {}  # Store Security objects by ticker
         for ticker in self.universe:
-            security = self.add_equity(ticker, Resolution.DAILY)
-            self.securities[ticker] = security
+            try:
+                security = self.add_equity(ticker, Resolution.DAILY)
+                if security is not None:
+                    self.securities[ticker] = security
+                    self.log(f"Successfully added security: {ticker}")
+                else:
+                    self.log(f"Warning: Failed to add security {ticker} - got None")
+            except Exception as e:
+                self.log(f"Error adding security {ticker}: {str(e)}")
 
         self.lookback_window = 20   # volatility window
         self.train_window = 252     # ~1 year
@@ -150,7 +157,15 @@ class MyAlgorithm(IAlgorithm):
         # Step 1: Collect signals
         signals = {}
         for ticker, model in self.models.items():
-            if ticker not in self.securities or self.securities[ticker].symbol not in data:
+            # Check if ticker exists in securities and the security object is not None
+            if ticker not in self.securities:
+                self.log(f"Warning: {ticker} not found in securities dictionary")
+                continue
+            elif self.securities[ticker] is None:
+                self.log(f"Warning: {ticker} security object is None")
+                continue
+            elif self.securities[ticker].symbol not in data:
+                self.log(f"Warning: {ticker} symbol not found in current data slice")
                 continue
 
             history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
@@ -205,7 +220,8 @@ class MyAlgorithm(IAlgorithm):
         # Step 3: Execute trades based on BL weights
         total_portfolio_value = float(self.portfolio.total_portfolio_value)
         for ticker, w in weights.items():
-            if ticker not in self.securities:
+            if ticker not in self.securities or self.securities[ticker] is None:
+                self.log(f"Warning: Cannot execute trade for {ticker} - security not available")
                 continue
             security = self.securities[ticker]
             target_value = w * total_portfolio_value
