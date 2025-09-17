@@ -68,7 +68,7 @@ class MyAlgorithm(IAlgorithm):
     def initialize(self):
         # Define universe and store Security objects
         self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
-        self.securities = {"AAPL", "MSFT", "AMZN", "GOOGL"}  # Store Security objects by ticker
+        self.securities = {}  # Dictionary to store Security objects by ticker
         for ticker in self.universe:
             try:
                 security = self.add_equity(ticker, Resolution.DAILY)
