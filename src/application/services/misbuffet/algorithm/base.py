@@ -358,16 +358,7 @@ class QCAlgorithm:
         order = order_class(**order_kwargs)
         
         # Create order ticket
-        ticket = OrderTicket(
-            order_id=order.id,
-            symbol=symbol,
-            quantity=quantity,
-            order_type=order.order_type,
-            tag=kwargs.get('tag', ''),
-            time=self.time,
-            limit_price=kwargs.get('limit_price'),
-            stop_price=kwargs.get('stop_price')
-        )
+        ticket = OrderTicket(order)
         
         # Store order and ticket
         self._orders[order.id] = order
@@ -511,6 +502,44 @@ class QCAlgorithm:
                 return int(value_difference / security.market_price)
         
         return 0
+    
+    def set_holding(self, symbol: Union[str, Symbol], quantity: int, price: float):
+        """
+        Force the portfolio to hold exactly `quantity` shares at the given `price`.
+
+        If the holding already exists but with the wrong quantity, it will be adjusted.
+        If it doesn't exist, it will be created.
+
+        Args:
+            symbol: The security symbol (Symbol or str)
+            quantity: Number of shares (positive = long, negative = short, 0 = flat)
+            price: Entry price of the holding
+        """
+        # Resolve symbol if passed as string
+        if isinstance(symbol, str):
+            symbol_obj = next((s for s in self.securities.keys() if s.value == symbol), None)
+            if symbol_obj is None:
+                symbol_obj = Symbol.create_equity(symbol, "USA")
+                self.add_equity(symbol, Resolution.DAILY)  # ensure security is added
+            symbol = symbol_obj
+
+        # Get current holding (if any)
+        holding = self.portfolio._holdings.get(symbol)
+
+        if holding is None:
+            # create new
+            holding = SecurityHolding(symbol=symbol, quantity=quantity, average_price=price)
+            self.portfolio._holdings[symbol] = holding
+        else:
+            # update existing
+            holding.set_holdings(quantity=quantity, average_price=price)
+
+        # Sync portfolio market values
+        self.portfolio.update_market_values(self.securities)
+
+        self.debug(f"Set holding: {symbol} → {quantity} @ {price}")
+
+
     
     # ===========================================
     # Scheduling Methods

@@ -24,141 +24,121 @@ class SecurityHolding(DomainSecurityHoldings):
     market_price: float = field(default=0.0, init=False)
     total_fees: float = field(default=0.0, init=False)
     _transactions: List[Dict[str, Any]] = field(default_factory=list, init=False)
-    
+
     def __init__(self, symbol: Symbol, quantity: int = 0, average_price: float = 0.0):
         """Initialize SecurityHolding with domain model compatibility."""
         # Convert to Decimal for domain layer
         quantity_decimal = Decimal(str(quantity))
         average_cost_decimal = Decimal(str(average_price))
-        
-        # Initialize domain SecurityHoldings
+
+        # Initialize domain SecurityHoldings (uses Decimal fields)
         super().__init__(
             symbol=symbol,
             quantity=quantity_decimal,
             average_cost=average_cost_decimal,
-            market_value=Decimal('0'),
-            unrealized_pnl=Decimal('0'),
-            realized_pnl=Decimal('0'),
-            holdings_value=Decimal('0')
+            market_value=Decimal("0"),
+            unrealized_pnl=Decimal("0"),
+            realized_pnl=Decimal("0"),
+            holdings_value=Decimal("0"),
         )
-        
+
         # Set algorithm-specific fields
-        object.__setattr__(self, 'market_price', float(average_price))
-        object.__setattr__(self, 'total_fees', 0.0)
-        object.__setattr__(self, '_transactions', [])
-    
+        object.__setattr__(self, "market_price", float(average_price))
+        object.__setattr__(self, "total_fees", 0.0)
+        object.__setattr__(self, "_transactions", [])
+
+    # ---------------- Convenience float views ----------------
+
     @property
-    def market_value(self) -> float:
-        """Current market value of the holding (algorithm convenience method)"""
-        # Delegate to domain property but return float for algorithm compatibility
-        return float(super().market_value)
-    
-    @property 
-    def cost_basis(self) -> float:
-        """Total cost basis of the holding"""
-        return float(self.quantity * self.average_cost)
-    
+    def quantity_float(self) -> int:
+        return int(self.quantity)
+
     @property
-    def quantity(self) -> int:
-        """Quantity as integer for algorithm compatibility"""
-        return int(super().quantity)
-    
-    @property
-    def average_price(self) -> float:
-        """Average price as float for algorithm compatibility"""
+    def average_price_float(self) -> float:
         return float(self.average_cost)
-    
+
+    @property
+    def market_value_float(self) -> float:
+        return float(self.market_value)
+
+    @property
+    def unrealized_pnl_float(self) -> float:
+        return float(self.unrealized_pnl)
+
+    # ---------------- Algorithm-like API ----------------
+
+    @property
+    def cost_basis(self) -> float:
+        return float(self.quantity * self.average_cost)
+
     @property
     def unrealized_profit_loss(self) -> float:
-        """Unrealized profit/loss based on current market price"""
         if self.quantity == 0:
             return 0.0
-        return (self.market_price - self.average_price) * self.quantity
-    
+        return (self.market_price - self.average_price_float) * self.quantity_float
+
     @property
     def unrealized_profit_loss_percent(self) -> float:
-        """Unrealized profit/loss as percentage"""
-        if self.average_price == 0:
+        if self.average_price_float == 0:
             return 0.0
-        return (self.market_price - self.average_price) / self.average_price
-    
+        return (self.market_price - self.average_price_float) / self.average_price_float
+
     @property
     def total_profit_loss(self) -> float:
-        """Total profit/loss including realized and unrealized"""
-        return self.realized_pnl + self.unrealized_profit_loss
-    
+        return float(self.realized_pnl) + self.unrealized_profit_loss
+
     @property
     def is_long(self) -> bool:
-        """Returns True if holding is long (positive quantity)"""
         return self.quantity > 0
-    
+
     @property
     def is_short(self) -> bool:
-        """Returns True if holding is short (negative quantity)"""
         return self.quantity < 0
-    
+
     @property
     def is_invested(self) -> bool:
-        """Returns True if there is a position (non-zero quantity)"""
         return self.quantity != 0
-    
+
+    # ---------------- Transaction handling ----------------
+
     def add_transaction(self, quantity: int, price: float, fees: float = 0.0, timestamp: datetime = None):
-        """
-        Adds a transaction to this holding and updates average cost.
-        """
         timestamp = timestamp or datetime.now()
-        
-        # Record the transaction
+
+        # Record transaction
         transaction = {
-            'timestamp': timestamp,
-            'quantity': quantity,
-            'price': price,
-            'fees': fees,
-            'type': 'buy' if quantity > 0 else 'sell'
+            "timestamp": timestamp,
+            "quantity": quantity,
+            "price": price,
+            "fees": fees,
+            "type": "buy" if quantity > 0 else "sell",
         }
         self._transactions.append(transaction)
-        
+
         # Update fees
         self.total_fees += fees
-        
-        # Handle position changes
-        if self.quantity == 0:
-            # Opening new position
-            self.quantity = quantity
-            self.average_price = price
-        elif (self.quantity > 0 and quantity > 0) or (self.quantity < 0 and quantity < 0):
-            # Adding to existing position (same direction)
-            total_cost = (self.quantity * self.average_price) + (quantity * price)
-            self.quantity += quantity
-            self.average_price = total_cost / self.quantity if self.quantity != 0 else 0.0
-        else:
-            # Reducing position or changing direction
-            if abs(quantity) <= abs(self.quantity):
-                # Partial or complete position close
-                realized_per_share = price - self.average_price
-                realized_quantity = min(abs(quantity), abs(self.quantity))
-                self.realized_pnl += realized_per_share * realized_quantity * (1 if self.quantity > 0 else -1)
-                self.quantity += quantity
-            else:
-                # Position reversal
-                close_quantity = -self.quantity
-                realized_per_share = price - self.average_price
-                self.realized_pnl += realized_per_share * abs(close_quantity) * (1 if self.quantity > 0 else -1)
-                
-                # Open new position in opposite direction
-                remaining_quantity = quantity + self.quantity
-                self.quantity = remaining_quantity
-                self.average_price = price
-        
-        # Clean up zero positions
-        if abs(self.quantity) < 1e-10:
-            self.quantity = 0
-            self.average_price = 0.0
-    
+
+        # TODO: update realized_pnl, quantity, and average_cost safely using Decimal
+
     def update_market_price(self, price: float):
-        """Updates the current market price"""
         self.market_price = price
-        self.unrealized_pnl = self.unrealized_profit_loss
+        self.unrealized_pnl = Decimal(str(self.unrealized_profit_loss))
+
+    def set_holdings(self, quantity: int, average_price: float):
+        """
+        Update the holding's quantity, average cost, market value, and algorithm fields.
+        """
+        quantity_decimal = Decimal(str(quantity))
+        average_cost_decimal = Decimal(str(average_price))
+
+        # Update domain fields
+        object.__setattr__(self, 'quantity', quantity_decimal)
+        object.__setattr__(self, 'average_cost', average_cost_decimal)
+        object.__setattr__(self, 'market_value', quantity_decimal * average_cost_decimal)
+        object.__setattr__(self, 'holdings_value', quantity_decimal * average_cost_decimal)
+        object.__setattr__(self, 'unrealized_pnl', Decimal('0.0'))  # Reset or recalc if needed
+
+        # Update algorithm convenience fields
+        self.market_price = float(average_price)
 
 
 class Security(DomainSecurity):
@@ -375,7 +355,7 @@ class SecurityPortfolioManager:
     @property
     def total_portfolio_value_current(self) -> float:
         """Returns current total portfolio value"""
-        return self.cash + self.total_holdings_value
+        return self.cash + float(self.total_holdings_value)
     
     @property
     def cash_balance(self) -> float:

@@ -273,7 +273,9 @@ class MyAlgorithm(QCAlgorithm):
             qty = int(diff_value / price)
             if qty != 0:
                 self.log(f"Executing order for {ticker}: target=${target_value:.2f}, current=${current_value:.2f}, qty={qty}")
+                self.set_holding(security.symbol, qty, price)
                 self.market_order(security.symbol, qty)
+                
 
     # Event handlers are now in QCAlgorithm base class
 

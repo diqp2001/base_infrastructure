@@ -43,7 +43,7 @@ class OrderTicket(DomainOrderTicket):
         self.time = order.time
         self.quantity_filled = order.filled_quantity
         self.average_fill_price = float(order.average_fill_price)
-        self.time_in_force = order.time_in_force
+        self.time_in_force = getattr(order, 'time_in_force', None)
         self.extended_market_hours = getattr(order, 'extended_market_hours', False)
         
         # Price fields
@@ -180,12 +180,18 @@ class Order(DomainOrder):
 
 
 class MarketOrder(Order, DomainMarketOrder):
-    """
-    Market order - executes immediately at best available price
-    """
+    def __init__(self, *args, **kwargs):
+        self._order_type = OrderType.MARKET
+        super().__init__(*args, **kwargs)
+
     @property
     def order_type(self) -> OrderType:
-        return OrderType.MARKET
+        return self._order_type
+
+    @order_type.setter
+    def order_type(self, value: OrderType):
+        self._order_type = value
+
 
 
 @dataclass
