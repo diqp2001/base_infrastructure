@@ -367,7 +367,7 @@ class MyAlgorithm(QCAlgorithm):
             float: Current holdings value (0.0 if no holdings)
         """
         try:
-            # Try to access portfolio holdings directly
+            # Try to access portfolio holdings directly using the correct structure
             if hasattr(self.portfolio, 'holdings') and hasattr(self.portfolio.holdings, 'holdings'):
                 # Access holdings dictionary directly
                 holdings_dict = self.portfolio.holdings.holdings
@@ -376,10 +376,14 @@ class MyAlgorithm(QCAlgorithm):
                     if hasattr(holding, 'holdings_value'):
                         return float(holding.holdings_value)
             
-            # Fallback: try portfolio[symbol] access
-            portfolio_holding = self.portfolio.get(security_symbol, None)
-            if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
-                return float(portfolio_holding.holdings_value)
+            # Alternative: try direct indexing with try/except (Portfolio doesn't have .get() method)
+            try:
+                portfolio_holding = self.portfolio[security_symbol]
+                if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
+                    return float(portfolio_holding.holdings_value)
+            except (KeyError, TypeError):
+                # Symbol not found in portfolio or portfolio doesn't support indexing
+                pass
             
             return 0.0
             
