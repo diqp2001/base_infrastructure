@@ -223,7 +223,18 @@ class MyAlgorithm(QCAlgorithm):
         weights = bl.solve()
 
         # Step 3: Execute trades based on BL weights
-        total_portfolio_value = float(self.portfolio.total_portfolio_value)
+        # Use cash balance when portfolio holdings are empty (initial state)
+        portfolio_holdings_value = float(self.portfolio.total_portfolio_value)
+        cash_balance = float(self.portfolio.cash_balance)
+        
+        if portfolio_holdings_value == 0.0:
+            # No holdings yet, use available cash for position sizing
+            total_portfolio_value = cash_balance
+            self.log(f"Using cash balance for position sizing: ${total_portfolio_value:.2f}")
+        else:
+            # Has holdings, use total portfolio value (holdings + cash)
+            total_portfolio_value = portfolio_holdings_value + cash_balance
+            self.log(f"Using total portfolio value: ${total_portfolio_value:.2f} (holdings: ${portfolio_holdings_value:.2f} + cash: ${cash_balance:.2f})")
         for ticker, w in weights.items():
             if ticker not in self.my_securities or self.my_securities[ticker] is None:
                 self.log(f"Warning: Cannot execute trade for {ticker} - security not available")
