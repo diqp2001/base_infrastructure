@@ -10,6 +10,7 @@ data managwr app training data generation
 create exe
 deploy dockey
 and fx bonds commo data
+daily weekly montly quartely semi yearly minutes seconds etc
 
 
 
