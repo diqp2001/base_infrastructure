@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Callable
 from decimal import Decimal
 import uuid
+import pandas as pd
 
 from .symbol import Symbol, SymbolProperties
 from .enums import (
@@ -674,6 +675,182 @@ class QCAlgorithm:
             self.warmup_period = period
         
         self.debug(f"Warmup period set to {self.warmup_period}")
+    
+    # ===========================================
+    # Data Processing Utility Methods
+    # ===========================================
+    
+    def _has_price_data(self, ticker: str, security_symbol) -> bool:
+        """
+        Check if price data is available for the given ticker.
+        Handles both DataFrame and Slice data formats.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            bool: True if price data is available
+        """
+        # Check DataFrame format first
+        if hasattr(self, '_current_data_frame') and self._current_data_frame is not None:
+            # DataFrame format - check if ticker matches symbol column or if we have price columns
+            if 'symbol' in self._current_data_frame.columns:
+                return ticker in self._current_data_frame['symbol'].values
+            else:
+                # Assume single-ticker DataFrame - check if we have price data
+                price_columns = ['close', 'Close', 'price', 'Price']
+                return any(col in self._current_data_frame.columns for col in price_columns)
+        
+        # Check Slice format
+        elif hasattr(self, '_current_data_slice') and self._current_data_slice is not None:
+            return self._symbol_in_data(security_symbol, self._current_data_slice)
+        
+        return False
+    
+    def _get_current_price(self, ticker: str, security_symbol) -> Optional[float]:
+        """
+        Get the current price for the given ticker from available data.
+        Handles both DataFrame and Slice data formats.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            float: Current price, or None if not available
+        """
+        try:
+            # Handle DataFrame format
+            if hasattr(self, '_current_data_frame') and self._current_data_frame is not None:
+                df = self._current_data_frame
+                
+                if 'symbol' in df.columns:
+                    # Multi-ticker DataFrame - filter by ticker
+                    ticker_data = df[df['symbol'] == ticker]
+                    if not ticker_data.empty:
+                        # Get the most recent price
+                        latest_row = ticker_data.iloc[-1]
+                        price_columns = ['close', 'Close', 'price', 'Price']
+                        for col in price_columns:
+                            if col in latest_row and pd.notna(latest_row[col]):
+                                return float(latest_row[col])
+                else:
+                    # Single-ticker DataFrame - assume it's for our ticker
+                    if not df.empty:
+                        latest_row = df.iloc[-1]
+                        price_columns = ['close', 'Close', 'price', 'Price']
+                        for col in price_columns:
+                            if col in latest_row and pd.notna(latest_row[col]):
+                                return float(latest_row[col])
+            
+            # Handle Slice format
+            elif hasattr(self, '_current_data_slice') and self._current_data_slice is not None:
+                data_symbol = self._find_matching_symbol(security_symbol, self._current_data_slice)
+                if data_symbol is not None:
+                    return float(self._current_data_slice[data_symbol].close)
+            
+            return None
+            
+        except Exception as e:
+            self.log(f"Error getting current price for {ticker}: {str(e)}")
+            return None
+    
+    def _get_current_holdings_value(self, ticker: str, security_symbol) -> float:
+        """
+        Get the current holdings value for a security.
+        Handles portfolio access safely.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            float: Current holdings value (0.0 if no holdings)
+        """
+        try:
+            # Try to access portfolio holdings directly using the correct structure
+            if hasattr(self.portfolio, 'holdings') and hasattr(self.portfolio.holdings, 'holdings'):
+                # Access holdings dictionary directly
+                holdings_dict = self.portfolio.holdings.holdings
+                if security_symbol in holdings_dict and holdings_dict[security_symbol] is not None:
+                    holding = holdings_dict[security_symbol]
+                    if hasattr(holding, 'holdings_value'):
+                        return float(holding.holdings_value)
+            
+            # Alternative: try direct indexing with try/except (Portfolio doesn't have .get() method)
+            try:
+                portfolio_holding = self.portfolio[security_symbol]
+                if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
+                    return float(portfolio_holding.holdings_value)
+            except (KeyError, TypeError):
+                # Symbol not found in portfolio or portfolio doesn't support indexing
+                pass
+            
+            return 0.0
+            
+        except Exception as e:
+            self.log(f"Error accessing holdings for {ticker}: {str(e)}")
+            return 0.0
+    
+    def _symbol_in_data(self, security_symbol, data_slice) -> bool:
+        """
+        Check if a security symbol exists in the data slice.
+        Handles different symbol representations (e.g., with/without country codes).
+        
+        Args:
+            security_symbol: The Symbol object from the security
+            data_slice: The Slice object containing market data
+        
+        Returns:
+            bool: True if the symbol is found in the data slice
+        """
+        # Defensive check - ensure data_slice has bars attribute
+        if not hasattr(data_slice, 'bars'):
+            return False
+            
+        # Direct comparison first (fastest)
+        if security_symbol in data_slice:
+            return True
+        
+        # Check if any symbol in data matches the ticker
+        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
+        
+        for data_symbol in data_slice.bars.keys():
+            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
+            if security_ticker == data_ticker:
+                return True
+        
+        return False
+    
+    def _find_matching_symbol(self, security_symbol, data_slice):
+        """
+        Find the matching symbol in the data slice for a given security symbol.
+        
+        Args:
+            security_symbol: The Symbol object from the security
+            data_slice: The Slice object containing market data
+        
+        Returns:
+            Symbol: The matching symbol from data_slice, or None if not found
+        """
+        # Only process if data_slice has bars attribute (is a proper Slice object)
+        if not hasattr(data_slice, 'bars'):
+            return None
+            
+        # Direct comparison first
+        if security_symbol in data_slice:
+            return security_symbol
+        
+        # Check if any symbol in data matches the ticker
+        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
+        
+        for data_symbol in data_slice.bars.keys():
+            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
+            if security_ticker == data_ticker:
+                return data_symbol
+        
+        return None
     
     # ===========================================
     # Internal Simulation Methods

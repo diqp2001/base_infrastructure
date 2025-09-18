@@ -2,12 +2,9 @@ import time
 import logging
 import random
 import os
-import threading
-import webbrowser
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
-import queue
 
 import pandas as pd
 from application.managers.database_managers.database_manager import DatabaseManager
@@ -278,222 +275,7 @@ class MyAlgorithm(QCAlgorithm):
                 self.log(f"Executing order for {ticker}: target=${target_value:.2f}, current=${current_value:.2f}, qty={qty}")
                 self.market_order(security.symbol, qty)
 
-    def _has_price_data(self, ticker: str, security_symbol) -> bool:
-        """
-        Check if price data is available for the given ticker.
-        Handles both DataFrame and Slice data formats.
-        
-        Args:
-            ticker: The ticker symbol (e.g., 'AAPL')
-            security_symbol: The Symbol object from the security
-        
-        Returns:
-            bool: True if price data is available
-        """
-        # Check DataFrame format first
-        if self._current_data_frame is not None:
-            # DataFrame format - check if ticker matches symbol column or if we have price columns
-            if 'symbol' in self._current_data_frame.columns:
-                return ticker in self._current_data_frame['symbol'].values
-            else:
-                # Assume single-ticker DataFrame - check if we have price data
-                price_columns = ['close', 'Close', 'price', 'Price']
-                return any(col in self._current_data_frame.columns for col in price_columns)
-        
-        # Check Slice format
-        elif self._current_data_slice is not None:
-            return self._symbol_in_data(security_symbol, self._current_data_slice)
-        
-        return False
-    
-    def _get_current_price(self, ticker: str, security_symbol) -> Optional[float]:
-        """
-        Get the current price for the given ticker from available data.
-        Handles both DataFrame and Slice data formats.
-        
-        Args:
-            ticker: The ticker symbol (e.g., 'AAPL')
-            security_symbol: The Symbol object from the security
-        
-        Returns:
-            float: Current price, or None if not available
-        """
-        try:
-            # Handle DataFrame format
-            if self._current_data_frame is not None:
-                df = self._current_data_frame
-                
-                if 'symbol' in df.columns:
-                    # Multi-ticker DataFrame - filter by ticker
-                    ticker_data = df[df['symbol'] == ticker]
-                    if not ticker_data.empty:
-                        # Get the most recent price
-                        latest_row = ticker_data.iloc[-1]
-                        price_columns = ['close', 'Close', 'price', 'Price']
-                        for col in price_columns:
-                            if col in latest_row and pd.notna(latest_row[col]):
-                                return float(latest_row[col])
-                else:
-                    # Single-ticker DataFrame - assume it's for our ticker
-                    if not df.empty:
-                        latest_row = df.iloc[-1]
-                        price_columns = ['close', 'Close', 'price', 'Price']
-                        for col in price_columns:
-                            if col in latest_row and pd.notna(latest_row[col]):
-                                return float(latest_row[col])
-            
-            # Handle Slice format
-            elif self._current_data_slice is not None:
-                data_symbol = self._find_matching_symbol(security_symbol, self._current_data_slice)
-                if data_symbol is not None:
-                    return float(self._current_data_slice[data_symbol].close)
-            
-            return None
-            
-        except Exception as e:
-            self.log(f"Error getting current price for {ticker}: {str(e)}")
-            return None
-    
-    def _get_current_holdings_value(self, ticker: str, security_symbol) -> float:
-        """
-        Get the current holdings value for a security.
-        Handles portfolio access safely.
-        
-        Args:
-            ticker: The ticker symbol (e.g., 'AAPL')
-            security_symbol: The Symbol object from the security
-        
-        Returns:
-            float: Current holdings value (0.0 if no holdings)
-        """
-        try:
-            # Try to access portfolio holdings directly using the correct structure
-            if hasattr(self.portfolio, 'holdings') and hasattr(self.portfolio.holdings, 'holdings'):
-                # Access holdings dictionary directly
-                holdings_dict = self.portfolio.holdings.holdings
-                if security_symbol in holdings_dict and holdings_dict[security_symbol] is not None:
-                    holding = holdings_dict[security_symbol]
-                    if hasattr(holding, 'holdings_value'):
-                        return float(holding.holdings_value)
-            
-            # Alternative: try direct indexing with try/except (Portfolio doesn't have .get() method)
-            try:
-                portfolio_holding = self.portfolio[security_symbol]
-                if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
-                    return float(portfolio_holding.holdings_value)
-            except (KeyError, TypeError):
-                # Symbol not found in portfolio or portfolio doesn't support indexing
-                pass
-            
-            return 0.0
-            
-        except Exception as e:
-            self.log(f"Error accessing holdings for {ticker}: {str(e)}")
-            return 0.0
-    
-    def _symbol_in_data(self, security_symbol, data_slice) -> bool:
-        """
-        Check if a security symbol exists in the data slice.
-        Handles different symbol representations (e.g., with/without country codes).
-        
-        Args:
-            security_symbol: The Symbol object from the security
-            data_slice: The Slice object containing market data
-        
-        Returns:
-            bool: True if the symbol is found in the data slice
-        """
-        # Defensive check - ensure data_slice has bars attribute
-        if not hasattr(data_slice, 'bars'):
-            return False
-            
-        # Direct comparison first (fastest)
-        if security_symbol in data_slice:
-            return True
-        
-        # Check if any symbol in data matches the ticker
-        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
-        
-        for data_symbol in data_slice.bars.keys():
-            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
-            if security_ticker == data_ticker:
-                return True
-        
-        return False
-    
-    def _find_matching_symbol(self, security_symbol, data_slice):
-        """
-        Find the matching symbol in the data slice for a given security symbol.
-        
-        Args:
-            security_symbol: The Symbol object from the security
-            data_slice: The Slice object containing market data
-        
-        Returns:
-            Symbol: The matching symbol from data_slice, or None if not found
-        """
-        # Only process if data_slice has bars attribute (is a proper Slice object)
-        if not hasattr(data_slice, 'bars'):
-            return None
-            
-        # Direct comparison first
-        if security_symbol in data_slice:
-            return security_symbol
-        
-        # Check if any symbol in data matches the ticker
-        security_ticker = str(security_symbol).split(',')[0].strip("Symbol('")
-        
-        for data_symbol in data_slice.bars.keys():
-            data_ticker = str(data_symbol).split(',')[0].strip("Symbol('")
-            if security_ticker == data_ticker:
-                return data_symbol
-        
-        return None
-    
-    def on_order_event(self, order_event: OrderEvent) -> None:
-        """Called when an order is filled or updated."""
-        self.log(f"OrderEvent: {order_event.symbol} - Status: {order_event.status} - Qty: {order_event.quantity}")
-
-    # ---------------------------
-    # End of day
-    # ---------------------------
-    def on_end_of_day(self, symbol: Symbol) -> None:
-        """Called at the end of each trading day."""
-        self.log(f"End of day for {symbol.value}")
-
-    # ---------------------------
-    # End of algorithm
-    # ---------------------------
-    def on_end_of_algorithm(self) -> None:
-        """Called when the algorithm finishes execution."""
-        self.log("Algorithm execution completed.")
-    
-    # ---------------------------
-    # Securities changes
-    # ---------------------------
-    def on_securities_changed(self, changes: Dict[str, List[Any]]) -> None:
-        """Called when securities are added or removed."""
-        added = changes.get("added", [])
-        removed = changes.get("removed", [])
-        if added:
-            self.log(f"Securities added: {[s.value for s in added]}")
-        if removed:
-            self.log(f"Securities removed: {[s.value for s in removed]}")
-
-    # ---------------------------
-    # Margin call
-    # ---------------------------
-    def on_margin_call(self, requests: List[Dict[str, Any]]) -> None:
-        """Called when a margin call occurs."""
-        for req in requests:
-            self.log(f"Margin call: {req}")
-
-    # ---------------------------
-    # Option assignment
-    # ---------------------------
-    def on_assignment(self, assignment_event: Dict[str, Any]) -> None:
-        """Called when an option assignment occurs."""
-        self.log(f"Option assignment: {assignment_event}")
+    # Event handlers are now in QCAlgorithm base class
 
 
 class TestProjectBacktestManager(ProjectManager):
@@ -513,138 +295,18 @@ class TestProjectBacktestManager(ProjectManager):
         self.results = None
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        # Web interface components
-        self.flask_app = None
-        self.flask_thread = None
-        self.progress_queue = queue.Queue()
-        self.is_running = False
-        
-        # Set up shared progress handler
-        self._setup_progress_logging()
+        # Web interface manager
+        from application.services.misbuffet.web_interface import WebInterfaceManager
+        self.web_interface = WebInterfaceManager()
 
     def run(self):
         """Main run method that launches web interface and executes backtest"""
-        # Start Flask web interface first
-        self._start_web_interface()
-        
-        # Give Flask a moment to start
-        time.sleep(5)
-        
-        # Open browser automatically
-        self._open_browser()
-
-        # Give Flask a moment to start
-        time.sleep(5)
+        # Start web interface and open browser
+        self.web_interface.start_interface_and_open_browser()
         
         # Start the actual backtest
         return self._run_backtest()
-    
-    def _setup_progress_logging(self):
-        """Set up logging handler to capture progress messages"""
-        # Create custom handler that puts messages in queue
-        class ProgressHandler(logging.Handler):
-            def __init__(self, progress_queue):
-                super().__init__()
-                self.progress_queue = progress_queue
-                
-            def emit(self, record):
-                message = self.format(record)
-                self.progress_queue.put({
-                    'timestamp': datetime.now().isoformat(),
-                    'level': record.levelname,
-                    'message': message
-                })
-        
-        # Add handler to capture all misbuffet logs
-        progress_handler = ProgressHandler(self.progress_queue)
-        progress_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        
-        # Add to main loggers
-        logging.getLogger("misbuffet-main").addHandler(progress_handler)
-        logging.getLogger("misbuffet.engine").addHandler(progress_handler)
-        logging.getLogger(self.__class__.__name__).addHandler(progress_handler)
-    
-    def _start_web_interface(self):
-        """Start Flask web interface in a separate thread"""
-        from src.interfaces.flask.flask import FlaskApp
-        from flask import Flask, render_template, request, Response, jsonify
-        import json
-        
-        # Create Flask app instance
-        self.flask_app = FlaskApp()
-        
-        # Add progress streaming endpoint
-        def generate_progress():
-            """Server-Sent Events generator for progress updates"""
-            try:
-                while True:
-                    try:
-                        # Wait for new message with timeout
-                        message = self.progress_queue.get(timeout=1)
-                        yield f"data: {json.dumps(message)}\n\n"
-                    except queue.Empty:
-                        # Send heartbeat to keep connection alive
-                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
-            except GeneratorExit:
-                # Client disconnected, clean exit
-                print("🔌 Client disconnected from progress stream")
-                return
-            except Exception as e:
-                print(f"❌ Error in progress stream: {e}")
-                return
-        
-        @self.flask_app.app.route('/progress_stream')
-        def progress_stream():
-            """Server-Sent Events endpoint for progress updates"""
-            return Response(generate_progress(), mimetype='text/event-stream', headers={
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-                'Access-Control-Allow-Origin': '*'
-            })
-        
-        # Add backtest progress page
-        @self.flask_app.app.route('/backtest_progress')
-        def backtest_progress():
-            """Display backtest progress with real-time updates"""
-            return render_template('backtest_progress.html')
-        
-        # Add shutdown endpoint for clean server shutdown
-        @self.flask_app.app.route('/shutdown', methods=['POST'])
-        def shutdown_server():
-            """Shutdown the Flask server gracefully"""
-            print("🛑 Shutdown request received")
-            self.is_running = False
-            # Use Werkzeug's shutdown function
-            func = request.environ.get('werkzeug.server.shutdown')
-            if func is None:
-                return 'Server shutdown failed - not running with Werkzeug server', 500
-            func()
-            return 'Server shutting down...', 200
-        
-        # Start Flask in separate thread
-        def run_flask():
-            try:
-                self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, threaded=True)
-            except Exception as e:
-                print(f"❌ Flask server error: {e}")
-            finally:
-                print("🛑 Flask server stopped")
-        
-        self.flask_thread = threading.Thread(target=run_flask, daemon=True)
-        self.flask_thread.start()
-        
-        self.is_running = True
-        print("🌐 Flask web interface started at http://localhost:5000")
-        print("📊 Progress monitor available at http://localhost:5000/backtest_progress")
-    
-    def _open_browser(self):
-        """Automatically open browser to progress page"""
-        try:
-            webbrowser.open('http://localhost:5000/backtest_progress')
-            print("🖥️  Browser opened automatically to backtest progress page")
-        except Exception as e:
-            print(f"⚠️  Could not open browser automatically: {e}")
-            print("📍 Please manually navigate to: http://localhost:5000/backtest_progress")
+    # Web interface functionality moved to application.services.misbuffet.web_interface
     
     def _run_backtest(self):
         """Execute the actual backtest with progress logging"""
@@ -653,7 +315,7 @@ class TestProjectBacktestManager(ProjectManager):
         logger = logging.getLogger("misbuffet-main")
 
         # Send initial progress message
-        self.progress_queue.put({
+        self.web_interface.progress_queue.put({
             'timestamp': datetime.now().isoformat(),
             'level': 'INFO',
             'message': 'Starting TestProjectBacktestManager...'
@@ -663,7 +325,7 @@ class TestProjectBacktestManager(ProjectManager):
 
         try:
             # Step 1: Launch package
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
                 'message': 'Loading Misbuffet framework...'
@@ -672,7 +334,7 @@ class TestProjectBacktestManager(ProjectManager):
             misbuffet = Misbuffet.launch(config_file="launch_config.py")
 
             # Step 2: Configure engine with LauncherConfiguration
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
                 'message': 'Configuring backtest engine...'
@@ -699,7 +361,7 @@ class TestProjectBacktestManager(ProjectManager):
             
             logger.info("Configuration setup with database access for real stock data")
 
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
                 'message': 'Starting backtest engine...'
@@ -709,7 +371,7 @@ class TestProjectBacktestManager(ProjectManager):
             engine = misbuffet.start_engine(config_file="engine_config.py")
 
             # Step 3: Run backtest
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
                 'message': 'Executing backtest algorithm...'
@@ -720,7 +382,7 @@ class TestProjectBacktestManager(ProjectManager):
             logger.info("Backtest finished.")
             logger.info(f"Result summary: {result.summary()}")
             
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'SUCCESS',
                 'message': f'Backtest completed successfully! Result: {result.summary()}'
@@ -730,7 +392,7 @@ class TestProjectBacktestManager(ProjectManager):
             
         except Exception as e:
             logger.error(f"Error running backtest: {e}")
-            self.progress_queue.put({
+            self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'ERROR',
                 'message': f'Backtest failed: {str(e)}'

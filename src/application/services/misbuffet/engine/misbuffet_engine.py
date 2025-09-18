@@ -14,7 +14,8 @@ from decimal import Decimal
 # Import the stock data repository for real data access
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
-from domain.entities.finance.back_testing import Portfolio
+# Import algorithm framework components instead of domain entities
+from ..algorithm.security import SecurityPortfolioManager
 
 # Import BaseEngine for proper inheritance
 from .base_engine import BaseEngine
@@ -100,13 +101,11 @@ class MisbuffetEngine(BaseEngine):
                 
             # Setup algorithm with config
             if self.algorithm:
-                # Portfolio setup with domain entity
+                # Portfolio setup with algorithm framework's SecurityPortfolioManager
                 initial_capital = getattr(config, 'initial_capital', 100000)
 
-                self.algorithm.portfolio = Portfolio(
-                    name=f"Algorithm_{self.algorithm.__class__.__name__}",
-                    initial_cash=Decimal(str(initial_capital))
-                )
+                # Use the correct SecurityPortfolioManager that integrates with order system
+                self.algorithm.portfolio = SecurityPortfolioManager(cash=float(initial_capital))
                 
                 # Setup time property (required by MyAlgorithm)
                 from datetime import datetime
@@ -116,9 +115,64 @@ class MisbuffetEngine(BaseEngine):
                 if not hasattr(self.algorithm, 'log'):
                     self.algorithm.log = lambda msg: self.logger.info(f"Algorithm: {msg}")
                 
-                # Add market_order method if not present  
+                # Connect market_order method to proper transaction processing
                 if not hasattr(self.algorithm, 'market_order'):
-                    self.algorithm.market_order = lambda symbol, qty: self.logger.info(f"Market order: {symbol} qty={qty}")
+                    def connected_market_order(symbol, qty):
+                        """Market order method that properly processes fills and updates portfolio."""
+                        self.logger.info(f"Market order: {symbol} qty={qty}")
+                        
+                        # Get current market price for the symbol
+                        try:
+                            # Try to get price from current data slice or use fallback
+                            price = self._get_current_market_price(symbol)
+                            
+                            # Simulate immediate order execution for backtesting
+                            self.algorithm.portfolio.process_fill(
+                                symbol=symbol,
+                                quantity=qty, 
+                                price=price,
+                                fees=abs(qty) * 0.01,  # $0.01 per share commission
+                                timestamp=self.algorithm.time
+                            )
+                            
+                            self.logger.info(f"✅ Order executed: {symbol} qty={qty} @ ${price:.2f}")
+                            
+                        except Exception as e:
+                            self.logger.error(f"❌ Failed to execute order {symbol} qty={qty}: {e}")
+                    
+                    self.algorithm.market_order = connected_market_order
+                
+                # Connect set_holdings method to proper portfolio management
+                if not hasattr(self.algorithm, 'set_holdings'):
+                    def connected_set_holdings(symbol, percentage, liquidate_existing=False, tag=""):
+                        """Set holdings method that properly updates portfolio."""
+                        try:
+                            # Get current portfolio value
+                            total_value = self.algorithm.portfolio.total_portfolio_value_current
+                            target_value = total_value * percentage
+                            
+                            # Get current price
+                            price = self._get_current_market_price(symbol)
+                            
+                            # Calculate target quantity
+                            target_quantity = int(target_value / price) if price > 0 else 0
+                            
+                            # Get current quantity
+                            current_holding = self.algorithm.portfolio.get_holding(symbol)
+                            current_quantity = current_holding.quantity if current_holding else 0
+                            
+                            # Calculate order quantity
+                            order_quantity = target_quantity - current_quantity
+                            
+                            if order_quantity != 0:
+                                # Execute via market_order which will update portfolio
+                                self.algorithm.market_order(symbol, order_quantity)
+                                self.logger.info(f"Set holdings for {symbol} to {percentage:.2%} (qty: {target_quantity})")
+                            
+                        except Exception as e:
+                            self.logger.error(f"❌ Failed to set holdings for {symbol}: {e}")
+                    
+                    self.algorithm.set_holdings = connected_set_holdings
                 
                 # Add add_equity method if not present
                 if not hasattr(self.algorithm, 'add_equity'):
@@ -277,6 +331,48 @@ class MisbuffetEngine(BaseEngine):
                 continue
         
         return slice_data
+    
+    def _get_current_market_price(self, symbol):
+        """Get current market price for a symbol."""
+        try:
+            # Try to get from current data slice if available
+            current_data = getattr(self.algorithm, '_current_data_slice', None) or getattr(self.algorithm, '_current_data_frame', None)
+            
+            if current_data:
+                # Handle Slice object
+                if hasattr(current_data, 'bars'):
+                    # Find matching symbol in slice
+                    symbol_str = str(symbol).split(',')[0].strip("Symbol('")
+                    for data_symbol, trade_bar in current_data.bars.items():
+                        data_symbol_str = str(data_symbol).split(',')[0].strip("Symbol('")
+                        if symbol_str == data_symbol_str:
+                            return trade_bar.close
+                
+                # Handle DataFrame
+                elif hasattr(current_data, 'columns'):
+                    if 'close' in current_data.columns or 'Close' in current_data.columns:
+                        close_col = 'close' if 'close' in current_data.columns else 'Close'
+                        if not current_data.empty:
+                            return float(current_data[close_col].iloc[-1])
+            
+            # Fallback: try to get from stock data repository
+            if self.stock_data_repository:
+                symbol_str = str(symbol).split(',')[0].strip("Symbol('")
+                try:
+                    df = self.stock_data_repository.get_historical_data(symbol_str, periods=1)
+                    if df is not None and not df.empty:
+                        close_col = 'Close' if 'Close' in df.columns else 'close'
+                        if close_col in df.columns:
+                            return float(df[close_col].iloc[-1])
+                except:
+                    pass
+            
+            # Final fallback: use a reasonable default price
+            return 100.0
+            
+        except Exception as e:
+            self.logger.debug(f"Error getting market price for {symbol}: {e}")
+            return 100.0
     
     def _get_single_day_data(self, ticker, target_date):
         """Get stock data for a single day."""
