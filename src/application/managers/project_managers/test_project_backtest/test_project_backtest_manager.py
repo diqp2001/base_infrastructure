@@ -149,6 +149,16 @@ class MyAlgorithm(QCAlgorithm):
     # On each new data point
     # ---------------------------
     def on_data(self, data):
+        # Add defensive check to ensure data is a Slice object, not a DataFrame
+        if hasattr(data, 'columns') and hasattr(data, 'index'):
+            # This is a DataFrame, not a Slice object - this shouldn't happen
+            self.log(f"ERROR: on_data received DataFrame instead of Slice object: {type(data)}")
+            return
+        elif not hasattr(data, 'bars'):
+            # This is not a proper Slice object
+            self.log(f"ERROR: on_data received invalid data type without .bars attribute: {type(data)}")
+            return
+            
         # Retrain weekly
         if (
             self.last_train_time is None
@@ -276,6 +286,11 @@ class MyAlgorithm(QCAlgorithm):
         Returns:
             bool: True if the symbol is found in the data slice
         """
+        # Defensive check - ensure data_slice has bars attribute
+        if not hasattr(data_slice, 'bars'):
+            self.log(f"ERROR: _symbol_in_data received invalid data_slice without .bars attribute: {type(data_slice)}")
+            return False
+            
         # Direct comparison first (fastest)
         if security_symbol in data_slice:
             return True
@@ -301,6 +316,11 @@ class MyAlgorithm(QCAlgorithm):
         Returns:
             Symbol: The matching symbol from data_slice, or None if not found
         """
+        # Defensive check - ensure data_slice has bars attribute
+        if not hasattr(data_slice, 'bars'):
+            self.log(f"ERROR: _find_matching_symbol received invalid data_slice without .bars attribute: {type(data_slice)}")
+            return None
+            
         # Direct comparison first
         if security_symbol in data_slice:
             return security_symbol
