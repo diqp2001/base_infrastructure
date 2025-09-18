@@ -16,37 +16,25 @@ class Symbol(DomainSymbol):
     Inherits immutable value object properties and adds QuantConnect-style convenience methods.
     """
     # Algorithm-specific fields (in addition to domain fields)
-    option_right: Optional[OptionRight] = field(default=None, init=False)
-    option_style: Optional[OptionStyle] = field(default=None, init=False)
-    strike_price: Optional[float] = field(default=None, init=False)
-    expiry: Optional[datetime] = field(default=None, init=False)
-    properties: Dict[str, Any] = field(default_factory=dict, init=False)
+    option_right: Optional[OptionRight] = field(default=None)
+    option_style: Optional[OptionStyle] = field(default=None)
+    strike_price: Optional[float] = field(default=None)
+    expiry: Optional[datetime] = field(default=None)
+    properties: Dict[str, Any] = field(default_factory=dict)
     
-    def __new__(cls, value: str, security_type: SecurityType = SecurityType.EQUITY, 
-                market: str = "USA", **kwargs):
-        """Create new Symbol instance with domain model compatibility."""
-        # Map algorithm security types to domain security types
-        domain_security_type = cls._map_security_type(security_type)
-        domain_market = cls._map_market(market)
+    def __post_init__(self):
+        """Initialize domain Symbol and validate algorithm-specific fields."""
+        # Call parent post_init first
+        super().__post_init__()
         
-        # Create domain symbol instance
-        instance = super().__new__(cls, value=value, 
-                                  security_type=domain_security_type, 
-                                  market=domain_market)
-        
-        # Store algorithm-specific fields
-        if 'option_right' in kwargs:
-            object.__setattr__(instance, 'option_right', kwargs['option_right'])
-        if 'option_style' in kwargs:
-            object.__setattr__(instance, 'option_style', kwargs['option_style'])
-        if 'strike_price' in kwargs:
-            object.__setattr__(instance, 'strike_price', kwargs['strike_price'])
-        if 'expiry' in kwargs:
-            object.__setattr__(instance, 'expiry', kwargs['expiry'])
-        if 'properties' in kwargs:
-            object.__setattr__(instance, 'properties', kwargs['properties'])
-        
-        return instance
+        # Validate algorithm-specific fields
+        if self.security_type == SecurityType.OPTION:
+            if self.option_right is None:
+                raise ValueError("Option symbols must have option_right specified")
+            if self.strike_price is None or self.strike_price <= 0:
+                raise ValueError("Option symbols must have valid strike_price")
+            if self.expiry is None:
+                raise ValueError("Option symbols must have expiry date")
     
     @staticmethod
     def _map_security_type(algo_type: SecurityType) -> DomainSecurityType:
@@ -73,14 +61,22 @@ class Symbol(DomainSymbol):
     
     @classmethod
     def create(cls, ticker: str, security_type: SecurityType = SecurityType.EQUITY, 
-               market: str = "", **kwargs) -> 'Symbol':
+               market: str = "USA", **kwargs) -> 'Symbol':
         """Factory method to create a Symbol"""
+        # Map algorithm types to domain types
+        domain_security_type = cls._map_security_type(security_type)
+        domain_market = cls._map_market(market)
+        
         return cls(
-            value=ticker,
-            id=ticker,
-            security_type=security_type,
-            market=market,
-            **kwargs
+            value=ticker.upper(),
+            id=kwargs.get('id', ticker),
+            security_type=domain_security_type,
+            market=domain_market,
+            option_right=kwargs.get('option_right'),
+            option_style=kwargs.get('option_style'),
+            strike_price=kwargs.get('strike_price'),
+            expiry=kwargs.get('expiry'),
+            properties=kwargs.get('properties', {})
         )
     
     @classmethod
@@ -149,59 +145,43 @@ class Symbol(DomainSymbol):
         return hash((self.id, self.security_type))
 
 
-@dataclass(frozen=True) 
+@dataclass
 class SymbolProperties(DomainSymbolProperties):
     """
     Algorithm framework symbol properties extending domain SymbolProperties.
     Adds algorithm-specific convenience methods and QuantConnect compatibility.
     """
     # Algorithm-specific fields (extending domain properties)
-    pip_size: float = field(default=0.0001, init=False)
-    market_ticker: str = field(default="", init=False) 
-    description: str = field(default="", init=False)
-    fee_model: Optional[str] = field(default=None, init=False)
-    margin_model: Optional[str] = field(default=None, init=False)
+    pip_size: float = field(default=0.0001)
+    market_ticker: str = field(default="") 
+    description: str = field(default="")
+    fee_model: Optional[str] = field(default=None)
+    margin_model: Optional[str] = field(default=None)
     
-    def __new__(cls, symbol=None, **kwargs):
-        """Create SymbolProperties with domain model compatibility."""
-        # Use domain defaults if symbol provided
-        if symbol and hasattr(symbol, 'security_type'):
-            domain_props = DomainSymbolProperties.get_default(symbol.security_type)
-            instance = super().__new__(cls,
-                                      time_zone=domain_props.time_zone,
-                                      exchange_hours=domain_props.exchange_hours,
-                                      lot_size=domain_props.lot_size,
-                                      tick_size=domain_props.tick_size,
-                                      minimum_price_variation=domain_props.minimum_price_variation,
-                                      contract_multiplier=domain_props.contract_multiplier,
-                                      minimum_order_size=domain_props.minimum_order_size,
-                                      maximum_order_size=domain_props.maximum_order_size,
-                                      price_scaling=domain_props.price_scaling,
-                                      margin_requirement=domain_props.margin_requirement,
-                                      short_able=domain_props.short_able)
-        else:
-            # Use provided values or defaults
-            instance = super().__new__(cls,
-                                      time_zone=kwargs.get('time_zone', 'America/New_York'),
-                                      exchange_hours=kwargs.get('exchange_hours'),
-                                      lot_size=kwargs.get('lot_size', 1),
-                                      tick_size=kwargs.get('tick_size', float(0.01)),
-                                      minimum_price_variation=kwargs.get('minimum_price_variation', float(0.01)),
-                                      contract_multiplier=kwargs.get('contract_multiplier', 1),
-                                      minimum_order_size=kwargs.get('minimum_order_size', 1),
-                                      maximum_order_size=kwargs.get('maximum_order_size'),
-                                      price_scaling=kwargs.get('price_scaling', float(1)),
-                                      margin_requirement=kwargs.get('margin_requirement', float(0.25)),
-                                      short_able=kwargs.get('short_able', True))
+    @classmethod
+    def create_for_symbol(cls, symbol: 'Symbol', **kwargs) -> 'SymbolProperties':
+        """Create SymbolProperties with domain defaults for a given symbol."""
+        # Get domain defaults based on security type
+        domain_props = DomainSymbolProperties.get_default(symbol.security_type)
         
-        # Set algorithm-specific fields
-        object.__setattr__(instance, 'pip_size', kwargs.get('pip_size', 0.0001))
-        object.__setattr__(instance, 'market_ticker', kwargs.get('market_ticker', ''))
-        object.__setattr__(instance, 'description', kwargs.get('description', ''))
-        object.__setattr__(instance, 'fee_model', kwargs.get('fee_model'))
-        object.__setattr__(instance, 'margin_model', kwargs.get('margin_model'))
-        
-        return instance
+        return cls(
+            time_zone=kwargs.get('time_zone', domain_props.time_zone),
+            exchange_hours=kwargs.get('exchange_hours', domain_props.exchange_hours),
+            lot_size=kwargs.get('lot_size', domain_props.lot_size),
+            tick_size=kwargs.get('tick_size', domain_props.tick_size),
+            minimum_price_variation=kwargs.get('minimum_price_variation', domain_props.minimum_price_variation),
+            contract_multiplier=kwargs.get('contract_multiplier', domain_props.contract_multiplier),
+            minimum_order_size=kwargs.get('minimum_order_size', domain_props.minimum_order_size),
+            maximum_order_size=kwargs.get('maximum_order_size', domain_props.maximum_order_size),
+            price_scaling=kwargs.get('price_scaling', domain_props.price_scaling),
+            margin_requirement=kwargs.get('margin_requirement', domain_props.margin_requirement),
+            short_able=kwargs.get('short_able', domain_props.short_able),
+            pip_size=kwargs.get('pip_size', 0.0001),
+            market_ticker=kwargs.get('market_ticker', ''),
+            description=kwargs.get('description', ''),
+            fee_model=kwargs.get('fee_model'),
+            margin_model=kwargs.get('margin_model')
+        )
     
     @property
     def is_tradable(self) -> bool:
