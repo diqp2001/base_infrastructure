@@ -8,35 +8,65 @@ from .symbol import Symbol, SymbolProperties
 from .enums import SecurityType, Resolution, DataNormalizationMode, LogLevel
 from .data_handlers import BaseData, TradeBar, QuoteBar, Tick
 
+# Import domain entities for proper inheritance
+from domain.entities.finance.portfolio import SecurityHoldings as DomainSecurityHoldings
+from domain.entities.finance.financial_assets.security import Security as DomainSecurity
+from decimal import Decimal
+
 
 @dataclass
-class SecurityHolding:
+class SecurityHolding(DomainSecurityHoldings):
     """
-    Represents a holding of a security in a portfolio.
-    Tracks quantity, average price, and performance metrics.
+    Algorithm framework holding extending domain SecurityHoldings.
+    Provides QuantConnect-style API with float convenience methods while maintaining domain precision.
     """
-    symbol: Symbol
-    quantity: int = 0
-    average_price: float = 0.0
-    market_price: float = 0.0
-    total_fees: float = 0.0
+    # Additional algorithm-specific fields
+    market_price: float = field(default=0.0, init=False)
+    total_fees: float = field(default=0.0, init=False)
+    _transactions: List[Dict[str, Any]] = field(default_factory=list, init=False)
     
-    # Tracking for performance calculations
-    realized_pnl: float = 0.0
-    unrealized_pnl: float = 0.0
-    
-    # Transaction history
-    _transactions: List[Dict[str, Any]] = field(default_factory=list)
+    def __init__(self, symbol: Symbol, quantity: int = 0, average_price: float = 0.0):
+        """Initialize SecurityHolding with domain model compatibility."""
+        # Convert to Decimal for domain layer
+        quantity_decimal = Decimal(str(quantity))
+        average_cost_decimal = Decimal(str(average_price))
+        
+        # Initialize domain SecurityHoldings
+        super().__init__(
+            symbol=symbol,
+            quantity=quantity_decimal,
+            average_cost=average_cost_decimal,
+            market_value=Decimal('0'),
+            unrealized_pnl=Decimal('0'),
+            realized_pnl=Decimal('0'),
+            holdings_value=Decimal('0')
+        )
+        
+        # Set algorithm-specific fields
+        object.__setattr__(self, 'market_price', float(average_price))
+        object.__setattr__(self, 'total_fees', 0.0)
+        object.__setattr__(self, '_transactions', [])
     
     @property
     def market_value(self) -> float:
-        """Current market value of the holding"""
-        return self.quantity * self.market_price
+        """Current market value of the holding (algorithm convenience method)"""
+        # Delegate to domain property but return float for algorithm compatibility
+        return float(super().market_value)
     
-    @property
+    @property 
     def cost_basis(self) -> float:
         """Total cost basis of the holding"""
-        return self.quantity * self.average_price
+        return float(self.quantity * self.average_cost)
+    
+    @property
+    def quantity(self) -> int:
+        """Quantity as integer for algorithm compatibility"""
+        return int(super().quantity)
+    
+    @property
+    def average_price(self) -> float:
+        """Average price as float for algorithm compatibility"""
+        return float(self.average_cost)
     
     @property
     def unrealized_profit_loss(self) -> float:
@@ -131,55 +161,56 @@ class SecurityHolding:
         self.unrealized_pnl = self.unrealized_profit_loss
 
 
-@dataclass 
-class Security:
+class Security(DomainSecurity):
     """
-    Represents a tradeable security with its properties and current market data.
+    Algorithm framework security extending domain Security.
+    Provides QuantConnect-style API while maintaining domain model integrity.
     """
-    symbol: Symbol
-    properties: SymbolProperties = None
     
-    # Market data
-    price: float = 0.0
-    open: float = 0.0
-    high: float = 0.0
-    low: float = 0.0
-    close: float = 0.0
-    volume: int = 0
-    
-    # Bid/Ask data
-    bid_price: float = 0.0
-    ask_price: float = 0.0
-    bid_size: int = 0
-    ask_size: int = 0
-    
-    # Subscription settings
-    resolution: Resolution = Resolution.MINUTE
-    fill_data_forward: bool = True
-    leverage: float = 1.0
-    margin_model: Optional[str] = None
-    
-    # Market hours and trading
-    is_tradable: bool = True
-    extended_market_hours: bool = False
-    
-    # Historical data cache
-    _price_history: List[BaseData] = field(default_factory=list)
-    _last_data: Optional[BaseData] = None
-    
-    def __post_init__(self):
-        if self.properties is None:
-            self.properties = SymbolProperties(self.symbol)
+    def __init__(self, symbol: Symbol, resolution: Resolution = Resolution.MINUTE, 
+                 leverage: float = 1.0, fill_data_forward: bool = True, 
+                 extended_market_hours: bool = False):
+        """Initialize Security with algorithm-specific features."""
+        # Initialize domain Security
+        super().__init__(symbol)
+        
+        # Algorithm-specific fields
+        self.properties = SymbolProperties(symbol)
+        self.resolution = resolution
+        self.leverage = leverage
+        self.fill_data_forward = fill_data_forward
+        self.extended_market_hours = extended_market_hours
+        self.margin_model: Optional[str] = None
+        
+        # Market data (algorithm convenience fields)
+        self.open: float = 0.0
+        self.high: float = 0.0 
+        self.low: float = 0.0
+        self.close: float = 0.0
+        self.volume: int = 0
+        self.bid_price: float = 0.0
+        self.ask_price: float = 0.0
+        self.bid_size: int = 0
+        self.ask_size: int = 0
+        
+        # Historical data cache
+        self._price_history: List[BaseData] = []
+        self._last_data: Optional[BaseData] = None
     
     @property
     def has_data(self) -> bool:
         """Returns True if security has current market data"""
-        return self.price > 0.0 or self._last_data is not None
+        return float(self.price) > 0.0 or self._last_data is not None
     
     @property
     def market_price(self) -> float:
         """Returns the current market price"""
-        return self.price or self.close
+        return float(self.price) or self.close
+    
+    @property
+    def price(self) -> float:
+        """Get current price as float for algorithm compatibility"""
+        return float(super().price)
     
     @property
     def spread(self) -> float:
@@ -218,6 +249,18 @@ class Security:
         self._price_history.append(data)
         if len(self._price_history) > 1000:
             self._price_history.pop(0)
+    
+    def calculate_margin_requirement(self, quantity: Decimal) -> Decimal:
+        """Calculate margin requirement for a given position size."""
+        if self.properties and hasattr(self.properties, 'margin_requirement'):
+            return abs(quantity) * Decimal(str(self.price)) * self.properties.margin_requirement
+        return abs(quantity) * Decimal(str(self.price)) * Decimal('0.25')  # Default 25% margin
+    
+    def get_contract_multiplier(self) -> Decimal:
+        """Get the contract multiplier for the security."""
+        if self.properties and hasattr(self.properties, 'contract_multiplier'):
+            return Decimal(str(self.properties.contract_multiplier))
+        return Decimal('1')
     
     def get_last_data(self) -> Optional[BaseData]:
         """Returns the most recent data point"""
@@ -340,7 +383,11 @@ class SecurityPortfolioManager:
         return self.cash
     
     def __getitem__(self, symbol: Union[Symbol, str]) -> SecurityHolding:
-        """Gets or creates a SecurityHolding for the given symbol"""
+        """
+        Gets a SecurityHolding for the given symbol.
+        WARNING: This method creates empty holdings if they don't exist!
+        For read-only access, use get_holding() instead.
+        """
         if isinstance(symbol, str):
             # Try to find existing symbol
             for sym in self._holdings.keys():
@@ -352,6 +399,8 @@ class SecurityPortfolioManager:
                 symbol = Symbol.create_equity(symbol)
         
         if symbol not in self._holdings:
+            # NOTE: This creates an empty holding without transaction data
+            # This should only be used when you intend to create a position
             self._holdings[symbol] = SecurityHolding(symbol)
         
         return self._holdings[symbol]

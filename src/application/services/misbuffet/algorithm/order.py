@@ -8,31 +8,63 @@ import uuid
 from .symbol import Symbol
 from .enums import OrderType, OrderStatus, OrderDirection, FillType
 
+# Import domain entities for proper inheritance
+from domain.entities.finance.back_testing.orders import (
+    Order as DomainOrder,
+    MarketOrder as DomainMarketOrder,
+    LimitOrder as DomainLimitOrder,
+    StopMarketOrder as DomainStopMarketOrder,
+    StopLimitOrder as DomainStopLimitOrder,
+    MarketOnOpenOrder as DomainMarketOnOpenOrder,
+    MarketOnCloseOrder as DomainMarketOnCloseOrder,
+    OrderTicket as DomainOrderTicket,
+    OrderFill as DomainOrderFill,
+    OrderEvent as DomainOrderEvent,
+)
+from domain.entities.finance.back_testing.enums import OrderDirection as DomainOrderDirection
 
-@dataclass
-class OrderTicket:
+
+class OrderTicket(DomainOrderTicket):
     """
-    Represents a submitted order and provides methods to update and cancel it.
+    Algorithm framework order ticket extending domain OrderTicket.
+    Provides QuantConnect-style API with float convenience methods.
     """
-    order_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    symbol: Symbol = None
-    quantity: int = 0
-    order_type: OrderType = OrderType.MARKET
-    status: OrderStatus = OrderStatus.NEW
-    tag: str = ""
-    time: datetime = field(default_factory=datetime.now)
     
-    # Price fields
-    limit_price: Optional[float] = None
-    stop_price: Optional[float] = None
+    def __init__(self, order: 'Order'):
+        """Initialize OrderTicket with domain model compatibility."""
+        super().__init__(order)
+        
+        # Algorithm convenience fields
+        self.symbol = order.symbol
+        self.quantity = order.quantity
+        self.order_type = self._map_order_type(order.order_type)
+        self.status = self._map_order_status(order.status) 
+        self.tag = order.tag
+        self.time = order.time
+        self.quantity_filled = order.filled_quantity
+        self.average_fill_price = float(order.average_fill_price)
+        self.time_in_force = order.time_in_force
+        self.extended_market_hours = getattr(order, 'extended_market_hours', False)
+        
+        # Price fields
+        self.limit_price = getattr(order, 'limit_price', None)
+        if self.limit_price:
+            self.limit_price = float(self.limit_price)
+        self.stop_price = getattr(order, 'stop_price', None)
+        if self.stop_price:
+            self.stop_price = float(self.stop_price)
     
-    # Execution details
-    quantity_filled: int = 0
-    average_fill_price: float = 0.0
+    @staticmethod
+    def _map_order_type(domain_type) -> OrderType:
+        """Map domain OrderType to algorithm OrderType."""
+        # Implementation would map between enum types
+        return OrderType.MARKET  # Simplified
     
-    # Order properties
-    time_in_force: str = "GTC"  # Good Till Canceled
-    extended_market_hours: bool = False
+    @staticmethod
+    def _map_order_status(domain_status) -> OrderStatus:
+        """Map domain OrderStatus to algorithm OrderStatus.""" 
+        # Implementation would map between enum types
+        return OrderStatus.NEW  # Simplified
     
     @property
     def quantity_remaining(self) -> int:
@@ -67,27 +99,33 @@ class OrderTicket:
         return True
 
 
-@dataclass
-class Order(ABC):
+class Order(DomainOrder):
     """
-    Base class for all order types.
+    Algorithm framework order extending domain Order.
+    Provides QuantConnect-style API with algorithm-specific convenience methods.
     """
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    symbol: Symbol = None
-    quantity: int = 0
-    status: OrderStatus = OrderStatus.NEW
-    tag: str = ""
-    time: datetime = field(default_factory=datetime.now)
-    direction: OrderDirection = OrderDirection.BUY
     
-    # Execution tracking
-    quantity_filled: int = 0
-    average_fill_price: float = 0.0
-    fills: List['OrderFill'] = field(default_factory=list)
+    def __init__(self, symbol: Symbol, quantity: int, direction: OrderDirection, 
+                 tag: str = "", time: datetime = None):
+        """Initialize Order with algorithm-specific features."""
+        # Map algorithm types to domain types
+        domain_direction = self._map_direction(direction)
+        
+        # Initialize domain Order
+        super().__init__(symbol, quantity, domain_direction, tag, time)
+        
+        # Algorithm convenience fields
+        self.direction = direction
+        self.extended_market_hours: bool = False
     
-    # Order properties
-    time_in_force: str = "GTC"
-    extended_market_hours: bool = False
+    @staticmethod
+    def _map_direction(algo_direction: OrderDirection) -> DomainOrderDirection:
+        """Map algorithm OrderDirection to domain OrderDirection."""
+        mapping = {
+            OrderDirection.BUY: DomainOrderDirection.BUY,
+            OrderDirection.SELL: DomainOrderDirection.SELL,
+        }
+        return mapping.get(algo_direction, DomainOrderDirection.BUY)
     
     @property
     @abstractmethod
@@ -98,7 +136,17 @@ class Order(ABC):
     @property
     def quantity_remaining(self) -> int:
         """Returns the remaining quantity to be filled"""
-        return abs(self.quantity) - self.quantity_filled
+        return self.remaining_quantity
+    
+    @property
+    def quantity_filled(self) -> int:
+        """Returns filled quantity for algorithm compatibility"""
+        return self.filled_quantity
+    
+    @property
+    def average_fill_price(self) -> float:
+        """Returns average fill price as float for algorithm compatibility"""
+        return float(super().average_fill_price)
     
     @property
     def is_buy(self) -> bool:
@@ -131,7 +179,7 @@ class Order(ABC):
             self.status = OrderStatus.PARTIALLY_FILLED
 
 
-class MarketOrder(Order):
+class MarketOrder(Order, DomainMarketOrder):
     """
     Market order - executes immediately at best available price
     """

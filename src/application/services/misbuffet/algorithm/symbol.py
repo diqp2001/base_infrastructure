@@ -3,31 +3,73 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from .enums import SecurityType, OptionRight, OptionStyle
 
+# Import domain entities for proper inheritance
+from domain.entities.finance.back_testing.symbol import Symbol as DomainSymbol
+from domain.entities.finance.back_testing.symbol import SymbolProperties as DomainSymbolProperties
+from domain.entities.finance.back_testing.enums import SecurityType as DomainSecurityType, Market
+
 
 @dataclass(frozen=True)
-class Symbol:
+class Symbol(DomainSymbol):
     """
-    Represents a unique identifier for a security in the algorithm framework.
-    Symbols are immutable value objects that uniquely identify financial instruments.
+    Algorithm framework symbol extending domain Symbol with algorithm-specific features.
+    Inherits immutable value object properties and adds QuantConnect-style convenience methods.
     """
-    value: str
-    id: str = field(default="")
-    security_type: SecurityType = SecurityType.EQUITY
-    market: str = field(default="")
+    # Algorithm-specific fields (in addition to domain fields)
+    option_right: Optional[OptionRight] = field(default=None, init=False)
+    option_style: Optional[OptionStyle] = field(default=None, init=False)
+    strike_price: Optional[float] = field(default=None, init=False)
+    expiry: Optional[datetime] = field(default=None, init=False)
+    properties: Dict[str, Any] = field(default_factory=dict, init=False)
     
-    # Option-specific fields
-    option_right: Optional[OptionRight] = None
-    option_style: Optional[OptionStyle] = None
-    strike_price: Optional[float] = None
-    expiry: Optional[datetime] = None
+    def __new__(cls, value: str, security_type: SecurityType = SecurityType.EQUITY, 
+                market: str = "USA", **kwargs):
+        """Create new Symbol instance with domain model compatibility."""
+        # Map algorithm security types to domain security types
+        domain_security_type = cls._map_security_type(security_type)
+        domain_market = cls._map_market(market)
+        
+        # Create domain symbol instance
+        instance = super().__new__(cls, value=value, 
+                                  security_type=domain_security_type, 
+                                  market=domain_market)
+        
+        # Store algorithm-specific fields
+        if 'option_right' in kwargs:
+            object.__setattr__(instance, 'option_right', kwargs['option_right'])
+        if 'option_style' in kwargs:
+            object.__setattr__(instance, 'option_style', kwargs['option_style'])
+        if 'strike_price' in kwargs:
+            object.__setattr__(instance, 'strike_price', kwargs['strike_price'])
+        if 'expiry' in kwargs:
+            object.__setattr__(instance, 'expiry', kwargs['expiry'])
+        if 'properties' in kwargs:
+            object.__setattr__(instance, 'properties', kwargs['properties'])
+        
+        return instance
     
-    # Additional properties
-    properties: Dict[str, Any] = field(default_factory=dict)
+    @staticmethod
+    def _map_security_type(algo_type: SecurityType) -> DomainSecurityType:
+        """Map algorithm SecurityType to domain SecurityType."""
+        mapping = {
+            SecurityType.EQUITY: DomainSecurityType.EQUITY,
+            SecurityType.FOREX: DomainSecurityType.FOREX,
+            SecurityType.CRYPTO: DomainSecurityType.CRYPTO,
+            SecurityType.OPTION: DomainSecurityType.OPTION,
+            SecurityType.FUTURE: DomainSecurityType.FUTURE,
+        }
+        return mapping.get(algo_type, DomainSecurityType.EQUITY)
     
-    def __post_init__(self):
-        # If ID is not provided, use the value as ID
-        if not self.id:
-            object.__setattr__(self, 'id', self.value)
+    @staticmethod
+    def _map_market(market_str: str) -> Market:
+        """Map market string to domain Market enum."""
+        market_mapping = {
+            "USA": Market.USA,
+            "FXCM": Market.FXCM,
+            "Binance": Market.BINANCE,
+            "Bitfinex": Market.BITFINEX,
+        }
+        return market_mapping.get(market_str, Market.USA)
     
     @classmethod
     def create(cls, ticker: str, security_type: SecurityType = SecurityType.EQUITY, 
@@ -107,27 +149,59 @@ class Symbol:
         return hash((self.id, self.security_type))
 
 
-@dataclass(frozen=True)
-class SymbolProperties:
+@dataclass(frozen=True) 
+class SymbolProperties(DomainSymbolProperties):
     """
-    Contains properties specific to a symbol that affect how it trades.
+    Algorithm framework symbol properties extending domain SymbolProperties.
+    Adds algorithm-specific convenience methods and QuantConnect compatibility.
     """
-    symbol: Symbol
-    lot_size: int = 1
-    tick_size: float = 0.01
-    minimum_price_variation: float = 0.01
-    contract_multiplier: int = 1
-    pip_size: float = 0.0001
-    market_ticker: str = ""
-    description: str = ""
+    # Algorithm-specific fields (extending domain properties)
+    pip_size: float = field(default=0.0001, init=False)
+    market_ticker: str = field(default="", init=False) 
+    description: str = field(default="", init=False)
+    fee_model: Optional[str] = field(default=None, init=False)
+    margin_model: Optional[str] = field(default=None, init=False)
     
-    # Trading hours and market properties
-    time_zone: str = "America/New_York"
-    exchange_hours: Dict[str, Any] = field(default_factory=dict)
-    
-    # Fee and margin properties
-    fee_model: Optional[str] = None
-    margin_model: Optional[str] = None
+    def __new__(cls, symbol=None, **kwargs):
+        """Create SymbolProperties with domain model compatibility."""
+        # Use domain defaults if symbol provided
+        if symbol and hasattr(symbol, 'security_type'):
+            domain_props = DomainSymbolProperties.get_default(symbol.security_type)
+            instance = super().__new__(cls,
+                                      time_zone=domain_props.time_zone,
+                                      exchange_hours=domain_props.exchange_hours,
+                                      lot_size=domain_props.lot_size,
+                                      tick_size=domain_props.tick_size,
+                                      minimum_price_variation=domain_props.minimum_price_variation,
+                                      contract_multiplier=domain_props.contract_multiplier,
+                                      minimum_order_size=domain_props.minimum_order_size,
+                                      maximum_order_size=domain_props.maximum_order_size,
+                                      price_scaling=domain_props.price_scaling,
+                                      margin_requirement=domain_props.margin_requirement,
+                                      short_able=domain_props.short_able)
+        else:
+            # Use provided values or defaults
+            instance = super().__new__(cls,
+                                      time_zone=kwargs.get('time_zone', 'America/New_York'),
+                                      exchange_hours=kwargs.get('exchange_hours'),
+                                      lot_size=kwargs.get('lot_size', 1),
+                                      tick_size=kwargs.get('tick_size', float(0.01)),
+                                      minimum_price_variation=kwargs.get('minimum_price_variation', float(0.01)),
+                                      contract_multiplier=kwargs.get('contract_multiplier', 1),
+                                      minimum_order_size=kwargs.get('minimum_order_size', 1),
+                                      maximum_order_size=kwargs.get('maximum_order_size'),
+                                      price_scaling=kwargs.get('price_scaling', float(1)),
+                                      margin_requirement=kwargs.get('margin_requirement', float(0.25)),
+                                      short_able=kwargs.get('short_able', True))
+        
+        # Set algorithm-specific fields
+        object.__setattr__(instance, 'pip_size', kwargs.get('pip_size', 0.0001))
+        object.__setattr__(instance, 'market_ticker', kwargs.get('market_ticker', ''))
+        object.__setattr__(instance, 'description', kwargs.get('description', ''))
+        object.__setattr__(instance, 'fee_model', kwargs.get('fee_model'))
+        object.__setattr__(instance, 'margin_model', kwargs.get('margin_model'))
+        
+        return instance
     
     @property
     def is_tradable(self) -> bool:
