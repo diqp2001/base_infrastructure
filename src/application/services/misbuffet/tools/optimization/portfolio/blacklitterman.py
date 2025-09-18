@@ -112,7 +112,7 @@ class BlackLittermanOptimizer:
             
             # Step 2: Mean-variance optimization
             # Optimal weights: w = (1/λ) * Σ^(-1) * μ
-            sigma_inv = np.linalg.inv(sigma.values)
+            sigma_inv = self._robust_inverse(sigma.values)
             optimal_weights_array = np.dot(sigma_inv, mu.values) / self.risk_aversion
             
             # Step 3: Normalize weights to sum to 1
@@ -180,12 +180,12 @@ class BlackLittermanOptimizer:
             
             # Black-Litterman calculation
             tau_Sigma = self.tau * Sigma
-            tau_Sigma_inv = np.linalg.inv(tau_Sigma)
-            Omega_inv = np.linalg.inv(Omega)
+            tau_Sigma_inv = self._robust_inverse(tau_Sigma)
+            Omega_inv = self._robust_inverse(Omega)
             
             # Calculate BL expected returns
             term1 = tau_Sigma_inv + np.dot(P.T, np.dot(Omega_inv, P))
-            term1_inv = np.linalg.inv(term1)
+            term1_inv = self._robust_inverse(term1)
             
             term2 = np.dot(tau_Sigma_inv, pi) + np.dot(P.T, np.dot(Omega_inv, Q))
             
@@ -205,6 +205,40 @@ class BlackLittermanOptimizer:
             # Fallback to original values
             self.bl_returns = self.expected_returns
             self.bl_covariance = self.covariance_matrix
+    
+    def _robust_inverse(self, matrix: np.ndarray, regularization: float = 1e-8) -> np.ndarray:
+        """
+        Compute robust matrix inverse with regularization and pseudo-inverse fallback.
+        
+        Args:
+            matrix: Input matrix to invert
+            regularization: Small value added to diagonal for regularization
+            
+        Returns:
+            Inverse matrix
+        """
+        try:
+            # Check condition number first
+            cond_num = np.linalg.cond(matrix)
+            self.logger.debug(f"Matrix condition number: {cond_num:.2e}")
+            
+            # If condition number is too high, use regularization
+            if cond_num > 1e12:
+                self.logger.warning(f"Matrix is ill-conditioned (cond={cond_num:.2e}), applying regularization")
+                regularized_matrix = matrix + regularization * np.eye(matrix.shape[0])
+                return np.linalg.inv(regularized_matrix)
+            else:
+                # Matrix is well-conditioned, use standard inverse
+                return np.linalg.inv(matrix)
+                
+        except np.linalg.LinAlgError as e:
+            # Matrix is singular, use Moore-Penrose pseudo-inverse
+            self.logger.warning(f"Singular matrix detected, using pseudo-inverse: {e}")
+            return np.linalg.pinv(matrix, rcond=regularization)
+        except Exception as e:
+            self.logger.error(f"Unexpected error in matrix inversion: {e}")
+            # Last resort: return identity matrix
+            return np.eye(matrix.shape[0])
     
     def get_portfolio_metrics(self) -> Dict[str, float]:
         """
