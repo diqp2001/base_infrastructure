@@ -759,7 +759,7 @@ class QCAlgorithm:
     def _get_current_holdings_value(self, ticker: str, security_symbol) -> float:
         """
         Get the current holdings value for a security.
-        Handles portfolio access safely.
+        Uses read-only access that doesn't create empty holdings.
         
         Args:
             ticker: The ticker symbol (e.g., 'AAPL')
@@ -769,21 +769,10 @@ class QCAlgorithm:
             float: Current holdings value (0.0 if no holdings)
         """
         try:
-            # SecurityPortfolioManager direct access - this is the correct approach
-            if hasattr(self.portfolio, '_holdings'):
-                holdings_dict = self.portfolio._holdings
-                if security_symbol in holdings_dict and holdings_dict[security_symbol] is not None:
-                    holding = holdings_dict[security_symbol]
-                    return float(holding.market_value)  # Use market_value, not holdings_value
-            
-            # Alternative: try using the SecurityPortfolioManager indexing operator
-            try:
-                portfolio_holding = self.portfolio[security_symbol]
-                if portfolio_holding is not None:
-                    return float(portfolio_holding.market_value)  # Use market_value, not holdings_value
-            except (KeyError, TypeError, AttributeError):
-                # Symbol not found in portfolio or portfolio doesn't support indexing
-                pass
+            # Use get_holding() method for read-only access (doesn't create holdings)
+            portfolio_holding = self.portfolio.get_holding(security_symbol)
+            if portfolio_holding is not None:
+                return float(portfolio_holding.market_value)
             
             return 0.0
             
