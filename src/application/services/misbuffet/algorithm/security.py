@@ -334,6 +334,11 @@ class SecurityPortfolioManager:
         """Returns current total portfolio value"""
         return self.cash + self.total_holdings_value
     
+    @property
+    def cash_balance(self) -> float:
+        """Returns the cash balance (alias for cash property for compatibility)"""
+        return self.cash
+    
     def __getitem__(self, symbol: Union[Symbol, str]) -> SecurityHolding:
         """Gets or creates a SecurityHolding for the given symbol"""
         if isinstance(symbol, str):
@@ -389,6 +394,9 @@ class SecurityPortfolioManager:
         
         # Update holding
         holding.add_transaction(quantity, price, fees, timestamp)
+        
+        # Update the market price to the transaction price (important for market_value calculation)
+        holding.update_market_price(price)
         
         # Update statistics
         self.total_trades += 1

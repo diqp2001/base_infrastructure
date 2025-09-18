@@ -769,21 +769,19 @@ class QCAlgorithm:
             float: Current holdings value (0.0 if no holdings)
         """
         try:
-            # Try to access portfolio holdings directly using the correct structure
-            if hasattr(self.portfolio, 'holdings') and hasattr(self.portfolio.holdings, 'holdings'):
-                # Access holdings dictionary directly
-                holdings_dict = self.portfolio.holdings.holdings
+            # SecurityPortfolioManager direct access - this is the correct approach
+            if hasattr(self.portfolio, '_holdings'):
+                holdings_dict = self.portfolio._holdings
                 if security_symbol in holdings_dict and holdings_dict[security_symbol] is not None:
                     holding = holdings_dict[security_symbol]
-                    if hasattr(holding, 'holdings_value'):
-                        return float(holding.holdings_value)
+                    return float(holding.market_value)  # Use market_value, not holdings_value
             
-            # Alternative: try direct indexing with try/except (Portfolio doesn't have .get() method)
+            # Alternative: try using the SecurityPortfolioManager indexing operator
             try:
                 portfolio_holding = self.portfolio[security_symbol]
-                if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
-                    return float(portfolio_holding.holdings_value)
-            except (KeyError, TypeError):
+                if portfolio_holding is not None:
+                    return float(portfolio_holding.market_value)  # Use market_value, not holdings_value
+            except (KeyError, TypeError, AttributeError):
                 # Symbol not found in portfolio or portfolio doesn't support indexing
                 pass
             
