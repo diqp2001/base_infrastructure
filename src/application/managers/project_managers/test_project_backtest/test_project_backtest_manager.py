@@ -92,6 +92,10 @@ class MyAlgorithm(QCAlgorithm):
 
         # Dict of models per ticker
         self.models = {}
+        
+        # Data tracking for flexible data format handling
+        self._current_data_frame = None
+        self._current_data_slice = None
 
         # Initial training
         self._train_models(self.time)
@@ -149,14 +153,20 @@ class MyAlgorithm(QCAlgorithm):
     # On each new data point
     # ---------------------------
     def on_data(self, data):
-        # Add defensive check to ensure data is a Slice object, not a DataFrame
+        # Comprehensive data type handling - accept both Slice and DataFrame objects
         if hasattr(data, 'columns') and hasattr(data, 'index'):
-            # This is a DataFrame, not a Slice object - this shouldn't happen
-            self.log(f"ERROR: on_data received DataFrame instead of Slice object: {type(data)}")
-            return
-        elif not hasattr(data, 'bars'):
-            # This is not a proper Slice object
-            self.log(f"ERROR: on_data received invalid data type without .bars attribute: {type(data)}")
+            # This is a DataFrame - convert it to a format we can work with
+            self.log(f"INFO: on_data received DataFrame object, converting to internal format: {type(data)}")
+            # Store the DataFrame for price lookup instead of expecting Slice format
+            self._current_data_frame = data
+            self._current_data_slice = None
+        elif hasattr(data, 'bars'):
+            # This is a proper Slice object
+            self._current_data_frame = None
+            self._current_data_slice = data
+        else:
+            # Unknown data type - log and skip
+            self.log(f"ERROR: on_data received unknown data type: {type(data)}")
             return
             
         # Retrain weekly
@@ -179,8 +189,8 @@ class MyAlgorithm(QCAlgorithm):
             elif self.my_securities[ticker] is None:
                 self.log(f"Warning: {ticker} security object is None")
                 continue
-            elif not self._symbol_in_data(self.my_securities[ticker].symbol, data):
-                self.log(f"Warning: {ticker} symbol not found in current data slice")
+            elif not self._has_price_data(ticker, self.my_securities[ticker].symbol):
+                self.log(f"Warning: {ticker} price data not available in current data")
                 continue
 
             history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
@@ -252,28 +262,131 @@ class MyAlgorithm(QCAlgorithm):
             security = self.my_securities[ticker]
             target_value = w * total_portfolio_value
             
-            # Check if we have a holding for this security, if not assume zero value
-            portfolio_holding = self.portfolio[security.symbol]
-            if portfolio_holding is None:
-                # No existing holding, current value is zero
-                current_value = 0.0
+                # Get current holdings value - use portfolio.holdings for direct access
+            current_value = self._get_current_holdings_value(ticker, security.symbol)
+            if current_value == 0.0:
                 self.log(f"No existing holding for {ticker}, starting from zero")
-            else:
-                # Convert existing holding value to float
-                current_value = float(portfolio_holding.holdings_value)
             
             diff_value = target_value - current_value
-            # Find the matching symbol in data and get its price
-            data_symbol = self._find_matching_symbol(security.symbol, data)
-            if data_symbol is None:
+            # Get price data using the current data format
+            price = self._get_current_price(ticker, security.symbol)
+            if price is None:
                 self.log(f"Warning: Cannot find price data for {ticker}")
                 continue
-            price = data[data_symbol].close
             qty = int(diff_value / price)
             if qty != 0:
                 self.log(f"Executing order for {ticker}: target=${target_value:.2f}, current=${current_value:.2f}, qty={qty}")
                 self.market_order(security.symbol, qty)
 
+    def _has_price_data(self, ticker: str, security_symbol) -> bool:
+        """
+        Check if price data is available for the given ticker.
+        Handles both DataFrame and Slice data formats.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            bool: True if price data is available
+        """
+        # Check DataFrame format first
+        if self._current_data_frame is not None:
+            # DataFrame format - check if ticker matches symbol column or if we have price columns
+            if 'symbol' in self._current_data_frame.columns:
+                return ticker in self._current_data_frame['symbol'].values
+            else:
+                # Assume single-ticker DataFrame - check if we have price data
+                price_columns = ['close', 'Close', 'price', 'Price']
+                return any(col in self._current_data_frame.columns for col in price_columns)
+        
+        # Check Slice format
+        elif self._current_data_slice is not None:
+            return self._symbol_in_data(security_symbol, self._current_data_slice)
+        
+        return False
+    
+    def _get_current_price(self, ticker: str, security_symbol) -> Optional[float]:
+        """
+        Get the current price for the given ticker from available data.
+        Handles both DataFrame and Slice data formats.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            float: Current price, or None if not available
+        """
+        try:
+            # Handle DataFrame format
+            if self._current_data_frame is not None:
+                df = self._current_data_frame
+                
+                if 'symbol' in df.columns:
+                    # Multi-ticker DataFrame - filter by ticker
+                    ticker_data = df[df['symbol'] == ticker]
+                    if not ticker_data.empty:
+                        # Get the most recent price
+                        latest_row = ticker_data.iloc[-1]
+                        price_columns = ['close', 'Close', 'price', 'Price']
+                        for col in price_columns:
+                            if col in latest_row and pd.notna(latest_row[col]):
+                                return float(latest_row[col])
+                else:
+                    # Single-ticker DataFrame - assume it's for our ticker
+                    if not df.empty:
+                        latest_row = df.iloc[-1]
+                        price_columns = ['close', 'Close', 'price', 'Price']
+                        for col in price_columns:
+                            if col in latest_row and pd.notna(latest_row[col]):
+                                return float(latest_row[col])
+            
+            # Handle Slice format
+            elif self._current_data_slice is not None:
+                data_symbol = self._find_matching_symbol(security_symbol, self._current_data_slice)
+                if data_symbol is not None:
+                    return float(self._current_data_slice[data_symbol].close)
+            
+            return None
+            
+        except Exception as e:
+            self.log(f"Error getting current price for {ticker}: {str(e)}")
+            return None
+    
+    def _get_current_holdings_value(self, ticker: str, security_symbol) -> float:
+        """
+        Get the current holdings value for a security.
+        Handles portfolio access safely.
+        
+        Args:
+            ticker: The ticker symbol (e.g., 'AAPL')
+            security_symbol: The Symbol object from the security
+        
+        Returns:
+            float: Current holdings value (0.0 if no holdings)
+        """
+        try:
+            # Try to access portfolio holdings directly
+            if hasattr(self.portfolio, 'holdings') and hasattr(self.portfolio.holdings, 'holdings'):
+                # Access holdings dictionary directly
+                holdings_dict = self.portfolio.holdings.holdings
+                if security_symbol in holdings_dict and holdings_dict[security_symbol] is not None:
+                    holding = holdings_dict[security_symbol]
+                    if hasattr(holding, 'holdings_value'):
+                        return float(holding.holdings_value)
+            
+            # Fallback: try portfolio[symbol] access
+            portfolio_holding = self.portfolio.get(security_symbol, None)
+            if portfolio_holding is not None and hasattr(portfolio_holding, 'holdings_value'):
+                return float(portfolio_holding.holdings_value)
+            
+            return 0.0
+            
+        except Exception as e:
+            self.log(f"Error accessing holdings for {ticker}: {str(e)}")
+            return 0.0
+    
     def _symbol_in_data(self, security_symbol, data_slice) -> bool:
         """
         Check if a security symbol exists in the data slice.
@@ -288,7 +401,6 @@ class MyAlgorithm(QCAlgorithm):
         """
         # Defensive check - ensure data_slice has bars attribute
         if not hasattr(data_slice, 'bars'):
-            self.log(f"ERROR: _symbol_in_data received invalid data_slice without .bars attribute: {type(data_slice)}")
             return False
             
         # Direct comparison first (fastest)
@@ -316,9 +428,8 @@ class MyAlgorithm(QCAlgorithm):
         Returns:
             Symbol: The matching symbol from data_slice, or None if not found
         """
-        # Defensive check - ensure data_slice has bars attribute
+        # Only process if data_slice has bars attribute (is a proper Slice object)
         if not hasattr(data_slice, 'bars'):
-            self.log(f"ERROR: _find_matching_symbol received invalid data_slice without .bars attribute: {type(data_slice)}")
             return None
             
         # Direct comparison first
