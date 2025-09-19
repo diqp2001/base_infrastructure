@@ -18,6 +18,7 @@ class Country(Base):
     companies = relationship("Company", back_populates="countries")
     exchanges = relationship("Exchange", back_populates="countries")
     continents = relationship("Continent", back_populates="countries")
+    currencies = relationship("Currency", back_populates="country")
     def __init__(self, name, iso_code, region=None):
         self.name = name
         self.iso_code = iso_code

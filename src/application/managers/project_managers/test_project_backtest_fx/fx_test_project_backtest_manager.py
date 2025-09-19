@@ -1,6 +1,5 @@
 import time
 import logging
-import random
 import os
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -9,16 +8,14 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Import LightGBM for ML functionality
+# Import LightGBM for ML functionality with fallback hierarchy
 try:
     import lightgbm as lgb
 except ImportError:
-    # Fallback to XGBoost if LightGBM not available
     try:
         import xgboost as xgb
         lgb = None
     except ImportError:
-        # Final fallback to sklearn
         from sklearn.ensemble import RandomForestClassifier
         lgb = None
         xgb = None
@@ -26,13 +23,11 @@ except ImportError:
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
-from application.services.misbuffet.algorithm.order import OrderEvent
-from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
-from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from infrastructure.repositories.local_repo.back_testing import StockDataRepository
+# Import currency-related entities and repositories
+from domain.entities.finance.financial_assets.currency import Currency as CurrencyEntity
+from domain.entities.country import Country as CountryEntity
+from infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 
 # Import the actual backtesting framework components
 from application.services.misbuffet.common import (
@@ -365,16 +360,18 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         logger.info(msg)
 
 
-class TestProjectBacktestManagerFX(ProjectManager):
+class FXTestProjectBacktestManager(ProjectManager):
     """
-    Enhanced Project Manager for backtesting operations.
-    Implements a complete backtesting pipeline using actual classes instead of mocks.
+    Enhanced FX Project Manager with proper data management patterns.
+    Loads FX data from CSV, creates currency entities, and executes FX backtesting.
     """
     def __init__(self):
         super().__init__()
-        # Initialize required managers
+        # Initialize database manager
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
+        
+        # Initialize currency repository
+        self.currency_repository = CurrencyRepository(self.database_manager.session)
         
         # Backtesting components
         self.data_generator = None
@@ -387,19 +384,21 @@ class TestProjectBacktestManagerFX(ProjectManager):
         self.web_interface = WebInterfaceManager()
 
     def run(self):
-        """Main run method that launches web interface and executes backtest"""
-        # Start web interface and open browser
+        """Main run method that loads FX data and executes backtest."""
+        # Start web interface
         self.web_interface.start_interface_and_open_browser()
         
-        # Start the actual backtest
-        return self._run_backtest()
+        # Load FX data and run backtest
+        return self._run_fx_backtest()
     # Web interface functionality moved to application.services.misbuffet.web_interface
     
-    def _run_backtest(self):
-        """Execute the actual backtest with progress logging"""
-        self.create_fx_currency_data()
+    def _run_fx_backtest(self):
+        """Execute the FX backtest with proper data management."""
+        # Step 1: Load and store FX currency data
+        self.create_fx_currencies_with_data()
+        
         logging.basicConfig(level=logging.INFO)
-        logger = logging.getLogger("misbuffet-main")
+        logger = logging.getLogger("fx-misbuffet-main")
 
         # Send initial progress message
         self.web_interface.progress_queue.put({
@@ -486,173 +485,136 @@ class TestProjectBacktestManagerFX(ProjectManager):
             })
             raise
            
-    def create_multiple_currencies(self, currencies_data: List[Dict]) -> List[CurrencyEntity]:
-        """
-        Create multiple Currency entities in a single atomic transaction.
-        
-        Args:
-            currencies_data: List of dicts containing currency data
-            
-        Returns:
-            List[CurrencyEntity]: Successfully created currency entities
-        """
-        if not currencies_data:
-            print("No data provided for bulk currency creation")
-            return []
-        
-        print(f"Creating {len(currencies_data)} currencies in bulk operation...")
-        start_time = time.time()
-        
-        try:
-            # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
-            
-            # Validate and create domain entities
-            domain_currencies = []
-            for i, data in enumerate(currencies_data):
-                try:
-                    domain_currency = CurrencyEntity(
-                        id=data['id'],
-                        ticker=data['ticker'],
-                        exchange_id=data['exchange_id'],
-                        start_date=data['start_date'],
-                        end_date=data.get('end_date')
-                    )
-                    
-                    # Set currency name if provided
-                    if 'currency_name' in data:
-                        domain_currency.set_currency_name(data['currency_name'])
-                    
-                    domain_currencies.append(domain_currency)
-                    
-                except Exception as e:
-                    print(f"Error creating currency entity {i}: {str(e)}")
-                    raise
-            
-            # Use bulk repository operation
-            created_entities = self.currency_repository_local.add_bulk(domain_currencies)
-            
-            end_time = time.time()
-            elapsed = end_time - start_time
-            
-            print(f"✅ Successfully created {len(created_entities)} currencies in {elapsed:.3f} seconds")
-            print(f"⚡ Performance: {len(created_entities)/elapsed:.1f} currencies/second")
-            
-            return created_entities
-            
-        except Exception as e:
-            print(f"❌ Error in bulk currency creation: {str(e)}")
-            raise
 
-
-    def create_fx_currency_data(self) -> List[CurrencyEntity]:
+    def create_fx_currencies_with_data(self) -> List[CurrencyEntity]:
         """
-        Load FX currency exchange rate data from CSV and prepare it for backtesting.
-        Creates entities for major currency pairs used by the FX algorithm.
+        Load FX data from CSV and create currency entities with historical rates.
+        Follows patterns from create_five_tech_companies_with_data.
         """
-        currencies = ["EUR", "GBP", "AUD", "JPY", "CAD", "MXN"]
-        currency_data = []
-
-        # Path to FX data directory
+        logger.info("Creating FX currencies with historical data...")
+        
+        # Path to FX data
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = current_dir
         
+        # Navigate up to find project root
         while not os.path.exists(os.path.join(project_root, 'data', 'fx_data')) and project_root != os.path.dirname(project_root):
             project_root = os.path.dirname(project_root)
         
-        fx_data_path = os.path.join(project_root, "data", "fx_data")
-        print(f"📁 Loading FX data from: {fx_data_path}")
+        fx_data_path = os.path.join(project_root, "data", "fx_data", "currency_exchange_rates_02-01-1995_-_02-05-2018.csv")
         
         if not os.path.exists(fx_data_path):
-            print(f"❌ FX data directory not found at: {fx_data_path}")
+            logger.error(f"FX data file not found: {fx_data_path}")
             return []
-        else:
-            print(f"✅ FX data directory found with {len(os.listdir(fx_data_path))} files")
 
-        # Load CSV
-        csv_path = os.path.join(fx_data_path, "currency_exchange_rates_02-01-1995_-_02-05-2018.csv")
-        fx_data_cache = {}
+        # Load FX data
+        logger.info(f"Loading FX data from: {fx_data_path}")
+        fx_df = pd.read_csv(fx_data_path)
+        fx_df['Date'] = pd.to_datetime(fx_df['Date'])
+        fx_df = fx_df.sort_values('Date')
         
-        try:
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df = df.sort_values('Date')
-                
-                column_map = {
-                    "EUR": "Euro",
-                    "GBP": "U.K. Pound Sterling", 
-                    "AUD": "Australian Dollar",
-                    "JPY": "Japanese Yen",
-                    "CAD": "Canadian Dollar",
-                    "MXN": "Mexican Peso"
-                }
-                
-                for currency, column_name in column_map.items():
-                    if column_name in df.columns:
-                        currency_df = df[['Date', column_name]].copy()
-                        currency_df.columns = ['Date', 'Rate']
-                        currency_df = currency_df.dropna()
-                        
-                        # FX representation: USD/XXX → invert if needed
-                        currency_df['Close'] = 1.0 / currency_df['Rate']
-                        currency_df['Open'] = currency_df['Close'].shift(1).fillna(currency_df['Close'])
-                        currency_df['High'] = currency_df[['Open', 'Close']].max(axis=1) * 1.001
-                        currency_df['Low'] = currency_df[['Open', 'Close']].min(axis=1) * 0.999
-                        currency_df['Volume'] = 0
-                        
-                        fx_data_cache[currency] = currency_df
-                        print(f"✅ Loaded {len(currency_df)} rows for {currency}")
-                    else:
-                        print(f"⚠️ Missing column for {currency}")
-                        fx_data_cache[currency] = None
-        except Exception as e:
-            print(f"❌ Error loading FX data: {str(e)}")
+        logger.info(f"Loaded {len(fx_df)} FX data points from {fx_df['Date'].min().date()} to {fx_df['Date'].max().date()}")
 
-        # Create currency entities
-        start_id = 1
-        for i, currency in enumerate(currencies, start=start_id):
-            currency_data.append({
-                'id': i,
-                'ticker': f"USD{currency}" if currency in ["JPY", "CAD", "MXN"] else f"{currency}USD",
-                'exchange_id': 1,
-                'start_date': datetime(1995, 1, 2),
-                'currency_name': f"{currency} Currency"
-            })
+        # Currency name mapping (subset for backtesting)
+        currency_mapping = {
+            'Australian Dollar': 'AUD',
+            'Canadian Dollar': 'CAD', 
+            'Euro': 'EUR',
+            'Japanese Yen': 'JPY',
+            'U.K. Pound Sterling': 'GBP',
+            'Mexican Peso': 'MXN',
+            'U.S. Dollar': 'USD'
+        }
 
-        created_currencies = self.create_multiple_currencies(currency_data)
-        if not created_currencies:
-            print("❌ No currencies created")
-            return []
+        # Initialize database
+        self.database_manager.db.initialize_database_and_create_all_tables()
 
-        # Save market data
-        for i, currency_entity in enumerate(created_currencies):
-            currency = currencies[i]
-            fx_df = fx_data_cache.get(currency)
-            
-            try:
-                if fx_df is not None and not fx_df.empty:
-                    table_name = f"fx_price_data_{currency.lower()}"
-                    self.database_manager.dataframe_replace_table(fx_df, table_name)
-                    
-                    latest = fx_df.iloc[-1]
-                    latest_price = Decimal(str(latest['Close']))
-                    latest_date = latest['Date']
-                    print(f"💱 {currency}: Latest={latest_price:.4f}")
-                else:
-                    latest_price = Decimal("1.0")
-                    latest_date = datetime.now()
-                    print(f"⚠️ No real data for {currency}, using fallback")
-
-                market_data = MarketData(
-                    timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
-                    price=latest_price,
-                    volume=Decimal('0')
-                )
-                currency_entity.update_market_data(market_data)
-
-            except Exception as e:
-                print(f"❌ Error enhancing {currency}: {str(e)}")
+        created_currencies = []
+        
+        for currency_name, iso_code in currency_mapping.items():
+            if currency_name not in fx_df.columns and iso_code != 'USD':
+                logger.warning(f"Currency {currency_name} not found in FX data")
                 continue
 
+            try:
+                # Create currency entity
+                currency_id = len(created_currencies) + 1
+                currency = CurrencyEntity(
+                    asset_id=currency_id,
+                    name=currency_name,
+                    iso_code=iso_code,
+                    country_id=None  # Could be mapped to countries if needed
+                )
+
+                # Add historical rates for non-USD currencies
+                if iso_code != 'USD' and currency_name in fx_df.columns:
+                    # Filter out invalid/missing rates
+                    currency_data = fx_df[['Date', currency_name]].dropna()
+                    currency_data = currency_data[currency_data[currency_name] > 0]
+                    
+                    # Convert to rate format expected by domain entity
+                    rates_data = []
+                    for _, row in currency_data.iterrows():
+                        rates_data.append({
+                            'date': row['Date'],
+                            'rate': row[currency_name],
+                            'target_currency': 'USD'
+                        })
+                    
+                    # Add historical rates to domain entity
+                    currency.add_historical_rates(rates_data)
+                    
+                    logger.info(f"Added {len(rates_data)} historical rates for {iso_code}")
+                else:
+                    # USD has rate = 1.0 by definition
+                    currency.update_exchange_rate(Decimal('1.0'), datetime.now())
+
+                # Save to database
+                saved_currency = self.currency_repository.add(currency)
+                created_currencies.append(saved_currency)
+
+                # Save time series data to database table for backtesting engine
+                if iso_code != 'USD' and currency_name in fx_df.columns:
+                    # Create OHLC data from exchange rates for backtesting
+                    ohlc_data = currency_data.copy()
+                    ohlc_data['open'] = ohlc_data[currency_name]
+                    ohlc_data['high'] = ohlc_data[currency_name] 
+                    ohlc_data['low'] = ohlc_data[currency_name]
+                    ohlc_data['close'] = ohlc_data[currency_name]
+                    ohlc_data['volume'] = 1000000  # Mock volume
+                    
+                    # Save to database table for backtesting engine
+                    table_name = f"fx_price_data_{iso_code.lower()}_usd"
+                    ohlc_data_clean = ohlc_data[['Date', 'open', 'high', 'low', 'close', 'volume']].rename(columns={'Date': 'date'})
+                    
+                    self.database_manager.dataframe_replace_table(ohlc_data_clean, table_name)
+                    logger.info(f"Saved {len(ohlc_data_clean)} OHLC records for {iso_code} to table '{table_name}'")
+
+                # Print currency metrics
+                metrics = currency.get_currency_metrics()
+                logger.info(f"Created {iso_code}: Rate=${metrics['current_rate_usd']}, "
+                          f"Major={metrics['is_major']}, Data Points={metrics['historical_data_points']}")
+
+            except Exception as e:
+                logger.error(f"Error creating currency {iso_code}: {e}")
+                continue
+
+        logger.info(f"Successfully created {len(created_currencies)} FX currencies")
         return created_currencies
+
+    def get_currency_summary(self) -> Dict[str, Any]:
+        """Get summary of loaded currencies."""
+        try:
+            currencies = self.currency_repository.get_all()
+            major_currencies = self.currency_repository.get_major_currencies()
+            tradeable_currencies = self.currency_repository.get_tradeable_currencies()
+            
+            return {
+                'total_currencies': len(currencies),
+                'major_currencies': len(major_currencies),
+                'tradeable_currencies': len(tradeable_currencies),
+                'currency_list': [c.iso_code for c in currencies]
+            }
+        except Exception as e:
+            logger.error(f"Error getting currency summary: {e}")
+            return {}
