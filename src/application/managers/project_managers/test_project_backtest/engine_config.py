@@ -23,6 +23,21 @@ MISBUFFET_ENGINE_CONFIG = {
     "data_feeds": ["file_system"],
     "market": "USA",
     
+    # Backtesting time interval configuration
+    # Supported intervals: daily, weekly, monthly, quarterly, semi_yearly, minutes, seconds
+    "backtest_interval": "daily",  # Default to daily for backward compatibility
+    "custom_interval_days": None,  # Custom interval in days (overrides backtest_interval if set)
+    "custom_interval_hours": None, # Custom interval in hours
+    "custom_interval_minutes": None, # Custom interval in minutes
+    
+    # Examples of different configurations:
+    # For weekly backtests: "backtest_interval": "weekly"
+    # For monthly backtests: "backtest_interval": "monthly" 
+    # For quarterly backtests: "backtest_interval": "quarterly"
+    # For custom 3-day interval: "custom_interval_days": 3
+    # For hourly backtests: "custom_interval_hours": 1
+    # For 30-minute intervals: "custom_interval_minutes": 30
+    
     # Risk management
     "enable_risk_management": True,
     "max_portfolio_leverage": 2.0,
