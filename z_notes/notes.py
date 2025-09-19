@@ -18,4 +18,6 @@ py -m unittest discover -s src/tests -p "test_*.py" -v
 deactivate
 pip list
 pip install -r requirements.txt
+pip freeze > requirements.txt
+
 """ 

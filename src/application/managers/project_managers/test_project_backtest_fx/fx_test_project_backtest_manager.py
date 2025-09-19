@@ -365,7 +365,7 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         logger.info(msg)
 
 
-class TestProjectBacktestManager(ProjectManager):
+class TestProjectBacktestManagerFX(ProjectManager):
     """
     Enhanced Project Manager for backtesting operations.
     Implements a complete backtesting pipeline using actual classes instead of mocks.
@@ -485,22 +485,22 @@ class TestProjectBacktestManager(ProjectManager):
                 'message': f'Backtest failed: {str(e)}'
             })
             raise
-
-    def create_multiple_companies(self, companies_data: List[Dict]) -> List[CompanyShareEntity]:
+           
+    def create_multiple_currencies(self, currencies_data: List[Dict]) -> List[CurrencyEntity]:
         """
-        Create multiple CompanyShare entities in a single atomic transaction.
+        Create multiple Currency entities in a single atomic transaction.
         
         Args:
-            companies_data: List of dicts containing company share data
+            currencies_data: List of dicts containing currency data
             
         Returns:
-            List[CompanyShareEntity]: Successfully created company share entities
+            List[CurrencyEntity]: Successfully created currency entities
         """
-        if not companies_data:
-            print("No data provided for bulk company creation")
+        if not currencies_data:
+            print("No data provided for bulk currency creation")
             return []
         
-        print(f"Creating {len(companies_data)} companies in bulk operation...")
+        print(f"Creating {len(currencies_data)} currencies in bulk operation...")
         start_time = time.time()
         
         try:
@@ -508,49 +508,44 @@ class TestProjectBacktestManager(ProjectManager):
             self.database_manager.db.initialize_database_and_create_all_tables()
             
             # Validate and create domain entities
-            domain_shares = []
-            for i, data in enumerate(companies_data):
+            domain_currencies = []
+            for i, data in enumerate(currencies_data):
                 try:
-                    domain_share = CompanyShareEntity(
+                    domain_currency = CurrencyEntity(
                         id=data['id'],
                         ticker=data['ticker'],
                         exchange_id=data['exchange_id'],
-                        company_id=data['company_id'],
                         start_date=data['start_date'],
                         end_date=data.get('end_date')
                     )
                     
-                    # Set company name if provided
-                    if 'company_name' in data:
-                        domain_share.set_company_name(data['company_name'])
+                    # Set currency name if provided
+                    if 'currency_name' in data:
+                        domain_currency.set_currency_name(data['currency_name'])
                     
-                    # Set sector information if provided  
-                    if 'sector' in data:
-                        fundamentals = FundamentalData(sector=data['sector'])
-                        domain_share.update_company_fundamentals(fundamentals)
-                    
-                    domain_shares.append(domain_share)
+                    domain_currencies.append(domain_currency)
                     
                 except Exception as e:
-                    print(f"Error creating domain entity {i}: {str(e)}")
+                    print(f"Error creating currency entity {i}: {str(e)}")
                     raise
             
-            # Use bulk repository operation (no more key mappings needed)
-            created_entities = self.company_share_repository_local.add_bulk(domain_shares)
+            # Use bulk repository operation
+            created_entities = self.currency_repository_local.add_bulk(domain_currencies)
             
             end_time = time.time()
             elapsed = end_time - start_time
             
-            print(f"✅ Successfully created {len(created_entities)} companies in {elapsed:.3f} seconds")
-            print(f"⚡ Performance: {len(created_entities)/elapsed:.1f} companies/second")
+            print(f"✅ Successfully created {len(created_entities)} currencies in {elapsed:.3f} seconds")
+            print(f"⚡ Performance: {len(created_entities)/elapsed:.1f} currencies/second")
             
             return created_entities
             
         except Exception as e:
-            print(f"❌ Error in bulk company creation: {str(e)}")
+            print(f"❌ Error in bulk currency creation: {str(e)}")
             raise
 
-    def create_fx_currency_data(self) -> List[CompanyShareEntity]:
+
+    def create_fx_currency_data(self) -> List[CurrencyEntity]:
         """
         Load FX currency exchange rate data from CSV and prepare it for backtesting.
         Creates entities for major currency pairs used by the FX algorithm.
@@ -558,31 +553,23 @@ class TestProjectBacktestManager(ProjectManager):
         currencies = ["EUR", "GBP", "AUD", "JPY", "CAD", "MXN"]
         currency_data = []
 
-        # Path to FX data directory - find project root and build absolute path
+        # Path to FX data directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = current_dir
         
-        # Navigate up to find the project root (where data/ folder is located)
         while not os.path.exists(os.path.join(project_root, 'data', 'fx_data')) and project_root != os.path.dirname(project_root):
             project_root = os.path.dirname(project_root)
         
         fx_data_path = os.path.join(project_root, "data", "fx_data")
         print(f"📁 Loading FX data from: {fx_data_path}")
         
-        # Verify the path exists before proceeding
         if not os.path.exists(fx_data_path):
             print(f"❌ FX data directory not found at: {fx_data_path}")
-            print(f"Current working directory: {os.getcwd()}")
-            print(f"File location: {current_dir}")
-            print("Available directories in project root:")
-            if os.path.exists(project_root):
-                for item in os.listdir(project_root):
-                    if os.path.isdir(os.path.join(project_root, item)):
-                        print(f"  - {item}/")
+            return []
         else:
             print(f"✅ FX data directory found with {len(os.listdir(fx_data_path))} files")
 
-        # Load actual FX data from CSV file
+        # Load CSV
         csv_path = os.path.join(fx_data_path, "currency_exchange_rates_02-01-1995_-_02-05-2018.csv")
         fx_data_cache = {}
         
@@ -592,8 +579,7 @@ class TestProjectBacktestManager(ProjectManager):
                 df['Date'] = pd.to_datetime(df['Date'])
                 df = df.sort_values('Date')
                 
-                # Extract data for our target currencies
-                currency_column_mapping = {
+                column_map = {
                     "EUR": "Euro",
                     "GBP": "U.K. Pound Sterling", 
                     "AUD": "Australian Dollar",
@@ -602,102 +588,71 @@ class TestProjectBacktestManager(ProjectManager):
                     "MXN": "Mexican Peso"
                 }
                 
-                for currency, column_name in currency_column_mapping.items():
+                for currency, column_name in column_map.items():
                     if column_name in df.columns:
                         currency_df = df[['Date', column_name]].copy()
                         currency_df.columns = ['Date', 'Rate']
                         currency_df = currency_df.dropna()
                         
-                        # Convert to price format (1/rate for proper FX representation)
+                        # FX representation: USD/XXX → invert if needed
                         currency_df['Close'] = 1.0 / currency_df['Rate']
                         currency_df['Open'] = currency_df['Close'].shift(1).fillna(currency_df['Close'])
                         currency_df['High'] = currency_df[['Open', 'Close']].max(axis=1) * 1.001
                         currency_df['Low'] = currency_df[['Open', 'Close']].min(axis=1) * 0.999
-                        currency_df['Volume'] = 1000000  # Mock volume for FX
+                        currency_df['Volume'] = 0
                         
                         fx_data_cache[currency] = currency_df
-                        print(f"✅ Loaded {len(currency_df)} data points for {currency} from {currency_df['Date'].min().date()} to {currency_df['Date'].max().date()}")
+                        print(f"✅ Loaded {len(currency_df)} rows for {currency}")
                     else:
-                        print(f"⚠️  Column not found for {currency}: {column_name}")
+                        print(f"⚠️ Missing column for {currency}")
                         fx_data_cache[currency] = None
-            else:
-                print(f"⚠️  CSV file not found: {csv_path}")
         except Exception as e:
             print(f"❌ Error loading FX data: {str(e)}")
 
-        # Create currency entities (treating them as special securities)
+        # Create currency entities
         start_id = 1
         for i, currency in enumerate(currencies, start=start_id):
             currency_data.append({
                 'id': i,
                 'ticker': f"USD{currency}" if currency in ["JPY", "CAD", "MXN"] else f"{currency}USD",
-                'exchange_id': 1,  # FX exchange
-                'company_id': i + 100,  # Offset to avoid conflicts
+                'exchange_id': 1,
                 'start_date': datetime(1995, 1, 2),
-                'company_name': f"{currency} Currency",
-                'sector': 'Currency'
+                'currency_name': f"{currency} Currency"
             })
 
-        # Step 1: Create currency entities in bulk
-        created_currencies = self.create_multiple_companies(currency_data)
+        created_currencies = self.create_multiple_currencies(currency_data)
         if not created_currencies:
-            print("❌ No currencies were created")
+            print("❌ No currencies created")
             return []
 
-        # Step 2: Save FX data to database and enhance with market data
+        # Save market data
         for i, currency_entity in enumerate(created_currencies):
             currency = currencies[i]
-            ticker = currency_entity.ticker
+            fx_df = fx_data_cache.get(currency)
             
             try:
-                # Get FX data for this currency
-                fx_df = fx_data_cache.get(currency)
-                
                 if fx_df is not None and not fx_df.empty:
-                    # Save FX data to database for backtesting engine to use
                     table_name = f"fx_price_data_{currency.lower()}"
-                    print(f"💾 Saving {len(fx_df)} FX records for {currency} to database table '{table_name}'")
                     self.database_manager.dataframe_replace_table(fx_df, table_name)
                     
-                    # Use the most recent data point for current market data
-                    latest_data = fx_df.iloc[-1]
-                    latest_price = Decimal(str(latest_data['Close']))
-                    latest_date = latest_data['Date']
-                    
-                    print(f"💱 Using real data for {currency}: Latest Rate=${latest_price:.4f}")
+                    latest = fx_df.iloc[-1]
+                    latest_price = Decimal(str(latest['Close']))
+                    latest_date = latest['Date']
+                    print(f"💱 {currency}: Latest={latest_price:.4f}")
                 else:
-                    # Fallback to mock data if FX data not available
-                    latest_price = Decimal('1.0')
+                    latest_price = Decimal("1.0")
                     latest_date = datetime.now()
-                    print(f"⚠️  Using fallback data for {currency}")
+                    print(f"⚠️ No real data for {currency}, using fallback")
 
-                # Market data for FX (no volume, just price)
                 market_data = MarketData(
                     timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
                     price=latest_price,
-                    volume=Decimal('0')  # FX doesn't have traditional volume
+                    volume=Decimal('0')
                 )
                 currency_entity.update_market_data(market_data)
 
-                # Basic fundamental data for currencies
-                fundamentals = FundamentalData(
-                    pe_ratio=Decimal('0'),  # Not applicable for currencies
-                    dividend_yield=Decimal('0'),  # Not applicable for currencies
-                    market_cap=Decimal('0'),  # Not applicable for currencies
-                    shares_outstanding=Decimal('0'),  # Not applicable for currencies
-                    sector='Currency',
-                    industry=f'{currency} Foreign Exchange'
-                )
-                currency_entity.update_company_fundamentals(fundamentals)
-
-                # Print metrics for confirmation
-                print(f"💱 {currency_entity.ticker}: Rate=${latest_price:.4f}, Sector=Currency")
-
             except Exception as e:
-                print(f"❌ Error enhancing currency {currency_entity.ticker}: {str(e)}")
+                print(f"❌ Error enhancing {currency}: {str(e)}")
                 continue
 
         return created_currencies
-
-    
-    
