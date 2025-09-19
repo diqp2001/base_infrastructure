@@ -10,6 +10,13 @@ from datetime import timedelta, datetime
 from typing import Optional, List, Dict, Any
 import pandas as pd
 
+try:
+    from dateutil.relativedelta import relativedelta
+    DATEUTIL_AVAILABLE = True
+except ImportError:
+    DATEUTIL_AVAILABLE = False
+    relativedelta = None
+
 from decimal import Decimal
 # Import the stock data repository for real data access
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
@@ -40,6 +47,77 @@ class MisbuffetEngine(BaseEngine):
         # Maintain backward compatibility for algorithm attribute
         self.algorithm = self._algorithm
         
+    def _get_time_interval(self, config_dict):
+        """
+        Calculate the time interval based on configuration.
+        
+        Args:
+            config_dict: Engine configuration dictionary
+            
+        Returns:
+            dict with 'type' and 'value' for flexible interval handling
+        """
+        # Check for custom intervals first (highest priority)
+        if config_dict.get('custom_interval_minutes'):
+            return {'type': 'timedelta', 'value': timedelta(minutes=config_dict['custom_interval_minutes'])}
+        
+        if config_dict.get('custom_interval_hours'):
+            return {'type': 'timedelta', 'value': timedelta(hours=config_dict['custom_interval_hours'])}
+            
+        if config_dict.get('custom_interval_days'):
+            return {'type': 'timedelta', 'value': timedelta(days=config_dict['custom_interval_days'])}
+        
+        # Use predefined backtest_interval
+        interval = config_dict.get('backtest_interval', 'daily').lower()
+        
+        # Handle intervals that require dateutil
+        if interval in ['monthly', 'quarterly', 'semi_yearly', 'yearly']:
+            if DATEUTIL_AVAILABLE:
+                interval_mapping = {
+                    'monthly': relativedelta(months=1),
+                    'quarterly': relativedelta(months=3),
+                    'semi_yearly': relativedelta(months=6),
+                    'yearly': relativedelta(years=1)
+                }
+                return {'type': 'relativedelta', 'value': interval_mapping[interval]}
+            else:
+                # Fallback to approximate days when dateutil is not available
+                self.logger.warning(f"dateutil not available, using approximate days for {interval}")
+                interval_mapping = {
+                    'monthly': timedelta(days=30),
+                    'quarterly': timedelta(days=91),  # ~3 months
+                    'semi_yearly': timedelta(days=182),  # ~6 months
+                    'yearly': timedelta(days=365)
+                }
+                return {'type': 'timedelta', 'value': interval_mapping[interval]}
+        
+        # Handle simple intervals with timedelta
+        interval_mapping = {
+            'seconds': timedelta(seconds=1),
+            'minutes': timedelta(minutes=1),
+            'daily': timedelta(days=1),
+            'weekly': timedelta(weeks=1)
+        }
+        
+        return {'type': 'timedelta', 'value': interval_mapping.get(interval, timedelta(days=1))}
+    
+    def _add_time_interval(self, current_date, interval_dict):
+        """
+        Add the time interval to the current date.
+        Handles both timedelta and relativedelta objects.
+        
+        Args:
+            current_date: datetime object
+            interval_dict: dict with 'type' and 'value' keys
+            
+        Returns:
+            datetime: New datetime after adding the interval
+        """
+        if interval_dict['type'] == 'relativedelta':
+            return current_date + interval_dict['value']
+        else:
+            return current_date + interval_dict['value']
+
     def setup(self, data_feed=None, transaction_handler=None, result_handler=None, setup_handler=None):
         """Setup the engine with handlers."""
         # Use BaseEngine's handler attributes
@@ -248,7 +326,20 @@ class MisbuffetEngine(BaseEngine):
         start_date = engine_config.get('start_date', datetime(2021, 1, 1))
         end_date = engine_config.get('end_date', datetime(2022, 1, 1))
         
+        # Get configurable time interval
+        time_interval = self._get_time_interval(engine_config)
+        interval_name = engine_config.get('backtest_interval', 'daily')
+        
         self.logger.info(f"Running simulation from {start_date} to {end_date}")
+        self.logger.info(f"Using {interval_name} intervals for backtesting")
+        
+        # Log custom interval details if applicable
+        if engine_config.get('custom_interval_minutes'):
+            self.logger.info(f"Custom interval: {engine_config['custom_interval_minutes']} minutes")
+        elif engine_config.get('custom_interval_hours'):
+            self.logger.info(f"Custom interval: {engine_config['custom_interval_hours']} hours")
+        elif engine_config.get('custom_interval_days'):
+            self.logger.info(f"Custom interval: {engine_config['custom_interval_days']} days")
         
         current_date = start_date
         data_points_processed = 0
@@ -256,7 +347,7 @@ class MisbuffetEngine(BaseEngine):
         # Track universe of symbols the algorithm is interested in
         universe = getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
         
-        # Simple simulation loop - process data daily
+        # Configurable simulation loop - process data at specified intervals
         while current_date <= end_date:
             # Create data slice with real stock data for this date
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
@@ -278,7 +369,7 @@ class MisbuffetEngine(BaseEngine):
                 except Exception as e:
                     self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")
                     
-            current_date += timedelta(days=1)
+            current_date = self._add_time_interval(current_date, time_interval)
         
         self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
         
@@ -465,10 +556,24 @@ class MisbuffetEngine(BaseEngine):
                 end_date = getattr(self._job, 'end_date', datetime(2022, 1, 1))
             else:
                 # Fallback configuration
+                engine_config = {}
                 start_date = datetime(2021, 1, 1)
                 end_date = datetime(2022, 1, 1)
             
+            # Get configurable time interval
+            time_interval = self._get_time_interval(engine_config)
+            interval_name = engine_config.get('backtest_interval', 'daily')
+            
             self.logger.info(f"Running simulation from {start_date} to {end_date}")
+            self.logger.info(f"Using {interval_name} intervals for backtesting")
+            
+            # Log custom interval details if applicable
+            if engine_config.get('custom_interval_minutes'):
+                self.logger.info(f"Custom interval: {engine_config['custom_interval_minutes']} minutes")
+            elif engine_config.get('custom_interval_hours'):
+                self.logger.info(f"Custom interval: {engine_config['custom_interval_hours']} hours")
+            elif engine_config.get('custom_interval_days'):
+                self.logger.info(f"Custom interval: {engine_config['custom_interval_days']} days")
             
             current_date = start_date
             data_points_processed = 0
@@ -476,7 +581,7 @@ class MisbuffetEngine(BaseEngine):
             # Track universe of symbols the algorithm is interested in
             universe = getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
             
-            # Simple simulation loop - process data daily
+            # Configurable simulation loop - process data at specified intervals
             while current_date <= end_date:
                 if self._stop_requested():
                     break
@@ -501,7 +606,7 @@ class MisbuffetEngine(BaseEngine):
                     except Exception as e:
                         self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")
                         
-                current_date += timedelta(days=1)
+                current_date = self._add_time_interval(current_date, time_interval)
             
             self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
             
