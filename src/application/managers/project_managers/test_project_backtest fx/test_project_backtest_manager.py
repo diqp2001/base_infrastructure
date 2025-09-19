@@ -7,6 +7,22 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
 import pandas as pd
+import numpy as np
+
+# Import LightGBM for ML functionality
+try:
+    import lightgbm as lgb
+except ImportError:
+    # Fallback to XGBoost if LightGBM not available
+    try:
+        import xgboost as xgb
+        lgb = None
+    except ImportError:
+        # Final fallback to sklearn
+        from sklearn.ensemble import RandomForestClassifier
+        lgb = None
+        xgb = None
+
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
@@ -25,259 +41,328 @@ from application.services.misbuffet.common import (
 )
 from application.services.misbuffet.algorithm.base import QCAlgorithm
 
-
 # Import result handling
 from application.services.misbuffet.results import (
     BacktestResultHandler, BacktestResult, PerformanceAnalyzer
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-
-# Algorithm implementation using the misbuffet framework
-import logging
-from datetime import datetime, timedelta
-
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
 
 # Import from the application services misbuffet package
 from application.services.misbuffet import Misbuffet
 from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
 from application.services.misbuffet.common.interfaces import IAlgorithm
 from application.services.misbuffet.common.enums import Resolution
-from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 
 # Import config files
 from .launch_config import MISBUFFET_LAUNCH_CONFIG
-from .engine_config import MISBUFFET_ENGINE_CONFIG 
+from .engine_config import MISBUFFET_ENGINE_CONFIG
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__) 
 
 # ----------------------------------------------------------------------
-# Example algorithm: Universe of stocks + weekly retraining + BL optimizer
+# FX LightGBM + Mean Reversion Algorithm
+# Combines machine learning predictions with mean reversion signals for FX trading
 # ----------------------------------------------------------------------
-class FX_ML_MEAN_REVERSION_Algorithm(QCAlgorithm):
+class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
     def initialize(self):
-        # Call parent initialization first
         super().initialize()
         
-        # Define universe and store Security objects
-        self.universe = ["AAPL", "MSFT", "AMZN", "GOOGL"]
-        self.my_securities = {}  # Dictionary to store Security objects by ticker for easy lookup
-        
-        for ticker in self.universe:
-            try:
-                security = self.add_equity(ticker, Resolution.DAILY)
-                if security is not None:
-                    # Store in our custom dictionary for easy ticker-based lookup
-                    self.my_securities[ticker] = security
-                    self.log(f"Successfully added security: {ticker} -> {security.symbol}")
-                else:
-                    self.log(f"Warning: Failed to add security {ticker} - got None")
-            except Exception as e:
-                self.log(f"Error adding security {ticker}: {str(e)}")
+        # --- User-configurable settings ---
+        self.currencies = ["EUR", "GBP", "AUD", "USD", "MXN", "JPY", "CAD"]
+        # Map currency -> tradable FX symbol in your framework
+        # NOTE: adjust symbol strings to match your backtester (e.g. 'EURUSD' or 'EUR/USD')
+        self.currency_pair_for = {
+            "EUR": "EURUSD",
+            "GBP": "GBPUSD",
+            "AUD": "AUDUSD",
+            # USD is special (we'll treat USD direction via inversions across pairs)
+            "USD": None,      # handled implicitly by other pairs
+            "MXN": "USDMXN",
+            "JPY": "USDJPY",
+            "CAD": "USDCAD",
+        }
 
-        self.lookback_window = 20   # volatility window
-        self.train_window = 252     # ~1 year
+        # Only include currencies that have a mapped pair
+        self.tradable_currencies = [c for c in self.currencies if self.currency_pair_for.get(c)]
+        self.universe = [self.currency_pair_for[c] for c in self.tradable_currencies]
+
+        # Feature / training settings
+        self.lookback_window = 60      # rolling window for features & zscore
+        self.train_window = 252        # training history (days)
         self.retrain_interval = timedelta(days=7)
         self.last_train_time = None
 
-        # Dict of models per ticker
-        self.models = {}
-        
-        # Data tracking for flexible data format handling
-        self._current_data_frame = None
-        self._current_data_slice = None
+        # Model container
+        self.models: Dict[str, Any] = {}
 
-        # Initial training
+        # Positioning
+        self.n_long = 2
+        self.n_short = 2
+        self.target_leverage_per_side = 0.4  # max fraction of portfolio for longs (and for shorts)
+                                              # each long will get target_leverage_per_side / n_long
+
+        # Add FX securities to the algorithm
+        self.my_securities = {}
+        for pair in self.universe:
+            try:
+                sec = self.add_forex(pair, Resolution.DAILY)
+                self.my_securities[pair] = sec
+                self.log(f"Added FX pair {pair}")
+            except Exception as e:
+                self.log(f"Failed to add {pair}: {e}")
+                self.my_securities[pair] = None
+
+        # Initial training (if data exists)
         self._train_models(self.time)
 
     # ---------------------------
-    # Features
+    # Helpers: history & prices
     # ---------------------------
-    def _prepare_features(self, history: pd.DataFrame) -> pd.DataFrame:
-        df = history.copy()
-        df["return"] = df["close"].pct_change()
-        df["return_lag1"] = df["return"].shift(1)
-        df["return_lag2"] = df["return"].shift(2)
-        df["volatility"] = df["return"].rolling(self.lookback_window).std()
-        df["return_fwd1"] = df["return"].shift(-1)
-        return df.dropna()
+    def _get_history_df(self, symbol: str, lookback_days: int, end_time: datetime) -> pd.DataFrame:
+        """Request historical daily bars and return a DataFrame with index=time and columns: open, high, low, close, volume (if available)."""
+        try:
+            hist = self.history([symbol], lookback_days, Resolution.DAILY, end_time=end_time)
+        except Exception as e:
+            self.log(f"history call failed for {symbol}: {e}")
+            return pd.DataFrame()
 
-    # ---------------------------
-    # Train one model
-    # ---------------------------
-    def _train_model_for_ticker(self, ticker: str, current_time: datetime):
-        history = self.history(
-            [ticker],
-            self.train_window,
-            Resolution.DAILY,
-            end_time=current_time
-        )
+        if isinstance(hist, dict):
+            # some frameworks return dict of DataFrames keyed by symbol
+            df = hist.get(symbol, pd.DataFrame())
+            if isinstance(df, pd.DataFrame):
+                return df.copy()
+            return pd.DataFrame()
+        elif isinstance(hist, pd.DataFrame):
+            return hist.copy()
+        else:
+            return pd.DataFrame()
 
-        df = self._prepare_features(history)
+    def _current_price(self, symbol: str):
+        # Prefer current slice if available
+        try:
+            # many frameworks support self.Securities[symbol].Price or self.Securities[symbol].close
+            if symbol in self.securities:
+                return float(self.securities[symbol].price)
+        except Exception:
+            pass
+
+        # fallback to history last close
+        df = self._get_history_df(symbol, 2, self.time)
         if df.empty:
             return None
+        if "close" in df.columns:
+            return float(df["close"].iloc[-1])
+        # attempt to find typical price column
+        for col in ["price", "last"]:
+            if col in df.columns:
+                return float(df[col].iloc[-1])
+        return None
 
-        X = df[["return_lag1", "return_lag2", "volatility"]]
+    # ---------------------------
+    # Feature engineering
+    # ---------------------------
+    def _prepare_features_df(self, hist: pd.DataFrame) -> pd.DataFrame:
+        """Given a historical DataFrame with 'close', compute features and next-day return label."""
+        df = hist.copy()
+        if "close" not in df.columns:
+            return pd.DataFrame()
+        df = df.sort_index()
+        df["return"] = df["close"].pct_change()
+        df["ma_short"] = df["close"].rolling(5).mean()
+        df["ma_long"] = df["close"].rolling(20).mean()
+        df["ma_gap"] = (df["close"] - df["ma_long"]) / df["ma_long"]  # relative deviation
+        df["volatility"] = df["return"].rolling(self.lookback_window).std()
+        df["rsi"] = self._rsi(df["close"], 14)
+        # forward return (next day's return)
+        df["return_fwd1"] = df["return"].shift(-1)
+        df = df.dropna()
+        return df
+
+    def _rsi(self, series: pd.Series, period: int = 14) -> pd.Series:
+        delta = series.diff()
+        up = delta.clip(lower=0.0)
+        down = -1 * delta.clip(upper=0.0)
+        ma_up = up.rolling(period).mean()
+        ma_down = down.rolling(period).mean()
+        rs = ma_up / (ma_down + 1e-12)
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    # ---------------------------
+    # Train per-currency model
+    # ---------------------------
+    def _train_model_for_currency(self, currency: str, current_time: datetime):
+        pair = self.currency_pair_for.get(currency)
+        if not pair:
+            return None
+
+        hist = self._get_history_df(pair, self.train_window + 5, current_time)
+        df = self._prepare_features_df(hist)
+        if df.empty:
+            self.log(f"No training data for {pair}")
+            return None
+
+        # features & label
+        X = df[["return", "ma_gap", "volatility", "rsi"]]
+        # label: 1 if next-day return > 0 (we let ML predict direction)
         y = (df["return_fwd1"] > 0).astype(int)
 
-        model = RandomForestClassifier(
-            n_estimators=100,
-            random_state=42
-        )
-        model.fit(X, y)
-        return model
+        # Try LightGBM first, then fallbacks
+        try:
+            if lgb is not None:
+                model = lgb.LGBMClassifier(n_estimators=200, random_state=42)
+            elif xgb is not None:
+                model = xgb.XGBClassifier(n_estimators=200, random_state=42)
+            else:
+                from sklearn.ensemble import RandomForestClassifier
+                model = RandomForestClassifier(n_estimators=200, random_state=42)
+            
+            model.fit(X, y)
+            self.log(f"Trained model for {currency} ({pair}) on {len(X)} samples")
+            return model
+        except Exception as e:
+            self.log(f"Model train failed for {pair}: {e}")
+            return None
 
-    # ---------------------------
-    # Train all models
-    # ---------------------------
     def _train_models(self, current_time: datetime):
-        for ticker in self.universe:
-            model = self._train_model_for_ticker(ticker, current_time)
-            if model:
-                self.models[ticker] = model
-
+        for c in self.tradable_currencies:
+            model = self._train_model_for_currency(c, current_time)
+            if model is not None:
+                self.models[c] = model
         self.last_train_time = current_time
         self.log(f"Models retrained at {current_time.date()}")
 
     # ---------------------------
-    # On each new data point
+    # Mean reversion z-score
+    # ---------------------------
+    def _zscore(self, series: pd.Series, window: int):
+        ma = series.rolling(window).mean()
+        std = series.rolling(window).std()
+        return (series - ma) / (std + 1e-12)
+
+    # ---------------------------
+    # OnData / decision logic
     # ---------------------------
     def on_data(self, data):
-        # Comprehensive data type handling - accept both Slice and DataFrame objects
-        if hasattr(data, 'columns') and hasattr(data, 'index'):
-            # This is a DataFrame - convert it to a format we can work with
-            self.log(f"INFO: on_data received DataFrame object, converting to internal format: {type(data)}")
-            # Store the DataFrame for price lookup instead of expecting Slice format
-            self._current_data_frame = data
-            self._current_data_slice = None
-        elif hasattr(data, 'bars'):
-            # This is a proper Slice object
-            self._current_data_frame = None
-            self._current_data_slice = data
-        else:
-            # Unknown data type - log and skip
-            self.log(f"ERROR: on_data received unknown data type: {type(data)}")
-            return
-            
-        # Retrain weekly
-        if (
-            self.last_train_time is None
-            or self.time - self.last_train_time >= self.retrain_interval
-        ):
+        # Retrain periodicly
+        if self.last_train_time is None or (self.time - self.last_train_time) >= self.retrain_interval:
             self._train_models(self.time)
 
         if not self.models:
             return
 
-        # Step 1: Collect signals
-        signals = {}
-        for ticker, model in self.models.items():
-            # Check if ticker exists in securities and the security object is not None
-            if ticker not in self.my_securities:
-                self.log(f"Warning: {ticker} not found in my_securities dictionary")
-                continue
-            elif self.my_securities[ticker] is None:
-                self.log(f"Warning: {ticker} security object is None")
-                continue
-            elif not self._has_price_data(ticker, self.my_securities[ticker].symbol):
-                self.log(f"Warning: {ticker} price data not available in current data")
+        currency_scores = {}
+
+        for cur in self.tradable_currencies:
+            pair = self.currency_pair_for[cur]
+            if pair not in self.my_securities or self.my_securities[pair] is None:
                 continue
 
-            history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
-            df = self._prepare_features(history)
+            # Prepare last lookback_window+1 history for features and zscore
+            hist = self._get_history_df(pair, self.lookback_window + 5, self.time)
+            if hist.empty or "close" not in hist.columns or len(hist) < (self.lookback_window + 2):
+                continue
+            df = self._prepare_features_df(hist)
             if df.empty:
                 continue
 
-            X_live = df[["return_lag1", "return_lag2", "volatility"]].iloc[-1:]
-            pred = model.predict(X_live)[0]  # 1 = long, 0 = short
-            signals[ticker] = pred
+            X_live = df[["return", "ma_gap", "volatility", "rsi"]].iloc[-1:].fillna(0.0)
+            model = self.models.get(cur)
+            if model is None:
+                continue
 
-        if not signals:
+            # Get ML prediction probability
+            try:
+                if hasattr(model, 'predict_proba'):
+                    prob_pos = float(model.predict_proba(X_live)[0][1])  # probability of next-day positive return
+                else:
+                    # Fallback for models without predict_proba
+                    pred = model.predict(X_live)[0]
+                    prob_pos = 0.7 if pred == 1 else 0.3
+            except Exception as e:
+                self.log(f"Error getting prediction for {cur}: {e}")
+                continue
+
+            # mean-reversion zscore: positive z -> price above mean -> expect down (revert)
+            z = self._zscore(hist["close"], self.lookback_window).iloc[-1]
+            # reversion expectation for next-day return ~ -z (if z>0 expect negative)
+            reversion_expectation = -float(z)
+
+            # Combine signals:
+            # - If prob_pos high AND reversion_expectation positive => strong long
+            # - If prob_pos low AND reversion_expectation negative => strong short
+            # Combine with a simple weighted sum (weights tunable)
+            ml_w = 0.6
+            mr_w = 0.4
+            # Normalize prob_pos to [-1,1] where 0=neutral
+            ml_signal = (prob_pos - 0.5) * 2.0
+            combined_score = ml_w * ml_signal + mr_w * reversion_expectation
+
+            currency_scores[cur] = {
+                "pair": pair,
+                "prob_pos": prob_pos,
+                "z": z,
+                "combined_score": combined_score
+            }
+
+        if not currency_scores:
             return
 
-        # Step 2: Build Black-Litterman optimizer
-        # Convert signals into views: +5% for bullish, -5% for bearish
-        views = {t: (0.05 if sig == 1 else -0.05) for t, sig in signals.items()}
+        # Rank currencies by combined score
+        sorted_items = sorted(currency_scores.items(), key=lambda kv: kv[1]["combined_score"], reverse=True)
 
-        # Compute historical mean & covariance of returns
-        hist = self.history(self.universe, self.train_window, Resolution.DAILY)
-        
-        # Handle both dictionary and DataFrame formats
-        if isinstance(hist, dict):
-            # Convert dictionary to DataFrame
-            df_list = []
-            for symbol, data in hist.items():
-                if isinstance(data, pd.DataFrame):
-                    data['symbol'] = symbol
-                    df_list.append(data)
-            if df_list:
-                hist_df = pd.concat(df_list)
-                pivoted = hist_df.pivot( columns="symbol", values="close")
-            else:
-                # Fallback: create simple returns data
-                returns_data = {}
-                for symbol in self.universe:
-                    # Use mock data for demonstration
-                    returns_data[symbol] = np.random.normal(0.001, 0.02, self.train_window)
-                pivoted = pd.DataFrame(returns_data)
-        else:
-            # Assume it's already a DataFrame
-            pivoted = hist.pivot(index="time", columns="symbol", values="close")
-        
-        returns = pivoted.pct_change().dropna()
-        mu = returns.mean()
-        cov = returns.cov()
+        longs = [c for c, _ in sorted_items[: self.n_long]]
+        shorts = [c for c, _ in sorted_items[-self.n_short:]]
 
-        bl = BlackLittermanOptimizer(mu, cov)
-        bl.add_views(views)
-        weights = bl.solve()
+        self.log(f"Long candidates: {longs}, Short candidates: {shorts}")
 
-        # Step 3: Execute trades based on BL weights
-        # Use cash balance when portfolio holdings are empty (initial state)
-        portfolio_holdings_value = float(self.portfolio.total_portfolio_value)
-        cash_balance = float(self.portfolio.cash_balance)
-        
-        if portfolio_holdings_value == 0.0:
-            # No holdings yet, use available cash for position sizing
-            total_portfolio_value = cash_balance
-            self.log(f"Using cash balance for position sizing: ${total_portfolio_value:.2f}")
-        else:
-            # Has holdings, use total portfolio value (holdings + cash)
-            total_portfolio_value = portfolio_holdings_value + cash_balance
-            self.log(f"Using total portfolio value: ${total_portfolio_value:.2f} (holdings: ${portfolio_holdings_value:.2f} + cash: ${cash_balance:.2f})")
-        for ticker, w in weights.items():
-            if ticker not in self.my_securities or self.my_securities[ticker] is None:
-                self.log(f"Warning: Cannot execute trade for {ticker} - security not available")
+        # Convert currency picks to pair-level orders, adjusting sign for pairs where USD is base
+        # Position sizing: equal-weight across longs and equal-weight across shorts
+        long_weight_each = self.target_leverage_per_side / max(1, len(longs))
+        short_weight_each = self.target_leverage_per_side / max(1, len(shorts))
+
+        # First clear positions not in new target set
+        target_pairs = set(self.currency_pair_for[c] for c in longs + shorts if self.currency_pair_for.get(c))
+        # Set holdings for each tradable pair
+        for cur in self.tradable_currencies:
+            pair = self.currency_pair_for[cur]
+            if pair is None:
                 continue
-            security = self.my_securities[ticker]
-            target_value = w * total_portfolio_value
-            
-                # Get current holdings value - use portfolio.holdings for direct access
-            current_value = self._get_current_holdings_value(ticker, security.symbol)
-            if current_value == 0.0:
-                self.log(f"No existing holding for {ticker}, starting from zero")
-            
-            diff_value = target_value - current_value
-            # Get price data using the current data format
-            price = self._get_current_price(ticker, security.symbol)
-            if price is None:
-                self.log(f"Warning: Cannot find price data for {ticker}")
-                continue
-            qty = int(diff_value / price)
-            if qty != 0:
-                self.log(f"Executing order for {ticker}: target=${target_value:.2f}, current=${current_value:.2f}, qty={qty}")
-                self.set_holding(security.symbol, qty, price)
-                self.market_order(security.symbol, qty)
-                
+            target_pct = 0.0
+            if cur in longs:
+                # Long the currency:
+                # If the pair is XUSD (currency as base) -> buy pair -> positive target_pct
+                # If pair is USDX (USD base, e.g. USDJPY) -> to long foreign currency we need to SHORT the pair (inverse)
+                if pair.endswith("USD"):
+                    target_pct = long_weight_each
+                elif pair.startswith("USD"):
+                    target_pct = -long_weight_each  # inverse
+            elif cur in shorts:
+                # Short the currency:
+                if pair.endswith("USD"):
+                    target_pct = -short_weight_each
+                elif pair.startswith("USD"):
+                    target_pct = short_weight_each
 
-    # Event handlers are now in QCAlgorithm base class
+            # Place the order (using percent target to keep it simple)
+            try:
+                if pair in self.securities:
+                    self.set_holdings(pair, target_pct)
+                    self.log(f"Set holdings for {pair}: target_pct={target_pct:.3f}")
+                else:
+                    self.log(f"Pair {pair} not in securities (skip)")
+            except Exception as e:
+                self.log(f"Order failed for {pair}: {e}")
+
+    # ---------------------------
+    # Utility: logging wrapper
+    # ---------------------------
+    def log(self, msg: str):
+        logger.info(msg)
 
 
 class TestProjectBacktestManager(ProjectManager):
@@ -312,7 +397,7 @@ class TestProjectBacktestManager(ProjectManager):
     
     def _run_backtest(self):
         """Execute the actual backtest with progress logging"""
-        self.create_five_tech_companies_with_data()
+        self.create_fx_currency_data()
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger("misbuffet-main")
 
@@ -344,7 +429,7 @@ class TestProjectBacktestManager(ProjectManager):
             
             config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
-                algorithm_type_name="MyAlgorithm",  # String name as expected by LauncherConfiguration
+                algorithm_type_name="FX_LGBM_MeanReversion_Algorithm",  # String name as expected by LauncherConfiguration
                 algorithm_location=__file__,
                 data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
                 environment="backtesting",
@@ -356,7 +441,7 @@ class TestProjectBacktestManager(ProjectManager):
             config.custom_config = MISBUFFET_ENGINE_CONFIG
             
             # Add algorithm class to config for engine to use
-            config.algorithm = MyAlgorithm  # Pass the class, not an instance
+            config.algorithm = FX_LGBM_MeanReversion_Algorithm  # Pass the class, not an instance
             
             # Add database manager for real data access
             config.database_manager = self.database_manager
@@ -465,28 +550,28 @@ class TestProjectBacktestManager(ProjectManager):
             print(f"❌ Error in bulk company creation: {str(e)}")
             raise
 
-    def create_five_tech_companies_with_data(self) -> List[CompanyShareEntity]:
+    def create_fx_currency_data(self) -> List[CompanyShareEntity]:
         """
-        Create the 5 tech companies (AAPL, MSFT, AMZN, GOOGL) 
-        and populate them with market and fundamental data loaded from CSV files.
+        Load FX currency exchange rate data from CSV and prepare it for backtesting.
+        Creates entities for major currency pairs used by the FX algorithm.
         """
-        tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
-        companies_data = []
+        currencies = ["EUR", "GBP", "AUD", "JPY", "CAD", "MXN"]
+        currency_data = []
 
-        # Path to stock data directory - find project root and build absolute path
+        # Path to FX data directory - find project root and build absolute path
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = current_dir
         
         # Navigate up to find the project root (where data/ folder is located)
-        while not os.path.exists(os.path.join(project_root, 'data', 'stock_data')) and project_root != os.path.dirname(project_root):
+        while not os.path.exists(os.path.join(project_root, 'data', 'fx_data')) and project_root != os.path.dirname(project_root):
             project_root = os.path.dirname(project_root)
         
-        stock_data_path = os.path.join(project_root, "data", "stock_data")
-        print(f"📁 Loading stock data from: {stock_data_path}")
+        fx_data_path = os.path.join(project_root, "data", "fx_data")
+        print(f"📁 Loading FX data from: {fx_data_path}")
         
         # Verify the path exists before proceeding
-        if not os.path.exists(stock_data_path):
-            print(f"❌ Stock data directory not found at: {stock_data_path}")
+        if not os.path.exists(fx_data_path):
+            print(f"❌ FX data directory not found at: {fx_data_path}")
             print(f"Current working directory: {os.getcwd()}")
             print(f"File location: {current_dir}")
             print("Available directories in project root:")
@@ -495,128 +580,124 @@ class TestProjectBacktestManager(ProjectManager):
                     if os.path.isdir(os.path.join(project_root, item)):
                         print(f"  - {item}/")
         else:
-            print(f"✅ Stock data directory found with {len(os.listdir(stock_data_path))} files")
+            print(f"✅ FX data directory found with {len(os.listdir(fx_data_path))} files")
 
-        # Load actual stock data from CSV files
-        stock_data_cache = {}
-        for ticker in tickers:
-            csv_path = os.path.join(stock_data_path, f"{ticker}.csv")
-            try:
-                if os.path.exists(csv_path):
-                    df = pd.read_csv(csv_path)
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df = df.sort_values('Date')
-                    stock_data_cache[ticker] = df
-                    print(f"✅ Loaded {len(df)} data points for {ticker} from {df['Date'].min().date()} to {df['Date'].max().date()}")
-                else:
-                    print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
-                    stock_data_cache[ticker] = None
-            except Exception as e:
-                print(f"❌ Error loading data for {ticker}: {str(e)}")
-                stock_data_cache[ticker] = None
+        # Load actual FX data from CSV file
+        csv_path = os.path.join(fx_data_path, "currency_exchange_rates_02-01-1995_-_02-05-2018.csv")
+        fx_data_cache = {}
+        
+        try:
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                df['Date'] = pd.to_datetime(df['Date'])
+                df = df.sort_values('Date')
+                
+                # Extract data for our target currencies
+                currency_column_mapping = {
+                    "EUR": "Euro",
+                    "GBP": "U.K. Pound Sterling", 
+                    "AUD": "Australian Dollar",
+                    "JPY": "Japanese Yen",
+                    "CAD": "Canadian Dollar",
+                    "MXN": "Mexican Peso"
+                }
+                
+                for currency, column_name in currency_column_mapping.items():
+                    if column_name in df.columns:
+                        currency_df = df[['Date', column_name]].copy()
+                        currency_df.columns = ['Date', 'Rate']
+                        currency_df = currency_df.dropna()
+                        
+                        # Convert to price format (1/rate for proper FX representation)
+                        currency_df['Close'] = 1.0 / currency_df['Rate']
+                        currency_df['Open'] = currency_df['Close'].shift(1).fillna(currency_df['Close'])
+                        currency_df['High'] = currency_df[['Open', 'Close']].max(axis=1) * 1.001
+                        currency_df['Low'] = currency_df[['Open', 'Close']].min(axis=1) * 0.999
+                        currency_df['Volume'] = 1000000  # Mock volume for FX
+                        
+                        fx_data_cache[currency] = currency_df
+                        print(f"✅ Loaded {len(currency_df)} data points for {currency} from {currency_df['Date'].min().date()} to {currency_df['Date'].max().date()}")
+                    else:
+                        print(f"⚠️  Column not found for {currency}: {column_name}")
+                        fx_data_cache[currency] = None
+            else:
+                print(f"⚠️  CSV file not found: {csv_path}")
+        except Exception as e:
+            print(f"❌ Error loading FX data: {str(e)}")
 
-        # Sample starting IDs and exchange/company IDs
+        # Create currency entities (treating them as special securities)
         start_id = 1
-        for i, ticker in enumerate(tickers, start=start_id):
-            companies_data.append({
+        for i, currency in enumerate(currencies, start=start_id):
+            currency_data.append({
                 'id': i,
-                'ticker': ticker,
-                'exchange_id': 1,
-                'company_id': i,
-                'start_date': datetime(2020, 1, 1),
-                'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
-                'sector': 'Technology'
+                'ticker': f"USD{currency}" if currency in ["JPY", "CAD", "MXN"] else f"{currency}USD",
+                'exchange_id': 1,  # FX exchange
+                'company_id': i + 100,  # Offset to avoid conflicts
+                'start_date': datetime(1995, 1, 2),
+                'company_name': f"{currency} Currency",
+                'sector': 'Currency'
             })
 
-        # Step 1: Create companies in bulk
-        created_companies = self.create_multiple_companies(companies_data)
-        if not created_companies:
-            print("❌ No companies were created")
+        # Step 1: Create currency entities in bulk
+        created_currencies = self.create_multiple_companies(currency_data)
+        if not created_currencies:
+            print("❌ No currencies were created")
             return []
 
-        # Step 2: Save CSV data to database and enhance with market and fundamental data
-        for i, company in enumerate(created_companies):
-            ticker = company.ticker
+        # Step 2: Save FX data to database and enhance with market data
+        for i, currency_entity in enumerate(created_currencies):
+            currency = currencies[i]
+            ticker = currency_entity.ticker
+            
             try:
-                # Get stock data for this ticker
-                stock_df = stock_data_cache.get(ticker)
+                # Get FX data for this currency
+                fx_df = fx_data_cache.get(currency)
                 
-                if stock_df is not None and not stock_df.empty:
-                    # Save CSV data to database for backtesting engine to use
-                    table_name = f"stock_price_data_{ticker.lower()}"
-                    print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
-                    self.database_manager.dataframe_replace_table(stock_df, table_name)
+                if fx_df is not None and not fx_df.empty:
+                    # Save FX data to database for backtesting engine to use
+                    table_name = f"fx_price_data_{currency.lower()}"
+                    print(f"💾 Saving {len(fx_df)} FX records for {currency} to database table '{table_name}'")
+                    self.database_manager.dataframe_replace_table(fx_df, table_name)
                     
                     # Use the most recent data point for current market data
-                    latest_data = stock_df.iloc[-1]
+                    latest_data = fx_df.iloc[-1]
                     latest_price = Decimal(str(latest_data['Close']))
-                    latest_volume = Decimal(str(latest_data['Volume']))
                     latest_date = latest_data['Date']
                     
-                    # Historical data statistics for fundamental analysis
-                    recent_data = stock_df.tail(252)  # Last year of data
-                    avg_volume = Decimal(str(recent_data['Volume'].mean()))
-                    price_52w_high = Decimal(str(recent_data['High'].max()))
-                    price_52w_low = Decimal(str(recent_data['Low'].min()))
-                    
-                    print(f"📈 Using real data for {ticker}: Latest Close=${latest_price:.2f}, Volume={latest_volume:,}")
+                    print(f"💱 Using real data for {currency}: Latest Rate=${latest_price:.4f}")
                 else:
-                    # Fallback to mock data if CSV not available
-                    latest_price = Decimal(str(100 + i * 50))
-                    latest_volume = Decimal(str(1_000_000 + i * 100_000))
+                    # Fallback to mock data if FX data not available
+                    latest_price = Decimal('1.0')
                     latest_date = datetime.now()
-                    avg_volume = latest_volume
-                    price_52w_high = latest_price * Decimal('1.2')
-                    price_52w_low = latest_price * Decimal('0.8')
-                    print(f"⚠️  Using fallback data for {ticker}")
+                    print(f"⚠️  Using fallback data for {currency}")
 
-                # Market data (using real prices and volumes)
+                # Market data for FX (no volume, just price)
                 market_data = MarketData(
                     timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
                     price=latest_price,
-                    volume=latest_volume
+                    volume=Decimal('0')  # FX doesn't have traditional volume
                 )
-                company.update_market_data(market_data)
+                currency_entity.update_market_data(market_data)
 
-                # Fundamental data (mix of real-derived and estimated values)
-                # Calculate approximate market cap based on real price
-                estimated_shares_outstanding = Decimal(str(1_000_000_000 + i * 100_000_000))  # Estimate
-                market_cap = latest_price * estimated_shares_outstanding
-                
-                # Estimate P/E ratio based on sector averages
-                pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
-                pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
-                
+                # Basic fundamental data for currencies
                 fundamentals = FundamentalData(
-                    pe_ratio=pe_ratio,
-                    dividend_yield=Decimal(str(1.0 + i * 0.3)),  # Estimated dividend yields
-                    market_cap=market_cap,
-                    shares_outstanding=estimated_shares_outstanding,
-                    sector='Technology',
-                    industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
+                    pe_ratio=Decimal('0'),  # Not applicable for currencies
+                    dividend_yield=Decimal('0'),  # Not applicable for currencies
+                    market_cap=Decimal('0'),  # Not applicable for currencies
+                    shares_outstanding=Decimal('0'),  # Not applicable for currencies
+                    sector='Currency',
+                    industry=f'{currency} Foreign Exchange'
                 )
-                company.update_company_fundamentals(fundamentals)
-
-                # Sample dividend (estimated based on dividend yield)
-                dividend_amount = (fundamentals.dividend_yield / 100) * latest_price / 4  # Quarterly dividend
-                dividend = Dividend(
-                    amount=dividend_amount,
-                    ex_date=datetime(2024, 3, 15),
-                    pay_date=datetime(2024, 3, 30)
-                )
-                company.add_dividend(dividend)
+                currency_entity.update_company_fundamentals(fundamentals)
 
                 # Print metrics for confirmation
-                metrics = company.get_company_metrics()
-                print(f"📊 {company.ticker}: Price=${metrics['current_price']}, "
-                    f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
-                    f"Div Yield={metrics['dividend_yield']}%")
+                print(f"💱 {currency_entity.ticker}: Rate=${latest_price:.4f}, Sector=Currency")
 
             except Exception as e:
-                print(f"❌ Error enhancing company {company.ticker}: {str(e)}")
+                print(f"❌ Error enhancing currency {currency_entity.ticker}: {str(e)}")
                 continue
 
-        return created_companies
+        return created_currencies
 
     
     
