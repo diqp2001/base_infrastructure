@@ -14,6 +14,7 @@ import logging
 
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
+from src.application.services.misbuffet.web.powerbuffet.powerbuffet import PowerBuffetService
 
 web_bp = Blueprint("web", __name__)
 logger = logging.getLogger(__name__)
@@ -252,3 +253,79 @@ def _calculate_performance_metrics(performance_data):
         'final_value': round(portfolio_values[-1], 2),
         'initial_value': round(portfolio_values[0], 2)
     }
+
+
+# PowerBuffet Routes
+@web_bp.route("/powerbuffet")
+def powerbuffet_home():
+    """PowerBuffet data visualization and database explorer"""
+    try:
+        service = PowerBuffetService()
+        databases = service.get_available_databases()
+        visualizations = service.get_available_visualizations()
+        
+        return render_template("powerbuffet.html", 
+                             databases=databases,
+                             visualizations=visualizations)
+    except Exception as e:
+        logger.error(f"Error loading PowerBuffet: {e}")
+        flash(f"Error loading PowerBuffet: {str(e)}", "error")
+        return redirect(url_for('web.dashboard_hub'))
+
+@web_bp.route("/api/powerbuffet/databases", methods=["GET"])
+def get_databases():
+    """API endpoint to get available databases"""
+    try:
+        service = PowerBuffetService()
+        databases = service.get_available_databases()
+        return jsonify({"success": True, "databases": databases})
+    except Exception as e:
+        logger.error(f"Error getting databases: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/tables/<path:database_path>", methods=["GET"])
+def get_tables(database_path):
+    """API endpoint to get tables for a specific database"""
+    try:
+        service = PowerBuffetService()
+        tables = service.get_database_tables(database_path)
+        return jsonify({"success": True, "tables": tables})
+    except Exception as e:
+        logger.error(f"Error getting tables: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/visualizations", methods=["GET"])
+def get_visualizations():
+    """API endpoint to get available visualizations"""
+    try:
+        service = PowerBuffetService()
+        visualizations = service.get_available_visualizations()
+        return jsonify({"success": True, "visualizations": visualizations})
+    except Exception as e:
+        logger.error(f"Error getting visualizations: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/run_visualization", methods=["POST"])
+def run_visualization():
+    """API endpoint to execute a visualization"""
+    try:
+        data = request.json
+        database_path = data.get('database_path')
+        table_name = data.get('table_name')
+        visualization_name = data.get('visualization_name')
+        params = data.get('params', {})
+        
+        if not all([database_path, table_name, visualization_name]):
+            return jsonify({
+                "success": False, 
+                "error": "Missing required parameters: database_path, table_name, visualization_name"
+            }), 400
+        
+        service = PowerBuffetService()
+        result = service.run_visualization(database_path, table_name, visualization_name, params)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error running visualization: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
