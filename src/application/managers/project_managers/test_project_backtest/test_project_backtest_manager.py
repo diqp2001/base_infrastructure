@@ -298,7 +298,7 @@ class TestProjectBacktestManager(ProjectManager):
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Web interface manager
-        from application.services.misbuffet.web_interface import WebInterfaceManager
+        from application.services.misbuffet.web.web_interface import WebInterfaceManager
         self.web_interface = WebInterfaceManager()
 
     def run(self):

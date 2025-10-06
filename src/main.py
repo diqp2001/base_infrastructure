@@ -8,7 +8,7 @@ from application.managers.api_managers.api_cboe.api_cboe_manager import download
 from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.cross_sectionnal_ML_stock_returns_project_manager import CrossSectionalMLStockReturnsProjectManager
 from application.managers.project_managers.momentum_ML_project.momentum_ML_project import MomentumMLProjectManager
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
-from application.managers.project_managers.test_project_backtest_fx.fx_test_project_backtest_manager import TestProjectBacktestManagerFX
+from application.managers.project_managers.test_project_backtest_fx.fx_test_project_backtest_manager import FXTestProjectBacktestManager
 from application.managers.project_managers.test_project_data.test_project_data_manager import TestProjectDataManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 
@@ -33,8 +33,8 @@ if __name__ == '__main__':
     # Uncomment the lines below to run the Black-Litterman backtest
     #bl_results = bt.run_black_litterman_backtest()
     #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
-    #manager = TestProjectBacktestManager()
-    manager = TestProjectBacktestManagerFX()
+    manager = TestProjectBacktestManager()
+    #manager = FXTestProjectBacktestManager()
     #manager = TestProjectLiveTradingManager()
     
     manager.run()

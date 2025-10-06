@@ -36,11 +36,6 @@ from application.services.misbuffet.common import (
 )
 from application.services.misbuffet.algorithm.base import QCAlgorithm
 
-# Import result handling
-from application.services.misbuffet.results import (
-    BacktestResultHandler, BacktestResult, PerformanceAnalyzer
-)
-
 # Import from the application services misbuffet package
 from application.services.misbuffet import Misbuffet
 from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
@@ -56,11 +51,11 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger(__name__)
+
 
 # ----------------------------------------------------------------------
-# FX LightGBM + Mean Reversion Algorithm
-# Combines machine learning predictions with mean reversion signals for FX trading
+# FX LightGBM + Mean Reversion Algorithm (Enhanced with proper data management)
 # ----------------------------------------------------------------------
 class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
     def initialize(self):
@@ -68,17 +63,10 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         
         # --- User-configurable settings ---
         self.currencies = ["EUR", "GBP", "AUD", "USD", "MXN", "JPY", "CAD"]
-        # Map currency -> tradable FX symbol in your framework
-        # NOTE: adjust symbol strings to match your backtester (e.g. 'EURUSD' or 'EUR/USD')
         self.currency_pair_for = {
-            "EUR": "EURUSD",
-            "GBP": "GBPUSD",
-            "AUD": "AUDUSD",
-            # USD is special (we'll treat USD direction via inversions across pairs)
-            "USD": None,      # handled implicitly by other pairs
-            "MXN": "USDMXN",
-            "JPY": "USDJPY",
-            "CAD": "USDCAD",
+            "EUR": "EURUSD", "GBP": "GBPUSD", "AUD": "AUDUSD",
+            "USD": None,  # handled implicitly by other pairs
+            "MXN": "USDMXN", "JPY": "USDJPY", "CAD": "USDCAD",
         }
 
         # Only include currencies that have a mapped pair
@@ -86,8 +74,8 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         self.universe = [self.currency_pair_for[c] for c in self.tradable_currencies]
 
         # Feature / training settings
-        self.lookback_window = 60      # rolling window for features & zscore
-        self.train_window = 252        # training history (days)
+        self.lookback_window = 60
+        self.train_window = 252
         self.retrain_interval = timedelta(days=7)
         self.last_train_time = None
 
@@ -97,8 +85,7 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         # Positioning
         self.n_long = 2
         self.n_short = 2
-        self.target_leverage_per_side = 0.4  # max fraction of portfolio for longs (and for shorts)
-                                              # each long will get target_leverage_per_side / n_long
+        self.target_leverage_per_side = 0.4
 
         # Add FX securities to the algorithm
         self.my_securities = {}
@@ -111,57 +98,25 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
                 self.log(f"Failed to add {pair}: {e}")
                 self.my_securities[pair] = None
 
-        # Initial training (if data exists)
+        # Initial training
         self._train_models(self.time)
 
-    # ---------------------------
-    # Helpers: history & prices
-    # ---------------------------
     def _get_history_df(self, symbol: str, lookback_days: int, end_time: datetime) -> pd.DataFrame:
-        """Request historical daily bars and return a DataFrame with index=time and columns: open, high, low, close, volume (if available)."""
+        """Request historical daily bars and return DataFrame."""
         try:
             hist = self.history([symbol], lookback_days, Resolution.DAILY, end_time=end_time)
+            if isinstance(hist, dict):
+                df = hist.get(symbol, pd.DataFrame())
+                return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+            elif isinstance(hist, pd.DataFrame):
+                return hist.copy()
+            return pd.DataFrame()
         except Exception as e:
             self.log(f"history call failed for {symbol}: {e}")
             return pd.DataFrame()
 
-        if isinstance(hist, dict):
-            # some frameworks return dict of DataFrames keyed by symbol
-            df = hist.get(symbol, pd.DataFrame())
-            if isinstance(df, pd.DataFrame):
-                return df.copy()
-            return pd.DataFrame()
-        elif isinstance(hist, pd.DataFrame):
-            return hist.copy()
-        else:
-            return pd.DataFrame()
-
-    def _current_price(self, symbol: str):
-        # Prefer current slice if available
-        try:
-            # many frameworks support self.Securities[symbol].Price or self.Securities[symbol].close
-            if symbol in self.securities:
-                return float(self.securities[symbol].price)
-        except Exception:
-            pass
-
-        # fallback to history last close
-        df = self._get_history_df(symbol, 2, self.time)
-        if df.empty:
-            return None
-        if "close" in df.columns:
-            return float(df["close"].iloc[-1])
-        # attempt to find typical price column
-        for col in ["price", "last"]:
-            if col in df.columns:
-                return float(df[col].iloc[-1])
-        return None
-
-    # ---------------------------
-    # Feature engineering
-    # ---------------------------
     def _prepare_features_df(self, hist: pd.DataFrame) -> pd.DataFrame:
-        """Given a historical DataFrame with 'close', compute features and next-day return label."""
+        """Compute features and next-day return label."""
         df = hist.copy()
         if "close" not in df.columns:
             return pd.DataFrame()
@@ -169,28 +124,24 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         df["return"] = df["close"].pct_change()
         df["ma_short"] = df["close"].rolling(5).mean()
         df["ma_long"] = df["close"].rolling(20).mean()
-        df["ma_gap"] = (df["close"] - df["ma_long"]) / df["ma_long"]  # relative deviation
+        df["ma_gap"] = (df["close"] - df["ma_long"]) / df["ma_long"]
         df["volatility"] = df["return"].rolling(self.lookback_window).std()
         df["rsi"] = self._rsi(df["close"], 14)
-        # forward return (next day's return)
         df["return_fwd1"] = df["return"].shift(-1)
-        df = df.dropna()
-        return df
+        return df.dropna()
 
     def _rsi(self, series: pd.Series, period: int = 14) -> pd.Series:
+        """Calculate RSI indicator."""
         delta = series.diff()
         up = delta.clip(lower=0.0)
         down = -1 * delta.clip(upper=0.0)
         ma_up = up.rolling(period).mean()
         ma_down = down.rolling(period).mean()
         rs = ma_up / (ma_down + 1e-12)
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
+        return 100 - (100 / (1 + rs))
 
-    # ---------------------------
-    # Train per-currency model
-    # ---------------------------
     def _train_model_for_currency(self, currency: str, current_time: datetime):
+        """Train ML model for a specific currency."""
         pair = self.currency_pair_for.get(currency)
         if not pair:
             return None
@@ -201,29 +152,33 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
             self.log(f"No training data for {pair}")
             return None
 
-        # features & label
-        X = df[["return", "ma_gap", "volatility", "rsi"]]
-        # label: 1 if next-day return > 0 (we let ML predict direction)
+        # Features & label
+        X = df[["return", "ma_gap", "volatility", "rsi"]].fillna(0)
         y = (df["return_fwd1"] > 0).astype(int)
 
-        # Try LightGBM first, then fallbacks
+        # Try LightGBM -> XGBoost -> Random Forest hierarchy
         try:
-            if lgb is not None:
+            if lgb:
                 model = lgb.LGBMClassifier(n_estimators=200, random_state=42)
-            elif xgb is not None:
+                model.fit(X, y)
+                self.log(f"Trained LightGBM model for {currency} ({pair}) on {len(X)} samples")
+                return model
+            elif xgb:
                 model = xgb.XGBClassifier(n_estimators=200, random_state=42)
+                model.fit(X, y)
+                self.log(f"Trained XGBoost model for {currency} ({pair}) on {len(X)} samples")
+                return model
             else:
-                from sklearn.ensemble import RandomForestClassifier
-                model = RandomForestClassifier(n_estimators=200, random_state=42)
-            
-            model.fit(X, y)
-            self.log(f"Trained model for {currency} ({pair}) on {len(X)} samples")
-            return model
+                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                model.fit(X, y)
+                self.log(f"Trained RandomForest model for {currency} ({pair}) on {len(X)} samples")
+                return model
         except Exception as e:
-            self.log(f"Model train failed for {pair}: {e}")
+            self.log(f"Model training failed for {pair}: {e}")
             return None
 
     def _train_models(self, current_time: datetime):
+        """Train all currency models."""
         for c in self.tradable_currencies:
             model = self._train_model_for_currency(c, current_time)
             if model is not None:
@@ -231,71 +186,60 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         self.last_train_time = current_time
         self.log(f"Models retrained at {current_time.date()}")
 
-    # ---------------------------
-    # Mean reversion z-score
-    # ---------------------------
     def _zscore(self, series: pd.Series, window: int):
+        """Calculate z-score for mean reversion."""
         ma = series.rolling(window).mean()
         std = series.rolling(window).std()
         return (series - ma) / (std + 1e-12)
 
-    # ---------------------------
-    # OnData / decision logic
-    # ---------------------------
     def on_data(self, data):
-        # Retrain periodicly
-        if self.last_train_time is None or (self.time - self.last_train_time) >= self.retrain_interval:
+        """Main algorithm logic combining ML + mean reversion."""
+        # Retrain periodically
+        if (self.last_train_time is None or 
+            (self.time - self.last_train_time) >= self.retrain_interval):
             self._train_models(self.time)
 
         if not self.models:
             return
 
+        # Step 1: Collect signals
         currency_scores = {}
-
         for cur in self.tradable_currencies:
             pair = self.currency_pair_for[cur]
             if pair not in self.my_securities or self.my_securities[pair] is None:
                 continue
 
-            # Prepare last lookback_window+1 history for features and zscore
+            # Get history and prepare features
             hist = self._get_history_df(pair, self.lookback_window + 5, self.time)
             if hist.empty or "close" not in hist.columns or len(hist) < (self.lookback_window + 2):
                 continue
+            
             df = self._prepare_features_df(hist)
             if df.empty:
                 continue
 
+            # ML prediction
             X_live = df[["return", "ma_gap", "volatility", "rsi"]].iloc[-1:].fillna(0.0)
             model = self.models.get(cur)
             if model is None:
                 continue
 
-            # Get ML prediction probability
             try:
                 if hasattr(model, 'predict_proba'):
-                    prob_pos = float(model.predict_proba(X_live)[0][1])  # probability of next-day positive return
+                    prob_pos = float(model.predict_proba(X_live)[0][1])
                 else:
-                    # Fallback for models without predict_proba
-                    pred = model.predict(X_live)[0]
-                    prob_pos = 0.7 if pred == 1 else 0.3
+                    prob_pos = float(model.predict(X_live)[0])
             except Exception as e:
-                self.log(f"Error getting prediction for {cur}: {e}")
+                self.log(f"Model prediction failed for {cur}: {e}")
                 continue
 
-            # mean-reversion zscore: positive z -> price above mean -> expect down (revert)
+            # Mean-reversion z-score
             z = self._zscore(hist["close"], self.lookback_window).iloc[-1]
-            # reversion expectation for next-day return ~ -z (if z>0 expect negative)
             reversion_expectation = -float(z)
 
-            # Combine signals:
-            # - If prob_pos high AND reversion_expectation positive => strong long
-            # - If prob_pos low AND reversion_expectation negative => strong short
-            # Combine with a simple weighted sum (weights tunable)
-            ml_w = 0.6
-            mr_w = 0.4
-            # Normalize prob_pos to [-1,1] where 0=neutral
+            # Combine signals (60% ML, 40% mean reversion)
             ml_signal = (prob_pos - 0.5) * 2.0
-            combined_score = ml_w * ml_signal + mr_w * reversion_expectation
+            combined_score = 0.6 * ml_signal + 0.4 * reversion_expectation
 
             currency_scores[cur] = {
                 "pair": pair,
@@ -307,56 +251,40 @@ class FX_LGBM_MeanReversion_Algorithm(QCAlgorithm):
         if not currency_scores:
             return
 
-        # Rank currencies by combined score
-        sorted_items = sorted(currency_scores.items(), key=lambda kv: kv[1]["combined_score"], reverse=True)
+        # Step 2: Rank and select currencies
+        sorted_items = sorted(currency_scores.items(), 
+                            key=lambda kv: kv[1]["combined_score"], reverse=True)
 
-        longs = [c for c, _ in sorted_items[: self.n_long]]
+        longs = [c for c, _ in sorted_items[:self.n_long]]
         shorts = [c for c, _ in sorted_items[-self.n_short:]]
 
         self.log(f"Long candidates: {longs}, Short candidates: {shorts}")
 
-        # Convert currency picks to pair-level orders, adjusting sign for pairs where USD is base
-        # Position sizing: equal-weight across longs and equal-weight across shorts
+        # Step 3: Execute trades with proper position sizing
         long_weight_each = self.target_leverage_per_side / max(1, len(longs))
         short_weight_each = self.target_leverage_per_side / max(1, len(shorts))
 
-        # First clear positions not in new target set
-        target_pairs = set(self.currency_pair_for[c] for c in longs + shorts if self.currency_pair_for.get(c))
-        # Set holdings for each tradable pair
         for cur in self.tradable_currencies:
             pair = self.currency_pair_for[cur]
-            if pair is None:
+            if pair is None or pair not in self.my_securities:
                 continue
+            
             target_pct = 0.0
             if cur in longs:
-                # Long the currency:
-                # If the pair is XUSD (currency as base) -> buy pair -> positive target_pct
-                # If pair is USDX (USD base, e.g. USDJPY) -> to long foreign currency we need to SHORT the pair (inverse)
-                if pair.endswith("USD"):
-                    target_pct = long_weight_each
-                elif pair.startswith("USD"):
-                    target_pct = -long_weight_each  # inverse
+                # Long the currency
+                target_pct = long_weight_each if pair.endswith("USD") else -long_weight_each
             elif cur in shorts:
-                # Short the currency:
-                if pair.endswith("USD"):
-                    target_pct = -short_weight_each
-                elif pair.startswith("USD"):
-                    target_pct = short_weight_each
+                # Short the currency
+                target_pct = -short_weight_each if pair.endswith("USD") else short_weight_each
 
-            # Place the order (using percent target to keep it simple)
             try:
-                if pair in self.securities:
-                    self.set_holdings(pair, target_pct)
-                    self.log(f"Set holdings for {pair}: target_pct={target_pct:.3f}")
-                else:
-                    self.log(f"Pair {pair} not in securities (skip)")
+                self.set_holdings(pair, target_pct)
+                self.log(f"Set holdings for {pair}: {target_pct:.3f}")
             except Exception as e:
                 self.log(f"Order failed for {pair}: {e}")
 
-    # ---------------------------
-    # Utility: logging wrapper
-    # ---------------------------
     def log(self, msg: str):
+        """Logging wrapper."""
         logger.info(msg)
 
 
@@ -365,6 +293,7 @@ class FXTestProjectBacktestManager(ProjectManager):
     Enhanced FX Project Manager with proper data management patterns.
     Loads FX data from CSV, creates currency entities, and executes FX backtesting.
     """
+    
     def __init__(self):
         super().__init__()
         # Initialize database manager
@@ -374,13 +303,12 @@ class FXTestProjectBacktestManager(ProjectManager):
         self.currency_repository = CurrencyRepository(self.database_manager.session)
         
         # Backtesting components
-        self.data_generator = None
         self.algorithm = None
         self.results = None
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Web interface manager
-        from application.services.misbuffet.web_interface import WebInterfaceManager
+        from application.services.misbuffet.web.web_interface import WebInterfaceManager
         self.web_interface = WebInterfaceManager()
 
     def run(self):
@@ -390,8 +318,7 @@ class FXTestProjectBacktestManager(ProjectManager):
         
         # Load FX data and run backtest
         return self._run_fx_backtest()
-    # Web interface functionality moved to application.services.misbuffet.web_interface
-    
+
     def _run_fx_backtest(self):
         """Execute the FX backtest with proper data management."""
         # Step 1: Load and store FX currency data
@@ -404,31 +331,31 @@ class FXTestProjectBacktestManager(ProjectManager):
         self.web_interface.progress_queue.put({
             'timestamp': datetime.now().isoformat(),
             'level': 'INFO',
-            'message': 'Starting TestProjectBacktestManager...'
+            'message': 'Starting FX TestProjectBacktestManager...'
         })
 
-        logger.info("Launching Misbuffet...")
+        logger.info("Launching FX Misbuffet...")
 
         try:
-            # Step 1: Launch package
+            # Launch package
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
-                'message': 'Loading Misbuffet framework...'
+                'message': 'Loading FX Misbuffet framework...'
             })
             
             misbuffet = Misbuffet.launch(config_file="launch_config.py")
 
-            # Step 2: Configure engine with LauncherConfiguration
+            # Configure engine
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
-                'message': 'Configuring backtest engine...'
+                'message': 'Configuring FX backtest engine...'
             })
             
-            config = LauncherConfiguration(
+            config_obj = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
-                algorithm_type_name="FX_LGBM_MeanReversion_Algorithm",  # String name as expected by LauncherConfiguration
+                algorithm_type_name="FX_LGBM_MeanReversion_Algorithm",
                 algorithm_location=__file__,
                 data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
                 environment="backtesting",
@@ -437,54 +364,49 @@ class FXTestProjectBacktestManager(ProjectManager):
             )
             
             # Override with engine config values
-            config.custom_config = MISBUFFET_ENGINE_CONFIG
+            config_obj.custom_config = MISBUFFET_ENGINE_CONFIG
+            config_obj.algorithm = FX_LGBM_MeanReversion_Algorithm
+            config_obj.database_manager = self.database_manager
             
-            # Add algorithm class to config for engine to use
-            config.algorithm = FX_LGBM_MeanReversion_Algorithm  # Pass the class, not an instance
-            
-            # Add database manager for real data access
-            config.database_manager = self.database_manager
-            
-            logger.info("Configuration setup with database access for real stock data")
+            logger.info("FX Configuration setup with database access for real FX data")
 
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
-                'message': 'Starting backtest engine...'
+                'message': 'Starting FX backtest engine...'
             })
             
-            logger.info("Starting engine...")
+            logger.info("Starting FX engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
 
-            # Step 3: Run backtest
+            # Run backtest
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'INFO',
-                'message': 'Executing backtest algorithm...'
+                'message': 'Executing FX backtest algorithm...'
             })
             
-            result = engine.run(config)
+            result = engine.run(config_obj)
 
-            logger.info("Backtest finished.")
-            logger.info(f"Result summary: {result.summary()}")
+            logger.info("FX Backtest finished.")
+            logger.info(f"FX Result summary: {result.summary()}")
             
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'SUCCESS',
-                'message': f'Backtest completed successfully! Result: {result.summary()}'
+                'message': f'FX Backtest completed successfully! Result: {result.summary()}'
             })
             
             return result
             
         except Exception as e:
-            logger.error(f"Error running backtest: {e}")
+            logger.error(f"Error running FX backtest: {e}")
             self.web_interface.progress_queue.put({
                 'timestamp': datetime.now().isoformat(),
                 'level': 'ERROR',
-                'message': f'Backtest failed: {str(e)}'
+                'message': f'FX Backtest failed: {str(e)}'
             })
             raise
-           
 
     def create_fx_currencies_with_data(self) -> List[CurrencyEntity]:
         """
