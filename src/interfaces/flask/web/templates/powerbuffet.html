@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerBuffet - Data Visualization & Database Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('web.static', filename='style.css') }}">
+    <style>
+        .powerbuffet-container {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        .control-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .visualization-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+        .table-info {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success-message {
+            background: #d1edff;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="powerbuffet-container">
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="h2 mb-0">📊 PowerBuffet</h1>
+                            <p class="text-muted mb-0">Data Visualization & Database Explorer</p>
+                        </div>
+                        <a href="{{ url_for('web.dashboard_hub') }}" class="btn btn-outline-primary">
+                            ← Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="control-panel">
+                        <h4 class="mb-3">Data Source & Visualization Selection</h4>
+                        
+                        <div class="row">
+                            <!-- Database Selection -->
+                            <div class="col-md-3">
+                                <label for="databaseSelect" class="form-label">Database Connection</label>
+                                <select class="form-select" id="databaseSelect" onchange="loadTables()">
+                                    <option value="">Select a database...</option>
+                                    {% for db in databases %}
+                                    <option value="{{ db.path }}" data-type="{{ db.type }}">{{ db.name }} ({{ db.type }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Table Selection -->
+                            <div class="col-md-3">
+                                <label for="tableSelect" class="form-label">Table</label>
+                                <select class="form-select" id="tableSelect" onchange="showTableInfo()" disabled>
+                                    <option value="">Select a table...</option>
+                                </select>
+                            </div>
+
+                            <!-- Visualization Selection -->
+                            <div class="col-md-3">
+                                <label for="visualizationSelect" class="form-label">Visualization Type</label>
+                                <select class="form-select" id="visualizationSelect" disabled>
+                                    <option value="">Select visualization...</option>
+                                    {% for viz in visualizations %}
+                                    <option value="{{ viz }}">{{ viz }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button class="btn btn-primary w-100" id="generateBtn" onclick="generateVisualization()" disabled>
+                                    Generate Visualization
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table Information Panel -->
+                        <div id="tableInfoPanel" class="table-info" style="display: none;">
+                            <h6>Table Information:</h6>
+                            <div id="tableInfoContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Container -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="visualization-container">
+                        <div id="welcomeMessage" class="text-center py-5">
+                            <h3 class="text-muted mb-3">Welcome to PowerBuffet!</h3>
+                            <p class="text-muted">Select a database, table, and visualization type to get started with your data exploration.</p>
+                            <div class="mt-4">
+                                <h5>Available Features:</h5>
+                                <ul class="list-unstyled">
+                                    <li>📊 Portfolio Performance Analysis</li>
+                                    <li>🔗 Asset Correlation Heatmaps</li>
+                                    <li>🥧 Sector Distribution Charts</li>
+                                    <li>💰 Market Cap Analysis</li>
+                                    <li>📈 Trading Volume Trends</li>
+                                    <li>📋 Financial Ratios Comparison</li>
+                                    <li>⏱️ Time Series Analysis</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div id="loadingSpinner" class="loading-spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">Generating visualization...</p>
+                        </div>
+                        
+                        <div id="errorMessage" class="error-message" style="display: none;"></div>
+                        <div id="successMessage" class="success-message" style="display: none;"></div>
+                        
+                        <div id="plotContainer" style="width: 100%; height: 500px;"></div>
+                        <div id="statsContainer" style="display: none;">
+                            <h5 class="mt-4">Summary Statistics:</h5>
+                            <div id="statsContent" class="row"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentTables = [];
+
+        function loadTables() {
+            const databaseSelect = document.getElementById('databaseSelect');
+            const tableSelect = document.getElementById('tableSelect');
+            const visualizationSelect = document.getElementById('visualizationSelect');
+            const generateBtn = document.getElementById('generateBtn');
+            const tableInfoPanel = document.getElementById('tableInfoPanel');
+            
+            // Reset dependent selectors
+            tableSelect.innerHTML = '<option value="">Select a table...</option>';
+            tableSelect.disabled = true;
+            visualizationSelect.disabled = true;
+            generateBtn.disabled = true;
+            tableInfoPanel.style.display = 'none';
+            
+            if (!databaseSelect.value) return;
+            
+            // Show loading
+            showMessage('Loading tables...', 'info');
+            
+            fetch(`/api/powerbuffet/tables/${encodeURIComponent(databaseSelect.value)}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideMessages();
+                    if (data.success) {
+                        currentTables = data.tables;
+                        data.tables.forEach(table => {
+                            const option = document.createElement('option');
+                            option.value = table.name;
+                            option.textContent = `${table.name} (${table.row_count} rows)`;
+                            tableSelect.appendChild(option);
+                        });
+                        tableSelect.disabled = false;
+                    } else {
+                        showMessage(`Error loading tables: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideMessages();
+                    showMessage(`Error loading tables: ${error.message}`, 'error');
+                });
+        }
+
+        function showTableInfo() {
+            const tableSelect = document.getElementById('tableSelect');
+            const visualizationSelect = document.getElementById('visualizationSelect');
+            const generateBtn = document.getElementById('generateBtn');
+            const tableInfoPanel = document.getElementById('tableInfoPanel');
+            const tableInfoContent = document.getElementById('tableInfoContent');
+            
+            if (!tableSelect.value) {
+                tableInfoPanel.style.display = 'none';
+                visualizationSelect.disabled = true;
+                generateBtn.disabled = true;
+                return;
+            }
+            
+            const selectedTable = currentTables.find(table => table.name === tableSelect.value);
+            if (selectedTable) {
+                let columnsHtml = '<div class="row">';
+                columnsHtml += `<div class="col-md-6"><strong>Rows:</strong> ${selectedTable.row_count}</div>`;
+                columnsHtml += `<div class="col-md-6"><strong>Columns:</strong> ${selectedTable.columns.length}</div>`;
+                columnsHtml += '</div><div class="mt-2"><strong>Column Details:</strong><ul class="mb-0">';
+                
+                selectedTable.columns.forEach(column => {
+                    columnsHtml += `<li>${column.name} (${column.type})</li>`;
+                });
+                columnsHtml += '</ul></div>';
+                
+                tableInfoContent.innerHTML = columnsHtml;
+                tableInfoPanel.style.display = 'block';
+                visualizationSelect.disabled = false;
+            }
+            
+            updateGenerateButton();
+        }
+
+        function updateGenerateButton() {
+            const databaseSelect = document.getElementById('databaseSelect');
+            const tableSelect = document.getElementById('tableSelect');
+            const visualizationSelect = document.getElementById('visualizationSelect');
+            const generateBtn = document.getElementById('generateBtn');
+            
+            generateBtn.disabled = !(databaseSelect.value && tableSelect.value && visualizationSelect.value);
+        }
+
+        function generateVisualization() {
+            const databaseSelect = document.getElementById('databaseSelect');
+            const tableSelect = document.getElementById('tableSelect');
+            const visualizationSelect = document.getElementById('visualizationSelect');
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const plotContainer = document.getElementById('plotContainer');
+            const statsContainer = document.getElementById('statsContainer');
+            
+            // Show loading state
+            welcomeMessage.style.display = 'none';
+            loadingSpinner.style.display = 'block';
+            plotContainer.innerHTML = '';
+            statsContainer.style.display = 'none';
+            hideMessages();
+            
+            const requestData = {
+                database_path: databaseSelect.value,
+                table_name: tableSelect.value,
+                visualization_name: visualizationSelect.value,
+                params: {}
+            };
+            
+            fetch('/api/powerbuffet/run_visualization', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingSpinner.style.display = 'none';
+                
+                if (data.success) {
+                    if (data.visualization.error) {
+                        showMessage(`Visualization Error: ${data.visualization.error}`, 'error');
+                    } else {
+                        showMessage('Visualization generated successfully!', 'success');
+                        
+                        // Display the plot
+                        if (data.visualization.plot_image) {
+                            document.getElementById('plotContainer').innerHTML = 
+                                `<img src="data:image/png;base64,${data.visualization.plot_image}" 
+                                 class="img-fluid" alt="Visualization" style="max-width: 100%; height: auto;">`;
+                        }
+                        
+                        // Display summary statistics if available
+                        if (data.visualization.summary_stats) {
+                            displayStats(data.visualization.summary_stats);
+                        }
+                    }
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                loadingSpinner.style.display = 'none';
+                showMessage(`Error generating visualization: ${error.message}`, 'error');
+            });
+        }
+
+        function displayStats(stats) {
+            const statsContainer = document.getElementById('statsContainer');
+            const statsContent = document.getElementById('statsContent');
+            
+            let html = '';
+            Object.entries(stats).forEach(([key, value]) => {
+                html += `
+                    <div class="col-md-3 mb-2">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-muted">${key.replace('_', ' ').toUpperCase()}</h6>
+                                <h4 class="card-text">${typeof value === 'number' ? value.toFixed(2) : value}</h4>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsContent.innerHTML = html;
+            statsContainer.style.display = 'block';
+        }
+
+        function showMessage(message, type) {
+            hideMessages();
+            const messageElement = type === 'error' ? 
+                document.getElementById('errorMessage') : 
+                document.getElementById('successMessage');
+            
+            messageElement.textContent = message;
+            messageElement.style.display = 'block';
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // Add event listeners
+        document.getElementById('visualizationSelect').addEventListener('change', updateGenerateButton);
+    </script>
+</body>
+</html>
