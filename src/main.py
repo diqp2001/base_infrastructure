@@ -11,6 +11,7 @@ from application.managers.project_managers.test_project_backtest.test_project_ba
 from application.managers.project_managers.test_project_backtest_fx.fx_test_project_backtest_manager import FXTestProjectBacktestManager
 from application.managers.project_managers.test_project_data.test_project_data_manager import TestProjectDataManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
+from application.managers.project_managers.test_project_web.test_project_web_manager import TestProjectWebManager
 
 
 
@@ -33,7 +34,7 @@ if __name__ == '__main__':
     # Uncomment the lines below to run the Black-Litterman backtest
     #bl_results = bt.run_black_litterman_backtest()
     #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
-    manager = TestProjectBacktestManager()
+    manager = TestProjectWebManager()
     #manager = FXTestProjectBacktestManager()
     #manager = TestProjectLiveTradingManager()
     
