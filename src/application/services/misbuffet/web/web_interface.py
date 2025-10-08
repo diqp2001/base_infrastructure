@@ -126,6 +126,8 @@ class WebInterfaceManager:
         try:
             webbrowser.open('http://localhost:5000/backtest_progress')
             webbrowser.open('http://localhost:5000/')
+            webbrowser.open('http://localhost:5000/powerbuffet')
+            webbrowser.open('http://localhost:5000/dashboard')
             print("🖥️  Browser opened automatically to backtest progress page")
         except Exception as e:
             print(f"⚠️  Could not open browser automatically: {e}")
