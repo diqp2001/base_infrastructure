@@ -486,3 +486,317 @@ class PowerBuffetService:
             
         except Exception as e:
             return {"error": f"Error generating security price comparison: {str(e)}"}
+    
+    def run_custom_visualization(self, chart_type: str, x_columns: List[Dict], 
+                                y_columns: List[Dict], params: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute custom multi-column visualization and return the result"""
+        try:
+            # Collect data from multiple sources
+            combined_data = self._load_multi_column_data(x_columns, y_columns)
+            
+            # Generate custom visualization
+            result = self._create_custom_chart(chart_type, combined_data, x_columns, y_columns, params or {})
+            
+            return {
+                "success": True,
+                "visualization": result,
+                "metadata": {
+                    "chart_type": chart_type,
+                    "x_columns_count": len(x_columns),
+                    "y_columns_count": len(y_columns),
+                    "total_data_points": len(combined_data) if combined_data is not None else 0
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error running custom visualization: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "metadata": {
+                    "chart_type": chart_type,
+                    "x_columns_count": len(x_columns),
+                    "y_columns_count": len(y_columns)
+                }
+            }
+    
+    def _load_multi_column_data(self, x_columns: List[Dict], y_columns: List[Dict]) -> pd.DataFrame:
+        """Load and combine data from multiple database sources and columns"""
+        try:
+            combined_data = pd.DataFrame()
+            column_data = {}
+            
+            # Process X columns
+            for col_info in x_columns:
+                data = self._load_table_data(col_info['dbPath'], col_info['table'])
+                if col_info['column'] in data.columns:
+                    column_key = f"X_{col_info['table']}_{col_info['column']}"
+                    column_data[column_key] = {
+                        'data': data[col_info['column']],
+                        'index': data.index,
+                        'source': f"{col_info['dbName']} > {col_info['table']}.{col_info['column']}"
+                    }
+            
+            # Process Y columns
+            for col_info in y_columns:
+                data = self._load_table_data(col_info['dbPath'], col_info['table'])
+                if col_info['column'] in data.columns:
+                    column_key = f"Y_{col_info['table']}_{col_info['column']}"
+                    column_data[column_key] = {
+                        'data': data[col_info['column']],
+                        'index': data.index,
+                        'source': f"{col_info['dbName']} > {col_info['table']}.{col_info['column']}"
+                    }
+            
+            # Combine data intelligently
+            if column_data:
+                # Find common index or create unified index
+                all_indices = [info['index'] for info in column_data.values()]
+                
+                # For now, use the first available index and align data
+                base_index = all_indices[0]
+                combined_data = pd.DataFrame(index=base_index)
+                
+                for col_key, col_info in column_data.items():
+                    try:
+                        # Align data to base index
+                        aligned_data = col_info['data'].reindex(base_index, method='nearest')
+                        combined_data[col_key] = aligned_data
+                        combined_data[f"{col_key}_source"] = col_info['source']
+                    except Exception as e:
+                        logger.warning(f"Error aligning column {col_key}: {e}")
+                        # Fallback: reset index and use position-based alignment
+                        combined_data[col_key] = col_info['data'].reset_index(drop=True)
+            
+            return combined_data
+            
+        except Exception as e:
+            logger.error(f"Error loading multi-column data: {e}")
+            return pd.DataFrame()
+    
+    def _create_custom_chart(self, chart_type: str, data: pd.DataFrame, 
+                           x_columns: List[Dict], y_columns: List[Dict], params: Dict) -> Dict[str, Any]:
+        """Create custom visualization based on selected chart type and columns"""
+        try:
+            if data.empty:
+                return {"error": "No data available for visualization"}
+            
+            fig, ax = plt.subplots(figsize=(14, 8))
+            
+            # Get column names for plotting
+            x_cols = [col for col in data.columns if col.startswith('X_') and not col.endswith('_source')]
+            y_cols = [col for col in data.columns if col.startswith('Y_') and not col.endswith('_source')]
+            
+            if chart_type == 'scatter':
+                result = self._create_scatter_plot(ax, data, x_cols, y_cols)
+            elif chart_type == 'line':
+                result = self._create_line_plot(ax, data, x_cols, y_cols)
+            elif chart_type == 'bar':
+                result = self._create_bar_plot(ax, data, x_cols, y_cols)
+            elif chart_type == 'histogram':
+                result = self._create_histogram_plot(ax, data, x_cols, y_cols)
+            elif chart_type == 'correlation':
+                result = self._create_correlation_plot(ax, data, x_cols, y_cols)
+            else:
+                return {"error": f"Unsupported chart type: {chart_type}"}
+            
+            if 'error' in result:
+                return result
+            
+            # Finalize plot
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            plot_image = self._create_plot_base64(fig)
+            
+            # Calculate summary statistics
+            stats = self._calculate_multi_column_stats(data, x_cols, y_cols)
+            
+            return {
+                "plot_image": plot_image,
+                "summary_stats": stats,
+                "chart_info": {
+                    "type": chart_type,
+                    "x_columns": len(x_cols),
+                    "y_columns": len(y_cols),
+                    "data_points": len(data)
+                }
+            }
+            
+        except Exception as e:
+            return {"error": f"Error creating custom chart: {str(e)}"}
+    
+    def _create_scatter_plot(self, ax, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Create scatter plot"""
+        try:
+            if len(x_cols) == 0 or len(y_cols) == 0:
+                return {"error": "Need at least one X and one Y column for scatter plot"}
+            
+            # Use first columns or create combinations
+            x_col = x_cols[0]
+            y_col = y_cols[0]
+            
+            ax.scatter(data[x_col], data[y_col], alpha=0.6, s=50)
+            ax.set_xlabel(x_col.replace('X_', '').replace('_', '.'))
+            ax.set_ylabel(y_col.replace('Y_', '').replace('_', '.'))
+            ax.set_title(f"Scatter Plot: {x_col.replace('X_', '')} vs {y_col.replace('Y_', '')}")
+            
+            return {"success": True}
+            
+        except Exception as e:
+            return {"error": f"Error creating scatter plot: {str(e)}"}
+    
+    def _create_line_plot(self, ax, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Create line plot"""
+        try:
+            if len(y_cols) == 0:
+                return {"error": "Need at least one Y column for line plot"}
+            
+            # Use index as X if no X columns, otherwise use first X column
+            if len(x_cols) > 0:
+                x_data = data[x_cols[0]]
+                x_label = x_cols[0].replace('X_', '').replace('_', '.')
+            else:
+                x_data = data.index
+                x_label = 'Index'
+            
+            colors = plt.cm.tab10(np.linspace(0, 1, len(y_cols)))
+            
+            for i, y_col in enumerate(y_cols):
+                ax.plot(x_data, data[y_col], linewidth=2, color=colors[i], 
+                       label=y_col.replace('Y_', '').replace('_', '.'), alpha=0.8)
+            
+            ax.set_xlabel(x_label)
+            ax.set_ylabel('Values')
+            ax.set_title('Multi-Column Line Chart')
+            
+            if len(y_cols) > 1:
+                ax.legend()
+            
+            return {"success": True}
+            
+        except Exception as e:
+            return {"error": f"Error creating line plot: {str(e)}"}
+    
+    def _create_bar_plot(self, ax, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Create bar plot"""
+        try:
+            if len(y_cols) == 0:
+                return {"error": "Need at least one Y column for bar plot"}
+            
+            # Use first 20 data points for readability
+            plot_data = data.head(20)
+            
+            if len(y_cols) == 1:
+                # Single series bar chart
+                y_col = y_cols[0]
+                bars = ax.bar(range(len(plot_data)), plot_data[y_col], alpha=0.7)
+                ax.set_ylabel(y_col.replace('Y_', '').replace('_', '.'))
+                ax.set_title(f"Bar Chart: {y_col.replace('Y_', '').replace('_', '.')}")
+            else:
+                # Multi-series bar chart
+                x = np.arange(len(plot_data))
+                width = 0.8 / len(y_cols)
+                
+                for i, y_col in enumerate(y_cols):
+                    offset = (i - len(y_cols)/2) * width + width/2
+                    ax.bar(x + offset, plot_data[y_col], width, alpha=0.7, 
+                          label=y_col.replace('Y_', '').replace('_', '.'))
+                
+                ax.set_ylabel('Values')
+                ax.set_title('Multi-Column Bar Chart')
+                ax.legend()
+            
+            ax.set_xlabel('Data Points')
+            
+            return {"success": True}
+            
+        except Exception as e:
+            return {"error": f"Error creating bar plot: {str(e)}"}
+    
+    def _create_histogram_plot(self, ax, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Create histogram plot"""
+        try:
+            all_cols = x_cols + y_cols
+            if len(all_cols) == 0:
+                return {"error": "Need at least one column for histogram"}
+            
+            if len(all_cols) == 1:
+                # Single histogram
+                col = all_cols[0]
+                ax.hist(data[col].dropna(), bins=30, alpha=0.7, edgecolor='black')
+                ax.set_xlabel(col.replace('X_', '').replace('Y_', '').replace('_', '.'))
+                ax.set_ylabel('Frequency')
+                ax.set_title(f"Histogram: {col.replace('X_', '').replace('Y_', '').replace('_', '.')}")
+            else:
+                # Multiple histograms
+                colors = plt.cm.tab10(np.linspace(0, 1, len(all_cols)))
+                for i, col in enumerate(all_cols):
+                    ax.hist(data[col].dropna(), bins=20, alpha=0.5, 
+                           color=colors[i], label=col.replace('X_', '').replace('Y_', '').replace('_', '.'), 
+                           edgecolor='black')
+                
+                ax.set_xlabel('Values')
+                ax.set_ylabel('Frequency')
+                ax.set_title('Multi-Column Histogram')
+                ax.legend()
+            
+            return {"success": True}
+            
+        except Exception as e:
+            return {"error": f"Error creating histogram: {str(e)}"}
+    
+    def _create_correlation_plot(self, ax, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Create correlation heatmap"""
+        try:
+            all_cols = x_cols + y_cols
+            if len(all_cols) < 2:
+                return {"error": "Need at least 2 columns for correlation analysis"}
+            
+            # Select numeric columns only
+            numeric_data = data[all_cols].select_dtypes(include=['number'])
+            
+            if len(numeric_data.columns) < 2:
+                return {"error": "Need at least 2 numeric columns for correlation"}
+            
+            corr_matrix = numeric_data.corr()
+            
+            # Clean column names for display
+            clean_names = [col.replace('X_', '').replace('Y_', '').replace('_', '.') for col in corr_matrix.columns]
+            corr_matrix.columns = clean_names
+            corr_matrix.index = clean_names
+            
+            import seaborn as sns
+            sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, ax=ax, 
+                       square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
+            ax.set_title('Column Correlation Heatmap')
+            
+            return {"success": True}
+            
+        except Exception as e:
+            return {"error": f"Error creating correlation plot: {str(e)}"}
+    
+    def _calculate_multi_column_stats(self, data: pd.DataFrame, x_cols: List[str], y_cols: List[str]) -> Dict[str, Any]:
+        """Calculate summary statistics for multiple columns"""
+        try:
+            stats = {}
+            all_cols = x_cols + y_cols
+            
+            # Basic data info
+            stats['total_columns'] = len(all_cols)
+            stats['data_points'] = len(data)
+            stats['x_columns'] = len(x_cols)
+            stats['y_columns'] = len(y_cols)
+            
+            # Column-specific stats
+            numeric_cols = data[all_cols].select_dtypes(include=['number']).columns
+            if len(numeric_cols) > 0:
+                stats['numeric_columns'] = len(numeric_cols)
+                stats['avg_mean'] = float(data[numeric_cols].mean().mean())
+                stats['avg_std'] = float(data[numeric_cols].std().mean())
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error calculating multi-column stats: {e}")
+            return {'error': str(e)}
