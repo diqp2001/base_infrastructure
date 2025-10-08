@@ -31,6 +31,7 @@ class PowerBuffetService:
     
     def __init__(self):
         self.visualization_registry = self._initialize_visualization_registry()
+        self.project_root = Path(__file__).parents[6]  # Navigate to project root
         
     def _initialize_visualization_registry(self) -> Dict[str, callable]:
         """Initialize the registry of available visualization functions"""
@@ -41,7 +42,8 @@ class PowerBuffetService:
             "Market Cap Analysis": self._plot_market_cap_analysis,
             "Trading Volume Trends": self._plot_volume_trends,
             "Financial Ratios Comparison": self._plot_financial_ratios,
-            "Time Series Analysis": self._plot_time_series
+            "Time Series Analysis": self._plot_time_series,
+            "Security Price Comparison": self._plot_security_price_comparison
         }
     
     def get_available_databases(self) -> List[Dict[str, str]]:
@@ -49,8 +51,7 @@ class PowerBuffetService:
         databases = []
         
         # Check for SQLite databases in the project
-        project_root = Path(__file__).parents[5]  # Navigate to project root
-        sqlite_files = list(project_root.rglob("*.db")) + list(project_root.rglob("*.sqlite"))
+        sqlite_files = list(self.project_root.rglob("*.db")) + list(self.project_root.rglob("*.sqlite"))
         
         for db_file in sqlite_files:
             databases.append({
@@ -60,11 +61,24 @@ class PowerBuffetService:
                 "connection_string": str(db_file)
             })
         
-        # Add predefined database connections (can be extended)
-        # databases.extend([
-        #     {"name": "Production SQL Server", "type": "SQL Server", "connection_string": "..."},
-        #     {"name": "Analytics PostgreSQL", "type": "PostgreSQL", "connection_string": "..."}
-        # ])
+        # Add CSV data sources from stock_data directory
+        stock_data_dir = self.project_root / "data" / "stock_data"
+        if stock_data_dir.exists():
+            databases.append({
+                "name": "Stock Data (CSV)",
+                "type": "CSV_Stock_Data",
+                "path": str(stock_data_dir),
+                "connection_string": str(stock_data_dir)
+            })
+        
+        fx_data_dir = self.project_root / "data" / "fx_data"
+        if fx_data_dir.exists():
+            databases.append({
+                "name": "FX Data (CSV)",
+                "type": "CSV_FX_Data",
+                "path": str(fx_data_dir),
+                "connection_string": str(fx_data_dir)
+            })
         
         return databases
     
@@ -97,6 +111,44 @@ class PowerBuffetService:
                     })
                 
                 conn.close()
+            
+            elif "stock_data" in database_path and Path(database_path).is_dir():
+                # Handle CSV stock data directory
+                data_dir = Path(database_path)
+                csv_files = list(data_dir.glob("*.csv"))
+                
+                for csv_file in csv_files:
+                    # Read first few rows to get column info
+                    df = pd.read_csv(csv_file, nrows=5)
+                    row_count = len(pd.read_csv(csv_file))
+                    
+                    columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
+                    
+                    tables.append({
+                        "name": csv_file.stem,  # filename without extension
+                        "columns": columns,
+                        "row_count": row_count,
+                        "file_path": str(csv_file)
+                    })
+            
+            elif "fx_data" in database_path and Path(database_path).is_dir():
+                # Handle CSV FX data directory
+                data_dir = Path(database_path)
+                csv_files = list(data_dir.glob("*.csv"))
+                
+                for csv_file in csv_files:
+                    # Read first few rows to get column info
+                    df = pd.read_csv(csv_file, nrows=5)
+                    row_count = len(pd.read_csv(csv_file))
+                    
+                    columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
+                    
+                    tables.append({
+                        "name": csv_file.stem,  # filename without extension
+                        "columns": columns,
+                        "row_count": row_count,
+                        "file_path": str(csv_file)
+                    })
                 
         except Exception as e:
             logger.error(f"Error getting tables from database {database_path}: {e}")
@@ -152,8 +204,22 @@ class PowerBuffetService:
             data = pd.read_sql_query(query, conn)
             conn.close()
             return data
+        elif "stock_data" in database_path or "fx_data" in database_path:
+            # Handle CSV files
+            data_dir = Path(database_path)
+            csv_file = data_dir / f"{table_name}.csv"
+            
+            if csv_file.exists():
+                data = pd.read_csv(csv_file)
+                # Convert Date column to datetime if it exists
+                if 'Date' in data.columns:
+                    data['Date'] = pd.to_datetime(data['Date'])
+                    data = data.set_index('Date')
+                return data.head(limit)
+            else:
+                raise FileNotFoundError(f"CSV file {csv_file} not found")
         else:
-            raise NotImplementedError("Only SQLite databases are currently supported")
+            raise NotImplementedError("Only SQLite databases and CSV files are currently supported")
     
     def _create_plot_base64(self, fig) -> str:
         """Convert matplotlib figure to base64 string"""
@@ -354,3 +420,69 @@ class PowerBuffetService:
             
         except Exception as e:
             return {"error": f"Error generating time series plot: {str(e)}"}
+    
+    def _plot_security_price_comparison(self, data: pd.DataFrame, params: Dict) -> Dict[str, Any]:
+        """Generate security price comparison chart with date filtering"""
+        try:
+            # Look for price columns
+            price_cols = []
+            for col in data.columns:
+                if any(term in col.lower() for term in ['close', 'price', 'adj close', 'open', 'high', 'low']):
+                    price_cols.append(col)
+            
+            if len(price_cols) == 0:
+                return {"error": "No price columns found for security comparison"}
+            
+            # Filter data by date range (2019-2020 as requested)
+            if isinstance(data.index, pd.DatetimeIndex):
+                # Filter for 2019-2020 period
+                start_date = '2019-01-01'
+                end_date = '2020-12-31'
+                filtered_data = data.loc[start_date:end_date]
+                
+                if len(filtered_data) == 0:
+                    filtered_data = data  # Use all data if no data in specified range
+                    date_info = "(Using all available data - no data in 2019-2020 range)"
+                else:
+                    date_info = "(2019-2020)"
+            else:
+                filtered_data = data
+                date_info = "(All available data)"
+            
+            # Use Close price or first available price column
+            price_col = 'Close' if 'Close' in price_cols else price_cols[0]
+            
+            fig, ax = plt.subplots(figsize=(14, 8))
+            ax.plot(filtered_data.index, filtered_data[price_col], linewidth=2, color='blue', label='Price')
+            ax.set_title(f"Security Price Analysis {date_info}", fontsize=16, fontweight='bold')
+            ax.set_xlabel('Date')
+            ax.set_ylabel(f'{price_col} ($)')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            # Format x-axis for dates
+            if isinstance(filtered_data.index, pd.DatetimeIndex):
+                ax.tick_params(axis='x', rotation=45)
+            
+            plt.tight_layout()
+            plot_image = self._create_plot_base64(fig)
+            
+            # Calculate summary statistics
+            stats = {
+                "start_price": float(filtered_data[price_col].iloc[0]),
+                "end_price": float(filtered_data[price_col].iloc[-1]),
+                "max_price": float(filtered_data[price_col].max()),
+                "min_price": float(filtered_data[price_col].min()),
+                "avg_price": float(filtered_data[price_col].mean()),
+                "total_return_pct": float((filtered_data[price_col].iloc[-1] / filtered_data[price_col].iloc[0] - 1) * 100),
+                "volatility_pct": float(filtered_data[price_col].pct_change().std() * np.sqrt(252) * 100),
+                "data_points": len(filtered_data)
+            }
+            
+            return {
+                "plot_image": plot_image,
+                "summary_stats": stats
+            }
+            
+        except Exception as e:
+            return {"error": f"Error generating security price comparison: {str(e)}"}
