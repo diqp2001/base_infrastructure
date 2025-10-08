@@ -26,76 +26,107 @@ class FactorEquity(FactorSecurity):
     def calculate(self, *args, **kwargs) -> Decimal:
         raise NotImplementedError("FactorEquity must implement calculate() method.")
 
-🗄️ Database Design
-1. Factor Definition Table — factors
+🗄️ Database Design - Entity-Specific Factor Tables
 
-Purpose:
-Stores all available factors and their metadata.
+**Architecture Overview:**
+Each financial asset type now has its own dedicated factor tables following the pattern:
+- `{entity}_factors` - Factor definitions specific to that entity type
+- `{entity}_factor_values` - Factor values linked to entities and dates
+- `{entity}_factor_rules` - Rules for factor calculations
 
-Columns:
+**Implemented Factor Table Sets:**
+- Share: `share_factors`, `share_factor_values`, `share_factor_rules`
+- Bond: `bond_factors`, `bond_factor_values`, `bond_factor_rules`  
+- Security: `security_factors`, `security_factor_values`, `security_factor_rules`
+- Equity: `equity_factors`, `equity_factor_values`, `equity_factor_rules`
+- Currency: `currency_factors`, `currency_factor_values`, `currency_factor_rules`
+- Commodity: `commodity_factors`, `commodity_factor_values`, `commodity_factor_rules`
+- Options: `options_factors`, `options_factor_values`, `options_factor_rules`
+- Futures: `futures_factors`, `futures_factor_values`, `futures_factor_rules`
+- Index: `index_factors`, `index_factor_values`, `index_factor_rules`
+- ETF Share: `etf_share_factors`, `etf_share_factor_values`, `etf_share_factor_rules`
+- Company Share: `company_share_factors`, `company_share_factor_values`, `company_share_factor_rules`
 
+**1. Factor Definition Tables (`{entity}_factors`)**
+
+Purpose: Store factor metadata specific to each entity type.
+
+Common Columns:
 Column	Type	Description
-id	UUID / Integer	Primary key (Factor ID)
-name	String	Factor name
-group	String	Logical group (e.g. "momentum", "valuation")
-subgroup	String (nullable)	Optional subgroup
-data_type	String	Type of value (numeric, categorical, etc.)
-source	String	Data origin (internal, external)
-definition	Text	Description or definition of the factor
-2. Factor Value Table — factor_values
+id	Integer	Primary key (auto-increment)
+name	String(255)	Factor name (indexed)
+group	String(100)	Logical group (e.g. "momentum", "valuation")
+subgroup	String(100) nullable	Optional subgroup
+data_type	String(50)	Type of value (defaults to 'numeric')
+source	String(100) nullable	Data origin (internal, external)
+definition	Text nullable	Description or definition of the factor
 
-Purpose:
-Stores factor values linked to specific financial entities on specific dates.
+**2. Factor Value Tables (`{entity}_factor_values`)**
 
-Columns:
+Purpose: Store factor values linked to specific entities on specific dates.
 
+Common Columns:
 Column	Type	Description
-id	UUID / Integer	Primary key
-factor_id	Foreign Key (factors.id)	Links to factor definition
-entity_id	Foreign Key (shares.id or securities.id)	The related asset
-date	Date	Date of the factor value
-value	Decimal	The numeric value of the factor
-3. Internal Factor Rule Table — factor_rules
+id	Integer	Primary key (auto-increment)
+factor_id	Foreign Key	Links to {entity}_factors.id
+entity_id	Foreign Key	Links to {entity}s.id (e.g., shares.id)
+date	Date	Date of the factor value (indexed)
+value	Numeric(20,8)	The numeric value of the factor
 
-Purpose:
-Describes internally defined factors and their computation rules or logic reference.
+**3. Factor Rule Tables (`{entity}_factor_rules`)**
 
-Columns:
+Purpose: Define computation rules for internally calculated factors.
 
+Common Columns:
 Column	Type	Description
-id	UUID / Integer	Primary key
-factor_id	Foreign Key (factors.id)	The factor this rule defines
-condition	String	Logical condition (for simple computed factors)
-rule_type	Enum(bool, numeric, custom)	Rule type
-method_ref	String (nullable)	Name of a method or function implemented in code (e.g. FactorEquity.calculate_pe_ratio)
-🧱 Folder Layout
-src/
-├── domain/
-│   └── entities/
-│       └── factor/
-│           └── finance/
-│               └── financial_assets/
-│                   ├── factor_security.py
-│                   └── factor_equity.py
-├── infrastructure/
-│   └── models/
-│       └── finance/
-                └── financial_assets/
-│                   ├── factor_security_model.py
-│                   └── factor_equity_model.py
-                    ├── factor_security_value_model.py
-│                   └── factor_equity_value_model.py
-                    ├── factor_security_rule_model.py
-│                   └── factor_equity_rule_model.py
-│           
-│   └── repositories/
-│       └── local_repo/
-            └── factor/
-    │           └── finance/
-                    └── financial_assets/
-                    │               ├── factor_repository.py ← CRUD for all 3 tables
-                    │               └── factor_value_repository.py
-                                    └── factor_rule_repository.py
+id	Integer	Primary key (auto-increment)
+factor_id	Foreign Key	Links to {entity}_factors.id
+condition	Text	Logical condition for factor calculation
+rule_type	String(50)	Rule type (e.g., "calculation", "filter")
+method_ref	String(255) nullable	Reference to calculation method
+🧱 Updated Folder Layout
+
+**Infrastructure Models** (SQLAlchemy ORM):
+```
+src/infrastructure/models/finance/financial_assets/
+├── share_factors.py                    # ShareFactor, ShareFactorValue, ShareFactorRule
+├── bond_factors.py                     # BondFactor, BondFactorValue, BondFactorRule
+├── security_factors.py                 # SecurityFactor, SecurityFactorValue, SecurityFactorRule
+├── equity_factors.py                   # EquityFactor, EquityFactorValue, EquityFactorRule
+├── currency_factors.py                 # CurrencyFactor, CurrencyFactorValue, CurrencyFactorRule
+├── commodity_factors.py                # CommodityFactor, CommodityFactorValue, CommodityFactorRule
+├── options_factors.py                  # OptionsFactor, OptionsFactorValue, OptionsFactorRule
+├── futures_factors.py                  # FuturesFactor, FuturesFactorValue, FuturesFactorRule
+├── index_factors.py                    # IndexFactor, IndexFactorValue, IndexFactorRule
+├── etf_share_factors.py                # ETFShareFactor, ETFShareFactorValue, ETFShareFactorRule
+└── company_share_factors.py            # CompanyShareFactor, CompanyShareFactorValue, CompanyShareFactorRule
+```
+
+**Repository Classes** (Data Access Layer):
+```
+src/infrastructure/repositories/local_repo/factor/finance/financial_assets/
+├── base_factor_repository.py           # BaseFactorRepository with common CRUD operations
+├── share_factor_repository.py          # ShareFactorRepository
+├── bond_factor_repository.py           # BondFactorRepository  
+├── security_factor_repository.py       # SecurityFactorRepository
+├── equity_factor_repository.py         # EquityFactorRepository
+├── currency_factor_repository.py       # CurrencyFactorRepository
+├── commodity_factor_repository.py      # CommodityFactorRepository
+├── options_factor_repository.py        # OptionsFactorRepository
+├── futures_factor_repository.py        # FuturesFactorRepository
+├── index_factor_repository.py          # IndexFactorRepository
+├── etf_share_factor_repository.py      # ETFShareFactorRepository
+└── company_share_factor_repository.py  # CompanyShareFactorRepository
+```
+
+**Domain Entities** (Business Logic - existing):
+```
+src/domain/entities/factor/finance/financial_assets/
+├── security_factor.py                  # FactorSecurity (base class)
+├── equity_factor.py                    # FactorEquity (inherits from FactorSecurity)
+├── share_factor.py                     # FactorShare (inherits from FactorEquity)
+└── ...                                 # Other factor domain entities
+```
 
 🧠 Design Notes
 
@@ -152,20 +183,77 @@ class FactorRule(Base):
 
     factor = relationship("Factor", back_populates="rules")
 
-🧰 Repository Example
+🧰 Repository Implementation
 
-Each repository will inherit from a base class like BaseRepository (already in your infrastructure).
+**BaseFactorRepository Pattern:**
 
-Example:
+All entity-specific repositories inherit from `BaseFactorRepository` which provides common CRUD operations:
 
-class FactorRepository(BaseRepository):
-    def get_by_name(self, name: str) -> Optional[Factor]:
-        return self.session.query(Factor).filter_by(name=name).first()
+```python
+class BaseFactorRepository(ABC):
+    """Base repository for all factor entities with common CRUD operations."""
+    
+    # Factory methods (abstract - implemented by subclasses)
+    @abstractmethod
+    def get_factor_model(self): pass
+    @abstractmethod  
+    def get_factor_value_model(self): pass
+    @abstractmethod
+    def get_factor_rule_model(self): pass
+    
+    # Common CRUD operations
+    def create_factor(self, **kwargs): ...
+    def get_by_name(self, name: str): ...
+    def get_by_id(self, factor_id: int): ...
+    def list_all(self) -> List: ...
+    def update_factor(self, factor_id: int, **kwargs): ...
+    def delete_factor(self, factor_id: int) -> bool: ...
+    
+    def create_factor_value(self, **kwargs): ...
+    def get_by_factor_and_date(self, factor_id: int, date_value: date) -> List: ...
+    def get_factor_values_by_entity(self, entity_id: int, factor_id: Optional[int] = None) -> List: ...
+    
+    def create_factor_rule(self, **kwargs): ...
+    def get_rules_by_factor(self, factor_id: int) -> List: ...
+```
 
-class FactorValueRepository(BaseRepository):
-    def get_by_factor_and_date(self, factor_id: int, date: date):
-        return self.session.query(FactorValue).filter_by(factor_id=factor_id, date=date).all()
+**Entity-Specific Repository Example:**
 
-class FactorRuleRepository(BaseRepository):
-    def get_rules_for_factor(self, factor_id: int):
-        return self.session.query(FactorRule).filter_by(factor_id=factor_id).all()
+```python
+class ShareFactorRepository(BaseFactorRepository):
+    def get_factor_model(self):
+        return ShareFactor
+    def get_factor_value_model(self):
+        return ShareFactorValue  
+    def get_factor_rule_model(self):
+        return ShareFactorRule
+```
+
+**Usage Example:**
+
+```python
+# Create repository instance
+repo = ShareFactorRepository()
+
+# Create a new factor
+factor = repo.create_factor(
+    name="PE_Ratio",
+    group="valuation", 
+    subgroup="multiples",
+    definition="Price to Earnings ratio"
+)
+
+# Get factor by name
+pe_factor = repo.get_by_name("PE_Ratio")
+
+# Create factor value
+repo.create_factor_value(
+    factor_id=factor.id,
+    entity_id=123,  # share ID
+    date=date(2024, 1, 1),
+    value=15.5
+)
+
+# Query factor values
+values = repo.get_by_factor_and_date(factor.id, date(2024, 1, 1))
+```
