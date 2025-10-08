@@ -1,15 +1,17 @@
 """
 Mapper for Currency domain entity and ORM model.
 Converts between domain entities and ORM models to avoid metaclass conflicts.
-Enhanced with country relationships and historical rates.
+Enhanced with country relationships, historical rates, and factor integration.
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency, CurrencyRate as DomainCurrencyRate
 from src.infrastructure.models.finance.financial_assets.currency import Currency as ORMCurrency, CurrencyRate as ORMCurrencyRate
+from src.infrastructure.models.finance.financial_assets.currency_factors import CurrencyFactor, CurrencyFactorValue
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 
 
 class CurrencyMapper:
@@ -94,3 +96,134 @@ class CurrencyMapper:
             orm_rates.append(orm_rate)
         
         return orm_rates
+
+    @staticmethod
+    def populate_factor_data(domain_obj: DomainCurrency, currency_id: int, factor_repository: CurrencyFactorRepository) -> List[CurrencyFactorValue]:
+        """
+        Populate currency factor values from domain entity historical rates.
+        
+        :param domain_obj: Domain currency entity with historical rates
+        :param currency_id: Database ID of the currency
+        :param factor_repository: Repository for managing currency factors
+        :return: List of created factor value records
+        """
+        created_values = []
+        
+        if not domain_obj.historical_rates:
+            return created_values
+        
+        # Create or get exchange rate factor
+        factor_name = f"{domain_obj.iso_code}_exchange_rate_usd"
+        
+        try:
+            factor = factor_repository.get_by_name(factor_name)
+        except:
+            # Create new factor
+            factor = factor_repository.add_factor(
+                name=factor_name,
+                group="exchange_rate",
+                subgroup="historical",
+                data_type="numeric",
+                source="currency_mapper",
+                definition=f"Exchange rate for {domain_obj.name} vs USD"
+            )
+        
+        # Populate factor values from historical rates
+        for domain_rate in domain_obj.historical_rates:
+            try:
+                factor_value = factor_repository.add_factor_value(
+                    factor_id=factor.id,
+                    entity_id=currency_id,
+                    date=domain_rate.timestamp.date() if isinstance(domain_rate.timestamp, datetime) else domain_rate.timestamp,
+                    value=domain_rate.rate
+                )
+                created_values.append(factor_value)
+            except Exception as e:
+                print(f"Warning: Failed to create factor value for {factor_name} on {domain_rate.timestamp}: {str(e)}")
+                continue
+        
+        return created_values
+
+    @staticmethod
+    def populate_current_rate_factor(domain_obj: DomainCurrency, currency_id: int, factor_repository: CurrencyFactorRepository) -> Optional[CurrencyFactorValue]:
+        """
+        Populate current exchange rate as a factor value.
+        
+        :param domain_obj: Domain currency entity with current rate
+        :param currency_id: Database ID of the currency
+        :param factor_repository: Repository for managing currency factors
+        :return: Created factor value record or None
+        """
+        if not domain_obj.current_rate_to_usd:
+            return None
+        
+        # Create or get current rate factor
+        factor_name = f"{domain_obj.iso_code}_current_rate_usd"
+        
+        try:
+            factor = factor_repository.get_by_name(factor_name)
+        except:
+            # Create new factor
+            factor = factor_repository.add_factor(
+                name=factor_name,
+                group="exchange_rate",
+                subgroup="current",
+                data_type="numeric",
+                source="currency_mapper",
+                definition=f"Current exchange rate for {domain_obj.name} vs USD"
+            )
+        
+        # Create factor value for current rate
+        current_date = domain_obj.last_rate_update.date() if domain_obj.last_rate_update else date.today()
+        
+        try:
+            factor_value = factor_repository.add_factor_value(
+                factor_id=factor.id,
+                entity_id=currency_id,
+                date=current_date,
+                value=domain_obj.current_rate_to_usd
+            )
+            return factor_value
+        except Exception as e:
+            print(f"Warning: Failed to create current rate factor value for {factor_name}: {str(e)}")
+            return None
+
+    @staticmethod
+    def load_factor_data(orm_obj: ORMCurrency, factor_repository: CurrencyFactorRepository) -> DomainCurrency:
+        """
+        Load currency domain entity with factor data populated as historical rates.
+        
+        :param orm_obj: ORM Currency model
+        :param factor_repository: Repository for accessing currency factors
+        :return: Domain currency entity with factor data as historical rates
+        """
+        # Convert ORM to domain first
+        domain_entity = CurrencyMapper.to_domain(orm_obj)
+        
+        # Load factor values as historical rates
+        try:
+            # Get exchange rate factor
+            factor_name = f"{domain_entity.iso_code}_exchange_rate_usd"
+            factor = factor_repository.get_by_name(factor_name)
+            
+            if factor:
+                # Get all factor values for this currency
+                factor_values = factor_repository.get_factor_values_by_entity(orm_obj.id)
+                
+                # Convert factor values to domain currency rates
+                for fv in factor_values:
+                    if fv.factor_id == factor.id:
+                        domain_rate = DomainCurrencyRate(
+                            rate=fv.value,
+                            timestamp=datetime.combine(fv.date, datetime.min.time()),
+                            target_currency="USD"
+                        )
+                        domain_entity.historical_rates.append(domain_rate)
+                
+                # Sort by date
+                domain_entity.historical_rates.sort(key=lambda r: r.timestamp)
+                
+        except Exception as e:
+            print(f"Warning: Failed to load factor data for currency {domain_entity.name}: {str(e)}")
+        
+        return domain_entity

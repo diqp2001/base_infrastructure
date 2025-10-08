@@ -28,6 +28,8 @@ from application.managers.project_managers.test_project_backtest import config
 from domain.entities.finance.financial_assets.currency import Currency as CurrencyEntity
 from domain.entities.country import Country as CountryEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
+from infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
 
 # Import the actual backtesting framework components
 from application.services.misbuffet.common import (
@@ -540,3 +542,127 @@ class FXTestProjectBacktestManager(ProjectManager):
         except Exception as e:
             logger.error(f"Error getting currency summary: {e}")
             return {}
+
+    def create_fx_currencies_with_factor_data(self) -> List[CurrencyEntity]:
+        """
+        Enhanced currency creation that integrates with the factor architecture.
+        Creates currencies and populates factor data for exchange rates.
+        """
+        logger.info("Creating FX currencies with factor integration...")
+        
+        # Initialize factor repository
+        currency_factor_repository = CurrencyFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+        
+        # Create currencies using existing method
+        created_currencies = self.create_fx_currencies_with_data()
+        
+        if not created_currencies:
+            logger.warning("No currencies created, skipping factor population")
+            return []
+        
+        # Populate factor data for each currency
+        for currency in created_currencies:
+            try:
+                # Load the ORM entity for mapping
+                orm_currency = self.currency_repository.get_by_id(currency.id)
+                
+                if orm_currency:
+                    # Use mapper to populate factor data
+                    created_values = CurrencyMapper.populate_factor_data(
+                        currency, 
+                        currency.id, 
+                        currency_factor_repository
+                    )
+                    
+                    # Also populate current rate as a factor
+                    current_factor = CurrencyMapper.populate_current_rate_factor(
+                        currency, 
+                        currency.id, 
+                        currency_factor_repository
+                    )
+                    
+                    logger.info(f"Populated {len(created_values)} factor values for {currency.iso_code}")
+                    if current_factor:
+                        logger.info(f"Created current rate factor for {currency.iso_code}")
+                
+            except Exception as e:
+                logger.error(f"Error populating factors for {currency.iso_code}: {e}")
+                continue
+        
+        logger.info(f"Completed factor integration for {len(created_currencies)} currencies")
+        return created_currencies
+
+    def load_currency_with_factors(self, currency_id: int) -> Optional[CurrencyEntity]:
+        """
+        Load a currency with historical data populated from factors.
+        """
+        try:
+            # Initialize factor repository
+            currency_factor_repository = CurrencyFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+            
+            # Load ORM currency
+            orm_currency = self.currency_repository.get_by_id(currency_id)
+            if not orm_currency:
+                return None
+            
+            # Use mapper to load with factor data
+            domain_currency = CurrencyMapper.load_factor_data(orm_currency, currency_factor_repository)
+            
+            logger.info(f"Loaded {domain_currency.iso_code} with {len(domain_currency.historical_rates)} factor-based rates")
+            return domain_currency
+            
+        except Exception as e:
+            logger.error(f"Error loading currency with factors: {e}")
+            return None
+
+    def get_currency_factor_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of currency factor data.
+        """
+        try:
+            currency_factor_repository = CurrencyFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+            
+            # Get all currencies
+            currencies = self.currency_repository.get_all()
+            factor_summary = {}
+            
+            for currency in currencies:
+                try:
+                    # Get factor values for this currency
+                    factor_values = currency_factor_repository.get_factor_values_by_entity(currency.id)
+                    
+                    factor_summary[currency.iso_code] = {
+                        'total_factor_values': len(factor_values),
+                        'factors': {}
+                    }
+                    
+                    # Group by factor name
+                    for fv in factor_values:
+                        factor_name = fv.factor.name
+                        if factor_name not in factor_summary[currency.iso_code]['factors']:
+                            factor_summary[currency.iso_code]['factors'][factor_name] = {
+                                'count': 0,
+                                'first_date': fv.date,
+                                'last_date': fv.date
+                            }
+                        else:
+                            factor_data = factor_summary[currency.iso_code]['factors'][factor_name]
+                            factor_data['count'] += 1
+                            factor_data['first_date'] = min(factor_data['first_date'], fv.date)
+                            factor_data['last_date'] = max(factor_data['last_date'], fv.date)
+                    
+                    factor_summary[currency.iso_code]['factors'][factor_name]['count'] += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error getting factor summary for {currency.iso_code}: {e}")
+                    factor_summary[currency.iso_code] = {'error': str(e)}
+            
+            return {
+                'total_currencies': len(currencies),
+                'currencies_with_factors': len([c for c in factor_summary.values() if 'error' not in c]),
+                'factor_details': factor_summary
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting currency factor summary: {e}")
+            return {'error': str(e)}

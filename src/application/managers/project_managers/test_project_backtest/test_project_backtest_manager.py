@@ -17,6 +17,8 @@ from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
+from infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
 
 # Import the actual backtesting framework components
 from application.services.misbuffet.common import (
@@ -618,5 +620,187 @@ class TestProjectBacktestManager(ProjectManager):
 
         return created_companies
 
-    
+    def create_companies_with_factor_data(self, tickers: List[str] = None) -> List[CompanyShareEntity]:
+        """
+        Enhanced company creation that integrates with the factor architecture.
+        Creates companies and populates factor data for historical prices.
+        """
+        if tickers is None:
+            tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'SPY']
+        
+        logger.info(f"Creating companies with factor integration for: {tickers}")
+        
+        # Initialize factor repository
+        share_factor_repository = ShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+        
+        # Create companies using existing method
+        created_companies = self.create_five_tech_companies_with_data()
+        
+        if not created_companies:
+            logger.warning("No companies created, skipping factor population")
+            return []
+        
+        # Load historical data and populate factors
+        for company in created_companies:
+            if company.ticker in tickers:
+                try:
+                    # Load historical price data from CSV
+                    price_data = self._load_stock_price_data(company.ticker)
+                    
+                    if price_data:
+                        # Use mapper to populate factor data
+                        created_values = CompanyShareMapper.populate_price_factors(
+                            company, 
+                            company.id, 
+                            price_data, 
+                            share_factor_repository
+                        )
+                        
+                        # Also populate current price as a factor
+                        current_factor = CompanyShareMapper.populate_current_price_factor(
+                            company, 
+                            company.id, 
+                            share_factor_repository
+                        )
+                        
+                        logger.info(f"Populated {len(created_values)} factor values for {company.ticker}")
+                        if current_factor:
+                            logger.info(f"Created current price factor for {company.ticker}")
+                    
+                except Exception as e:
+                    logger.error(f"Error populating factors for {company.ticker}: {e}")
+                    continue
+        
+        logger.info(f"Completed factor integration for {len(created_companies)} companies")
+        return created_companies
+
+    def _load_stock_price_data(self, ticker: str) -> List[Dict]:
+        """
+        Load historical stock price data from CSV file.
+        """
+        try:
+            # Find data file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = current_dir
+            
+            # Navigate up to find project root
+            while not os.path.exists(os.path.join(project_root, 'data', 'stock_data')) and project_root != os.path.dirname(project_root):
+                project_root = os.path.dirname(project_root)
+            
+            csv_path = os.path.join(project_root, "data", "stock_data", f"{ticker}.csv")
+            
+            if not os.path.exists(csv_path):
+                logger.warning(f"Stock data file not found: {csv_path}")
+                return []
+            
+            # Load and convert data
+            df = pd.read_csv(csv_path)
+            df['Date'] = pd.to_datetime(df['Date'])
+            
+            # Convert to format expected by mapper
+            price_data = []
+            for _, row in df.iterrows():
+                price_record = {
+                    'date': row['Date'],
+                    'open': row['Open'],
+                    'high': row['High'],
+                    'low': row['Low'],
+                    'close': row['Close'],
+                    'adj_close': row['Adj Close'],
+                    'volume': row['Volume']
+                }
+                price_data.append(price_record)
+            
+            logger.info(f"Loaded {len(price_data)} price records for {ticker}")
+            return price_data
+            
+        except Exception as e:
+            logger.error(f"Error loading price data for {ticker}: {e}")
+            return []
+
+    def load_company_with_factors(self, company_id: int) -> Optional[CompanyShareEntity]:
+        """
+        Load a company share with historical price data populated from factors.
+        """
+        try:
+            # Initialize factor repository
+            share_factor_repository = ShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+            
+            # Load ORM company share
+            orm_company = self.company_share_repository_local.get_by_id(company_id)
+            if not orm_company:
+                return None
+            
+            # Use mapper to load with factor data
+            domain_company = CompanyShareMapper.load_price_history_from_factors(orm_company, share_factor_repository)
+            
+            logger.info(f"Loaded {domain_company.ticker} with factor-based price history")
+            return domain_company
+            
+        except Exception as e:
+            logger.error(f"Error loading company with factors: {e}")
+            return None
+
+    def get_company_factor_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of company share factor data.
+        """
+        try:
+            share_factor_repository = ShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
+            
+            # Get all company shares
+            companies = self.company_share_repository_local.get_all()
+            factor_summary = {}
+            
+            for company in companies:
+                try:
+                    # Use mapper to get factor summary
+                    company_summary = CompanyShareMapper.get_factor_summary(company, share_factor_repository)
+                    factor_summary[company.ticker] = company_summary
+                    
+                except Exception as e:
+                    logger.error(f"Error getting factor summary for {company.ticker}: {e}")
+                    factor_summary[company.ticker] = {'error': str(e)}
+            
+            return {
+                'total_companies': len(companies),
+                'companies_with_factors': len([c for c in factor_summary.values() if 'error' not in c]),
+                'factor_details': factor_summary
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting company factor summary: {e}")
+            return {'error': str(e)}
+
+    def run_backtest_with_factors(self, start_date: datetime = None, end_date: datetime = None) -> Dict[str, Any]:
+        """
+        Run backtest using factor-based data retrieval.
+        """
+        logger.info("Running backtest with factor integration...")
+        
+        try:
+            # Create companies with factor data
+            companies = self.create_companies_with_factor_data()
+            
+            if not companies:
+                raise ValueError("No companies created for backtesting")
+            
+            # Initialize standard backtest with factor-enhanced data
+            result = self.run_backtest(start_date, end_date)
+            
+            # Add factor summary to result
+            factor_summary = self.get_company_factor_summary()
+            result['factor_integration'] = {
+                'enabled': True,
+                'companies_with_factors': len(companies),
+                'factor_summary': factor_summary
+            }
+            
+            logger.info("Completed backtest with factor integration")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error running backtest with factors: {e}")
+            raise
+
     
