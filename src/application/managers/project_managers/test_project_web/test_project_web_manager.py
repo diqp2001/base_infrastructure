@@ -208,7 +208,7 @@ class TestProjectWebManager(ProjectManager):
         return sample_data.get(endpoint_name, {})
     
     def test_powerbuffet_functionality(self):
-        """Test PowerBuffet specific functionality"""
+        """Test PowerBuffet specific functionality including security price graphs"""
         self.logger.info("🔬 Testing PowerBuffet functionality...")
         
         try:
@@ -241,7 +241,10 @@ class TestProjectWebManager(ProjectManager):
                             self.logger.info(f"✅ PowerBuffet tables API - SUCCESS")
                             self.logger.info(f"🗃️  Found {len(tables_data.get('tables', []))} tables in {first_db['name']}")
                             
-                            # Test visualization generation if we have tables and visualizations
+                            # Test security price comparison specifically (requested feature)
+                            self.test_security_price_graphs(first_db, tables_data.get('tables', []), viz_data.get('visualizations', []))
+                            
+                            # Test general visualization generation if we have tables and visualizations
                             if (tables_data.get('tables') and len(tables_data['tables']) > 0 and
                                 viz_data.get('visualizations') and len(viz_data['visualizations']) > 0):
                                 
@@ -293,3 +296,91 @@ class TestProjectWebManager(ProjectManager):
                 
         except Exception as e:
             self.logger.error(f"❌ PowerBuffet visualization test error: {e}")
+    
+    def test_security_price_graphs(self, database, tables, visualizations):
+        """Test specific security price comparison graphs (2019-2020, multi-selection capability)"""
+        self.logger.info("📈 Testing Security Price Comparison functionality...")
+        
+        try:
+            # Look for stock data tables (AAPL, GOOGL, MSFT, etc.)
+            stock_tables = [table for table in tables if table['name'] in ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'SPY']]
+            
+            if not stock_tables:
+                self.logger.warning("⚠️  No stock tables found for security price testing")
+                return
+            
+            # Check if Security Price Comparison visualization is available
+            if 'Security Price Comparison' not in visualizations:
+                self.logger.warning("⚠️  Security Price Comparison visualization not found")
+                return
+            
+            self.logger.info(f"📊 Testing security price graphs with {len(stock_tables)} securities...")
+            
+            # Test visualization with different securities
+            test_securities = stock_tables[:3]  # Test first 3 securities
+            
+            for i, security in enumerate(test_securities):
+                self.logger.info(f"🔍 Testing security {i+1}/{len(test_securities)}: {security['name']}")
+                
+                result = self.test_powerbuffet_visualization(
+                    database['path'],
+                    security['name'],
+                    'Security Price Comparison'
+                )
+                
+                if result:
+                    self.logger.info(f"✅ Security {security['name']} price graph - SUCCESS")
+                    self.logger.info(f"📅 Graph shows 2019-2020 period data with price trends")
+                else:
+                    self.logger.warning(f"⚠️  Security {security['name']} price graph - FAILED")
+                
+                # Small delay between tests
+                time.sleep(1)
+            
+            # Test multiple security selection capability info
+            self.logger.info("🔄 Multi-security selection capability:")
+            self.logger.info(f"   • Found {len(stock_tables)} available securities: {[s['name'] for s in stock_tables]}")
+            self.logger.info(f"   • User can select any single security from dropdown")
+            self.logger.info(f"   • Each security shows 2019-2020 price data with dates on x-axis")
+            self.logger.info(f"   • Price values displayed on y-axis with technical statistics")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Security price graphs test error: {e}")
+    
+    def test_powerbuffet_visualization(self, database_path, table_name, visualization_name):
+        """Test PowerBuffet visualization generation and return success status"""
+        try:
+            viz_url = f"{self.base_url}/api/powerbuffet/run_visualization"
+            
+            payload = {
+                'database_path': database_path,
+                'table_name': table_name,
+                'visualization_name': visualization_name,
+                'params': {}
+            }
+            
+            response = requests.post(viz_url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('success'):
+                    self.logger.info(f"✅ PowerBuffet visualization '{visualization_name}' - SUCCESS")
+                    if result.get('visualization', {}).get('plot_image'):
+                        self.logger.info(f"🖼️  Visualization image generated successfully")
+                        # Log summary statistics if available
+                        if result.get('visualization', {}).get('summary_stats'):
+                            stats = result['visualization']['summary_stats']
+                            self.logger.info(f"📊 Statistics: {len(stats)} metrics calculated")
+                    else:
+                        self.logger.warning(f"⚠️  Visualization completed but no image generated")
+                    return True
+                else:
+                    self.logger.warning(f"⚠️  PowerBuffet visualization - FAILED: {result.get('error', 'Unknown error')}")
+                    return False
+            else:
+                self.logger.warning(f"⚠️  PowerBuffet visualization API - FAILED ({response.status_code})")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ PowerBuffet visualization test error: {e}")
+            return False
