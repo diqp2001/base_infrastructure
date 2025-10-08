@@ -329,3 +329,28 @@ def run_visualization():
     except Exception as e:
         logger.error(f"Error running visualization: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/run_custom_visualization", methods=["POST"])
+def run_custom_visualization():
+    """API endpoint to execute custom multi-column visualizations"""
+    try:
+        data = request.json
+        chart_type = data.get('chart_type', 'scatter')
+        x_columns = data.get('x_columns', [])
+        y_columns = data.get('y_columns', [])
+        params = data.get('params', {})
+        
+        if not x_columns and not y_columns:
+            return jsonify({
+                "success": False,
+                "error": "Must provide at least one X or Y column for visualization"
+            }), 400
+        
+        service = PowerBuffetService()
+        result = service.run_custom_visualization(chart_type, x_columns, y_columns, params)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error running custom visualization: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
