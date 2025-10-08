@@ -500,7 +500,7 @@
         // Enhanced functionality for drag-and-drop interface
         
         function loadAllDatabasesAndColumns() {
-            """Load all available databases and their columns for drag-drop interface"""
+        //"""Load all available databases and their columns for drag-drop interface"""
             fetch('/api/powerbuffet/databases')
                 .then(response => response.json())
                 .then(data => {
@@ -517,7 +517,7 @@
         }
         
         function loadAllColumns() {
-            """Load columns from all databases"""
+            //"""Load columns from all databases"""
             const container = document.getElementById('availableColumnsContainer');
             container.innerHTML = '<div class="text-muted p-3 text-center">Loading columns...</div>';
             
@@ -535,7 +535,7 @@
         }
         
         function displayAvailableColumns(dbResults) {
-            """Display all available columns in draggable format"""
+            //"""Display all available columns in draggable format"""
             const container = document.getElementById('availableColumnsContainer');
             let html = '';
             
@@ -605,7 +605,7 @@
         }
         
         function addColumnToAxis(columnElement, axis) {
-            """Add a column to X or Y axis"""
+            //"""Add a column to X or Y axis"""
             const dbPath = columnElement.dataset.dbPath;
             const dbName = columnElement.dataset.dbName;
             const table = columnElement.dataset.table;
@@ -646,7 +646,7 @@
         }
         
         function updateAxisDisplay(axis) {
-            """Update the display of selected columns for an axis"""
+            //"""Update the display of selected columns for an axis"""
             const container = document.getElementById(`${axis}AxisColumns`);
             const columns = selectedColumns[axis];
             
@@ -669,7 +669,7 @@
         }
         
         function removeColumnFromAxis(axis, index) {
-            """Remove a column from axis selection"""
+            //"""Remove a column from axis selection"""
             const removedColumn = selectedColumns[axis][index];
             selectedColumns[axis].splice(index, 1);
             
@@ -688,7 +688,7 @@
         }
         
         function loadColumnStatistics(columnData, axis) {
-            """Load and display statistics for a selected column"""
+            //"""Load and display statistics for a selected column"""
             // For now, show basic info - in a full implementation, you'd fetch actual column data
             const stats = {
                 'Data Type': columnData.dataType,
@@ -700,7 +700,7 @@
         }
         
         function updateAxisStats(axis) {
-            """Update statistics display for an axis"""
+            //"""Update statistics display for an axis"""
             const statsContainer = document.getElementById(`${axis}AxisStats`);
             const statsContent = document.getElementById(`${axis}AxisStatsContent`);
             const columns = selectedColumns[axis];
@@ -729,7 +729,7 @@
         }
         
         function generateCustomVisualization() {
-            """Generate visualization using selected columns"""
+            //"""Generate visualization using selected columns"""
             if (selectedColumns.x.length === 0 && selectedColumns.y.length === 0) {
                 showMessage('Please select at least one column for X or Y axis', 'error');
                 return;
@@ -795,14 +795,14 @@
         }
         
         function updateGenerateCustomButton() {
-            """Enable/disable custom visualization button based on selections"""
+            //"""Enable/disable custom visualization button based on selections"""
             const button = document.getElementById('generateCustomBtn');
             const hasSelections = selectedColumns.x.length > 0 || selectedColumns.y.length > 0;
             button.disabled = !hasSelections;
         }
         
         function clearAllSelections() {
-            """Clear all column selections"""
+            //"""Clear all column selections"""
             selectedColumns.x = [];
             selectedColumns.y = [];
             
@@ -821,7 +821,7 @@
         }
         
         function loadSampleConfiguration() {
-            """Load a sample configuration for demonstration"""
+            //"""Load a sample configuration for demonstration"""
             clearAllSelections();
             
             // This would load a predefined configuration in a real implementation
@@ -829,7 +829,7 @@
         }
         
         function saveConfiguration() {
-            """Save current configuration"""
+            //"""Save current configuration"""
             if (selectedColumns.x.length === 0 && selectedColumns.y.length === 0) {
                 showMessage('No configuration to save', 'error');
                 return;
