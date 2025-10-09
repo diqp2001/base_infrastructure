@@ -9,19 +9,19 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.orm import Session
 
-from src.domain.entities.factor.factor import FactorBase as FactorEntity
-from src.domain.entities.factor.factor.factor_value import FactorValue as FactorValueEntity
-from src.domain.entities.finance.factors.factor_rule import FactorRule as FactorRuleEntity
+from domain.entities.factor.factor import FactorBase as FactorEntity
+from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
+from domain.entities.factor.factor_rule import FactorRule as FactorRuleEntity
 
-from src.infrastructure.models.finance.factor_model import (
+from infrastructure.models.factor.factor_model import (
     Factor as FactorModel,
     FactorValue as FactorValueModel,
     FactorRule as FactorRuleModel,
 )
 
-from src.infrastructure.repositories.mappers.finance.factors.factor_mapper import FactorMapper
-from src.infrastructure.repositories.mappers.finance.factors.factor_value_mapper import FactorValueMapper
-from src.infrastructure.repositories.mappers.finance.factors.factor_rule_mapper import FactorRuleMapper
+from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from src.infrastructure.repositories.mappers.factor.factor_rule_mapper import FactorRuleMapper
 
 
 class BaseFactorRepository(ABC):

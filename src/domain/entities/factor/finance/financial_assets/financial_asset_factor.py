@@ -1,4 +1,4 @@
-from domain.entities.factor.factor import FactorBase
+from domain.entities.factor import FactorBase
 
 from __future__ import annotations
 

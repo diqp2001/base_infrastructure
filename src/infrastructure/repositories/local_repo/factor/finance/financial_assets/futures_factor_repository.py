@@ -3,7 +3,7 @@ Repository class for Futures factor entities.
 """
 
 from ...base_factor_repository import BaseFactorRepository
-from src.infrastructure.models.finance.financial_assets.futures_factors import (
+from infrastructure.models.factor.finance.financial_assets.futures_factors import (
     FuturesFactor, FuturesFactorValue, FuturesFactorRule
 )
 

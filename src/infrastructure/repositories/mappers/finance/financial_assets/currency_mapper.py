@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency, CurrencyRate as DomainCurrencyRate
 from src.infrastructure.models.finance.financial_assets.currency import Currency as ORMCurrency, CurrencyRate as ORMCurrencyRate
-from src.infrastructure.models.finance.financial_assets.currency_factors import CurrencyFactor, CurrencyFactorValue
+from infrastructure.models.factor.finance.financial_assets.currency_factors import CurrencyFactor, CurrencyFactorValue
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 
 

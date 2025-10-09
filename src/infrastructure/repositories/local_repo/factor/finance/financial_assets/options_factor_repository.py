@@ -3,7 +3,7 @@ Repository class for Options factor entities.
 """
 
 from ...base_factor_repository import BaseFactorRepository
-from src.infrastructure.models.finance.financial_assets.options_factors import (
+from infrastructure.models.factor.finance.financial_assets.options_factors import (
     OptionsFactor, OptionsFactorValue, OptionsFactorRule
 )
 

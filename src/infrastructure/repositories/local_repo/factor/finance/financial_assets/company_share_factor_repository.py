@@ -3,7 +3,7 @@ Repository class for Company Share factor entities.
 """
 
 from ...base_factor_repository import BaseFactorRepository
-from src.infrastructure.models.finance.financial_assets.company_share_factors import (
+from infrastructure.models.factor.finance.financial_assets.company_share_factors import (
     CompanyShareFactor, CompanyShareFactorValue, CompanyShareFactorRule
 )
 

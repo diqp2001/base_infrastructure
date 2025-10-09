@@ -3,7 +3,7 @@ Repository class for Security factor entities.
 """
 
 from ...base_factor_repository import BaseFactorRepository
-from src.infrastructure.models.finance.financial_assets.security_factors import (
+from infrastructure.models.factor.finance.financial_assets.security_factors import (
     SecurityFactor, SecurityFactorValue, SecurityFactorRule
 )
 
