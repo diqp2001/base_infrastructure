@@ -2,7 +2,7 @@
 Repository class for Bond factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.bond_factors import (
     BondFactor, BondFactorValue, BondFactorRule
 )

@@ -34,11 +34,13 @@ if __name__ == '__main__':
     # Uncomment the lines below to run the Black-Litterman backtest
     #bl_results = bt.run_black_litterman_backtest()
     #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
-    manager = TestProjectWebManager()
+    #manager = TestProjectWebManager()
+    manager = TestProjectDataManager()
     #manager = FXTestProjectBacktestManager()
     #manager = TestProjectLiveTradingManager()
     
-    manager.run()
+    #manager.run()
+    manager.import_stock_historical_data()
     
     """    with Profile() as profile:
     #MomentumMLProjectManager().test_single_future()

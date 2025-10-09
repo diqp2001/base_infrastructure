@@ -2,7 +2,7 @@
 Repository class for Currency factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.currency_factors import (
     CurrencyFactor, CurrencyFactorValue, CurrencyFactorRule
 )

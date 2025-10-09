@@ -2,7 +2,7 @@
 Repository class for Equity factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.equity_factors import (
     EquityFactor, EquityFactorValue, EquityFactorRule
 )

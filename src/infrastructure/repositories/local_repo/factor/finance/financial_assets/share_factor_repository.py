@@ -2,7 +2,7 @@
 Repository class for Share factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.share_factors import (
     ShareFactor, ShareFactorValue, ShareFactorRule
 )

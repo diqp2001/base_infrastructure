@@ -2,7 +2,7 @@
 Repository class for ETF Share factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.etf_share_factors import (
     ETFShareFactor, ETFShareFactorValue, ETFShareFactorRule
 )

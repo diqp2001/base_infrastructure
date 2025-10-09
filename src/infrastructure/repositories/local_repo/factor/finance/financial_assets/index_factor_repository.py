@@ -2,7 +2,7 @@
 Repository class for Index factor entities.
 """
 
-from .base_factor_repository import BaseFactorRepository
+from ...base_factor_repository import BaseFactorRepository
 from src.infrastructure.models.finance.financial_assets.index_factors import (
     IndexFactor, IndexFactorValue, IndexFactorRule
 )
