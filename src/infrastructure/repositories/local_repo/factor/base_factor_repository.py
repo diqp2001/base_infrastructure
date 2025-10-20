@@ -19,17 +19,20 @@ from infrastructure.models.factor.factor_model import (
     FactorRule as FactorRuleModel,
 )
 
-from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
-from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
-from src.infrastructure.repositories.mappers.factor.factor_rule_mapper import FactorRuleMapper
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from infrastructure.repositories.mappers.factor.factor_rule_mapper import FactorRuleMapper
+
+from application.managers.database_managers.database_manager import DatabaseManager
 
 
 class BaseFactorRepository(ABC):
     """Repository managing Factor entities, their values, and rules."""
 
-    def __init__(self, session: Session):
-        """Initialize repository with a database session."""
-        self.session = session
+    def __init__(self, db_type: str = 'sqlite'):
+        """Initialize repository with a database type."""
+        self.database_manager = DatabaseManager(db_type)
+        self.session = self.database_manager.session
 
     # ----------------------------- Abstract methods -----------------------------
     @abstractmethod
@@ -183,3 +186,82 @@ class BaseFactorRepository(ABC):
         except Exception as e:
             print(f"Error retrieving rules: {e}")
             return []
+
+    # ----------------------------- Convenience Methods -----------------------------
+    def add_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str) -> Optional[FactorEntity]:
+        """
+        Convenience method to add a new factor.
+        
+        Args:
+            name: Factor name
+            group: Factor group
+            subgroup: Factor subgroup  
+            data_type: Data type (e.g., 'numeric', 'string')
+            source: Data source
+            definition: Factor definition/description
+        
+        Returns:
+            Created factor entity or None if failed
+        """
+        from decimal import Decimal
+        
+        domain_factor = FactorEntity(
+            id=None,
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition
+        )
+        return self.create_factor(domain_factor)
+
+    def add_factor_value(self, factor_id: int, entity_id: int, date: date, value) -> Optional[FactorValueEntity]:
+        """
+        Convenience method to add a new factor value.
+        
+        Args:
+            factor_id: ID of the factor
+            entity_id: ID of the entity
+            date: Date of the value
+            value: Factor value (will be converted to Decimal)
+        
+        Returns:
+            Created factor value entity or None if failed
+        """
+        from decimal import Decimal
+        
+        # Convert value to Decimal for financial precision
+        if not isinstance(value, Decimal):
+            value = Decimal(str(value))
+            
+        domain_value = FactorValueEntity(
+            id=None,
+            factor_id=factor_id,
+            entity_id=entity_id,
+            date=date,
+            value=value
+        )
+        return self.create_factor_value(domain_value)
+
+    def add_factor_rule(self, factor_id: int, condition: str, rule_type: str, method_ref: Optional[str] = None) -> Optional[FactorRuleEntity]:
+        """
+        Convenience method to add a new factor rule.
+        
+        Args:
+            factor_id: ID of the factor
+            condition: Rule condition
+            rule_type: Type of rule (e.g., 'validation', 'transformation')
+            method_ref: Reference to validation/transformation method
+        
+        Returns:
+            Created factor rule entity or None if failed
+        """
+        domain_rule = FactorRuleEntity(
+            id=None,
+            factor_id=factor_id,
+            condition=condition,
+            rule_type=rule_type,
+            method_ref=method_ref
+        )
+        return self.create_factor_rule(domain_rule)

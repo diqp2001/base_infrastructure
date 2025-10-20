@@ -522,6 +522,98 @@ class TestProjectFactorManager(ProjectManager):
 
 
     # -------------------------
+    # FACTOR CRUD METHODS
+    # -------------------------
+
+    def add_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, repository=None):
+        """
+        Add a new factor using the specified repository.
+        
+        Args:
+            name: Factor name
+            group: Factor group
+            subgroup: Factor subgroup
+            data_type: Data type (e.g., 'numeric', 'string')
+            source: Data source
+            definition: Factor definition/description
+            repository: Repository to use (defaults to share_factor_repository)
+        
+        Returns:
+            Created factor entity or None if failed
+        """
+        if repository is None:
+            repository = self.share_factor_repository
+        
+        try:
+            return repository.add_factor(
+                name=name,
+                group=group,
+                subgroup=subgroup,
+                data_type=data_type,
+                source=source,
+                definition=definition
+            )
+        except Exception as e:
+            print(f"❌ Error adding factor {name}: {str(e)}")
+            return None
+
+    def add_factor_value(self, factor_id: int, entity_id: int, date: date, value: Decimal, repository=None):
+        """
+        Add a new factor value using the specified repository.
+        
+        Args:
+            factor_id: ID of the factor
+            entity_id: ID of the entity
+            date: Date of the value
+            value: Factor value
+            repository: Repository to use (defaults to share_factor_repository)
+        
+        Returns:
+            Created factor value entity or None if failed
+        """
+        if repository is None:
+            repository = self.share_factor_repository
+        
+        try:
+            return repository.add_factor_value(
+                factor_id=factor_id,
+                entity_id=entity_id,
+                date=date,
+                value=value
+            )
+        except Exception as e:
+            print(f"❌ Error adding factor value for factor {factor_id}: {str(e)}")
+            return None
+
+    def add_factor_rule(self, factor_id: int, condition: str, rule_type: str, method_ref: str = None, repository=None):
+        """
+        Add a new factor rule using the specified repository.
+        
+        Args:
+            factor_id: ID of the factor
+            condition: Rule condition
+            rule_type: Type of rule (e.g., 'validation', 'transformation')
+            method_ref: Reference to validation/transformation method
+            repository: Repository to use (defaults to share_factor_repository)
+        
+        Returns:
+            Created factor rule entity or None if failed
+        """
+        if repository is None:
+            repository = self.share_factor_repository
+        
+        try:
+            return repository.add_factor_rule(
+                factor_id=factor_id,
+                condition=condition,
+                rule_type=rule_type,
+                method_ref=method_ref
+            )
+        except Exception as e:
+            print(f"❌ Error adding factor rule for factor {factor_id}: {str(e)}")
+            return None
+
+    # -------------------------
     # UTILITY METHODS
     # -------------------------
 
