@@ -1,7 +1,8 @@
+from __future__ import annotations
 
 from domain.entities.factor.finance.financial_assets.equity_factor import FactorEquity
 
-from __future__ import annotations
+
 
 from decimal import Decimal
 from typing import Optional

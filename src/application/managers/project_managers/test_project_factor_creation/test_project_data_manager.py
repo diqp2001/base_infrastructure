@@ -20,7 +20,7 @@ from domain.entities.finance.financial_assets.equity import FundamentalData, Div
 from domain.entities.finance.financial_assets.security import MarketData
 
 # Domain factor entities
-from domain.entities.factor.finance.financial_assets.share_factor import ShareFactor as ShareFactorEntity
+from domain.entities.factor.finance.financial_assets.share_factor import FactorShare as ShareFactorEntity
 from domain.entities.factor.finance.financial_assets.share_factor_value import ShareFactorValue as ShareFactorValueEntity
 from domain.entities.factor.finance.financial_assets.share_factor_rule import ShareFactorRule as ShareFactorRuleEntity
 
@@ -44,7 +44,7 @@ from infrastructure.models.factor.finance.financial_assets.company_share_factors
 
 # Note: Using repositories directly without mappers for this implementation
 
-class TestProjectDataManager(ProjectManager):
+class TestProjectFactorManager(ProjectManager):
     """
     Test project data manager.
     Handles entity creation (shares, currencies) and factor computation using the FactorFactory.
@@ -76,6 +76,56 @@ class TestProjectDataManager(ProjectManager):
     # -------------------------
     # ENTITY CREATION METHODS
     # -------------------------
+
+    def run_complete_factor_setup(self) -> Dict[str, Any]:
+        """Run the complete factor creation and population process."""
+        print("🚀 Starting Complete Factor Setup Process...")
+        print("=" * 60)
+        total_start_time = time.time()
+        
+        try:
+            # Step 1: Create entities
+            print("\n📋 Step 1: Creating Entities")
+            entities_summary = self.add_entities()
+            
+            # Step 2: Create factors and calculate values
+            print("\n📋 Step 2: Creating Factors and Calculating Values")
+            factors_summary = self.create_and_save_all_factors()
+            
+            total_end_time = time.time()
+            total_elapsed = total_end_time - total_start_time
+            
+            # Final summary
+            final_summary = {
+                'entities': entities_summary,
+                'factors': factors_summary,
+                'total_processing_time': total_elapsed,
+                'system_ready': True
+            }
+            
+            print("\n" + "=" * 60)
+            print("🎯 COMPLETE FACTOR SETUP SUMMARY:")
+            print(f"  • Total entities created: {entities_summary['total_entities']}")
+            print(f"  • Total factors created: {factors_summary['factors_created']}")
+            print(f"  • Total rules created: {factors_summary['rules_created']}")
+            print(f"  • Total values calculated: {factors_summary['values_calculated']}")
+            print(f"  • Total processing time: {total_elapsed:.3f} seconds")
+            print("  • Factor system is fully operational! 🎉")
+            print("=" * 60)
+            
+            return final_summary
+            
+        except Exception as e:
+            print(f"❌ Error in complete factor setup: {str(e)}")
+            return {
+                'entities': {'total_entities': 0},
+                'factors': {'factors_created': 0, 'rules_created': 0, 'values_calculated': 0},
+                'total_processing_time': 0,
+                'system_ready': False,
+                'error': str(e)
+            }
+    
+
 
     def add_entities(self) -> Dict[str, Any]:
         """Create base entities (shares, currencies) for testing."""
@@ -530,51 +580,4 @@ class TestProjectDataManager(ProjectManager):
         # Example: use MarketData or repo to get a pandas.Series of prices
         return MarketData(entity).get_price_series()
     
-    def run_complete_factor_setup(self) -> Dict[str, Any]:
-        """Run the complete factor creation and population process."""
-        print("🚀 Starting Complete Factor Setup Process...")
-        print("=" * 60)
-        total_start_time = time.time()
-        
-        try:
-            # Step 1: Create entities
-            print("\n📋 Step 1: Creating Entities")
-            entities_summary = self.add_entities()
-            
-            # Step 2: Create factors and calculate values
-            print("\n📋 Step 2: Creating Factors and Calculating Values")
-            factors_summary = self.create_and_save_all_factors()
-            
-            total_end_time = time.time()
-            total_elapsed = total_end_time - total_start_time
-            
-            # Final summary
-            final_summary = {
-                'entities': entities_summary,
-                'factors': factors_summary,
-                'total_processing_time': total_elapsed,
-                'system_ready': True
-            }
-            
-            print("\n" + "=" * 60)
-            print("🎯 COMPLETE FACTOR SETUP SUMMARY:")
-            print(f"  • Total entities created: {entities_summary['total_entities']}")
-            print(f"  • Total factors created: {factors_summary['factors_created']}")
-            print(f"  • Total rules created: {factors_summary['rules_created']}")
-            print(f"  • Total values calculated: {factors_summary['values_calculated']}")
-            print(f"  • Total processing time: {total_elapsed:.3f} seconds")
-            print("  • Factor system is fully operational! 🎉")
-            print("=" * 60)
-            
-            return final_summary
-            
-        except Exception as e:
-            print(f"❌ Error in complete factor setup: {str(e)}")
-            return {
-                'entities': {'total_entities': 0},
-                'factors': {'factors_created': 0, 'rules_created': 0, 'values_calculated': 0},
-                'total_processing_time': 0,
-                'system_ready': False,
-                'error': str(e)
-            }
     

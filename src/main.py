@@ -10,6 +10,7 @@ from application.managers.project_managers.momentum_ML_project.momentum_ML_proje
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_backtest_fx.fx_test_project_backtest_manager import FXTestProjectBacktestManager
 from application.managers.project_managers.test_project_data.test_project_data_manager import TestProjectDataManager
+from application.managers.project_managers.test_project_factor_creation.test_project_data_manager import TestProjectFactorManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from application.managers.project_managers.test_project_web.test_project_web_manager import TestProjectWebManager
 
@@ -35,12 +36,13 @@ if __name__ == '__main__':
     #bl_results = bt.run_black_litterman_backtest()
     #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
     #manager = TestProjectWebManager()
-    manager = TestProjectDataManager()
+    #manager = TestProjectDataManager()
+    manager = TestProjectFactorManager()
     #manager = FXTestProjectBacktestManager()
     #manager = TestProjectLiveTradingManager()
     
     #manager.run()
-    manager.import_stock_historical_data()
+    manager.run_complete_factor_setup()
     
     """    with Profile() as profile:
     #MomentumMLProjectManager().test_single_future()

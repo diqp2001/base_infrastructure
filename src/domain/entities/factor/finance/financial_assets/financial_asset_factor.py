@@ -1,6 +1,7 @@
+from __future__ import annotations
 from domain.entities.factor import FactorBase
 
-from __future__ import annotations
+
 
 from decimal import Decimal
 from typing import Optional
