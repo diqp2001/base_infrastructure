@@ -56,10 +56,8 @@ class TestProjectFactorManager(ProjectManager):
         # Initialize database manager and repositories
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
         self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
-        self.currency_repository_local = CurrencyRepositoryLocal(self.database_manager.session)
 
         # Initialize factor repositories
-        self.currency_factor_repository = CurrencyFactorRepository(config.CONFIG_TEST['DB_TYPE'])
         self.share_factor_repository = ShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
         self.company_share_factor_repository = CompanyShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
 
@@ -125,8 +123,6 @@ class TestProjectFactorManager(ProjectManager):
                 'error': str(e)
             }
     
-
-
     def add_entities(self) -> Dict[str, Any]:
         """Create base entities (shares, currencies) for testing."""
         print("🚀 Creating base entities (shares and currencies)...")
@@ -136,106 +132,231 @@ class TestProjectFactorManager(ProjectManager):
         
         # Create entities
         shares_summary = self.add_shares()
-        currencies_summary = self.add_currencies()
         
         total_summary = {
             'shares': shares_summary,
-            'currencies': currencies_summary,
-            'total_entities': shares_summary['count'] + currencies_summary['count']
+            'total_entities': shares_summary['count'] 
         }
         
         print(f"✅ Entity creation complete:")
         print(f"  • Shares created: {shares_summary['count']}")
-        print(f"  • Currencies created: {currencies_summary['count']}")
         print(f"  • Total entities: {total_summary['total_entities']}")
         
         return total_summary
-
-    def add_shares(self) -> Dict[str, Any]:
-        """Create share entities from available stock data files."""
-        print("📈 Creating share entities...")
+    
+    def add_shares(self):
+        """
+        Create multiple CompanyShare entities in a single atomic transaction.
         
-        # Get available stock data files
-        csv_files = [f for f in os.listdir(self.stock_data_dir) if f.endswith('.csv')]
-        created_shares = []
-        
-        for csv_file in csv_files:
-            ticker = csv_file.replace('.csv', '')
+        Args:
+            companies_data: List of dicts containing company share data
             
-            try:
-                # Create share entity
-                share_entity = CompanyShareEntity(
-                    ticker=ticker,
-                    exchange_id=1,  # Default US exchange
-                    company_id=1,   # Default company ID for now
-                    start_date=datetime(1980, 1, 1),
-                    end_date=None
-                )
-                
-                # Set company name based on ticker
-                company_names = {
-                    'AAPL': 'Apple Inc.',
-                    'AMZN': 'Amazon.com Inc.',
-                    'GOOGL': 'Alphabet Inc.',
-                    'MSFT': 'Microsoft Corporation',
-                    'SPY': 'SPDR S&P 500 ETF Trust'
-                }
-                
-                if ticker in company_names:
-                    share_entity.set_company_name(company_names[ticker])
-                
-                # Add to repository
-                saved_share = self.company_share_repository_local.add(share_entity)
-                created_shares.append(saved_share)
-                print(f"  ✅ Created share: {ticker}")
-                
-            except Exception as e:
-                print(f"  ❌ Error creating share {ticker}: {str(e)}")
-        
-        return {
-            'count': len(created_shares),
-            'entities': created_shares,
-            'tickers': [share.ticker for share in created_shares]
-        }
+        Returns:
+            List[CompanyShareEntity]: Successfully created company share entities
+        """
+        """
+        Create the 5 tech companies (AAPL, MSFT, AMZN, GOOGL) 
+        and populate them with market and fundamental data loaded from CSV files.
+        """
+        tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
+        companies_data = []
 
-    def add_currencies(self) -> Dict[str, Any]:
-        """Create currency entities from FX data file."""
-        print("💱 Creating currency entities...")
+        # Path to stock data directory - find project root and build absolute path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = current_dir
+        
+        # Navigate up to find the project root (where data/ folder is located)
+        while not os.path.exists(os.path.join(project_root, 'data', 'stock_data')) and project_root != os.path.dirname(project_root):
+            project_root = os.path.dirname(project_root)
+        
+        stock_data_path = os.path.join(project_root, "data", "stock_data")
+        print(f"📁 Loading stock data from: {stock_data_path}")
+        
+        # Verify the path exists before proceeding
+        if not os.path.exists(stock_data_path):
+            print(f"❌ Stock data directory not found at: {stock_data_path}")
+            print(f"Current working directory: {os.getcwd()}")
+            print(f"File location: {current_dir}")
+            print("Available directories in project root:")
+            if os.path.exists(project_root):
+                for item in os.listdir(project_root):
+                    if os.path.isdir(os.path.join(project_root, item)):
+                        print(f"  - {item}/")
+        else:
+            print(f"✅ Stock data directory found with {len(os.listdir(stock_data_path))} files")
+
+        # Load actual stock data from CSV files
+        stock_data_cache = {}
+        for ticker in tickers:
+            csv_path = os.path.join(stock_data_path, f"{ticker}.csv")
+            try:
+                if os.path.exists(csv_path):
+                    df = pd.read_csv(csv_path)
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    df = df.sort_values('Date')
+                    stock_data_cache[ticker] = df
+                    print(f"✅ Loaded {len(df)} data points for {ticker} from {df['Date'].min().date()} to {df['Date'].max().date()}")
+                else:
+                    print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
+                    stock_data_cache[ticker] = None
+            except Exception as e:
+                print(f"❌ Error loading data for {ticker}: {str(e)}")
+                stock_data_cache[ticker] = None
+
+        # Sample starting IDs and exchange/company IDs
+        start_id = 1
+        for i, ticker in enumerate(tickers, start=start_id):
+            companies_data.append({
+                'id': i,
+                'ticker': ticker,
+                'exchange_id': 1,
+                'company_id': i,
+                'start_date': datetime(2020, 1, 1),
+                'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
+                'sector': 'Technology'
+            })
+
+        
+        
+        print(f"Creating {len(companies_data)} companies in bulk operation...")
+        start_time = time.time()
         
         try:
-            # Read FX data to get currency list
-            df = pd.read_csv(self.fx_data_path, nrows=1)  # Just get headers
-            currency_columns = [col for col in df.columns if col != 'Date']
+            # Initialize database if needed
+            self.database_manager.db.initialize_database_and_create_all_tables()
             
-            created_currencies = []
-            
-            for currency_name in currency_columns:
+            # Validate and create domain entities
+            domain_shares = []
+            for i, data in enumerate(companies_data):
                 try:
-                    # Create currency entity
-                    currency_entity = CurrencyEntity(
-                        name=currency_name,
-                        iso_code=self._get_iso_code(currency_name),
-                        country_id=1  # Default country for now
+                    domain_share = CompanyShareEntity(
+                        id=data['id'],
+                        ticker=data['ticker'],
+                        exchange_id=data['exchange_id'],
+                        company_id=data['company_id'],
+                        start_date=data['start_date'],
+                        end_date=data.get('end_date')
                     )
                     
-                    # Add to repository
-                    saved_currency = self.currency_repository_local.add(currency_entity)
-                    created_currencies.append(saved_currency)
-                    print(f"  ✅ Created currency: {currency_name}")
+                    # Set company name if provided
+                    if 'company_name' in data:
+                        domain_share.set_company_name(data['company_name'])
+                    
+                    # Set sector information if provided  
+                    if 'sector' in data:
+                        fundamentals = FundamentalData(sector=data['sector'])
+                        domain_share.update_company_fundamentals(fundamentals)
+                    
+                    domain_shares.append(domain_share)
                     
                 except Exception as e:
-                    print(f"  ❌ Error creating currency {currency_name}: {str(e)}")
+                    print(f"Error creating domain entity {i}: {str(e)}")
+                    raise
             
-            return {
-                'count': len(created_currencies),
-                'entities': created_currencies,
-                'names': [curr.name for curr in created_currencies]
-            }
+            # Use bulk repository operation (no more key mappings needed)
+            created_companies = self.company_share_repository_local.add_bulk(domain_shares)
+            
+            end_time = time.time()
+            elapsed = end_time - start_time
+            
+            print(f"✅ Successfully created {len(created_companies)} companies in {elapsed:.3f} seconds")
+            print(f"⚡ Performance: {len(created_companies)/elapsed:.1f} companies/second")
+            
+            
             
         except Exception as e:
-            print(f"❌ Error reading FX data: {str(e)}")
-            return {'count': 0, 'entities': [], 'names': []}
+            print(f"❌ Error in bulk company creation: {str(e)}")
+            raise
 
+        if not created_companies:
+            print("❌ No companies were created")
+            return []
+
+        # Step 2: Save CSV data to database and enhance with market and fundamental data
+        for i, company in enumerate(created_companies):
+            ticker = company.ticker
+            try:
+                # Get stock data for this ticker
+                stock_df = stock_data_cache.get(ticker)
+                
+                if stock_df is not None and not stock_df.empty:
+                    # Save CSV data to database for backtesting engine to use
+                    table_name = f"stock_price_data_{ticker.lower()}"
+                    print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
+                    self.database_manager.dataframe_replace_table(stock_df, table_name)
+                    
+                    # Use the most recent data point for current market data
+                    latest_data = stock_df.iloc[-1]
+                    latest_price = Decimal(str(latest_data['Close']))
+                    latest_volume = Decimal(str(latest_data['Volume']))
+                    latest_date = latest_data['Date']
+                    
+                    # Historical data statistics for fundamental analysis
+                    recent_data = stock_df.tail(252)  # Last year of data
+                    avg_volume = Decimal(str(recent_data['Volume'].mean()))
+                    price_52w_high = Decimal(str(recent_data['High'].max()))
+                    price_52w_low = Decimal(str(recent_data['Low'].min()))
+                    
+                    print(f"📈 Using real data for {ticker}: Latest Close=${latest_price:.2f}, Volume={latest_volume:,}")
+                else:
+                    # Fallback to mock data if CSV not available
+                    latest_price = Decimal(str(100 + i * 50))
+                    latest_volume = Decimal(str(1_000_000 + i * 100_000))
+                    latest_date = datetime.now()
+                    avg_volume = latest_volume
+                    price_52w_high = latest_price * Decimal('1.2')
+                    price_52w_low = latest_price * Decimal('0.8')
+                    print(f"⚠️  Using fallback data for {ticker}")
+
+                # Market data (using real prices and volumes)
+                market_data = MarketData(
+                    timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
+                    price=latest_price,
+                    volume=latest_volume
+                )
+                company.update_market_data(market_data)
+
+                # Fundamental data (mix of real-derived and estimated values)
+                # Calculate approximate market cap based on real price
+                estimated_shares_outstanding = Decimal(str(1_000_000_000 + i * 100_000_000))  # Estimate
+                market_cap = latest_price * estimated_shares_outstanding
+                
+                # Estimate P/E ratio based on sector averages
+                pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
+                pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
+                
+                fundamentals = FundamentalData(
+                    pe_ratio=pe_ratio,
+                    dividend_yield=Decimal(str(1.0 + i * 0.3)),  # Estimated dividend yields
+                    market_cap=market_cap,
+                    shares_outstanding=estimated_shares_outstanding,
+                    sector='Technology',
+                    industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
+                )
+                company.update_company_fundamentals(fundamentals)
+
+                # Sample dividend (estimated based on dividend yield)
+                dividend_amount = (fundamentals.dividend_yield / 100) * latest_price / 4  # Quarterly dividend
+                dividend = Dividend(
+                    amount=dividend_amount,
+                    ex_date=datetime(2024, 3, 15),
+                    pay_date=datetime(2024, 3, 30)
+                )
+                company.add_dividend(dividend)
+
+                # Print metrics for confirmation
+                metrics = company.get_company_metrics()
+                print(f"📊 {company.ticker}: Price=${metrics['current_price']}, "
+                    f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
+                    f"Div Yield={metrics['dividend_yield']}%")
+
+            except Exception as e:
+                print(f"❌ Error enhancing company {company.ticker}: {str(e)}")
+                continue
+
+
+    
+   
     # -------------------------
     # FACTOR CREATION AND COMPUTATION METHODS
     # -------------------------
@@ -275,15 +396,12 @@ class TestProjectFactorManager(ProjectManager):
         print("📋 Creating factor definitions and rules...")
         
         shares_factors = self._create_shares_factor_definitions()
-        currencies_factors = self._create_currencies_factor_definitions()
         
         return {
             'shares_factors': shares_factors['factors'],
             'shares_rules': shares_factors['rules'],
-            'currencies_factors': currencies_factors['factors'],
-            'currencies_rules': currencies_factors['rules'],
-            'total_factors': len(shares_factors['factors']) + len(currencies_factors['factors']),
-            'total_rules': len(shares_factors['rules']) + len(currencies_factors['rules'])
+            'total_factors': len(shares_factors['factors']) ,
+            'total_rules': len(shares_factors['rules']) 
         }
 
     def calculate_and_save_factor_values(self) -> Dict[str, Any]:
@@ -291,12 +409,10 @@ class TestProjectFactorManager(ProjectManager):
         print("📊 Calculating and saving factor values...")
         
         shares_values = self._calculate_shares_factor_values()
-        currencies_values = self._calculate_currencies_factor_values()
         
         return {
             'shares_values': shares_values,
-            'currencies_values': currencies_values,
-            'total_values': shares_values + currencies_values
+            'total_values': shares_values 
         }
 
     # -------------------------
@@ -348,48 +464,7 @@ class TestProjectFactorManager(ProjectManager):
         
         return {'factors': factors, 'rules': rules}
 
-    def _create_currencies_factor_definitions(self) -> Dict[str, List]:
-        """Create factor definitions and rules for currency entities."""
-        print("  💱 Creating currency factor definitions...")
-        
-        factors = []
-        rules = []
-        
-        # Exchange rate factor
-        factor_def = {
-            'name': 'exchange_rate_usd',
-            'group': 'exchange_rate',
-            'subgroup': 'historical',
-            'definition': 'Exchange rate against US Dollar'
-        }
-        
-        try:
-            factor = self.currency_factor_repository.add_factor(
-                name=factor_def['name'],
-                group=factor_def['group'],
-                subgroup=factor_def['subgroup'],
-                data_type='numeric',
-                source='historical_csv',
-                definition=factor_def['definition']
-            )
-            factors.append(factor)
-            
-            # Add validation rule
-            rule = self.currency_factor_repository.add_factor_rule(
-                factor_id=factor.id,
-                condition='exchange_rate_usd > 0',
-                rule_type='validation',
-                method_ref='validate_positive_exchange_rate'
-            )
-            rules.append(rule)
-            
-            print(f"    ✅ Created currency factor: {factor_def['name']}")
-            
-        except Exception as e:
-            print(f"    ❌ Error creating currency factor {factor_def['name']}: {str(e)}")
-        
-        return {'factors': factors, 'rules': rules}
-
+ 
     def _calculate_shares_factor_values(self) -> int:
         """Calculate and save factor values for all shares."""
         print("  📈 Calculating share factor values...")
@@ -445,42 +520,6 @@ class TestProjectFactorManager(ProjectManager):
         
         return values_count
 
-    def _calculate_currencies_factor_values(self) -> int:
-        """Calculate and save factor values for all currencies."""
-        print("  💱 Calculating currency factor values...")
-        values_count = 0
-        
-        try:
-            currencies = self.currency_repository_local.get_all()
-            
-            # Load FX data
-            df = pd.read_csv(self.fx_data_path)
-            df['Date'] = pd.to_datetime(df['Date'])
-            
-            # Get exchange rate factor
-            exchange_rate_factor = self.currency_factor_repository.get_by_name('exchange_rate_usd')
-            
-            for currency in currencies:
-                if currency.name in df.columns:
-                    currency_data = df[['Date', currency.name]].dropna()
-                    
-                    for _, row in currency_data.iterrows():
-                        value = row[currency.name]
-                        if pd.notna(value) and value > 0:
-                            self.currency_factor_repository.add_factor_value(
-                                factor_id=exchange_rate_factor.id,
-                                entity_id=currency.id,
-                                date=row['Date'].date(),
-                                value=Decimal(str(value))
-                            )
-                            values_count += 1
-                    
-                    print(f"    ✅ Processed {currency.name}: {len(currency_data)} exchange rates")
-                
-        except Exception as e:
-            print(f"    ❌ Error calculating currency values: {str(e)}")
-        
-        return values_count
 
     # -------------------------
     # UTILITY METHODS
@@ -547,20 +586,16 @@ class TestProjectFactorManager(ProjectManager):
         """Get comprehensive summary of the factor system."""
         try:
             shares = self.company_share_repository_local.get_all()
-            currencies = self.currency_repository_local.get_all()
             
             share_factors = self.share_factor_repository.list_all()
-            currency_factors = self.currency_factor_repository.list_all()
             
             return {
                 'entities': {
-                    'shares': len(shares),
-                    'currencies': len(currencies)
+                    'shares': len(shares)
                 },
                 'factors': {
                     'share_factors': len(share_factors),
-                    'currency_factors': len(currency_factors),
-                    'total_factors': len(share_factors) + len(currency_factors)
+                    'total_factors': len(share_factors) 
                 },
                 'status': 'ready'
             }
