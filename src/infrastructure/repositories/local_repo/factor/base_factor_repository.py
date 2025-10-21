@@ -48,20 +48,58 @@ class BaseFactorRepository(ABC):
         return FactorRuleModel
 
     # ----------------------------- Mappers -----------------------------
-    def _to_domain_factor(self, infra_obj: FactorModel) -> Optional[FactorEntity]:
-        return FactorMapper.to_domain(infra_obj) if infra_obj else None
+    def _to_domain_factor(self, infra_obj) -> Optional[FactorEntity]:
+        """Convert ORM factor object to domain entity."""
+        if not infra_obj:
+            return None
+        return FactorEntity(
+            id=infra_obj.id,
+            name=infra_obj.name,
+            group=infra_obj.group,
+            subgroup=infra_obj.subgroup,
+            data_type=infra_obj.data_type,
+            source=infra_obj.source,
+            definition=infra_obj.definition
+        )
 
-    def _to_domain_value(self, infra_obj: FactorValueModel) -> Optional[FactorValueEntity]:
-        return FactorValueMapper.to_domain(infra_obj) if infra_obj else None
+    def _to_domain_value(self, infra_obj) -> Optional[FactorValueEntity]:
+        """Convert ORM factor value object to domain entity."""
+        if not infra_obj:
+            return None
+        return FactorValueEntity(
+            id=infra_obj.id,
+            factor_id=infra_obj.factor_id,
+            entity_id=infra_obj.entity_id,
+            date=infra_obj.date,
+            value=infra_obj.value
+        )
 
-    def _to_domain_rule(self, infra_obj: FactorRuleModel) -> Optional[FactorRuleEntity]:
-        return FactorRuleMapper.to_domain(infra_obj) if infra_obj else None
+    def _to_domain_rule(self, infra_obj) -> Optional[FactorRuleEntity]:
+        """Convert ORM factor rule object to domain entity."""
+        if not infra_obj:
+            return None
+        return FactorRuleEntity(
+            id=infra_obj.id,
+            factor_id=infra_obj.factor_id,
+            condition=infra_obj.condition,
+            rule_type=infra_obj.rule_type,
+            method_ref=infra_obj.method_ref
+        )
 
     # ----------------------------- CRUD: Factors -----------------------------
     def create_factor(self, domain_factor: FactorEntity) -> Optional[FactorEntity]:
         """Add a new factor to the database."""
         try:
-            orm_factor = FactorMapper.to_orm(domain_factor)
+            FactorModel = self.get_factor_model()
+            # Create ORM object directly using the specific model
+            orm_factor = FactorModel(
+                name=domain_factor.name,
+                group=domain_factor.group,
+                subgroup=domain_factor.subgroup,
+                data_type=domain_factor.data_type,
+                source=domain_factor.source,
+                definition=domain_factor.definition
+            )
             self.session.add(orm_factor)
             self.session.commit()
             return self._to_domain_factor(orm_factor)
@@ -73,6 +111,7 @@ class BaseFactorRepository(ABC):
     def get_by_name(self, name: str) -> Optional[FactorEntity]:
         """Retrieve a factor by its name."""
         try:
+            FactorModel = self.get_factor_model()
             factor = self.session.query(FactorModel).filter(FactorModel.name == name).first()
             return self._to_domain_factor(factor)
         except Exception as e:
@@ -82,6 +121,7 @@ class BaseFactorRepository(ABC):
     def get_by_id(self, factor_id: int) -> Optional[FactorEntity]:
         """Retrieve a factor by its ID."""
         try:
+            FactorModel = self.get_factor_model()
             factor = self.session.query(FactorModel).filter(FactorModel.id == factor_id).first()
             return self._to_domain_factor(factor)
         except Exception as e:
@@ -91,6 +131,7 @@ class BaseFactorRepository(ABC):
     def list_all(self) -> List[FactorEntity]:
         """List all factors."""
         try:
+            FactorModel = self.get_factor_model()
             factors = self.session.query(FactorModel).all()
             return [self._to_domain_factor(f) for f in factors]
         except Exception as e:
@@ -100,6 +141,7 @@ class BaseFactorRepository(ABC):
     def update_factor(self, factor_id: int, **kwargs) -> Optional[FactorEntity]:
         """Update a factor's properties."""
         try:
+            FactorModel = self.get_factor_model()
             factor = self.session.query(FactorModel).filter(FactorModel.id == factor_id).first()
             if not factor:
                 return None
@@ -116,6 +158,7 @@ class BaseFactorRepository(ABC):
     def delete_factor(self, factor_id: int) -> bool:
         """Delete a factor by ID."""
         try:
+            FactorModel = self.get_factor_model()
             factor = self.session.query(FactorModel).filter(FactorModel.id == factor_id).first()
             if not factor:
                 return False
@@ -131,7 +174,14 @@ class BaseFactorRepository(ABC):
     def create_factor_value(self, domain_value: FactorValueEntity) -> Optional[FactorValueEntity]:
         """Add a new factor value."""
         try:
-            orm_value = FactorValueMapper.to_orm(domain_value)
+            FactorValueModel = self.get_factor_value_model()
+            # Create ORM object directly using the specific model
+            orm_value = FactorValueModel(
+                factor_id=domain_value.factor_id,
+                entity_id=domain_value.entity_id,
+                date=domain_value.date,
+                value=domain_value.value
+            )
             self.session.add(orm_value)
             self.session.commit()
             return self._to_domain_value(orm_value)
@@ -143,6 +193,7 @@ class BaseFactorRepository(ABC):
     def get_by_factor_and_date(self, factor_id: int, date_value: date) -> List[FactorValueEntity]:
         """Get all values for a factor on a specific date."""
         try:
+            FactorValueModel = self.get_factor_value_model()
             values = (
                 self.session.query(FactorValueModel)
                 .filter(FactorValueModel.factor_id == factor_id, FactorValueModel.date == date_value)
@@ -156,6 +207,7 @@ class BaseFactorRepository(ABC):
     def get_factor_values_by_entity(self, entity_id: int, factor_id: Optional[int] = None) -> List[FactorValueEntity]:
         """Get all factor values for a given entity."""
         try:
+            FactorValueModel = self.get_factor_value_model()
             query = self.session.query(FactorValueModel).filter(FactorValueModel.entity_id == entity_id)
             if factor_id:
                 query = query.filter(FactorValueModel.factor_id == factor_id)
@@ -169,7 +221,14 @@ class BaseFactorRepository(ABC):
     def create_factor_rule(self, domain_rule: FactorRuleEntity) -> Optional[FactorRuleEntity]:
         """Add a new rule for a factor."""
         try:
-            orm_rule = FactorRuleMapper.to_orm(domain_rule)
+            FactorRuleModel = self.get_factor_rule_model()
+            # Create ORM object directly using the specific model
+            orm_rule = FactorRuleModel(
+                factor_id=domain_rule.factor_id,
+                condition=domain_rule.condition,
+                rule_type=domain_rule.rule_type,
+                method_ref=domain_rule.method_ref
+            )
             self.session.add(orm_rule)
             self.session.commit()
             return self._to_domain_rule(orm_rule)
@@ -181,6 +240,7 @@ class BaseFactorRepository(ABC):
     def get_rules_by_factor(self, factor_id: int) -> List[FactorRuleEntity]:
         """Retrieve all rules for a given factor."""
         try:
+            FactorRuleModel = self.get_factor_rule_model()
             rules = self.session.query(FactorRuleModel).filter(FactorRuleModel.factor_id == factor_id).all()
             return [self._to_domain_rule(r) for r in rules]
         except Exception as e:
