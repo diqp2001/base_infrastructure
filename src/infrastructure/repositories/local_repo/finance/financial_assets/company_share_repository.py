@@ -144,41 +144,40 @@ class CompanyShareRepository(ShareRepository):
         created_entities = []
         
         try:
-            with self.session.begin():
-                # Check for existing shares to prevent duplicates
-                existing_tickers = []
-                for domain_share in domain_shares:
-                    if self.exists_by_ticker(domain_share.ticker):
-                        existing_share = self.get_by_ticker(domain_share.ticker)
-                        if existing_share:
-                            created_entities.append(existing_share[0])
-                            existing_tickers.append(domain_share.ticker)
+            # Check for existing shares to prevent duplicates
+            existing_tickers = []
+            for domain_share in domain_shares:
+                if self.exists_by_ticker(domain_share.ticker):
+                    existing_share = self.get_by_ticker(domain_share.ticker)
+                    if existing_share:
+                        created_entities.append(existing_share[0])
+                        existing_tickers.append(domain_share.ticker)
+            
+            if existing_tickers:
+                print(f"Warning: Found {len(existing_tickers)} existing shares, skipping duplicates")
+            
+            # Create new CompanyShare models
+            new_shares = []
+            for domain_share in domain_shares:
+                # Skip if already exists
+                if domain_share.ticker in existing_tickers:
+                    continue
                 
-                if existing_tickers:
-                    print(f"Warning: Found {len(existing_tickers)} existing shares, skipping duplicates")
+                # Create new share using mapper
+                new_share = CompanyShareMapper.to_orm(domain_share)
+                new_shares.append(new_share)
+                self.session.add(new_share)
                 
-                # Create new CompanyShare models
-                new_shares = []
-                for domain_share in domain_shares:
-                    # Skip if already exists
-                    if domain_share.ticker in existing_tickers:
-                        continue
-                    
-                    # Create new share using mapper
-                    new_share = CompanyShareMapper.to_orm(domain_share)
-                    new_shares.append(new_share)
-                    self.session.add(new_share)
-                    
-                # Flush to get IDs for new shares
-                if new_shares:
-                    self.session.flush()
-                    
-                    # Convert to domain entities and add to results
-                    for new_share in new_shares:
-                        created_entities.append(self._to_domain(new_share))
+            # Flush to get IDs for new shares
+            if new_shares:
+                self.session.flush()
                 
-                # Commit transaction
-                self.session.commit()
+                # Convert to domain entities and add to results
+                for new_share in new_shares:
+                    created_entities.append(self._to_domain(new_share))
+            
+            # Commit transaction
+            self.session.commit()
                 
         except Exception as e:
             self.session.rollback()
@@ -227,13 +226,12 @@ class CompanyShareRepository(ShareRepository):
         deleted_count = 0
         
         try:
-            with self.session.begin():
-                # Delete CompanyShare records
-                deleted_count = self.session.query(CompanyShareModel).filter(
-                    CompanyShareModel.id.in_(company_share_ids)
-                ).delete(synchronize_session=False)
-                
-                self.session.commit()
+            # Delete CompanyShare records
+            deleted_count = self.session.query(CompanyShareModel).filter(
+                CompanyShareModel.id.in_(company_share_ids)
+            ).delete(synchronize_session=False)
+            
+            self.session.commit()
                 
         except Exception as e:
             self.session.rollback()
@@ -258,15 +256,14 @@ class CompanyShareRepository(ShareRepository):
         updated_count = 0
         
         try:
-            with self.session.begin():
-                for update_data in updates:
-                    share_id = update_data.pop('id')
-                    updated = self.session.query(CompanyShareModel).filter(
-                        CompanyShareModel.id == share_id
-                    ).update(update_data, synchronize_session=False)
-                    updated_count += updated
-                
-                self.session.commit()
+            for update_data in updates:
+                share_id = update_data.pop('id')
+                updated = self.session.query(CompanyShareModel).filter(
+                    CompanyShareModel.id == share_id
+                ).update(update_data, synchronize_session=False)
+                updated_count += updated
+            
+            self.session.commit()
                 
         except Exception as e:
             self.session.rollback()
