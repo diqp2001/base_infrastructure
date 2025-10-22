@@ -23,8 +23,7 @@ Subclasses like FactorEquity inherit from this class and may implement custom ca
 Example:
 
 class FactorEquity(FactorSecurity):
-    def calculate(self, *args, **kwargs) -> Decimal:
-        raise NotImplementedError("FactorEquity must implement calculate() method.")
+    
 
 🗄️ Database Design - Entity-Specific Factor Tables
 

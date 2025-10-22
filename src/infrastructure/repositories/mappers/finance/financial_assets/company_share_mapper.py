@@ -11,7 +11,6 @@ from typing import Optional, List, Dict, Any
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare as DomainCompanyShare
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
 from src.domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData
-# FundamentalData import removed - use factors instead
 from infrastructure.models.factor.finance.financial_assets.share_factors import ShareFactor, ShareFactorValue
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 

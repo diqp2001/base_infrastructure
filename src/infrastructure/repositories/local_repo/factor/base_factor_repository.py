@@ -52,7 +52,8 @@ class BaseFactorRepository(ABC):
         """Convert ORM factor object to domain entity."""
         if not infra_obj:
             return None
-        return FactorEntity(
+        
+        factor_entity = FactorEntity(
             id=infra_obj.id,
             name=infra_obj.name,
             group=infra_obj.group,
@@ -61,6 +62,9 @@ class BaseFactorRepository(ABC):
             source=infra_obj.source,
             definition=infra_obj.definition
         )
+
+        return factor_entity
+        
 
     def _to_domain_value(self, infra_obj) -> Optional[FactorValueEntity]:
         """Convert ORM factor value object to domain entity."""
@@ -266,7 +270,6 @@ class BaseFactorRepository(ABC):
         from decimal import Decimal
         
         domain_factor = FactorEntity(
-            id=None,
             name=name,
             group=group,
             subgroup=subgroup,

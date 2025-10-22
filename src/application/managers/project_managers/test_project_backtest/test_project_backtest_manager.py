@@ -12,7 +12,7 @@ from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
 from application.services.misbuffet.algorithm.order import OrderEvent
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.equity import  Dividend
 from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -441,10 +441,7 @@ class TestProjectBacktestManager(ProjectManager):
                     if 'company_name' in data:
                         domain_share.set_company_name(data['company_name'])
                     
-                    # Set sector information if provided  
-                    if 'sector' in data:
-                        fundamentals = FundamentalData(sector=data['sector'])
-                        domain_share.update_company_fundamentals(fundamentals)
+                    
                     
                     domain_shares.append(domain_share)
                     
@@ -585,28 +582,7 @@ class TestProjectBacktestManager(ProjectManager):
                 estimated_shares_outstanding = Decimal(str(1_000_000_000 + i * 100_000_000))  # Estimate
                 market_cap = latest_price * estimated_shares_outstanding
                 
-                # Estimate P/E ratio based on sector averages
-                pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
-                pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
                 
-                fundamentals = FundamentalData(
-                    pe_ratio=pe_ratio,
-                    dividend_yield=Decimal(str(1.0 + i * 0.3)),  # Estimated dividend yields
-                    market_cap=market_cap,
-                    shares_outstanding=estimated_shares_outstanding,
-                    sector='Technology',
-                    industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
-                )
-                company.update_company_fundamentals(fundamentals)
-
-                # Sample dividend (estimated based on dividend yield)
-                dividend_amount = (fundamentals.dividend_yield / 100) * latest_price / 4  # Quarterly dividend
-                dividend = Dividend(
-                    amount=dividend_amount,
-                    ex_date=datetime(2024, 3, 15),
-                    pay_date=datetime(2024, 3, 30)
-                )
-                company.add_dividend(dividend)
 
                 # Print metrics for confirmation
                 metrics = company.get_company_metrics()

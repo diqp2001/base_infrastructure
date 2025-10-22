@@ -31,10 +31,7 @@ class FactorBase(ABC):
         self.source = source
         self.definition = definition
 
-    @abstractmethod
-    def calculate(self, *args, **kwargs) -> Decimal:
-        """Abstract method for calculating the factor value."""
-        pass
+    
 
     def describe(self) -> str:
         return (

@@ -14,7 +14,7 @@ from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_live_trading import config
 from application.services.misbuffet.algorithm.order import OrderEvent
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.equity import  Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -28,7 +28,7 @@ from application.services.misbuffet.algorithm.base import QCAlgorithm
 
 # Import domain entities following DDD structure
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.equity import  Dividend
 from domain.entities.finance.financial_assets.security import MarketData, Symbol
 
 # Import misbuffet components
@@ -543,36 +543,7 @@ class TestProjectLiveTradingManager(ProjectManager):
         # Create companies
         created_companies = self.create_multiple_companies(companies_data)
         
-        # Add basic market data for each
-        for i, company in enumerate(created_companies):
-            try:
-                # Use reasonable default values for live trading
-                base_price = Decimal(str(100 + i * 50))
-                volume = Decimal(str(1_000_000 + i * 100_000))
-                
-                market_data = MarketData(
-                    timestamp=datetime.now(),
-                    price=base_price,
-                    volume=volume
-                )
-                company.update_market_data(market_data)
-                
-                # Basic fundamentals
-                fundamentals = FundamentalData(
-                    pe_ratio=Decimal(str(25.0 + i * 2)),
-                    dividend_yield=Decimal(str(1.0 + i * 0.3)),
-                    market_cap=base_price * Decimal(str(1_000_000_000)),
-                    shares_outstanding=Decimal(str(1_000_000_000)),
-                    sector='Technology',
-                    industry='Software'
-                )
-                company.update_company_fundamentals(fundamentals)
-                
-                self.logger.info(f"✅ Setup trading data for {company.ticker}")
-                
-            except Exception as e:
-                self.logger.error(f"Error setting up data for {company.ticker}: {e}")
-                continue
+        
         
         return created_companies
     
@@ -598,9 +569,7 @@ class TestProjectLiveTradingManager(ProjectManager):
                 if 'company_name' in data:
                     domain_share.set_company_name(data['company_name'])
                 
-                if 'sector' in data:
-                    fundamentals = FundamentalData(sector=data['sector'])
-                    domain_share.update_company_fundamentals(fundamentals)
+                
                 
                 domain_shares.append(domain_share)
             

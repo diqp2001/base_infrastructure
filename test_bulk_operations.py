@@ -19,7 +19,7 @@ def test_import_statements():
     
     try:
         from domain.entities.finance.financial_assets.security import Security, Symbol, SecurityType, MarketData, Holdings
-        from domain.entities.finance.financial_assets.stock import Stock, Dividend, StockSplit, FundamentalData
+        from domain.entities.finance.financial_assets.stock import Stock, Dividend, StockSplit
         from domain.entities.finance.financial_assets.company_stock import CompanyStock
         print("✅ All Security/Equity domain imports successful")
         
@@ -39,7 +39,7 @@ def test_security_architecture():
     
     try:
         from domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData
-        from domain.entities.finance.financial_assets.stock import Stock, FundamentalData, Dividend
+        from domain.entities.finance.financial_assets.stock import Stock, Dividend
         from domain.entities.finance.financial_assets.company_stock import CompanyStock
         
         # Test Symbol value object
@@ -70,15 +70,7 @@ def test_security_architecture():
         company_stock.update_market_data(market_data)
         print(f"✅ Market data updated: Price=${company_stock.price}")
         
-        # Test fundamental data
-        fundamentals = FundamentalData(
-            pe_ratio=Decimal('25.5'),
-            dividend_yield=Decimal('0.5'),
-            market_cap=Decimal('2500000000000'),
-            sector="Technology"
-        )
-        company_stock.update_company_fundamentals(fundamentals)
-        print(f"✅ Fundamentals updated: P/E={company_stock.get_pe_ratio()}")
+  
         
         # Test dividend
         dividend = Dividend(
@@ -145,7 +137,7 @@ def test_value_objects():
     
     try:
         from domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData, Holdings
-        from domain.entities.finance.financial_assets.stock import Dividend, StockSplit, FundamentalData
+        from domain.entities.finance.financial_assets.stock import Dividend, StockSplit
         from decimal import Decimal
         
         # Test Symbol

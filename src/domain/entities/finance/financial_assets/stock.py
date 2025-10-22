@@ -34,7 +34,7 @@ class StockSplit:
             raise ValueError("Split ratio must be positive")
 
 
-# FundamentalData class removed - use factors instead
+
 
 
 class Stock(Security):

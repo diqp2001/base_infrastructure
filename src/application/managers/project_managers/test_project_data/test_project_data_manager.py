@@ -15,7 +15,7 @@ from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_data import config
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.financial_assets.currency import Currency as CurrencyEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.equity import  Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -77,10 +77,7 @@ class TestProjectDataManager(ProjectManager):
                     if 'company_name' in data:
                         domain_share.set_company_name(data['company_name'])
                     
-                    # Set sector information if provided  
-                    if 'sector' in data:
-                        fundamentals = FundamentalData(sector=data['sector'])
-                        domain_share.update_company_fundamentals(fundamentals)
+                    
                     
                     domain_shares.append(domain_share)
                     

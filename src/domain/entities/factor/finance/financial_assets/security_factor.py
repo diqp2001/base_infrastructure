@@ -22,6 +22,4 @@ class FactorSecurity(FactorFinancialAsset):
     ):
         super().__init__(name, group, subgroup, data_type, source, definition, factor_id)
 
-    def calculate(self, *args, **kwargs) -> Decimal:
-        """Stub calculation logic for equity factor (to be implemented)."""
-        raise NotImplementedError("FactorEquity must implement calculate() method.")
+    
