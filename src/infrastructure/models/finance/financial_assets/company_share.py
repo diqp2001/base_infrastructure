@@ -38,6 +38,9 @@ class CompanyShare(Base):
     is_tradeable = Column(Boolean, default=True)
     sector = Column(String(100), nullable=True)
     industry = Column(String(100), nullable=True)
+    
+    # Additional company metadata
+    company_name = Column(String(200), nullable=True)
 
     # Relationships
     companies = relationship("Company", back_populates="company_shares")

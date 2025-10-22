@@ -144,19 +144,13 @@ class TestProjectFactorManager(ProjectManager):
         
         return total_summary
     
-    def add_shares(self):
+    def add_shares(self) -> Dict[str, Any]:
         """
-        Create multiple CompanyShare entities in a single atomic transaction.
+        Create multiple CompanyShare entities from CSV data source.
+        Focus on entity creation only - market data enhancement is handled via factors.
         
-        Args:
-            companies_data: List of dicts containing company share data
-            
         Returns:
-            List[CompanyShareEntity]: Successfully created company share entities
-        """
-        """
-        Create the 5 tech companies (AAPL, MSFT, AMZN, GOOGL) 
-        and populate them with market and fundamental data loaded from CSV files.
+            Dict[str, Any]: Summary of created shares
         """
         tickers = ["AAPL", "MSFT", "AMZN", "GOOGL"]
         companies_data = []
@@ -185,27 +179,19 @@ class TestProjectFactorManager(ProjectManager):
         else:
             print(f"✅ Stock data directory found with {len(os.listdir(stock_data_path))} files")
 
-        # Load actual stock data from CSV files
-        stock_data_cache = {}
+        # Verify CSV data availability for entity identification
+        available_tickers = []
         for ticker in tickers:
             csv_path = os.path.join(stock_data_path, f"{ticker}.csv")
-            try:
-                if os.path.exists(csv_path):
-                    df = pd.read_csv(csv_path)
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df = df.sort_values('Date')
-                    stock_data_cache[ticker] = df
-                    print(f"✅ Loaded {len(df)} data points for {ticker} from {df['Date'].min().date()} to {df['Date'].max().date()}")
-                else:
-                    print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
-                    stock_data_cache[ticker] = None
-            except Exception as e:
-                print(f"❌ Error loading data for {ticker}: {str(e)}")
-                stock_data_cache[ticker] = None
+            if os.path.exists(csv_path):
+                available_tickers.append(ticker)
+                print(f"✅ CSV data available for {ticker}")
+            else:
+                print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
 
-        # Sample starting IDs and exchange/company IDs
+        # Create basic company entity data (CSV source identification only)
         start_id = 1
-        for i, ticker in enumerate(tickers, start=start_id):
+        for i, ticker in enumerate(available_tickers, start=start_id):
             companies_data.append({
                 'id': i,
                 'ticker': ticker,
@@ -216,8 +202,6 @@ class TestProjectFactorManager(ProjectManager):
                 'sector': 'Technology'
             })
 
-        
-        
         print(f"Creating {len(companies_data)} companies in bulk operation...")
         start_time = time.time()
         
@@ -253,7 +237,7 @@ class TestProjectFactorManager(ProjectManager):
                     print(f"Error creating domain entity {i}: {str(e)}")
                     raise
             
-            # Use bulk repository operation (no more key mappings needed)
+            # Use bulk repository operation
             created_companies = self.company_share_repository_local.add_bulk(domain_shares)
             
             end_time = time.time()
@@ -262,97 +246,28 @@ class TestProjectFactorManager(ProjectManager):
             print(f"✅ Successfully created {len(created_companies)} companies in {elapsed:.3f} seconds")
             print(f"⚡ Performance: {len(created_companies)/elapsed:.1f} companies/second")
             
+            # Return summary
+            shares_summary = {
+                'count': len(created_companies),
+                'tickers': [company.ticker for company in created_companies],
+                'processing_time': elapsed,
+                'csv_data_available': len(available_tickers),
+                'created_entities': len(created_companies)
+            }
             
+            print(f"📋 Share creation summary: {shares_summary['count']} entities created from {shares_summary['csv_data_available']} CSV sources")
+            return shares_summary
             
         except Exception as e:
             print(f"❌ Error in bulk company creation: {str(e)}")
-            raise
-
-        if not created_companies:
-            print("❌ No companies were created")
-            return []
-
-        # Step 2: Save CSV data to database and enhance with market and fundamental data
-        for i, company in enumerate(created_companies):
-            ticker = company.ticker
-            try:
-                # Get stock data for this ticker
-                stock_df = stock_data_cache.get(ticker)
-                
-                if stock_df is not None and not stock_df.empty:
-                    # Save CSV data to database for backtesting engine to use
-                    table_name = f"stock_price_data_{ticker.lower()}"
-                    print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
-                    self.database_manager.dataframe_replace_table(stock_df, table_name)
-                    
-                    # Use the most recent data point for current market data
-                    latest_data = stock_df.iloc[-1]
-                    latest_price = Decimal(str(latest_data['Close']))
-                    latest_volume = Decimal(str(latest_data['Volume']))
-                    latest_date = latest_data['Date']
-                    
-                    # Historical data statistics for fundamental analysis
-                    recent_data = stock_df.tail(252)  # Last year of data
-                    avg_volume = Decimal(str(recent_data['Volume'].mean()))
-                    price_52w_high = Decimal(str(recent_data['High'].max()))
-                    price_52w_low = Decimal(str(recent_data['Low'].min()))
-                    
-                    print(f"📈 Using real data for {ticker}: Latest Close=${latest_price:.2f}, Volume={latest_volume:,}")
-                else:
-                    # Fallback to mock data if CSV not available
-                    latest_price = Decimal(str(100 + i * 50))
-                    latest_volume = Decimal(str(1_000_000 + i * 100_000))
-                    latest_date = datetime.now()
-                    avg_volume = latest_volume
-                    price_52w_high = latest_price * Decimal('1.2')
-                    price_52w_low = latest_price * Decimal('0.8')
-                    print(f"⚠️  Using fallback data for {ticker}")
-
-                # Market data (using real prices and volumes)
-                market_data = MarketData(
-                    timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
-                    price=latest_price,
-                    volume=latest_volume
-                )
-                company.update_market_data(market_data)
-
-                # Fundamental data (mix of real-derived and estimated values)
-                # Calculate approximate market cap based on real price
-                estimated_shares_outstanding = Decimal(str(1_000_000_000 + i * 100_000_000))  # Estimate
-                market_cap = latest_price * estimated_shares_outstanding
-                
-                # Estimate P/E ratio based on sector averages
-                pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
-                pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
-                
-                fundamentals = FundamentalData(
-                    pe_ratio=pe_ratio,
-                    dividend_yield=Decimal(str(1.0 + i * 0.3)),  # Estimated dividend yields
-                    market_cap=market_cap,
-                    shares_outstanding=estimated_shares_outstanding,
-                    sector='Technology',
-                    industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
-                )
-                company.update_company_fundamentals(fundamentals)
-
-                # Sample dividend (estimated based on dividend yield)
-                dividend_amount = (fundamentals.dividend_yield / 100) * latest_price / 4  # Quarterly dividend
-                dividend = Dividend(
-                    amount=dividend_amount,
-                    ex_date=datetime(2024, 3, 15),
-                    pay_date=datetime(2024, 3, 30)
-                )
-                company.add_dividend(dividend)
-
-                # Print metrics for confirmation
-                metrics = company.get_company_metrics()
-                print(f"📊 {company.ticker}: Price=${metrics['current_price']}, "
-                    f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
-                    f"Div Yield={metrics['dividend_yield']}%")
-
-            except Exception as e:
-                print(f"❌ Error enhancing company {company.ticker}: {str(e)}")
-                continue
+            return {
+                'count': 0,
+                'tickers': [],
+                'processing_time': 0,
+                'csv_data_available': len(available_tickers),
+                'created_entities': 0,
+                'error': str(e)
+            }
 
 
     

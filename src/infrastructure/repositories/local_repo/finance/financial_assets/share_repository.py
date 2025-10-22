@@ -37,3 +37,37 @@ class ShareRepository(FinancialAssetRepository):
         except Exception as e:
             print(f"Error checking if share exists by ID: {e}")
             return False
+
+    def enhance_with_csv_data(self, share_entities, stock_data_cache, database_manager=None):
+        """
+        Enhance share entities with market and fundamental data from CSV files.
+        This functionality was moved from TestProjectDataManager for better separation.
+        
+        Args:
+            share_entities: List of share entities to enhance
+            stock_data_cache: Dictionary of ticker -> DataFrame with historical data
+            database_manager: Optional database manager for saving CSV data to tables
+        
+        Returns:
+            List of enhanced share entities
+        """
+        from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
+        
+        enhanced_entities = []
+        
+        for share_entity in share_entities:
+            try:
+                # Use mapper to enhance with market data
+                enhanced_entity = CompanyShareMapper.enhance_with_market_and_fundamental_data(
+                    domain_obj=share_entity,
+                    stock_data_cache=stock_data_cache,
+                    database_manager=database_manager
+                )
+                enhanced_entities.append(enhanced_entity)
+                
+            except Exception as e:
+                print(f"❌ Error enhancing share {share_entity.ticker}: {str(e)}")
+                # Include unenhanced entity to maintain list integrity
+                enhanced_entities.append(share_entity)
+        
+        return enhanced_entities

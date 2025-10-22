@@ -6,7 +6,7 @@ Enhanced with factor integration for historical price data.
 
 from datetime import datetime, date
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare as DomainCompanyShare
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
@@ -58,6 +58,8 @@ class CompanyShareMapper:
             domain_entity.set_sector(orm_obj.sector)
         if orm_obj.industry:
             domain_entity.set_industry(orm_obj.industry)
+        if orm_obj.company_name:
+            domain_entity.set_company_name(orm_obj.company_name)
         
         return domain_entity
 
@@ -92,6 +94,7 @@ class CompanyShareMapper:
         # Map additional properties
         orm_obj.sector = domain_obj.sector
         orm_obj.industry = domain_obj.industry
+        orm_obj.company_name = getattr(domain_obj, 'company_name', None)
         
         return orm_obj
 
@@ -319,5 +322,83 @@ class CompanyShareMapper:
         except Exception as e:
             print(f"Warning: Failed to get factor summary for share {orm_obj.ticker}: {str(e)}")
             return {'ticker': orm_obj.ticker, 'error': str(e)}
+
+    @staticmethod
+    def enhance_with_market_and_fundamental_data(domain_obj: DomainCompanyShare, 
+                                               stock_data_cache: Dict, 
+                                               database_manager = None) -> DomainCompanyShare:
+        """
+        Enhance company share entity with market and fundamental data from CSV.
+        This method was moved from TestProjectDataManager to maintain proper separation.
+        
+        :param domain_obj: Domain company share entity
+        :param stock_data_cache: Dictionary of ticker -> DataFrame with stock data
+        :param database_manager: Database manager for saving CSV data
+        :return: Enhanced domain entity
+        """
+        ticker = domain_obj.ticker
+        
+        try:
+            # Get stock data for this ticker
+            stock_df = stock_data_cache.get(ticker)
+            
+            if stock_df is not None and not stock_df.empty:
+                # Save CSV data to database for backtesting engine to use (if database_manager provided)
+                if database_manager:
+                    table_name = f"stock_price_data_{ticker.lower()}"
+                    print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
+                    database_manager.dataframe_replace_table(stock_df, table_name)
+                
+                # Use the most recent data point for current market data
+                latest_data = stock_df.iloc[-1]
+                latest_price = Decimal(str(latest_data['Close']))
+                latest_volume = Decimal(str(latest_data['Volume']))
+                latest_date = latest_data['Date']
+                
+                print(f"📈 Using real data for {ticker}: Latest Close=${latest_price:.2f}, Volume={latest_volume:,}")
+            else:
+                # Fallback to mock data if CSV not available
+                latest_price = Decimal("100.00")
+                latest_volume = Decimal("1000000")
+                latest_date = datetime.now()
+                print(f"⚠️  Using fallback data for {ticker}")
+
+            # Market data (using real prices and volumes)
+            market_data = MarketData(
+                timestamp=latest_date if isinstance(latest_date, datetime) else datetime.now(),
+                price=latest_price,
+                volume=latest_volume
+            )
+            domain_obj.update_market_data(market_data)
+
+            # Fundamental data (mix of real-derived and estimated values)
+            # Calculate approximate market cap based on real price
+            estimated_shares_outstanding = Decimal("1000000000")  # Default estimate
+            market_cap = latest_price * estimated_shares_outstanding
+            
+            # Estimate P/E ratio based on sector averages
+            pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
+            pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
+            
+            fundamentals = FundamentalData(
+                pe_ratio=pe_ratio,
+                dividend_yield=Decimal("1.5"),  # Default dividend yield
+                market_cap=market_cap,
+                shares_outstanding=estimated_shares_outstanding,
+                sector='Technology',
+                industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
+            )
+            domain_obj.update_company_fundamentals(fundamentals)
+
+            # Print metrics for confirmation
+            metrics = domain_obj.get_company_metrics()
+            print(f"📊 {domain_obj.ticker}: Price=${metrics['current_price']}, "
+                f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
+                f"Div Yield={metrics['dividend_yield']}%")
+
+        except Exception as e:
+            print(f"❌ Error enhancing company {domain_obj.ticker}: {str(e)}")
+        
+        return domain_obj
 
 
