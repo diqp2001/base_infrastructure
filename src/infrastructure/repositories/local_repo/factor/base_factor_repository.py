@@ -251,6 +251,27 @@ class BaseFactorRepository(ABC):
             print(f"Error retrieving rules: {e}")
             return []
 
+    # ----------------------------- ID Generation Methods -----------------------------
+    def _get_next_available_factor_id(self) -> int:
+        """
+        Get the next available ID for factor creation.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            FactorModel = self.get_factor_model()
+            max_id_result = self.session.query(FactorModel.id).order_by(FactorModel.id.desc()).first()
+
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+
+        except Exception as e:
+            print(f"Warning: Could not determine next available factor ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
     # ----------------------------- Convenience Methods -----------------------------
     def add_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str) -> Optional[FactorEntity]:
         """

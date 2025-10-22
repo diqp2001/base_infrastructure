@@ -38,6 +38,27 @@ class ShareRepository(FinancialAssetRepository):
             print(f"Error checking if share exists by ID: {e}")
             return False
 
+    def _get_next_available_share_id(self) -> int:
+        """
+        Get the next available ID for share creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            # Get the highest existing ID from the database
+            max_id_result = self.db.query(ShareModel.id).order_by(ShareModel.id.desc()).first()
+
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+
+        except Exception as e:
+            print(f"Warning: Could not determine next available share ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
     def enhance_with_csv_data(self, share_entities, stock_data_cache, database_manager=None):
         """
         Enhance share entities with basic market data from CSV files (fundamental data removed).
