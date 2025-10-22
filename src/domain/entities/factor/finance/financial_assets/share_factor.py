@@ -21,7 +21,7 @@ class FactorShare(FactorEquity):
         source: Optional[str] = None,
         definition: Optional[str] = None,
         equity_specific: Optional[str] = None,
-        factor_id: Optional[str] = None,
+        factor_id: Optional[int] = None,
     ):
         super().__init__(name, group, subgroup, data_type, source, definition, factor_id)
         self.equity_specific = equity_specific  # e.g. "return", "volatility"

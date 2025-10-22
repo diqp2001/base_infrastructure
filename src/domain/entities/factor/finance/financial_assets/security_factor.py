@@ -18,7 +18,7 @@ class FactorSecurity(FactorFinancialAsset):
         data_type: Optional[str] = "numeric",
         source: Optional[str] = None,
         definition: Optional[str] = None,
-        factor_id: Optional[str] = None,
+        factor_id: Optional[int] = None,
     ):
         super().__init__(name, group, subgroup, data_type, source, definition, factor_id)
 
