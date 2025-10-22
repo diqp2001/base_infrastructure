@@ -190,13 +190,13 @@ class TestProjectFactorManager(ProjectManager):
                 print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
 
         # Create basic company entity data (CSV source identification only)
-        start_id = 1
-        for i, ticker in enumerate(available_tickers, start=start_id):
+        # Let database assign sequential IDs automatically
+        for ticker in available_tickers:
             companies_data.append({
-                'id': i,
+                'id': None,  # Let database assign sequential ID automatically
                 'ticker': ticker,
                 'exchange_id': 1,
-                'company_id': i,
+                'company_id': 1,  # Use default company_id for now
                 'start_date': datetime(2020, 1, 1),
                 'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
                 'sector': 'Technology'
@@ -530,6 +530,55 @@ class TestProjectFactorManager(ProjectManager):
     # -------------------------
     # UTILITY METHODS
     # -------------------------
+
+    def _get_next_available_company_share_id(self) -> int:
+        """
+        Get the next available ID for company share creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            # Get the highest existing ID from the database
+            from infrastructure.models.finance.financial_assets.company_share import CompanyShare as CompanyShareModel
+            
+            max_id_result = self.database_manager.session.query(
+                CompanyShareModel.id
+            ).order_by(CompanyShareModel.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available company share ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
+    def _get_next_available_factor_id(self, factor_model_class) -> int:
+        """
+        Get the next available ID for factor creation.
+        
+        Args:
+            factor_model_class: The SQLAlchemy model class for the factor type
+            
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            max_id_result = self.database_manager.session.query(
+                factor_model_class.id
+            ).order_by(factor_model_class.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available factor ID: {str(e)}")
+            return 1  # Default to 1 if query fails
 
     def _get_iso_code(self, currency_name: str) -> str:
         """Get ISO code for currency name."""

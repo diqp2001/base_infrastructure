@@ -56,8 +56,9 @@ class CompanyShareMapper:
         if orm_obj is None:
             orm_obj = ORMCompanyShare()
         
-        # Map basic fields
-        orm_obj.id = domain_obj.id
+        # Map basic fields - only set ID if domain object has one (let database auto-assign if None)
+        if domain_obj.id is not None:
+            orm_obj.id = domain_obj.id
         orm_obj.ticker = domain_obj.ticker
         orm_obj.exchange_id = domain_obj.exchange_id
         orm_obj.company_id = domain_obj.company_id

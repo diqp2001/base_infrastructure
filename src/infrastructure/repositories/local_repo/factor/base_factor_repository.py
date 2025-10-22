@@ -54,13 +54,13 @@ class BaseFactorRepository(ABC):
             return None
         
         factor_entity = FactorEntity(
-            id=infra_obj.id,
             name=infra_obj.name,
             group=infra_obj.group,
             subgroup=infra_obj.subgroup,
             data_type=infra_obj.data_type,
             source=infra_obj.source,
-            definition=infra_obj.definition
+            definition=infra_obj.definition,
+            factor_id=infra_obj.id  # Pass database ID as factor_id
         )
 
         return factor_entity
@@ -267,15 +267,14 @@ class BaseFactorRepository(ABC):
         Returns:
             Created factor entity or None if failed
         """
-        from decimal import Decimal
-        
         domain_factor = FactorEntity(
             name=name,
             group=group,
             subgroup=subgroup,
             data_type=data_type,
             source=source,
-            definition=definition
+            definition=definition,
+            factor_id=None  # Let database assign sequential ID
         )
         return self.create_factor(domain_factor)
 

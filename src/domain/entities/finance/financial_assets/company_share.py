@@ -16,7 +16,7 @@ class CompanyShare(Share):
     Provides company-specific business logic and relationships.
     """
     
-    def __init__(self, id: int, ticker: str, exchange_id: int, company_id: int, 
+    def __init__(self, id: Optional[int], ticker: str, exchange_id: int, company_id: int, 
                  start_date: datetime, end_date: Optional[datetime] = None):
         super().__init__(id, ticker, exchange_id, start_date, end_date)
         

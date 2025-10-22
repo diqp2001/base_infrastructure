@@ -17,7 +17,7 @@ class Share(Equity, ABC):
     Parent class for CompanyShare, ETFShare, and other share-based instruments.
     """
     
-    def __init__(self, id: int, ticker: str, exchange_id: int, 
+    def __init__(self, id: Optional[int], ticker: str, exchange_id: int, 
                  start_date: datetime, end_date: Optional[datetime] = None):
         # Create symbol for base Security class
         symbol = Symbol(
