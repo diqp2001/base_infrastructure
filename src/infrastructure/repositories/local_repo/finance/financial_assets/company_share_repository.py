@@ -13,13 +13,27 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.company_sh
 
 class CompanyShareRepository(ShareRepository):
     def __init__(self, session: Session):
-        self.session = session
+        # Properly call parent constructor with session
+        super().__init__(session)
+    
+    @property  
+    def model_class(self):
+        """Return the SQLAlchemy model class for CompanyShare."""
+        return CompanyShareModel
 
-    def _to_domain(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
+    def _to_entity(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
         """Convert an infrastructure CompanyShare to a domain CompanyShare using mapper."""
         if not infra_share:
             return None
         return CompanyShareMapper.to_domain(infra_share)
+    
+    def _to_model(self, entity: CompanyShareEntity) -> CompanyShareModel:
+        """Convert domain entity to ORM model."""
+        return CompanyShareMapper.to_infrastructure(entity)
+    
+    def _to_domain(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
+        """Legacy method - delegates to _to_entity."""
+        return self._to_entity(infra_share)
 
     def get_all(self):
         """Retrieve all CompanyShare records from the database."""
