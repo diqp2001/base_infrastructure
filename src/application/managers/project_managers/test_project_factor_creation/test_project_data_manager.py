@@ -190,13 +190,15 @@ class TestProjectFactorManager(ProjectManager):
                 print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
 
         # Create basic company entity data (CSV source identification only)
-        start_id = 1
-        for i, ticker in enumerate(available_tickers, start=start_id):
+        # Use the repository's ID generation method for sequential IDs
+        next_id = self.company_share_repository_local._get_next_available_id()
+        
+        for i, ticker in enumerate(available_tickers):
             companies_data.append({
-                'id': i,
+                'id': next_id + i,  # Use sequential IDs from database
                 'ticker': ticker,
                 'exchange_id': 1,
-                'company_id': i,
+                'company_id': next_id + i,
                 'start_date': datetime(2020, 1, 1),
                 'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
                 'sector': 'Technology'

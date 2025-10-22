@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.orm import Session
 
+from ...base_repository import BaseRepository
 from domain.entities.factor.factor import FactorBase as FactorEntity
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 from domain.entities.factor.factor_rule import FactorRule as FactorRuleEntity
@@ -26,13 +27,14 @@ from infrastructure.repositories.mappers.factor.factor_rule_mapper import Factor
 from application.managers.database_managers.database_manager import DatabaseManager
 
 
-class BaseFactorRepository(ABC):
+class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     """Repository managing Factor entities, their values, and rules."""
 
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize repository with a database type."""
         self.database_manager = DatabaseManager(db_type)
-        self.session = self.database_manager.session
+        # Call parent constructor with session
+        super().__init__(self.database_manager.session)
 
     # ----------------------------- Abstract methods -----------------------------
     @abstractmethod
@@ -46,6 +48,30 @@ class BaseFactorRepository(ABC):
     @abstractmethod
     def get_factor_rule_model(self):
         return FactorRuleModel
+    
+    @property
+    def model_class(self):
+        """Return the SQLAlchemy factor model class."""
+        return self.get_factor_model()
+    
+    def _to_entity(self, infra_obj) -> Optional[FactorEntity]:
+        """Convert ORM model to domain entity."""
+        return self._to_domain_factor(infra_obj)
+    
+    def _to_model(self, entity: FactorEntity) -> FactorModel:
+        """Convert domain entity to ORM model."""
+        FactorModel = self.get_factor_model()
+        model = FactorModel(
+            name=entity.name,
+            group=entity.group,
+            subgroup=entity.subgroup,
+            data_type=entity.data_type,
+            source=entity.source,
+            definition=entity.definition
+        )
+        if hasattr(entity, 'id') and entity.id is not None:
+            model.id = entity.id
+        return model
 
     # ----------------------------- Mappers -----------------------------
     def _to_domain_factor(self, infra_obj) -> Optional[FactorEntity]:
@@ -92,11 +118,18 @@ class BaseFactorRepository(ABC):
 
     # ----------------------------- CRUD: Factors -----------------------------
     def create_factor(self, domain_factor: FactorEntity) -> Optional[FactorEntity]:
-        """Add a new factor to the database."""
+        """Add a new factor to the database using sequential ID generation."""
         try:
             FactorModel = self.get_factor_model()
+            
+            # Use sequential ID generation if factor doesn't have an ID
+            if not hasattr(domain_factor, 'id') or domain_factor.id is None:
+                next_id = self._get_next_available_factor_id()
+                domain_factor.id = next_id
+            
             # Create ORM object directly using the specific model
             orm_factor = FactorModel(
+                id=domain_factor.id,  # Use sequential ID
                 name=domain_factor.name,
                 group=domain_factor.group,
                 subgroup=domain_factor.subgroup,
