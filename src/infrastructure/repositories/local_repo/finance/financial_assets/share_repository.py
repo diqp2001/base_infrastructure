@@ -40,7 +40,7 @@ class ShareRepository(FinancialAssetRepository):
 
     def enhance_with_csv_data(self, share_entities, stock_data_cache, database_manager=None):
         """
-        Enhance share entities with market and fundamental data from CSV files.
+        Enhance share entities with basic market data from CSV files (fundamental data removed).
         This functionality was moved from TestProjectDataManager for better separation.
         
         Args:
@@ -58,7 +58,7 @@ class ShareRepository(FinancialAssetRepository):
         for share_entity in share_entities:
             try:
                 # Use mapper to enhance with market data
-                enhanced_entity = CompanyShareMapper.enhance_with_market_and_fundamental_data(
+                enhanced_entity = CompanyShareMapper.enhance_with_csv_data(
                     domain_obj=share_entity,
                     stock_data_cache=stock_data_cache,
                     database_manager=database_manager

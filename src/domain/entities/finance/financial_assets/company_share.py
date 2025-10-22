@@ -6,7 +6,7 @@ Replaces CompanyStock - extends Share with company-specific relationships and bu
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
-from .share import Share, FundamentalData, MarketData
+from .share import Share, MarketData
 
 
 class CompanyShare(Share):
@@ -59,50 +59,19 @@ class CompanyShare(Share):
         # - Peer comparison updates
     
     def get_company_metrics(self) -> dict:
-        """Get company-specific financial metrics."""
-        metrics = {
+        """Get company-specific basic metrics."""
+        return {
             'company_id': self.company_id,
             'company_name': self.company_name,
             'ticker': self.ticker,
             'current_price': self.price,
-            'market_cap': None,
-            'pe_ratio': None,
-            'dividend_yield': None,
             'sector': self.sector,
             'industry': self.industry,
         }
-        
-        if self.fundamentals:
-            metrics.update({
-                'market_cap': self.fundamentals.market_cap,
-                'pe_ratio': self.fundamentals.pe_ratio,
-                'dividend_yield': self.fundamentals.dividend_yield,
-                'shares_outstanding': self.fundamentals.shares_outstanding,
-                'book_value_per_share': self.fundamentals.book_value_per_share,
-                'earnings_per_share': self.fundamentals.earnings_per_share,
-            })
-        
-        return metrics
     
-    def calculate_market_cap(self) -> Optional[Decimal]:
-        """Calculate current market capitalization."""
-        if not self.fundamentals or not self.fundamentals.shares_outstanding:
-            return None
-            
-        return self.price * Decimal(str(self.fundamentals.shares_outstanding))
+    # calculate_market_cap removed - use factors instead
     
-    def update_company_fundamentals(self, fundamentals: FundamentalData) -> None:
-        """Update fundamental data with company-specific validation."""
-        # Add company-specific validation logic here
-        if fundamentals.market_cap and fundamentals.shares_outstanding:
-            implied_price = fundamentals.market_cap / Decimal(str(fundamentals.shares_outstanding))
-            # Validate that implied price is reasonable compared to current price
-            if self.price > 0:
-                price_diff = abs(implied_price - self.price) / self.price
-                if price_diff > Decimal('0.1'):  # 10% difference threshold
-                    print(f"Warning: Market cap implies price {implied_price}, current price {self.price}")
-        
-        self.update_fundamentals(fundamentals)
+    # update_company_fundamentals removed - use factors instead
     
     
     def is_active(self) -> bool:

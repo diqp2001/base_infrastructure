@@ -34,17 +34,7 @@ class StockSplit:
             raise ValueError("Split ratio must be positive")
 
 
-@dataclass
-class FundamentalData:
-    """Value object for fundamental stock data."""
-    pe_ratio: Optional[Decimal] = None
-    dividend_yield: Optional[Decimal] = None
-    market_cap: Optional[Decimal] = None
-    shares_outstanding: Optional[int] = None
-    sector: Optional[str] = None
-    industry: Optional[str] = None
-    book_value_per_share: Optional[Decimal] = None
-    earnings_per_share: Optional[Decimal] = None
+# FundamentalData class removed - use factors instead
 
 
 class Stock(Security):
@@ -69,8 +59,7 @@ class Stock(Security):
         self.start_date = start_date
         self.end_date = end_date
         
-        # Equity-specific data
-        self._fundamentals: Optional[FundamentalData] = None
+        # fundamentals field removed - use factors instead
         self._dividend_history: List[Dividend] = []
         self._stock_splits: List[StockSplit] = []
         self._sector: Optional[str] = None
@@ -81,10 +70,7 @@ class Stock(Security):
         """Get stock ticker symbol."""
         return self.symbol.ticker
         
-    @property
-    def fundamentals(self) -> Optional[FundamentalData]:
-        """Get fundamental data."""
-        return self._fundamentals
+    # fundamentals property removed - use factors instead
     
     @property
     def dividend_history(self) -> List[Dividend]:
@@ -130,9 +116,7 @@ class Stock(Security):
         if self.price > 0:
             dividend_yield = (annual_dividends / self.price) * Decimal('100')
             
-            # Update fundamentals if exists
-            if self._fundamentals:
-                self._fundamentals.dividend_yield = dividend_yield
+            # Dividend yield calculation (fundamentals removed)
     
     def _check_corporate_actions(self, date: datetime) -> None:
         """Check if any corporate actions occurred on this date."""
@@ -165,11 +149,10 @@ class Stock(Security):
         self._stock_splits.append(split)
         self._stock_splits.sort(key=lambda s: s.ex_date, reverse=True)  # Most recent first
     
-    def update_fundamentals(self, fundamentals: FundamentalData) -> None:
-        """Update fundamental data."""
-        self._fundamentals = fundamentals
-        self._sector = fundamentals.sector
-        self._industry = fundamentals.industry
+    def update_sector_industry(self, sector: Optional[str], industry: Optional[str]) -> None:
+        """Update sector and industry information."""
+        self._sector = sector
+        self._industry = industry
     
     def get_trailing_dividend_yield(self) -> Decimal:
         """Calculate trailing 12-month dividend yield."""
@@ -183,9 +166,7 @@ class Stock(Security):
         
         return (annual_dividends / self.price) * Decimal('100')
     
-    def get_pe_ratio(self) -> Optional[Decimal]:
-        """Get price-to-earnings ratio."""
-        return self._fundamentals.pe_ratio if self._fundamentals else None
+    # get_pe_ratio removed - use factors instead
     
     def calculate_margin_requirement(self, quantity: Decimal) -> Decimal:
         """

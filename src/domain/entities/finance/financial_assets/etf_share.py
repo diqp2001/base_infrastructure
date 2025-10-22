@@ -6,7 +6,7 @@ Extends Share with ETF-specific functionality and characteristics.
 from typing import Optional, List, Dict
 from datetime import datetime
 from decimal import Decimal
-from .share import Share, FundamentalData, MarketData
+from .share import Share, MarketData
 from .security import Symbol, SecurityType
 
 
