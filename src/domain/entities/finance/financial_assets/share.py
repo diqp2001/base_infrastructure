@@ -7,7 +7,7 @@ from abc import ABC
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from .equity import Equity, FundamentalData, MarketData
+from .equity import Equity, MarketData
 from .security import Symbol, SecurityType
 
 
@@ -39,18 +39,7 @@ class Share(Equity, ABC):
         """Get share ticker symbol."""
         return self.symbol.ticker
     
-    def update_share_fundamentals(self, fundamentals: FundamentalData) -> None:
-        """Update fundamental data with share-specific validation."""
-        # Add share-specific validation logic here
-        if fundamentals.market_cap and fundamentals.shares_outstanding:
-            implied_price = fundamentals.market_cap / Decimal(str(fundamentals.shares_outstanding))
-            # Validate that implied price is reasonable compared to current price
-            if self.price > 0:
-                price_diff = abs(implied_price - self.price) / self.price
-                if price_diff > Decimal('0.1'):  # 10% difference threshold
-                    print(f"Warning: Market cap implies price {implied_price}, current price {self.price}")
-        
-        self.update_fundamentals(fundamentals)
+    # update_share_fundamentals removed - use factors instead
     
     def is_active(self) -> bool:
         """Check if the share is currently active/trading."""
@@ -78,12 +67,7 @@ class Share(Equity, ABC):
         # Rough calculation: 5/7 of days are trading days
         return int(delta.days * 5/7)
     
-    def calculate_market_cap(self) -> Optional[Decimal]:
-        """Calculate current market capitalization."""
-        if not self.fundamentals or not self.fundamentals.shares_outstanding:
-            return None
-            
-        return self.price * Decimal(str(self.fundamentals.shares_outstanding))
+    # calculate_market_cap removed - use factors instead
     
     @property
     def asset_type(self) -> str:

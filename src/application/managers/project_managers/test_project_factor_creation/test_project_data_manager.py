@@ -16,7 +16,7 @@ from application.managers.project_managers.test_project_data import config
 from application.services.misbuffet.data.factor_factory.factor_factory import FactorFactory
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.financial_assets.currency import Currency as CurrencyEntity
-from domain.entities.finance.financial_assets.equity import FundamentalData, Dividend
+from domain.entities.finance.financial_assets.equity import Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
 # Domain factor entities
@@ -228,8 +228,7 @@ class TestProjectFactorManager(ProjectManager):
                     
                     # Set sector information if provided  
                     if 'sector' in data:
-                        fundamentals = FundamentalData(sector=data['sector'])
-                        domain_share.update_company_fundamentals(fundamentals)
+                        domain_share.update_sector_industry(data.get('sector'), data.get('industry'))
                     
                     domain_shares.append(domain_share)
                     

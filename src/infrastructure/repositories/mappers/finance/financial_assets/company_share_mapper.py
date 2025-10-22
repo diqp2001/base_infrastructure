@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare as DomainCompanyShare
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
 from src.domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData
-from src.domain.entities.finance.financial_assets.equity import FundamentalData
+# FundamentalData import removed - use factors instead
 from infrastructure.models.factor.finance.financial_assets.share_factors import ShareFactor, ShareFactorValue
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 
@@ -41,25 +41,13 @@ class CompanyShareMapper:
             )
             domain_entity.update_market_data(market_data)
         
-        # Set fundamental data if available
-        if orm_obj.market_cap or orm_obj.pe_ratio:
-            fundamentals = FundamentalData(
-                market_cap=Decimal(str(orm_obj.market_cap)) if orm_obj.market_cap else None,
-                shares_outstanding=float(orm_obj.shares_outstanding) if orm_obj.shares_outstanding else None,
-                pe_ratio=Decimal(str(orm_obj.pe_ratio)) if orm_obj.pe_ratio else None,
-                dividend_yield=Decimal(str(orm_obj.dividend_yield)) if orm_obj.dividend_yield else None,
-                book_value_per_share=Decimal(str(orm_obj.book_value_per_share)) if orm_obj.book_value_per_share else None,
-                earnings_per_share=Decimal(str(orm_obj.earnings_per_share)) if orm_obj.earnings_per_share else None
-            )
-            domain_entity.update_fundamentals(fundamentals)
+        # Fundamental data mapping removed - use factors instead
         
-        # Set additional properties
-        if orm_obj.sector:
-            domain_entity.set_sector(orm_obj.sector)
-        if orm_obj.industry:
-            domain_entity.set_industry(orm_obj.industry)
-        if orm_obj.company_name:
-            domain_entity.set_company_name(orm_obj.company_name)
+        # Set basic properties only (company_name field removed)
+        if hasattr(orm_obj, 'sector'):
+            domain_entity.set_sector(getattr(orm_obj, 'sector', None))
+        if hasattr(orm_obj, 'industry'):
+            domain_entity.set_industry(getattr(orm_obj, 'industry', None))
         
         return domain_entity
 
@@ -82,19 +70,9 @@ class CompanyShareMapper:
         orm_obj.last_update = domain_obj.last_update
         orm_obj.is_tradeable = domain_obj.is_tradeable
         
-        # Map fundamental data
-        if domain_obj.fundamentals:
-            orm_obj.market_cap = domain_obj.fundamentals.market_cap
-            orm_obj.shares_outstanding = domain_obj.fundamentals.shares_outstanding
-            orm_obj.pe_ratio = domain_obj.fundamentals.pe_ratio
-            orm_obj.dividend_yield = domain_obj.fundamentals.dividend_yield
-            orm_obj.book_value_per_share = domain_obj.fundamentals.book_value_per_share
-            orm_obj.earnings_per_share = domain_obj.fundamentals.earnings_per_share
+        # Fundamental data mapping removed - use factors instead
         
-        # Map additional properties
-        orm_obj.sector = domain_obj.sector
-        orm_obj.industry = domain_obj.industry
-        orm_obj.company_name = getattr(domain_obj, 'company_name', None)
+        # Only map basic properties (fundamental fields and company_name removed)
         
         return orm_obj
 
@@ -324,12 +302,12 @@ class CompanyShareMapper:
             return {'ticker': orm_obj.ticker, 'error': str(e)}
 
     @staticmethod
-    def enhance_with_market_and_fundamental_data(domain_obj: DomainCompanyShare, 
-                                               stock_data_cache: Dict, 
-                                               database_manager = None) -> DomainCompanyShare:
+    def enhance_with_csv_data(domain_obj: DomainCompanyShare, 
+                             stock_data_cache: Dict, 
+                             database_manager = None) -> DomainCompanyShare:
         """
-        Enhance company share entity with market and fundamental data from CSV.
-        This method was moved from TestProjectDataManager to maintain proper separation.
+        Enhance company share entity with basic market data from CSV.
+        Fundamental data handling removed - use factors instead.
         
         :param domain_obj: Domain company share entity
         :param stock_data_cache: Dictionary of ticker -> DataFrame with stock data
@@ -371,30 +349,22 @@ class CompanyShareMapper:
             )
             domain_obj.update_market_data(market_data)
 
-            # Fundamental data (mix of real-derived and estimated values)
-            # Calculate approximate market cap based on real price
-            estimated_shares_outstanding = Decimal("1000000000")  # Default estimate
-            market_cap = latest_price * estimated_shares_outstanding
+            # Fundamental data enhancement removed - all market/fundamental data should be handled via factors
+            # Set basic sector/industry info if available
+            if ticker == "AAPL":
+                domain_obj.set_sector("Technology")
+                domain_obj.set_industry("Hardware")
+            elif ticker == "MSFT":
+                domain_obj.set_sector("Technology")
+                domain_obj.set_industry("Software")
+            elif ticker == "AMZN":
+                domain_obj.set_sector("Consumer Discretionary")
+                domain_obj.set_industry("E-commerce")
+            elif ticker == "GOOGL":
+                domain_obj.set_sector("Technology")
+                domain_obj.set_industry("Internet Services")
             
-            # Estimate P/E ratio based on sector averages
-            pe_ratios = {"AAPL": 25.0, "MSFT": 28.0, "AMZN": 35.0, "GOOGL": 22.0}
-            pe_ratio = Decimal(str(pe_ratios.get(ticker, 25.0)))
-            
-            fundamentals = FundamentalData(
-                pe_ratio=pe_ratio,
-                dividend_yield=Decimal("1.5"),  # Default dividend yield
-                market_cap=market_cap,
-                shares_outstanding=estimated_shares_outstanding,
-                sector='Technology',
-                industry='Software' if ticker not in ["AMZN", "GOOGL"] else ('E-commerce' if ticker == "AMZN" else 'Internet Services')
-            )
-            domain_obj.update_company_fundamentals(fundamentals)
-
-            # Print metrics for confirmation
-            metrics = domain_obj.get_company_metrics()
-            print(f"📊 {domain_obj.ticker}: Price=${metrics['current_price']}, "
-                f"P/E={metrics['pe_ratio']}, Market Cap=${market_cap/1_000_000_000:.1f}B, "
-                f"Div Yield={metrics['dividend_yield']}%")
+            print(f"📊 {domain_obj.ticker}: Price=${latest_price}, Volume={latest_volume:,}")
 
         except Exception as e:
             print(f"❌ Error enhancing company {domain_obj.ticker}: {str(e)}")

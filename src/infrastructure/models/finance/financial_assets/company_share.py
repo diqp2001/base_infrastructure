@@ -26,21 +26,8 @@ class CompanyShare(Base):
     current_price = Column(Numeric(15, 4), default=0)
     last_update = Column(DateTime, nullable=True)
     
-    # Fundamental data fields
-    market_cap = Column(Numeric(20, 2), nullable=True)
-    shares_outstanding = Column(Numeric(20, 0), nullable=True)
-    pe_ratio = Column(Numeric(10, 4), nullable=True)
-    dividend_yield = Column(Numeric(5, 4), nullable=True)
-    book_value_per_share = Column(Numeric(15, 4), nullable=True)
-    earnings_per_share = Column(Numeric(15, 4), nullable=True)
-    
     # Status fields
     is_tradeable = Column(Boolean, default=True)
-    sector = Column(String(100), nullable=True)
-    industry = Column(String(100), nullable=True)
-    
-    # Additional company metadata
-    company_name = Column(String(200), nullable=True)
 
     # Relationships
     companies = relationship("Company", back_populates="company_shares")
