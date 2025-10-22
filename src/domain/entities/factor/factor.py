@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
-from uuid import uuid4
 
 
 class FactorBase(ABC):
@@ -21,9 +20,9 @@ class FactorBase(ABC):
         data_type: Optional[str] = None,
         source: Optional[str] = None,
         definition: Optional[str] = None,
-        factor_id: Optional[str] = None,
+        factor_id: Optional[int] = None,
     ):
-        self.id = factor_id or str(uuid4())
+        self.id = factor_id  # Repository will assign sequential ID if None
         self.name = name
         self.group = group
         self.subgroup = subgroup

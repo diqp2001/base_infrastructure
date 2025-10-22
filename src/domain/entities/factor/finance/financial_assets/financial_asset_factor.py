@@ -1,5 +1,5 @@
 from __future__ import annotations
-from domain.entities.factor import FactorBase
+from domain.entities.factor.factor import FactorBase
 
 
 
@@ -16,7 +16,7 @@ class FactorFinancialAsset(FactorBase):
         data_type: Optional[str] = "numeric",
         source: Optional[str] = None,
         definition: Optional[str] = None,
-        factor_id: Optional[str] = None,
+        factor_id: Optional[int] = None,
     ):
         super().__init__(name, group, subgroup, data_type, source, definition, factor_id)
 
