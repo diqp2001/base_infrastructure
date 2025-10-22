@@ -1,3 +1,4 @@
+from typing import Optional
 from .financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.share import Share as ShareModel
 from src.domain.entities.finance.financial_assets.share import Share as ShareEntity
@@ -37,6 +38,99 @@ class ShareRepository(FinancialAssetRepository):
         except Exception as e:
             print(f"Error checking if share exists by ID: {e}")
             return False
+
+    def create(self, entity: ShareEntity) -> ShareEntity:
+        """Create new share entity in database"""
+        try:
+            # Create ORM model from domain entity
+            share_model = ShareModel(
+                ticker=entity.ticker,
+                exchange_id=entity.exchange_id,
+                company_id=entity.company_id,
+                start_date=entity.start_date,
+                end_date=entity.end_date
+            )
+            
+            # If entity has an ID, use it; otherwise let database auto-assign
+            if hasattr(entity, 'id') and entity.id is not None:
+                share_model.id = entity.id
+                
+            self.db.add(share_model)
+            self.db.commit()
+            
+            # Return domain entity with assigned ID
+            entity.id = share_model.id
+            return entity
+            
+        except Exception as e:
+            self.db.rollback()
+            print(f"Error creating share: {e}")
+            return None
+        
+    def update(self, entity_id: int, updates: dict) -> Optional[ShareEntity]:
+        """Update share entity with new data"""
+        try:
+            share = self.db.query(ShareModel).filter(ShareModel.id == entity_id).first()
+            if not share:
+                return None
+                
+            # Update fields
+            for key, value in updates.items():
+                if hasattr(share, key):
+                    setattr(share, key, value)
+                    
+            self.db.commit()
+            
+            # Convert back to domain entity
+            return ShareEntity(
+                id=share.id,
+                ticker=share.ticker,
+                exchange_id=share.exchange_id,
+                company_id=share.company_id,
+                start_date=share.start_date,
+                end_date=share.end_date
+            )
+            
+        except Exception as e:
+            self.db.rollback()
+            print(f"Error updating share: {e}")
+            return None
+            
+    def delete(self, entity_id: int) -> bool:
+        """Delete share entity by ID"""
+        try:
+            share = self.db.query(ShareModel).filter(ShareModel.id == entity_id).first()
+            if not share:
+                return False
+                
+            self.db.delete(share)
+            self.db.commit()
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            print(f"Error deleting share: {e}")
+            return False
+    
+    def _get_next_available_share_id(self) -> int:
+        """
+        Get the next available ID for share creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            max_id_result = self.db.query(ShareModel.id).order_by(ShareModel.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available share ID: {str(e)}")
+            return 1  # Default to 1 if query fails
 
     def enhance_with_csv_data(self, share_entities, stock_data_cache, database_manager=None):
         """

@@ -399,3 +399,28 @@ class CompanyShareRepository:
                 continue
         
         return created_shares
+
+    def _get_next_available_company_share_id(self) -> int:
+        """
+        Get the next available ID for company share creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            max_id_result = self.session.query(CompanyShareModel.id).order_by(CompanyShareModel.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available company share ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
+    # ----------------------------- Standard CRUD Interface -----------------------------
+    def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:
+        """Create new company share entity in database (standard CRUD interface)"""
+        return self.add(entity)
