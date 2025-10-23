@@ -300,7 +300,7 @@ class TestProjectFactorManager(ProjectManager):
         
         print(f"\n🎯 Complete Factor System Summary:")
         print(f"  • Factors created: {total_summary['factors_created']}")
-        print(f"  • Rules created: {total_summary['total_rules']}")
+        print(f"  • Rules created: {total_summary['rules_created']}")
         print(f"  • Values calculated: {total_summary['values_calculated']}")
         print(f"  • Processing time: {elapsed:.3f} seconds")
         print("  • Factor system ready! ✅")
