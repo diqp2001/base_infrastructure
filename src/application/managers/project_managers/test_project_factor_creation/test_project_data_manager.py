@@ -190,15 +190,24 @@ class TestProjectFactorManager(ProjectManager):
                 print(f"⚠️  CSV file not found for {ticker}: {csv_path}")
 
         # Create basic company entity data (CSV source identification only)
-        # Use the repository's ID generation method for sequential IDs
-        next_id = self.company_share_repository_local._get_next_available_id()
+        # Check for existing entities to avoid duplicates
+        new_tickers = []
+        existing_tickers = []
         
-        for i, ticker in enumerate(available_tickers):
+        for ticker in available_tickers:
+            if self.company_share_repository_local.exists_by_ticker(ticker):
+                existing_tickers.append(ticker)
+                print(f"    ♻️  Company share already exists: {ticker}")
+            else:
+                new_tickers.append(ticker)
+        
+        # Only create entities for new tickers
+        for ticker in new_tickers:
             companies_data.append({
-                'id': next_id + i,  # Use sequential IDs from database
+                'id': None,  # Will be assigned sequentially by repository
                 'ticker': ticker,
                 'exchange_id': 1,
-                'company_id': next_id + i,
+                'company_id': None,  # Will be same as entity ID
                 'start_date': datetime(2020, 1, 1),
                 'company_name': f"{ticker} Inc." if ticker != "GOOGL" else "Alphabet Inc.",
                 'sector': 'Technology'
@@ -215,11 +224,12 @@ class TestProjectFactorManager(ProjectManager):
             domain_shares = []
             for i, data in enumerate(companies_data):
                 try:
+                    # Company ID will be same as share ID (assigned by repository)
                     domain_share = CompanyShareEntity(
                         id=data['id'],
                         ticker=data['ticker'],
                         exchange_id=data['exchange_id'],
-                        company_id=data['company_id'],
+                        company_id=data['id'],  # Will be set to the same as entity ID
                         start_date=data['start_date'],
                         end_date=data.get('end_date')
                     )
@@ -244,19 +254,22 @@ class TestProjectFactorManager(ProjectManager):
             end_time = time.time()
             elapsed = end_time - start_time
             
-            print(f"✅ Successfully created {len(created_companies)} companies in {elapsed:.3f} seconds")
-            print(f"⚡ Performance: {len(created_companies)/elapsed:.1f} companies/second")
+            print(f"✅ Successfully created {len(created_companies)} new companies in {elapsed:.3f} seconds")
+            if len(created_companies) > 0:
+                print(f"⚡ Performance: {len(created_companies)/elapsed:.1f} companies/second")
             
-            # Return summary
+            # Return summary including both new and existing
             shares_summary = {
-                'count': len(created_companies),
-                'tickers': [company.ticker for company in created_companies],
+                'count': len(available_tickers),  # Total count including existing
+                'tickers': available_tickers,
+                'new_entities': len(created_companies),
+                'existing_entities': len(existing_tickers),
                 'processing_time': elapsed,
                 'csv_data_available': len(available_tickers),
                 'created_entities': len(created_companies)
             }
             
-            print(f"📋 Share creation summary: {shares_summary['count']} entities created from {shares_summary['csv_data_available']} CSV sources")
+            print(f"📋 Share creation summary: {shares_summary['new_entities']} new + {shares_summary['existing_entities']} existing = {shares_summary['count']} total entities from {shares_summary['csv_data_available']} CSV sources")
             return shares_summary
             
         except Exception as e:
@@ -354,26 +367,43 @@ class TestProjectFactorManager(ProjectManager):
         
         for factor_def in price_factors:
             try:
-                factor = self.share_factor_repository.add_factor(
-                    name=factor_def['name'],
-                    group=factor_def['group'],
-                    subgroup=factor_def['subgroup'],
-                    data_type='numeric',
-                    source='historical_csv',
-                    definition=factor_def['definition']
-                )
+                # Check if factor already exists
+                existing_factor = self.share_factor_repository.get_by_name(factor_def['name'])
+                if existing_factor:
+                    factor = existing_factor
+                    print(f"    ♻️  Factor already exists: {factor_def['name']} (ID: {factor.id})")
+                else:
+                    # Create new factor with sequential ID system
+                    factor = self.share_factor_repository.add_factor(
+                        name=factor_def['name'],
+                        group=factor_def['group'],
+                        subgroup=factor_def['subgroup'],
+                        data_type='numeric',
+                        source='historical_csv',
+                        definition=factor_def['definition']
+                    )
+                    print(f"    ✅ Created share factor: {factor_def['name']} (ID: {factor.id})")
+                    
                 factors.append(factor)
                 
-                # Add basic validation rule
-                rule = self.share_factor_repository.add_factor_rule(
-                    factor_id=factor.id,
-                    condition=f"{factor_def['name']} > 0" if 'price' in factor_def['name'] else f"{factor_def['name']} >= 0",
-                    rule_type='validation',
-                    method_ref='validate_positive_value'
-                )
-                rules.append(rule)
+                # Check if validation rule already exists
+                condition = f"{factor_def['name']} > 0" if 'price' in factor_def['name'] else f"{factor_def['name']} >= 0"
+                existing_rule = self.share_factor_repository.get_rule_by_factor_and_condition(factor.id, condition)
                 
-                print(f"    ✅ Created share factor: {factor_def['name']}")
+                if existing_rule:
+                    rule = existing_rule
+                    print(f"    ♻️  Rule already exists for factor {factor_def['name']}")
+                else:
+                    # Add basic validation rule
+                    rule = self.share_factor_repository.add_factor_rule(
+                        factor_id=factor.id,
+                        condition=condition,
+                        rule_type='validation',
+                        method_ref='validate_positive_value'
+                    )
+                    print(f"    ✅ Created rule for factor: {factor_def['name']}")
+                    
+                rules.append(rule)
                 
             except Exception as e:
                 print(f"    ❌ Error creating share factor {factor_def['name']}: {str(e)}")
