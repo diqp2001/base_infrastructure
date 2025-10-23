@@ -50,13 +50,17 @@ class FinancialAssetBaseRepository(BaseRepository[EntityType, ModelType], ABC):
     def add_bulk(self, entities: List[EntityType]) -> List[EntityType]:
         """Add multiple financial assets in a single transaction."""
         try:
-            # Convert to models and assign IDs if needed
+            # Convert to models and assign sequential IDs if needed
             models = []
-            for entity in entities:
+            next_id = self._get_next_available_id()
+            
+            for i, entity in enumerate(entities):
                 if not hasattr(entity, 'id') or entity.id is None:
-                    entity.id = self._get_next_available_id()
-                    # Increment for next entity
-                    self._get_next_available_id.__defaults__ = (self._get_next_available_id() + len(models),)
+                    entity.id = next_id + i
+                
+                # For company shares, ensure company_id matches entity id
+                if hasattr(entity, 'company_id') and (not entity.company_id or entity.company_id is None):
+                    entity.company_id = entity.id
                 
                 models.append(self._to_model(entity))
             

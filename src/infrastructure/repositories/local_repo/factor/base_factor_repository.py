@@ -284,6 +284,20 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving rules: {e}")
             return []
 
+    def get_rule_by_factor_and_condition(self, factor_id: int, condition: str) -> Optional[FactorRuleEntity]:
+        """Check if a rule already exists for a factor with a specific condition."""
+        try:
+            FactorRuleModel = self.get_factor_rule_model()
+            rule = (
+                self.session.query(FactorRuleModel)
+                .filter(FactorRuleModel.factor_id == factor_id, FactorRuleModel.condition == condition)
+                .first()
+            )
+            return self._to_domain_rule(rule)
+        except Exception as e:
+            print(f"Error checking for existing rule: {e}")
+            return None
+
     def _get_next_available_factor_id(self) -> int:
         """
         Get the next available ID for factor creation.
