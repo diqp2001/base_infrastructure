@@ -412,9 +412,10 @@ class TestProjectFactorManager(ProjectManager):
 
  
     def _calculate_shares_factor_values(self) -> int:
-        """Calculate and save factor values for all shares."""
+        """Calculate and save factor values for all shares, skipping existing values."""
         print("  📈 Calculating share factor values...")
         values_count = 0
+        skipped_count = 0
         
         try:
             shares = self.company_share_repository_local.get_all()
@@ -429,40 +430,80 @@ class TestProjectFactorManager(ProjectManager):
                 df['Date'] = pd.to_datetime(df['Date'])
                 
                 # Get factors for shares
-                open_factor = self.share_factor_repository.get_by_name('open_price')
-                high_factor = self.share_factor_repository.get_by_name('high_price')
-                low_factor = self.share_factor_repository.get_by_name('low_price')
-                close_factor = self.share_factor_repository.get_by_name('close_price')
-                adj_close_factor = self.share_factor_repository.get_by_name('adj_close_price')
-                volume_factor = self.share_factor_repository.get_by_name('volume')
+                factors = {
+                    'open_price': self.share_factor_repository.get_by_name('open_price'),
+                    'high_price': self.share_factor_repository.get_by_name('high_price'),
+                    'low_price': self.share_factor_repository.get_by_name('low_price'),
+                    'close_price': self.share_factor_repository.get_by_name('close_price'),
+                    'adj_close_price': self.share_factor_repository.get_by_name('adj_close_price'),
+                    'volume': self.share_factor_repository.get_by_name('volume')
+                }
                 
-                # Save factor values
+                # Get existing dates for each factor to optimize duplicate checking
+                existing_dates = {}
+                for factor_name, factor in factors.items():
+                    if factor:
+                        existing_dates[factor.id] = self.share_factor_repository.get_existing_value_dates(
+                            factor.id, share.id
+                        )
+                
+                share_new_values = 0
+                share_skipped_values = 0
+                
+                # Save factor values, skipping existing ones
                 for _, row in df.iterrows():
                     trade_date = row['Date'].date()
                     
-                    # Save OHLCV values
+                    # Prepare OHLCV values
                     factor_values = [
-                        (open_factor.id, row['Open']),
-                        (high_factor.id, row['High']),
-                        (low_factor.id, row['Low']),
-                        (close_factor.id, row['Close']),
-                        (adj_close_factor.id, row['Adj Close']),
-                        (volume_factor.id, row['Volume'])
+                        (factors['open_price'].id, 'Open', row['Open']),
+                        (factors['high_price'].id, 'High', row['High']),
+                        (factors['low_price'].id, 'Low', row['Low']),
+                        (factors['close_price'].id, 'Close', row['Close']),
+                        (factors['adj_close_price'].id, 'Adj Close', row['Adj Close']),
+                        (factors['volume'].id, 'Volume', row['Volume'])
                     ]
                     
-                    for factor_id, value in factor_values:
-                        self.share_factor_repository.add_factor_value(
-                            factor_id=factor_id,
-                            entity_id=share.id,
-                            date=trade_date,
-                            value=Decimal(str(value))
-                        )
-                        values_count += 1
+                    for factor_id, column_name, value in factor_values:
+                        # Check if this value already exists
+                        if trade_date in existing_dates.get(factor_id, set()):
+                            share_skipped_values += 1
+                            skipped_count += 1
+                            continue
+                        
+                        # Add new factor value
+                        try:
+                            self.share_factor_repository.add_factor_value(
+                                factor_id=factor_id,
+                                entity_id=share.id,
+                                date=trade_date,
+                                value=Decimal(str(value))
+                            )
+                            share_new_values += 1
+                            values_count += 1
+                            
+                            # Update our local cache to avoid future duplicates
+                            if factor_id not in existing_dates:
+                                existing_dates[factor_id] = set()
+                            existing_dates[factor_id].add(trade_date)
+                            
+                        except Exception as e:
+                            print(f"    ⚠️  Error adding {column_name} value for {share.ticker} on {trade_date}: {str(e)}")
                 
-                print(f"    ✅ Processed {share.ticker}: {len(df)} days of data")
+                # Report results for this share
+                if share_new_values > 0 or share_skipped_values > 0:
+                    status_msg = f"    ✅ Processed {share.ticker}: {share_new_values} new values"
+                    if share_skipped_values > 0:
+                        status_msg += f", ♻️  {share_skipped_values} existing values skipped"
+                    print(status_msg)
+                else:
+                    print(f"    ♻️  {share.ticker}: All values already exist")
                 
         except Exception as e:
             print(f"    ❌ Error calculating share values: {str(e)}")
+        
+        if skipped_count > 0:
+            print(f"  📊 Summary: {values_count} new values added, {skipped_count} existing values skipped")
         
         return values_count
 
