@@ -9,10 +9,21 @@ copy all algorithm already in quantconnect
 consultation in strategy dev 
 data managwr app training data generation
 
+main project spatio_temp
+tools:
+web database
+web results power bi
+parameters simulation(target lentgh, decay)
+
+1.interactive broker 
+2.deploy docker
+
+
+
+
 create exe
-deploy docker
+
 and fx bonds commo data
-daily weekly montly quartely semi yearly minutes seconds etc - done
 
 
 
