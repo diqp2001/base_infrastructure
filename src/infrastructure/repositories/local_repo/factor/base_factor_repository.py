@@ -254,6 +254,60 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving factor values by entity: {e}")
             return []
 
+    def factor_value_exists(self, factor_id: int, entity_id: int, date_value: date) -> bool:
+        """
+        Check if a factor value already exists for the given factor_id, entity_id, and date.
+        
+        Args:
+            factor_id: ID of the factor
+            entity_id: ID of the entity
+            date_value: Date of the value
+            
+        Returns:
+            bool: True if the value exists, False otherwise
+        """
+        try:
+            FactorValueModel = self.get_factor_value_model()
+            existing_value = (
+                self.session.query(FactorValueModel)
+                .filter(
+                    FactorValueModel.factor_id == factor_id,
+                    FactorValueModel.entity_id == entity_id,
+                    FactorValueModel.date == date_value
+                )
+                .first()
+            )
+            return existing_value is not None
+        except Exception as e:
+            print(f"Error checking factor value existence: {e}")
+            return False
+
+    def get_existing_value_dates(self, factor_id: int, entity_id: int) -> set:
+        """
+        Get all existing dates for which factor values exist for a specific factor and entity.
+        
+        Args:
+            factor_id: ID of the factor
+            entity_id: ID of the entity
+            
+        Returns:
+            set: Set of dates that already have factor values
+        """
+        try:
+            FactorValueModel = self.get_factor_value_model()
+            dates = (
+                self.session.query(FactorValueModel.date)
+                .filter(
+                    FactorValueModel.factor_id == factor_id,
+                    FactorValueModel.entity_id == entity_id
+                )
+                .all()
+            )
+            return {date_tuple[0] for date_tuple in dates}
+        except Exception as e:
+            print(f"Error retrieving existing value dates: {e}")
+            return set()
+
     # ----------------------------- CRUD: Factor Rules -----------------------------
     def create_factor_rule(self, domain_rule: FactorRuleEntity) -> Optional[FactorRuleEntity]:
         """Add a new rule for a factor."""
