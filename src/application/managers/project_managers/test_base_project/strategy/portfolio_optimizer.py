@@ -18,12 +18,12 @@ class HybridPortfolioOptimizer:
     """
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        self.config = config or DEFAULT_CONFIG['PORTFOLIO']
+        self.config = config['PORTFOLIO'] or DEFAULT_CONFIG['PORTFOLIO']
         self.bl_config = self.config['BLACK_LITTERMAN']
         self.risk_config = self.config['RISK_MANAGEMENT']
         
         # Initialize Black-Litterman optimizer
-        self.bl_optimizer = BlackLittermanOptimizer()
+        #self.bl_optimizer = BlackLittermanOptimizer()
     
     def optimize_portfolio_with_signals(self,
                                       signals: Dict[str, float],

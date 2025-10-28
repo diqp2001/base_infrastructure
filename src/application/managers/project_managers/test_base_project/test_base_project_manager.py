@@ -67,7 +67,7 @@ class TestBaseProjectManager(ProjectManager):
         
         # Initialize core components
         self.data_loader = SpatiotemporalDataLoader(self.database_manager)
-        self.feature_engineer = SpatiotemporalFeatureEngineer()
+        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
         self.factor_manager = FactorEnginedDataManager(self.database_manager)
         self.model_trainer = SpatiotemporalModelTrainer(self.database_manager)
         self.portfolio_optimizer = HybridPortfolioOptimizer(self.config)

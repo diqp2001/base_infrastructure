@@ -4,8 +4,8 @@ from typing import Dict, List, Optional
 from src.application.managers.data_managers.data_manager import DataManager
 
 class DataManagerPrice(DataManager):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, database_manager, scaler: str = 'standard'):
+        super().__init__(database_manager, scaler)
 
     def preprocess(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """

@@ -7,7 +7,7 @@ from torch import nn, optim
 from src.application.managers.model_managers.model_manager import ModelManager
 
 class TFTModelManager(ModelManager):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int, target_column: str = 'price close', num_layers: int = 2):
+    def __init__(self, input_size: int = 8, hidden_size: int = 64, output_size: int = 1, target_column: str = 'price close', num_layers: int = 2):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size

@@ -40,7 +40,7 @@ class FactorEnginedDataManager:
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         
         # Initialize feature engineer
-        self.feature_engineer = SpatiotemporalFeatureEngineer()
+        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
         
         # Data paths
         self.project_root = Path(__file__).parent.parent.parent.parent.parent.parent

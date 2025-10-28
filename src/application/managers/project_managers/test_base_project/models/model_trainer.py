@@ -120,7 +120,7 @@ class SpatiotemporalModelTrainer:
             
             # Engineer features using factor manager
             from ..data.feature_engineer import SpatiotemporalFeatureEngineer
-            feature_engineer = SpatiotemporalFeatureEngineer()
+            feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
             
             if 'close_price' in ticker_data.columns:
                 enhanced_data = feature_engineer.engineer_all_features(
