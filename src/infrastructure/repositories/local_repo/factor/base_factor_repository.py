@@ -504,3 +504,26 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             method_ref=method_ref
         )
         return self.create_factor_rule(domain_rule)
+
+    def get_factors_by_groups(self, factor_groups: List[str]) -> List[FactorEntity]:
+        """
+        Get all factors belonging to the specified groups.
+        
+        Args:
+            factor_groups: List of factor group names to retrieve (e.g., ['price', 'momentum'])
+            
+        Returns:
+            List of factor entities matching the specified groups
+        """
+        try:
+            FactorModel = self.get_factor_model()
+            factors = (
+                self.session.query(FactorModel)
+                .filter(FactorModel.group.in_(factor_groups))
+                .order_by(FactorModel.group, FactorModel.subgroup, FactorModel.name)
+                .all()
+            )
+            return [self._to_domain_factor(f) for f in factors]
+        except Exception as e:
+            print(f"Error retrieving factors by groups: {e}")
+            return []

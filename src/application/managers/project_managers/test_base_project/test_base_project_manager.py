@@ -42,6 +42,11 @@ from .utils.performance_metrics import PerformanceCalculator
 # Configuration
 from .config import DEFAULT_CONFIG, get_config
 
+# Backtesting components  
+from .backtesting.backtest_runner import BacktestRunner
+from .web.web_interface_manager import WebInterfaceManager
+from .web.progress_monitor import ProgressMonitor
+
 
 class TestBaseProjectManager(ProjectManager):
     """
@@ -75,6 +80,11 @@ class TestBaseProjectManager(ProjectManager):
         # Initialize validators and calculators
         self.validator = DataValidators()
         self.performance_calculator = PerformanceCalculator()
+        
+        # Initialize backtesting and web interface components
+        self.web_interface = WebInterfaceManager()
+        self.progress_monitor = ProgressMonitor(self.web_interface)
+        self.backtest_runner = BacktestRunner(self.database_manager, self.web_interface)
         
         # Runtime state
         self.trained_model = None
@@ -270,6 +280,192 @@ class TestBaseProjectManager(ProjectManager):
                 'success': False
             }
     
+    def run_misbuffet_backtest(self,
+                              start_date: Optional[datetime] = None,
+                              end_date: Optional[datetime] = None,
+                              initial_capital: float = 100_000,
+                              universe: Optional[List[str]] = None,
+                              launch_web_interface: bool = True) -> Dict[str, Any]:
+        """
+        Run backtest using the Misbuffet framework with full integration.
+        
+        This is the enhanced backtesting method that uses the Misbuffet framework
+        with the BaseProjectAlgorithm for comprehensive backtesting.
+        
+        Args:
+            start_date: Backtest start date (defaults to config)
+            end_date: Backtest end date (defaults to config)
+            initial_capital: Starting capital
+            universe: List of tickers (defaults to config)
+            launch_web_interface: Whether to launch web monitoring interface
+            
+        Returns:
+            Comprehensive backtest results with performance metrics
+        """
+        try:
+            print("\n" + "="*60)
+            print("🚀 STARTING MISBUFFET BACKTEST")
+            print("="*60)
+            
+            # Start progress monitoring
+            self.progress_monitor.start_monitoring()
+            
+            # Set defaults
+            if universe is None:
+                universe = self.config['DATA']['DEFAULT_UNIVERSE']
+            if start_date is None:
+                start_date = datetime(2020, 1, 1)
+            if end_date is None:
+                end_date = datetime(2023, 12, 31)
+            
+            print(f"📊 Backtest Parameters:")
+            print(f"   🗓️ Period: {start_date.date()} to {end_date.date()}")
+            print(f"   💰 Capital: ${initial_capital:,.0f}")
+            print(f"   📈 Universe: {universe}")
+            
+            # Step 1: Setup factor system
+            self.progress_monitor.start_component("factor_system", "Setting up factor system")
+            
+            factor_result = self.setup_factor_system(
+                tickers=universe,
+                overwrite=False
+            )
+            
+            if not factor_result.get('success', False):
+                raise ValueError(f"Factor system setup failed: {factor_result}")
+            
+            self.progress_monitor.complete_component("factor_system", 
+                f"Created {factor_result.get('factors_created', 0)} factors")
+            
+            # Step 2: Train ML models  
+            self.progress_monitor.start_component("ml_training", "Training ML models")
+            
+            training_result = self.train_spatiotemporal_models(
+                tickers=universe,
+                model_types=['both'],  # Train both TFT and MLP
+                seeds=[42, 123]  # Multiple seeds for ensemble
+            )
+            
+            if not training_result.get('success', False):
+                self.progress_monitor.log_warning("ml_training", "ML training failed, continuing with momentum-only strategy")
+            else:
+                self.progress_monitor.complete_component("ml_training",
+                    f"Trained models for {len(training_result.get('trained_tickers', []))} tickers")
+            
+            # Step 3: Launch web interface if requested
+            if launch_web_interface:
+                self.progress_monitor.start_component("web_interface", "Starting web interface")
+                self.web_interface.start_interface_and_open_browser()
+                self.progress_monitor.complete_component("web_interface", "Web interface started")
+            
+            # Step 4: Execute Misbuffet backtest
+            self.progress_monitor.start_component("backtest_execution", "Running Misbuffet backtest")
+            
+            backtest_result = self.backtest_runner.run_backtest(
+                start_date=start_date,
+                end_date=end_date,
+                initial_capital=initial_capital,
+                universe=universe
+            )
+            
+            if 'error' in backtest_result:
+                raise ValueError(f"Backtest execution failed: {backtest_result['error']}")
+            
+            self.progress_monitor.complete_component("backtest_execution", "Backtest completed successfully")
+            
+            # Step 5: Generate comprehensive results
+            self.progress_monitor.start_component("results_analysis", "Analyzing results")
+            
+            # Get performance summary
+            performance_summary = self.backtest_runner.get_performance_summary()
+            
+            # Compile final results
+            final_results = {
+                'backtest_type': 'misbuffet_integration',
+                'parameters': {
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'initial_capital': initial_capital,
+                    'universe': universe
+                },
+                'factor_system': factor_result,
+                'ml_training': training_result,
+                'backtest_results': backtest_result,
+                'performance_summary': performance_summary,
+                'execution_time': (datetime.now() - self.progress_monitor.start_time).total_seconds(),
+                'success': True,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Store results
+            self.pipeline_results['misbuffet_backtest'] = final_results
+            
+            self.progress_monitor.complete_component("results_analysis", "Results compiled")
+            self.progress_monitor.stop_monitoring()
+            
+            # Print summary
+            print("\n" + "="*60)
+            print("✅ MISBUFFET BACKTEST COMPLETED")
+            print("="*60)
+            
+            if performance_summary and 'error' not in performance_summary:
+                print(f"📈 Performance Summary:")
+                for key, value in performance_summary.items():
+                    if isinstance(value, (int, float)):
+                        if 'return' in key.lower():
+                            print(f"   {key}: {value:.2%}")
+                        elif 'ratio' in key.lower():
+                            print(f"   {key}: {value:.3f}")
+                        else:
+                            print(f"   {key}: {value}")
+                    else:
+                        print(f"   {key}: {value}")
+            
+            return final_results
+            
+        except Exception as e:
+            error_msg = f"Misbuffet backtest failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            
+            self.progress_monitor.log_error("backtest", error_msg, e)
+            self.progress_monitor.stop_monitoring()
+            
+            return {
+                'backtest_type': 'misbuffet_integration',
+                'error': error_msg,
+                'success': False,
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def run_web_interface_backtest(self) -> Dict[str, Any]:
+        """
+        Run backtest with web interface similar to test_project_backtest.
+        
+        This method provides the same web interface experience as the original
+        test_project_backtest but with the enhanced BaseProject capabilities.
+        
+        Returns:
+            Backtest results with web interface integration
+        """
+        try:
+            print("🌐 Starting web interface backtest...")
+            
+            # Start web interface and open browser
+            self.web_interface.start_interface_and_open_browser()
+            
+            # Run the enhanced backtest
+            result = self.run_misbuffet_backtest(
+                launch_web_interface=False  # Already launched above
+            )
+            
+            return result
+            
+        except Exception as e:
+            return {
+                'error': f"Web interface backtest failed: {str(e)}",
+                'success': False
+            }
+    
     def get_comprehensive_results(self) -> Dict[str, Any]:
         """
         Get comprehensive results from all pipeline stages.
@@ -285,6 +481,24 @@ class TestBaseProjectManager(ProjectManager):
             'environment': self.env,
             'timestamp': datetime.now().isoformat()
         }
+    
+    def run(self, use_misbuffet: bool = True, **kwargs) -> Dict[str, Any]:
+        """
+        Main run method with Misbuffet integration option.
+        
+        Args:
+            use_misbuffet: Whether to use Misbuffet framework (default True)
+            **kwargs: Additional arguments passed to the backtest method
+            
+        Returns:
+            Backtest results
+        """
+        if use_misbuffet:
+            print("🚀 Running with Misbuffet framework integration...")
+            return self.run_misbuffet_backtest(**kwargs)
+        else:
+            print("⚠️  Running with legacy simulation (not Misbuffet)...")
+            return self.run_complete_pipeline(**kwargs)
     
     def _initialize_strategy_components(self):
         """Initialize strategy and signal generation components."""
