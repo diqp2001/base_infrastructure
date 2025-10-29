@@ -45,7 +45,10 @@ class SpatiotemporalDataLoader:
                                         start_date: Optional[str] = None,
                                         end_date: Optional[str] = None) -> pd.DataFrame:
         """
-        Load historical data combining CSV sources with factor system data.
+        Load historical data from the factor system (database).
+        
+        Note: CSV loading is no longer needed since setup_factor_system() 
+        has already populated the database with all necessary factor values.
         
         Args:
             tickers: List of stock tickers to load
@@ -53,44 +56,40 @@ class SpatiotemporalDataLoader:
             end_date: End date in YYYY-MM-DD format
             
         Returns:
-            Combined DataFrame with price data and factor values
+            DataFrame with price data and factor values from the factor system
         """
         if tickers is None:
             tickers = self.config['DEFAULT_UNIVERSE']
         
-        print(f"📊 Loading historical data for {len(tickers)} tickers...")
+        print(f"📊 Loading historical data for {len(tickers)} tickers from factor system...")
         
-        # Load data from both CSV and factor system
+        # Load data only from factor system (database)
         combined_data = {}
         
         for ticker in tickers:
-            # Load CSV data (primary source)
-            csv_data = self._load_csv_data(ticker, start_date, end_date)
-            
-            # Load factor data (enhanced features)
+            # Load factor data (primary and only source after factor setup)
             factor_data = self._load_factor_data(ticker, start_date, end_date)
             
-            # Combine the data sources
-            if csv_data is not None and not csv_data.empty:
-                # Merge factor data if available
-                if factor_data is not None and not factor_data.empty:
-                    combined = csv_data.merge(factor_data, left_index=True, right_index=True, how='left')
-                else:
-                    combined = csv_data.copy()
-                
-                combined_data[ticker] = combined
-                print(f"  ✅ Loaded {len(combined)} records for {ticker}")
+            if factor_data is not None and not factor_data.empty:
+                combined_data[ticker] = factor_data
+                print(f"  ✅ Loaded {len(factor_data)} records for {ticker}")
             else:
-                print(f"  ❌ No data found for {ticker}")
+                print(f"  ❌ No factor data found for {ticker}")
         
         if not combined_data:
-            raise ValueError("No data loaded for any ticker")
+            raise ValueError("No data loaded for any ticker. Ensure setup_factor_system() was called first.")
         
         # Convert to the format expected by spatiotemporal models
         return self._format_for_spatiotemporal_processing(combined_data)
     
     def _load_csv_data(self, ticker: str, start_date: Optional[str], end_date: Optional[str]) -> Optional[pd.DataFrame]:
-        """Load historical price data from CSV files."""
+        """
+        Load historical price data from CSV files.
+        
+        DEPRECATED: This method is no longer used in the main data loading pipeline.
+        After setup_factor_system() populates the database, all data should be loaded 
+        from the factor system via _load_factor_data(). Kept for backward compatibility.
+        """
         csv_file = self.stock_data_path / f"{ticker}.csv"
         
         if not csv_file.exists():
@@ -131,13 +130,15 @@ class SpatiotemporalDataLoader:
             # Get the company share entity
             share = self.company_share_repository.get_by_ticker(ticker)
             if not share:
+                print(f"  ⚠️  Company share not found for ticker: {ticker}")
                 return None
             
             # Get factor values for this share
             factor_data = {}
             
-            # Load basic price factors
+            # Load basic price factors (these should exist after setup_factor_system)
             price_factors = ['open_price', 'high_price', 'low_price', 'close_price', 'adj_close_price', 'volume']
+            
             for factor_name in price_factors:
                 factor = self.share_factor_repository.get_by_name(factor_name)
                 if factor:
@@ -148,18 +149,29 @@ class SpatiotemporalDataLoader:
                         factor_data[factor_name] = {
                             pd.to_datetime(v.date): float(v.value) for v in values
                         }
+                    else:
+                        print(f"  ⚠️  No values found for factor '{factor_name}' for {ticker}")
+                else:
+                    print(f"  ⚠️  Factor '{factor_name}' not found in database")
             
             if not factor_data:
+                print(f"  ❌ No factor data found for {ticker}. Check if setup_factor_system() was run.")
                 return None
             
             # Convert to DataFrame
             df = pd.DataFrame(factor_data)
+            
+            # Ensure the index is properly sorted
+            df = df.sort_index()
             df.index.name = 'Date'
             
+            print(f"  📈 Loaded {len(df)} factor records for {ticker} with columns: {list(df.columns)}")
             return df
             
         except Exception as e:
-            print(f"  ⚠️  Error loading factor data for {ticker}: {str(e)}")
+            print(f"  ❌ Error loading factor data for {ticker}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _format_for_spatiotemporal_processing(self, data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:

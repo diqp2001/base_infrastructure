@@ -254,6 +254,47 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving factor values by entity: {e}")
             return []
 
+    def get_factor_values(self, factor_id: int, entity_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[FactorValueEntity]:
+        """
+        Get factor values for a specific factor and entity within a date range.
+        
+        Args:
+            factor_id: ID of the factor
+            entity_id: ID of the entity
+            start_date: Start date in YYYY-MM-DD format (optional)
+            end_date: End date in YYYY-MM-DD format (optional)
+            
+        Returns:
+            List of factor value entities within the date range
+        """
+        try:
+            from datetime import datetime
+            
+            FactorValueModel = self.get_factor_value_model()
+            query = self.session.query(FactorValueModel).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id == entity_id
+            )
+            
+            # Add date filters if provided
+            if start_date:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                query = query.filter(FactorValueModel.date >= start_date_obj)
+            
+            if end_date:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                query = query.filter(FactorValueModel.date <= end_date_obj)
+            
+            # Order by date
+            query = query.order_by(FactorValueModel.date)
+            
+            values = query.all()
+            return [self._to_domain_value(v) for v in values]
+            
+        except Exception as e:
+            print(f"Error retrieving factor values: {e}")
+            return []
+
     def factor_value_exists(self, factor_id: int, entity_id: int, date_value: date) -> bool:
         """
         Check if a factor value already exists for the given factor_id, entity_id, and date.
