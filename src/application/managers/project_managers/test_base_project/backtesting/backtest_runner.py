@@ -233,9 +233,9 @@ class BacktestRunner:
         try:
             # Default dates if not provided
             if start_date is None:
-                start_date = MISBUFFET_ENGINE_CONFIG['start_date']
+                start_date = datetime(2020, 1, 1)
             if end_date is None:
-                end_date = MISBUFFET_ENGINE_CONFIG['end_date']
+                end_date = datetime(2023, 1, 1)
             
             # Step 1: Setup components with full configuration
             from ..config import get_config
@@ -269,25 +269,28 @@ class BacktestRunner:
             # Step 5: Configure Misbuffet launcher
             self.logger.info("🔧 Configuring Misbuffet framework...")
             
-            # Launch Misbuffet with config from MISBUFFET_LAUNCH_CONFIG
-            misbuffet = Misbuffet.launch(MISBUFFET_LAUNCH_CONFIG)
+            # Launch Misbuffet with config file path (not dictionary)
+            misbuffet = Misbuffet.launch(config_file="launch_config.py")
             
             # Configure engine with LauncherConfiguration
             launcher_config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
                 algorithm_type_name="BaseProjectAlgorithm",
                 algorithm_location=__file__,
-                data_folder=MISBUFFET_ENGINE_CONFIG.get("data_folder", "./downloads"),
+                data_folder="./downloads",
                 environment="backtesting",
                 live_mode=False,
                 debugging=True
             )
             
-            # Override with engine config values
-            launcher_config.custom_config = MISBUFFET_ENGINE_CONFIG
-            launcher_config.custom_config['start_date'] = start_date
-            launcher_config.custom_config['end_date'] = end_date
-            launcher_config.custom_config['initial_capital'] = initial_capital
+            # Override with custom config values
+            launcher_config.custom_config = {
+                'start_date': start_date,
+                'end_date': end_date,
+                'initial_capital': initial_capital,
+                'tickers': tickers,
+                'model_type': model_type
+            }
             
             # Pass the algorithm instance
             launcher_config.algorithm = algorithm
@@ -297,7 +300,7 @@ class BacktestRunner:
             
             # Step 6: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
-            engine = misbuffet.start_engine(MISBUFFET_ENGINE_CONFIG)
+            engine = misbuffet.start_engine(config_file="engine_config.py")
             
             self.logger.info("📊 Executing backtest algorithm...")
             result = engine.run(launcher_config)
