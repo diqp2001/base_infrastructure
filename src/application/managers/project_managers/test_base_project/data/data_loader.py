@@ -128,7 +128,7 @@ class SpatiotemporalDataLoader:
         """Load factor data from the factor system."""
         try:
             # Get the company share entity
-            share = self.company_share_repository.get_by_ticker(ticker)
+            share = self.company_share_repository.get_by_ticker(ticker)[0]
             if not share:
                 print(f"  ⚠️  Company share not found for ticker: {ticker}")
                 return None

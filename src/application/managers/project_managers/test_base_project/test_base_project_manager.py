@@ -369,7 +369,7 @@ class TestBaseProjectManager(ProjectManager):
                             model_type: str = 'both',
                             seeds: List[int] = [42, 123],
                             run_backtest: bool = True,
-                            launch_web_interface: bool = False) -> Dict[str, Any]:
+                            launch_web_interface: bool = True) -> Dict[str, Any]:
         """
         Run the complete end-to-end pipeline with web interface option.
         
@@ -384,11 +384,12 @@ class TestBaseProjectManager(ProjectManager):
             Complete pipeline results
         """
         self.logger.info("🚀 Starting complete enhanced Test Base Project pipeline...")
+        if tickers is None:
+                tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
         if not run_backtest:
             # Just setup and training, no backtest
-            if tickers is None:
-                tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
+            
             
             # Setup factor system
             factor_results = self.setup_factor_system(tickers, overwrite=False)
