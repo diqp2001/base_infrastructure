@@ -262,11 +262,7 @@ class BacktestRunner:
             if training_results.get('error'):
                 raise Exception(f"Model training failed: {training_results['error']}")
             
-            # Step 4: Create algorithm instance
-            self.logger.info("⚙️ Creating algorithm instance...")
-            algorithm = self.create_algorithm_instance()
-            
-            # Step 5: Configure Misbuffet launcher
+            # Step 4: Configure Misbuffet launcher
             self.logger.info("🔧 Configuring Misbuffet framework...")
             
             # Launch Misbuffet with config file path (not dictionary)
@@ -292,20 +288,20 @@ class BacktestRunner:
                 'model_type': model_type
             }
             
-            # Pass the algorithm instance
-            launcher_config.algorithm = algorithm
+            # Pass the algorithm class (not instance) for Misbuffet to instantiate
+            launcher_config.algorithm = BaseProjectAlgorithm
             
             # Add database manager for real data access
             launcher_config.database_manager = self.database_manager
             
-            # Step 6: Start engine and run backtest
+            # Step 5: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
             
             self.logger.info("📊 Executing backtest algorithm...")
             result = engine.run(launcher_config)
             
-            # Step 7: Process results
+            # Step 6: Process results
             end_time = datetime.now()
             elapsed_time = (end_time - start_time).total_seconds()
             
