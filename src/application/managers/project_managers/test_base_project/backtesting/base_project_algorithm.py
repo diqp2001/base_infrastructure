@@ -426,42 +426,10 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 self.market_order(security.symbol, qty)
 
     # ---------------------------
-    # Helper methods (matching MyAlgorithm pattern)
+    # Helper methods (inherited from QCAlgorithm base class)
     # ---------------------------
-    def _has_price_data(self, ticker: str, symbol) -> bool:
-        """Check if price data is available for the ticker."""
-        try:
-            if self._current_data_slice:
-                return symbol in self._current_data_slice.bars
-            elif self._current_data_frame is not None:
-                return ticker in self._current_data_frame.columns or 'close' in self._current_data_frame.columns
-            return False
-        except:
-            return False
-
-    def _get_current_price(self, ticker: str, symbol) -> Optional[float]:
-        """Get current price for the ticker."""
-        try:
-            if self._current_data_slice and symbol in self._current_data_slice.bars:
-                return float(self._current_data_slice.bars[symbol].close)
-            elif self._current_data_frame is not None:
-                if 'close' in self._current_data_frame.columns:
-                    return float(self._current_data_frame['close'].iloc[-1])
-                elif ticker in self._current_data_frame.columns:
-                    return float(self._current_data_frame[ticker].iloc[-1])
-            return None
-        except:
-            return None
-
-    def _get_current_holdings_value(self, ticker: str, symbol) -> float:
-        """Get current holdings value for the ticker."""
-        try:
-            if hasattr(self.portfolio, 'holdings') and symbol in self.portfolio.holdings:
-                holding = self.portfolio.holdings[symbol]
-                return float(holding.quantity * holding.average_price)
-            return 0.0
-        except:
-            return 0.0
+    # Note: _has_price_data(), _get_current_price(), and _get_current_holdings_value() 
+    # are inherited from QCAlgorithm base class with proper implementations
 
     def _get_factor_historical_data(self, ticker: str) -> Optional[np.ndarray]:
         """Get historical returns from factor system if available."""
