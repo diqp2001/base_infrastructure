@@ -295,6 +295,34 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving factor values: {e}")
             return []
 
+    def get_factors_by_groups(self, groups: List[str]) -> List[FactorEntity]:
+        """
+        Get factors filtered by specific groups.
+        
+        Args:
+            groups: List of group names to filter by (e.g., ['price', 'momentum', 'technical'])
+            
+        Returns:
+            List of factor entities matching the specified groups
+        """
+        try:
+            FactorModel = self.get_factor_model()
+            query = self.session.query(FactorModel)
+            
+            if groups:
+                # Filter by groups using IN clause
+                query = query.filter(FactorModel.group.in_(groups))
+            
+            # Order by group and name for consistent results
+            query = query.order_by(FactorModel.group, FactorModel.name)
+            
+            factors = query.all()
+            return [self._to_domain(factor) for factor in factors]
+            
+        except Exception as e:
+            print(f"Error retrieving factors by groups: {e}")
+            return []
+
     def factor_value_exists(self, factor_id: int, entity_id: int, date_value: date) -> bool:
         """
         Check if a factor value already exists for the given factor_id, entity_id, and date.
