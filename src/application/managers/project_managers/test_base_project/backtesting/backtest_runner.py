@@ -237,8 +237,15 @@ class BacktestRunner:
             if end_date is None:
                 end_date = MISBUFFET_ENGINE_CONFIG['end_date']
             
-            # Step 1: Setup components
-            config = {'DATA': {'DEFAULT_UNIVERSE': tickers}}
+            # Step 1: Setup components with full configuration
+            from ..config import get_config
+            config = get_config('test')
+            # Override with backtest-specific settings
+            config['DATA']['DEFAULT_UNIVERSE'] = tickers
+            config['BACKTEST']['START_DATE'] = start_date.strftime('%Y-%m-%d')
+            config['BACKTEST']['END_DATE'] = end_date.strftime('%Y-%m-%d')
+            config['BACKTEST']['INITIAL_CAPITAL'] = initial_capital
+            
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
             
@@ -262,11 +269,11 @@ class BacktestRunner:
             # Step 5: Configure Misbuffet launcher
             self.logger.info("🔧 Configuring Misbuffet framework...")
             
-            # Launch Misbuffet
-            misbuffet = Misbuffet.launch(config_file="launch_config.py")
+            # Launch Misbuffet with config from MISBUFFET_LAUNCH_CONFIG
+            misbuffet = Misbuffet.launch(MISBUFFET_LAUNCH_CONFIG)
             
             # Configure engine with LauncherConfiguration
-            config = LauncherConfiguration(
+            launcher_config = LauncherConfiguration(
                 mode=LauncherMode.BACKTESTING,
                 algorithm_type_name="BaseProjectAlgorithm",
                 algorithm_location=__file__,
@@ -277,23 +284,23 @@ class BacktestRunner:
             )
             
             # Override with engine config values
-            config.custom_config = MISBUFFET_ENGINE_CONFIG
-            config.custom_config['start_date'] = start_date
-            config.custom_config['end_date'] = end_date
-            config.custom_config['initial_capital'] = initial_capital
+            launcher_config.custom_config = MISBUFFET_ENGINE_CONFIG
+            launcher_config.custom_config['start_date'] = start_date
+            launcher_config.custom_config['end_date'] = end_date
+            launcher_config.custom_config['initial_capital'] = initial_capital
             
             # Pass the algorithm instance
-            config.algorithm = algorithm
+            launcher_config.algorithm = algorithm
             
             # Add database manager for real data access
-            config.database_manager = self.database_manager
+            launcher_config.database_manager = self.database_manager
             
             # Step 6: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
-            engine = misbuffet.start_engine(config_file="engine_config.py")
+            engine = misbuffet.start_engine(MISBUFFET_ENGINE_CONFIG)
             
             self.logger.info("📊 Executing backtest algorithm...")
-            result = engine.run(config)
+            result = engine.run(launcher_config)
             
             # Step 7: Process results
             end_time = datetime.now()
