@@ -19,6 +19,7 @@ class WebInterfaceManager:
         self.flask_thread = None
         self.progress_queue = queue.Queue()
         self.is_running = False
+        self.server_protected = False  # Flag to prevent shutdown
         
         # Set up shared progress handler
         self._setup_progress_logging()
@@ -56,6 +57,9 @@ class WebInterfaceManager:
         
         # Create Flask app instance
         self.flask_app = FlaskApp()
+        
+        # Import jsonify for API endpoints
+        from flask import jsonify
         
         # Add progress streaming endpoint
         def generate_progress():
@@ -97,6 +101,15 @@ class WebInterfaceManager:
         def shutdown_server():
             """Shutdown the Flask server gracefully"""
             print("🛑 Shutdown request received")
+            
+            # Check if server is protected
+            if self.server_protected:
+                print("🛡️ Server shutdown blocked - server is protected")
+                return jsonify({
+                    'message': 'Server shutdown blocked - server is protected for persistent operation',
+                    'protected': True
+                }), 403
+            
             self.is_running = False
             # Use Werkzeug's shutdown function
             func = request.environ.get('werkzeug.server.shutdown')
@@ -104,6 +117,36 @@ class WebInterfaceManager:
                 return 'Server shutdown failed - not running with Werkzeug server', 500
             func()
             return 'Server shutting down...', 200
+        
+        # Add endpoint to toggle server protection
+        @self.flask_app.app.route('/server_protection', methods=['POST'])
+        def toggle_server_protection():
+            """Toggle server protection on/off"""
+            try:
+                data = request.json or {}
+                protect = data.get('protect', not self.server_protected)  # Toggle by default
+                
+                self.server_protected = protect
+                
+                if protect:
+                    print("🛡️ Server protection enabled - will not shutdown on web interface close")
+                    message = "Server protection enabled - server will persist even when web windows are closed"
+                else:
+                    print("⚠️ Server protection disabled - server will shutdown when web windows close")
+                    message = "Server protection disabled - server will shutdown when web windows close"
+                
+                return jsonify({
+                    'success': True,
+                    'protected': self.server_protected,
+                    'message': message
+                })
+                
+            except Exception as e:
+                print(f"❌ Error toggling server protection: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
         
         # Start Flask in separate thread
         def run_flask():
