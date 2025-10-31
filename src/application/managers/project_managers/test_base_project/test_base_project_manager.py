@@ -146,6 +146,10 @@ class TestBaseProjectManager(ProjectManager):
             # Setup Interactive Brokers connection if requested
             if setup_ib_connection:
                 self._setup_interactive_brokers_connection(ib_config)
+                # Get account information and balance after connection
+                self._get_ib_account_info_and_balance()
+                # Extract S&P 500 data for the day
+                self._extract_sp500_daily_data()
             
             # Start web interface if requested
             if launch_web_interface and self.web_interface:
@@ -530,6 +534,226 @@ class TestBaseProjectManager(ProjectManager):
         except Exception as e:
             self.logger.error(f"Error getting IB account info: {str(e)}")
             return {'error': str(e)}
+    
+    def _get_ib_account_info_and_balance(self) -> Dict[str, Any]:
+        """
+        Get Interactive Brokers account information and balance on hand after connection.
+        
+        Returns:
+            Account information with balance details
+        """
+        if not self.ib_broker:
+            self.logger.error("Cannot get account info - not connected to Interactive Brokers")
+            return {'error': 'Not connected to Interactive Brokers'}
+        
+        try:
+            self.logger.info("📊 Retrieving IB account information and balance...")
+            
+            # Get comprehensive account information
+            account_info = self.get_ib_account_info()
+            
+            if 'error' not in account_info:
+                # Extract key balance information
+                account_summary = account_info.get('account_summary', {})
+                
+                # Log key account metrics
+                cash_value = account_summary.get('TotalCashValue', {}).get('value', '0')
+                net_liquidation = account_summary.get('NetLiquidation', {}).get('value', '0')
+                buying_power = account_summary.get('BuyingPower', {}).get('value', '0')
+                
+                self.logger.info(f"💰 Account Balance Information:")
+                self.logger.info(f"   Cash Value: ${cash_value}")
+                self.logger.info(f"   Net Liquidation: ${net_liquidation}")
+                self.logger.info(f"   Buying Power: ${buying_power}")
+                
+                # Update web interface with account info
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'SUCCESS',
+                        'message': f'Account Info - Cash: ${cash_value}, Net Liq: ${net_liquidation}, Buying Power: ${buying_power}'
+                    })
+                
+                # Store account info for later use
+                self.ib_account_info = account_info
+                
+                return account_info
+            else:
+                self.logger.error(f"❌ Failed to retrieve account info: {account_info['error']}")
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'ERROR',
+                        'message': f'Failed to get account info: {account_info["error"]}'
+                    })
+                return account_info
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error getting IB account info: {str(e)}")
+            if self.web_interface:
+                self.web_interface.progress_queue.put({
+                    'timestamp': datetime.now().isoformat(),
+                    'level': 'ERROR',
+                    'message': f'Account info error: {str(e)}'
+                })
+            return {'error': str(e)}
+    
+    def _extract_sp500_daily_data(self) -> Dict[str, Any]:
+        """
+        Extract S&P 500 data for the day (open and close prices).
+        
+        Returns:
+            S&P 500 data with open, close, high, low prices
+        """
+        if not self.ib_broker:
+            self.logger.error("Cannot get S&P 500 data - not connected to Interactive Brokers")
+            return {'error': 'Not connected to Interactive Brokers'}
+        
+        try:
+            self.logger.info("📈 Retrieving S&P 500 data for today...")
+            
+            # Use SPY as S&P 500 proxy (most liquid ETF)
+            sp500_symbol = 'SPY'
+            
+            # Get market data for SPY
+            market_data = self.ib_broker.get_market_data(sp500_symbol)
+            
+            if market_data and 'data' in market_data:
+                # Extract tick data (IB uses specific tick types)
+                tick_data = market_data['data']
+                
+                # Map common tick types for stocks/ETFs
+                # Tick Type 1 = Bid Price, Tick Type 2 = Ask Price
+                # Tick Type 4 = Last Price, Tick Type 6 = High, Tick Type 7 = Low
+                # Tick Type 9 = Close Price, Tick Type 14 = Open Price
+                
+                sp500_data = {
+                    'symbol': sp500_symbol,
+                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'open': tick_data.get('tickType_14', 'N/A'),
+                    'close': tick_data.get('tickType_9', 'N/A'),
+                    'high': tick_data.get('tickType_6', 'N/A'),
+                    'low': tick_data.get('tickType_7', 'N/A'),
+                    'last': tick_data.get('tickType_4', 'N/A'),
+                    'bid': tick_data.get('tickType_1', 'N/A'),
+                    'ask': tick_data.get('tickType_2', 'N/A'),
+                    'timestamp': market_data.get('timestamp', datetime.now().isoformat())
+                }
+                
+                self.logger.info(f"📊 S&P 500 (SPY) Data for {sp500_data['date']}:")
+                self.logger.info(f"   Open: {sp500_data['open']}")
+                self.logger.info(f"   Close: {sp500_data['close']}")
+                self.logger.info(f"   High: {sp500_data['high']}")
+                self.logger.info(f"   Low: {sp500_data['low']}")
+                self.logger.info(f"   Last: {sp500_data['last']}")
+                
+                # Update web interface with S&P 500 data
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'INFO',
+                        'message': f'S&P 500 Data - Open: {sp500_data["open"]}, Close: {sp500_data["close"]}, Last: {sp500_data["last"]}'
+                    })
+                
+                # Store S&P 500 data for later use
+                self.sp500_data = sp500_data
+                
+                return sp500_data
+            else:
+                self.logger.warning("⚠️ No market data available for S&P 500 (SPY)")
+                
+                # Try alternative approach - get data from database if available
+                try:
+                    sp500_data = self._get_sp500_from_database()
+                    if sp500_data:
+                        return sp500_data
+                except Exception as db_e:
+                    self.logger.warning(f"Could not get S&P 500 data from database: {db_e}")
+                
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'WARNING',
+                        'message': 'S&P 500 market data not available from IB'
+                    })
+                
+                return {'error': 'Market data not available', 'symbol': sp500_symbol}
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error extracting S&P 500 data: {str(e)}")
+            if self.web_interface:
+                self.web_interface.progress_queue.put({
+                    'timestamp': datetime.now().isoformat(),
+                    'level': 'ERROR',
+                    'message': f'S&P 500 data error: {str(e)}'
+                })
+            return {'error': str(e)}
+    
+    def _get_sp500_from_database(self) -> Optional[Dict[str, Any]]:
+        """
+        Get S&P 500 data from database as fallback.
+        
+        Returns:
+            S&P 500 data from database or None if not available
+        """
+        try:
+            if not self.database_manager:
+                return None
+            
+            # Query for SPY data from today
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # This would depend on your database schema
+            # Placeholder implementation - adjust based on your actual schema
+            query = f"""
+                SELECT open_price, close_price, high_price, low_price, 
+                       last_price, date
+                FROM market_data 
+                WHERE symbol = 'SPY' 
+                AND date = '{today}' 
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            """
+            
+            result = self.database_manager.execute_query(query)
+            
+            if result and len(result) > 0:
+                row = result[0]
+                return {
+                    'symbol': 'SPY',
+                    'date': str(row.get('date', today)),
+                    'open': row.get('open_price', 'N/A'),
+                    'close': row.get('close_price', 'N/A'),
+                    'high': row.get('high_price', 'N/A'),
+                    'low': row.get('low_price', 'N/A'),
+                    'last': row.get('last_price', 'N/A'),
+                    'source': 'database',
+                    'timestamp': datetime.now().isoformat()
+                }
+            
+            return None
+            
+        except Exception as e:
+            self.logger.warning(f"Could not retrieve S&P 500 data from database: {e}")
+            return None
+    
+    def get_stored_account_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the stored IB account information.
+        
+        Returns:
+            Previously retrieved account information or None
+        """
+        return getattr(self, 'ib_account_info', None)
+    
+    def get_stored_sp500_data(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the stored S&P 500 data.
+        
+        Returns:
+            Previously retrieved S&P 500 data or None
+        """
+        return getattr(self, 'sp500_data', None)
     
     def __del__(self):
         """Cleanup method to ensure proper disconnection from Interactive Brokers."""
