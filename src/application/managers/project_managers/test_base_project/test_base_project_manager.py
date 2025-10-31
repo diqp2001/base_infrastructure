@@ -23,6 +23,10 @@ from pathlib import Path
 from application.managers.database_managers.database_manager import DatabaseManager
 from application.managers.project_managers.project_manager import ProjectManager
 
+# Interactive Brokers integration
+from application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
+from application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner
 from .backtesting.base_project_algorithm import BaseProjectAlgorithm
@@ -99,6 +103,9 @@ class TestBaseProjectManager(ProjectManager):
         self.signal_generator = None
         self.pipeline_results = {}
         
+        # Interactive Brokers broker
+        self.ib_broker: Optional[InteractiveBrokersBroker] = None
+        
         self.logger.info("🚀 TestBaseProjectManager initialized with Misbuffet integration")
 
     def run(self, 
@@ -107,12 +114,14 @@ class TestBaseProjectManager(ProjectManager):
             end_date: Optional[datetime] = None,
             initial_capital: float = 100_000.0,
             model_type: str = 'both',
-            launch_web_interface: bool = True) -> Dict[str, Any]:
+            launch_web_interface: bool = True,
+            setup_ib_connection: bool = False,
+            ib_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main run method that launches web interface and executes backtest.
         
         Follows the exact pattern of TestProjectBacktestManager.run() but with
-        our enhanced spatiotemporal momentum system.
+        our enhanced spatiotemporal momentum system and Interactive Brokers integration.
         
         Args:
             tickers: List of tickers to backtest (defaults to config universe)
@@ -121,6 +130,8 @@ class TestBaseProjectManager(ProjectManager):
             initial_capital: Initial capital amount
             model_type: 'tft', 'mlp', or 'both'
             launch_web_interface: Whether to launch web interface
+            setup_ib_connection: Whether to setup Interactive Brokers connection
+            ib_config: Configuration for Interactive Brokers connection
             
         Returns:
             Complete backtest results
@@ -132,6 +143,10 @@ class TestBaseProjectManager(ProjectManager):
             tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
         try:
+            # Setup Interactive Brokers connection if requested
+            if setup_ib_connection:
+                self._setup_interactive_brokers_connection(ib_config)
+            
             # Start web interface if requested
             if launch_web_interface and self.web_interface:
                 self.web_interface.start_interface_and_open_browser()
@@ -411,3 +426,114 @@ class TestBaseProjectManager(ProjectManager):
                 model_type=model_type,
                 launch_web_interface=launch_web_interface
             )
+
+    def _setup_interactive_brokers_connection(self, ib_config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Setup Interactive Brokers connection for live trading.
+        
+        Args:
+            ib_config: Optional configuration dictionary. Uses defaults if not provided.
+        """
+        self.logger.info("🔌 Setting up Interactive Brokers connection...")
+        
+        try:
+            # Use default IB configuration if not provided
+            if ib_config is None:
+                ib_config = {
+                    'host': '127.0.0.1',
+                    'port': 7497,  # Paper trading port by default
+                    'client_id': 1,
+                    'paper_trading': True,
+                    'timeout': 60,
+                    'account_id': 'DEFAULT',
+                    'enable_logging': True,
+                }
+            
+            # Create Interactive Brokers broker instance
+            self.ib_broker = create_interactive_brokers_broker(**ib_config)
+            
+            # Attempt to connect to TWS/Gateway
+            self.logger.info(f"Connecting to IB TWS/Gateway at {ib_config['host']}:{ib_config['port']}...")
+            
+            if self.ib_broker.connect():
+                self.logger.info("✅ Successfully connected to Interactive Brokers")
+                
+                # Update web interface with connection status
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'SUCCESS',
+                        'message': f'Connected to Interactive Brokers (Paper: {ib_config["paper_trading"]})'
+                    })
+                
+                # Log broker information
+                broker_info = self.ib_broker.get_broker_specific_info()
+                self.logger.info(f"IB Broker Status: {broker_info}")
+                
+            else:
+                self.logger.error("❌ Failed to connect to Interactive Brokers")
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'ERROR',
+                        'message': 'Failed to connect to Interactive Brokers - check TWS/Gateway is running'
+                    })
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error setting up Interactive Brokers connection: {str(e)}")
+            if self.web_interface:
+                self.web_interface.progress_queue.put({
+                    'timestamp': datetime.now().isoformat(),
+                    'level': 'ERROR',
+                    'message': f'IB Connection Error: {str(e)}'
+                })
+    
+    def disconnect_interactive_brokers(self) -> None:
+        """Disconnect from Interactive Brokers if connected."""
+        if self.ib_broker:
+            try:
+                self.logger.info("Disconnecting from Interactive Brokers...")
+                self.ib_broker.disconnect()
+                self.ib_broker = None
+                self.logger.info("✅ Disconnected from Interactive Brokers")
+                
+                if self.web_interface:
+                    self.web_interface.progress_queue.put({
+                        'timestamp': datetime.now().isoformat(),
+                        'level': 'INFO',
+                        'message': 'Disconnected from Interactive Brokers'
+                    })
+                    
+            except Exception as e:
+                self.logger.error(f"Error disconnecting from Interactive Brokers: {str(e)}")
+    
+    def get_ib_account_info(self) -> Dict[str, Any]:
+        """
+        Get Interactive Brokers account information.
+        
+        Returns:
+            Account information dictionary or empty dict if not connected
+        """
+        if not self.ib_broker:
+            return {'error': 'Not connected to Interactive Brokers'}
+        
+        try:
+            account_info = {
+                'broker_info': self.ib_broker.get_broker_specific_info(),
+                'account_summary': self.ib_broker.get_account_summary(),
+                'positions': self.ib_broker.get_positions_summary(),
+                'market_open': self.ib_broker.is_market_open(),
+                'connection_status': self.ib_broker.is_connected()
+            }
+            return account_info
+            
+        except Exception as e:
+            self.logger.error(f"Error getting IB account info: {str(e)}")
+            return {'error': str(e)}
+    
+    def __del__(self):
+        """Cleanup method to ensure proper disconnection from Interactive Brokers."""
+        try:
+            self.disconnect_interactive_brokers()
+        except Exception:
+            pass  # Ignore errors during cleanup
