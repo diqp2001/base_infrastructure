@@ -239,6 +239,32 @@
 
                 <div class="stats-card">
                     <h6 class="text-muted mb-3">
+                        <i class="fas fa-play-circle"></i> Simulation Control
+                    </h6>
+                    <div class="d-grid gap-2 mb-3">
+                        <button id="start-simulation-btn" class="btn btn-success btn-sm" onclick="startSimulation()" disabled>
+                            <i class="fas fa-play"></i> <span id="start-btn-text">Start Simulation</span>
+                        </button>
+                        <button id="stop-simulation-btn" class="btn btn-warning btn-sm" onclick="stopSimulation()" disabled>
+                            <i class="fas fa-pause"></i> Stop Simulation
+                        </button>
+                        <div class="form-group">
+                            <label class="small text-muted">Model Type:</label>
+                            <select id="model-type" class="form-select form-select-sm">
+                                <option value="both">TFT + MLP Ensemble</option>
+                                <option value="tft">TFT Only</option>
+                                <option value="mlp">MLP Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="small text-muted">Initial Capital:</label>
+                            <input type="number" id="initial-capital" class="form-control form-control-sm" value="100000" min="1000" step="1000">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
                         <i class="fas fa-cogs"></i> Quick Actions
                     </h6>
                     <div class="d-grid gap-2">
@@ -251,8 +277,8 @@
                         <button class="btn btn-outline-secondary btn-sm" onclick="downloadLog()">
                             <i class="fas fa-download"></i> Export Log
                         </button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="stopServer()">
-                            <i class="fas fa-stop"></i> Stop Server
+                        <button class="btn btn-outline-info btn-sm" onclick="keepServerAlive()">
+                            <i class="fas fa-server"></i> Keep Server Alive
                         </button>
                     </div>
                 </div>
@@ -270,12 +296,211 @@
         let errorCount = 0;
         let startTime = new Date();
         let logMessages = [];
+        let currentSimulationId = null;
+        let simulationRunning = false;
+        let serverAlive = false;
 
         // DOM elements
         const progressLog = document.getElementById('progress-log');
         const statusIndicator = document.getElementById('status-indicator');
         const currentStatus = document.getElementById('current-status');
         const connectionStatus = document.getElementById('connection-status');
+
+        // Simulation Control Functions
+        function startSimulation() {
+            const modelType = document.getElementById('model-type').value;
+            const initialCapital = parseInt(document.getElementById('initial-capital').value);
+            
+            // Update UI state
+            updateSimulationUI(true);
+            
+            // Show loading state
+            const startBtn = document.getElementById('start-simulation-btn');
+            const startBtnText = document.getElementById('start-btn-text');
+            startBtn.disabled = true;
+            startBtnText.textContent = 'Starting...';
+            
+            // Clear previous logs
+            clearLog();
+            addLogEntry({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                message: `Starting new simulation with model: ${modelType}, capital: $${initialCapital.toLocaleString()}`
+            });
+            
+            // Start simulation via API
+            fetch('/api/test_base_project/start_simulation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model_type: modelType,
+                    initial_capital: initialCapital,
+                    launch_web_interface: false  // We're already in the web interface
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSimulationId = data.simulation_id;
+                    addLogEntry({
+                        timestamp: new Date().toISOString(),
+                        level: 'SUCCESS',
+                        message: `Simulation started successfully! ID: ${currentSimulationId}`
+                    });
+                } else {
+                    addLogEntry({
+                        timestamp: new Date().toISOString(),
+                        level: 'ERROR',
+                        message: `Failed to start simulation: ${data.error || 'Unknown error'}`
+                    });
+                    updateSimulationUI(false);
+                }
+            })
+            .catch(error => {
+                addLogEntry({
+                    timestamp: new Date().toISOString(),
+                    level: 'ERROR',
+                    message: `Network error starting simulation: ${error.message}`
+                });
+                updateSimulationUI(false);
+            });
+        }
+        
+        function stopSimulation() {
+            if (!currentSimulationId) {
+                addLogEntry({
+                    timestamp: new Date().toISOString(),
+                    level: 'WARNING',
+                    message: 'No active simulation to stop'
+                });
+                return;
+            }
+            
+            // Update UI
+            const stopBtn = document.getElementById('stop-simulation-btn');
+            stopBtn.disabled = true;
+            stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+            
+            // Stop simulation via API
+            fetch('/api/test_base_project/stop_simulation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    simulation_id: currentSimulationId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLogEntry({
+                        timestamp: new Date().toISOString(),
+                        level: 'SUCCESS',
+                        message: `Simulation stopped successfully`
+                    });
+                } else {
+                    addLogEntry({
+                        timestamp: new Date().toISOString(),
+                        level: 'WARNING',
+                        message: `Stop request sent: ${data.message || 'Simulation may already be complete'}`
+                    });
+                }
+                updateSimulationUI(false);
+                currentSimulationId = null;
+            })
+            .catch(error => {
+                addLogEntry({
+                    timestamp: new Date().toISOString(),
+                    level: 'ERROR',
+                    message: `Error stopping simulation: ${error.message}`
+                });
+                updateSimulationUI(false);
+            });
+        }
+        
+        function updateSimulationUI(running) {
+            simulationRunning = running;
+            const startBtn = document.getElementById('start-simulation-btn');
+            const stopBtn = document.getElementById('stop-simulation-btn');
+            const startBtnText = document.getElementById('start-btn-text');
+            
+            if (running) {
+                startBtn.disabled = true;
+                startBtnText.textContent = 'Running...';
+                stopBtn.disabled = false;
+                stopBtn.innerHTML = '<i class="fas fa-pause"></i> Stop Simulation';
+            } else {
+                startBtn.disabled = false;
+                startBtnText.textContent = 'Start Simulation';
+                stopBtn.disabled = true;
+                stopBtn.innerHTML = '<i class="fas fa-pause"></i> Stop Simulation';
+            }
+        }
+        
+        function keepServerAlive() {
+            const btn = document.querySelector('[onclick="keepServerAlive()"]');
+            
+            // Toggle server protection via API
+            fetch('/server_protection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})  // Will toggle current state
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    serverAlive = data.protected;
+                    
+                    if (data.protected) {
+                        btn.innerHTML = '<i class="fas fa-server"></i> Server Protected';
+                        btn.classList.remove('btn-outline-info');
+                        btn.classList.add('btn-success');
+                        
+                        addLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'INFO',
+                            message: data.message
+                        });
+                        
+                        // Disable the automatic server shutdown on page unload
+                        window.removeEventListener('beforeunload', shutdownHandler);
+                        window.removeEventListener('unload', shutdownHandler);
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-server"></i> Keep Server Alive';
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-outline-info');
+                        
+                        addLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'WARNING',
+                            message: data.message
+                        });
+                        
+                        // Re-enable automatic server shutdown
+                        window.addEventListener('beforeunload', shutdownHandler);
+                        window.addEventListener('unload', shutdownHandler);
+                    }
+                } else {
+                    addLogEntry({
+                        timestamp: new Date().toISOString(),
+                        level: 'ERROR',
+                        message: `Error toggling server protection: ${data.error}`
+                    });
+                }
+            })
+            .catch(error => {
+                addLogEntry({
+                    timestamp: new Date().toISOString(),
+                    level: 'ERROR',
+                    message: `Network error toggling server protection: ${error.message}`
+                });
+            });
+        }
 
         // Initialize connection
         function initializeConnection() {
@@ -478,44 +703,53 @@
             return div.innerHTML;
         }
 
+        // Server shutdown handler function
+        function shutdownHandler() {
+            // Close event source connection
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            // Only shutdown server if not protected
+            if (!serverAlive) {
+                try {
+                    navigator.sendBeacon('/shutdown', new FormData());
+                } catch (error) {
+                    // Fallback for browsers that don't support sendBeacon
+                    fetch('/shutdown', {
+                        method: 'POST',
+                        keepalive: true
+                    }).catch(() => {});
+                }
+            }
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initializeConnection();
             
             // Set initial timestamp
             document.getElementById('start-time').textContent = startTime.toLocaleTimeString();
+            
+            // Initialize simulation UI
+            updateSimulationUI(false);
+            
+            // Check server status and enable start button after connection
+            setTimeout(() => {
+                document.getElementById('start-simulation-btn').disabled = false;
+                addLogEntry({
+                    timestamp: new Date().toISOString(),
+                    level: 'INFO',
+                    message: 'TestBase Project Manager ready - you can now start simulations'
+                });
+            }, 2000);
         });
 
         // Cleanup and server shutdown on page unload
-        window.addEventListener('beforeunload', function(e) {
-            // Close event source connection
-            if (eventSource) {
-                eventSource.close();
-            }
-            
-            // Attempt to shutdown server (fire and forget)
-            try {
-                navigator.sendBeacon('/shutdown', new FormData());
-            } catch (error) {
-                // Fallback for browsers that don't support sendBeacon
-                fetch('/shutdown', {
-                    method: 'POST',
-                    keepalive: true
-                }).catch(() => {});
-            }
-        });
+        window.addEventListener('beforeunload', shutdownHandler);
         
         // Also handle regular page close/refresh
-        window.addEventListener('unload', function() {
-            try {
-                navigator.sendBeacon('/shutdown', new FormData());
-            } catch (error) {
-                fetch('/shutdown', {
-                    method: 'POST',
-                    keepalive: true
-                }).catch(() => {});
-            }
-        });
+        window.addEventListener('unload', shutdownHandler);
     </script>
 </body>
 </html>

@@ -5,11 +5,19 @@ from datetime import datetime
 from application.services.misbuffet import Misbuffet
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
+from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
 from application.managers.database_managers.database_manager import DatabaseManager
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+import threading
+import uuid
+import time
 
 backtest_api = Blueprint("backtest_api", __name__, url_prefix="/api")
 logger = logging.getLogger(__name__)
+
+# Global simulation tracking
+active_simulations = {}
+simulation_threads = {}
 
 @backtest_api.route("/backtest", methods=["POST"])
 def run_backtest():
@@ -236,6 +244,232 @@ def get_entities_summary():
         
     except Exception as e:
         logger.error(f"API Error retrieving entities summary: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+# Test Base Project Simulation Control Endpoints
+
+@backtest_api.route("/test_base_project/start_simulation", methods=["POST"])
+def start_test_base_project_simulation():
+    """Start a new test_base_project simulation in a separate thread"""
+    try:
+        params = request.json or {}
+        
+        # Generate unique simulation ID
+        simulation_id = str(uuid.uuid4())
+        
+        # Get parameters with defaults
+        model_type = params.get('model_type', 'both')
+        initial_capital = params.get('initial_capital', 100000)
+        tickers = params.get('tickers', None)
+        launch_web_interface = params.get('launch_web_interface', False)
+        
+        logger.info(f"API: Starting TestBaseProject simulation {simulation_id} with model: {model_type}, capital: ${initial_capital}")
+        
+        # Initialize simulation record
+        active_simulations[simulation_id] = {
+            'id': simulation_id,
+            'status': 'starting',
+            'model_type': model_type,
+            'initial_capital': initial_capital,
+            'tickers': tickers,
+            'start_time': datetime.now(),
+            'end_time': None,
+            'result': None,
+            'error': None
+        }
+        
+        def run_simulation():
+            """Run simulation in background thread"""
+            try:
+                # Update status
+                active_simulations[simulation_id]['status'] = 'running'
+                
+                # Create manager and run simulation
+                manager = TestBaseProjectManager()
+                result = manager.run(
+                    tickers=tickers,
+                    model_type=model_type,
+                    initial_capital=float(initial_capital),
+                    launch_web_interface=launch_web_interface
+                )
+                
+                # Update simulation record with results
+                active_simulations[simulation_id].update({
+                    'status': 'completed',
+                    'end_time': datetime.now(),
+                    'result': result
+                })
+                
+                logger.info(f"Simulation {simulation_id} completed successfully")
+                
+            except Exception as e:
+                logger.error(f"Simulation {simulation_id} failed: {e}")
+                active_simulations[simulation_id].update({
+                    'status': 'failed',
+                    'end_time': datetime.now(),
+                    'error': str(e)
+                })
+        
+        # Start simulation thread
+        thread = threading.Thread(target=run_simulation, daemon=True)
+        simulation_threads[simulation_id] = thread
+        thread.start()
+        
+        return jsonify({
+            "success": True,
+            "message": "TestBaseProject simulation started successfully",
+            "simulation_id": simulation_id,
+            "parameters": {
+                "model_type": model_type,
+                "initial_capital": initial_capital,
+                "tickers": tickers
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"API Error starting TestBaseProject simulation: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@backtest_api.route("/test_base_project/stop_simulation", methods=["POST"])
+def stop_test_base_project_simulation():
+    """Stop a running test_base_project simulation"""
+    try:
+        params = request.json or {}
+        simulation_id = params.get('simulation_id')
+        
+        if not simulation_id:
+            return jsonify({
+                "success": False,
+                "error": "simulation_id is required",
+                "timestamp": datetime.now().isoformat()
+            }), 400
+        
+        if simulation_id not in active_simulations:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation {simulation_id} not found",
+                "timestamp": datetime.now().isoformat()
+            }), 404
+        
+        simulation = active_simulations[simulation_id]
+        
+        if simulation['status'] in ['completed', 'failed', 'stopped']:
+            return jsonify({
+                "success": True,
+                "message": f"Simulation {simulation_id} is already {simulation['status']}",
+                "simulation_status": simulation['status'],
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        # Mark simulation as stopped
+        simulation.update({
+            'status': 'stopped',
+            'end_time': datetime.now()
+        })
+        
+        logger.info(f"Simulation {simulation_id} marked as stopped")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Simulation {simulation_id} stop requested",
+            "simulation_id": simulation_id,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"API Error stopping TestBaseProject simulation: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@backtest_api.route("/test_base_project/simulation_status/<simulation_id>", methods=["GET"])
+def get_test_base_project_simulation_status(simulation_id):
+    """Get status of a specific simulation"""
+    try:
+        if simulation_id not in active_simulations:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation {simulation_id} not found",
+                "timestamp": datetime.now().isoformat()
+            }), 404
+        
+        simulation = active_simulations[simulation_id]
+        
+        # Calculate duration if available
+        duration = None
+        if simulation['start_time']:
+            end_time = simulation.get('end_time', datetime.now())
+            duration = (end_time - simulation['start_time']).total_seconds()
+        
+        return jsonify({
+            "success": True,
+            "simulation": {
+                "id": simulation['id'],
+                "status": simulation['status'],
+                "model_type": simulation['model_type'],
+                "initial_capital": simulation['initial_capital'],
+                "tickers": simulation['tickers'],
+                "start_time": simulation['start_time'].isoformat() if simulation['start_time'] else None,
+                "end_time": simulation['end_time'].isoformat() if simulation['end_time'] else None,
+                "duration_seconds": duration,
+                "has_results": simulation['result'] is not None,
+                "error": simulation.get('error')
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"API Error getting simulation status {simulation_id}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@backtest_api.route("/test_base_project/active_simulations", methods=["GET"])
+def get_active_test_base_project_simulations():
+    """Get list of all active simulations"""
+    try:
+        simulations_list = []
+        
+        for sim_id, simulation in active_simulations.items():
+            # Calculate duration
+            duration = None
+            if simulation['start_time']:
+                end_time = simulation.get('end_time', datetime.now())
+                duration = (end_time - simulation['start_time']).total_seconds()
+            
+            simulations_list.append({
+                "id": simulation['id'],
+                "status": simulation['status'],
+                "model_type": simulation['model_type'],
+                "initial_capital": simulation['initial_capital'],
+                "start_time": simulation['start_time'].isoformat() if simulation['start_time'] else None,
+                "end_time": simulation['end_time'].isoformat() if simulation['end_time'] else None,
+                "duration_seconds": duration,
+                "has_results": simulation['result'] is not None
+            })
+        
+        return jsonify({
+            "success": True,
+            "active_simulations": simulations_list,
+            "total_count": len(simulations_list),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"API Error getting active simulations: {e}")
         return jsonify({
             "success": False,
             "error": str(e),
