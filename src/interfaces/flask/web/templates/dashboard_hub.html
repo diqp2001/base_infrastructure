@@ -254,14 +254,26 @@
                                 <button class="btn btn-success quick-action-btn" onclick="runBacktest()">
                                     <i class="fas fa-play"></i> Run Backtest
                                 </button>
+                                <button class="btn btn-primary quick-action-btn" onclick="connectInteractiveBrokers()">
+                                    <i class="fas fa-plug"></i> Connect IB
+                                </button>
                                 <button class="btn btn-warning quick-action-btn" onclick="startLiveTrading()">
                                     <i class="fas fa-broadcast-tower"></i> Start Live Trading
                                 </button>
-                                <button class="btn btn-info quick-action-btn" onclick="saveConfiguration()">
-                                    <i class="fas fa-save"></i> Save Configuration
+                                <button class="btn btn-info quick-action-btn" onclick="setupFactorSystem()">
+                                    <i class="fas fa-cogs"></i> Setup Factors
                                 </button>
-                                <button class="btn btn-secondary quick-action-btn" onclick="loadConfiguration()">
+                                <button class="btn btn-secondary quick-action-btn" onclick="importData()">
+                                    <i class="fas fa-download"></i> Import Data
+                                </button>
+                                <button class="btn btn-dark quick-action-btn" onclick="saveConfiguration()">
+                                    <i class="fas fa-save"></i> Save Config
+                                </button>
+                                <button class="btn btn-outline-secondary quick-action-btn" onclick="loadConfiguration()">
                                     <i class="fas fa-upload"></i> Load Preset
+                                </button>
+                                <button class="btn btn-danger quick-action-btn" onclick="shutdownSystem()">
+                                    <i class="fas fa-power-off"></i> Shutdown
                                 </button>
                             </div>
                         </div>
@@ -482,6 +494,149 @@
             } else {
                 alert('No saved configuration found.');
             }
+        }
+
+        // New functionality for additional buttons
+        function connectInteractiveBrokers() {
+            const btn = event.target;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+            btn.disabled = true;
+            
+            // Make API call to connect to Interactive Brokers
+            fetch('/api/ib/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    host: '127.0.0.1',
+                    port: 7497,
+                    client_id: 1,
+                    paper_trading: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Connected to Interactive Brokers successfully!');
+                    updateSystemStatus('TWS API', 'bg-success', 'Connected');
+                } else {
+                    alert('Failed to connect to Interactive Brokers: ' + data.error);
+                    updateSystemStatus('TWS API', 'bg-danger', 'Failed');
+                }
+            })
+            .catch(error => {
+                alert('Error connecting to Interactive Brokers: ' + error);
+                updateSystemStatus('TWS API', 'bg-danger', 'Error');
+            })
+            .finally(() => {
+                btn.innerHTML = '<i class="fas fa-plug"></i> Connect IB';
+                btn.disabled = false;
+            });
+        }
+
+        function setupFactorSystem() {
+            if (confirm('Setup factor system? This may take several minutes to complete.')) {
+                const btn = event.target;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up...';
+                btn.disabled = true;
+                
+                // Make API call to setup factor system
+                fetch('/api/system/setup_factors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Factor system setup completed successfully!');
+                    } else {
+                        alert('Factor system setup failed: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error setting up factor system: ' + error);
+                })
+                .finally(() => {
+                    btn.innerHTML = '<i class="fas fa-cogs"></i> Setup Factors';
+                    btn.disabled = false;
+                });
+            }
+        }
+
+        function importData() {
+            const btn = event.target;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+            btn.disabled = true;
+            
+            // Make API call to import data
+            fetch('/api/data/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Data import completed successfully!');
+                } else {
+                    alert('Data import failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error importing data: ' + error);
+            })
+            .finally(() => {
+                btn.innerHTML = '<i class="fas fa-download"></i> Import Data';
+                btn.disabled = false;
+            });
+        }
+
+        function shutdownSystem() {
+            if (confirm('Are you sure you want to shutdown the system? This will close all connections and stop the web interface.')) {
+                const btn = event.target;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Shutting down...';
+                btn.disabled = true;
+                
+                // Make API call to shutdown system
+                fetch('/api/system/shutdown', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('System shutdown initiated. The interface will close shortly.');
+                    // Close the window/tab after a delay
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                })
+                .catch(error => {
+                    alert('Error shutting down system: ' + error);
+                    btn.innerHTML = '<i class="fas fa-power-off"></i> Shutdown';
+                    btn.disabled = false;
+                });
+            }
+        }
+
+        function updateSystemStatus(component, badgeClass, status) {
+            // Find and update system status badges
+            const statusElements = document.querySelectorAll('.card-body .d-flex');
+            statusElements.forEach(element => {
+                const span = element.querySelector('span');
+                if (span && span.textContent.includes(component)) {
+                    const badge = element.querySelector('.badge');
+                    if (badge) {
+                        badge.className = `badge ${badgeClass}`;
+                        badge.textContent = status;
+                    }
+                }
+            });
         }
 
         // Placeholder functions for section loading (to be implemented)
