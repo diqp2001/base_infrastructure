@@ -8,6 +8,7 @@ optimizers, workers, and result collection across multiple execution nodes.
 import asyncio
 import logging
 import signal
+import threading
 import time
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
@@ -63,9 +64,17 @@ class OptimizerLauncher(IOptimizerLauncher):
         self._active_jobs: Dict[str, OptimizerNodePacket] = {}
         self._shutdown_requested = False
         
-        # Signal handling
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        # Signal handling - only works in main thread
+        try:
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGINT, self._signal_handler)
+                signal.signal(signal.SIGTERM, self._signal_handler)
+                self.logger.debug("Signal handlers set up for main thread")
+            else:
+                self.logger.debug("Skipping signal handler setup - not in main thread")
+        except Exception as e:
+            self.logger.warning(f"Could not set up signal handlers: {e}")
+            # Continue without signal handlers
     
     def initialize(self, config: OptimizerLauncherConfiguration) -> bool:
         """Initialize the optimizer launcher with given configuration."""

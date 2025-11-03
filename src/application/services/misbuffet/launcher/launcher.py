@@ -372,13 +372,22 @@ class Launcher(ILauncher):
             self.logger.error(f"Cleanup failed: {str(e)}")
     
     def _setup_signal_handlers(self) -> None:
-        """Setup signal handlers for graceful shutdown."""
-        def signal_handler(signum, frame):
-            self.logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-            self.stop()
-        
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        """Setup signal handlers for graceful shutdown - only works in main thread."""
+        try:
+            def signal_handler(signum, frame):
+                self.logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+                self.stop()
+            
+            # Only set up signal handlers if we're in the main thread
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGINT, signal_handler)
+                signal.signal(signal.SIGTERM, signal_handler)
+                self.logger.debug("Signal handlers set up for main thread")
+            else:
+                self.logger.debug("Skipping signal handler setup - not in main thread")
+        except Exception as e:
+            self.logger.warning(f"Could not set up signal handlers: {e}")
+            # Continue without signal handlers - use shutdown_event for graceful shutdown
 
 
 def main(args: Optional[List[str]] = None) -> int:
