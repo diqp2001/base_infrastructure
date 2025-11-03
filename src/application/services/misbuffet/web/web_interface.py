@@ -49,14 +49,18 @@ class WebInterfaceManager:
         logging.getLogger("misbuffet.engine").addHandler(progress_handler)
         logging.getLogger("TestProjectBacktestManager").addHandler(progress_handler)
     
-    def _start_web_interface(self):
+    def _start_web_interface(self, existing_flask_app=None):
         """Start Flask web interface in a separate thread"""
-        from src.interfaces.flask.flask import FlaskApp
         from flask import Flask, render_template, request, Response, jsonify
         import json
         
-        # Create Flask app instance
-        self.flask_app = FlaskApp()
+        # Use existing Flask app instance instead of creating new one
+        if existing_flask_app is not None:
+            self.flask_app = existing_flask_app
+        else:
+            # Only create new Flask app if none provided (for backward compatibility)
+            from src.interfaces.flask.flask import FlaskApp
+            self.flask_app = FlaskApp()
         
         # Import jsonify for API endpoints
         from flask import jsonify
@@ -148,17 +152,21 @@ class WebInterfaceManager:
                     'error': str(e)
                 }), 500
         
-        # Start Flask in separate thread
-        def run_flask():
-            try:
-                self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, threaded=True)
-            except Exception as e:
-                print(f"❌ Flask server error: {e}")
-            finally:
-                print("🛑 Flask server stopped")
-        
-        self.flask_thread = threading.Thread(target=run_flask, daemon=True)
-        self.flask_thread.start()
+        # Only start Flask in separate thread if we created our own instance
+        if existing_flask_app is None:
+            def run_flask():
+                try:
+                    self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, threaded=True)
+                except Exception as e:
+                    print(f"❌ Flask server error: {e}")
+                finally:
+                    print("🛑 Flask server stopped")
+            
+            self.flask_thread = threading.Thread(target=run_flask, daemon=True)
+            self.flask_thread.start()
+        else:
+            # If using existing Flask app, don't start a separate thread
+            print("🔗 Using existing Flask app instance")
         
         self.is_running = True
         print("🌐 Flask web interface started at http://localhost:5000")
@@ -176,16 +184,17 @@ class WebInterfaceManager:
             print(f"⚠️  Could not open browser automatically: {e}")
             print("📍 Please manually navigate to: http://localhost:5000/backtest_progress")
     
-    def start_interface_and_open_browser(self):
+    def start_interface_and_open_browser(self, existing_flask_app=None):
         """Start web interface and open browser"""
-        # Start Flask web interface first
-        self._start_web_interface()
+        # Start Flask web interface first (or connect to existing one)
+        self._start_web_interface(existing_flask_app)
         
-        # Give Flask a moment to start
-        time.sleep(5)
-        
-        # Open browser automatically
-        self._open_browser()
-
-        # Give Flask a moment to start
-        time.sleep(5)
+        # Only wait and open browser if we started our own Flask instance
+        if existing_flask_app is None:
+            # Give Flask a moment to start
+            time.sleep(5)
+            
+            # Open browser automatically
+            self._open_browser()
+        else:
+            print("🔗 Connected to existing Flask app - browser management handled externally")

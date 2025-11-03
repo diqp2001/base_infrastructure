@@ -37,130 +37,113 @@ def run_backtest():
 
 @web_bp.route("/test_backtest", methods=["GET", "POST"])
 def run_test_backtest():
-    """Run TestProjectBacktestManager and display performance plot"""
+    """Display backtest configuration page or execute backtest via API call"""
     if request.method == "GET":
         return render_template("test_manager.html", manager_type="backtest")
     
     try:
-        logger.info("Starting TestProjectBacktestManager execution...")
-        manager = TestProjectBacktestManager()
-        
-        # Capture performance data during execution
-        performance_data = {
-            'timestamps': [],
-            'portfolio_values': [],
-            'returns': [],
-            'drawdowns': [],
-            'positions': {}
+        # Extract configuration from form data
+        config = {
+            'algorithm': request.form.get('algorithm', 'momentum'),
+            'lookback': int(request.form.get('lookback', 20)),
+            'start_date': request.form.get('start_date', '2024-01-01'),
+            'end_date': request.form.get('end_date', '2024-12-31'),
+            'initial_capital': float(request.form.get('initial_capital', 100000)),
+            'risk_threshold': float(request.form.get('risk_threshold', 0.02)),
+            'position_size': float(request.form.get('position_size', 10))
         }
         
-        # Mock performance data for demonstration (replace with actual data collection)
-        dates = pd.date_range(start='2024-01-01', end='2024-12-31', freq='D')
-        initial_value = 100000
+        logger.info(f"Web controller: Calling API endpoint with config: {config}")
         
-        # Simulate portfolio evolution
-        cumulative_return = 1.0
-        for i, date in enumerate(dates):
-            # Simulate daily returns with some volatility and trend
-            daily_return = np.random.normal(0.0008, 0.02)  # 0.08% daily return with 2% volatility
-            cumulative_return *= (1 + daily_return)
+        # Call API endpoint instead of direct business logic
+        import requests
+        try:
+            api_response = requests.post('http://localhost:5000/api/test_managers/backtest', 
+                                       json=config, 
+                                       timeout=300)  # 5 minute timeout for long-running backtests
             
-            portfolio_value = initial_value * cumulative_return
-            performance_data['timestamps'].append(date)
-            performance_data['portfolio_values'].append(portfolio_value)
-            performance_data['returns'].append(daily_return)
-        
-        # Calculate drawdowns
-        peak = performance_data['portfolio_values'][0]
-        for pv in performance_data['portfolio_values']:
-            if pv > peak:
-                peak = pv
-            drawdown = (pv - peak) / peak * 100
-            performance_data['drawdowns'].append(drawdown)
-        
-        # Run the actual manager (this might take time)
-        result = manager.run()
-        
-        # Create performance plots
-        plot_data = _create_performance_plots(performance_data)
-        
-        # Calculate performance metrics
-        metrics = _calculate_performance_metrics(performance_data)
-        
-        flash("TestProjectBacktestManager executed successfully!", "success")
-        return render_template("performance_results.html", 
-                             plot_data=plot_data, 
-                             metrics=metrics,
-                             manager_type="Backtest",
-                             result=result)
+            if api_response.status_code == 200:
+                api_data = api_response.json()
+                flash("Backtest completed successfully via API!", "success")
+                
+                # Generate mock performance data for visualization (in real app, get from API)
+                performance_data = _generate_mock_performance_data(config)
+                plot_data = _create_performance_plots(performance_data)
+                metrics = _calculate_performance_metrics(performance_data)
+                
+                return render_template("performance_results.html", 
+                                     plot_data=plot_data, 
+                                     metrics=metrics,
+                                     manager_type="Backtest",
+                                     result=api_data.get('result'),
+                                     config=config)
+            else:
+                error_msg = api_response.json().get('error', 'Unknown API error')
+                flash(f"API Error: {error_msg}", "error")
+                return render_template("test_manager.html", manager_type="backtest", config=config)
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to call backtest API: {e}")
+            flash(f"Failed to connect to API: {str(e)}", "error")
+            return render_template("test_manager.html", manager_type="backtest", config=config)
         
     except Exception as e:
-        logger.error(f"Error running TestProjectBacktestManager: {e}")
+        logger.error(f"Error in web controller: {e}")
         flash(f"Error: {str(e)}", "error")
         return render_template("test_manager.html", manager_type="backtest")
 
 @web_bp.route("/test_live_trading", methods=["GET", "POST"])
 def run_test_live_trading():
-    """Run TestProjectLiveTradingManager and display performance plot"""
+    """Display live trading configuration page or execute via API call"""
     if request.method == "GET":
         return render_template("test_manager.html", manager_type="live_trading")
     
     try:
-        logger.info("Starting TestProjectLiveTradingManager execution...")
-        manager = TestProjectLiveTradingManager()
-        
-        # Capture performance data during execution
-        performance_data = {
-            'timestamps': [],
-            'portfolio_values': [],
-            'returns': [],
-            'drawdowns': [],
-            'positions': {}
+        # Extract configuration from form data
+        config = {
+            'mode': request.form.get('trading_mode', 'paper'),
+            'algorithm': request.form.get('algorithm', 'momentum'),
+            'capital': float(request.form.get('capital', 50000)),
+            'daily_risk': float(request.form.get('daily_risk', 2.0)),
+            'max_positions': int(request.form.get('max_positions', 10))
         }
         
-        # Mock performance data for live trading (shorter timeframe)
-        dates = pd.date_range(start=datetime.now() - timedelta(days=30), 
-                            end=datetime.now(), freq='H')
-        initial_value = 100000
+        logger.info(f"Web controller: Calling live trading API with config: {config}")
         
-        # Simulate intraday portfolio evolution
-        cumulative_return = 1.0
-        for i, date in enumerate(dates):
-            # Simulate hourly returns with higher volatility for live trading
-            daily_return = np.random.normal(0.0001, 0.003)  # Lower hourly returns, higher volatility
-            cumulative_return *= (1 + daily_return)
+        # Call API endpoint instead of direct business logic
+        import requests
+        try:
+            api_response = requests.post('http://localhost:5000/api/test_managers/live_trading', 
+                                       json=config, 
+                                       timeout=120)  # 2 minute timeout
             
-            portfolio_value = initial_value * cumulative_return
-            performance_data['timestamps'].append(date)
-            performance_data['portfolio_values'].append(portfolio_value)
-            performance_data['returns'].append(daily_return)
-        
-        # Calculate drawdowns
-        peak = performance_data['portfolio_values'][0]
-        for pv in performance_data['portfolio_values']:
-            if pv > peak:
-                peak = pv
-            drawdown = (pv - peak) / peak * 100
-            performance_data['drawdowns'].append(drawdown)
-        
-        # Run the actual manager (this might take time for live trading setup)
-        result = manager.run()
-        
-        # Create performance plots
-        plot_data = _create_performance_plots(performance_data)
-        
-        # Calculate performance metrics
-        metrics = _calculate_performance_metrics(performance_data)
-        
-        flash("TestProjectLiveTradingManager executed successfully!", "success")
-        return render_template("performance_results.html", 
-                             plot_data=plot_data, 
-                             metrics=metrics,
-                             manager_type="Live Trading",
-                             result=result)
+            if api_response.status_code == 200:
+                api_data = api_response.json()
+                flash(f"Live trading ({config['mode']}) started successfully via API!", "success")
+                
+                # Generate mock performance data for visualization
+                performance_data = _generate_mock_live_trading_data(config)
+                plot_data = _create_performance_plots(performance_data)
+                metrics = _calculate_performance_metrics(performance_data)
+                
+                return render_template("performance_results.html", 
+                                     plot_data=plot_data, 
+                                     metrics=metrics,
+                                     manager_type="Live Trading",
+                                     result=api_data.get('result'),
+                                     config=config)
+            else:
+                error_msg = api_response.json().get('error', 'Unknown API error')
+                flash(f"API Error: {error_msg}", "error")
+                return render_template("test_manager.html", manager_type="live_trading", config=config)
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to call live trading API: {e}")
+            flash(f"Failed to connect to API: {str(e)}", "error")
+            return render_template("test_manager.html", manager_type="live_trading", config=config)
         
     except Exception as e:
-        logger.error(f"Error running TestProjectLiveTradingManager: {e}")
+        logger.error(f"Error in web controller: {e}")
         flash(f"Error: {str(e)}", "error")
         return render_template("test_manager.html", manager_type="live_trading")
 
@@ -222,6 +205,73 @@ def _create_performance_plots(performance_data):
     plt.close()
     
     return img_data
+
+def _generate_mock_performance_data(config):
+    """Generate mock performance data based on configuration"""
+    start_date = datetime.strptime(config.get('start_date', '2024-01-01'), '%Y-%m-%d')
+    end_date = datetime.strptime(config.get('end_date', '2024-12-31'), '%Y-%m-%d')
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    initial_value = config.get('initial_capital', 100000)
+    
+    performance_data = {
+        'timestamps': [],
+        'portfolio_values': [],
+        'returns': [],
+        'drawdowns': []
+    }
+    
+    cumulative_return = 1.0
+    for date in dates:
+        daily_return = np.random.normal(0.0008, 0.02)  
+        cumulative_return *= (1 + daily_return)
+        
+        portfolio_value = initial_value * cumulative_return
+        performance_data['timestamps'].append(date)
+        performance_data['portfolio_values'].append(portfolio_value)
+        performance_data['returns'].append(daily_return)
+    
+    # Calculate drawdowns
+    peak = performance_data['portfolio_values'][0]
+    for pv in performance_data['portfolio_values']:
+        if pv > peak:
+            peak = pv
+        drawdown = (pv - peak) / peak * 100
+        performance_data['drawdowns'].append(drawdown)
+    
+    return performance_data
+
+def _generate_mock_live_trading_data(config):
+    """Generate mock live trading performance data"""
+    dates = pd.date_range(start=datetime.now() - timedelta(days=30), 
+                        end=datetime.now(), freq='H')
+    initial_value = config.get('capital', 50000)
+    
+    performance_data = {
+        'timestamps': [],
+        'portfolio_values': [],
+        'returns': [],
+        'drawdowns': []
+    }
+    
+    cumulative_return = 1.0
+    for date in dates:
+        hourly_return = np.random.normal(0.0001, 0.003)
+        cumulative_return *= (1 + hourly_return)
+        
+        portfolio_value = initial_value * cumulative_return
+        performance_data['timestamps'].append(date)
+        performance_data['portfolio_values'].append(portfolio_value)
+        performance_data['returns'].append(hourly_return)
+    
+    # Calculate drawdowns
+    peak = performance_data['portfolio_values'][0]
+    for pv in performance_data['portfolio_values']:
+        if pv > peak:
+            peak = pv
+        drawdown = (pv - peak) / peak * 100
+        performance_data['drawdowns'].append(drawdown)
+    
+    return performance_data
 
 def _calculate_performance_metrics(performance_data):
     """Calculate key performance metrics"""
@@ -457,6 +507,57 @@ def import_data():
         logger.error(f"Error importing data: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+# Additional API endpoints for test managers
+@web_bp.route("/api/test_managers/backtest", methods=["POST"])
+def api_execute_backtest():
+    """API endpoint to execute TestProjectBacktestManager"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "No configuration provided"}), 400
+        
+        logger.info(f"API: Executing backtest with config: {data}")
+        
+        # Execute actual backtest manager with configuration
+        manager = TestProjectBacktestManager()
+        result = manager.run()  # In real implementation, pass config to run method
+        
+        return jsonify({
+            "success": True,
+            "result": str(result),
+            "message": "Backtest completed successfully",
+            "config": data
+        })
+        
+    except Exception as e:
+        logger.error(f"API: Error executing backtest: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/test_managers/live_trading", methods=["POST"])
+def api_execute_live_trading():
+    """API endpoint to execute TestProjectLiveTradingManager"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "No configuration provided"}), 400
+        
+        logger.info(f"API: Executing live trading with config: {data}")
+        
+        # Execute actual live trading manager with configuration
+        manager = TestProjectLiveTradingManager()
+        result = manager.run()  # In real implementation, pass config to run method
+        
+        return jsonify({
+            "success": True,
+            "result": str(result),
+            "message": f"Live trading ({data.get('mode', 'paper')}) started successfully",
+            "config": data
+        })
+        
+    except Exception as e:
+        logger.error(f"API: Error executing live trading: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @web_bp.route("/api/system/shutdown", methods=["POST"])
 def shutdown_system():

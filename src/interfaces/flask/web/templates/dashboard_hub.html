@@ -436,34 +436,258 @@
 
         // Action handlers
         function runBacktest() {
+            // Show configuration modal instead of auto-starting
+            showBacktestConfigModal();
+        }
+        
+        function showBacktestConfigModal() {
+            // Create and show modal for backtest configuration
+            const modalHtml = `
+                <div class="modal fade" id="backtestConfigModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="fas fa-cogs"></i> Backtest Configuration</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="backtestConfigForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Algorithm Strategy</label>
+                                            <select class="form-select" id="modal-algorithm">
+                                                <option value="momentum">Momentum ML Strategy</option>
+                                                <option value="blacklitterman">Black-Litterman Optimizer</option>
+                                                <option value="meanreversion">Mean Reversion Strategy</option>
+                                                <option value="pairs">Pairs Trading Strategy</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Stock Universe</label>
+                                            <select class="form-select" id="modal-stock-universe">
+                                                <option value="sp500">S&P 500</option>
+                                                <option value="nasdaq100">NASDAQ 100</option>
+                                                <option value="russell2000">Russell 2000</option>
+                                                <option value="custom">Custom Selection</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Lookback Period</label>
+                                            <input type="range" class="form-range" id="modal-lookback" min="10" max="252" value="20" oninput="document.getElementById('modal-lookback-value').textContent = this.value">
+                                            <div class="text-center"><span id="modal-lookback-value">20</span> days</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Start Date</label>
+                                            <input type="date" class="form-control" id="modal-start-date" value="2024-01-01">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">End Date</label>
+                                            <input type="date" class="form-control" id="modal-end-date" value="2024-12-31">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Risk Factors</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="factor-momentum" checked>
+                                                <label class="form-check-label" for="factor-momentum">Momentum</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="factor-value" checked>
+                                                <label class="form-check-label" for="factor-value">Value</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="factor-quality">
+                                                <label class="form-check-label" for="factor-quality">Quality</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="factor-volatility">
+                                                <label class="form-check-label" for="factor-volatility">Low Volatility</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Portfolio Settings</label>
+                                            <div class="mb-2">
+                                                <label class="form-label">Initial Capital</label>
+                                                <input type="number" class="form-control" id="modal-initial-capital" value="100000" min="10000" step="10000">
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Max Position Size (%)</label>
+                                                <input type="number" class="form-control" id="modal-position-size" value="10" min="1" max="50">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-success" onclick="executeBacktest()"><i class="fas fa-play"></i> Run Backtest</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add modal to page and show it
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('backtestConfigModal'));
+            modal.show();
+            
+            // Clean up modal when closed
+            document.getElementById('backtestConfigModal').addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+        
+        function executeBacktest() {
+            // Collect configuration from modal
             const config = {
-                algorithm: document.getElementById('algorithm-select').value,
-                lookback: document.getElementById('lookback-window').value,
-                rebalance_freq: document.getElementById('rebalance-freq').value,
-                risk_threshold: document.getElementById('risk-threshold').value,
-                position_size: document.getElementById('position-size').value
+                algorithm: document.getElementById('modal-algorithm').value,
+                stock_universe: document.getElementById('modal-stock-universe').value,
+                lookback: document.getElementById('modal-lookback').value,
+                start_date: document.getElementById('modal-start-date').value,
+                end_date: document.getElementById('modal-end-date').value,
+                initial_capital: document.getElementById('modal-initial-capital').value,
+                position_size: document.getElementById('modal-position-size').value,
+                factors: {
+                    momentum: document.getElementById('factor-momentum').checked,
+                    value: document.getElementById('factor-value').checked,
+                    quality: document.getElementById('factor-quality').checked,
+                    volatility: document.getElementById('factor-volatility').checked
+                }
             };
             
-            // Show loading state
-            const btn = event.target;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-            btn.disabled = true;
+            // Close modal and show loading state
+            bootstrap.Modal.getInstance(document.getElementById('backtestConfigModal')).hide();
             
-            // Redirect to backtest execution
+            // Show loading indicator
+            const loadingHtml = `
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <strong>Running Backtest...</strong> Configuration: ${config.algorithm} on ${config.stock_universe} from ${config.start_date} to ${config.end_date}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.querySelector('.main-content').insertAdjacentHTML('afterbegin', loadingHtml);
+            
+            // Execute backtest with configuration
             setTimeout(() => {
+                // In real implementation, this would send config to the API
                 window.location.href = '/test_backtest';
-            }, 1000);
+            }, 2000);
         }
 
         function startLiveTrading() {
-            if (confirm('Are you sure you want to start live trading with real money?')) {
-                const btn = event.target;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
-                btn.disabled = true;
+            // Show configuration modal for live trading
+            showLiveTradingConfigModal();
+        }
+        
+        function showLiveTradingConfigModal() {
+            const modalHtml = `
+                <div class="modal fade" id="liveTradingConfigModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="fas fa-broadcast-tower"></i> Live Trading Configuration</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Warning:</strong> Live trading involves real money and risk. Ensure all configurations are correct.
+                                </div>
+                                <form id="liveTradingConfigForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Trading Mode</label>
+                                            <select class="form-select" id="live-trading-mode">
+                                                <option value="paper" selected>Paper Trading (Simulation)</option>
+                                                <option value="live">Live Trading (Real Money)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Algorithm</label>
+                                            <select class="form-select" id="live-algorithm">
+                                                <option value="momentum">Momentum ML Strategy</option>
+                                                <option value="meanreversion">Mean Reversion Strategy</option>
+                                                <option value="pairs">Pairs Trading Strategy</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Available Capital</label>
+                                            <input type="number" class="form-control" id="live-capital" value="50000" min="1000" step="1000">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Max Daily Risk (%)</label>
+                                            <input type="number" class="form-control" id="live-daily-risk" value="2" min="0.1" max="10" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="live-confirm-risk" required>
+                                                <label class="form-check-label" for="live-confirm-risk">
+                                                    I understand the risks involved in live trading and accept full responsibility
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-warning" onclick="executeLiveTrading()"><i class="fas fa-broadcast-tower"></i> Start Live Trading</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('liveTradingConfigModal'));
+            modal.show();
+            
+            document.getElementById('liveTradingConfigModal').addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+        
+        function executeLiveTrading() {
+            if (!document.getElementById('live-confirm-risk').checked) {
+                alert('Please confirm that you understand the risks before proceeding.');
+                return;
+            }
+            
+            const config = {
+                mode: document.getElementById('live-trading-mode').value,
+                algorithm: document.getElementById('live-algorithm').value,
+                capital: document.getElementById('live-capital').value,
+                daily_risk: document.getElementById('live-daily-risk').value
+            };
+            
+            bootstrap.Modal.getInstance(document.getElementById('liveTradingConfigModal')).hide();
+            
+            const confirmMessage = config.mode === 'live' 
+                ? 'FINAL CONFIRMATION: You are about to start live trading with real money. This cannot be undone. Are you absolutely sure?'
+                : 'Starting paper trading simulation. This will not use real money.';
+            
+            if (config.mode === 'paper' || confirm(confirmMessage)) {
+                const loadingHtml = `
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <strong>Starting ${config.mode === 'live' ? 'Live' : 'Paper'} Trading...</strong> ${config.algorithm} with ${config.capital} capital
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                document.querySelector('.main-content').insertAdjacentHTML('afterbegin', loadingHtml);
                 
                 setTimeout(() => {
                     window.location.href = '/test_live_trading';
-                }, 1000);
+                }, 2000);
             }
         }
 
