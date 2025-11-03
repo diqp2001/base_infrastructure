@@ -521,7 +521,7 @@ def api_execute_backtest():
         
         # Execute actual backtest manager with configuration
         manager = TestProjectBacktestManager()
-        result = manager.run()  # In real implementation, pass config to run method
+        result = manager.run(start_web_interface=False)  # Don't start another web interface
         
         return jsonify({
             "success": True,
