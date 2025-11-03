@@ -21,29 +21,41 @@ from application.managers.project_managers.test_project_web.test_project_web_man
 
 
 if __name__ == '__main__':
+    # Web-Only Interface Launch
+    # Changed as per request - only launch web interface, no automatic pipeline execution
     
+    from src.interfaces.flask.flask import FlaskApp
+    import webbrowser
+    import time
+    import threading
     
-    #consolidated_df = download_and_consolidate_csv()
-    #CrossSectionalMLStockReturnsProjectManager().execute_database_management_tasks()
-    #
+    print("🚀 Starting Web-Only Trading Interface...")
+    print("📊 Access the dashboard at: http://localhost:5000/dashboard")
     
-    # Example usage of the centralized BackTesting class
-    #bt = BackTesting()
-    #results = bt.run_vx_csv_backtest()
-    #print(f"Backtest completed with return: {results['backtest_results'].get('total_return', 0):.2%}")
+    # Create Flask app
+    app = FlaskApp()
     
-    # Example usage of the Black-Litterman Portfolio Optimization backtest
-    # Uncomment the lines below to run the Black-Litterman backtest
-    #bl_results = bt.run_black_litterman_backtest()
-    #print(f"Black-Litterman backtest completed with return: {bl_results['backtest_results'].get('total_return', 0):.2%}")
-    #manager = TestProjectWebManager()
-    #manager = TestProjectDataManager()
-    manager = TestBaseProjectManager()
-    #manager = FXTestProjectBacktestManager()
-    #manager = TestProjectLiveTradingManager()
+    def open_browser():
+        """Open browser to dashboard after a short delay"""
+        time.sleep(1.5)  # Wait for server to start
+        try:
+            webbrowser.open('http://localhost:5000/dashboard')
+            print("🌐 Browser opened to Trading Dashboard")
+        except Exception as e:
+            print(f"⚠️  Could not auto-open browser: {e}")
     
-    #manager.run()
-    manager.run_complete_pipeline()
+    # Start browser in background thread
+    browser_thread = threading.Thread(target=open_browser)
+    browser_thread.daemon = True
+    browser_thread.start()
+    
+    # Run Flask app
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    except KeyboardInterrupt:
+        print("\n🛑 Shutting down web interface...")
+    except Exception as e:
+        print(f"❌ Error running web interface: {e}")
     
     """    with Profile() as profile:
     #MomentumMLProjectManager().test_single_future()
