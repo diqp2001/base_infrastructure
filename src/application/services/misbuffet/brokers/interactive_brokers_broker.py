@@ -48,6 +48,7 @@ class IBTWSClient(EWrapper, EClient):
         # Account data
         self.account_summary = {}
         self.positions = []
+        self.managed_accounts = []  # Store managed accounts from IB
         self.next_order_id = 1
         
         # Order tracking
@@ -128,6 +129,17 @@ class IBTWSClient(EWrapper, EClient):
             'account': account
         }
     
+    def managedAccounts(self, accountsList: str):
+        """Managed accounts callback - receives list of managed accounts."""
+        accounts = accountsList.split(',') if accountsList else []
+        self.managed_accounts = [acc.strip() for acc in accounts if acc.strip()]
+        self.logger.info(f"Managed accounts: {self.managed_accounts}")
+        
+        # Auto-select the first account if we don't have one set
+        if self.managed_accounts and not hasattr(self, 'selected_account_id'):
+            self.selected_account_id = self.managed_accounts[0]
+            self.logger.info(f"Auto-selected account: {self.selected_account_id}")
+    
     def position(self, account: str, contract: Contract, position: float, avgCost: float):
         """Position callback."""
         position_data = {
@@ -191,6 +203,14 @@ class IBTWSClient(EWrapper, EClient):
         """Check if connected to TWS."""
         return self.connected_flag and self.authenticated_flag and self.isConnected()
     
+    def get_managed_accounts(self) -> List[str]:
+        """Get list of managed accounts."""
+        return getattr(self, 'managed_accounts', [])
+    
+    def get_selected_account(self) -> str:
+        """Get the currently selected account ID."""
+        return getattr(self, 'selected_account_id', 'DEFAULT')
+    
     def create_stock_contract(self, symbol: str, exchange: str = "SMART") -> Contract:
         """Create a stock contract."""
         contract = Contract()
@@ -198,6 +218,9 @@ class IBTWSClient(EWrapper, EClient):
         contract.secType = "STK"
         contract.exchange = exchange
         contract.currency = "USD"
+        # For ETFs like SPY, add primary exchange for better resolution
+        if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs
+            contract.primaryExchange = "ARCA"  # NYSE Arca is primary for many ETFs
         return contract
     
     def place_order(self, contract: Contract, order: IBOrder) -> int:
@@ -225,6 +248,11 @@ class IBTWSClient(EWrapper, EClient):
         """Request account summary."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
+        
+        # Use the actual managed account if available, otherwise use provided account
+        if hasattr(self, 'selected_account_id') and self.selected_account_id and account == "DEFAULT":
+            account = self.selected_account_id
+            self.logger.info(f"Using managed account ID: {account}")
         
         tags = "TotalCashValue,NetLiquidation,BuyingPower,DayTradesRemaining"
         self.reqAccountSummary(1, account, tags)
@@ -678,9 +706,14 @@ class InteractiveBrokersBroker(BaseBroker):
             return {}
         
         try:
+            # Use the managed account if available, otherwise fall back to configured account_id
+            account_to_use = self.ib_connection.get_selected_account() if hasattr(self.ib_connection, 'get_selected_account') else self.account_id
+            if account_to_use == 'DEFAULT' and self.ib_connection.get_managed_accounts():
+                account_to_use = self.ib_connection.get_managed_accounts()[0]
+            
             # Request fresh account data
-            self.ib_connection.request_account_summary(self.account_id)
-            time.sleep(1)  # Wait for data
+            self.ib_connection.request_account_summary(account_to_use)
+            time.sleep(2)  # Wait for data (increased timeout)
             
             account_data = {}
             for tag, data in self.ib_connection.account_summary.items():
@@ -724,11 +757,19 @@ class InteractiveBrokersBroker(BaseBroker):
             req_id = hash(symbol) % 10000
             self.ib_connection.request_market_data(req_id, contract)
             
-            # Wait for data
-            time.sleep(2)
+            # Wait for data (longer timeout for market data)
+            time.sleep(5)
             
             # Get market data from client
             market_data = self.ib_connection.market_data.get(req_id, {})
+            
+            # If no data received, try to cancel the subscription and log
+            if not market_data:
+                self.logger.warning(f"No market data received for {symbol} (req_id: {req_id})")
+                try:
+                    self.ib_connection.cancelMktData(req_id)
+                except:
+                    pass
             
             return {
                 'symbol': symbol,
