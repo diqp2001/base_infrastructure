@@ -303,10 +303,16 @@ class TestProjectBacktestManager(ProjectManager):
         from application.services.misbuffet.web.web_interface import WebInterfaceManager
         self.web_interface = WebInterfaceManager()
 
-    def run(self):
-        """Main run method that launches web interface and executes backtest"""
-        # Start web interface and open browser
-        self.web_interface.start_interface_and_open_browser()
+    def run(self, start_web_interface=True):
+        """Main run method that launches web interface and executes backtest
+        
+        Args:
+            start_web_interface (bool): Whether to start web interface (default: True)
+                                       Set to False when called from existing web API
+        """
+        if start_web_interface:
+            # Start web interface and open browser
+            self.web_interface.start_interface_and_open_browser()
         
         # Start the actual backtest
         return self._run_backtest()
