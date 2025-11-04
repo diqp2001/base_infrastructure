@@ -8,12 +8,12 @@ copy all algorithm already in quantconnect
 
 consultation in strategy dev 
 data managwr app training data generation
-
+factor exposure
 main project spatio_temp
 tools:
 web database
 web results power bi
-parameters simulation(target lentgh, decay)
+
 
 1.interactive broker 
 2.deploy docker
