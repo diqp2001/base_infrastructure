@@ -18,6 +18,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+import mlflow
+import mlflow.sklearn
+import mlflow.pytorch
 
 # Base classes
 from application.managers.database_managers.database_manager import DatabaseManager
@@ -106,7 +109,98 @@ class TestBaseProjectManager(ProjectManager):
         # Interactive Brokers broker
         self.ib_broker: Optional[InteractiveBrokersBroker] = None
         
-        self.logger.info("🚀 TestBaseProjectManager initialized with Misbuffet integration")
+        # MLflow tracking setup
+        self.mlflow_experiment_name = "test_base_project_manager"
+        self.mlflow_run = None
+        self._setup_mlflow_tracking()
+        
+        self.logger.info("🚀 TestBaseProjectManager initialized with Misbuffet integration and MLflow tracking")
+
+    def _setup_mlflow_tracking(self):
+        """
+        Set up MLflow experiment tracking for the TestBaseProjectManager.
+        """
+        try:
+            # Set MLflow tracking URI (defaults to local mlruns directory)
+            mlflow.set_tracking_uri("file:./mlruns")
+            
+            # Create or get existing experiment
+            experiment = mlflow.get_experiment_by_name(self.mlflow_experiment_name)
+            if experiment is None:
+                experiment_id = mlflow.create_experiment(self.mlflow_experiment_name)
+                self.logger.info(f"✅ Created MLflow experiment: {self.mlflow_experiment_name}")
+            else:
+                experiment_id = experiment.experiment_id
+                self.logger.info(f"✅ Using existing MLflow experiment: {self.mlflow_experiment_name}")
+            
+            mlflow.set_experiment(self.mlflow_experiment_name)
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ MLflow setup failed: {str(e)}")
+    
+    def _start_mlflow_run(self, run_name: str = None):
+        """
+        Start MLflow run with basic parameters.
+        
+        Args:
+            run_name: Name for the MLflow run
+        """
+        try:
+            if run_name is None:
+                run_name = f"simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            self.mlflow_run = mlflow.start_run(run_name=run_name)
+            self.logger.info(f"🎯 Started MLflow run: {run_name}")
+            
+            # Log basic system information
+            mlflow.log_param("manager_class", self.__class__.__name__)
+            mlflow.log_param("start_timestamp", datetime.now().isoformat())
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Failed to start MLflow run: {str(e)}")
+    
+    def _end_mlflow_run(self):
+        """
+        End the current MLflow run.
+        """
+        try:
+            if self.mlflow_run:
+                mlflow.log_param("end_timestamp", datetime.now().isoformat())
+                mlflow.end_run()
+                self.logger.info("✅ Ended MLflow run")
+                self.mlflow_run = None
+        except Exception as e:
+            self.logger.warning(f"⚠️ Failed to end MLflow run: {str(e)}")
+    
+    def _log_mlflow_metrics(self, metrics: Dict[str, Any], step: int = None):
+        """
+        Log metrics to MLflow.
+        
+        Args:
+            metrics: Dictionary of metric names and values
+            step: Optional step number for time-series metrics
+        """
+        try:
+            if self.mlflow_run:
+                for key, value in metrics.items():
+                    if isinstance(value, (int, float)):
+                        mlflow.log_metric(key, value, step=step)
+        except Exception as e:
+            self.logger.warning(f"⚠️ Failed to log MLflow metrics: {str(e)}")
+    
+    def _log_mlflow_params(self, params: Dict[str, Any]):
+        """
+        Log parameters to MLflow.
+        
+        Args:
+            params: Dictionary of parameter names and values
+        """
+        try:
+            if self.mlflow_run:
+                for key, value in params.items():
+                    mlflow.log_param(key, str(value))
+        except Exception as e:
+            self.logger.warning(f"⚠️ Failed to log MLflow params: {str(e)}")
 
     def run(self, 
             tickers: Optional[List[str]] = None,
@@ -142,6 +236,23 @@ class TestBaseProjectManager(ProjectManager):
         if tickers is None:
             tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
+        # Start MLflow tracking
+        run_name = f"simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self._start_mlflow_run(run_name)
+        
+        # Log run parameters
+        run_params = {
+            'tickers': ','.join(tickers),
+            'initial_capital': initial_capital,
+            'model_type': model_type,
+            'launch_web_interface': launch_web_interface,
+            'setup_ib_connection': setup_ib_connection,
+            'start_date': start_date.isoformat() if start_date else 'None',
+            'end_date': end_date.isoformat() if end_date else 'None',
+            'num_tickers': len(tickers)
+        }
+        self._log_mlflow_params(run_params)
+        
         try:
             # Setup Interactive Brokers connection if requested
             if setup_ib_connection:
@@ -156,7 +267,7 @@ class TestBaseProjectManager(ProjectManager):
                 self.web_interface.start_interface_and_open_browser()"""
             
             # Run the actual backtest with our enhanced system
-            return self._run_backtest(
+            result = self._run_backtest(
                 tickers=tickers,
                 start_date=start_date,
                 end_date=end_date,
@@ -164,8 +275,37 @@ class TestBaseProjectManager(ProjectManager):
                 model_type=model_type
             )
             
+            # Log backtest results to MLflow
+            if result.get('success'):
+                self._log_mlflow_metrics({
+                    'final_portfolio_value': result.get('final_portfolio_value', 0),
+                    'total_return': result.get('total_return', 0),
+                    'sharpe_ratio': result.get('sharpe_ratio', 0),
+                    'max_drawdown': result.get('max_drawdown', 0),
+                    'execution_time_seconds': result.get('execution_time', 0)
+                })
+                mlflow.set_tag("status", "success")
+                
+                # Save artifacts for successful runs
+                self._save_mlflow_artifacts()
+            else:
+                mlflow.set_tag("status", "failed")
+                mlflow.set_tag("error", result.get('error', 'Unknown error'))
+            
+            # End MLflow run
+            self._end_mlflow_run()
+            
+            return result
+            
         except Exception as e:
             self.logger.error(f"❌ Error in run method: {str(e)}")
+            
+            # Log error to MLflow
+            if self.mlflow_run:
+                mlflow.set_tag("status", "error")
+                mlflow.set_tag("error", str(e))
+                self._end_mlflow_run()
+            
             return {
                 'error': str(e),
                 'success': False,
@@ -303,6 +443,15 @@ class TestBaseProjectManager(ProjectManager):
         if tickers is None:
             tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
+        # Log factor system setup parameters
+        setup_params = {
+            'factor_setup_tickers': ','.join(tickers),
+            'num_tickers': len(tickers),
+            'overwrite_existing': overwrite
+        }
+        if self.mlflow_run:
+            self._log_mlflow_params(setup_params)
+        
         try:
             # Use the BacktestRunner's factor system setup
             setup_results = self.backtest_runner.setup_factor_system(tickers, overwrite)
@@ -311,11 +460,29 @@ class TestBaseProjectManager(ProjectManager):
             elapsed = end_time - start_time
             setup_results['total_setup_time'] = elapsed
             
+            # Log factor system metrics
+            if self.mlflow_run:
+                factor_metrics = {
+                    'factor_setup_time_seconds': elapsed,
+                    'factor_entities_created': setup_results.get('entities_created', 0),
+                    'factor_definitions_added': setup_results.get('factors_added', 0),
+                    'factor_values_populated': setup_results.get('values_populated', 0)
+                }
+                self._log_mlflow_metrics(factor_metrics)
+            
             self.logger.info(f"✅ Enhanced factor system setup complete in {elapsed:.2f}s")
             return setup_results
             
         except Exception as e:
             self.logger.error(f"❌ Enhanced factor system setup failed: {str(e)}")
+            
+            # Log error metrics
+            if self.mlflow_run:
+                self._log_mlflow_metrics({
+                    'factor_setup_time_seconds': time.time() - start_time,
+                    'factor_setup_success': 0
+                })
+            
             return {
                 'tickers': tickers,
                 'system_ready': False,
@@ -339,24 +506,65 @@ class TestBaseProjectManager(ProjectManager):
             Complete training results
         """
         self.logger.info("🧠 Training enhanced spatiotemporal models...")
+        start_time = time.time()
         
         if tickers is None:
             tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
+        
+        # Log model training parameters
+        training_params = {
+            'training_tickers': ','.join(tickers),
+            'model_type': model_type,
+            'training_seeds': ','.join(map(str, seeds)),
+            'num_seeds': len(seeds)
+        }
+        if self.mlflow_run:
+            self._log_mlflow_params(training_params)
         
         try:
             # Use the BacktestRunner's model training
             training_results = self.backtest_runner.train_models(tickers, model_type, seeds)
             
+            end_time = time.time()
+            training_time = end_time - start_time
+            training_results['training_time'] = training_time
+            
             if not training_results.get('error'):
                 self.trained_model = self.model_trainer.get_trained_model()
                 self.logger.info("✅ Enhanced model training completed successfully")
+                
+                # Log training metrics
+                if self.mlflow_run:
+                    training_metrics = {
+                        'training_time_seconds': training_time,
+                        'training_success': 1,
+                        'final_train_loss': training_results.get('final_train_loss', 0),
+                        'final_val_loss': training_results.get('final_val_loss', 0),
+                        'best_sharpe_score': training_results.get('best_sharpe_score', 0)
+                    }
+                    self._log_mlflow_metrics(training_metrics)
             else:
                 self.logger.error(f"❌ Enhanced model training failed: {training_results['error']}")
+                
+                # Log failure metrics
+                if self.mlflow_run:
+                    self._log_mlflow_metrics({
+                        'training_time_seconds': training_time,
+                        'training_success': 0
+                    })
             
             return training_results
             
         except Exception as e:
             self.logger.error(f"❌ Enhanced model training error: {str(e)}")
+            
+            # Log error metrics
+            if self.mlflow_run:
+                self._log_mlflow_metrics({
+                    'training_time_seconds': time.time() - start_time,
+                    'training_success': 0
+                })
+            
             return {
                 'error': str(e),
                 'success': False
@@ -755,9 +963,51 @@ class TestBaseProjectManager(ProjectManager):
         """
         return getattr(self, 'sp500_data', None)
     
-    def __del__(self):
-        """Cleanup method to ensure proper disconnection from Interactive Brokers."""
+    def _save_mlflow_artifacts(self):
+        """
+        Save model artifacts and results to MLflow.
+        """
         try:
+            if self.mlflow_run and self.results:
+                # Save results as JSON artifact
+                import json
+                import tempfile
+                
+                results_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+                json.dump(self.results, results_file, default=str, indent=2)
+                results_file.close()
+                
+                mlflow.log_artifact(results_file.name, "simulation_results")
+                os.unlink(results_file.name)
+                
+                # Save model artifacts if available
+                if self.trained_model:
+                    try:
+                        model_path = tempfile.mkdtemp()
+                        # This would depend on how your models are structured
+                        # For now, we'll just log basic model info
+                        model_info = {
+                            'model_type': type(self.trained_model).__name__,
+                            'model_summary': str(self.trained_model)
+                        }
+                        model_info_file = os.path.join(model_path, 'model_info.json')
+                        with open(model_info_file, 'w') as f:
+                            json.dump(model_info, f, indent=2)
+                        mlflow.log_artifacts(model_path, "model_info")
+                    except Exception as e:
+                        self.logger.warning(f"Could not save model artifacts: {e}")
+                        
+        except Exception as e:
+            self.logger.warning(f"Failed to save MLflow artifacts: {e}")
+
+    def __del__(self):
+        """Cleanup method to ensure proper disconnection from Interactive Brokers and MLflow."""
+        try:
+            # End MLflow run if still active
+            if self.mlflow_run:
+                self._end_mlflow_run()
+                
+            # Disconnect from Interactive Brokers
             self.disconnect_interactive_brokers()
         except Exception:
             pass  # Ignore errors during cleanup
