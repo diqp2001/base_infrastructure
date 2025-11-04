@@ -169,7 +169,7 @@
 
         <div class="row">
             <!-- Progress Log -->
-            <div class="col-lg-9">
+            <div class="col-lg-6">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
@@ -194,9 +194,44 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Live Performance Charts -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line"></i> Live Performance Charts
+                        </h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary active" onclick="toggleChartType('portfolio')" id="portfolio-chart-btn">
+                                <i class="fas fa-chart-area"></i> Portfolio
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="toggleChartType('returns')" id="returns-chart-btn">
+                                <i class="fas fa-chart-bar"></i> Returns
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="toggleChartType('drawdown')" id="drawdown-chart-btn">
+                                <i class="fas fa-chart-line"></i> Drawdown
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="chart-container" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #7d8590;">
+                            <div class="text-center">
+                                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                <p>Charts will appear here during backtest execution</p>
+                                <small>Real-time updates of portfolio performance, returns, and risk metrics</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
+        </div>
+        
+        <!-- Bottom Row: Statistics and Backtest Results -->
+        <div class="row mt-4">
             <!-- Statistics Panel -->
-            <div class="col-lg-3">
+            <div class="col-lg-6">
                 <div class="stats-card">
                     <h6 class="text-muted mb-3">
                         <i class="fas fa-info-circle"></i> Session Statistics
@@ -283,6 +318,64 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Backtest Results & MLflow Storage -->
+            <div class="col-lg-6">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-database"></i> Backtest Results Storage
+                    </h6>
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <div class="fw-bold text-info fs-5" id="stored-runs-count">0</div>
+                            <div class="small text-muted">Stored Runs</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold text-success fs-5" id="current-run-id">--</div>
+                            <div class="small text-muted">Current Run ID</div>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="viewStoredRuns()">
+                            <i class="fas fa-history"></i> View Stored Runs
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="exportCurrentRun()" id="export-btn" disabled>
+                            <i class="fas fa-download"></i> Export Current Run
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="compareRuns()">
+                            <i class="fas fa-balance-scale"></i> Compare Runs
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-chart-pie"></i> Current Run Metrics
+                    </h6>
+                    <div id="current-metrics" class="small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Total Return:</span>
+                            <span id="metric-total-return" class="text-muted">--</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Sharpe Ratio:</span>
+                            <span id="metric-sharpe-ratio" class="text-muted">--</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Max Drawdown:</span>
+                            <span id="metric-max-drawdown" class="text-muted">--</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Win Rate:</span>
+                            <span id="metric-win-rate" class="text-muted">--</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Volatility:</span>
+                            <span id="metric-volatility" class="text-muted">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -299,6 +392,15 @@
         let currentSimulationId = null;
         let simulationRunning = false;
         let serverAlive = false;
+        let currentChart = 'portfolio';
+        let chartData = {
+            timestamps: [],
+            portfolioValues: [],
+            returns: [],
+            drawdowns: []
+        };
+        let currentRunMetrics = {};
+        let storedRunsCount = 0;
 
         // DOM elements
         const progressLog = document.getElementById('progress-log');
@@ -542,6 +644,17 @@
                 updateConnectionStatus(true);
                 return;
             }
+            
+            // Handle performance data updates
+            if (data.type === 'performance_update') {
+                updateChartData(data);
+                updateRunMetrics(data);
+            }
+            
+            // Handle backtest completion
+            if (data.type === 'backtest_complete') {
+                handleBacktestComplete(data);
+            }
 
             // Add to log
             addLogEntry(data);
@@ -724,6 +837,244 @@
             }
         }
 
+        // Chart and performance functions
+        function toggleChartType(chartType) {
+            currentChart = chartType;
+            
+            // Update button states
+            ['portfolio', 'returns', 'drawdown'].forEach(type => {
+                const btn = document.getElementById(`${type}-chart-btn`);
+                if (type === chartType) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            updateChart();
+        }
+        
+        function updateChartData(data) {
+            // Add new data point
+            chartData.timestamps.push(new Date(data.timestamp));
+            chartData.portfolioValues.push(data.portfolio_value || 100000);
+            chartData.returns.push(data.return || 0);
+            chartData.drawdowns.push(data.drawdown || 0);
+            
+            // Keep only last 100 data points for performance
+            if (chartData.timestamps.length > 100) {
+                chartData.timestamps.shift();
+                chartData.portfolioValues.shift();
+                chartData.returns.shift();
+                chartData.drawdowns.shift();
+            }
+            
+            updateChart();
+        }
+        
+        function updateChart() {
+            const container = document.getElementById('chart-container');
+            
+            if (chartData.timestamps.length === 0) {
+                return;
+            }
+            
+            let chartHtml = '';
+            
+            switch (currentChart) {
+                case 'portfolio':
+                    chartHtml = createPortfolioChart();
+                    break;
+                case 'returns':
+                    chartHtml = createReturnsChart();
+                    break;
+                case 'drawdown':
+                    chartHtml = createDrawdownChart();
+                    break;
+            }
+            
+            container.innerHTML = chartHtml;
+        }
+        
+        function createPortfolioChart() {
+            const latest = chartData.portfolioValues[chartData.portfolioValues.length - 1];
+            const initial = chartData.portfolioValues[0];
+            const change = ((latest - initial) / initial * 100).toFixed(2);
+            const changeColor = change >= 0 ? '#3fb950' : '#f85149';
+            
+            return `
+                <div class="text-center">
+                    <h4 class="text-primary mb-2">Portfolio Value</h4>
+                    <h2 class="mb-2">$${latest.toLocaleString()}</h2>
+                    <h5 class="mb-3" style="color: ${changeColor}">
+                        ${change >= 0 ? '+' : ''}${change}%
+                    </h5>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">Initial</div>
+                            <div class="fw-bold">$${initial.toLocaleString()}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">Current</div>
+                            <div class="fw-bold">$${latest.toLocaleString()}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">P&L</div>
+                            <div class="fw-bold" style="color: ${changeColor}">$${(latest - initial).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createReturnsChart() {
+            const avgReturn = (chartData.returns.reduce((a, b) => a + b, 0) / chartData.returns.length * 100).toFixed(3);
+            const maxReturn = (Math.max(...chartData.returns) * 100).toFixed(2);
+            const minReturn = (Math.min(...chartData.returns) * 100).toFixed(2);
+            
+            return `
+                <div class="text-center">
+                    <h4 class="text-success mb-3">Returns Analysis</h4>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">Average Daily</div>
+                            <div class="fw-bold text-info">${avgReturn}%</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">Best Day</div>
+                            <div class="fw-bold text-success">${maxReturn}%</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">Worst Day</div>
+                            <div class="fw-bold text-danger">${minReturn}%</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="small text-muted">Data Points: ${chartData.returns.length}</div>
+                        <div class="small text-muted">Positive Days: ${chartData.returns.filter(r => r > 0).length}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createDrawdownChart() {
+            const currentDrawdown = (chartData.drawdowns[chartData.drawdowns.length - 1]).toFixed(2);
+            const maxDrawdown = (Math.min(...chartData.drawdowns)).toFixed(2);
+            
+            return `
+                <div class="text-center">
+                    <h4 class="text-warning mb-3">Drawdown Analysis</h4>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="small text-muted">Current Drawdown</div>
+                            <div class="fw-bold text-warning">${currentDrawdown}%</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Max Drawdown</div>
+                            <div class="fw-bold text-danger">${maxDrawdown}%</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: ${Math.abs(currentDrawdown/maxDrawdown) * 100}%"></div>
+                        </div>
+                        <div class="small text-muted mt-2">Risk Level: ${Math.abs(currentDrawdown) > 10 ? 'HIGH' : Math.abs(currentDrawdown) > 5 ? 'MEDIUM' : 'LOW'}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateRunMetrics(data) {
+            if (data.metrics) {
+                currentRunMetrics = data.metrics;
+                document.getElementById('metric-total-return').textContent = data.metrics.total_return + '%';
+                document.getElementById('metric-sharpe-ratio').textContent = data.metrics.sharpe_ratio;
+                document.getElementById('metric-max-drawdown').textContent = data.metrics.max_drawdown + '%';
+                document.getElementById('metric-win-rate').textContent = data.metrics.win_rate + '%';
+                document.getElementById('metric-volatility').textContent = data.metrics.volatility + '%';
+            }
+        }
+        
+        function handleBacktestComplete(data) {
+            // Store the completed backtest run (MLflow-style)
+            storeBacktestRun(data);
+            
+            // Enable export button
+            document.getElementById('export-btn').disabled = false;
+            
+            addLogEntry({
+                timestamp: new Date().toISOString(),
+                level: 'SUCCESS',
+                message: `Backtest completed and stored with ID: ${data.run_id}`
+            });
+        }
+        
+        function storeBacktestRun(data) {
+            // Simulate MLflow-style storage
+            const runId = 'run_' + Date.now();
+            storedRunsCount++;
+            
+            document.getElementById('current-run-id').textContent = runId;
+            document.getElementById('stored-runs-count').textContent = storedRunsCount;
+            
+            // In real implementation, this would call an API to store in MLflow
+            const runData = {
+                run_id: runId,
+                timestamp: new Date().toISOString(),
+                metrics: currentRunMetrics,
+                parameters: data.parameters || {},
+                artifacts: {
+                    chart_data: chartData,
+                    performance_plots: data.plots
+                }
+            };
+            
+            // Store in localStorage for demo (real implementation would use MLflow)
+            const storedRuns = JSON.parse(localStorage.getItem('backtestRuns') || '[]');
+            storedRuns.push(runData);
+            localStorage.setItem('backtestRuns', JSON.stringify(storedRuns));
+        }
+        
+        function viewStoredRuns() {
+            const storedRuns = JSON.parse(localStorage.getItem('backtestRuns') || '[]');
+            if (storedRuns.length === 0) {
+                alert('No stored backtest runs found.');
+                return;
+            }
+            
+            let runsHtml = 'Stored Backtest Runs:\\n\\n';
+            storedRuns.slice(-10).forEach((run, index) => {
+                runsHtml += `${index + 1}. ${run.run_id} (${new Date(run.timestamp).toLocaleString()})\\n`;
+                runsHtml += `   Total Return: ${run.metrics.total_return || 'N/A'}%\\n`;
+                runsHtml += `   Sharpe Ratio: ${run.metrics.sharpe_ratio || 'N/A'}\\n\\n`;
+            });
+            
+            alert(runsHtml);
+        }
+        
+        function exportCurrentRun() {
+            const runData = {
+                run_id: document.getElementById('current-run-id').textContent,
+                timestamp: new Date().toISOString(),
+                metrics: currentRunMetrics,
+                chart_data: chartData
+            };
+            
+            const blob = new Blob([JSON.stringify(runData, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backtest_${runData.run_id}_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+        
+        function compareRuns() {
+            alert('Run comparison feature coming soon! This will allow side-by-side analysis of multiple backtest runs.');
+        }
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initializeConnection();
@@ -733,6 +1084,14 @@
             
             // Initialize simulation UI
             updateSimulationUI(false);
+            
+            // Initialize charts
+            toggleChartType('portfolio');
+            
+            // Load stored runs count
+            const storedRuns = JSON.parse(localStorage.getItem('backtestRuns') || '[]');
+            storedRunsCount = storedRuns.length;
+            document.getElementById('stored-runs-count').textContent = storedRunsCount;
             
             // Check server status and enable start button after connection
             setTimeout(() => {

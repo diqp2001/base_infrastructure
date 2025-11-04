@@ -156,6 +156,67 @@
             margin: 8px 0 4px 0;
             font-size: 14px;
         }
+        
+        .preset-chart-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .preset-chart-card:hover {
+            background: #f8f9fa;
+            border-color: #0d6efd;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        
+        .preset-chart-card.active {
+            background: #e7f3ff;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+        }
+        
+        .preset-chart-title {
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .preset-chart-desc {
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        
+        .preset-chart-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        
+        .preset-tag {
+            background: #e9ecef;
+            color: #495057;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        
+        .preset-charts-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            background: #fafafa;
+        }
     </style>
 </head>
 <body>
@@ -247,6 +308,30 @@
                                 <button class="btn btn-primary w-100" id="generateCustomBtn" onclick="generateCustomVisualization()" disabled>
                                     🎨 Generate Custom Visualization
                                 </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Chart Presets Section -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h6 class="mb-3">📊 Chart Presets & Search</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-8">
+                                        <input type="text" id="chartSearch" class="form-control form-control-sm" placeholder="🔍 Search for company share prices, market data, ratios..." oninput="filterChartPresets()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select id="presetFilter" class="form-select form-select-sm" onchange="filterChartPresets()">
+                                            <option value="all">All Categories</option>
+                                            <option value="stock">Stock Prices</option>
+                                            <option value="financial">Financial Ratios</option>
+                                            <option value="market">Market Analysis</option>
+                                            <option value="sector">Sector Data</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="preset-charts-container" id="presetChartsContainer">
+                                    <!-- Preset charts will be loaded here -->
+                                </div>
                             </div>
                         </div>
                         
@@ -847,9 +932,154 @@
             showMessage('Configuration saved to browser console', 'success');
         }
         
+        // Chart Presets Data
+        const chartPresets = [
+            {
+                id: 'company_stock_prices',
+                title: '📈 Company Share Price Trends',
+                description: 'Compare stock price movements over time across multiple companies',
+                category: 'stock',
+                x_column: 'date',
+                y_columns: ['close_price', 'volume'],
+                chart_type: 'line',
+                tags: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'price', 'trend']
+            },
+            {
+                id: 'financial_ratios',
+                title: '📊 Financial Ratios Analysis',
+                description: 'Analyze P/E ratios, debt-to-equity, and other key financial metrics',
+                category: 'financial',
+                x_column: 'market_cap',
+                y_columns: ['pe_ratio', 'debt_to_equity'],
+                chart_type: 'scatter',
+                tags: ['PE', 'ratio', 'analysis', 'fundamental', 'valuation']
+            },
+            {
+                id: 'sector_performance',
+                title: '🥧 Sector Distribution & Performance',
+                description: 'Sector-wise breakdown of portfolio holdings and performance',
+                category: 'sector',
+                x_column: 'sector',
+                y_columns: ['market_cap', 'avg_return'],
+                chart_type: 'bar',
+                tags: ['sector', 'distribution', 'performance', 'breakdown']
+            },
+            {
+                id: 'market_correlation',
+                title: '🔗 Asset Correlation Matrix',
+                description: 'Correlation heatmap showing relationships between different assets',
+                category: 'market',
+                x_column: 'asset_1',
+                y_columns: ['asset_2', 'correlation'],
+                chart_type: 'correlation',
+                tags: ['correlation', 'heatmap', 'relationships', 'risk']
+            }
+        ];
+        
+        function loadChartPresets() {
+            const container = document.getElementById('presetChartsContainer');
+            displayFilteredPresets(chartPresets);
+        }
+        
+        function displayFilteredPresets(presets) {
+            const container = document.getElementById('presetChartsContainer');
+            if (presets.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center p-3">No matching chart presets found</div>';
+                return;
+            }
+            
+            let html = '';
+            presets.forEach(preset => {
+                html += `
+                    <div class="preset-chart-card" onclick="loadPresetChart('${preset.id}')" id="preset_${preset.id}">
+                        <div class="preset-chart-title">${preset.title}</div>
+                        <div class="preset-chart-desc">${preset.description}</div>
+                        <div class="preset-chart-tags">
+                            ${preset.tags.map(tag => `<span class="preset-tag">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        function filterChartPresets() {
+            const searchTerm = document.getElementById('chartSearch').value.toLowerCase();
+            const categoryFilter = document.getElementById('presetFilter').value;
+            
+            let filteredPresets = chartPresets;
+            
+            // Filter by category
+            if (categoryFilter !== 'all') {
+                filteredPresets = filteredPresets.filter(preset => preset.category === categoryFilter);
+            }
+            
+            // Filter by search term
+            if (searchTerm) {
+                filteredPresets = filteredPresets.filter(preset => 
+                    preset.title.toLowerCase().includes(searchTerm) ||
+                    preset.description.toLowerCase().includes(searchTerm) ||
+                    preset.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            displayFilteredPresets(filteredPresets);
+        }
+        
+        function loadPresetChart(presetId) {
+            const preset = chartPresets.find(p => p.id === presetId);
+            if (!preset) return;
+            
+            // Clear current selections
+            clearAllSelections();
+            
+            // Highlight selected preset
+            document.querySelectorAll('.preset-chart-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            document.getElementById(`preset_${presetId}`).classList.add('active');
+            
+            // Set chart type
+            document.getElementById('chartTypeSelect').value = preset.chart_type;
+            
+            // Show loading message
+            showMessage(`Loading preset: ${preset.title}`, 'info');
+            
+            // Auto-configure based on preset (simplified for demo)
+            // In real implementation, this would load actual column data
+            setTimeout(() => {
+                // Simulate adding preset columns
+                addPresetColumn(preset.x_column, 'x', preset.title);
+                preset.y_columns.forEach(col => {
+                    addPresetColumn(col, 'y', preset.title);
+                });
+                
+                updateGenerateCustomButton();
+                showMessage(`Preset loaded: ${preset.title}. Click generate to create visualization.`, 'success');
+            }, 1000);
+        }
+        
+        function addPresetColumn(columnName, axis, presetTitle) {
+            // Add simulated column data for presets
+            const columnData = {
+                dbPath: 'preset_data',
+                dbName: 'Preset Data',
+                table: 'company_shares',
+                column: columnName,
+                dataType: 'REAL',
+                displayName: `${columnName}`,
+                fullDisplayName: `${presetTitle} > ${columnName}`
+            };
+            
+            selectedColumns[axis].push(columnData);
+            updateAxisDisplay(axis);
+            updateAxisStats(axis);
+        }
+        
         // Initialize the enhanced interface
         document.addEventListener('DOMContentLoaded', function() {
             loadAllDatabasesAndColumns();
+            loadChartPresets();
         });
         
         // Add event listeners
