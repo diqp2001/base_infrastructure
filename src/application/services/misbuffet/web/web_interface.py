@@ -156,11 +156,18 @@ class WebInterfaceManager:
                 print(f"❌ Flask server error: {e}")
             finally:
                 print("🛑 Flask server stopped")
-        
-        self.flask_thread = threading.Thread(target=run_flask, daemon=True)
+        self.flask_thread = threading.Thread(target=self._open_browser(), daemon=True)
+        self.flask_thread .daemon = True
         self.flask_thread.start()
         
-        self.is_running = True
+
+        try:
+            run_flask()
+            self.is_running = True
+        except KeyboardInterrupt:
+            print("\n🛑 Shutting down web interface...")
+            
+        
         print("🌐 Flask web interface started at http://localhost:5000")
         print("📊 Progress monitor available at http://localhost:5000/backtest_progress")
     
@@ -169,8 +176,8 @@ class WebInterfaceManager:
         try:
             webbrowser.open('http://localhost:5000/backtest_progress')
             webbrowser.open('http://localhost:5000/')
-            webbrowser.open('http://localhost:5000/powerbuffet')
-            webbrowser.open('http://localhost:5000/dashboard')
+            #webbrowser.open('http://localhost:5000/powerbuffet')
+            #webbrowser.open('http://localhost:5000/dashboard')
             print("🖥️  Browser opened automatically to backtest progress page")
         except Exception as e:
             print(f"⚠️  Could not open browser automatically: {e}")
@@ -184,5 +191,4 @@ class WebInterfaceManager:
         # Give Flask a moment to start
         time.sleep(5)
         
-        # Open browser automatically
-        self._open_browser()
+        

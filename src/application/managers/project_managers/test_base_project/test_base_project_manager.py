@@ -115,7 +115,7 @@ class TestBaseProjectManager(ProjectManager):
             initial_capital: float = 100_000.0,
             model_type: str = 'both',
             launch_web_interface: bool = True,
-            setup_ib_connection: bool = True,
+            setup_ib_connection: bool = False,
             ib_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main run method that launches web interface and executes backtest.
@@ -151,9 +151,9 @@ class TestBaseProjectManager(ProjectManager):
                 # Extract S&P 500 data for the day
                 self._extract_sp500_daily_data()
             
-            # Start web interface if requested
+            """# Start web interface if requested
             if launch_web_interface and self.web_interface:
-                self.web_interface.start_interface_and_open_browser()
+                self.web_interface.start_interface_and_open_browser()"""
             
             # Run the actual backtest with our enhanced system
             return self._run_backtest(
