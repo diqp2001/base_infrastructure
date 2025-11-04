@@ -593,3 +593,159 @@ def shutdown_system():
     except Exception as e:
         logger.error(f"Error shutting down system: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# MLflow-style Backtest Tracking API Endpoints
+@web_bp.route("/api/backtest/tracking/experiments", methods=["GET"])
+def get_tracking_experiments():
+    """Get list of all tracking experiments"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        tracker = get_tracker()
+        experiments = tracker.get_experiments()
+        
+        return jsonify({
+            "success": True,
+            "experiments": experiments,
+            "count": len(experiments)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting tracking experiments: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/backtest/tracking/runs", methods=["GET"])
+def get_tracking_runs():
+    """Get list of backtest runs, optionally filtered by experiment"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        experiment_name = request.args.get('experiment_name')
+        limit = int(request.args.get('limit', 50))
+        
+        tracker = get_tracker()
+        runs = tracker.list_runs(experiment_name=experiment_name, limit=limit)
+        
+        return jsonify({
+            "success": True,
+            "runs": runs,
+            "count": len(runs)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting tracking runs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/backtest/tracking/runs/<run_id>", methods=["GET"])
+def get_tracking_run_details(run_id: str):
+    """Get detailed information about a specific run"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        tracker = get_tracker()
+        run_data = tracker.get_run(run_id)
+        
+        if not run_data:
+            return jsonify({"success": False, "error": "Run not found"}), 404
+        
+        return jsonify({
+            "success": True,
+            "run": run_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting run details: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/backtest/tracking/runs/compare", methods=["POST"])
+def compare_tracking_runs():
+    """Compare multiple backtest runs"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        data = request.json
+        run_ids = data.get('run_ids', [])
+        
+        if not run_ids or len(run_ids) < 2:
+            return jsonify({
+                "success": False, 
+                "error": "At least 2 run IDs required for comparison"
+            }), 400
+        
+        tracker = get_tracker()
+        comparison_data = tracker.compare_runs(run_ids)
+        
+        return jsonify({
+            "success": True,
+            "comparison": comparison_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error comparing runs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/backtest/tracking/store_run", methods=["POST"])
+def store_backtest_run():
+    """Store a completed backtest run with MLflow-style tracking"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        data = request.json
+        experiment_name = data.get('experiment_name', 'default_backtest_experiment')
+        run_name = data.get('run_name')
+        parameters = data.get('parameters', {})
+        metrics = data.get('metrics', {})
+        tags = data.get('tags', {})
+        artifacts = data.get('artifacts', {})
+        
+        tracker = get_tracker()
+        run_id = tracker.start_run(experiment_name, run_name)
+        
+        # Log all data
+        if parameters:
+            tracker.log_parameters(run_id, parameters)
+        
+        if metrics:
+            tracker.log_metrics(run_id, metrics)
+        
+        if tags:
+            tracker.set_tags(run_id, tags)
+        
+        # Log artifacts
+        for artifact_name, artifact_data in artifacts.items():
+            tracker.log_artifact(run_id, f"{artifact_name}.json", artifact_data, 'json')
+        
+        # End the run
+        tracker.end_run(run_id, 'FINISHED')
+        
+        return jsonify({
+            "success": True,
+            "run_id": run_id,
+            "message": f"Backtest run stored successfully with ID: {run_id}"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error storing backtest run: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/backtest/tracking/runs/<run_id>", methods=["DELETE"])
+def delete_tracking_run(run_id: str):
+    """Delete a backtest run and all associated data"""
+    try:
+        from src.application.services.mlflow_storage.mlflow_backtest_tracker import get_tracker
+        
+        tracker = get_tracker()
+        success = tracker.delete_run(run_id)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": f"Run {run_id} deleted successfully"
+            })
+        else:
+            return jsonify({"success": False, "error": "Run not found"}), 404
+        
+    except Exception as e:
+        logger.error(f"Error deleting run: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
