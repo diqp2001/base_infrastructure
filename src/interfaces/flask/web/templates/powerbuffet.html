@@ -620,15 +620,59 @@
         }
         
         function displayAvailableColumns(dbResults) {
-            //"""Display all available columns in draggable format"""
+            //"""Display all available columns in draggable format organized by sections"""
             const container = document.getElementById('availableColumnsContainer');
             let html = '';
             
+            // Group tables by section
+            const sectionMap = {};
+            
             dbResults.forEach(({ db, tables }) => {
                 if (tables.length > 0) {
-                    html += `<div class="database-header">${db.name} (${db.type})</div>`;
-                    
                     tables.forEach(table => {
+                        const section = table.section || 'Other Data';
+                        if (!sectionMap[section]) {
+                            sectionMap[section] = [];
+                        }
+                        sectionMap[section].push({
+                            db: db,
+                            table: table
+                        });
+                    });
+                }
+            });
+            
+            // Sort sections logically
+            const sectionOrder = [
+                'Market Data',
+                'Reference Data', 
+                'Fundamental Data',
+                'Portfolio Data',
+                'Trading Data',
+                'Risk Data',
+                'Quantitative Data',
+                'Analytics',
+                'Stock Data',
+                'FX Data',
+                'Other Data'
+            ];
+            
+            sectionOrder.forEach(sectionName => {
+                if (sectionMap[sectionName]) {
+                    html += `<div class="section-header mb-2" style="background: #e9ecef; padding: 8px 12px; border-radius: 4px; font-weight: bold; color: #495057; margin-top: 12px;">
+                               📊 ${sectionName}
+                             </div>`;
+                    
+                    sectionMap[sectionName].forEach(({ db, table }) => {
+                        html += `<div class="table-group mb-2" style="background: #f8f9fa; border-left: 3px solid #007bff; padding: 8px 12px; margin: 4px 0;">`;
+                        html += `<div class="table-header" style="font-weight: 600; color: #495057; margin-bottom: 6px;">
+                                   ${db.name} > ${table.name} 
+                                   <small class="text-muted">(${table.row_count} rows)</small>
+                                   <button class="btn btn-sm btn-outline-info ms-2" onclick="showTablePreview('${db.path}', '${table.name}')" style="font-size: 10px; padding: 2px 8px;">
+                                     👁️ Preview
+                                   </button>
+                                 </div>`;
+                        
                         table.columns.forEach(column => {
                             const columnId = `${db.path}|${table.name}|${column.name}`;
                             html += `<div class="column-item" 
@@ -639,10 +683,12 @@
                                         data-table="${table.name}"
                                         data-column="${column.name}"
                                         data-type="${column.type}"
-                                        id="col_${btoa(columnId)}">
-                                     <strong>${table.name}</strong>.${column.name} <small class="text-muted">(${column.type})</small>
+                                        id="col_${btoa(columnId)}"
+                                        title="Click to drag, or use Preview button to see data">
+                                     ${column.name} <small class="text-muted">(${column.type})</small>
                                  </div>`;
                         });
+                        html += `</div>`;
                     });
                 }
             });
@@ -1076,6 +1122,91 @@
             updateAxisStats(axis);
         }
         
+        // Table Preview Functions
+        function showTablePreview(databasePath, tableName) {
+            //"""Show preview modal for a table"""
+            showMessage(`Loading preview for ${tableName}...`, 'info');
+            
+            fetch(`/api/powerbuffet/preview/${encodeURIComponent(databasePath)}/${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideMessages();
+                    if (data.success) {
+                        displayTablePreviewModal(data.preview);
+                    } else {
+                        showMessage(`Error loading preview: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideMessages();
+                    showMessage(`Error loading preview: ${error.message}`, 'error');
+                });
+        }
+        
+        function displayTablePreviewModal(previewData) {
+            //"""Display table preview in a modal"""
+            let modalHtml = `
+                <div class="modal fade" id="tablePreviewModal" tabindex="-1" aria-labelledby="tablePreviewModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="tablePreviewModalLabel">
+                                    📊 Table Preview: ${previewData.table_name}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <span class="badge bg-primary">Showing ${previewData.row_count} rows</span>
+                                    ${previewData.total_rows ? `<span class="badge bg-secondary">Total: ${previewData.total_rows} rows</span>` : ''}
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped table-hover">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                ${previewData.column_names.map(col => `<th style="white-space: nowrap;">${col}</th>`).join('')}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${previewData.data.map(row => 
+                                                `<tr>${row.map(cell => 
+                                                    `<td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cell}">${cell}</td>`
+                                                ).join('')}</tr>`
+                                            ).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" onclick="exportTableData('${previewData.table_name}')">
+                                    📤 Export Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if present
+            const existingModal = document.getElementById('tablePreviewModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add new modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('tablePreviewModal'));
+            modal.show();
+        }
+        
+        function exportTableData(tableName) {
+            //"""Export table data (placeholder function)"""
+            showMessage(`Export functionality for ${tableName} coming soon!`, 'info');
+        }
+
         // Initialize the enhanced interface
         document.addEventListener('DOMContentLoaded', function() {
             loadAllDatabasesAndColumns();

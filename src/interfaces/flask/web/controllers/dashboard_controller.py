@@ -344,6 +344,17 @@ def get_tables(database_path):
         logger.error(f"Error getting tables: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@web_bp.route("/api/powerbuffet/preview/<path:database_path>/<table_name>", methods=["GET"])
+def get_table_preview(database_path, table_name):
+    """API endpoint to get preview data for a specific table (SELECT TOP 10)"""
+    try:
+        service = PowerBuffetService()
+        preview_data = service.get_table_preview(database_path, table_name)
+        return jsonify({"success": True, "preview": preview_data})
+    except Exception as e:
+        logger.error(f"Error getting table preview: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @web_bp.route("/api/powerbuffet/visualizations", methods=["GET"])
 def get_visualizations():
     """API endpoint to get available visualizations"""

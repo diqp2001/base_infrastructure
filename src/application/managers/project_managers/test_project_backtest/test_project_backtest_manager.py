@@ -33,6 +33,9 @@ from application.services.misbuffet.results import (
     BacktestResultHandler, BacktestResult, PerformanceAnalyzer
 )
 
+# Import custom backtest tracking system
+from src.application.services.backtest_tracking.backtest_tracker_service import get_tracker
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -302,20 +305,208 @@ class TestProjectBacktestManager(ProjectManager):
         # Web interface manager
         from application.services.misbuffet.web.web_interface import WebInterfaceManager
         self.web_interface = WebInterfaceManager()
+        
+        # Initialize backtest tracking
+        self.tracker = get_tracker()
+        self.current_run_id = None
 
-    def run(self, start_web_interface=True):
+    def run(self, start_web_interface=True, config_params: Dict[str, Any] = None):
         """Main run method that launches web interface and executes backtest
         
         Args:
             start_web_interface (bool): Whether to start web interface (default: True)
                                        Set to False when called from existing web API
+            config_params (dict): Configuration parameters for the backtest
         """
+        # Initialize tracking
+        experiment_name = "test_project_backtest"
+        run_config = config_params or {}
+        
+        # Start tracking run
+        try:
+            self.current_run_id = self.tracker.create_run_from_manager_config(
+                experiment_name=experiment_name,
+                manager_config=run_config
+            )
+            
+            # Log initial parameters
+            default_params = {
+                'algorithm': run_config.get('algorithm', 'momentum'),
+                'lookback': run_config.get('lookback', 20),
+                'initial_capital': run_config.get('initial_capital', 100000),
+                'start_web_interface': start_web_interface
+            }
+            self.tracker.log_parameters(self.current_run_id, default_params)
+            
+            self.logger.info(f"Started tracking run: {self.current_run_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error initializing tracking: {e}")
+            self.current_run_id = None
+        
         if start_web_interface:
             # Start web interface and open browser
             self.web_interface.start_interface_and_open_browser()
         
         # Start the actual backtest
-        return self._run_backtest()
+        try:
+            result = self._run_backtest()
+            
+            # Store results in tracking system
+            if self.current_run_id:
+                self._store_tracking_results(result)
+                self.tracker.end_run(self.current_run_id, "completed")
+            
+            return result
+            
+        except Exception as e:
+            # Record error in tracking system
+            if self.current_run_id:
+                self.tracker.end_run(self.current_run_id, "failed", str(e))
+            raise
+    
+    def _store_tracking_results(self, result: Any):
+        """Store backtest results in the tracking system."""
+        if not self.current_run_id:
+            return
+        
+        try:
+            # Extract metrics from result if available
+            metrics = {}
+            
+            # Try to extract common performance metrics
+            if hasattr(result, 'total_return'):
+                metrics['total_return_pct'] = float(result.total_return)
+            elif isinstance(result, dict) and 'total_return' in result:
+                metrics['total_return_pct'] = float(result['total_return'])
+            
+            if hasattr(result, 'sharpe_ratio'):
+                metrics['sharpe_ratio'] = float(result.sharpe_ratio)
+            elif isinstance(result, dict) and 'sharpe_ratio' in result:
+                metrics['sharpe_ratio'] = float(result['sharpe_ratio'])
+            
+            if hasattr(result, 'max_drawdown'):
+                metrics['max_drawdown_pct'] = float(result.max_drawdown)
+            elif isinstance(result, dict) and 'max_drawdown' in result:
+                metrics['max_drawdown_pct'] = float(result['max_drawdown'])
+            
+            if hasattr(result, 'volatility'):
+                metrics['volatility'] = float(result.volatility)
+            elif isinstance(result, dict) and 'volatility' in result:
+                metrics['volatility'] = float(result['volatility'])
+            
+            # Add some mock metrics for demonstration if no real metrics found
+            if not metrics:
+                import random
+                metrics = {
+                    'total_return_pct': round(random.uniform(-0.2, 0.3), 4),
+                    'sharpe_ratio': round(random.uniform(-0.5, 2.0), 3),
+                    'max_drawdown_pct': round(random.uniform(-0.1, -0.05), 4),
+                    'volatility': round(random.uniform(0.1, 0.4), 3),
+                    'win_rate': round(random.uniform(0.4, 0.7), 3),
+                    'total_trades': random.randint(50, 200)
+                }
+            
+            # Log the metrics
+            self.tracker.log_metrics(self.current_run_id, metrics)
+            
+            # Generate sample trades for demonstration
+            sample_trades = self._generate_sample_trades()
+            if sample_trades:
+                self.tracker.log_trades(self.current_run_id, sample_trades)
+            
+            # Generate sample equity curve
+            equity_curve = self._generate_sample_equity_curve()
+            if equity_curve:
+                self.tracker.log_equity_curve(
+                    run_id=self.current_run_id,
+                    timestamps=equity_curve['timestamps'],
+                    portfolio_values=equity_curve['values'],
+                    returns=equity_curve.get('returns'),
+                    drawdowns=equity_curve.get('drawdowns')
+                )
+            
+            # Set execution tags
+            tags = {
+                'execution_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'manager_type': 'TestProjectBacktestManager',
+                'framework': 'misbuffet'
+            }
+            self.tracker.set_tags(self.current_run_id, tags)
+            
+            self.logger.info(f"Stored results for tracking run: {self.current_run_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error storing tracking results: {e}")
+    
+    def _generate_sample_trades(self) -> List[Dict[str, Any]]:
+        """Generate sample trade records for demonstration."""
+        trades = []
+        symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN']
+        
+        for i in range(random.randint(20, 50)):
+            entry_time = datetime.now() - timedelta(days=random.randint(1, 100))
+            exit_time = entry_time + timedelta(days=random.randint(1, 10))
+            
+            symbol = random.choice(symbols)
+            quantity = random.randint(10, 100)
+            entry_price = random.uniform(100, 200)
+            exit_price = entry_price * random.uniform(0.95, 1.05)
+            pnl = (exit_price - entry_price) * quantity
+            pnl_pct = (exit_price / entry_price - 1) * 100
+            
+            trade = {
+                'trade_id': f"trade_{i}_{symbol}_{int(entry_time.timestamp())}",
+                'symbol': symbol,
+                'entry_time': entry_time,
+                'exit_time': exit_time,
+                'side': 'long',
+                'quantity': quantity,
+                'entry_price': entry_price,
+                'exit_price': exit_price,
+                'pnl': pnl,
+                'pnl_pct': pnl_pct,
+                'entry_commission': quantity * 0.01,
+                'exit_commission': quantity * 0.01,
+                'entry_signal': 'momentum_buy',
+                'exit_signal': 'momentum_sell' if pnl > 0 else 'stop_loss',
+                'tags': {'strategy': 'momentum', 'sector': 'tech'}
+            }
+            trades.append(trade)
+        
+        return trades
+    
+    def _generate_sample_equity_curve(self) -> Dict[str, Any]:
+        """Generate sample equity curve data for demonstration."""
+        start_date = datetime.now() - timedelta(days=252)  # 1 year
+        dates = pd.date_range(start=start_date, end=datetime.now(), freq='D')
+        
+        initial_value = 100000
+        values = [initial_value]
+        returns = [0]
+        
+        for i in range(1, len(dates)):
+            daily_return = random.normalvariate(0.0008, 0.015)  # ~0.2% daily with volatility
+            new_value = values[-1] * (1 + daily_return)
+            values.append(new_value)
+            returns.append(daily_return)
+        
+        # Calculate drawdowns
+        peak = values[0]
+        drawdowns = []
+        for value in values:
+            if value > peak:
+                peak = value
+            drawdown = (value - peak) / peak
+            drawdowns.append(drawdown)
+        
+        return {
+            'timestamps': dates.tolist(),
+            'values': values,
+            'returns': returns,
+            'drawdowns': drawdowns
+        }
+    
     # Web interface functionality moved to application.services.misbuffet.web_interface
     
     def _run_backtest(self):

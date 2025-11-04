@@ -83,7 +83,7 @@ class PowerBuffetService:
         return databases
     
     def get_database_tables(self, database_path: str) -> List[Dict[str, Any]]:
-        """Get tables from the selected database"""
+        """Get tables from the selected database with section organization"""
         tables = []
         
         try:
@@ -104,10 +104,20 @@ class PowerBuffetService:
                     cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
                     row_count = cursor.fetchone()[0]
                     
+                    # Get preview data (SELECT TOP 10)
+                    cursor.execute(f"SELECT * FROM {table_name} LIMIT 10;")
+                    preview_data = cursor.fetchall()
+                    
+                    # Organize by section based on table name patterns
+                    section = self._categorize_table(table_name)
+                    
                     tables.append({
                         "name": table_name,
+                        "section": section,
                         "columns": [{"name": col[1], "type": col[2]} for col in columns],
-                        "row_count": row_count
+                        "row_count": row_count,
+                        "preview_data": [list(row) for row in preview_data],
+                        "column_names": [col[1] for col in columns]
                     })
                 
                 conn.close()
@@ -120,15 +130,24 @@ class PowerBuffetService:
                 for csv_file in csv_files:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
-                    row_count = len(pd.read_csv(csv_file))
+                    full_df = pd.read_csv(csv_file)
+                    row_count = len(full_df)
+                    
+                    # Get preview data (first 10 rows)
+                    preview_df = full_df.head(10)
+                    preview_data = [list(row) for row in preview_df.values]
                     
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
+                    section = "Stock Data"
                     
                     tables.append({
                         "name": csv_file.stem,  # filename without extension
+                        "section": section,
                         "columns": columns,
                         "row_count": row_count,
-                        "file_path": str(csv_file)
+                        "file_path": str(csv_file),
+                        "preview_data": preview_data,
+                        "column_names": list(df.columns)
                     })
             
             elif "fx_data" in database_path and Path(database_path).is_dir():
@@ -139,21 +158,105 @@ class PowerBuffetService:
                 for csv_file in csv_files:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
-                    row_count = len(pd.read_csv(csv_file))
+                    full_df = pd.read_csv(csv_file)
+                    row_count = len(full_df)
+                    
+                    # Get preview data (first 10 rows)
+                    preview_df = full_df.head(10)
+                    preview_data = [list(row) for row in preview_df.values]
                     
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
+                    section = "FX Data"
                     
                     tables.append({
                         "name": csv_file.stem,  # filename without extension
+                        "section": section,
                         "columns": columns,
                         "row_count": row_count,
-                        "file_path": str(csv_file)
+                        "file_path": str(csv_file),
+                        "preview_data": preview_data,
+                        "column_names": list(df.columns)
                     })
                 
         except Exception as e:
             logger.error(f"Error getting tables from database {database_path}: {e}")
             
         return tables
+    
+    def _categorize_table(self, table_name: str) -> str:
+        """Categorize table into logical sections based on name patterns."""
+        table_lower = table_name.lower()
+        
+        # Financial data tables
+        if any(keyword in table_lower for keyword in ['price', 'stock', 'equity', 'share', 'ohlc']):
+            return "Market Data"
+        elif any(keyword in table_lower for keyword in ['fundamental', 'balance', 'income', 'cashflow', 'ratio']):
+            return "Fundamental Data"
+        elif any(keyword in table_lower for keyword in ['company', 'security', 'symbol', 'listing']):
+            return "Reference Data"
+        elif any(keyword in table_lower for keyword in ['factor', 'alpha', 'signal', 'model']):
+            return "Quantitative Data"
+        elif any(keyword in table_lower for keyword in ['portfolio', 'position', 'holding', 'allocation']):
+            return "Portfolio Data"
+        elif any(keyword in table_lower for keyword in ['trade', 'order', 'execution', 'transaction']):
+            return "Trading Data"
+        elif any(keyword in table_lower for keyword in ['risk', 'var', 'volatility', 'exposure']):
+            return "Risk Data"
+        elif any(keyword in table_lower for keyword in ['backtest', 'result', 'performance', 'metric']):
+            return "Analytics"
+        else:
+            return "Other Data"
+    
+    def get_table_preview(self, database_path: str, table_name: str) -> Dict[str, Any]:
+        """Get preview data for a specific table (SELECT TOP 10)"""
+        try:
+            if database_path.endswith(('.db', '.sqlite')):
+                conn = sqlite3.connect(database_path)
+                cursor = conn.cursor()
+                
+                # Get column names
+                cursor.execute(f"PRAGMA table_info({table_name});")
+                columns_info = cursor.fetchall()
+                column_names = [col[1] for col in columns_info]
+                
+                # Get preview data (top 10 rows)
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 10;")
+                preview_rows = cursor.fetchall()
+                
+                conn.close()
+                
+                return {
+                    "table_name": table_name,
+                    "column_names": column_names,
+                    "data": [list(row) for row in preview_rows],
+                    "row_count": len(preview_rows)
+                }
+            
+            elif ("stock_data" in database_path or "fx_data" in database_path) and Path(database_path).is_dir():
+                # Handle CSV files
+                data_dir = Path(database_path)
+                csv_file = data_dir / f"{table_name}.csv"
+                
+                if csv_file.exists():
+                    df = pd.read_csv(csv_file)
+                    preview_df = df.head(10)
+                    
+                    return {
+                        "table_name": table_name,
+                        "column_names": list(df.columns),
+                        "data": [list(row) for row in preview_df.values],
+                        "row_count": len(preview_df),
+                        "total_rows": len(df)
+                    }
+                else:
+                    return {"error": f"File {csv_file} not found"}
+            
+            else:
+                return {"error": "Unsupported database type"}
+                
+        except Exception as e:
+            logger.error(f"Error getting table preview: {e}")
+            return {"error": str(e)}
     
     def get_available_visualizations(self) -> List[str]:
         """Get list of available visualization templates"""
