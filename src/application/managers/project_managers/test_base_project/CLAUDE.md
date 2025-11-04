@@ -168,6 +168,14 @@ src/application/managers/project_managers/test_base_project/
 - **Enhanced**: Web interface with factor system monitoring
 - **Integrated**: Performance tracking with factor-based analytics
 
+### MLflow Experiment Tracking Integration:
+- **Experiment Management**: Automatic experiment creation and run management
+- **Parameter Logging**: Complete simulation parameters (tickers, dates, model types, capital)
+- **Metrics Tracking**: Performance metrics (Sharpe ratio, returns, drawdown, execution time)
+- **Artifact Storage**: Model info, simulation results, and configuration files
+- **Stage-wise Tracking**: Factor setup, model training, and backtesting metrics
+- **Error Handling**: Proper MLflow run cleanup and error state logging
+
 ## 📊 Expected Functions & Classes
 
 ### Core Manager Class
@@ -296,6 +304,14 @@ class WebBacktestManager:
 - **Export Options**: PDF reports, CSV data downloads
 - **User Permissions**: Role-based access to different system components
 
+### MLflow Tracking Configuration
+- **Experiment Name**: `test_base_project_manager` (configurable)
+- **Tracking URI**: Local `mlruns` directory (can be set to remote MLflow server)
+- **Auto-logging**: Automatic parameter, metric, and artifact logging for each simulation
+- **Run Naming**: Timestamp-based run names with optional custom naming
+- **Artifact Types**: JSON results, model information, configuration files
+- **Metric Categories**: Performance metrics, timing metrics, success/failure indicators
+
 ---
 
 ## 📈 Expected Outcomes
@@ -308,5 +324,41 @@ This integrated system will provide:
 4. **Real-Time Monitoring**: Web-based interface for live system monitoring
 5. **Comprehensive Analytics**: Detailed performance attribution and risk analysis
 6. **Production Readiness**: Architecture designed for scaling to live trading
+7. **Experiment Tracking**: MLflow integration for reproducible simulation runs and model versioning
 
 The Test Base Project Manager represents a significant evolution from its constituent components, creating a unified platform that bridges research, development, and production trading system requirements.
+
+---
+
+## 📊 MLflow Integration Usage
+
+### Basic Usage
+```python
+# Initialize the manager (MLflow setup happens automatically)
+manager = TestBaseProjectManager()
+
+# Run simulation with automatic MLflow tracking
+results = manager.run(
+    tickers=['AAPL', 'MSFT', 'GOOGL'],
+    initial_capital=100000,
+    model_type='both',
+    launch_web_interface=True
+)
+
+# All parameters, metrics, and artifacts are automatically logged
+```
+
+### Accessing MLflow UI
+```bash
+# View experiment results in MLflow UI
+mlflow ui --backend-store-uri ./mlruns
+
+# Navigate to http://localhost:5000 to view experiments
+```
+
+### Tracked Information
+- **Parameters**: Tickers, capital, model types, dates, configurations
+- **Metrics**: Portfolio value, returns, Sharpe ratio, max drawdown, execution time
+- **Artifacts**: Simulation results JSON, model information, configuration files
+- **Tags**: Run status (success/failed/error), error messages
+- **Models**: Trained model artifacts and metadata (when available)
