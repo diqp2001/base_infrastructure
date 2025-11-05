@@ -4,7 +4,7 @@ Repository class for Futures factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.futures_factors import (
-    FuturesFactor, FuturesFactorValue, FuturesFactorRule
+    FuturesFactor, FuturesFactorValue
 )
 
 
@@ -22,6 +22,3 @@ class FuturesFactorRepository(BaseFactorRepository):
         """Return the FuturesFactorValue model class."""
         return FuturesFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the FuturesFactorRule model class."""
-        return FuturesFactorRule

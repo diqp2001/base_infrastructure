@@ -4,7 +4,7 @@ Repository class for Options factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.options_factors import (
-    OptionsFactor, OptionsFactorValue, OptionsFactorRule
+    OptionsFactor, OptionsFactorValue
 )
 
 
@@ -22,6 +22,4 @@ class OptionsFactorRepository(BaseFactorRepository):
         """Return the OptionsFactorValue model class."""
         return OptionsFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the OptionsFactorRule model class."""
-        return OptionsFactorRule
+ 

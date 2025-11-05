@@ -23,7 +23,6 @@ class FuturesFactor(Base):
 
     # Relationships
     factor_values = relationship("FuturesFactorValue", back_populates="factor", cascade="all, delete-orphan")
-    factor_rules = relationship("FuturesFactorRule", back_populates="factor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<FuturesFactor(id={self.id}, name={self.name}, group={self.group})>"
@@ -49,20 +48,3 @@ class FuturesFactorValue(Base):
         return f"<FuturesFactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
 
-class FuturesFactorRule(Base):
-    """
-    SQLAlchemy ORM model for Futures factor rules.
-    """
-    __tablename__ = 'futures_factor_rules'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    factor_id = Column(Integer, ForeignKey('futures_factors.id'), nullable=False)
-    condition = Column(Text, nullable=False)
-    rule_type = Column(String(50), nullable=False)
-    method_ref = Column(String(255), nullable=True)
-
-    # Relationships
-    factor = relationship("FuturesFactor", back_populates="factor_rules")
-
-    def __repr__(self):
-        return f"<FuturesFactorRule(id={self.id}, factor_id={self.factor_id}, rule_type={self.rule_type})>"

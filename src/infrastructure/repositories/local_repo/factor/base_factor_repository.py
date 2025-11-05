@@ -12,23 +12,20 @@ from sqlalchemy.orm import Session
 from ...base_repository import BaseRepository
 from domain.entities.factor.factor import FactorBase as FactorEntity
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
-from domain.entities.factor.factor_rule import FactorRule as FactorRuleEntity
 
 from infrastructure.models.factor.factor_model import (
     Factor as FactorModel,
     FactorValue as FactorValueModel,
-    FactorRule as FactorRuleModel,
 )
 
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
-from infrastructure.repositories.mappers.factor.factor_rule_mapper import FactorRuleMapper
 
 from application.managers.database_managers.database_manager import DatabaseManager
 
 
 class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
-    """Repository managing Factor entities, their values, and rules."""
+    """Repository managing Factor entities, their values."""
 
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize repository with a database type."""
@@ -45,9 +42,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     def get_factor_value_model(self):
         return FactorValueModel
 
-    @abstractmethod
-    def get_factor_rule_model(self):
-        return FactorRuleModel
+
     
     @property
     def model_class(self):
@@ -104,17 +99,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             value=infra_obj.value
         )
 
-    def _to_domain_rule(self, infra_obj) -> Optional[FactorRuleEntity]:
-        """Convert ORM factor rule object to domain entity."""
-        if not infra_obj:
-            return None
-        return FactorRuleEntity(
-            id=infra_obj.id,
-            factor_id=infra_obj.factor_id,
-            condition=infra_obj.condition,
-            rule_type=infra_obj.rule_type,
-            method_ref=infra_obj.method_ref
-        )
+  
 
     # ----------------------------- CRUD: Factors -----------------------------
     def create_factor(self, domain_factor: FactorEntity) -> Optional[FactorEntity]:
@@ -377,49 +362,10 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving existing value dates: {e}")
             return set()
 
-    # ----------------------------- CRUD: Factor Rules -----------------------------
-    def create_factor_rule(self, domain_rule: FactorRuleEntity) -> Optional[FactorRuleEntity]:
-        """Add a new rule for a factor."""
-        try:
-            FactorRuleModel = self.get_factor_rule_model()
-            # Create ORM object directly using the specific model
-            orm_rule = FactorRuleModel(
-                factor_id=domain_rule.factor_id,
-                condition=domain_rule.condition,
-                rule_type=domain_rule.rule_type,
-                method_ref=domain_rule.method_ref
-            )
-            self.session.add(orm_rule)
-            self.session.commit()
-            return self._to_domain_rule(orm_rule)
-        except Exception as e:
-            self.session.rollback()
-            print(f"Error creating factor rule: {e}")
-            return None
+    # ----------------------------- CRUD: Factor  -----------------------------
 
-    def get_rules_by_factor(self, factor_id: int) -> List[FactorRuleEntity]:
-        """Retrieve all rules for a given factor."""
-        try:
-            FactorRuleModel = self.get_factor_rule_model()
-            rules = self.session.query(FactorRuleModel).filter(FactorRuleModel.factor_id == factor_id).all()
-            return [self._to_domain_rule(r) for r in rules]
-        except Exception as e:
-            print(f"Error retrieving rules: {e}")
-            return []
 
-    def get_rule_by_factor_and_condition(self, factor_id: int, condition: str) -> Optional[FactorRuleEntity]:
-        """Check if a rule already exists for a factor with a specific condition."""
-        try:
-            FactorRuleModel = self.get_factor_rule_model()
-            rule = (
-                self.session.query(FactorRuleModel)
-                .filter(FactorRuleModel.factor_id == factor_id, FactorRuleModel.condition == condition)
-                .first()
-            )
-            return self._to_domain_rule(rule)
-        except Exception as e:
-            print(f"Error checking for existing rule: {e}")
-            return None
+   
 
     def _get_next_available_factor_id(self) -> int:
         """
@@ -511,24 +457,3 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         )
         return self.create_factor_value(domain_value)
 
-    def add_factor_rule(self, factor_id: int, condition: str, rule_type: str, method_ref: Optional[str] = None) -> Optional[FactorRuleEntity]:
-        """
-        Convenience method to add a new factor rule.
-        
-        Args:
-            factor_id: ID of the factor
-            condition: Rule condition
-            rule_type: Type of rule (e.g., 'validation', 'transformation')
-            method_ref: Reference to validation/transformation method
-        
-        Returns:
-            Created factor rule entity or None if failed
-        """
-        domain_rule = FactorRuleEntity(
-            id=None,
-            factor_id=factor_id,
-            condition=condition,
-            rule_type=rule_type,
-            method_ref=method_ref
-        )
-        return self.create_factor_rule(domain_rule)

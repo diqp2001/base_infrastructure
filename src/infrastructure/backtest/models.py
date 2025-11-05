@@ -366,7 +366,7 @@ class BacktestMetricModel(Base):
     
     # Additional context
     symbol = Column(String(20))  # If metric is symbol-specific
-    metadata = Column(JSON)
+    meta_data = Column("metadata", JSON) 
 
 
 class BacktestParameterModel(Base):

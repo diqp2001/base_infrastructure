@@ -4,7 +4,7 @@ Repository class for Index factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.index_factors import (
-    IndexFactor, IndexFactorValue, IndexFactorRule
+    IndexFactor, IndexFactorValue
 )
 
 
@@ -22,6 +22,3 @@ class IndexFactorRepository(BaseFactorRepository):
         """Return the IndexFactorValue model class."""
         return IndexFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the IndexFactorRule model class."""
-        return IndexFactorRule

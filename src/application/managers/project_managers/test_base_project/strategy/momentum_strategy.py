@@ -1,7 +1,7 @@
 """
 Spatiotemporal momentum strategy combining ML signals with traditional momentum.
 
-Integrates trained TFT/MLP models with momentum-based trading rules
+Integrates trained TFT/MLP models with momentum-based trading 
 and factor-driven signal generation.
 """
 

@@ -23,7 +23,6 @@ class ETFShareFactor(Base):
 
     # Relationships
     factor_values = relationship("ETFShareFactorValue", back_populates="factor", cascade="all, delete-orphan")
-    factor_rules = relationship("ETFShareFactorRule", back_populates="factor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ETFShareFactor(id={self.id}, name={self.name}, group={self.group})>"
@@ -49,20 +48,3 @@ class ETFShareFactorValue(Base):
         return f"<ETFShareFactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
 
-class ETFShareFactorRule(Base):
-    """
-    SQLAlchemy ORM model for ETF Share factor rules.
-    """
-    __tablename__ = 'etf_share_factor_rules'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    factor_id = Column(Integer, ForeignKey('etf_share_factors.id'), nullable=False)
-    condition = Column(Text, nullable=False)
-    rule_type = Column(String(50), nullable=False)
-    method_ref = Column(String(255), nullable=True)
-
-    # Relationships
-    factor = relationship("ETFShareFactor", back_populates="factor_rules")
-
-    def __repr__(self):
-        return f"<ETFShareFactorRule(id={self.id}, factor_id={self.factor_id}, rule_type={self.rule_type})>"

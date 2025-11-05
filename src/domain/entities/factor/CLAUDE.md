@@ -31,20 +31,7 @@ class FactorEquity(FactorSecurity):
 Each financial asset type now has its own dedicated factor tables following the pattern:
 - `{entity}_factors` - Factor definitions specific to that entity type
 - `{entity}_factor_values` - Factor values linked to entities and dates
-- `{entity}_factor_rules` - Rules for factor calculations
 
-**Implemented Factor Table Sets:**
-- Share: `share_factors`, `share_factor_values`, `share_factor_rules`
-- Bond: `bond_factors`, `bond_factor_values`, `bond_factor_rules`  
-- Security: `security_factors`, `security_factor_values`, `security_factor_rules`
-- Equity: `equity_factors`, `equity_factor_values`, `equity_factor_rules`
-- Currency: `currency_factors`, `currency_factor_values`, `currency_factor_rules`
-- Commodity: `commodity_factors`, `commodity_factor_values`, `commodity_factor_rules`
-- Options: `options_factors`, `options_factor_values`, `options_factor_rules`
-- Futures: `futures_factors`, `futures_factor_values`, `futures_factor_rules`
-- Index: `index_factors`, `index_factor_values`, `index_factor_rules`
-- ETF Share: `etf_share_factors`, `etf_share_factor_values`, `etf_share_factor_rules`
-- Company Share: `company_share_factors`, `company_share_factor_values`, `company_share_factor_rules`
 
 **1. Factor Definition Tables (`{entity}_factors`)**
 

@@ -131,7 +131,6 @@ def _get_next_available_id(self) -> int:
 
 - **Generic Factor CRUD**: Create, read, update, delete factor definitions
 - **Factor Values**: Time series data storage and retrieval  
-- **Factor Rules**: Business rule validation and transformations
 - **Sequential IDs**: Consistent ID assignment across factor types
 
 ### Example Usage

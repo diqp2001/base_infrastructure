@@ -4,7 +4,7 @@ Repository class for Equity factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.equity_factors import (
-    EquityFactor, EquityFactorValue, EquityFactorRule
+    EquityFactor, EquityFactorValue, 
 )
 
 
@@ -22,6 +22,3 @@ class EquityFactorRepository(BaseFactorRepository):
         """Return the EquityFactorValue model class."""
         return EquityFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the EquityFactorRule model class."""
-        return EquityFactorRule

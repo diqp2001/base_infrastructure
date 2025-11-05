@@ -4,7 +4,7 @@ Repository class for Security factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.security_factors import (
-    SecurityFactor, SecurityFactorValue, SecurityFactorRule
+    SecurityFactor, SecurityFactorValue
 )
 
 
@@ -22,6 +22,3 @@ class SecurityFactorRepository(BaseFactorRepository):
         """Return the SecurityFactorValue model class."""
         return SecurityFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the SecurityFactorRule model class."""
-        return SecurityFactorRule

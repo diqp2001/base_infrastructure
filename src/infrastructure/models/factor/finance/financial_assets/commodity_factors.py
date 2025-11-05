@@ -23,7 +23,6 @@ class CommodityFactor(Base):
 
     # Relationships
     factor_values = relationship("CommodityFactorValue", back_populates="factor", cascade="all, delete-orphan")
-    factor_rules = relationship("CommodityFactorRule", back_populates="factor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<CommodityFactor(id={self.id}, name={self.name}, group={self.group})>"
@@ -49,20 +48,3 @@ class CommodityFactorValue(Base):
         return f"<CommodityFactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
 
-class CommodityFactorRule(Base):
-    """
-    SQLAlchemy ORM model for Commodity factor rules.
-    """
-    __tablename__ = 'commodity_factor_rules'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    factor_id = Column(Integer, ForeignKey('commodity_factors.id'), nullable=False)
-    condition = Column(Text, nullable=False)
-    rule_type = Column(String(50), nullable=False)
-    method_ref = Column(String(255), nullable=True)
-
-    # Relationships
-    factor = relationship("CommodityFactor", back_populates="factor_rules")
-
-    def __repr__(self):
-        return f"<CommodityFactorRule(id={self.id}, factor_id={self.factor_id}, rule_type={self.rule_type})>"

@@ -23,7 +23,6 @@ class CurrencyFactor(Base):
 
     # Relationships
     factor_values = relationship("CurrencyFactorValue", back_populates="factor", cascade="all, delete-orphan")
-    factor_rules = relationship("CurrencyFactorRule", back_populates="factor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<CurrencyFactor(id={self.id}, name={self.name}, group={self.group})>"
@@ -48,21 +47,3 @@ class CurrencyFactorValue(Base):
     def __repr__(self):
         return f"<CurrencyFactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
-
-class CurrencyFactorRule(Base):
-    """
-    SQLAlchemy ORM model for Currency factor rules.
-    """
-    __tablename__ = 'currency_factor_rules'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    factor_id = Column(Integer, ForeignKey('currency_factors.id'), nullable=False)
-    condition = Column(Text, nullable=False)
-    rule_type = Column(String(50), nullable=False)
-    method_ref = Column(String(255), nullable=True)
-
-    # Relationships
-    factor = relationship("CurrencyFactor", back_populates="factor_rules")
-
-    def __repr__(self):
-        return f"<CurrencyFactorRule(id={self.id}, factor_id={self.factor_id}, rule_type={self.rule_type})>"

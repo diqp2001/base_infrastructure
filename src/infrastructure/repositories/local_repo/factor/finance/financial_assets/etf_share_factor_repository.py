@@ -4,7 +4,7 @@ Repository class for ETF Share factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.etf_share_factors import (
-    ETFShareFactor, ETFShareFactorValue, ETFShareFactorRule
+    ETFShareFactor, ETFShareFactorValue
 )
 
 
@@ -22,6 +22,3 @@ class ETFShareFactorRepository(BaseFactorRepository):
         """Return the ETFShareFactorValue model class."""
         return ETFShareFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the ETFShareFactorRule model class."""
-        return ETFShareFactorRule

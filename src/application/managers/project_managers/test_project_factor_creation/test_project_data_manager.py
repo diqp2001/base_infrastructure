@@ -22,7 +22,6 @@ from domain.entities.finance.financial_assets.security import MarketData
 # Domain factor entities
 from domain.entities.factor.finance.financial_assets.share_factor import FactorShare as ShareFactorEntity
 from domain.entities.factor.finance.financial_assets.share_factor_value import ShareFactorValue as ShareFactorValueEntity
-from domain.entities.factor.finance.financial_assets.share_factor_rule import ShareFactorRule as ShareFactorRuleEntity
 
 # Infrastructure repositories
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -33,13 +32,13 @@ from infrastructure.repositories.local_repo.factor.finance.financial_assets.comp
 
 # Infrastructure models for factor operations
 from infrastructure.models.factor.finance.financial_assets.currency_factors import (
-    CurrencyFactor, CurrencyFactorValue, CurrencyFactorRule
+    CurrencyFactor, CurrencyFactorValue, 
 )
 from infrastructure.models.factor.finance.financial_assets.share_factors import (
-    ShareFactor, ShareFactorValue, ShareFactorRule  
+    ShareFactor, ShareFactorValue,   
 )
 from infrastructure.models.factor.finance.financial_assets.company_share_factors import (
-    CompanyShareFactor, CompanyShareFactorValue, CompanyShareFactorRule
+    CompanyShareFactor, CompanyShareFactorValue, 
 )
 
 # Note: Using repositories directly without mappers for this implementation
@@ -105,7 +104,6 @@ class TestProjectFactorManager(ProjectManager):
             print("🎯 COMPLETE FACTOR SETUP SUMMARY:")
             print(f"  • Total entities created: {entities_summary['total_entities']}")
             print(f"  • Total factors created: {factors_summary['factors_created']}")
-            print(f"  • Total rules created: {factors_summary['rules_created']}")
             print(f"  • Total values calculated: {factors_summary['values_calculated']}")
             print(f"  • Total processing time: {total_elapsed:.3f} seconds")
             print("  • Factor system is fully operational! 🎉")
@@ -117,7 +115,7 @@ class TestProjectFactorManager(ProjectManager):
             print(f"❌ Error in complete factor setup: {str(e)}")
             return {
                 'entities': {'total_entities': 0},
-                'factors': {'factors_created': 0, 'rules_created': 0, 'values_calculated': 0},
+                'factors': {'factors_created': 0,  'values_calculated': 0},
                 'total_processing_time': 0,
                 'system_ready': False,
                 'error': str(e)
@@ -295,7 +293,7 @@ class TestProjectFactorManager(ProjectManager):
         print("🔧 Creating and saving all factors...")
         start_time = time.time()
         
-        # Create factor definitions and rules
+        # Create factor definitions 
         factor_summary = self.create_factor_definitions()
         
         # Calculate and save factor values from historical data
@@ -306,14 +304,12 @@ class TestProjectFactorManager(ProjectManager):
         
         total_summary = {
             'factors_created': factor_summary['total_factors'],
-            'rules_created': factor_summary['total_rules'],
             'values_calculated': values_summary['total_values'],
             'processing_time': elapsed
         }
         
         print(f"\n🎯 Complete Factor System Summary:")
         print(f"  • Factors created: {total_summary['factors_created']}")
-        print(f"  • Rules created: {total_summary['rules_created']}")
         print(f"  • Values calculated: {total_summary['values_calculated']}")
         print(f"  • Processing time: {elapsed:.3f} seconds")
         print("  • Factor system ready! ✅")
@@ -321,16 +317,14 @@ class TestProjectFactorManager(ProjectManager):
         return total_summary
 
     def create_factor_definitions(self) -> Dict[str, Any]:
-        """Create factor definitions and rules for shares and currencies."""
-        print("📋 Creating factor definitions and rules...")
+        """Create factor definitions  for shares and currencies."""
+        print("📋 Creating factor definitions ")
         
         shares_factors = self._create_shares_factor_definitions()
         
         return {
             'shares_factors': shares_factors['factors'],
-            'shares_rules': shares_factors['rules'],
-            'total_factors': len(shares_factors['factors']) ,
-            'total_rules': len(shares_factors['rules']) 
+            'total_factors': len(shares_factors['factors']) 
         }
 
     def calculate_and_save_factor_values(self) -> Dict[str, Any]:
@@ -349,11 +343,10 @@ class TestProjectFactorManager(ProjectManager):
     # -------------------------
 
     def _create_shares_factor_definitions(self) -> Dict[str, List]:
-        """Create factor definitions and rules for share entities."""
+        """Create factor definitions  for share entities."""
         print("  📈 Creating share factor definitions...")
         
         factors = []
-        rules = []
         
         # Price factors (OHLCV)
         price_factors = [
@@ -386,29 +379,12 @@ class TestProjectFactorManager(ProjectManager):
                     
                 factors.append(factor)
                 
-                # Check if validation rule already exists
-                condition = f"{factor_def['name']} > 0" if 'price' in factor_def['name'] else f"{factor_def['name']} >= 0"
-                existing_rule = self.share_factor_repository.get_rule_by_factor_and_condition(factor.id, condition)
                 
-                if existing_rule:
-                    rule = existing_rule
-                    print(f"    ♻️  Rule already exists for factor {factor_def['name']}")
-                else:
-                    # Add basic validation rule
-                    rule = self.share_factor_repository.add_factor_rule(
-                        factor_id=factor.id,
-                        condition=condition,
-                        rule_type='validation',
-                        method_ref='validate_positive_value'
-                    )
-                    print(f"    ✅ Created rule for factor: {factor_def['name']}")
-                    
-                rules.append(rule)
                 
             except Exception as e:
                 print(f"    ❌ Error creating share factor {factor_def['name']}: {str(e)}")
         
-        return {'factors': factors, 'rules': rules}
+        return {'factors': factors}
 
  
     def _calculate_shares_factor_values(self) -> int:
@@ -572,34 +548,7 @@ class TestProjectFactorManager(ProjectManager):
             print(f"❌ Error adding factor value for factor {factor_id}: {str(e)}")
             return None
 
-    def add_factor_rule(self, factor_id: int, condition: str, rule_type: str, method_ref: str = None, repository=None):
-        """
-        Add a new factor rule using the specified repository.
-        
-        Args:
-            factor_id: ID of the factor
-            condition: Rule condition
-            rule_type: Type of rule (e.g., 'validation', 'transformation')
-            method_ref: Reference to validation/transformation method
-            repository: Repository to use (defaults to share_factor_repository)
-        
-        Returns:
-            Created factor rule entity or None if failed
-        """
-        if repository is None:
-            repository = self.share_factor_repository
-        
-        try:
-            return repository.add_factor_rule(
-                factor_id=factor_id,
-                condition=condition,
-                rule_type=rule_type,
-                method_ref=method_ref
-            )
-        except Exception as e:
-            print(f"❌ Error adding factor rule for factor {factor_id}: {str(e)}")
-            return None
-
+   
     # -------------------------
     # UTILITY METHODS
     # -------------------------

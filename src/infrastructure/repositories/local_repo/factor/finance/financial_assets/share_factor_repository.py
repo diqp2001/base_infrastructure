@@ -4,7 +4,7 @@ Repository class for Share factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.share_factors import (
-    ShareFactor, ShareFactorValue, ShareFactorRule
+    ShareFactor, ShareFactorValue
 )
 
 
@@ -22,6 +22,4 @@ class ShareFactorRepository(BaseFactorRepository):
         """Return the ShareFactorValue model class."""
         return ShareFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the ShareFactorRule model class."""
-        return ShareFactorRule
+    

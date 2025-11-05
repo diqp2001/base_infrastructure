@@ -4,7 +4,7 @@ Repository class for Bond factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.bond_factors import (
-    BondFactor, BondFactorValue, BondFactorRule
+    BondFactor, BondFactorValue
 )
 
 
@@ -22,6 +22,4 @@ class BondFactorRepository(BaseFactorRepository):
         """Return the BondFactorValue model class."""
         return BondFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the BondFactorRule model class."""
-        return BondFactorRule
+  

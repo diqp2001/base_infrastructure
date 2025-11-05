@@ -82,7 +82,7 @@ class DataQualityReport:
     
     report_id: str
     dataset_id: str
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    
     
     # Overall quality metrics
     overall_score: float  # 0-1 quality score
@@ -91,6 +91,7 @@ class DataQualityReport:
     accuracy_score: float
     
     # Issue detection
+    generated_at: datetime = field(default_factory=datetime.utcnow)
     missing_data_issues: List[Dict[str, Any]] = field(default_factory=list)
     outlier_issues: List[Dict[str, Any]] = field(default_factory=list)
     consistency_issues: List[Dict[str, Any]] = field(default_factory=list)

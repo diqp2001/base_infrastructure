@@ -76,7 +76,6 @@ class FactorEnginedDataManager:
         total_summary = {
             'entities': entity_summary,
             'factors_created': momentum_factors_summary['factors_created'],
-            'rules_created': momentum_factors_summary['rules_created'],
             'values_calculated': values_summary['total_values'],
             'tickers_processed': len(tickers),
             'success': True
@@ -115,7 +114,6 @@ class FactorEnginedDataManager:
         
         return {
             'factors_created': technical_factors_summary['factors_created'],
-            'rules_created': technical_factors_summary['rules_created'],
             'values_calculated': values_summary['total_values'],
             'tickers_processed': len(tickers),
             'success': True
@@ -260,7 +258,6 @@ class FactorEnginedDataManager:
         print("  📈 Creating momentum factor definitions...")
         
         factors_created = 0
-        rules_created = 0
         
         # Momentum factors from config
         momentum_factors = self.config['FACTORS']['MOMENTUM_FACTORS']
@@ -277,21 +274,13 @@ class FactorEnginedDataManager:
                 if factor:
                     factors_created += 1
                     
-                    # Add validation rule
-                    rule = self._create_factor_rule(
-                        factor.id,
-                        f"{factor_def['name']} IS NOT NULL",
-                        'validation'
-                    )
-                    if rule:
-                        rules_created += 1
+                    
                         
             except Exception as e:
                 print(f"    ❌ Error creating momentum factor {factor_def['name']}: {str(e)}")
         
         return {
-            'factors_created': factors_created,
-            'rules_created': rules_created
+            'factors_created': factors_created
         }
     
     def _create_technical_factor_definitions(self) -> Dict[str, Any]:
@@ -299,7 +288,6 @@ class FactorEnginedDataManager:
         print("  🔧 Creating technical factor definitions...")
         
         factors_created = 0
-        rules_created = 0
         
         # Technical factors from config
         technical_factors = self.config['FACTORS']['TECHNICAL_FACTORS']
@@ -316,24 +304,15 @@ class FactorEnginedDataManager:
                 if factor:
                     factors_created += 1
                     
-                    # Add appropriate validation rule based on indicator type
-                    if 'rsi' in factor_def['name']:
-                        condition = f"{factor_def['name']} BETWEEN 0 AND 100"
-                    elif 'bollinger' in factor_def['name']:
-                        condition = f"{factor_def['name']} > 0"
-                    else:
-                        condition = f"{factor_def['name']} IS NOT NULL"
                     
-                    rule = self._create_factor_rule(factor.id, condition, 'validation')
-                    if rule:
-                        rules_created += 1
+                    
+                    
                         
             except Exception as e:
                 print(f"    ❌ Error creating technical factor {factor_def['name']}: {str(e)}")
         
         return {
-            'factors_created': factors_created,
-            'rules_created': rules_created
+            'factors_created': factors_created
         }
     
     def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
@@ -466,20 +445,6 @@ class FactorEnginedDataManager:
             definition=definition
         )
     
-    def _create_factor_rule(self, factor_id: int, condition: str, rule_type: str):
-        """Create a factor rule if it doesn't exist."""
-        existing_rule = self.share_factor_repository.get_rule_by_factor_and_condition(
-            factor_id, condition
-        )
-        if existing_rule:
-            return existing_rule
-        
-        return self.share_factor_repository.add_factor_rule(
-            factor_id=factor_id,
-            condition=condition,
-            rule_type=rule_type,
-            method_ref=f'validate_{rule_type}_rule'
-        )
     
     def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
         """Store factor values for a specific factor."""

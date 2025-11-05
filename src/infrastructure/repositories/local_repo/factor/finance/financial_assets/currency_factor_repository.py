@@ -4,7 +4,7 @@ Repository class for Currency factor entities.
 
 from ...base_factor_repository import BaseFactorRepository
 from infrastructure.models.factor.finance.financial_assets.currency_factors import (
-    CurrencyFactor, CurrencyFactorValue, CurrencyFactorRule
+    CurrencyFactor, CurrencyFactorValue
 )
 
 
@@ -22,6 +22,4 @@ class CurrencyFactorRepository(BaseFactorRepository):
         """Return the CurrencyFactorValue model class."""
         return CurrencyFactorValue
 
-    def get_factor_rule_model(self):
-        """Return the CurrencyFactorRule model class."""
-        return CurrencyFactorRule
+    

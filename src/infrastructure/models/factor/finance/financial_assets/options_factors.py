@@ -23,7 +23,6 @@ class OptionsFactor(Base):
 
     # Relationships
     factor_values = relationship("OptionsFactorValue", back_populates="factor", cascade="all, delete-orphan")
-    factor_rules = relationship("OptionsFactorRule", back_populates="factor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<OptionsFactor(id={self.id}, name={self.name}, group={self.group})>"
@@ -49,20 +48,3 @@ class OptionsFactorValue(Base):
         return f"<OptionsFactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
 
-class OptionsFactorRule(Base):
-    """
-    SQLAlchemy ORM model for Options factor rules.
-    """
-    __tablename__ = 'options_factor_rules'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    factor_id = Column(Integer, ForeignKey('options_factors.id'), nullable=False)
-    condition = Column(Text, nullable=False)
-    rule_type = Column(String(50), nullable=False)
-    method_ref = Column(String(255), nullable=True)
-
-    # Relationships
-    factor = relationship("OptionsFactor", back_populates="factor_rules")
-
-    def __repr__(self):
-        return f"<OptionsFactorRule(id={self.id}, factor_id={self.factor_id}, rule_type={self.rule_type})>"

@@ -19,19 +19,11 @@ class TradeRecord:
     
     trade_id: str
     symbol: str
-    entry_time: datetime
-    exit_time: Optional[datetime] = None
-    
     # Trade details
     side: str  # 'long' or 'short'
     quantity: int
     entry_price: Decimal
-    exit_price: Optional[Decimal] = None
-    
-    # Performance
-    pnl: Optional[Decimal] = None  # Profit/Loss
-    pnl_pct: Optional[Decimal] = None  # Percentage return
-    
+    entry_time: datetime
     # Costs
     entry_commission: Decimal = Decimal("0")
     exit_commission: Decimal = Decimal("0")
@@ -40,7 +32,22 @@ class TradeRecord:
     # Metadata
     entry_signal: str = ""  # Reason for entry
     exit_signal: str = ""   # Reason for exit
+
+    
+
     tags: Dict[str, str] = field(default_factory=dict)
+    exit_time: Optional[datetime] = None
+    
+    #Trade details
+    exit_price: Optional[Decimal] = None
+    
+    # Performance
+    pnl: Optional[Decimal] = None  # Profit/Loss
+    pnl_pct: Optional[Decimal] = None  # Percentage return
+    
+    
+
+    
     
     def __post_init__(self):
         if self.trade_id is None:
