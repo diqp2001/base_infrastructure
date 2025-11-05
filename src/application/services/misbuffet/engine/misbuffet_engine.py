@@ -9,6 +9,8 @@ import logging
 from datetime import timedelta, datetime
 from typing import Optional, List, Dict, Any
 import pandas as pd
+import os
+import json
 
 try:
     from dateutil.relativedelta import relativedelta
@@ -296,8 +298,13 @@ class MisbuffetEngine(BaseEngine):
             start_date = engine_config.get('start_date', datetime(2021, 1, 1))
             end_date = engine_config.get('end_date', datetime(2022, 1, 1))
             
-            # Calculate final portfolio value (simplified)
-            final_value = initial_capital + (performance_data.get('data_points_processed', 0) * 10)  # Mock growth
+            # Calculate final portfolio value from algorithm's portfolio
+            final_value = initial_capital
+            if self.algorithm and hasattr(self.algorithm, 'portfolio'):
+                try:
+                    final_value = float(self.algorithm.portfolio.total_portfolio_value_current)
+                except:
+                    final_value = initial_capital + (performance_data.get('data_points_processed', 0) * 10)
             
             result.set_performance_data(
                 initial_capital=initial_capital,
@@ -308,6 +315,9 @@ class MisbuffetEngine(BaseEngine):
                 algorithm_calls=performance_data.get('algorithm_calls', 0),
                 total_trades=performance_data.get('total_trades', 0)
             )
+            
+            # Generate and save backtest report
+            self._generate_and_save_report(result, engine_config)
             
             self.logger.info("Backtest completed successfully.")
             return result
@@ -370,6 +380,11 @@ class MisbuffetEngine(BaseEngine):
                     self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")
                     
             current_date = self._add_time_interval(current_date, time_interval)
+            
+            # Safety check to ensure we don't go beyond end_date
+            if current_date > end_date:
+                self.logger.info(f"Reached configured end date: {end_date.date()}. Stopping simulation.")
+                break
         
         self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
         
@@ -471,8 +486,8 @@ class MisbuffetEngine(BaseEngine):
             return None
         
         try:
-            # Get data around the target date (±1 day window)
-            df = self.stock_data_repository.get_historical_data(ticker, periods=3, end_time=target_date + timedelta(days=1))
+            # Get data with proper end_time filtering to respect backtest date range
+            df = self.stock_data_repository.get_historical_data(ticker, periods=5, end_time=target_date)
             
             if df is not None and not df.empty:
                 
@@ -480,12 +495,18 @@ class MisbuffetEngine(BaseEngine):
                 if 'Date' in df.columns:
                     df['Date'] = pd.to_datetime(df['Date'])
                     
-                    # Filter to get the closest date to target_date
-                    df['date_diff'] = abs((df['Date'] - target_date).dt.days)
-                    closest_data = df.loc[df['date_diff'].idxmin()]
+                    # Filter to get data only up to the target date (respect backtest end_date)
+                    df_filtered = df[df['Date'] <= target_date]
                     
-                    # Return as single-row DataFrame
-                    return pd.DataFrame([closest_data])
+                    if not df_filtered.empty:
+                        # Get the most recent data point within the date range
+                        latest_data = df_filtered.iloc[-1]
+                        
+                        # Log to confirm date range enforcement
+                        self.logger.debug(f"Using data for {ticker} on {latest_data['Date']} (target: {target_date})")
+                        
+                        # Return as single-row DataFrame
+                        return pd.DataFrame([latest_data])
             
             return None
             
@@ -541,9 +562,106 @@ class MisbuffetEngine(BaseEngine):
                 
         except Exception as e:
             self.logger.error(f"Error retrieving historical data: {e}")
+    
+    def _generate_and_save_report(self, result: 'BacktestResult', engine_config: Dict[str, Any]):
+        """Generate and save comprehensive backtest report."""
+        try:
+            # Create reports directory if it doesn't exist
+            reports_dir = engine_config.get('output_directory', './reports')
+            os.makedirs(reports_dir, exist_ok=True)
             
+            # Generate timestamp for unique report name
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            # Collect comprehensive portfolio data
+            portfolio_data = self._collect_portfolio_data()
+            
+            # Generate report content
+            report_content = {
+                'backtest_metadata': {
+                    'timestamp': timestamp,
+                    'start_date': result.start_date,
+                    'end_date': result.end_date,
+                    'initial_capital': result.initial_capital,
+                    'algorithm_name': 'MyAlgorithm',
+                    'universe': getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
+                },
+                'performance_summary': {
+                    'total_return': result.total_return,
+                    'total_return_pct': f\"{result.total_return:.2%}\",
+                    'final_portfolio_value': result.final_portfolio_value,
+                    'sharpe_ratio': result.sharpe_ratio,
+                    'max_drawdown': result.max_drawdown,
+                    'win_rate': result.win_rate,
+                    'total_trades': result.total_trades
+                },
+                'portfolio_details': portfolio_data,
+                'runtime_statistics': result.runtime_statistics
+            }
+            
+            # Save JSON report
+            json_filename = os.path.join(reports_dir, f'backtest_report_{timestamp}.json')
+            with open(json_filename, 'w') as f:
+                json.dump(report_content, f, indent=2, default=str)
+            
+            # Save human-readable text report
+            text_filename = os.path.join(reports_dir, f'backtest_summary_{timestamp}.txt')
+            with open(text_filename, 'w') as f:
+                f.write(result.summary())
+                f.write(\"\\n\\n\" + \"=\"*80 + \"\\n\")
+                f.write(\"DETAILED PORTFOLIO BREAKDOWN\\n\")
+                f.write(\"=\"*80 + \"\\n\")
+                
+                if portfolio_data.get('holdings'):
+                    f.write(\"\\nCurrent Holdings:\\n\")
+                    f.write(\"-\" * 40 + \"\\n\")
+                    for symbol, holding in portfolio_data['holdings'].items():
+                        f.write(f\"{symbol}: {holding['quantity']} shares @ ${holding['average_price']:.2f} = ${holding['market_value']:.2f}\\n\")
+                
+                f.write(f\"\\nCash Balance: ${portfolio_data.get('cash_balance', 0):.2f}\\n\")
+                f.write(f\"Total Portfolio Value: ${portfolio_data.get('total_value', 0):.2f}\\n\")
+            
+            self.logger.info(f\"📊 Backtest report saved to: {json_filename}\")
+            self.logger.info(f\"📄 Backtest summary saved to: {text_filename}\")
+            
+        except Exception as e:
+            self.logger.error(f\"Error generating backtest report: {e}\")
     
-    
+    def _collect_portfolio_data(self) -> Dict[str, Any]:
+        \"\"\"Collect detailed portfolio data for reporting.\"\"\"
+        portfolio_data = {
+            'cash_balance': 0.0,
+            'total_value': 0.0,
+            'holdings': {}
+        }
+        
+        try:
+            if self.algorithm and hasattr(self.algorithm, 'portfolio'):
+                portfolio = self.algorithm.portfolio
+                
+                # Get cash balance
+                if hasattr(portfolio, 'cash_balance'):
+                    portfolio_data['cash_balance'] = float(portfolio.cash_balance)
+                
+                # Get total portfolio value
+                if hasattr(portfolio, 'total_portfolio_value_current'):
+                    portfolio_data['total_value'] = float(portfolio.total_portfolio_value_current)
+                
+                # Get individual holdings
+                if hasattr(portfolio, 'holdings') and portfolio.holdings:
+                    for symbol, holding in portfolio.holdings.items():
+                        if hasattr(holding, 'quantity') and holding.quantity != 0:
+                            portfolio_data['holdings'][str(symbol)] = {
+                                'quantity': int(holding.quantity),
+                                'average_price': float(getattr(holding, 'average_price', 0)),
+                                'market_value': float(getattr(holding, 'market_value', 0)),
+                                'unrealized_pnl': float(getattr(holding, 'unrealized_profit_loss', 0))
+                            }
+                
+        except Exception as e:
+            self.logger.warning(f\"Error collecting portfolio data: {e}\")
+        
+        return portfolio_data
 
     def _execute_main_loop(self) -> None:
         """Execute the main engine loop. Required by BaseEngine."""
@@ -607,6 +725,11 @@ class MisbuffetEngine(BaseEngine):
                         self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")
                         
                 current_date = self._add_time_interval(current_date, time_interval)
+                
+                # Safety check to ensure we don't go beyond end_date
+                if current_date > end_date:
+                    self.logger.info(f"Reached configured end date: {end_date.date()}. Stopping simulation.")
+                    break
             
             self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
             
