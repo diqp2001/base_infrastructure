@@ -116,47 +116,92 @@ class BacktestRepository:
         """Store backtest configuration and return config_id."""
         with self.get_session() as session:
             try:
-                config_model = BacktestConfigModel(
-                    config_id=config.config_id,
-                    experiment_id=config.experiment_name,  # Using experiment_name as ID
-                    run_name=config.run_name,
-                    algorithm_name=config.algorithm_name,
-                    algorithm_version=config.algorithm_version,
-                    strategy_params=config.strategy_params,
-                    start_date=config.start_date,
-                    end_date=config.end_date,
-                    benchmark_period=config.benchmark_period,
-                    universe=config.universe,
-                    universe_filter=config.universe_filter,
-                    initial_capital=str(config.initial_capital),
-                    position_sizing=config.position_sizing,
-                    max_positions=config.max_positions,
-                    max_position_size=str(config.max_position_size),
-                    stop_loss=str(config.stop_loss) if config.stop_loss else None,
-                    take_profit=str(config.take_profit) if config.take_profit else None,
-                    var_limit=str(config.var_limit) if config.var_limit else None,
-                    commission_rate=str(config.commission_rate),
-                    slippage_model=config.slippage_model,
-                    market_impact_factor=str(config.market_impact_factor),
-                    data_frequency=config.data_frequency,
-                    lookback_window=config.lookback_window,
-                    warmup_period=config.warmup_period,
-                    factors=config.factors,
-                    feature_selection=config.feature_selection,
-                    model_type=config.model_type,
-                    model_params=config.model_params,
-                    training_frequency=config.training_frequency,
-                    random_seed=config.random_seed,
-                    parallel_processing=config.parallel_processing,
-                    num_cores=config.num_cores,
-                    created_at=config.created_at,
-                    created_by=config.created_by,
-                    tags=config.tags,
-                    description=config.description
-                )
-                session.add(config_model)
+                # Check if config already exists
+                existing_config = session.query(BacktestConfigModel).filter(
+                    BacktestConfigModel.config_id == config.config_id
+                ).first()
+                
+                if existing_config:
+                    # Update existing configuration instead of inserting duplicate
+                    logger.info(f"Updating existing config: {config.config_id}")
+                    existing_config.experiment_id = config.experiment_name
+                    existing_config.run_name = config.run_name
+                    existing_config.algorithm_name = config.algorithm_name
+                    existing_config.algorithm_version = config.algorithm_version
+                    existing_config.strategy_params = config.strategy_params
+                    existing_config.start_date = config.start_date
+                    existing_config.end_date = config.end_date
+                    existing_config.benchmark_period = config.benchmark_period
+                    existing_config.universe = config.universe
+                    existing_config.universe_filter = config.universe_filter
+                    existing_config.initial_capital = str(config.initial_capital)
+                    existing_config.position_sizing = config.position_sizing
+                    existing_config.max_positions = config.max_positions
+                    existing_config.max_position_size = str(config.max_position_size)
+                    existing_config.stop_loss = str(config.stop_loss) if config.stop_loss else None
+                    existing_config.take_profit = str(config.take_profit) if config.take_profit else None
+                    existing_config.var_limit = str(config.var_limit) if config.var_limit else None
+                    existing_config.commission_rate = str(config.commission_rate)
+                    existing_config.slippage_model = config.slippage_model
+                    existing_config.market_impact_factor = str(config.market_impact_factor)
+                    existing_config.data_frequency = config.data_frequency
+                    existing_config.lookback_window = config.lookback_window
+                    existing_config.warmup_period = config.warmup_period
+                    existing_config.factors = config.factors
+                    existing_config.feature_selection = config.feature_selection
+                    existing_config.model_type = config.model_type
+                    existing_config.model_params = config.model_params
+                    existing_config.training_frequency = config.training_frequency
+                    existing_config.random_seed = config.random_seed
+                    existing_config.parallel_processing = config.parallel_processing
+                    existing_config.num_cores = config.num_cores
+                    existing_config.created_by = config.created_by
+                    existing_config.tags = config.tags
+                    existing_config.description = config.description
+                else:
+                    # Create new configuration
+                    config_model = BacktestConfigModel(
+                        config_id=config.config_id,
+                        experiment_id=config.experiment_name,  # Using experiment_name as ID
+                        run_name=config.run_name,
+                        algorithm_name=config.algorithm_name,
+                        algorithm_version=config.algorithm_version,
+                        strategy_params=config.strategy_params,
+                        start_date=config.start_date,
+                        end_date=config.end_date,
+                        benchmark_period=config.benchmark_period,
+                        universe=config.universe,
+                        universe_filter=config.universe_filter,
+                        initial_capital=str(config.initial_capital),
+                        position_sizing=config.position_sizing,
+                        max_positions=config.max_positions,
+                        max_position_size=str(config.max_position_size),
+                        stop_loss=str(config.stop_loss) if config.stop_loss else None,
+                        take_profit=str(config.take_profit) if config.take_profit else None,
+                        var_limit=str(config.var_limit) if config.var_limit else None,
+                        commission_rate=str(config.commission_rate),
+                        slippage_model=config.slippage_model,
+                        market_impact_factor=str(config.market_impact_factor),
+                        data_frequency=config.data_frequency,
+                        lookback_window=config.lookback_window,
+                        warmup_period=config.warmup_period,
+                        factors=config.factors,
+                        feature_selection=config.feature_selection,
+                        model_type=config.model_type,
+                        model_params=config.model_params,
+                        training_frequency=config.training_frequency,
+                        random_seed=config.random_seed,
+                        parallel_processing=config.parallel_processing,
+                        num_cores=config.num_cores,
+                        created_at=config.created_at,
+                        created_by=config.created_by,
+                        tags=config.tags,
+                        description=config.description
+                    )
+                    session.add(config_model)
+                    logger.info(f"Stored new config: {config.config_id}")
+                    
                 session.commit()
-                logger.info(f"Stored config: {config.config_id}")
                 return config.config_id
             except SQLAlchemyError as e:
                 session.rollback()
