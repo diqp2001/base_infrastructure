@@ -355,7 +355,9 @@ class BacktestTrackerService:
     
     def create_run_from_manager_config(self, experiment_name: str, manager_config: Dict[str, Any]) -> str:
         """Create a run from a test manager configuration."""
-        run_name = manager_config.get('run_name', f"Run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        # Generate unique run name with microseconds to avoid collisions
+        current_time = datetime.now()
+        run_name = manager_config.get('run_name', f"Run_{current_time.strftime('%Y%m%d_%H%M%S_%f')}")
         
         # Convert manager config to backtest config format
         backtest_config = {
