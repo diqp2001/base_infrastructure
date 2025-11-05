@@ -111,12 +111,23 @@ class PowerBuffetService:
                     # Organize by section based on table name patterns
                     section = self._categorize_table(table_name)
                     
+                    # Convert preview data and handle potential NaN/None values
+                    cleaned_preview_data = []
+                    for row in preview_data:
+                        cleaned_row = []
+                        for value in row:
+                            if pd.isna(value) or value is None:
+                                cleaned_row.append(None)
+                            else:
+                                cleaned_row.append(value)
+                        cleaned_preview_data.append(cleaned_row)
+                    
                     tables.append({
                         "name": table_name,
                         "section": section,
                         "columns": [{"name": col[1], "type": col[2]} for col in columns],
                         "row_count": row_count,
-                        "preview_data": [list(row) for row in preview_data],
+                        "preview_data": cleaned_preview_data,
                         "column_names": [col[1] for col in columns]
                     })
                 
@@ -135,6 +146,8 @@ class PowerBuffetService:
                     
                     # Get preview data (first 10 rows)
                     preview_df = full_df.head(10)
+                    # Replace NaN values with None for JSON serialization
+                    preview_df = preview_df.fillna(None)
                     preview_data = [list(row) for row in preview_df.values]
                     
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
@@ -163,6 +176,8 @@ class PowerBuffetService:
                     
                     # Get preview data (first 10 rows)
                     preview_df = full_df.head(10)
+                    # Replace NaN values with None for JSON serialization
+                    preview_df = preview_df.fillna(None)
                     preview_data = [list(row) for row in preview_df.values]
                     
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
@@ -240,6 +255,8 @@ class PowerBuffetService:
                 if csv_file.exists():
                     df = pd.read_csv(csv_file)
                     preview_df = df.head(10)
+                    # Replace NaN values with None for JSON serialization
+                    preview_df = preview_df.fillna(None)
                     
                     return {
                         "table_name": table_name,
