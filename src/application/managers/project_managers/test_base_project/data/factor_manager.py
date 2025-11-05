@@ -42,8 +42,14 @@ class FactorEnginedDataManager:
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
         
-        # Data paths
-        self.project_root = Path(__file__).parent.parent.parent.parent.parent.parent
+        # Data paths - find project root by looking for data/stock_data directory
+        current_path = Path(__file__).resolve()
+        self.project_root = current_path
+        
+        # Walk up the directory tree to find the project root
+        while not (self.project_root / 'data' / 'stock_data').exists() and self.project_root.parent != self.project_root:
+            self.project_root = self.project_root.parent
+            
         self.stock_data_path = self.project_root / "data" / "stock_data"
     
     def populate_momentum_factors(self, 
