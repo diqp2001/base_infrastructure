@@ -140,7 +140,7 @@ class BacktestTrackerService:
     
     def end_run(self, run_id: str, status: str = "completed", error_message: str = None):
         """Mark a run as completed and update its status."""
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         if result:
             result.status = status
             result.end_time = datetime.utcnow()
@@ -171,13 +171,16 @@ class BacktestTrackerService:
     def log_metrics(self, run_id: str, metrics: Dict[str, float]):
         """Log performance metrics for a run."""
         # Create or update result with metrics
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         if not result:
             # Create new result if it doesn't exist
             config = self.repository.get_config(run_id)
             if config:
+                # Generate unique result ID to avoid conflicts with config_id
+                from uuid import uuid4
+                unique_result_id = str(uuid4())
                 result = BacktestResult(
-                    result_id=run_id,
+                    result_id=unique_result_id,
                     config_id=run_id,
                     experiment_name=config.experiment_name,
                     run_name=config.run_name,
@@ -226,13 +229,16 @@ class BacktestTrackerService:
     
     def log_trades(self, run_id: str, trades: List[Dict[str, Any]]):
         """Log trade records for a run."""
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         if not result:
             # Create new result if needed
             config = self.repository.get_config(run_id)
             if config:
+                # Generate unique result ID to avoid conflicts with config_id
+                from uuid import uuid4
+                unique_result_id = str(uuid4())
                 result = BacktestResult(
-                    result_id=run_id,
+                    result_id=unique_result_id,
                     config_id=run_id,
                     experiment_name=config.experiment_name,
                     run_name=config.run_name,
@@ -270,12 +276,15 @@ class BacktestTrackerService:
                         portfolio_values: List[float], returns: List[float] = None, 
                         drawdowns: List[float] = None):
         """Log equity curve data for a run."""
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         if not result:
             config = self.repository.get_config(run_id)
             if config:
+                # Generate unique result ID to avoid conflicts with config_id
+                from uuid import uuid4
+                unique_result_id = str(uuid4())
                 result = BacktestResult(
-                    result_id=run_id,
+                    result_id=unique_result_id,
                     config_id=run_id,
                     experiment_name=config.experiment_name,
                     run_name=config.run_name,
@@ -296,7 +305,7 @@ class BacktestTrackerService:
     
     def set_tags(self, run_id: str, tags: Dict[str, str]):
         """Set tags for a run."""
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         if result:
             result.tags.update(tags)
             self.repository.store_result(result)
@@ -314,7 +323,7 @@ class BacktestTrackerService:
     
     def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a run."""
-        result = self.repository.get_result(run_id)
+        result = self.repository.get_result_by_config_id(run_id)
         config = self.repository.get_config(run_id)
         
         if not result and not config:
