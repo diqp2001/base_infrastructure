@@ -37,7 +37,7 @@ class SpatiotemporalModelTrainer:
         
         # Initialize components
         self.data_loader = SpatiotemporalDataLoader(database_manager)
-        self.factor_manager = FactorEnginedDataManager(database_manager)
+        self.factor_manager = None  # Factor system removed - using CSV data directly
         self.tensor_splitter = TensorSplitterManager()
         self.model = HybridSpatiotemporalModel()
         

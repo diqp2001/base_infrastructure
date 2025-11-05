@@ -77,9 +77,9 @@ class BacktestRunner:
         try:
             self.logger.info("Setting up test_base_project components...")
             
-            # Initialize factor manager
-            self.factor_manager = FactorEnginedDataManager(self.database_manager)
-            self.logger.info("✅ Factor manager initialized")
+            # Skip factor manager initialization (factor system removed)
+            self.factor_manager = None
+            self.logger.info("⚠️ Factor manager skipped (factor system removed)")
             
             # Initialize model trainer
             self.model_trainer = SpatiotemporalModelTrainer(self.database_manager)
@@ -187,9 +187,11 @@ class BacktestRunner:
             # Create algorithm instance
             algorithm = BaseProjectAlgorithm()
             
-            # Inject our components
+            # Inject our components (skip factor manager since it's not available)
             if self.factor_manager:
                 algorithm.set_factor_manager(self.factor_manager)
+            else:
+                self.logger.info("⚠️ Factor manager not available - algorithm will use CSV data directly")
             
             if self.model_trainer:
                 algorithm.set_spatiotemporal_trainer(self.model_trainer)
@@ -249,12 +251,9 @@ class BacktestRunner:
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
             
-            # Step 2: Setup factor system
-            if setup_factors:
-                self.logger.info("🏗️ Setting up factor system...")
-                factor_results = self.setup_factor_system(tickers, overwrite=False)
-                if not factor_results.get('system_ready', False):
-                    raise Exception(f"Factor system setup failed: {factor_results.get('error', 'Unknown error')}")
+            # Step 2: Skip factor system setup (removed from codebase)
+            self.logger.info("🏗️ Skipping factor system setup (using CSV data directly)...")
+            factor_results = {'system_ready': True, 'note': 'Factor system removed - using CSV data'}
             
             # Step 3: Train models
             self.logger.info("🧠 Training spatiotemporal models...")

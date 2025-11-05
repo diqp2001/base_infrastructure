@@ -45,10 +45,10 @@ class SpatiotemporalDataLoader:
                                         start_date: Optional[str] = None,
                                         end_date: Optional[str] = None) -> pd.DataFrame:
         """
-        Load historical data from the factor system (database).
+        Load historical data directly from CSV files.
         
-        Note: CSV loading is no longer needed since setup_factor_system() 
-        has already populated the database with all necessary factor values.
+        Since the factor system was removed, this method now loads data 
+        directly from CSV files in the /data/stock_data/ directory.
         
         Args:
             tickers: List of stock tickers to load
@@ -56,28 +56,28 @@ class SpatiotemporalDataLoader:
             end_date: End date in YYYY-MM-DD format
             
         Returns:
-            DataFrame with price data and factor values from the factor system
+            DataFrame with price data loaded from CSV files
         """
         if tickers is None:
             tickers = self.config['DEFAULT_UNIVERSE']
         
-        print(f"📊 Loading historical data for {len(tickers)} tickers from factor system...")
+        print(f"📊 Loading historical data for {len(tickers)} tickers from CSV files...")
         
-        # Load data only from factor system (database)
+        # Load data from CSV files instead of factor system
         combined_data = {}
         
         for ticker in tickers:
-            # Load factor data (primary and only source after factor setup)
-            factor_data = self._load_factor_data(ticker, start_date, end_date)
+            # Load CSV data (primary source since factor system was removed)
+            csv_data = self._load_csv_data(ticker, start_date, end_date)
             
-            if factor_data is not None and not factor_data.empty:
-                combined_data[ticker] = factor_data
-                print(f"  ✅ Loaded {len(factor_data)} records for {ticker}")
+            if csv_data is not None and not csv_data.empty:
+                combined_data[ticker] = csv_data
+                print(f"  ✅ Loaded {len(csv_data)} records for {ticker}")
             else:
-                print(f"  ❌ No factor data found for {ticker}")
+                print(f"  ❌ No CSV data found for {ticker}")
         
         if not combined_data:
-            raise ValueError("No data loaded for any ticker. Ensure setup_factor_system() was called first.")
+            raise ValueError("No data loaded for any ticker. Check that CSV files exist in /data/stock_data/.")
         
         # Convert to the format expected by spatiotemporal models
         return self._format_for_spatiotemporal_processing(combined_data)
@@ -86,9 +86,8 @@ class SpatiotemporalDataLoader:
         """
         Load historical price data from CSV files.
         
-        DEPRECATED: This method is no longer used in the main data loading pipeline.
-        After setup_factor_system() populates the database, all data should be loaded 
-        from the factor system via _load_factor_data(). Kept for backward compatibility.
+        This is now the primary method for loading historical data since 
+        the factor system was removed from the codebase.
         """
         csv_file = self.stock_data_path / f"{ticker}.csv"
         
