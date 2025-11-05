@@ -36,8 +36,14 @@ class SpatiotemporalDataLoader:
         self.company_share_repository = CompanyShareRepositoryLocal(database_manager.session)
         self.share_factor_repository = ShareFactorRepository(DEFAULT_CONFIG['DATABASE']['DB_TYPE'])
         
-        # Data paths
-        self.project_root = Path(__file__).parent.parent.parent.parent.parent.parent
+        # Data paths - find project root by looking for data/stock_data directory
+        current_path = Path(__file__).resolve()
+        self.project_root = current_path
+        
+        # Walk up the directory tree to find the project root
+        while not (self.project_root / 'data' / 'stock_data').exists() and self.project_root.parent != self.project_root:
+            self.project_root = self.project_root.parent
+            
         self.stock_data_path = self.project_root / "data" / "stock_data"
     
     def load_historical_data_with_factors(self, 
