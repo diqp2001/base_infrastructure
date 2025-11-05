@@ -266,21 +266,44 @@ class BacktestRepository:
         """Store backtest result and return result_id."""
         with self.get_session() as session:
             try:
-                # Store main result
-                result_model = BacktestResultModel(
-                    result_id=result.result_id,
-                    config_id=result.config_id,
-                    experiment_id=result.experiment_name,
-                    run_name=result.run_name,
-                    start_time=result.start_time,
-                    end_time=result.end_time,
-                    execution_duration_seconds=result.execution_duration_seconds,
-                    status=result.status,
-                    error_message=result.error_message,
-                    created_by=result.created_by,
-                    tags=result.tags,
-                    notes=result.notes
-                )
+                # Check if result already exists
+                existing_result = session.query(BacktestResultModel).filter(
+                    BacktestResultModel.result_id == result.result_id
+                ).first()
+                
+                if existing_result:
+                    # Update existing result instead of inserting duplicate
+                    logger.info(f"Updating existing result: {result.result_id}")
+                    result_model = existing_result
+                    result_model.config_id = result.config_id
+                    result_model.experiment_id = result.experiment_name
+                    result_model.run_name = result.run_name
+                    result_model.start_time = result.start_time
+                    result_model.end_time = result.end_time
+                    result_model.execution_duration_seconds = result.execution_duration_seconds
+                    result_model.status = result.status
+                    result_model.error_message = result.error_message
+                    result_model.created_by = result.created_by
+                    result_model.tags = result.tags
+                    result_model.notes = result.notes
+                else:
+                    # Store main result
+                    result_model = BacktestResultModel(
+                        result_id=result.result_id,
+                        config_id=result.config_id,
+                        experiment_id=result.experiment_name,
+                        run_name=result.run_name,
+                        start_time=result.start_time,
+                        end_time=result.end_time,
+                        execution_duration_seconds=result.execution_duration_seconds,
+                        status=result.status,
+                        error_message=result.error_message,
+                        created_by=result.created_by,
+                        tags=result.tags,
+                        notes=result.notes
+                    )
+                    session.add(result_model)
+                    logger.info(f"Stored new result: {result.result_id}")
                 
                 # Add performance metrics if available
                 if result.performance_metrics:
@@ -322,7 +345,17 @@ class BacktestRepository:
                 result_model.system_info = result.system_info
                 result_model.resource_usage = result.resource_usage
                 
-                session.add(result_model)
+                if not existing_result:
+                    session.add(result_model)
+                
+                # For updates, clear existing trades and equity curve data to avoid duplicates
+                if existing_result:
+                    session.query(TradeRecordModel).filter(
+                        TradeRecordModel.result_id == result.result_id
+                    ).delete()
+                    session.query(EquityCurvePointModel).filter(
+                        EquityCurvePointModel.result_id == result.result_id
+                    ).delete()
                 
                 # Store trades
                 for trade in result.trades:
@@ -377,6 +410,17 @@ class BacktestRepository:
         with self.get_session() as session:
             result_model = session.query(BacktestResultModel).filter(
                 BacktestResultModel.result_id == result_id
+            ).first()
+            
+            if result_model:
+                return self._model_to_result(result_model, session)
+        return None
+    
+    def get_result_by_config_id(self, config_id: str) -> Optional[BacktestResult]:
+        """Get result by config ID."""
+        with self.get_session() as session:
+            result_model = session.query(BacktestResultModel).filter(
+                BacktestResultModel.config_id == config_id
             ).first()
             
             if result_model:
