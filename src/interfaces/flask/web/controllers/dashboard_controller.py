@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask.json import JSONEncoder
 from src.application.services.misbuffet import Misbuffet
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
@@ -12,12 +13,48 @@ from datetime import datetime, timedelta
 import json
 import logging
 
+
+class CustomJSONEncoder(JSONEncoder):
+    """Custom JSON encoder that handles NaN and numpy types"""
+    def default(self, obj):
+        if pd.isna(obj) or obj is None:
+            return None
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            if np.isnan(obj) or np.isinf(obj):
+                return None
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from src.application.services.misbuffet.web.powerbuffet.powerbuffet import PowerBuffetService
 
 web_bp = Blueprint("web", __name__)
 logger = logging.getLogger(__name__)
+
+
+def clean_for_json(data):
+    """Clean data structure to ensure JSON serialization compatibility"""
+    if isinstance(data, dict):
+        return {k: clean_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_for_json(item) for item in data]
+    elif pd.isna(data) or data is None:
+        return None
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        if np.isnan(data) or np.isinf(data):
+            return None
+        return float(data)
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
+    else:
+        return data
 
 @web_bp.route("/")
 def home():
@@ -339,7 +376,9 @@ def get_tables(database_path):
     try:
         service = PowerBuffetService()
         tables = service.get_database_tables(database_path)
-        return jsonify({"success": True, "tables": tables})
+        # Clean data to ensure JSON serialization compatibility
+        cleaned_tables = clean_for_json(tables)
+        return jsonify({"success": True, "tables": cleaned_tables})
     except Exception as e:
         logger.error(f"Error getting tables: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -350,7 +389,9 @@ def get_table_preview(database_path, table_name):
     try:
         service = PowerBuffetService()
         preview_data = service.get_table_preview(database_path, table_name)
-        return jsonify({"success": True, "preview": preview_data})
+        # Clean data to ensure JSON serialization compatibility
+        cleaned_preview = clean_for_json(preview_data)
+        return jsonify({"success": True, "preview": cleaned_preview})
     except Exception as e:
         logger.error(f"Error getting table preview: {e}")
         return jsonify({"success": False, "error": str(e)}), 500

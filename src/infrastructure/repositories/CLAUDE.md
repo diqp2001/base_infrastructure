@@ -11,19 +11,12 @@ src/infrastructure/repositories/
 ├── base_repository.py                      # Generic base for all repositories
 ├── financial_asset_base_repository.py      # Base for financial asset repositories
 ├── local_repo/
-│   ├── finance/
-│   │   └── financial_assets/
-│   │       ├── share_repository.py         # Share entity repository
-│   │       ├── company_share_repository.py # CompanyShare (inherits from Share)
-│   │       ├── currency_repository.py      # Currency entity repository
-│   │       └── ...                         # Other financial asset repositories
-│   └── factor/
-│       ├── base_factor_repository.py       # Base for all factor repositories
-│       └── finance/
-│           └── financial_assets/
-│               ├── share_factor_repository.py
-│               ├── currency_factor_repository.py
-│               └── ...                     # 11 factor repository types
+│   └── finance/
+│       └── financial_assets/
+│           ├── share_repository.py         # Share entity repository
+│           ├── company_share_repository.py # CompanyShare (inherits from Share)
+│           ├── currency_repository.py      # Currency entity repository
+│           └── ...                         # Other financial asset repositories
 └── mappers/                                # Entity ↔ ORM conversion utilities
 ```
 
@@ -94,17 +87,6 @@ FinancialAssetBaseRepository
 └── ...                            # Other financial asset types
 ```
 
-### Factor System
-
-```  
-BaseFactorRepository
-├── ShareFactorRepository           # Share price/volume factors
-├── CurrencyFactorRepository        # Exchange rate factors
-├── CompanyShareFactorRepository    # Company-specific factors
-├── EquityFactorRepository          # Equity-specific factors
-└── ...                            # 11 total factor repository types
-```
-
 ## 🆔 Sequential ID Generation
 
 All repositories use database-driven sequential ID generation for chronological ordering:
@@ -124,39 +106,6 @@ def _get_next_available_id(self) -> int:
 - **Thread Safety**: Database-level generation prevents conflicts
 - **Scalability**: Works with any number of new entities
 - **Uniqueness**: Guaranteed unique IDs across all instances
-
-## 📊 Factor Repository System
-
-### BaseFactorRepository Features
-
-- **Generic Factor CRUD**: Create, read, update, delete factor definitions
-- **Factor Values**: Time series data storage and retrieval  
-- **Sequential IDs**: Consistent ID assignment across factor types
-
-### Example Usage
-
-```python
-# Create factor repository
-repo = ShareFactorRepository('sqlite')
-
-# Add factor definition with sequential ID
-factor = repo.add_factor(
-    name='close_price',
-    group='price',
-    subgroup='daily',
-    data_type='numeric',
-    source='historical_csv',
-    definition='Daily closing price'
-)
-
-# Add factor values
-repo.add_factor_value(
-    factor_id=factor.id,
-    entity_id=share.id,
-    date=datetime(2023, 1, 1),
-    value=Decimal('150.25')
-)
-```
 
 ## 🔄 Domain-Infrastructure Separation
 
@@ -259,31 +208,6 @@ updated_share = repo.update(share.id, {'end_date': datetime.now()})
 
 # Delete operations
 success = repo.delete(share.id)
-```
-
-### Factor Management
-
-```python
-# Factor definition creation
-factor_repo = ShareFactorRepository('sqlite')
-
-price_factor = factor_repo.add_factor(
-    name='adj_close_price',
-    group='price', 
-    subgroup='adjusted',
-    data_type='numeric',
-    source='yahoo_finance',
-    definition='Split and dividend adjusted closing price'
-)
-
-# Historical data import
-for date, price in historical_data:
-    factor_repo.add_factor_value(
-        factor_id=price_factor.id,
-        entity_id=share.id,
-        date=date,
-        value=Decimal(str(price))
-    )
 ```
 
 This architecture ensures scalable, maintainable, and testable repository operations while maintaining clean domain-driven design principles.
