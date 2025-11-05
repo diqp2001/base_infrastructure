@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from flask.json import JSONEncoder
+from flask.json.provider import DefaultJSONProvider
 from src.application.services.misbuffet import Misbuffet
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
@@ -14,8 +14,9 @@ import json
 import logging
 
 
-class CustomJSONEncoder(JSONEncoder):
-    """Custom JSON encoder that handles NaN and numpy types"""
+class CustomJSONProvider(DefaultJSONProvider):
+    """Custom JSON provider that handles NaN and numpy types."""
+
     def default(self, obj):
         if pd.isna(obj) or obj is None:
             return None
