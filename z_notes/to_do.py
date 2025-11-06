@@ -9,6 +9,10 @@ copy all algorithm already in quantconnect
 consultation in strategy dev 
 data managwr app training data generation
 factor exposure
+xva misbuffet tool structure
+ldi misbuffet tool structure
+
+
 main project spatio_temp
 tools:
 web database
