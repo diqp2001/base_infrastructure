@@ -1,0 +1,35 @@
+{
+  "backtest_metadata": {
+    "timestamp": "20251105_164100",
+    "start_date": "2015-01-01",
+    "end_date": "2017-01-01",
+    "initial_capital": 100000,
+    "algorithm_name": "MyAlgorithm",
+    "universe": [
+      "AAPL",
+      "MSFT",
+      "AMZN",
+      "GOOGL"
+    ]
+  },
+  "performance_summary": {
+    "total_return": 1.9911640972137452,
+    "total_return_pct": "199.12%",
+    "final_portfolio_value": 299116.4097213745,
+    "sharpe_ratio": 15.874507866387544,
+    "max_drawdown": 0,
+    "win_rate": 0.6,
+    "total_trades": 0
+  },
+  "portfolio_details": {
+    "cash_balance": 100000.0,
+    "total_value": 299116.4097213745,
+    "holdings": {}
+  },
+  "runtime_statistics": {
+    "data_points_processed": 732,
+    "algorithm_calls": 732,
+    "total_orders": 0,
+    "trades": 0
+  }
+}

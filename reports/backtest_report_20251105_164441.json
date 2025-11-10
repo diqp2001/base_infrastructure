@@ -1,0 +1,35 @@
+{
+  "backtest_metadata": {
+    "timestamp": "20251105_164441",
+    "start_date": "2020-01-01",
+    "end_date": "2023-01-01",
+    "initial_capital": 100000.0,
+    "algorithm_name": "MyAlgorithm",
+    "universe": [
+      "AAPL",
+      "MSFT",
+      "AMZN",
+      "GOOGL"
+    ]
+  },
+  "performance_summary": {
+    "total_return": 1.987484786529541,
+    "total_return_pct": "198.75%",
+    "final_portfolio_value": 298748.4786529541,
+    "sharpe_ratio": 15.874507866387544,
+    "max_drawdown": 0,
+    "win_rate": 0.6,
+    "total_trades": 0
+  },
+  "portfolio_details": {
+    "cash_balance": 100000.0,
+    "total_value": 298748.4786529541,
+    "holdings": {}
+  },
+  "runtime_statistics": {
+    "data_points_processed": 1097,
+    "algorithm_calls": 1097,
+    "total_orders": 0,
+    "trades": 0
+  }
+}

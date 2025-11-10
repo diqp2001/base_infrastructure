@@ -1,0 +1,137 @@
+{
+  "backtest_config": {
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "AMZN",
+      "GOOGL"
+    ],
+    "start_date": "2020-01-01T00:00:00",
+    "end_date": "2023-01-01T00:00:00",
+    "initial_capital": 100000.0,
+    "model_type": "both"
+  },
+  "factor_system": {
+    "system_ready": true,
+    "note": "Factor system removed - using CSV data"
+  },
+  "model_training": {
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "AMZN",
+      "GOOGL"
+    ],
+    "model_type": "both",
+    "seeds": [
+      42,
+      123
+    ],
+    "factor_data_summary": {
+      "tickers": [
+        "AAPL",
+        "MSFT",
+        "AMZN",
+        "GOOGL"
+      ],
+      "total_records": 39636,
+      "feature_columns": [
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "adj_close_price",
+        "volume",
+        "daily_return",
+        "daily_vol",
+        "norm_daily_return",
+        "norm_monthly_return",
+        "norm_quarterly_return",
+        "norm_biannual_return",
+        "norm_annual_return",
+        "macd_8_24",
+        "macd_16_48",
+        "macd_32_96",
+        "returns",
+        "monthly_vol",
+        "vol_of_vol",
+        "realized_vol",
+        "target_returns",
+        "target_returns_nonscaled"
+      ],
+      "date_range": [
+        "1980-12-12 00:00:00",
+        "2020-04-01 00:00:00"
+      ]
+    },
+    "tensor_data_summary": {
+      "multivariate": {
+        "type": "multivariate",
+        "splitter_class": "MultivariateTrainValTestSplitter",
+        "ready_for_training": true
+      },
+      "univariate": {
+        "type": "univariate",
+        "splitter_class": "UnivariateTrainValTestSplitter",
+        "ready_for_training": true
+      }
+    },
+    "training_results": {
+      "tft": {
+        "42": {
+          "2017-01-01": {},
+          "2018-01-01": {},
+          "2019-01-01": {},
+          "2020-01-01": {},
+          "2020-12-31": {}
+        },
+        "123": {
+          "2017-01-01": {},
+          "2018-01-01": {},
+          "2019-01-01": {},
+          "2020-01-01": {},
+          "2020-12-31": {}
+        }
+      },
+      "mlp": {
+        "42": {
+          "2017-01-01": {},
+          "2018-01-01": {},
+          "2019-01-01": {},
+          "2020-01-01": {},
+          "2020-12-31": {}
+        },
+        "123": {
+          "2017-01-01": {},
+          "2018-01-01": {},
+          "2019-01-01": {},
+          "2020-01-01": {},
+          "2020-12-31": {}
+        }
+      }
+    },
+    "performance_summary": {
+      "models_trained": 0,
+      "average_validation_correlation": 0.0,
+      "average_test_correlation": 0.0,
+      "best_model": null,
+      "performance_details": {
+        "tft": {
+          "validation_correlations": [],
+          "test_correlations": [],
+          "model_count": 0
+        },
+        "mlp": {
+          "validation_correlations": [],
+          "test_correlations": [],
+          "model_count": 0
+        }
+      }
+    },
+    "training_completed": "2025-11-05T16:07:32.871600"
+  },
+  "misbuffet_result": "\ud83c\udf89 Backtest completed successfully!\n\n\ud83d\udcca Performance Summary:\n  \u2022 Period: 2020-01-01 to 2023-01-01\n  \u2022 Initial Capital: $100,000.00\n  \u2022 Final Portfolio Value: $110,970.00\n  \u2022 Total Return: 10.97%\n  \u2022 Sharpe Ratio: 15.875\n  \u2022 Maximum Drawdown: 0.00%\n\n\ud83d\udcc8 Trading Statistics:\n  \u2022 Total Trades: 0\n  \u2022 Win Rate: 60.00%\n\n\u2699\ufe0f  Runtime Statistics:\n  \u2022 Data Points Processed: 1097\n  \u2022 Algorithm Calls: 1097\n  \u2022 Errors: 0",
+  "execution_time": 92.188685,
+  "success": true,
+  "timestamp": "2025-11-05T16:08:56.086222"
+}

@@ -566,16 +566,20 @@ class MisbuffetEngine(BaseEngine):
     def _generate_and_save_report(self, result: 'BacktestResult', engine_config: Dict[str, Any]):
         """Generate and save comprehensive backtest report."""
         try:
+            import os
+            import json
+            from datetime import datetime
+
             # Create reports directory if it doesn't exist
             reports_dir = engine_config.get('output_directory', './reports')
             os.makedirs(reports_dir, exist_ok=True)
-            
+
             # Generate timestamp for unique report name
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
+
             # Collect comprehensive portfolio data
             portfolio_data = self._collect_portfolio_data()
-            
+
             # Generate report content
             report_content = {
                 'backtest_metadata': {
@@ -588,7 +592,7 @@ class MisbuffetEngine(BaseEngine):
                 },
                 'performance_summary': {
                     'total_return': result.total_return,
-                    'total_return_pct': f\"{result.total_return:.2%}\",
+                    'total_return_pct': f"{result.total_return:.2%}" if isinstance(result.total_return, (float, int)) else result.total_return,
                     'final_portfolio_value': result.final_portfolio_value,
                     'sharpe_ratio': result.sharpe_ratio,
                     'max_drawdown': result.max_drawdown,
@@ -598,37 +602,43 @@ class MisbuffetEngine(BaseEngine):
                 'portfolio_details': portfolio_data,
                 'runtime_statistics': result.runtime_statistics
             }
-            
+
             # Save JSON report
             json_filename = os.path.join(reports_dir, f'backtest_report_{timestamp}.json')
             with open(json_filename, 'w') as f:
                 json.dump(report_content, f, indent=2, default=str)
-            
+
             # Save human-readable text report
             text_filename = os.path.join(reports_dir, f'backtest_summary_{timestamp}.txt')
-            with open(text_filename, 'w') as f:
-                f.write(result.summary())
-                f.write(\"\\n\\n\" + \"=\"*80 + \"\\n\")
-                f.write(\"DETAILED PORTFOLIO BREAKDOWN\\n\")
-                f.write(\"=\"*80 + \"\\n\")
-                
+            with open(text_filename, 'w', encoding='utf-8') as f:
+                f.write("===== BACKTEST SUMMARY =====\n\n")
+                f.write(result.summary() + "\n\n")
+
+                f.write("===== DETAILED PORTFOLIO BREAKDOWN =====\n\n")
                 if portfolio_data.get('holdings'):
-                    f.write(\"\\nCurrent Holdings:\\n\")
-                    f.write(\"-\" * 40 + \"\\n\")
+                    f.write("Current Holdings:\n")
                     for symbol, holding in portfolio_data['holdings'].items():
-                        f.write(f\"{symbol}: {holding['quantity']} shares @ ${holding['average_price']:.2f} = ${holding['market_value']:.2f}\\n\")
-                
-                f.write(f\"\\nCash Balance: ${portfolio_data.get('cash_balance', 0):.2f}\\n\")
-                f.write(f\"Total Portfolio Value: ${portfolio_data.get('total_value', 0):.2f}\\n\")
-            
-            self.logger.info(f\"📊 Backtest report saved to: {json_filename}\")
-            self.logger.info(f\"📄 Backtest summary saved to: {text_filename}\")
-            
+                        f.write(f"  {symbol}: {holding['quantity']} shares @ ${holding['average_price']:.2f} "
+                                f"= ${holding['market_value']:.2f}\n")
+                    f.write("\n")
+
+                f.write(f"Cash Balance: ${portfolio_data.get('cash_balance', 0):.2f}\n")
+                f.write(f"Total Portfolio Value: ${portfolio_data.get('total_value', 0):.2f}\n")
+                f.write("\n")
+
+                f.write("===== PERFORMANCE SUMMARY =====\n\n")
+                for key, value in report_content['performance_summary'].items():
+                    f.write(f"{key.replace('_', ' ').title()}: {value}\n")
+
+            self.logger.info(f"📊 Backtest report saved to: {json_filename}")
+            self.logger.info(f"📄 Backtest summary saved to: {text_filename}")
+
         except Exception as e:
-            self.logger.error(f\"Error generating backtest report: {e}\")
+            self.logger.error(f"Error generating backtest report: {e}")
+
     
     def _collect_portfolio_data(self) -> Dict[str, Any]:
-        \"\"\"Collect detailed portfolio data for reporting.\"\"\"
+        #"\"\"Collect detailed portfolio data for reporting.\"\"\"
         portfolio_data = {
             'cash_balance': 0.0,
             'total_value': 0.0,
@@ -659,7 +669,7 @@ class MisbuffetEngine(BaseEngine):
                             }
                 
         except Exception as e:
-            self.logger.warning(f\"Error collecting portfolio data: {e}\")
+            self.logger.warning(f"Error collecting portfolio data: {e}")
         
         return portfolio_data
 

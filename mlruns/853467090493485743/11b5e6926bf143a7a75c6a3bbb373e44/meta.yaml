@@ -1,0 +1,14 @@
+artifact_uri: file:C:/Users/Philippe/coding/git/base_infrastructure/mlruns/853467090493485743/11b5e6926bf143a7a75c6a3bbb373e44/artifacts
+end_time: 1762379081705
+entry_point_name: ''
+experiment_id: '853467090493485743'
+lifecycle_stage: active
+run_id: 11b5e6926bf143a7a75c6a3bbb373e44
+run_name: simulation_20251105_164306
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762378986925
+status: 3
+tags: []
+user_id: Philippe

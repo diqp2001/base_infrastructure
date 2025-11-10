@@ -1,0 +1,1 @@
+Model training failed: No data loaded for any ticker. Ensure setup_factor_system() was called first.
