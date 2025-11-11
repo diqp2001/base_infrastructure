@@ -565,11 +565,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         Returns:
             Created factor value entity or None if failed
         """
-        from decimal import Decimal
         
-        # Convert value to Decimal for financial precision
-        if not isinstance(value, Decimal):
-            value = Decimal(str(value))
         FactorValueEntity = self.get_factor_value_entity()    
         domain_value = FactorValueEntity(
             id=None,
