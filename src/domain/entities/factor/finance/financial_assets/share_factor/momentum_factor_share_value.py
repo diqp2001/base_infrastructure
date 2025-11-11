@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import pandas as pd
+from decimal import Decimal
 from typing import Optional, List
 from application.managers.data_managers.data_manager_price import DataManagerPrice
 from application.managers.database_managers.database_manager import DatabaseManager
@@ -33,6 +34,30 @@ class MomentumFactorShareValue(ShareFactorValue):
             print(f"⚠️  Error calculating momentum ({period}-day) features: {e}")
             return pd.DataFrame()
 
+    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
+        """
+        Sanitize and validate factor values to handle ANY data type safely.
+        Prevents type comparison errors with string values.
+        """
+        if value is None or pd.isna(value):
+            return None
+            
+        if isinstance(value, Decimal):
+            return value if value.is_finite() else None
+            
+        str_value = str(value).strip()
+        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
+        if str_value.lower() in invalid_indicators:
+            return None
+            
+        try:
+            float_value = float(str_value)
+            if not (float_value == float_value and abs(float_value) != float('inf')):
+                return None
+            return Decimal(str(float_value))
+        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
+            return None
+    
     def store_factor_values(
         self,
         data: pd.DataFrame,
@@ -57,11 +82,16 @@ class MomentumFactorShareValue(ShareFactorValue):
 
             orm_objects = []
             for _, row in calculated_df.iterrows():
+                # Sanitize value to prevent type comparison errors
+                sanitized_value = self._sanitize_factor_value(row[feature_col])
+                if sanitized_value is None:
+                    continue  # Skip invalid values
+                    
                 domain_entity = ShareFactorValue(
                     factor_id=row["factor_id"],
                     entity_id=row["entity_id"],
                     date=row["date"],
-                    value=row[feature_col],
+                    value=sanitized_value,
                 )
                 orm_objects.append(ShareFactorValueMapper.to_orm(domain_entity))
             return orm_objects

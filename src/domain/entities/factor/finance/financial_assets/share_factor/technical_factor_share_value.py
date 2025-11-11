@@ -19,6 +19,30 @@ class TechnicalFactorShareValue(ShareFactorValue):
         super().__init__(database_manager, factor)
         self.technical_factor = factor
 
+    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
+        """
+        Sanitize and validate factor values to handle ANY data type safely.
+        Prevents type comparison errors with string values.
+        """
+        if value is None or pd.isna(value):
+            return None
+            
+        if isinstance(value, Decimal):
+            return value if value.is_finite() else None
+            
+        str_value = str(value).strip()
+        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
+        if str_value.lower() in invalid_indicators:
+            return None
+            
+        try:
+            float_value = float(str_value)
+            if not (float_value == float_value and abs(float_value) != float('inf')):
+                return None
+            return Decimal(str(float_value))
+        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
+            return None
+    
     def store_package_technical_factors(
         self,
         data: pd.DataFrame,
@@ -50,12 +74,17 @@ class TechnicalFactorShareValue(ShareFactorValue):
             trade_date = index.date() if isinstance(index, datetime) else index
             
             try:
+                # Sanitize value to prevent type comparison errors
+                sanitized_value = self._sanitize_factor_value(row[column_name])
+                if sanitized_value is None:
+                    continue  # Skip invalid values
+                    
                 # Create ORM object
                 orm_value = ShareFactorValue(
                     factor_id=factor_id,
                     entity_id=entity_id,
                     date=trade_date,
-                    value=Decimal(str(row[column_name]))
+                    value=sanitized_value
                 )
                 orm_values.append(orm_value)
                 
