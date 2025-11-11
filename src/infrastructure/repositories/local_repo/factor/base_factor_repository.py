@@ -599,18 +599,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         for date_index, row in data.iterrows():
             if pd.isna(row[column]):
                 continue
-            
-            # Validate that the value is numeric
-            try:
-                value = row[column]
-                # Try to convert to float first to validate it's numeric
-                float_value = float(value)
-                if not isinstance(float_value, (int, float)) or str(value).strip() == '':
-                    continue
-            except (ValueError, TypeError):
-                print(f"      ⚠️  Invalid numeric value '{value}' for {column} on {date_index}")
-                continue
-                
+            value = row[column]
             trade_date = date_index.date() if hasattr(date_index, 'date') else date_index
             
             if not overwrite and trade_date in existing_dates:
@@ -621,7 +610,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
                     factor_id=factor.id,
                     entity_id=share.id,
                     date=trade_date,
-                    value=Decimal(str(value))
+                    value=value
                 )
                 values_stored += 1
                 
