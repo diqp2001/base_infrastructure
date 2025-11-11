@@ -667,14 +667,29 @@ class FactorEnginedDataManager:
             return 0
         
         values_stored = 0
-        price_columns =  self.config['FACTORS']['PRICE_FACTORS']
+        price_columns = self.config['FACTORS']['PRICE_FACTORS']
+        
+        # Create mapping between factor names and actual CSV column names
+        factor_to_column_mapping = {
+            'Open': 'Open',
+            'High': 'High', 
+            'Low': 'Low',
+            'Close': 'Close',
+            'Adj Close': 'Adj Close',
+            'Volume': 'Volume'
+        }
         
         for column in price_columns:
             factor = self.share_factor_repository.get_by_name(column['name'])
             if factor:
-                values_stored += self.share_factor_repository._store_factor_values(
-                    factor, share, data, column['name'], overwrite
-                )
+                # Map factor name to actual CSV column name
+                csv_column_name = factor_to_column_mapping.get(column['name'], column['name'])
+                if csv_column_name in data.columns:
+                    values_stored += self.share_factor_repository._store_factor_values(
+                        factor, share, data, csv_column_name, overwrite
+                    )
+                else:
+                    print(f"      ⚠️  Column '{csv_column_name}' not found for factor '{column['name']}'")
         
         return values_stored
     

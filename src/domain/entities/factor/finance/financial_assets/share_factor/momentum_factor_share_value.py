@@ -75,21 +75,17 @@ class MomentumFactorShareValue(ShareFactorValue):
         data: pd.DataFrame,
         column_name: str,
         entity_id: int,
-        base_factor_id: int,
-        periods: list[int]
-    ) -> dict[int, list]:
+        factor_id: int,
+        period: int
+    ) -> List:
         """
-        Compute and store a block of momentum factors for multiple time horizons.
-        Returns a dictionary mapping period → ORM objects.
+        Compute and store momentum factor values for a single period.
+        Returns list of ORM objects.
         """
-        results = {}
-        for i, period in enumerate(periods):
-            orm_values = self.store_factor_values(
-                data=data,
-                column_name=column_name,
-                entity_id=entity_id,
-                factor_id=base_factor_id + i,
-                period=period
-            )
-            results[period] = orm_values
-        return results
+        return self.store_factor_values(
+            data=data,
+            column_name=column_name,
+            entity_id=entity_id,
+            factor_id=factor_id,
+            period=period
+        )

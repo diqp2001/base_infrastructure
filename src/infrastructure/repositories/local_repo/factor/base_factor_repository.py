@@ -584,6 +584,11 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         """Store factor values for a specific factor."""
         values_stored = 0
         
+        # Check if column exists in DataFrame
+        if column not in data.columns:
+            print(f"      ⚠️  Column '{column}' not found in DataFrame. Available columns: {list(data.columns)}")
+            return 0
+        
         # Get existing dates if not overwriting
         existing_dates = set()
         if not overwrite:
@@ -593,6 +598,17 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         
         for date_index, row in data.iterrows():
             if pd.isna(row[column]):
+                continue
+            
+            # Validate that the value is numeric
+            try:
+                value = row[column]
+                # Try to convert to float first to validate it's numeric
+                float_value = float(value)
+                if not isinstance(float_value, (int, float)) or str(value).strip() == '':
+                    continue
+            except (ValueError, TypeError):
+                print(f"      ⚠️  Invalid numeric value '{value}' for {column} on {date_index}")
                 continue
                 
             trade_date = date_index.date() if hasattr(date_index, 'date') else date_index
@@ -605,7 +621,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
                     factor_id=factor.id,
                     entity_id=share.id,
                     date=trade_date,
-                    value=Decimal(str(row[column]))
+                    value=Decimal(str(value))
                 )
                 values_stored += 1
                 
