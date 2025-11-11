@@ -65,6 +65,14 @@ class DataManagerPrice(DataManager):
         data["norm_annual_return"] = self._calc_normalised_returns(data= data,column_name= column_name, freq=252, window=60)
 
         return data
+    def add_deep_momentum_feature(self, data: pd.DataFrame, column_name: str, period_offset: int) -> pd.DataFrame:
+        """
+        Add Deep Momentum features to the data.
+        """
+        data[f"{period_offset}_period_offset_return"] = self._calc_returns(data= data, column_name= column_name, period_offset=period_offset)
+        
+
+        return data
     
     def add_macd_signal(self, data: pd.Series, short_window: int = 12, long_window: int =26) -> pd.Series:
 

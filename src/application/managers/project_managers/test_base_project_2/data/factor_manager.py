@@ -117,13 +117,13 @@ class FactorEnginedDataManager:
         
         
         # Create momentum factor definitions
-        momentum_factors_summary = self._create_momentum_factor_definitions()
+        momentum_factors_ = self._create_momentum_factor_definitions()
         
         # Calculate and store momentum factor values
-        values_summary = self._calculate_momentum_factor_values(tickers, overwrite)
+        values_summary = self._calculate_momentum_factor_values(tickers, overwrite, momentum_factors_['factors_created_list'])
         
         total_summary = {
-            'factors_created': momentum_factors_summary['factors_created'],
+            'factors_created': momentum_factors_['factors_created'],
             'values_calculated': values_summary['total_values'],
             'tickers_processed': len(tickers),
             'success': True
@@ -341,6 +341,7 @@ class FactorEnginedDataManager:
         print("  📈 Creating momentum factor definitions...")
         
         factors_created = 0
+        factors_created_list = []
         
         # Momentum factors from config
         momentum_factors = self.config['FACTORS']['MOMENTUM_FACTORS']
@@ -359,6 +360,7 @@ class FactorEnginedDataManager:
                 
                 if factor:
                     factors_created += 1
+                    factors_created_list.append(factor)
                     
                     
                         
@@ -366,7 +368,8 @@ class FactorEnginedDataManager:
                 print(f"    ❌ Error creating momentum factor {factor_def['name']}: {str(e)}")
         
         return {
-            'factors_created': factors_created
+            'factors_created': factors_created,
+            'factors_created_list': factors_created_list
         }
     
     def _create_technical_factor_definitions(self) -> Dict[str, Any]:
@@ -433,42 +436,43 @@ class FactorEnginedDataManager:
         
         return {'total_values': total_values}
     
-    def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
-        """Calculate and store momentum factor values."""
-        print("  📊 Calculating momentum factor values...")
-        
+    def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool, factors_created_list: List) -> Dict[str, Any]:
+        print("📊 Calculating single momentum factor values...")
         total_values = 0
+
+        # Example: 63-day momentum
         
-        for ticker in tickers:
-            company_entity = self.company_share_repository.get_by_ticker(ticker)[0]
-                
-            try:
-                # Load and process data 
-                df = self.share_factor_repository.get_factor_values_df(factor_id=20,entity_id=company_entity.id)
-                df['date'] = pd.to_datetime(df['date'])
-                df.set_index('date', inplace=True)
-                df['value'] = df['value'].astype(float)
-                _MomentumFactorShareEntity = MomentumFactorShare()
-                _MomentumFactorShareValueEntity = MomentumFactorShareValue.store_values(data= df, column_name='value')
-                _ShareFactorValueModel = ShareFactorValueMapper.to_orm(_MomentumFactorShareValueEntity)
-                _ShareFactorModel = FactorMapper.to_orm(_MomentumFactorShareValueEntity)
-                # Engineer momentum features
-                engineered_data = self.feature_engineer.add_deep_momentum_features(
-                    df, 'value'
-                )
-                
-                # Store the momentum features as factors
-                values_stored = self._store_momentum_features(
-                    engineered_data, ticker, overwrite
-                )
-                total_values += values_stored
-                
-                print(f"    ✅ Processed {ticker}: {values_stored} momentum values")
-                
-            except Exception as e:
-                print(f"    ❌ Error processing momentum for {ticker}: {str(e)}")
-        
-        return {'total_values': total_values}
+        for factor in factors_created_list:
+            momentum_factor = MomentumFactorShare(name="63-day Momentum", period=63)
+            momentum_value = MomentumFactorShareValue(database_manager=self.database_manager, factor=momentum_factor)
+            for ticker in tickers:
+                try:
+                    company = self.company_share_repository.get_by_ticker(ticker)[0]
+                    df = self.share_factor_repository.get_factor_values_df(factor_id=20, entity_id=company.id)
+                    df["date"] = pd.to_datetime(df["date"])
+                    df.set_index("date", inplace=True)
+                    df["value"] = df["value"].astype(float)
+
+                    orm_values = momentum_value.store_package_momentum_factors(
+                        data=df,
+                        column_name="value",
+                        entity_id=company.id,
+                        factor_id=momentum_factor.factor_id,
+                        period=momentum_factor.period,
+                    )
+
+                    if orm_values:
+                        self.share_factor_repository._store_factor_values(orm_values, overwrite=overwrite)
+                        self.share_factor_repository._create_or_get_factor(orm_values, overwrite=overwrite)
+                        total_values += len(orm_values)
+
+                    print(f"✅ {ticker}: stored {len(orm_values)} {momentum_factor.period}-day momentum values")
+
+                except Exception as e:
+                    print(f"❌ Error processing {ticker}: {e}")
+
+        return {"total_values": total_values}
+
     
     def _calculate_technical_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
         """Calculate and store technical indicator values.""" 

@@ -102,6 +102,8 @@ FACTOR_CONFIG = {
         {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term'},
         {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term'},
     ],
+    'MOMENTUM_FACTOR_PERIODS': [1,21,63,126,252
+    ],
     'TECHNICAL_FACTORS': [
         {'name': 'macd_8_24', 'group': 'technical', 'subgroup': 'momentum'},
         {'name': 'macd_16_48', 'group': 'technical', 'subgroup': 'momentum'},
