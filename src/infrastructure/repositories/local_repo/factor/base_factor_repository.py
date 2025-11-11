@@ -566,15 +566,70 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             Created factor value entity or None if failed
         """
         
+        # Validate and sanitize the value BEFORE creating domain entity
+        sanitized_value = self._sanitize_factor_value(value)
+        if sanitized_value is None:
+            return None  # Skip invalid values
+        
         FactorValueEntity = self.get_factor_value_entity()    
         domain_value = FactorValueEntity(
             id=None,
             factor_id=factor_id,
             entity_id=entity_id,
             date=date,
-            value=value
+            value=sanitized_value
         )
         return self.create_factor_value(domain_value)
+    
+    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
+        """
+        Sanitize and validate factor values to handle ANY data type safely.
+        
+        This method ensures that only valid numeric values reach SQLAlchemy,
+        preventing type comparison errors with string values.
+        
+        Args:
+            value: Raw value from data source (any type)
+            
+        Returns:
+            Decimal value if valid, None if invalid/non-numeric
+        """
+        if value is None:
+            return None
+            
+        # Handle pandas NaN/NaT values
+        if pd.isna(value):
+            return None
+            
+        # If already Decimal, validate it's finite
+        if isinstance(value, Decimal):
+            if value.is_finite():
+                return value
+            return None
+            
+        # Convert to string first to handle all types uniformly
+        str_value = str(value).strip()
+        
+        # Handle common non-numeric indicators
+        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
+        if str_value.lower() in invalid_indicators:
+            return None
+            
+        # Attempt numeric conversion
+        try:
+            # Try float conversion first (handles scientific notation)
+            float_value = float(str_value)
+            
+            # Check for infinite or NaN values
+            if not (float_value == float_value and abs(float_value) != float('inf')):
+                return None
+                
+            # Convert to Decimal for precision
+            return Decimal(str(float_value))
+            
+        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
+            # Log the invalid value for debugging but don't fail
+            return None
     
     def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
         """Store factor values for a specific factor."""
@@ -593,20 +648,23 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             )
         
         for date_index, row in data.iterrows():
-            if pd.isna(row[column]):
-                continue
             value = row[column]
             trade_date = date_index.date() if hasattr(date_index, 'date') else date_index
             
             if not overwrite and trade_date in existing_dates:
                 continue
             
+            # Pre-validate the value before attempting storage
+            sanitized_value = self._sanitize_factor_value(value)
+            if sanitized_value is None:
+                continue  # Skip invalid values silently
+            
             try:
                 self.add_factor_value(
                     factor_id=factor.id,
                     entity_id=share.id,
                     date=trade_date,
-                    value=value
+                    value=sanitized_value
                 )
                 values_stored += 1
                 
