@@ -15,5 +15,10 @@ __pycache__/
 *.db
 *.db3
 
+# MLflow tracking directories
+mlruns/
+.mlruns/
+mlartifacts/
+
 
 
