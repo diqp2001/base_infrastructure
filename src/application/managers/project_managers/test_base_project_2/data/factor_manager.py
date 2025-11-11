@@ -15,9 +15,13 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from application.managers.database_managers.database_manager import DatabaseManager
+from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import MomentumFactorShare
+from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share_value import MomentumFactorShareValue
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share_factor_value_mapper import ShareFactorValueMapper
 
 from .feature_engineer import SpatiotemporalFeatureEngineer
 from ..config import DEFAULT_CONFIG
@@ -78,7 +82,6 @@ class FactorEnginedDataManager:
         
         # Calculate and store momentum factor values
         values_summary = self._calculate_price_factor_values(tickers, overwrite)
-        values_summary = self._calculate_momentum_factor_values(tickers, overwrite)
         
         total_summary = {
             'factors_created': price_factors_summary['factors_created'],
@@ -87,11 +90,12 @@ class FactorEnginedDataManager:
             'success': True
         }
         
-        print(f"✅ Momentum factor population complete:")
+        print(f"✅ Price factor population complete:")
         print(f"  • Factors created: {total_summary['factors_created']}")  
         print(f"  • Values calculated: {total_summary['values_calculated']}")
         
         return total_summary
+    
     def populate_momentum_factors(self, 
                                 tickers: Optional[List[str]] = None,
                                 overwrite: bool = False) -> Dict[str, Any]:
@@ -196,11 +200,15 @@ class FactorEnginedDataManager:
                 
             try:
                 # Create or get factor
-                factor = self._create_or_get_factor(
+
+                
+                factor = self.share_factor_repository._create_or_get_factor(
                     name=column,
                     group=factor_group,
-                    subgroup='spatiotemporal',
-                    definition=f'Spatiotemporal engineered feature: {column}'
+                    subgroup= "general",
+                    data_type="int",
+                    source="excel",
+                    definition=f"Technical indicator: {column}"
                 )
                 
                 if factor:
@@ -299,7 +307,7 @@ class FactorEnginedDataManager:
 
     def _create_price_factor_definitions(self) -> Dict[str, Any]:
         """Create factor definitions for momentum features."""
-        print("  📈 Creating momentum factor definitions...")
+        print("  📈 Creating Price factor definitions...")
         
         factors_created = 0
         
@@ -308,10 +316,12 @@ class FactorEnginedDataManager:
         
         for factor_def in price_factors:
             try:
-                factor = self._create_or_get_factor(
+                factor = self.share_factor_repository._create_or_get_factor(
                     name=factor_def['name'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],
+                    data_type="int",
+                    source="excel",
                     definition=f" price feature: {factor_def['name']}"
                 )
                 
@@ -337,11 +347,14 @@ class FactorEnginedDataManager:
         
         for factor_def in momentum_factors:
             try:
-                factor = self._create_or_get_factor(
+                
+                factor = self.share_factor_repository._create_or_get_factor(
                     name=factor_def['name'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],
-                    definition=f"Spatiotemporal momentum feature: {factor_def['name']}"
+                    data_type="int",
+                    source="excel",
+                    definition=f" momentum feature: {factor_def['name']}"
                 )
                 
                 if factor:
@@ -367,29 +380,29 @@ class FactorEnginedDataManager:
         
         for factor_def in technical_factors:
             try:
-                factor = self._create_or_get_factor(
+                factor = self.share_factor_repository._create_or_get_factor(
                     name=factor_def['name'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],
+                    data_type="int",
+                    source="excel",
                     definition=f"Technical indicator: {factor_def['name']}"
                 )
+                
                 
                 if factor:
                     factors_created += 1
                     
-                    
-                    
-                    
-                        
             except Exception as e:
                 print(f"    ❌ Error creating technical factor {factor_def['name']}: {str(e)}")
         
         return {
             'factors_created': factors_created
         }
+    
     def _calculate_price_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
-        """Calculate and store momentum factor values."""
-        print("  📊 Calculating momentum factor values...")
+        """Calculate and store Price factor values."""
+        print("  📊 Calculating Price factor values...")
         
         total_values = 0
         
@@ -427,21 +440,21 @@ class FactorEnginedDataManager:
         total_values = 0
         
         for ticker in tickers:
-            # Load historical data
-            csv_file = self.stock_data_path / f"{ticker}.csv"
-            if not csv_file.exists():
-                continue
+            company_entity = self.company_share_repository.get_by_ticker(ticker)[0]
                 
             try:
                 # Load and process data 
-                #load not the csv this time
-                df = pd.read_csv(csv_file)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df.set_index('Date', inplace=True)
-                
+                df = self.share_factor_repository.get_factor_values_df(factor_id=20,entity_id=company_entity.id)
+                df['date'] = pd.to_datetime(df['date'])
+                df.set_index('date', inplace=True)
+                df['value'] = df['value'].astype(float)
+                _MomentumFactorShareEntity = MomentumFactorShare()
+                _MomentumFactorShareValueEntity = MomentumFactorShareValue.store_values(data= df, column_name='value')
+                _ShareFactorValueModel = ShareFactorValueMapper.to_orm(_MomentumFactorShareValueEntity)
+                _ShareFactorModel = FactorMapper.to_orm(_MomentumFactorShareValueEntity)
                 # Engineer momentum features
                 engineered_data = self.feature_engineer.add_deep_momentum_features(
-                    df, 'Close'
+                    df, 'value'
                 )
                 
                 # Store the momentum features as factors
@@ -501,7 +514,7 @@ class FactorEnginedDataManager:
     
     def _store_momentum_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store momentum features as factor values."""
-        share = self.company_share_repository.get_by_ticker(ticker)
+        share = self.company_share_repository.get_by_ticker(ticker)[0]
         if not share:
             return 0
         
@@ -511,7 +524,7 @@ class FactorEnginedDataManager:
         for column in momentum_columns:
             factor = self.share_factor_repository.get_by_name(column)
             if factor:
-                values_stored += self._store_factor_values(
+                values_stored += self.share_factor_repository._store_factor_values(
                     factor, share, data, column, overwrite
                 )
         
@@ -519,7 +532,7 @@ class FactorEnginedDataManager:
     
     def _store_price_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store price features as factor values."""
-        share = self.company_share_repository.get_by_ticker(ticker)
+        share = self.company_share_repository.get_by_ticker(ticker)[0]
         if not share:
             return 0
         
@@ -529,8 +542,8 @@ class FactorEnginedDataManager:
         for column in price_columns:
             factor = self.share_factor_repository.get_by_name(column['name'])
             if factor:
-                values_stored += self._store_factor_values(
-                    factor, share[0], data, column['name'], overwrite
+                values_stored += self.share_factor_repository._store_factor_values(
+                    factor, share, data, column['name'], overwrite
                 )
         
         return values_stored
@@ -548,61 +561,16 @@ class FactorEnginedDataManager:
             if column in data.columns:
                 factor = self.share_factor_repository.get_by_name(column)
                 if factor:
-                    values_stored += self._store_factor_values(
+                    values_stored += self.share_factor_repository._store_factor_values(
                         factor, share, data, column, overwrite
                     )
         
         return values_stored
     
-    def _create_or_get_factor(self, name: str, group: str, subgroup: str, definition: str):
-        """Create factor if it doesn't exist, otherwise return existing."""
-        existing_factor = self.share_factor_repository.get_by_name(name)
-        if existing_factor:
-            return existing_factor
-        
-        return self.share_factor_repository.add_factor(
-            name=name,
-            group=group,
-            subgroup=subgroup,
-            data_type='numeric',
-            source='spatiotemporal_engineering',
-            definition=definition
-        )
     
     
-    def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
-        """Store factor values for a specific factor."""
-        values_stored = 0
-        
-        # Get existing dates if not overwriting
-        existing_dates = set()
-        if not overwrite:
-            existing_dates = self.share_factor_repository.get_existing_value_dates(
-                factor.id, share.id
-            )
-        
-        for date_index, row in data.iterrows():
-            if pd.isna(row[column]):
-                continue
-                
-            trade_date = date_index.date() if hasattr(date_index, 'date') else date_index
-            
-            if not overwrite and trade_date in existing_dates:
-                continue
-            
-            try:
-                self.share_factor_repository.add_factor_value(
-                    factor_id=factor.id,
-                    entity_id=share.id,
-                    date=trade_date,
-                    value=Decimal(str(row[column]))
-                )
-                values_stored += 1
-                
-            except Exception as e:
-                print(f"      ⚠️  Error storing {column} value for {trade_date}: {str(e)}")
-        
-        return values_stored
+    
+    
     
     def _get_ticker_factor_data(self, ticker: str, start_date: Optional[str], 
                               end_date: Optional[str], factor_groups: List[str]) -> Optional[pd.DataFrame]:

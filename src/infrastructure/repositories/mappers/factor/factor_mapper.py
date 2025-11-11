@@ -2,14 +2,29 @@
 Mapper for converting between Factor domain entities and ORM models.
 """
 
+from abc import abstractmethod
 from typing import Optional
 from domain.entities.factor import FactorBase as FactorEntity
 from infrastructure.models.factor.factor_model import Factor as FactorModel
+from domain.entities.factor.factor import FactorBase as FactorEntity
+from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
+from infrastructure.models.factor.factor_model import (
+    Factor as FactorModel,
+    FactorValue as FactorValueModel,
+)
 
 
 class FactorMapper:
     """Mapper for Factor domain entity and ORM model conversion."""
+    @abstractmethod
+    def get_factor_model(self):
+        return FactorModel
+    
+    @abstractmethod
+    def get_factor_entity(self):
+        return FactorEntity
 
+    
     @staticmethod
     def to_domain(orm_model: Optional[FactorModel]) -> Optional[FactorEntity]:
         """Convert ORM model to domain entity."""
@@ -46,3 +61,4 @@ class FactorMapper:
             source=domain_entity.source,
             definition=domain_entity.definition
         )
+    

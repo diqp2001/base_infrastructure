@@ -20,8 +20,8 @@ from domain.entities.finance.financial_assets.equity import Dividend
 from domain.entities.finance.financial_assets.security import MarketData
 
 # Domain factor entities
-from domain.entities.factor.finance.financial_assets.share_factor import FactorShare as ShareFactorEntity
-from domain.entities.factor.finance.financial_assets.share_factor_value import ShareFactorValue as ShareFactorValueEntity
+from domain.entities.factor.finance.financial_assets.share_factor.share_factor import FactorShare as ShareFactorEntity
+from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue as ShareFactorValueEntity
 
 # Infrastructure repositories
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal

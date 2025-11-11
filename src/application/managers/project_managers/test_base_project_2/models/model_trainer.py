@@ -5,6 +5,7 @@ Coordinates the training of TFT and MLP models with factor-enhanced data,
 following the training patterns from spatiotemporal_momentum_manager.
 """
 
+import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any

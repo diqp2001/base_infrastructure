@@ -5,8 +5,10 @@ Base repository class for factor entities with common CRUD operations.
 
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from decimal import Decimal
+from typing import List, Optional, Union
 from datetime import date
+import pandas as pd
 from sqlalchemy.orm import Session
 
 from ...base_repository import BaseRepository
@@ -36,11 +38,17 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     # ----------------------------- Abstract methods -----------------------------
     @abstractmethod
     def get_factor_model(self):
-        return FactorModel
+        return FactorMapper.get_factor_model()
+    @abstractmethod
+    def get_factor_entity(self):
+        return FactorMapper.get_factor_entity()
 
     @abstractmethod
     def get_factor_value_model(self):
-        return FactorValueModel
+        return FactorValueMapper.get_factor_value_model()
+    @abstractmethod
+    def get_factor_value_entity(self):
+        return FactorValueMapper.get_factor_value_entity()
 
 
     
@@ -51,53 +59,25 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     
     def _to_entity(self, infra_obj) -> Optional[FactorEntity]:
         """Convert ORM model to domain entity."""
-        return self._to_domain_factor(infra_obj)
+        return FactorMapper.to_domain(infra_obj)
     
     def _to_model(self, entity: FactorEntity) -> FactorModel:
         """Convert domain entity to ORM model."""
-        FactorModel = self.get_factor_model()
-        model = FactorModel(
-            name=entity.name,
-            group=entity.group,
-            subgroup=entity.subgroup,
-            data_type=entity.data_type,
-            source=entity.source,
-            definition=entity.definition
-        )
-        if hasattr(entity, 'id') and entity.id is not None:
-            model.id = entity.id
+        model = FactorMapper.to_orm(entity)
         return model
 
     # ----------------------------- Mappers -----------------------------
     def _to_domain_factor(self, infra_obj) -> Optional[FactorEntity]:
         """Convert ORM factor object to domain entity."""
-        if not infra_obj:
-            return None
         
-        factor_entity = FactorEntity(
-            name=infra_obj.name,
-            group=infra_obj.group,
-            subgroup=infra_obj.subgroup,
-            data_type=infra_obj.data_type,
-            source=infra_obj.source,
-            definition=infra_obj.definition,
-            factor_id=infra_obj.id
-        )
 
-        return factor_entity
+        return FactorMapper.to_domain(infra_obj)
         
 
     def _to_domain_value(self, infra_obj) -> Optional[FactorValueEntity]:
         """Convert ORM factor value object to domain entity."""
-        if not infra_obj:
-            return None
-        return FactorValueEntity(
-            id=infra_obj.id,
-            factor_id=infra_obj.factor_id,
-            entity_id=infra_obj.entity_id,
-            date=infra_obj.date,
-            value=infra_obj.value
-        )
+        
+        return FactorValueMapper.to_domain(infra_obj)
 
   
 
@@ -238,47 +218,160 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         except Exception as e:
             print(f"Error retrieving factor values by entity: {e}")
             return []
-
-    def get_factor_values(self, factor_id: int, entity_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[FactorValueEntity]:
+        
+    def get_factor_id_by_name(self, factor_name: str) -> Optional[int]:
         """
-        Get factor values for a specific factor and entity within a date range.
+        Retrieve the ID of a factor given its name.
+
+        Args:
+            factor_name: The name of the factor to search for 
+                        (e.g., 'Adj Close', 'RSI 14', etc.)
+
+        Returns:
+            The factor ID if found, otherwise None.
+        """
+        try:
+            FactorModel = self.get_factor_model()
+            factor = (
+                self.session.query(FactorModel.id)
+                .filter(FactorModel.name == factor_name)
+                .one_or_none()
+            )
+
+            return factor.id if factor else None
+
+        except Exception as e:
+            print(f"Error retrieving factor ID by name '{factor_name}': {e}")
+            return None
+
+    def get_factor_values(
+        self,
+        factor_id: Union[int, List[int]],
+        entity_id: Union[int, List[int]],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> List[FactorValueEntity]:
+        """
+        Get factor values for one or multiple factors and entities within a date range.
         
         Args:
-            factor_id: ID of the factor
-            entity_id: ID of the entity
-            start_date: Start date in YYYY-MM-DD format (optional)
-            end_date: End date in YYYY-MM-DD format (optional)
+            factor_id: Single factor ID or list of factor IDs.
+            entity_id: Single entity ID or list of entity IDs.
+            start_date: Start date in YYYY-MM-DD format (optional).
+            end_date: End date in YYYY-MM-DD format (optional).
             
         Returns:
-            List of factor value entities within the date range
+            List of factor value entities within the date range.
         """
         try:
             from datetime import datetime
-            
+            from sqlalchemy import or_
+
             FactorValueModel = self.get_factor_value_model()
-            query = self.session.query(FactorValueModel).filter(
-                FactorValueModel.factor_id == factor_id,
-                FactorValueModel.entity_id == entity_id
+            query = self.session.query(FactorValueModel)
+
+            # Normalize inputs to lists
+            factor_ids = [factor_id] if isinstance(factor_id, int) else factor_id
+            entity_ids = [entity_id] if isinstance(entity_id, int) else entity_id
+
+            query = query.filter(
+                FactorValueModel.factor_id.in_(factor_ids),
+                FactorValueModel.entity_id.in_(entity_ids)
             )
-            
-            # Add date filters if provided
+
+            # Apply date filters
             if start_date:
                 start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
                 query = query.filter(FactorValueModel.date >= start_date_obj)
-            
+
             if end_date:
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
                 query = query.filter(FactorValueModel.date <= end_date_obj)
-            
-            # Order by date
-            query = query.order_by(FactorValueModel.date)
-            
+
+            # Order by date, factor, and entity for consistent results
+            query = query.order_by(FactorValueModel.date, FactorValueModel.factor_id, FactorValueModel.entity_id)
+
             values = query.all()
             return [self._to_domain_value(v) for v in values]
-            
+
         except Exception as e:
             print(f"Error retrieving factor values: {e}")
             return []
+
+
+
+    
+
+    def get_factor_values_df(
+        self,
+        factor_id: Union[int, List[int]],
+        entity_id: Union[int, List[int]],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        Retrieve factor values for one or multiple factors and entities within a date range,
+        returned as a Pandas DataFrame.
+
+        Args:
+            factor_id: Single factor ID or list of factor IDs.
+            entity_id: Single entity ID or list of entity IDs.
+            start_date: Start date in YYYY-MM-DD format (optional).
+            end_date: End date in YYYY-MM-DD format (optional).
+
+        Returns:
+            A Pandas DataFrame with columns:
+                ['date', 'factor_id', 'entity_id', 'value']
+            or an empty DataFrame if no results are found.
+        """
+        try:
+            from datetime import datetime
+
+            FactorValueModel = self.get_factor_value_model()
+            query = self.session.query(FactorValueModel)
+
+            # Normalize inputs to lists
+            factor_ids = [factor_id] if isinstance(factor_id, int) else factor_id
+            entity_ids = [entity_id] if isinstance(entity_id, int) else entity_id
+
+            query = query.filter(
+                FactorValueModel.factor_id.in_(factor_ids),
+                FactorValueModel.entity_id.in_(entity_ids)
+            )
+
+            # Apply date filters
+            if start_date:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                query = query.filter(FactorValueModel.date >= start_date_obj)
+
+            if end_date:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                query = query.filter(FactorValueModel.date <= end_date_obj)
+
+            # Order by date, factor, and entity
+            query = query.order_by(FactorValueModel.date, FactorValueModel.factor_id, FactorValueModel.entity_id)
+
+            results = query.all()
+            if not results:
+                return pd.DataFrame(columns=["date", "factor_id", "entity_id", "value"])
+
+            data = [
+                {
+                    "date": r.date,
+                    "factor_id": r.factor_id,
+                    "entity_id": r.entity_id,
+                    "value": r.value,
+                }
+                for r in results
+            ]
+
+            return pd.DataFrame(data)
+
+        except Exception as e:
+            print(f"Error retrieving factor values as DataFrame: {e}")
+            return pd.DataFrame(columns=["date", "factor_id", "entity_id", "value"])
+
+
 
     def get_factors_by_groups(self, groups: List[str]) -> List[FactorEntity]:
         """
@@ -302,11 +395,41 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             query = query.order_by(FactorModel.group, FactorModel.name)
             
             factors = query.all()
-            return [self._to_domain(factor) for factor in factors]
+            return [self._to_domain_factor(factor) for factor in factors]
             
         except Exception as e:
             print(f"Error retrieving factors by groups: {e}")
             return []
+        
+    def get_factor_ids_by_groups(self, groups: List[str]) -> List[int]:
+        """
+        Retrieve all factor IDs belonging to specific groups.
+
+        Args:
+            groups: List of group names to filter by 
+                    (e.g., ['price', 'momentum', 'technical']).
+
+        Returns:
+            List of factor IDs matching the specified groups.
+        """
+        try:
+            FactorModel = self.get_factor_model()
+            query = self.session.query(FactorModel.id)
+            
+            if groups:
+                # Filter by groups using IN clause
+                query = query.filter(FactorModel.group.in_(groups))
+            
+            # Order by group for deterministic output
+            query = query.order_by(FactorModel.group)
+            
+            factor_ids = [row.id for row in query.all()]
+            return factor_ids
+
+        except Exception as e:
+            print(f"Error retrieving factor IDs by groups: {e}")
+            return []
+
 
     def factor_value_exists(self, factor_id: int, entity_id: int, date_value: date) -> bool:
         """
@@ -417,7 +540,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         Returns:
             Created factor entity or None if failed
         """
-        from decimal import Decimal
+        FactorEntity = self.get_factor_entity()
         
         domain_factor = FactorEntity(
             name=name,
@@ -447,7 +570,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         # Convert value to Decimal for financial precision
         if not isinstance(value, Decimal):
             value = Decimal(str(value))
-            
+        FactorValueEntity = self.get_factor_value_entity()    
         domain_value = FactorValueEntity(
             id=None,
             factor_id=factor_id,
@@ -456,4 +579,53 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             value=value
         )
         return self.create_factor_value(domain_value)
+    
+    def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
+        """Store factor values for a specific factor."""
+        values_stored = 0
+        
+        # Get existing dates if not overwriting
+        existing_dates = set()
+        if not overwrite:
+            existing_dates = self.get_existing_value_dates(
+                factor.id, share.id
+            )
+        
+        for date_index, row in data.iterrows():
+            if pd.isna(row[column]):
+                continue
+                
+            trade_date = date_index.date() if hasattr(date_index, 'date') else date_index
+            
+            if not overwrite and trade_date in existing_dates:
+                continue
+            
+            try:
+                self.add_factor_value(
+                    factor_id=factor.id,
+                    entity_id=share.id,
+                    date=trade_date,
+                    value=Decimal(str(row[column]))
+                )
+                values_stored += 1
+                
+            except Exception as e:
+                print(f"      ⚠️  Error storing {column} value for {trade_date}: {str(e)}")
+        
+        return values_stored
+    
+    def _create_or_get_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str):
+        """Create factor if it doesn't exist, otherwise return existing."""
+        existing_factor = self.get_by_name(name)
+        if existing_factor:
+            return existing_factor
+        
+        return self.add_factor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition
+        )
 

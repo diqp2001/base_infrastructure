@@ -252,9 +252,9 @@ class BacktestRunner:
             
             # Step 2:  factor system setup 
             self.setup_factor_system(tickers)
-            self.logger.info("🏗️ Skipping factor system setup (using CSV data directly)...")
+            #self.logger.info("🏗️ Factor system setup ")
 
-            factor_results = {'system_ready': True, 'note': 'Factor system removed - using CSV data'}
+            factor_results = {'system_ready': True, 'note': 'Factor system working'}
             
             # Step 3: Train models
             self.logger.info("🧠 Training spatiotemporal models...")

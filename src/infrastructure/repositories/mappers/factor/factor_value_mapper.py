@@ -2,6 +2,7 @@
 Mapper for converting between FactorValue domain entities and ORM models.
 """
 
+from abc import abstractmethod
 from typing import Optional
 from decimal import Decimal
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
@@ -10,7 +11,14 @@ from infrastructure.models.factor.factor_model import FactorValue as FactorValue
 
 class FactorValueMapper:
     """Mapper for FactorValue domain entity and ORM model conversion."""
-
+    @abstractmethod
+    def get_factor_value_model(self):
+        return FactorValueModel
+    
+    @abstractmethod
+    def get_factor_value_entity(self):
+        return FactorValueEntity
+    
     @staticmethod
     def to_domain(orm_model: Optional[FactorValueModel]) -> Optional[FactorValueEntity]:
         """Convert ORM model to domain entity."""
