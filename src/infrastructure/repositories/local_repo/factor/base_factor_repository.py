@@ -36,19 +36,19 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         super().__init__(self.database_manager.session)
 
     # ----------------------------- Abstract methods -----------------------------
-    @abstractmethod
+    #@abstractmethod
     def get_factor_model(self):
-        return FactorMapper.get_factor_model()
-    @abstractmethod
+        return FactorMapper().get_factor_model()
+    #@abstractmethod
     def get_factor_entity(self):
-        return FactorMapper.get_factor_entity()
+        return FactorMapper().get_factor_entity()
 
-    @abstractmethod
+    #@abstractmethod
     def get_factor_value_model(self):
-        return FactorValueMapper.get_factor_value_model()
-    @abstractmethod
+        return FactorValueMapper().get_factor_value_model()
+    #@abstractmethod
     def get_factor_value_entity(self):
-        return FactorValueMapper.get_factor_value_entity()
+        return FactorValueMapper().get_factor_value_entity()
 
 
     

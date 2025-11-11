@@ -20,6 +20,7 @@ from domain.entities.factor.finance.financial_assets.share_factor.momentum_facto
 from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share import TechnicalFactorShare
 from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share_value import TechnicalFactorShareValue
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
@@ -44,7 +45,7 @@ class FactorEnginedDataManager:
         # Initialize repositories
         self.company_share_repository = CompanyShareRepositoryLocal(database_manager.session)
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
-        
+        self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
         
@@ -206,7 +207,7 @@ class FactorEnginedDataManager:
                 # Create or get factor
 
                 
-                factor = self.share_factor_repository._create_or_get_factor(
+                factor = self.base_factor_repository._create_or_get_factor(
                     name=column,
                     group=factor_group,
                     subgroup= "general",
@@ -320,7 +321,7 @@ class FactorEnginedDataManager:
         
         for factor_def in price_factors:
             try:
-                factor = self.share_factor_repository._create_or_get_factor(
+                factor = self.base_factor_repository._create_or_get_factor(
                     name=factor_def['name'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],

@@ -8,11 +8,11 @@ import pandas as pd
 
 from application.managers.database_managers.database_manager import DatabaseManager
 from .technical_factor_share import TechnicalFactorShare
-from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import FactorShareValue
+from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 from infrastructure.models.factor.finance.financial_assets.share_factors import ShareFactorValue
 
 
-class TechnicalFactorShareValue(FactorShareValue):
+class TechnicalFactorShareValue(ShareFactorValue):
     """Value calculator and storage handler for technical indicator factors."""
 
     def __init__(self, database_manager: DatabaseManager, factor: TechnicalFactorShare):
