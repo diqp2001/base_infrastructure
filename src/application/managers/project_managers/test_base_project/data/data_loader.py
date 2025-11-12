@@ -200,7 +200,7 @@ class SpatiotemporalDataLoader:
         combined_df = combined_df.sort_index()
         
         # Fill missing values using forward fill then backward fill
-        combined_df = combined_df.fillna(method='ffill').fillna(method='bfill')
+        combined_df = combined_df.ffill().bfill()
         
         return combined_df
     

@@ -67,7 +67,7 @@ class QuandlApiManager(APIManager):
         Returns:
         - DataFrame: Data with missing values filled.
         """
-        return data[data["close"].first_valid_index() : data["close"].last_valid_index()].fillna(method="ffill")
+        return data[data["close"].first_valid_index() : data["close"].last_valid_index()].ffill()
 
     def pull_pinnacle_data(self, ticker: str, folder: str, cut: str) -> pd.DataFrame:
         """
