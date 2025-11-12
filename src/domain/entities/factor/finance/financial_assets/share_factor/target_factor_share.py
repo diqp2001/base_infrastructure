@@ -9,7 +9,7 @@ from .share_factor import ShareFactor
 
 
 @dataclass
-class TargetFactorShare(ShareFactor):
+class ShareTargetFactor(ShareFactor):
     """
     Domain entity representing target variable factors for share analysis.
     Handles target returns for model training (both scaled and non-scaled).

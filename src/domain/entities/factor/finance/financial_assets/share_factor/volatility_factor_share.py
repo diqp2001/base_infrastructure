@@ -9,7 +9,7 @@ from .share_factor import ShareFactor
 
 
 @dataclass
-class VolatilityFactorShare(ShareFactor):
+class ShareVolatilityFactor(ShareFactor):
     """
     Domain entity representing volatility factors for share analysis.
     Handles various types of volatility calculations like daily_vol, monthly_vol, vol_of_vol, realized_vol.

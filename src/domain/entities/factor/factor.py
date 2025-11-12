@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Optional
 
 
-class FactorBase(ABC):
+class Factor(ABC):
     """Abstract base class for all factors."""
 
     def __init__(

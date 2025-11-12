@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 from typing import Optional
-from domain.entities.factor.finance.financial_assets.share_factor.share_factor import FactorShare
+from domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 
-class MomentumFactorShare(FactorShare):
+class ShareMomentumFactor(ShareFactor):
     """A momentum factor for equities, parameterized by time period (e.g., 21-day momentum)."""
 
     def __init__(

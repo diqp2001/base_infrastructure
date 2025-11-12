@@ -7,20 +7,20 @@ import pandas as pd
 import numpy as np
 
 from application.managers.database_managers.database_manager import DatabaseManager
-from .target_factor_share import TargetFactorShare
+from .target_factor_share import ShareTargetFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 
 
 @dataclass
-class TargetFactorShareValue(ShareFactorValue):
+class ShareTargetFactorValue(ShareFactorValue):
     """
     Domain entity representing target variable factor values for shares.
     Follows the same repository storage pattern as other factor value classes.
     """
 
-    factor: Optional[TargetFactorShare] = None
+    factor: Optional[ShareTargetFactor] = None
 
-    def __init__(self, database_manager: DatabaseManager, factor: TargetFactorShare):
+    def __init__(self, database_manager: DatabaseManager, factor: ShareTargetFactor):
         self.factor = factor
 
     def calculate_forward_returns(self, prices: pd.Series, horizon: int = 1) -> pd.Series:

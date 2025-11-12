@@ -12,7 +12,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from ...base_repository import BaseRepository
-from domain.entities.factor.factor import FactorBase as FactorEntity
+from domain.entities.factor.factor import Factor as FactorEntity
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 
 from infrastructure.models.factor.factor_model import (

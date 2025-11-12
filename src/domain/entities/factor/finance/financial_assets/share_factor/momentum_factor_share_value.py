@@ -7,20 +7,20 @@ from typing import Optional, List
 from application.managers.data_managers.data_manager_price import DataManagerPrice
 from application.managers.database_managers.database_manager import DatabaseManager
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
-from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import MomentumFactorShare
+from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import ShareMomentumFactor
 from infrastructure.repositories.mappers.factor.finance.financial_assets.share_factor_value_mapper import ShareFactorValueMapper
 
 
 @dataclass
-class MomentumFactorShareValue(ShareFactorValue):
+class ShareMomentumFactorValue(ShareFactorValue):
     """
     Domain entity representing a single momentum factor value for a share.
     Handles calculation for a given period and ORM conversion.
     """
 
-    factor: Optional[MomentumFactorShare] = None
+    factor: Optional[ShareMomentumFactor] = None
 
-    def __init__(self, database_manager: DatabaseManager, factor: MomentumFactorShare):
+    def __init__(self, database_manager: DatabaseManager, factor: ShareMomentumFactor):
         self.data_manager = DataManagerPrice(database_manager)
         self.factor = factor
 

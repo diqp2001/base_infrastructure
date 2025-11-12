@@ -121,6 +121,7 @@ class SpatiotemporalModelTrainer:
         
         # 5. Create volatility and target factors (NEW)
         volatility_summary = self._populate_volatility_factors(tickers, overwrite)
+
         target_summary = self._populate_target_factors(tickers, overwrite)
         
         print(f"  ✅ Factor system populated:")
@@ -132,8 +133,8 @@ class SpatiotemporalModelTrainer:
         
     def _populate_volatility_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
         """Populate volatility factors using new domain classes."""
-        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import VolatilityFactorShareValue
-        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import VolatilityFactorShare
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import ShareVolatilityFactorValue
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import ShareVolatilityFactor
         
         print("📊 Populating volatility factors...")
         
@@ -150,12 +151,12 @@ class SpatiotemporalModelTrainer:
             # Create or get factor definition
             factor = self.factor_manager.share_factor_repository.get_by_name(vol_config['name'])
             if not factor:
-                from infrastructure.repositories.share_factor_repository import ShareFactorRepository
-                factor = self.factor_manager.share_factor_repository.create_factor(
+                factor = self.factor_manager.share_factor_repository.add_factor(
                     name=vol_config['name'],
                     factor_type='volatility',
                     description=f"Volatility factor: {vol_config['volatility_type']} (period: {vol_config['period']})"
                 )
+                
             
             # Calculate and store values for each ticker
             for ticker in tickers:
@@ -168,7 +169,7 @@ class SpatiotemporalModelTrainer:
                     if ticker_data is not None and not ticker_data.empty:
                         
                         # Create domain entity and calculate values
-                        volatility_entity = VolatilityFactorShare(
+                        volatility_entity = ShareVolatilityFactor(
                             name=vol_config['name'],
                             factor_type='volatility',
                             description=f"Volatility: {vol_config['volatility_type']}",
@@ -176,7 +177,7 @@ class SpatiotemporalModelTrainer:
                             period=vol_config['period']
                         )
                         
-                        vol_calculator = VolatilityFactorShareValue(self.database_manager, volatility_entity)
+                        vol_calculator = ShareVolatilityFactorValue(self.database_manager, volatility_entity)
                         
                         values_stored = vol_calculator.store_factor_values(
                             repository=self.factor_manager.share_factor_repository,
@@ -196,8 +197,8 @@ class SpatiotemporalModelTrainer:
     
     def _populate_target_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
         """Populate target variable factors using new domain classes."""
-        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import TargetFactorShareValue
-        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import TargetFactorShare
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import ShareTargetFactorValue
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import ShareTargetFactor
         
         print("🎯 Populating target factors...")
         
@@ -211,8 +212,9 @@ class SpatiotemporalModelTrainer:
         for target_config in target_factors:
             # Create or get factor definition
             factor = self.factor_manager.share_factor_repository.get_by_name(target_config['name'])
+            
             if not factor:
-                factor = self.factor_manager.share_factor_repository.create_factor(
+                factor = self.factor_manager.share_factor_repository.add_factor(
                     name=target_config['name'],
                     factor_type='target',
                     description=f"Target variable: {target_config['target_type']} (horizon: {target_config['forecast_horizon']})"
@@ -229,7 +231,7 @@ class SpatiotemporalModelTrainer:
                     if ticker_data is not None and not ticker_data.empty:
                         
                         # Create domain entity and calculate values
-                        target_entity = TargetFactorShare(
+                        target_entity = ShareTargetFactor(
                             name=target_config['name'],
                             factor_type='target',
                             description=f"Target: {target_config['target_type']}",
@@ -238,7 +240,7 @@ class SpatiotemporalModelTrainer:
                             is_scaled=target_config['is_scaled']
                         )
                         
-                        target_calculator = TargetFactorShareValue(self.database_manager, target_entity)
+                        target_calculator = ShareTargetFactorValue(self.database_manager, target_entity)
                         
                         values_stored = target_calculator.store_factor_values(
                             repository=self.factor_manager.share_factor_repository,

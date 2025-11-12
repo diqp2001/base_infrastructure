@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 from typing import Optional
-from domain.entities.factor.finance.financial_assets.share_factor.share_factor import FactorShare
+from domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 
-class TechnicalFactorShare(FactorShare):
+class ShareTechnicalFactor(ShareFactor):
     """A technical indicator factor for equities, parameterized by indicator type and period."""
 
     def __init__(

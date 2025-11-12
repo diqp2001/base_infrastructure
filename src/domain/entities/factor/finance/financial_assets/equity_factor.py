@@ -1,5 +1,5 @@
 from __future__ import annotations
-from domain.entities.factor.finance.financial_assets.security_factor import FactorSecurity
+from domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor
 
 
 
@@ -8,7 +8,7 @@ from typing import Optional
 
 
 
-class FactorEquity(FactorSecurity):
+class EquityFactor(SecurityFactor):
     """Specialized factor for equity instruments."""
 
     def __init__(

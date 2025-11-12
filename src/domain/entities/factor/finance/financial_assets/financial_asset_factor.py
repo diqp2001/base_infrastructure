@@ -1,12 +1,12 @@
 from __future__ import annotations
-from domain.entities.factor.factor import FactorBase
+from domain.entities.factor.factor import Factor
 
 
 
 from decimal import Decimal
 from typing import Optional
 
-class FactorFinancialAsset(FactorBase):
+class FinancialAssetFactor(Factor):
 
     def __init__(
         self,

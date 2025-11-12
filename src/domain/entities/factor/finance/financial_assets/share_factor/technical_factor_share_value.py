@@ -6,20 +6,20 @@ from decimal import Decimal
 import pandas as pd
 
 from application.managers.database_managers.database_manager import DatabaseManager
-from .technical_factor_share import TechnicalFactorShare
+from .technical_factor_share import ShareTechnicalFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 
 
 @dataclass
-class TechnicalFactorShareValue(ShareFactorValue):
+class ShareTechnicalFactorValue(ShareFactorValue):
     """
     Domain entity representing technical indicator factor values for a share.
     Follows same pattern as MomentumFactorShareValue with repository storage.
     """
 
-    factor: Optional[TechnicalFactorShare] = None
+    factor: Optional[ShareTechnicalFactor] = None
 
-    def __init__(self, database_manager: DatabaseManager, factor: TechnicalFactorShare):
+    def __init__(self, database_manager: DatabaseManager, factor: ShareTechnicalFactor):
         self.factor = factor
 
     def calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:

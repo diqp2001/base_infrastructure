@@ -251,7 +251,7 @@ class BacktestRunner:
                 raise Exception("Component setup failed")
             
             # Step 2:  factor system setup 
-            self.setup_factor_system(tickers)
+            #self.setup_factor_system(tickers)
             #self.logger.info("🏗️ Factor system setup ")
 
             factor_results = {'system_ready': True, 'note': 'Factor system working'}

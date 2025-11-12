@@ -15,10 +15,10 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from application.managers.database_managers.database_manager import DatabaseManager
-from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import MomentumFactorShare
-from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share_value import MomentumFactorShareValue
-from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share import TechnicalFactorShare
-from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share_value import TechnicalFactorShareValue
+from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import ShareMomentumFactor
+from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share_value import ShareMomentumFactorValue
+from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share import ShareTechnicalFactor
+from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share_value import ShareTechnicalFactorValue
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -356,7 +356,7 @@ class FactorEnginedDataManager:
                 
                 
                 # Create domain momentum factor entity
-                momentum_factor = MomentumFactorShare(
+                momentum_factor = ShareMomentumFactor(
                     name=factor_def['name'],
                     period=factor_def['period'],
                     group=factor_def['group'],
@@ -431,7 +431,7 @@ class FactorEnginedDataManager:
                         period = (12, 26)  # Default MACD periods
                 
                 # Create domain technical factor entity
-                technical_factor = TechnicalFactorShare(
+                technical_factor = ShareTechnicalFactor(
                     name=factor_def['name'],
                     indicator_type=indicator_type,
                     period=period,
@@ -501,13 +501,13 @@ class FactorEnginedDataManager:
         return {'total_values': total_values}
     
     def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool, 
-                                         momentum_domain_factors: List[MomentumFactorShare]) -> Dict[str, Any]:
+                                         momentum_domain_factors: List[ShareMomentumFactor]) -> Dict[str, Any]:
         """Calculate and store momentum factor values using domain entities."""
         print("📊 Calculating momentum factor values...")
         total_values = 0
 
         for factor in momentum_domain_factors:
-            momentum_value = MomentumFactorShareValue(
+            momentum_value = ShareMomentumFactorValue(
                 database_manager=self.database_manager, 
                 factor=factor
             )
@@ -551,13 +551,13 @@ class FactorEnginedDataManager:
 
     
     def _calculate_technical_factor_values(self, tickers: List[str], overwrite: bool, 
-                                         technical_domain_factors: List[TechnicalFactorShare]) -> Dict[str, Any]:
+                                         technical_domain_factors: List[ShareTechnicalFactor]) -> Dict[str, Any]:
         """Calculate and store technical indicator values using domain entities (same pattern as momentum factors)."""
         print("📊 Calculating technical indicator values...")
         total_values = 0
 
         for factor in technical_domain_factors:
-            technical_value = TechnicalFactorShareValue(
+            technical_value = ShareTechnicalFactorValue(
                 database_manager=self.database_manager, 
                 factor=factor
             )

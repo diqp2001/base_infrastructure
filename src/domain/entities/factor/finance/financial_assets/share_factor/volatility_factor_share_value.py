@@ -7,20 +7,20 @@ import pandas as pd
 import numpy as np
 
 from application.managers.database_managers.database_manager import DatabaseManager
-from .volatility_factor_share import VolatilityFactorShare
+from .volatility_factor_share import ShareVolatilityFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 
 
 @dataclass
-class VolatilityFactorShareValue(ShareFactorValue):
+class ShareVolatilityFactorValue(ShareFactorValue):
     """
     Domain entity representing volatility factor values for shares.
     Follows the same repository storage pattern as MomentumFactorShareValue and TechnicalFactorShareValue.
     """
 
-    factor: Optional[VolatilityFactorShare] = None
+    factor: Optional[ShareVolatilityFactor] = None
 
-    def __init__(self, database_manager: DatabaseManager, factor: VolatilityFactorShare):
+    def __init__(self, database_manager: DatabaseManager, factor: ShareVolatilityFactor):
         self.factor = factor
 
     def calculate_daily_volatility(self, returns: pd.Series, period: int = 21) -> pd.Series:

@@ -8,6 +8,6 @@ __all__ = ['FactorValue']
 
 
 
-from .factor import FactorBase
+from .factor import Factor
 
-__all__ = ['FactorBase']
+__all__ = ['Factor']

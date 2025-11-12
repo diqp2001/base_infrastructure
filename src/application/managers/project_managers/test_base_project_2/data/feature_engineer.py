@@ -156,7 +156,7 @@ class SpatiotemporalFeatureEngineer:
         print("  📉 Adding volatility features using domain classes...")
         
         from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import VolatilityFactorShareValue
-        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import VolatilityFactorShare
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import ShareVolatilityFactor
         
         feature_data = data.copy()
         
@@ -169,7 +169,7 @@ class SpatiotemporalFeatureEngineer:
         
         for vol_config in volatility_configs:
             # Create domain entity
-            volatility_entity = VolatilityFactorShare(
+            volatility_entity = ShareVolatilityFactor(
                 name=vol_config['name'],
                 factor_type='volatility',
                 description=f"Volatility: {vol_config['volatility_type']}",
@@ -201,8 +201,8 @@ class SpatiotemporalFeatureEngineer:
         """
         print("  🎯 Adding target variables using domain classes...")
         
-        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import TargetFactorShareValue
-        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import TargetFactorShare
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import ShareTargetFactorValue
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import ShareTargetFactor
         
         feature_data = data.copy()
         
@@ -213,7 +213,7 @@ class SpatiotemporalFeatureEngineer:
         
         for target_config in target_configs:
             # Create domain entity
-            target_entity = TargetFactorShare(
+            target_entity = ShareTargetFactor(
                 name=target_config['name'],
                 factor_type='target',
                 description=f"Target: {target_config['target_type']}",
@@ -223,7 +223,7 @@ class SpatiotemporalFeatureEngineer:
             )
             
             # Create calculator
-            target_calculator = TargetFactorShareValue(self.database_manager, target_entity)
+            target_calculator = ShareTargetFactorValue(self.database_manager, target_entity)
             
             # Calculate values and add to feature data
             calculated_data = target_calculator.calculate(
