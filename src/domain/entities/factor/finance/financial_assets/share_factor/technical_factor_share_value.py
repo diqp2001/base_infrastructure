@@ -54,36 +54,76 @@ class TechnicalFactorShareValue(ShareFactorValue):
             'd': d_percent
         }
 
+    def calculate_macd(self, prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Dict[str, pd.Series]:
+        """Calculate MACD (Moving Average Convergence Divergence)."""
+        ema_fast = prices.ewm(span=fast).mean()
+        ema_slow = prices.ewm(span=slow).mean()
+        macd_line = ema_fast - ema_slow
+        signal_line = macd_line.ewm(span=signal).mean()
+        histogram = macd_line - signal_line
+        
+        return {
+            'macd': macd_line,
+            'signal': signal_line,
+            'histogram': histogram
+        }
+
     def calculate(self, data: pd.DataFrame, indicator_type: str, period: Optional[int] = None) -> pd.DataFrame:
         """
         Calculate technical indicator values based on type.
         Returns DataFrame with calculated values.
         """
         try:
-            # Standardize column names if needed
-            if 'Close' in data.columns and 'close_price' not in data.columns:
-                data = data.rename(columns={
+            calculated_df = data.copy()
+            
+            # Standardize column names - check multiple possibilities
+            if 'Close' in calculated_df.columns and 'close_price' not in calculated_df.columns:
+                calculated_df = calculated_df.rename(columns={
                     'Open': 'open_price', 'High': 'high_price',
                     'Low': 'low_price', 'Close': 'close_price',
                     'Adj Close': 'adj_close_price', 'Volume': 'volume'
                 })
-
-            calculated_df = data.copy()
+            
+            # Check if we have the required columns
+            required_col = 'close_price' if 'close_price' in calculated_df.columns else 'Close'
+            if required_col not in calculated_df.columns:
+                print(f"❌ Error: Neither 'close_price' nor 'Close' found in DataFrame")
+                print(f"Available columns: {list(calculated_df.columns)}")
+                return pd.DataFrame()
             
             if indicator_type == "RSI":
                 calculated_df['indicator_value'] = self.calculate_rsi(
-                    calculated_df['close_price'], period or 14
+                    calculated_df[required_col], period or 14
                 )
             elif indicator_type == "Bollinger":
-                bollinger = self.calculate_bollinger_bands(calculated_df['close_price'])
+                bollinger = self.calculate_bollinger_bands(calculated_df[required_col])
                 # For this example, use upper band - can be customized per factor
                 calculated_df['indicator_value'] = bollinger['upper'] 
             elif indicator_type == "Stochastic":
+                high_col = 'high_price' if 'high_price' in calculated_df.columns else 'High'
+                low_col = 'low_price' if 'low_price' in calculated_df.columns else 'Low'
+                
                 stoch = self.calculate_stochastic(
-                    calculated_df['high_price'], calculated_df['low_price'], calculated_df['close_price']
+                    calculated_df[high_col], calculated_df[low_col], calculated_df[required_col]
                 )
                 # For this example, use %K - can be customized per factor
                 calculated_df['indicator_value'] = stoch['k']
+            elif indicator_type == "MACD":
+                # Handle MACD periods - period could be tuple (fast, slow) or None
+                if isinstance(period, tuple) and len(period) >= 2:
+                    fast, slow = period[0], period[1]
+                else:
+                    fast, slow = 12, 26  # Default values
+                
+                macd_data = self.calculate_macd(calculated_df[required_col], fast=fast, slow=slow)
+                # Use the MACD line as the indicator value
+                calculated_df['indicator_value'] = macd_data['macd']
+            else:
+                # Default case for unrecognized indicators
+                print(f"⚠️  Warning: Unknown indicator type '{indicator_type}', using RSI as default")
+                calculated_df['indicator_value'] = self.calculate_rsi(
+                    calculated_df[required_col], 14
+                )
             
             return calculated_df
 
