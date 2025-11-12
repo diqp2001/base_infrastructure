@@ -172,55 +172,7 @@ class FactorNormalizer:
         
         return updated_data
     
-    def create_missing_macd_factors(self,
-                                  factor_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-        """
-        Create missing MACD factors with different intervals (8_24, 16_48, 32_96).
-        
-        Args:
-            factor_data: Dictionary of {ticker: DataFrame} with factor values
-            
-        Returns:
-            Dictionary with additional MACD factors
-        """
-        print("📊 Creating missing MACD factors...")
-        
-        # MACD configurations we need
-        macd_configs = [
-            {'name': 'macd_8_24', 'fast': 8, 'slow': 24},
-            {'name': 'macd_16_48', 'fast': 16, 'slow': 48},
-            {'name': 'macd_32_96', 'fast': 32, 'slow': 96}
-        ]
-        
-        updated_data = {ticker: df.copy() for ticker, df in factor_data.items()}
-        
-        for ticker, df in updated_data.items():
-            print(f"  🔄 Processing MACD for {ticker}...")
-            
-            # We need price data to calculate MACD
-            if 'Close' in df.columns:
-                close_prices = df['Close']
-            elif 'close_price' in df.columns:
-                close_prices = df['close_price']
-            else:
-                print(f"    ⚠️  No close price data found for {ticker}")
-                continue
-            
-            # Calculate each MACD configuration
-            for config in macd_configs:
-                if config['name'] not in df.columns:
-                    try:
-                        macd_values = self._calculate_macd(
-                            close_prices, config['fast'], config['slow']
-                        )
-                        df[config['name']] = macd_values
-                        print(f"    ✅ Created {config['name']}")
-                    except Exception as e:
-                        print(f"    ❌ Error creating {config['name']}: {str(e)}")
-                else:
-                    print(f"    ℹ️  {config['name']} already exists")
-        
-        return updated_data
+    
     
     def apply_comprehensive_normalization(self,
                                         factor_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
@@ -240,8 +192,7 @@ class FactorNormalizer:
         # Step 1: Create missing normalized return factors
         enhanced_data = self.create_normalized_return_factors(factor_data)
         
-        # Step 2: Create missing MACD factors
-        enhanced_data = self.create_missing_macd_factors(enhanced_data)
+        
         
         # Step 3: Define normalization configurations
         normalization_configs = self._get_default_normalization_configs()
