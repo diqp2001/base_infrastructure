@@ -151,15 +151,50 @@ class SpatiotemporalModelTrainer:
             return None
     
     def _load_ticker_price_data(self, ticker: str) -> Optional[pd.DataFrame]:
-        """Load price data for a single ticker from CSV files."""
+        """Load price data for a single ticker from database using repository pattern."""
         try:
-            csv_file = self.factor_manager.stock_data_path / f"{ticker}_stock_data.csv"
-            if csv_file.exists():
-                data = pd.read_csv(csv_file, index_col=0, parse_dates=True)
-                return data
-            else:
-                print(f"  ⚠️  CSV file not found for {ticker}: {csv_file}")
+            # Get company entity
+            company = self.factor_manager.company_share_repository.get_by_ticker(ticker)
+            if not company:
+                print(f"  ⚠️  Company not found for ticker: {ticker}")
                 return None
+            company = company[0] if isinstance(company, list) else company
+            
+            # Define price factor names to fetch
+            price_factor_names = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+            price_data = {}
+            
+            # Fetch each price factor from database
+            for factor_name in price_factor_names:
+                factor_entity = self.factor_manager.share_factor_repository.get_by_name(factor_name)
+                if factor_entity:
+                    df = self.factor_manager.share_factor_repository.get_factor_values_df(
+                        factor_id=int(factor_entity.id), 
+                        entity_id=company.id
+                    )
+                    if not df.empty:
+                        df["date"] = pd.to_datetime(df["date"])
+                        df.set_index("date", inplace=True)
+                        df["value"] = df["value"].astype(float)
+                        # Map to expected column names
+                        column_mapping = {
+                            'Open': 'open_price',
+                            'High': 'high_price', 
+                            'Low': 'low_price',
+                            'Close': 'close_price',
+                            'Adj Close': 'adj_close_price',
+                            'Volume': 'volume'
+                        }
+                        price_data[column_mapping.get(factor_name, factor_name.lower())] = df['value']
+            
+            if not price_data:
+                print(f"  ⚠️  No price data found in database for {ticker}")
+                return None
+            
+            # Combine into single DataFrame
+            price_df = pd.DataFrame(price_data)
+            price_df.index.name = 'Date'
+            return price_df
                 
         except Exception as e:
             print(f"  ⚠️  Error loading price data for {ticker}: {str(e)}")
