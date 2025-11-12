@@ -523,32 +523,23 @@ class FactorEnginedDataManager:
                     df.set_index("date", inplace=True)
                     df["value"] = df["value"].astype(float)
 
-                    # Calculate momentum using the domain factor's specific period
-                    orm_values = momentum_value.store_package_momentum_factors(
-                        data=df,
-                        column_name="value",
-                        entity_id=company.id,
-                        factor_id=factor.factor_id,
-                        period=factor.period,
-                    )
+                    # Get repository factor for momentum storage
+                    repository_factor = self.share_factor_repository.get_by_name(factor.name)
+                    
+                    if repository_factor:
+                        # Use repository pattern (same as _store_momentum_features)
+                        values_stored = momentum_value.store_package_momentum_factors(
+                            repository=self.share_factor_repository,
+                            factor=repository_factor,
+                            share=company,
+                            data=df,
+                            column_name="value",
+                            period=factor.period,
+                            overwrite=overwrite
+                        )
 
-                    if orm_values:
-                        # Store the ORM values directly using session
-                        for orm_value in orm_values:
-                            if not overwrite:
-                                # Check if value already exists
-                                existing = self.share_factor_repository.factor_value_exists(
-                                    orm_value.factor_id, orm_value.entity_id, orm_value.date
-                                )
-                                if existing:
-                                    continue
-                            
-                            self.database_manager.session.add(orm_value)
-                        
-                        self.database_manager.session.commit()
-                        total_values += len(orm_values)
-
-                    print(f"✅ {ticker}: stored {len(orm_values)} {factor.period}-day momentum values")
+                        total_values += values_stored
+                        print(f"✅ {ticker}: stored {values_stored} {factor.period}-day momentum values")
 
                 except Exception as e:
                     print(f"❌ Error processing {ticker} for {factor.name}: {e}")

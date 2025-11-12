@@ -34,79 +34,61 @@ class MomentumFactorShareValue(ShareFactorValue):
             print(f"⚠️  Error calculating momentum ({period}-day) features: {e}")
             return pd.DataFrame()
 
-    def _sanitize_factor_value(self, value):
-        """
-        Sanitize and validate factor values to handle ANY data type safely.
-        Prevents type comparison errors with string values.
-        """
-        if value is None or pd.isna(value):
-            return None
-            
-        if isinstance(value):
-            return value 
-            
-        
     
     def store_factor_values(
         self,
+        repository,
+        factor,
+        share,
         data: pd.DataFrame,
         column_name: str,
-        entity_id: int,
-        factor_id: int,
-        period: int
-    ) -> List:
+        period: int,
+        overwrite: bool
+    ) -> int:
         """
-        Compute and convert the momentum factor values to ORM models for storage.
+        Compute and store momentum factor values using repository pattern.
+        Same approach as _store_momentum_features method.
         """
         try:
+            # Calculate momentum factor values
             initial_col = set(data.columns)
             calculated_df = self.calculate(data=data, column_name=column_name, period=period)
             if calculated_df.empty:
-                return []
+                return 0
 
-            feature_col = list(set(calculated_df.columns) - initial_col)
+            feature_col = list(set(calculated_df.columns) - initial_col)[0]
 
-            calculated_df["factor_id"] = factor_id
-            calculated_df["entity_id"] = entity_id
-            calculated_df["date"] = calculated_df.index
-            calculated_df = calculated_df.dropna()
+            # Use repository's _store_factor_values method (same as _store_momentum_features)
+            values_stored = repository._store_factor_values(
+                factor, share, calculated_df, feature_col, overwrite
+            )
 
-            orm_objects = []
-            for _, row in calculated_df.iterrows():
-                # Sanitize value to prevent type comparison errors
-                """sanitized_value = self._sanitize_factor_value(row[feature_col])
-                if sanitized_value is None:
-                    continue  # Skip invalid values"""
-                    
-                domain_entity = ShareFactorValue(
-                    factor_id=row["factor_id"],
-                    entity_id=row["entity_id"],
-                    date=row["date"],
-                    value=row[feature_col],
-                )
-                orm_objects.append(ShareFactorValueMapper.to_orm(domain_entity))
-            return orm_objects
+            return values_stored
 
         except Exception as e:
             print(f"❌ Error storing momentum factor values ({period}-day): {e}")
-            return []
+            return 0
 
     def store_package_momentum_factors(
         self,
+        repository,
+        factor,
+        share,
         data: pd.DataFrame,
         column_name: str,
-        entity_id: int,
-        factor_id: int,
-        period: int
-    ) -> List:
+        period: int,
+        overwrite: bool
+    ) -> int:
         """
         Compute and store momentum factor values for a single period.
-        Returns list of ORM objects.
+        Returns count of stored values.
         """
         return self.store_factor_values(
+            repository=repository,
+            factor=factor,
+            share=share,
             data=data,
             column_name=column_name,
-            entity_id=entity_id,
-            factor_id=factor_id,
-            period=period
+            period=period,
+            overwrite=overwrite
         )
