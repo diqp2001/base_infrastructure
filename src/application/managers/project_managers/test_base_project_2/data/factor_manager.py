@@ -513,10 +513,10 @@ class FactorEnginedDataManager:
                 try:
                     company = self.company_share_repository.get_by_ticker(ticker)[0]
                     
-                    # Get price data (assuming factor_id=20 is Close price or similar)
-                    price_factor_id = 20  # This should be configurable or determined dynamically
+                    
+                    factorentityClose = self.share_factor_repository.get_by_name('Close')
                     df = self.share_factor_repository.get_factor_values_df(
-                        factor_id=price_factor_id, 
+                        factor_id=int(factorentityClose.id), 
                         entity_id=company.id
                     )
                     df["date"] = pd.to_datetime(df["date"])

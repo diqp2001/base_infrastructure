@@ -29,12 +29,12 @@ class MomentumFactorShareValue(ShareFactorValue):
         Calculate momentum returns over a given period.
         """
         try:
-            return self.data_manager.add_deep_momentum_feature(data=data, column_name=column_name, period=period)
+            return self.data_manager.add_deep_momentum_feature(data=data, column_name=column_name, period_offset=period)
         except Exception as e:
             print(f"⚠️  Error calculating momentum ({period}-day) features: {e}")
             return pd.DataFrame()
 
-    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
+    def _sanitize_factor_value(self, value):
         """
         Sanitize and validate factor values to handle ANY data type safely.
         Prevents type comparison errors with string values.
@@ -42,21 +42,10 @@ class MomentumFactorShareValue(ShareFactorValue):
         if value is None or pd.isna(value):
             return None
             
-        if isinstance(value, Decimal):
-            return value if value.is_finite() else None
+        if isinstance(value):
+            return value 
             
-        str_value = str(value).strip()
-        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
-        if str_value.lower() in invalid_indicators:
-            return None
-            
-        try:
-            float_value = float(str_value)
-            if not (float_value == float_value and abs(float_value) != float('inf')):
-                return None
-            return Decimal(str(float_value))
-        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
-            return None
+        
     
     def store_factor_values(
         self,
@@ -70,28 +59,30 @@ class MomentumFactorShareValue(ShareFactorValue):
         Compute and convert the momentum factor values to ORM models for storage.
         """
         try:
+            initial_col = set(data.columns)
             calculated_df = self.calculate(data=data, column_name=column_name, period=period)
             if calculated_df.empty:
                 return []
 
-            feature_col = list(set(calculated_df.columns) - set(data.columns))
+            feature_col = list(set(calculated_df.columns) - initial_col)
 
             calculated_df["factor_id"] = factor_id
             calculated_df["entity_id"] = entity_id
             calculated_df["date"] = calculated_df.index
+            calculated_df = calculated_df.dropna()
 
             orm_objects = []
             for _, row in calculated_df.iterrows():
                 # Sanitize value to prevent type comparison errors
-                sanitized_value = self._sanitize_factor_value(row[feature_col])
+                """sanitized_value = self._sanitize_factor_value(row[feature_col])
                 if sanitized_value is None:
-                    continue  # Skip invalid values
+                    continue  # Skip invalid values"""
                     
                 domain_entity = ShareFactorValue(
                     factor_id=row["factor_id"],
                     entity_id=row["entity_id"],
                     date=row["date"],
-                    value=sanitized_value,
+                    value=row[feature_col],
                 )
                 orm_objects.append(ShareFactorValueMapper.to_orm(domain_entity))
             return orm_objects

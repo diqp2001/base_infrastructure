@@ -568,17 +568,16 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         
         # Validate and sanitize the value BEFORE creating domain entity
         sanitized_value = self._sanitize_factor_value(value)
-        if sanitized_value is None:
-            return None  # Skip invalid values
         
         FactorValueEntity = self.get_factor_value_entity()    
         domain_value = FactorValueEntity(
             id=None,
-            factor_id=factor_id,
+            factor_id=int(factor_id),
             entity_id=entity_id,
             date=date,
             value=sanitized_value
         )
+
         return self.create_factor_value(domain_value)
     
     def _sanitize_factor_value(self, value) -> Optional[Decimal]:
