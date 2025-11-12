@@ -681,6 +681,9 @@ class FactorEnginedDataManager:
         if not share:
             return None
         
+        # Handle list return from get_by_ticker
+        share = share[0] if isinstance(share, list) else share
+        
         # Get factors for the specified groups
         factors = self.share_factor_repository.get_factors_by_groups(factor_groups)
         
