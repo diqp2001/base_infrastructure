@@ -353,23 +353,17 @@ class FactorEnginedDataManager:
         
         for factor_def in momentum_factors:
             try:
-                # Extract period from factor name (e.g., "63-day Momentum" -> 63)
-                period = 63  # Default period
-                if 'day' in factor_def['name'].lower():
-                    import re
-                    period_match = re.search(r'(\d+)-day', factor_def['name'])
-                    if period_match:
-                        period = int(period_match.group(1))
+                
                 
                 # Create domain momentum factor entity
                 momentum_factor = MomentumFactorShare(
                     name=factor_def['name'],
-                    period=period,
+                    period=factor_def['period'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],
                     data_type="numeric",
                     source="internal",
-                    definition=f"{period}-day momentum return factor"
+                    definition=f"{factor_def['period']}-day momentum return factor"
                 )
                 
                 # Create or get corresponding repository factor
@@ -379,7 +373,7 @@ class FactorEnginedDataManager:
                     subgroup=factor_def['subgroup'],
                     data_type="numeric",
                     source="internal",
-                    definition=f"{period}-day momentum return factor"
+                    definition=f"{factor_def['period']}-day momentum return factor"
                 )
                 
                 if repo_factor:

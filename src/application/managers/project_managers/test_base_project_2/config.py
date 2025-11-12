@@ -97,12 +97,10 @@ FACTOR_CONFIG = {
         {'name': 'Adj Close', 'group': 'price', 'subgroup': 'adjusted'}
     ],
     'MOMENTUM_FACTORS': [
-        {'name': 'deep_momentum_1d', 'group': 'momentum', 'subgroup': 'short_term'},
-        {'name': 'deep_momentum_5d', 'group': 'momentum', 'subgroup': 'short_term'},
-        {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term'},
-        {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term'},
-    ],
-    'MOMENTUM_FACTOR_PERIODS': [1,21,63,126,252
+        {'name': 'deep_momentum_1d', 'group': 'momentum', 'subgroup': 'short_term','period': 1},
+        {'name': 'deep_momentum_5d', 'group': 'momentum', 'subgroup': 'short_term','period': 5},
+        {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term','period': 21},
+        {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term','period': 63},
     ],
     'TECHNICAL_FACTORS': [
         {'name': 'macd_8_24', 'group': 'technical', 'subgroup': 'momentum'},
