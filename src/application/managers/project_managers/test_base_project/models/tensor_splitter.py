@@ -219,7 +219,7 @@ class TensorSplitterManager:
                 result_data[vol_col] = 0.01  # Default volatility
         
         # Fill missing values
-        result_data = result_data.fillna(method='ffill').fillna(method='bfill').fillna(0)
+        result_data = result_data.ffill().bfill().fillna(0)
         
         return result_data
     

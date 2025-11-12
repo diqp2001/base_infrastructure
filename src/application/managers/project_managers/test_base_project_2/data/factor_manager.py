@@ -722,7 +722,7 @@ class FactorEnginedDataManager:
         # Combine and clean
         combined_df = pd.concat(all_data, axis=1)
         combined_df = combined_df.sort_index()
-        combined_df = combined_df.fillna(method='ffill').fillna(method='bfill')
+        combined_df = combined_df.ffill().bfill()
         
         return combined_df
     
