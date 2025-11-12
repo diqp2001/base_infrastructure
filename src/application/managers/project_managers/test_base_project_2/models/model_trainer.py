@@ -38,7 +38,7 @@ class SpatiotemporalModelTrainer:
         
         # Initialize components
         self.data_loader = SpatiotemporalDataLoader(database_manager)
-        self.factor_manager = None  # Factor system removed - using CSV data directly
+        self.factor_manager = FactorEnginedDataManager(database_manager)  # Use factor system for database-driven approach
         self.tensor_splitter = TensorSplitterManager()
         self.model = HybridSpatiotemporalModel()
         
@@ -66,11 +66,11 @@ class SpatiotemporalModelTrainer:
         if tickers is None:
             tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
         
-        # Step 1: Prepare factor data
+        # Step 1: Prepare factor data (store in database, don't create tensors)
         print("\n📊 Step 1: Preparing factor-enhanced data...")
         factor_data = self._prepare_factor_data(tickers)
         
-        # Step 2: Create training tensors
+        # Step 2: Create training tensors (separate step as requested)
         print("\n🔧 Step 2: Creating training tensors...")
         tensor_data = self._create_training_tensors(factor_data, model_type)
         
@@ -91,7 +91,8 @@ class SpatiotemporalModelTrainer:
             'tensor_data_summary': self._summarize_tensor_data(tensor_data),
             'training_results': training_results,
             'performance_summary': performance_summary,
-            'training_completed': datetime.now().isoformat()
+            'training_completed': datetime.now().isoformat(),
+            'factors_stored_in_database': True  # Indicating database-driven approach
         }
         
         print(f"\n✅ Complete training pipeline finished!")
@@ -101,34 +102,215 @@ class SpatiotemporalModelTrainer:
         
         return final_results
     
-    def _prepare_factor_data(self, tickers: List[str]) -> Dict[str, pd.DataFrame]:
-        """Prepare factor-enhanced data for all tickers."""
-        # Load historical data with factors
-        historical_data = self.data_loader.load_historical_data_with_factors(tickers)
+    def _ensure_factors_exist(self, tickers: List[str], overwrite: bool = False) -> None:
+        """Ensure all factors exist in database, following backtestRunner pattern."""
+        print("  📍 Ensuring factor system is populated...")
         
-        # Create factor-enhanced features for each ticker
+        # Replicate the backtestRunner setup process
+        # 1. Ensure basic entities exist
+        entities_summary = self.factor_manager._ensure_entities_exist(tickers)
+        
+        # 2. Populate price factors  
+        price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
+        
+        # 3. Populate momentum factors
+        momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
+        
+        # 4. Calculate technical indicators
+        technical_summary = self.factor_manager.calculate_technical_indicators(tickers, overwrite)
+        
+        # 5. Create volatility and target factors (NEW)
+        volatility_summary = self._populate_volatility_factors(tickers, overwrite)
+        target_summary = self._populate_target_factors(tickers, overwrite)
+        
+        print(f"  ✅ Factor system populated:")
+        print(f"    • Price: {price_summary.get('values_calculated', 0)} values")
+        print(f"    • Momentum: {momentum_summary.get('values_calculated', 0)} values")
+        print(f"    • Technical: {technical_summary.get('values_calculated', 0)} values")
+        print(f"    • Volatility: {volatility_summary.get('values_calculated', 0)} values")
+        print(f"    • Targets: {target_summary.get('values_calculated', 0)} values")
+        
+    def _populate_volatility_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
+        """Populate volatility factors using new domain classes."""
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import VolatilityFactorShareValue
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import VolatilityFactorShare
+        
+        print("📊 Populating volatility factors...")
+        
+        volatility_factors = [
+            {'name': 'daily_vol', 'volatility_type': 'daily_vol', 'period': 21},
+            {'name': 'monthly_vol', 'volatility_type': 'monthly_vol', 'period': 63},
+            {'name': 'vol_of_vol', 'volatility_type': 'vol_of_vol', 'period': 21},
+            {'name': 'realized_vol', 'volatility_type': 'realized_vol', 'period': 21}
+        ]
+        
+        total_values = 0
+        
+        for vol_config in volatility_factors:
+            # Create or get factor definition
+            factor = self.factor_manager.share_factor_repository.get_by_name(vol_config['name'])
+            if not factor:
+                from infrastructure.repositories.share_factor_repository import ShareFactorRepository
+                factor = self.factor_manager.share_factor_repository.create_factor(
+                    name=vol_config['name'],
+                    factor_type='volatility',
+                    description=f"Volatility factor: {vol_config['volatility_type']} (period: {vol_config['period']})"
+                )
+            
+            # Calculate and store values for each ticker
+            for ticker in tickers:
+                share = self.factor_manager.company_share_repository.get_by_ticker(ticker)
+                if share:
+                    share = share[0] if isinstance(share, list) else share
+                    
+                    # Load price data
+                    ticker_data = self._load_ticker_price_data(ticker)
+                    if ticker_data is not None and not ticker_data.empty:
+                        
+                        # Create domain entity and calculate values
+                        volatility_entity = VolatilityFactorShare(
+                            name=vol_config['name'],
+                            factor_type='volatility',
+                            description=f"Volatility: {vol_config['volatility_type']}",
+                            volatility_type=vol_config['volatility_type'],
+                            period=vol_config['period']
+                        )
+                        
+                        vol_calculator = VolatilityFactorShareValue(self.database_manager, volatility_entity)
+                        
+                        values_stored = vol_calculator.store_factor_values(
+                            repository=self.factor_manager.share_factor_repository,
+                            factor=factor,
+                            share=share,
+                            data=ticker_data,
+                            column_name='close_price',
+                            volatility_type=vol_config['volatility_type'],
+                            period=vol_config['period'],
+                            overwrite=overwrite
+                        )
+                        
+                        total_values += values_stored
+                        print(f"  ✅ {ticker}: stored {values_stored} {vol_config['name']} values")
+        
+        return {'values_calculated': total_values, 'factors_created': len(volatility_factors)}
+    
+    def _populate_target_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
+        """Populate target variable factors using new domain classes."""
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import TargetFactorShareValue
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import TargetFactorShare
+        
+        print("🎯 Populating target factors...")
+        
+        target_factors = [
+            {'name': 'target_returns', 'target_type': 'target_returns', 'forecast_horizon': 1, 'is_scaled': True},
+            {'name': 'target_returns_nonscaled', 'target_type': 'target_returns_nonscaled', 'forecast_horizon': 1, 'is_scaled': False}
+        ]
+        
+        total_values = 0
+        
+        for target_config in target_factors:
+            # Create or get factor definition
+            factor = self.factor_manager.share_factor_repository.get_by_name(target_config['name'])
+            if not factor:
+                factor = self.factor_manager.share_factor_repository.create_factor(
+                    name=target_config['name'],
+                    factor_type='target',
+                    description=f"Target variable: {target_config['target_type']} (horizon: {target_config['forecast_horizon']})"
+                )
+            
+            # Calculate and store values for each ticker
+            for ticker in tickers:
+                share = self.factor_manager.company_share_repository.get_by_ticker(ticker)
+                if share:
+                    share = share[0] if isinstance(share, list) else share
+                    
+                    # Load price data
+                    ticker_data = self._load_ticker_price_data(ticker)
+                    if ticker_data is not None and not ticker_data.empty:
+                        
+                        # Create domain entity and calculate values
+                        target_entity = TargetFactorShare(
+                            name=target_config['name'],
+                            factor_type='target',
+                            description=f"Target: {target_config['target_type']}",
+                            target_type=target_config['target_type'],
+                            forecast_horizon=target_config['forecast_horizon'],
+                            is_scaled=target_config['is_scaled']
+                        )
+                        
+                        target_calculator = TargetFactorShareValue(self.database_manager, target_entity)
+                        
+                        values_stored = target_calculator.store_factor_values(
+                            repository=self.factor_manager.share_factor_repository,
+                            factor=factor,
+                            share=share,
+                            data=ticker_data,
+                            column_name='close_price',
+                            target_type=target_config['target_type'],
+                            forecast_horizon=target_config['forecast_horizon'],
+                            is_scaled=target_config['is_scaled'],
+                            overwrite=overwrite
+                        )
+                        
+                        total_values += values_stored
+                        print(f"  ✅ {ticker}: stored {values_stored} {target_config['name']} values")
+        
+        return {'values_calculated': total_values, 'factors_created': len(target_factors)}
+    
+    def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
+        """Load all factor data for a single ticker from database."""
+        try:
+            # Use factor manager's method to load comprehensive factor data
+            factor_groups = ['price', 'momentum', 'technical', 'volatility', 'target']
+            ticker_data = self.factor_manager._get_ticker_factor_data(
+                ticker=ticker,
+                start_date=None,  # Use default date range
+                end_date=None,
+                factor_groups=factor_groups
+            )
+            
+            return ticker_data
+            
+        except Exception as e:
+            print(f"  ⚠️  Error loading factor data for {ticker}: {str(e)}")
+            return None
+    
+    def _load_ticker_price_data(self, ticker: str) -> Optional[pd.DataFrame]:
+        """Load price data for a single ticker from CSV files."""
+        try:
+            csv_file = self.factor_manager.stock_data_path / f"{ticker}_stock_data.csv"
+            if csv_file.exists():
+                data = pd.read_csv(csv_file, index_col=0, parse_dates=True)
+                return data
+            else:
+                print(f"  ⚠️  CSV file not found for {ticker}: {csv_file}")
+                return None
+                
+        except Exception as e:
+            print(f"  ⚠️  Error loading price data for {ticker}: {str(e)}")
+            return None
+    
+    def _prepare_factor_data(self, tickers: List[str]) -> Dict[str, pd.DataFrame]:
+        """Prepare factor-enhanced data for all tickers using database-driven approach."""
+        print(f"📊 Preparing factor data using database for {len(tickers)} tickers...")
+        
+        # Step 1: Ensure all factors exist in database (like backtestRunner)
+        self._ensure_factors_exist(tickers, overwrite=False)
+        
+        # Step 2: Load factor data from database for each ticker
         factor_data = {}
         
         for ticker in tickers:
-            # Extract ticker-specific columns
-            ticker_cols = [col for col in historical_data.columns if col.startswith(f"{ticker}_")]
-            if not ticker_cols:
-                continue
+            print(f"  🔍 Loading factor data for {ticker}...")
+            ticker_data = self._load_ticker_factor_data(ticker)
             
-            # Get ticker data
-            ticker_data = historical_data[ticker_cols].copy()
-            ticker_data.columns = [col.replace(f"{ticker}_", "") for col in ticker_data.columns]
-            
-            # Engineer features using factor manager
-            from ..data.feature_engineer import SpatiotemporalFeatureEngineer
-            feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
-            
-            if 'close_price' in ticker_data.columns:
-                enhanced_data = feature_engineer.engineer_all_features(
-                    ticker_data, 'close_price'
-                )
-                factor_data[ticker] = enhanced_data
+            if ticker_data is not None and not ticker_data.empty:
+                factor_data[ticker] = ticker_data
+                print(f"    ✅ Loaded {len(ticker_data)} records with {len(ticker_data.columns)} factors")
+            else:
+                print(f"    ⚠️  No factor data found for {ticker}")
         
+        print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data
     
     def _create_training_tensors(self, factor_data: Dict[str, pd.DataFrame], model_type: str) -> Dict[str, Any]:
