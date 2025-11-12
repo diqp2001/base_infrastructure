@@ -10,7 +10,7 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, date
 
-from application.managers.data_managers.data_manager_price import DataManagerPrice
+from application.managers.data_managers.data_manager_ratio import DataManagerRatio
 from application.managers.database_managers.database_manager import DatabaseManager
 from ..config import DEFAULT_CONFIG
 
@@ -24,7 +24,7 @@ class SpatiotemporalFeatureEngineer:
     def __init__(self, database_manager: DatabaseManager):
         self.database_manager = database_manager
         self.config = DEFAULT_CONFIG['SPATIOTEMPORAL']['FEATURES']
-        self.data_manager = DataManagerPrice(self.database_manager)
+        self.data_manager = DataManagerRatio(self.database_manager)
     
     def engineer_all_features(self, data: pd.DataFrame, price_column: str = 'close_price') -> pd.DataFrame:
         """

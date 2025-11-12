@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, List, Optional
 from src.application.managers.data_managers.data_manager import DataManager
 
-class DataManagerPrice(DataManager):
+class DataManagerRatio(DataManager):
     def __init__(self, database_manager, scaler: str = 'standard'):
         super().__init__(database_manager, scaler)
 
@@ -150,3 +150,60 @@ class DataManagerPrice(DataManager):
     def _calc_vol_series(self, data:pd.Series, window=1):
         s = data.ewm(span=window, min_periods=window).std().bfill()
         return s
+
+    # === NEW RATIO CALCULATION METHODS FOR TECHNICAL INDICATORS ===
+    
+    def calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
+        """Calculate Relative Strength Index ratio."""
+        delta = prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+
+    def calculate_stochastic_oscillator(self, high: pd.Series, low: pd.Series, close: pd.Series, 
+                                     k_period: int = 14, d_period: int = 3) -> Dict[str, pd.Series]:
+        """Calculate Stochastic Oscillator ratios."""
+        lowest_low = low.rolling(window=k_period).min()
+        highest_high = high.rolling(window=k_period).max()
+        k_percent = 100 * ((close - lowest_low) / (highest_high - lowest_low))
+        d_percent = k_percent.rolling(window=d_period).mean()
+        
+        return {
+            'k_percent': k_percent,
+            'd_percent': d_percent
+        }
+
+    def calculate_macd_ratio(self, prices: pd.Series, fast_period: int = 12, 
+                           slow_period: int = 26, signal_period: int = 9) -> Dict[str, pd.Series]:
+        """Calculate MACD ratio-based indicator."""
+        # Calculate EMAs
+        fast_ema = prices.ewm(span=fast_period).mean()
+        slow_ema = prices.ewm(span=slow_period).mean()
+        
+        # MACD line
+        macd_line = fast_ema - slow_ema
+        
+        # Signal line
+        signal_line = macd_line.ewm(span=signal_period).mean()
+        
+        # Histogram
+        histogram = macd_line - signal_line
+        
+        return {
+            'macd': macd_line,
+            'signal': signal_line,
+            'histogram': histogram
+        }
+
+    def calculate_bollinger_bands(self, prices: pd.Series, period: int = 20, std_dev: float = 2) -> Dict[str, pd.Series]:
+        """Calculate Bollinger Bands ratios."""
+        rolling_mean = prices.rolling(window=period).mean()
+        rolling_std = prices.rolling(window=period).std()
+        
+        return {
+            'upper': rolling_mean + (rolling_std * std_dev),
+            'lower': rolling_mean - (rolling_std * std_dev),
+            'middle': rolling_mean,
+            'bandwidth': (rolling_mean + (rolling_std * std_dev) - (rolling_mean - (rolling_std * std_dev))) / rolling_mean
+        }

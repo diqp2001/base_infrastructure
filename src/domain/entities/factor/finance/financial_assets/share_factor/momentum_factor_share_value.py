@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pandas as pd
 from decimal import Decimal
 from typing import Optional, List
-from application.managers.data_managers.data_manager_price import DataManagerPrice
+from application.managers.data_managers.data_manager_ratio import DataManagerRatio
 from application.managers.database_managers.database_manager import DatabaseManager
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import ShareMomentumFactor
@@ -21,7 +21,7 @@ class ShareMomentumFactorValue(ShareFactorValue):
     factor: Optional[ShareMomentumFactor] = None
 
     def __init__(self, database_manager: DatabaseManager, factor: ShareMomentumFactor):
-        self.data_manager = DataManagerPrice(database_manager)
+        self.data_manager = DataManagerRatio(database_manager)
         self.factor = factor
 
     def calculate(self, data: pd.DataFrame, column_name: str, period: int) -> pd.DataFrame:

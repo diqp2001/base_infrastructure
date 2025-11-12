@@ -6,13 +6,13 @@ from src.application.managers.data_managers.data_manager import DataManager
 from src.application.managers.model_managers.model_manager import ModelManager
 from application.managers.database_managers.database_manager import DatabaseManager
 from src.application.managers.model_managers.tft_model_manager import TFTModelManager
-from src.application.managers.data_managers.data_manager_price import DataManagerPrice
+from src.application.managers.data_managers.data_manager_ratio import DataManagerRatio
 
 import pandas as pd
 from typing import Dict
 
 class SpatioTemporalMomentumManager:
-    def __init__(self, database_manager: DatabaseManager, data_manager: DataManagerPrice, model_manager: TFTModelManager):
+    def __init__(self, database_manager: DatabaseManager, data_manager: DataManagerRatio, model_manager: TFTModelManager):
         self.database_manager = database_manager
         self.data_manager = data_manager
         self.model_manager = model_manager

@@ -6,6 +6,7 @@ from decimal import Decimal
 import pandas as pd
 
 from application.managers.database_managers.database_manager import DatabaseManager
+from application.managers.data_managers.data_manager_ratio import DataManagerRatio
 from .technical_factor_share import ShareTechnicalFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
 
@@ -15,58 +16,31 @@ class ShareTechnicalFactorValue(ShareFactorValue):
     """
     Domain entity representing technical indicator factor values for a share.
     Follows same pattern as MomentumFactorShareValue with repository storage.
+    Uses DataManagerRatio for ratio calculations like RSI, MACD, etc.
     """
 
     factor: Optional[ShareTechnicalFactor] = None
 
     def __init__(self, database_manager: DatabaseManager, factor: ShareTechnicalFactor):
         self.factor = factor
+        self.data_manager = DataManagerRatio(database_manager)
 
     def calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
-        """Calculate Relative Strength Index."""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
+        """Calculate Relative Strength Index using DataManagerRatio."""
+        return self.data_manager.calculate_rsi(prices, period)
 
     def calculate_bollinger_bands(self, prices: pd.Series, period: int = 20, std_dev: float = 2) -> Dict[str, pd.Series]:
-        """Calculate Bollinger Bands."""
-        rolling_mean = prices.rolling(window=period).mean()
-        rolling_std = prices.rolling(window=period).std()
-        
-        return {
-            'upper': rolling_mean + (rolling_std * std_dev),
-            'lower': rolling_mean - (rolling_std * std_dev),
-            'middle': rolling_mean
-        }
+        """Calculate Bollinger Bands using DataManagerRatio."""
+        return self.data_manager.calculate_bollinger_bands(prices, period, std_dev)
 
     def calculate_stochastic(self, high: pd.Series, low: pd.Series, close: pd.Series, 
                            k_period: int = 14, d_period: int = 3) -> Dict[str, pd.Series]:
-        """Calculate Stochastic Oscillator."""
-        lowest_low = low.rolling(window=k_period).min()
-        highest_high = high.rolling(window=k_period).max()
-        k_percent = 100 * ((close - lowest_low) / (highest_high - lowest_low))
-        d_percent = k_percent.rolling(window=d_period).mean()
-        
-        return {
-            'k': k_percent,
-            'd': d_percent
-        }
+        """Calculate Stochastic Oscillator using DataManagerRatio."""
+        return self.data_manager.calculate_stochastic_oscillator(high, low, close, k_period, d_period)
 
     def calculate_macd(self, prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Dict[str, pd.Series]:
-        """Calculate MACD (Moving Average Convergence Divergence)."""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd_line = ema_fast - ema_slow
-        signal_line = macd_line.ewm(span=signal).mean()
-        histogram = macd_line - signal_line
-        
-        return {
-            'macd': macd_line,
-            'signal': signal_line,
-            'histogram': histogram
-        }
+        """Calculate MACD using DataManagerRatio."""
+        return self.data_manager.calculate_macd_ratio(prices, fast, slow, signal)
 
     def calculate(self, data: pd.DataFrame, indicator_type: str, column_name: str, period: Optional[int] = None) -> pd.DataFrame:
         """
@@ -100,7 +74,7 @@ class ShareTechnicalFactorValue(ShareFactorValue):
                     calculated_df[high_col], calculated_df[low_col], calculated_df[required_col]
                 )
                 # For this example, use %K - can be customized per factor
-                calculated_df['indicator_value'] = stoch['k']
+                calculated_df['indicator_value'] = stoch['k_percent']
             elif indicator_type == "MACD":
                 # Handle MACD periods - period could be tuple (fast, slow) or None
                 if isinstance(period, tuple) and len(period) >= 2:
