@@ -261,10 +261,13 @@ class SpatiotemporalModelTrainer:
         tensor_data = {}
         
         # Configuration from config
-        feature_cols = (
+        expected_features = (
             self.features_config['momentum_features'] +
             self.features_config['technical_features']
         )
+        
+        # Create factor name mapping to handle differences between expected and actual column names
+        feature_cols = self._map_factor_names(factor_data, expected_features)
         
         if model_type in ['tft', 'both']:
             # Create multivariate tensors for TFT
@@ -299,6 +302,99 @@ class SpatiotemporalModelTrainer:
             tensor_data['univariate'] = univariate_splitter
         
         return tensor_data
+    
+    def _map_factor_names(self, factor_data: Dict[str, pd.DataFrame], expected_features: List[str]) -> List[str]:
+        """
+        Map expected factor names to actual column names in the factor data.
+        
+        Handles cases where MACD factors or other technical indicators might be
+        created with different names than expected in the config.
+        """
+        if not factor_data:
+            return expected_features
+        
+        # Get all available columns from the first ticker's data
+        sample_ticker = list(factor_data.keys())[0]
+        available_columns = set(factor_data[sample_ticker].columns)
+        
+        mapped_features = []
+        
+        for expected_name in expected_features:
+            if expected_name in available_columns:
+                # Direct match - use as is
+                mapped_features.append(expected_name)
+            else:
+                # Try to find alternative names for MACD factors
+                if expected_name.startswith('macd_'):
+                    # Handle MACD factor name mapping
+                    # Expected: macd_8_24, macd_16_48, macd_32_96
+                    # Possible actual names: macd, MACD, macd_line, etc.
+                    
+                    # Extract periods from expected name (e.g., "8" and "24" from "macd_8_24")
+                    parts = expected_name.split('_')
+                    if len(parts) >= 3:
+                        fast_period, slow_period = parts[1], parts[2]
+                        
+                        # Try various possible MACD column names
+                        possible_names = [
+                            'macd',  # Simple name
+                            'MACD',  # Uppercase
+                            f'macd_{fast_period}_{slow_period}',  # Expected format
+                            f'MACD_{fast_period}_{slow_period}',  # Uppercase variant
+                            'macd_line',  # Descriptive name
+                            f'macd_line_{fast_period}_{slow_period}',  # Descriptive with periods
+                        ]
+                        
+                        # Find first match
+                        matched_name = None
+                        for possible_name in possible_names:
+                            if possible_name in available_columns:
+                                matched_name = possible_name
+                                break
+                        
+                        if matched_name:
+                            mapped_features.append(matched_name)
+                            print(f"  🔄 Mapped {expected_name} → {matched_name}")
+                        else:
+                            print(f"  ⚠️  Could not find mapping for {expected_name}")
+                            # Still add expected name to let tensor creation handle the missing column
+                            mapped_features.append(expected_name)
+                    else:
+                        print(f"  ⚠️  Invalid MACD factor name format: {expected_name}")
+                        mapped_features.append(expected_name)
+                else:
+                    # For non-MACD factors, try some common alternatives
+                    alternative_names = []
+                    
+                    # For normalized returns
+                    if expected_name.startswith('norm_') and expected_name.endswith('_return'):
+                        # Try mapping from deep_momentum factors
+                        momentum_mapping = {
+                            'norm_daily_return': ['deep_momentum_1d', 'momentum_1d'],
+                            'norm_monthly_return': ['deep_momentum_5d', 'momentum_5d'], 
+                            'norm_quarterly_return': ['deep_momentum_21d', 'momentum_21d'],
+                            'norm_biannual_return': ['deep_momentum_63d', 'momentum_63d'],
+                            'norm_annual_return': ['deep_momentum_126d', 'momentum_126d']
+                        }
+                        alternative_names = momentum_mapping.get(expected_name, [])
+                    
+                    # Find first match
+                    matched_name = None
+                    for alt_name in alternative_names:
+                        if alt_name in available_columns:
+                            matched_name = alt_name
+                            break
+                    
+                    if matched_name:
+                        mapped_features.append(matched_name)
+                        print(f"  🔄 Mapped {expected_name} → {matched_name}")
+                    else:
+                        print(f"  ⚠️  Could not find mapping for {expected_name}")
+                        # Still add expected name to let tensor creation handle the missing column
+                        mapped_features.append(expected_name)
+        
+        print(f"  📋 Feature mapping complete: {len(mapped_features)}/{len(expected_features)} features mapped")
+        return mapped_features
     
     def _train_models(self, tensor_data: Dict[str, Any], model_type: str, seeds: List[int]) -> Dict[str, Any]:
         """Train the specified model types."""
