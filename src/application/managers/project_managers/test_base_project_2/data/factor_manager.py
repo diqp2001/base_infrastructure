@@ -694,7 +694,7 @@ class FactorEnginedDataManager:
         factor_data = {}
         for factor in factors:
             values = self.share_factor_repository.get_factor_values(
-                factor.id, share.id, start_date, end_date
+                int(factor.id), share.id, start_date, end_date
             )
             if values:
                 factor_data[factor.name] = {
