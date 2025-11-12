@@ -420,6 +420,15 @@ class FactorEnginedDataManager:
                 elif 'stoch' in name_lower:
                     indicator_type = "Stochastic"
                     period = 14  # Default Stochastic period
+                elif 'macd' in name_lower:
+                    indicator_type = "MACD"
+                    # Extract fast and slow periods from MACD name like "macd_8_24"
+                    import re
+                    periods_match = re.findall(r'(\d+)', factor_def['name'])
+                    if len(periods_match) >= 2:
+                        period = (int(periods_match[0]), int(periods_match[1]))  # (fast, slow)
+                    else:
+                        period = (12, 26)  # Default MACD periods
                 
                 # Create domain technical factor entity
                 technical_factor = TechnicalFactorShare(
