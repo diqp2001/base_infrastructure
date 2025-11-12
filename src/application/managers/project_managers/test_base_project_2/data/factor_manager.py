@@ -657,7 +657,7 @@ class FactorEnginedDataManager:
                 values_stored += self.share_factor_repository._store_factor_values(
                     factor, share, data, column, overwrite
                 )
-        
+
         return values_stored
     
     def _store_price_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
