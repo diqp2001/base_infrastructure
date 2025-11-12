@@ -1,98 +1,26 @@
 # domain/entities/factor/finance/financial_assets/share_factor/technical_factor_share_value.py
 
-from __future__ import annotations
-from typing import List, Optional, Dict, Any
-from datetime import date, datetime
+from dataclasses import dataclass
+from typing import Optional, Dict
 from decimal import Decimal
 import pandas as pd
 
 from application.managers.database_managers.database_manager import DatabaseManager
 from .technical_factor_share import TechnicalFactorShare
 from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue
-from infrastructure.models.factor.finance.financial_assets.share_factors import ShareFactorValue
 
 
+@dataclass
 class TechnicalFactorShareValue(ShareFactorValue):
-    """Value calculator and storage handler for technical indicator factors."""
+    """
+    Domain entity representing technical indicator factor values for a share.
+    Follows same pattern as MomentumFactorShareValue with repository storage.
+    """
+
+    factor: Optional[TechnicalFactorShare] = None
 
     def __init__(self, database_manager: DatabaseManager, factor: TechnicalFactorShare):
-        super().__init__(database_manager, factor)
-        self.technical_factor = factor
-
-    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
-        """
-        Sanitize and validate factor values to handle ANY data type safely.
-        Prevents type comparison errors with string values.
-        """
-        if value is None or pd.isna(value):
-            return None
-            
-        if isinstance(value, Decimal):
-            return value if value.is_finite() else None
-            
-        str_value = str(value).strip()
-        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
-        if str_value.lower() in invalid_indicators:
-            return None
-            
-        try:
-            float_value = float(str_value)
-            if not (float_value == float_value and abs(float_value) != float('inf')):
-                return None
-            return Decimal(str(float_value))
-        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
-            return None
-    
-    def store_package_technical_factors(
-        self,
-        data: pd.DataFrame,
-        column_name: str,
-        entity_id: int,
-        factor_id: int,
-        indicator_type: str
-    ) -> List[ShareFactorValue]:
-        """
-        Store technical indicator values as factor values.
-        
-        Args:
-            data: DataFrame with technical indicator values
-            column_name: Column containing the indicator values
-            entity_id: Company share entity ID
-            factor_id: Factor ID in the database
-            indicator_type: Type of technical indicator
-            
-        Returns:
-            List of ShareFactorValue ORM objects ready for database storage
-        """
-        orm_values = []
-        
-        for index, row in data.iterrows():
-            if pd.isna(row[column_name]):
-                continue
-                
-            # Handle datetime index
-            trade_date = index.date() if isinstance(index, datetime) else index
-            
-            try:
-                # Sanitize value to prevent type comparison errors
-                sanitized_value = self._sanitize_factor_value(row[column_name])
-                if sanitized_value is None:
-                    continue  # Skip invalid values
-                    
-                # Create ORM object
-                orm_value = ShareFactorValue(
-                    factor_id=factor_id,
-                    entity_id=entity_id,
-                    date=trade_date,
-                    value=sanitized_value
-                )
-                orm_values.append(orm_value)
-                
-            except (ValueError, TypeError) as e:
-                print(f"      ⚠️  Error processing {indicator_type} value for {trade_date}: {str(e)}")
-                continue
-        
-        return orm_values
+        self.factor = factor
 
     def calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
         """Calculate Relative Strength Index."""
@@ -125,3 +53,98 @@ class TechnicalFactorShareValue(ShareFactorValue):
             'k': k_percent,
             'd': d_percent
         }
+
+    def calculate(self, data: pd.DataFrame, indicator_type: str, period: Optional[int] = None) -> pd.DataFrame:
+        """
+        Calculate technical indicator values based on type.
+        Returns DataFrame with calculated values.
+        """
+        try:
+            # Standardize column names if needed
+            if 'Close' in data.columns and 'close_price' not in data.columns:
+                data = data.rename(columns={
+                    'Open': 'open_price', 'High': 'high_price',
+                    'Low': 'low_price', 'Close': 'close_price',
+                    'Adj Close': 'adj_close_price', 'Volume': 'volume'
+                })
+
+            calculated_df = data.copy()
+            
+            if indicator_type == "RSI":
+                calculated_df['indicator_value'] = self.calculate_rsi(
+                    calculated_df['close_price'], period or 14
+                )
+            elif indicator_type == "Bollinger":
+                bollinger = self.calculate_bollinger_bands(calculated_df['close_price'])
+                # For this example, use upper band - can be customized per factor
+                calculated_df['indicator_value'] = bollinger['upper'] 
+            elif indicator_type == "Stochastic":
+                stoch = self.calculate_stochastic(
+                    calculated_df['high_price'], calculated_df['low_price'], calculated_df['close_price']
+                )
+                # For this example, use %K - can be customized per factor
+                calculated_df['indicator_value'] = stoch['k']
+            
+            return calculated_df
+
+        except Exception as e:
+            print(f"⚠️  Error calculating {indicator_type} features: {e}")
+            return pd.DataFrame()
+
+    def store_factor_values(
+        self,
+        repository,
+        factor,
+        share,
+        data: pd.DataFrame,
+        column_name: str,
+        indicator_type: str,
+        period: Optional[int],
+        overwrite: bool
+    ) -> int:
+        """
+        Store technical indicator values using repository pattern.
+        Same approach as momentum factors _store_factor_values method.
+        """
+        try:
+            # Calculate technical indicator values
+            calculated_df = self.calculate(data=data, indicator_type=indicator_type, period=period)
+            if calculated_df.empty:
+                return 0
+
+            # Use repository's _store_factor_values method (same as momentum factors)
+            values_stored = repository._store_factor_values(
+                factor, share, calculated_df, 'indicator_value', overwrite
+            )
+
+            return values_stored
+
+        except Exception as e:
+            print(f"❌ Error storing {indicator_type} factor values: {e}")
+            return 0
+
+    def store_package_technical_factors(
+        self,
+        repository,
+        factor,
+        share,
+        data: pd.DataFrame,
+        column_name: str,
+        indicator_type: str,
+        period: Optional[int],
+        overwrite: bool
+    ) -> int:
+        """
+        Store technical indicator values for a single factor.
+        Returns count of stored values (same pattern as momentum factors).
+        """
+        return self.store_factor_values(
+            repository=repository,
+            factor=factor,
+            share=share,
+            data=data,
+            column_name=column_name,
+            indicator_type=indicator_type,
+            period=period,
+            overwrite=overwrite
+        )

@@ -543,11 +543,10 @@ class FactorEnginedDataManager:
     
     def _calculate_technical_factor_values(self, tickers: List[str], overwrite: bool, 
                                          technical_domain_factors: List[TechnicalFactorShare]) -> Dict[str, Any]:
-        """Calculate and store technical indicator values using domain entities."""
-        print("  🔧 Calculating technical indicator values...")
-        
+        """Calculate and store technical indicator values using domain entities (same pattern as momentum factors)."""
+        print("📊 Calculating technical indicator values...")
         total_values = 0
-        
+
         for factor in technical_domain_factors:
             technical_value = TechnicalFactorShareValue(
                 database_manager=self.database_manager, 
@@ -555,77 +554,41 @@ class FactorEnginedDataManager:
             )
             
             for ticker in tickers:
-                csv_file = self.stock_data_path / f"{ticker}.csv"
-                if not csv_file.exists():
-                    continue
-                    
                 try:
                     company = self.company_share_repository.get_by_ticker(ticker)[0]
                     
-                    # Load price data
+                    # Load price data from CSV (same as momentum factors load Close factor values)
+                    csv_file = self.stock_data_path / f"{ticker}.csv"
+                    if not csv_file.exists():
+                        continue
+                        
                     df = pd.read_csv(csv_file)
                     df['Date'] = pd.to_datetime(df['Date'])
                     df.set_index('Date', inplace=True)
                     
-                    # Standardize column names
-                    df = df.rename(columns={
-                        'Open': 'open_price', 'High': 'high_price',
-                        'Low': 'low_price', 'Close': 'close_price',
-                        'Adj Close': 'adj_close_price', 'Volume': 'volume'
-                    })
+                    # Get repository factor for technical storage
+                    repository_factor = self.share_factor_repository.get_by_name(factor.name)
                     
-                    # Calculate specific technical indicator based on factor type
-                    if factor.indicator_type == "RSI":
-                        df['indicator_value'] = technical_value.calculate_rsi(
-                            df['close_price'], factor.period or 14
+                    if repository_factor:
+                        # Use repository pattern (same as momentum factors)
+                        values_stored = technical_value.store_package_technical_factors(
+                            repository=self.share_factor_repository,
+                            factor=repository_factor,
+                            share=company,
+                            data=df,
+                            column_name="Close",  # Will be processed in calculate() method
+                            indicator_type=factor.indicator_type,
+                            period=factor.period,
+                            overwrite=overwrite
                         )
-                    elif factor.indicator_type == "Bollinger":
-                        if 'upper' in factor.name.lower():
-                            bollinger = technical_value.calculate_bollinger_bands(df['close_price'])
-                            df['indicator_value'] = bollinger['upper']
-                        elif 'lower' in factor.name.lower():
-                            bollinger = technical_value.calculate_bollinger_bands(df['close_price'])
-                            df['indicator_value'] = bollinger['lower']
-                    elif factor.indicator_type == "Stochastic":
-                        stoch = technical_value.calculate_stochastic(
-                            df['high_price'], df['low_price'], df['close_price']
-                        )
-                        if 'k' in factor.name.lower():
-                            df['indicator_value'] = stoch['k']
-                        elif 'd' in factor.name.lower():
-                            df['indicator_value'] = stoch['d']
-                    
-                    # Store the calculated technical indicator values
-                    orm_values = technical_value.store_package_technical_factors(
-                        data=df,
-                        column_name="indicator_value",
-                        entity_id=company.id,
-                        factor_id=factor.factor_id,
-                        indicator_type=factor.indicator_type
-                    )
-                    
-                    if orm_values:
-                        # Store the ORM values directly using session
-                        for orm_value in orm_values:
-                            if not overwrite:
-                                # Check if value already exists
-                                existing = self.share_factor_repository.factor_value_exists(
-                                    orm_value.factor_id, orm_value.entity_id, orm_value.date
-                                )
-                                if existing:
-                                    continue
-                            
-                            self.database_manager.session.add(orm_value)
-                        
-                        self.database_manager.session.commit()
-                        total_values += len(orm_values)
-                        
-                    print(f"    ✅ {ticker}: stored {len(orm_values)} {factor.indicator_type} values")
-                    
+
+                        total_values += values_stored
+                        print(f"✅ {ticker}: stored {values_stored} {factor.indicator_type} values")
+
                 except Exception as e:
-                    print(f"    ❌ Error processing {factor.indicator_type} for {ticker}: {str(e)}")
-        
-        return {'total_values': total_values}
+                    print(f"❌ Error processing {ticker} for {factor.name}: {e}")
+
+        return {"total_values": total_values}
     
     def _store_momentum_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store momentum features as factor values."""
