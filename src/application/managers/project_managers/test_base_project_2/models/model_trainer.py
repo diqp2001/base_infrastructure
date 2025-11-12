@@ -15,6 +15,7 @@ from .spatiotemporal_model import HybridSpatiotemporalModel
 from .tensor_splitter import TensorSplitterManager
 from ..data.data_loader import SpatiotemporalDataLoader
 from ..data.factor_manager import FactorEnginedDataManager
+from ..data.factor_normalizer import FactorNormalizer
 from ..config import DEFAULT_CONFIG
 
 
@@ -39,6 +40,7 @@ class SpatiotemporalModelTrainer:
         # Initialize components
         self.data_loader = SpatiotemporalDataLoader(database_manager)
         self.factor_manager = FactorEnginedDataManager(database_manager)  # Use factor system for database-driven approach
+        self.factor_normalizer = FactorNormalizer(database_manager)  # NEW: Factor normalization component
         self.tensor_splitter = TensorSplitterManager()
         self.model = HybridSpatiotemporalModel()
         
@@ -70,16 +72,20 @@ class SpatiotemporalModelTrainer:
         print("\n📊 Step 1: Preparing factor-enhanced data...")
         factor_data = self._prepare_factor_data(tickers)
         
-        # Step 2: Create training tensors (separate step as requested)
-        print("\n🔧 Step 2: Creating training tensors...")
-        tensor_data = self._create_training_tensors(factor_data, model_type)
+        # Step 2: NEW - Apply comprehensive normalization and factor enhancement
+        print("\n🔧 Step 2: Normalizing and enhancing factors...")
+        normalized_factor_data = self._normalize_and_enhance_factors(factor_data)
         
-        # Step 3: Train models
-        print("\n🚀 Step 3: Training spatiotemporal models...")
+        # Step 3: Create training tensors (separate step as requested)
+        print("\n🔧 Step 3: Creating training tensors...")
+        tensor_data = self._create_training_tensors(normalized_factor_data, model_type)
+        
+        # Step 4: Train models
+        print("\n🚀 Step 4: Training spatiotemporal models...")
         training_results = self._train_models(tensor_data, model_type, seeds)
         
-        # Step 4: Evaluate performance
-        print("\n📈 Step 4: Evaluating model performance...")
+        # Step 5: Evaluate performance
+        print("\n📈 Step 5: Evaluating model performance...")
         performance_summary = self._evaluate_model_performance(training_results)
         
         # Compile final results
@@ -222,6 +228,33 @@ class SpatiotemporalModelTrainer:
         
         print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data
+    
+    def _normalize_and_enhance_factors(self, factor_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        """
+        Apply comprehensive factor normalization and enhancement.
+        
+        This method is inserted between _prepare_factor_data and _create_training_tensors
+        to handle missing factors and apply normalization.
+        
+        Args:
+            factor_data: Dictionary of {ticker: DataFrame} with raw factor values
+            
+        Returns:
+            Dictionary of {ticker: DataFrame} with normalized and enhanced factor data
+        """
+        print("🔧 Applying comprehensive factor normalization and enhancement...")
+        
+        # Apply the comprehensive normalization pipeline
+        enhanced_factor_data = self.factor_normalizer.apply_comprehensive_normalization(factor_data)
+        
+        # Log the enhancement results
+        for ticker, df in enhanced_factor_data.items():
+            original_cols = len(factor_data[ticker].columns) if ticker in factor_data else 0
+            new_cols = len(df.columns)
+            print(f"  ✅ {ticker}: {original_cols} → {new_cols} factors")
+        
+        print("✅ Factor normalization and enhancement complete")
+        return enhanced_factor_data
     
     def _create_training_tensors(self, factor_data: Dict[str, pd.DataFrame], model_type: str) -> Dict[str, Any]:
         """Create training tensors for specified model types."""
