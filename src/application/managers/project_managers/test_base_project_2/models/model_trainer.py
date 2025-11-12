@@ -117,7 +117,7 @@ class SpatiotemporalModelTrainer:
         momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
         
         # 4. Calculate technical indicators
-        technical_summary = self.factor_manager.calculate_technical_indicators(tickers, overwrite)
+        technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
         
         # 5. Create volatility and target factors (NEW)
         volatility_summary = self._populate_volatility_factors(tickers, overwrite)

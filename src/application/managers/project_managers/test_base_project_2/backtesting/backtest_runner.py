@@ -115,7 +115,7 @@ class BacktestRunner:
             momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
             
             # Calculate technical indicators
-            technical_summary = self.factor_manager.calculate_technical_indicators(tickers, overwrite)
+            technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
             
             setup_results = {
                 'tickers': tickers,

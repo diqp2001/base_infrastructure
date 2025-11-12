@@ -138,7 +138,7 @@ class FactorEnginedDataManager:
         
         return total_summary
     
-    def calculate_technical_indicators(self,
+    def populate_technical_indicators(self,
                                      tickers: Optional[List[str]] = None,
                                      overwrite: bool = False) -> Dict[str, Any]:
         """
