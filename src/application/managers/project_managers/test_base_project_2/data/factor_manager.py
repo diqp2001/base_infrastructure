@@ -566,14 +566,14 @@ class FactorEnginedDataManager:
                 try:
                     company = self.company_share_repository.get_by_ticker(ticker)[0]
                     
-                    # Load price data from CSV (same as momentum factors load Close factor values)
-                    csv_file = self.stock_data_path / f"{ticker}.csv"
-                    if not csv_file.exists():
-                        continue
-                        
-                    df = pd.read_csv(csv_file)
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df.set_index('Date', inplace=True)
+                    factorentityClose = self.share_factor_repository.get_by_name('Close')
+                    df = self.share_factor_repository.get_factor_values_df(
+                        factor_id=int(factorentityClose.id), 
+                        entity_id=company.id
+                    )
+                    df["date"] = pd.to_datetime(df["date"])
+                    df.set_index("date", inplace=True)
+                    df["value"] = df["value"].astype(float)
                     
                     # Get repository factor for technical storage
                     repository_factor = self.share_factor_repository.get_by_name(factor.name)
@@ -585,7 +585,7 @@ class FactorEnginedDataManager:
                             factor=repository_factor,
                             share=company,
                             data=df,
-                            column_name="Close",  # Will be processed in calculate() method
+                            column_name="value",  # Will be processed in calculate() method
                             indicator_type=factor.indicator_type,
                             period=factor.period,
                             overwrite=overwrite

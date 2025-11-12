@@ -68,7 +68,7 @@ class TechnicalFactorShareValue(ShareFactorValue):
             'histogram': histogram
         }
 
-    def calculate(self, data: pd.DataFrame, indicator_type: str, period: Optional[int] = None) -> pd.DataFrame:
+    def calculate(self, data: pd.DataFrame, indicator_type: str, column_name: str, period: Optional[int] = None) -> pd.DataFrame:
         """
         Calculate technical indicator values based on type.
         Returns DataFrame with calculated values.
@@ -76,16 +76,9 @@ class TechnicalFactorShareValue(ShareFactorValue):
         try:
             calculated_df = data.copy()
             
-            # Standardize column names - check multiple possibilities
-            if 'Close' in calculated_df.columns and 'close_price' not in calculated_df.columns:
-                calculated_df = calculated_df.rename(columns={
-                    'Open': 'open_price', 'High': 'high_price',
-                    'Low': 'low_price', 'Close': 'close_price',
-                    'Adj Close': 'adj_close_price', 'Volume': 'volume'
-                })
             
-            # Check if we have the required columns
-            required_col = 'close_price' if 'close_price' in calculated_df.columns else 'Close'
+            
+            required_col = column_name
             if required_col not in calculated_df.columns:
                 print(f"❌ Error: Neither 'close_price' nor 'Close' found in DataFrame")
                 print(f"Available columns: {list(calculated_df.columns)}")
@@ -148,7 +141,7 @@ class TechnicalFactorShareValue(ShareFactorValue):
         """
         try:
             # Calculate technical indicator values
-            calculated_df = self.calculate(data=data, indicator_type=indicator_type, period=period)
+            calculated_df = self.calculate(data=data, indicator_type=indicator_type,column_name=column_name, period=period)
             if calculated_df.empty:
                 return 0
 
