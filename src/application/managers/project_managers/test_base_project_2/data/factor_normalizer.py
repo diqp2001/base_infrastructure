@@ -524,7 +524,7 @@ class FactorNormalizer:
     
     def _quantile_normalize(self, values: np.ndarray) -> np.ndarray:
         """Apply quantile normalization."""
-        from scipy.stats import norm
+        from scipy.stats import norm, rankdata
         ranks = rankdata(values, method='average')
         quantiles = (ranks - 0.5) / len(values)
         return norm.ppf(quantiles)
