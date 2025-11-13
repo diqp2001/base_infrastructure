@@ -48,6 +48,9 @@ class SpatiotemporalFeatureEngineer:
         # Add MACD technical features
         feature_data = self.add_macd_signal_features(feature_data, price_column)
         
+        # Add additional technical indicators
+        feature_data = self.add_technical_indicators(feature_data, price_column)
+        
         # Add volatility features
         feature_data = self.add_volatility_features(feature_data, price_column)
         
@@ -103,25 +106,19 @@ class SpatiotemporalFeatureEngineer:
     
     def add_macd_signal_features(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """
-        Add MACD signal features using the spatiotemporal_momentum_manager approach.
+        Add MACD signal features using DataManagerRatio.
         
         Creates MACD indicators across multiple timeframes:
         - 8/24, 16/48, 32/96 period combinations
         """
         print("  📊 Adding MACD signal features...")
         
-        try:
-            # Use the data_manager from spatiotemporal_momentum_manager
-            enhanced_data = self.data_manager.add_macd_signal_features(
-                data=data,
-                column_name=column_name
-            )
-            return enhanced_data
-            
-        except Exception as e:
-            print(f"  ⚠️  Error in MACD features: {str(e)}")
-            # Fallback: create basic MACD features manually
-            return self._create_basic_macd_features(data, column_name)
+        # Use the data_manager from DataManagerRatio (moved from feature_engineer)
+        enhanced_data = self.data_manager.add_macd_signal_features(
+            data=data,
+            column_name=column_name
+        )
+        return enhanced_data
     
     def _create_basic_macd_features(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """Fallback method to create basic MACD features."""
@@ -224,21 +221,23 @@ class SpatiotemporalFeatureEngineer:
     
     def add_technical_indicators(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """
-        Add additional technical indicators for enhanced feature set.
+        Add additional technical indicators using DataManagerRatio methods.
         """
         print("  🔧 Adding technical indicators...")
         
         feature_data = data.copy()
         
-        # RSI (Relative Strength Index)
-        feature_data = self._add_rsi(feature_data, column_name, period=14)
+        # RSI (Relative Strength Index) - using DataManagerRatio
+        feature_data = self.data_manager.add_rsi(feature_data, column_name, period=14)
         
-        # Bollinger Bands
-        feature_data = self._add_bollinger_bands(feature_data, column_name, period=20, std_dev=2)
+        # Bollinger Bands - using DataManagerRatio  
+        feature_data = self.data_manager.add_bollinger_bands(feature_data, column_name, period=20, std_dev=2)
         
-        # Stochastic Oscillator
+        # Stochastic Oscillator - using DataManagerRatio
         if 'high_price' in data.columns and 'low_price' in data.columns:
-            feature_data = self._add_stochastic(feature_data, 'high_price', 'low_price', column_name)
+            feature_data = self.data_manager.add_stochastic(feature_data, 'high_price', 'low_price', column_name)
+        else:
+            feature_data = self.data_manager.add_stochastic(feature_data, column_name, column_name, column_name)
         
         return feature_data
     

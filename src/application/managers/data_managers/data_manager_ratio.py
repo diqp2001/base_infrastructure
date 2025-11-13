@@ -207,3 +207,39 @@ class DataManagerRatio(DataManager):
             'middle': rolling_mean,
             'bandwidth': (rolling_mean + (rolling_std * std_dev) - (rolling_mean - (rolling_std * std_dev))) / rolling_mean
         }
+
+    def add_rsi(self, data: pd.DataFrame, column_name: str, period: int = 14) -> pd.DataFrame:
+        """Add RSI indicator using ratio-based calculation."""
+        rsi_values = self.calculate_rsi(data[column_name], period)
+        data[f'rsi_{period}'] = rsi_values
+        return data
+
+    def add_bollinger_bands(self, data: pd.DataFrame, column_name: str, period: int = 20, std_dev: float = 2) -> pd.DataFrame:
+        """Add Bollinger Bands using ratio-based calculation."""
+        bb_values = self.calculate_bollinger_bands(data[column_name], period, std_dev)
+        
+        data['bollinger_middle'] = bb_values['middle']
+        data['bollinger_upper'] = bb_values['upper']
+        data['bollinger_lower'] = bb_values['lower']
+        data['bollinger_width'] = bb_values['upper'] - bb_values['lower']
+        data['bollinger_position'] = (data[column_name] - bb_values['lower']) / (bb_values['upper'] - bb_values['lower'])
+        
+        return data
+
+    def add_stochastic(self, data: pd.DataFrame, high_col: str, low_col: str, close_col: str, k_period: int = 14, d_period: int = 3) -> pd.DataFrame:
+        """Add Stochastic Oscillator using ratio-based calculation."""
+        if high_col not in data.columns or low_col not in data.columns:
+            print(f"Warning: Required columns {high_col} or {low_col} not found. Using close price for approximation.")
+            # Use close price with rolling min/max as approximation
+            high_series = data[close_col].rolling(window=5).max()
+            low_series = data[close_col].rolling(window=5).min()
+        else:
+            high_series = data[high_col]
+            low_series = data[low_col]
+            
+        stoch_values = self.calculate_stochastic_oscillator(high_series, low_series, data[close_col], k_period, d_period)
+        
+        data['stoch_k'] = stoch_values['k_percent']
+        data['stoch_d'] = stoch_values['d_percent']
+        
+        return data
