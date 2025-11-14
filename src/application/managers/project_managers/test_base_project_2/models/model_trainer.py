@@ -508,15 +508,24 @@ class SpatiotemporalModelTrainer:
         """Combine ticker data for multivariate tensor creation."""
         combined_data = []
         
+        # Get expected feature columns that should NOT be renamed
+        expected_features = (
+            self.features_config['momentum_features'] +
+            self.features_config['technical_features'] +
+            self.features_config['volatility_features']
+        )
+        # Also preserve common required columns
+        preserve_columns = expected_features + ['target_returns', 'target_returns_nonscaled', 'daily_vol', 'monthly_vol', 'asset']
+        
         for ticker, data in factor_data.items():
             # Add ticker column for asset identification
             data_with_ticker = data.copy()
             data_with_ticker['asset'] = ticker
             
-            # Rename columns to avoid conflicts
+            # Only rename columns that are NOT expected features or required columns
             column_mapping = {}
             for col in data.columns:
-                if col not in ['asset', 'Date']:
+                if col not in preserve_columns and col not in ['Date']:
                     column_mapping[col] = f"{ticker}_{col}"
             
             data_with_ticker = data_with_ticker.rename(columns=column_mapping)
