@@ -173,6 +173,117 @@ class BaseProjectAlgorithm(QCAlgorithm):
             "histogram": histogram
         }
 
+    def _setup_factor_data_for_ticker(self, ticker: str, current_time: datetime) -> pd.DataFrame:
+        """
+        Set up factor-based data for a specific ticker, similar to setup_factor_system.
+        
+        This replaces _prepare_features() and uses the comprehensive factor system
+        instead of basic technical analysis.
+        """
+        try:
+            self.log(f"Setting up factor data for {ticker}...")
+            
+            # If we have a factor manager, use the comprehensive factor system
+            if hasattr(self, 'factor_manager') and self.factor_manager:
+                self.log(f"Using factor manager for {ticker} data...")
+                
+                # Ensure entity exists for this ticker
+                try:
+                    self.factor_manager._ensure_entities_exist([ticker])
+                except Exception as e:
+                    self.log(f"Warning: Could not ensure entities for {ticker}: {e}")
+                
+                # Get factor data for the training window
+                try:
+                    # Get comprehensive factor data including price, momentum, and technical factors
+                    factor_data = self.factor_manager.get_factor_data_for_training(
+                        tickers=[ticker],
+                        factor_groups=['price', 'momentum', 'technical'],
+                        lookback_days=self.train_window,
+                        end_date=current_time
+                    )
+                    
+                    if not factor_data.empty:
+                        self.log(f"Retrieved {len(factor_data)} factor data points for {ticker}")
+                        
+                        # Convert factor data to the format expected by the model
+                        df = self._convert_factor_data_to_training_format(factor_data, ticker)
+                        if not df.empty:
+                            return df
+                    else:
+                        self.log(f"No factor data available for {ticker}, falling back to basic features")
+                except Exception as e:
+                    self.log(f"Error getting factor data for {ticker}: {e}")
+                
+            # Fallback: use the original _prepare_features method
+            self.log(f"Using fallback feature preparation for {ticker}")
+            history = self.history(
+                [ticker],
+                self.train_window,
+                Resolution.DAILY,
+                end_time=current_time
+            )
+            return self._prepare_features(history)
+            
+        except Exception as e:
+            self.log(f"Error setting up factor data for {ticker}: {str(e)}")
+            # Return empty DataFrame to trigger fallback logic
+            return pd.DataFrame()
+    
+    def _convert_factor_data_to_training_format(self, factor_data: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """
+        Convert factor system data to the format expected by the training algorithm.
+        
+        This ensures compatibility with existing model training code that expects
+        specific column names like return_lag1, return_lag2, volatility, etc.
+        """
+        try:
+            df = factor_data.copy()
+            
+            # Map factor system columns to expected training columns
+            column_mapping = {}
+            
+            # Price-based features
+            if 'Close' in df.columns:
+                df['close'] = df['Close']
+                df["return"] = df["close"].pct_change()
+                df["return_lag1"] = df["return"].shift(1)
+                df["return_lag2"] = df["return"].shift(2)
+                df["return_fwd1"] = df["return"].shift(-1)  # Target variable
+                column_mapping['Close'] = 'close'
+            
+            # Volatility from factor system or calculate it
+            if 'realized_vol' in df.columns:
+                df['volatility'] = df['realized_vol']
+                column_mapping['realized_vol'] = 'volatility'
+            elif 'daily_vol' in df.columns:
+                df['volatility'] = df['daily_vol']
+                column_mapping['daily_vol'] = 'volatility'
+            elif 'close' in df.columns:
+                # Calculate volatility if not available in factor system
+                df["volatility"] = df["return"].rolling(self.lookback_window).std()
+            
+            # Use momentum factors from the factor system
+            momentum_factors = ['deep_momentum_1d', 'deep_momentum_5d', 'deep_momentum_21d', 'deep_momentum_63d']
+            for factor in momentum_factors:
+                if factor in df.columns:
+                    # Keep momentum factors as they are - they're already properly calculated
+                    continue
+            
+            # Use technical indicators from factor system
+            technical_factors = ['rsi_14', 'macd', 'bollinger_upper', 'bollinger_lower']
+            for factor in technical_factors:
+                if factor in df.columns:
+                    # Keep technical factors as they are
+                    continue
+            
+            self.log(f"Converted factor data for {ticker}: {len(df)} rows, columns: {list(df.columns)}")
+            return df.dropna()
+            
+        except Exception as e:
+            self.log(f"Error converting factor data for {ticker}: {str(e)}")
+            return pd.DataFrame()
+
     # ---------------------------
     # Train one model (Enhanced with ML integration)
     # ---------------------------
@@ -190,7 +301,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 end_time=current_time
             )
 
-            df = self._prepare_features(history)
+            df = self._setup_factor_data_for_ticker(ticker, current_time)
             if df.empty:
                 return None
 
@@ -299,9 +410,8 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 self.log(f"Warning: {ticker} price data not available in current data")
                 continue
 
-            # Get traditional signals
-            history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
-            df = self._prepare_features(history)
+            # Get traditional signals using factor system
+            df = self._setup_factor_data_for_ticker(ticker, self.time)
             if df.empty:
                 continue
 
