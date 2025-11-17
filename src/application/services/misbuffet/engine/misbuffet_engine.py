@@ -23,6 +23,10 @@ from decimal import Decimal
 # Import the stock data repository for real data access
 from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
+# Import factor repositories for the new data source
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_factor_repository import CompanyShareFactorRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+
 # Import algorithm framework components instead of domain entities
 from ..algorithm.security import SecurityPortfolioManager
 
@@ -41,6 +45,10 @@ class MisbuffetEngine(BaseEngine):
         # Additional MisbuffetEngine specific attributes
         self.stock_data_repository = None
         self.database_manager = None
+        
+        # Factor repositories for the new data source
+        self.factor_repository = None
+        self.company_share_repository = None
         
         # Override logger to maintain existing naming
         self.logger = logging.getLogger("misbuffet.engine")
@@ -268,6 +276,11 @@ class MisbuffetEngine(BaseEngine):
                     self.database_manager = config.database_manager
                     self.stock_data_repository = StockDataRepository(self.database_manager)
                     self.logger.info("Database connection established for real stock data access")
+                    
+                    # Initialize factor repositories
+                    self.factor_repository = CompanyShareFactorRepository()
+                    self.company_share_repository = CompanyShareRepository(self.database_manager.session)
+                    self.logger.info("Factor repositories initialized for CompanyShareFactor data access")
                 
                 # Add history method that uses real data from database
                 if not hasattr(self.algorithm, 'history'):
@@ -481,32 +494,49 @@ class MisbuffetEngine(BaseEngine):
             return 100.0
     
     def _get_single_day_data(self, ticker, target_date):
-        """Get stock data for a single day."""
-        if self.stock_data_repository is None:
+        """Get stock data for a single day using CompanyShareFactorRepository."""
+        if not hasattr(self, 'factor_repository') or self.factor_repository is None:
             return None
         
         try:
-            # Get data with proper end_time filtering to respect backtest date range
-            df = self.stock_data_repository.get_historical_data(ticker, periods=5, end_time=target_date)
+            # Get the CompanyShare entity ID for this ticker
+            company_share_entities = self.company_share_repository.get_by_ticker(ticker)
+            if not company_share_entities:
+                self.logger.debug(f"No CompanyShare entity found for ticker {ticker}")
+                return None
             
-            if df is not None and not df.empty:
+            # Use the first entity (assuming unique ticker per entity)
+            entity_id = company_share_entities[0].id
+            
+            # Get factor IDs for price data (OHLCV)
+            price_factor_names = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+            factor_data = {}
+            
+            for factor_name in price_factor_names:
+                factor_id = self.factor_repository.get_factor_id_by_name(factor_name)
+                if factor_id:
+                    # Get factor values for the specific date
+                    factor_values = self.factor_repository.get_factor_values(
+                        factor_id=factor_id,
+                        entity_id=entity_id,
+                        start_date=target_date.strftime('%Y-%m-%d'),
+                        end_date=target_date.strftime('%Y-%m-%d')
+                    )
+                    
+                    if factor_values:
+                        # Use the first (and should be only) value for this date
+                        factor_data[factor_name] = float(factor_values[0].value)
+            
+            # Create DataFrame if we have data
+            if factor_data:
+                # Add Date column for compatibility
+                factor_data['Date'] = target_date
                 
-                # Convert Date column to datetime if it's not already
-                if 'Date' in df.columns:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    
-                    # Filter to get data only up to the target date (respect backtest end_date)
-                    df_filtered = df[df['Date'] <= target_date]
-                    
-                    if not df_filtered.empty:
-                        # Get the most recent data point within the date range
-                        latest_data = df_filtered.iloc[-1]
-                        
-                        # Log to confirm date range enforcement
-                        self.logger.debug(f"Using data for {ticker} on {latest_data['Date']} (target: {target_date})")
-                        
-                        # Return as single-row DataFrame
-                        return pd.DataFrame([latest_data])
+                # Create single-row DataFrame
+                df = pd.DataFrame([factor_data])
+                
+                self.logger.debug(f"Using factor data for {ticker} on {target_date} (factors: {list(factor_data.keys())})")
+                return df
             
             return None
             
