@@ -21,7 +21,6 @@ except ImportError:
 
 from decimal import Decimal
 # Import the stock data repository for real data access
-from infrastructure.repositories.local_repo.back_testing import StockDataRepository
 
 # Import factor repositories for the new data source
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_factor_repository import CompanyShareFactorRepository
@@ -274,8 +273,6 @@ class MisbuffetEngine(BaseEngine):
                 # Setup database connection for real data access
                 if hasattr(config, 'database_manager'):
                     self.database_manager = config.database_manager
-                    self.stock_data_repository = StockDataRepository(self.database_manager)
-                    self.logger.info("Database connection established for real stock data access")
                     
                     # Initialize factor repositories
                     self.factor_repository = CompanyShareFactorRepository()
