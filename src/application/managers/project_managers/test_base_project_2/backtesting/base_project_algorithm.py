@@ -86,8 +86,9 @@ class BaseProjectAlgorithm(QCAlgorithm):
         # Initialize test_base_project components
         self._initialize_base_project_components()
         
-        # Initial training
-        self._train_models(self.time)
+        # Defer initial training until dependencies are injected
+        # This will be triggered by the first on_data() call or explicit training call
+        self._initial_training_completed = False
 
     def _initialize_base_project_components(self):
         """Initialize the test_base_project specific components."""
@@ -528,6 +529,16 @@ class BaseProjectAlgorithm(QCAlgorithm):
             self.momentum_strategy is not None):
             self._dependencies_injected = True
             self.log("🎉 All dependencies injected - algorithm fully configured!")
+            
+            # Trigger initial training now that all dependencies are available
+            if not self._initial_training_completed:
+                self.log("🚀 Performing deferred initial training...")
+                try:
+                    self._train_models(self.time)
+                    self._initial_training_completed = True
+                    self.log("✅ Initial training completed successfully")
+                except Exception as e:
+                    self.log(f"⚠️ Initial training failed: {str(e)}")
         else:
             missing = []
             if self.factor_manager is None:
