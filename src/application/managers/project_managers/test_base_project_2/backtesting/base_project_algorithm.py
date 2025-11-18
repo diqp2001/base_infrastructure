@@ -94,13 +94,16 @@ class BaseProjectAlgorithm(QCAlgorithm):
         try:
             self.log("Initializing test_base_project components...")
             
-            # Note: In a real implementation, these would be injected from the manager
-            # For now, we'll simulate their presence
-            self.factor_manager = None  # Will be injected by BacktestRunner
-            self.spatiotemporal_trainer = None  # Will be injected by BacktestRunner
-            self.momentum_strategy = None  # Will be injected by BacktestRunner
+            # Initialize as None - they MUST be injected by BacktestRunner before use
+            # If they remain None, the algorithm will have limited functionality
+            self.factor_manager = None  # MUST be injected by BacktestRunner
+            self.spatiotemporal_trainer = None  # MUST be injected by BacktestRunner  
+            self.momentum_strategy = None  # MUST be injected by BacktestRunner
             
-            self.log("test_base_project components initialized successfully")
+            # Flag to track if proper injection occurred
+            self._dependencies_injected = False
+            
+            self.log("test_base_project components initialized - awaiting dependency injection")
             
         except Exception as e:
             self.log(f"Error initializing test_base_project components: {str(e)}")
@@ -298,6 +301,13 @@ class BaseProjectAlgorithm(QCAlgorithm):
         
         Exactly matches MyAlgorithm structure but integrates ML signals.
         """
+        # DEBUG: Log every on_data call to ensure it's being called
+        self.log(f"🔔 on_data called at {self.time} - data type: {type(data)}")
+        
+        # Check if dependencies were properly injected
+        if not self._dependencies_injected:
+            self.log(f"⚠️ on_data called but dependencies not fully injected - factor_manager: {self.factor_manager is not None}, trainer: {self.spatiotemporal_trainer is not None}, strategy: {self.momentum_strategy is not None}")
+        
         # Comprehensive data type handling - accept both Slice and DataFrame objects
         if hasattr(data, 'columns') and hasattr(data, 'index'):
             # This is a DataFrame - convert it to a format we can work with
@@ -307,6 +317,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
             self._current_data_slice = None
         elif hasattr(data, 'bars'):
             # This is a proper Slice object
+            self.log(f"INFO: on_data received Slice object with bars")
             self._current_data_frame = None
             self._current_data_slice = data
         else:
@@ -495,14 +506,34 @@ class BaseProjectAlgorithm(QCAlgorithm):
     def set_factor_manager(self, factor_manager):
         """Inject factor manager from the BacktestRunner."""
         self.factor_manager = factor_manager
-        self.log("Factor manager injected successfully")
+        self.log("✅ Factor manager injected successfully")
+        self._check_dependencies_complete()
     
     def set_spatiotemporal_trainer(self, trainer):
         """Inject spatiotemporal trainer from the BacktestRunner."""
         self.spatiotemporal_trainer = trainer
-        self.log("Spatiotemporal trainer injected successfully")
+        self.log("✅ Spatiotemporal trainer injected successfully")
+        self._check_dependencies_complete()
     
     def set_momentum_strategy(self, strategy):
         """Inject momentum strategy from the BacktestRunner."""
         self.momentum_strategy = strategy
-        self.log("Momentum strategy injected successfully")
+        self.log("✅ Momentum strategy injected successfully")
+        self._check_dependencies_complete()
+    
+    def _check_dependencies_complete(self):
+        """Check if all critical dependencies have been injected."""
+        if (self.factor_manager is not None and 
+            self.spatiotemporal_trainer is not None and 
+            self.momentum_strategy is not None):
+            self._dependencies_injected = True
+            self.log("🎉 All dependencies injected - algorithm fully configured!")
+        else:
+            missing = []
+            if self.factor_manager is None:
+                missing.append("factor_manager")
+            if self.spatiotemporal_trainer is None:
+                missing.append("spatiotemporal_trainer") 
+            if self.momentum_strategy is None:
+                missing.append("momentum_strategy")
+            self.log(f"⏳ Still awaiting dependencies: {', '.join(missing)}")
