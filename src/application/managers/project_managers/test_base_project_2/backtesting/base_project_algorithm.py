@@ -108,71 +108,9 @@ class BaseProjectAlgorithm(QCAlgorithm):
     # ---------------------------
     # Features (Enhanced with factor system)
     # ---------------------------
-    def _prepare_features(self, history: pd.DataFrame) -> pd.DataFrame:
-        """
-        Prepare features combining traditional indicators with factor system.
-        
-        This matches MyAlgorithm's _prepare_features but adds our factor enhancements.
-        """
-        df = history.copy()
-        
-        # Traditional features (matching MyAlgorithm)
-        df["return"] = df["close"].pct_change()
-        df["return_lag1"] = df["return"].shift(1)
-        df["return_lag2"] = df["return"].shift(2)
-        df["volatility"] = df["return"].rolling(self.lookback_window).std()
-        df["return_fwd1"] = df["return"].shift(-1)
-        
-        # Enhanced features from our spatiotemporal system
-        try:
-            # Add momentum features if we have the factor manager
-            if hasattr(self, 'factor_manager') and self.factor_manager:
-                # Add deep momentum features
-                df["momentum_5d"] = df["close"].pct_change(5)
-                df["momentum_10d"] = df["close"].pct_change(10)
-                df["momentum_20d"] = df["close"].pct_change(20)
-                
-                # Add moving averages
-                df["ma_5"] = df["close"].rolling(5).mean()
-                df["ma_10"] = df["close"].rolling(10).mean()
-                df["ma_20"] = df["close"].rolling(20).mean()
-                
-                # Add relative strength
-                df["rsi"] = self._calculate_rsi(df["close"], 14)
-                
-                # Add MACD
-                macd_data = self._calculate_macd(df["close"])
-                df["macd"] = macd_data["macd"]
-                df["macd_signal"] = macd_data["signal"]
-                df["macd_histogram"] = macd_data["histogram"]
-        except Exception as e:
-            self.log(f"Error adding enhanced features: {str(e)}")
-        
-        return df.dropna()
 
-    def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
-        """Calculate RSI indicator."""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
 
-    def _calculate_macd(self, prices: pd.Series, fast=12, slow=26, signal=9) -> Dict[str, pd.Series]:
-        """Calculate MACD indicator."""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd = ema_fast - ema_slow
-        signal_line = macd.ewm(span=signal).mean()
-        histogram = macd - signal_line
-        
-        return {
-            "macd": macd,
-            "signal": signal_line,
-            "histogram": histogram
-        }
-
+   
     def _setup_factor_data_for_ticker(self, ticker: str, current_time: datetime) -> pd.DataFrame:
         """
         Set up factor-based data for a specific ticker, similar to setup_factor_system.
@@ -215,15 +153,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 except Exception as e:
                     self.log(f"Error getting factor data for {ticker}: {e}")
                 
-            # Fallback: use the original _prepare_features method
-            self.log(f"Using fallback feature preparation for {ticker}")
-            history = self.history(
-                [ticker],
-                self.train_window,
-                Resolution.DAILY,
-                end_time=current_time
-            )
-            return self._prepare_features(history)
+            
             
         except Exception as e:
             self.log(f"Error setting up factor data for {ticker}: {str(e)}")

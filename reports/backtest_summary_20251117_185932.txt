@@ -1,0 +1,35 @@
+===== BACKTEST SUMMARY =====
+
+🎉 Backtest completed successfully!
+
+📊 Performance Summary:
+  • Period: 2020-01-01 to 2023-01-01
+  • Initial Capital: $100,000.00
+  • Final Portfolio Value: $100,000.00
+  • Total Return: 0.00%
+  • Sharpe Ratio: 0.000
+  • Maximum Drawdown: 0.00%
+
+📈 Trading Statistics:
+  • Total Trades: 0
+  • Win Rate: 40.00%
+
+⚙️  Runtime Statistics:
+  • Data Points Processed: 0
+  • Algorithm Calls: 0
+  • Errors: 0
+
+===== DETAILED PORTFOLIO BREAKDOWN =====
+
+Cash Balance: $100000.00
+Total Portfolio Value: $100000.00
+
+===== PERFORMANCE SUMMARY =====
+
+Total Return: 0.0
+Total Return Pct: 0.00%
+Final Portfolio Value: 100000.0
+Sharpe Ratio: 0.0
+Max Drawdown: 0.0
+Win Rate: 0.4
+Total Trades: 0
