@@ -186,17 +186,24 @@ class BacktestRunner:
             # Create algorithm instance
             algorithm = BaseProjectAlgorithm()
             
-            # Inject our components (skip factor manager since it's not available)
+            # Always inject our components - ensure they are not None
             if self.factor_manager:
                 algorithm.set_factor_manager(self.factor_manager)
+                self.logger.info("✅ Factor manager injected into algorithm")
             else:
-                self.logger.info("⚠️ Factor manager not available - algorithm will use CSV data directly")
+                self.logger.warning("⚠️ Factor manager is None - algorithm will have limited functionality")
             
             if self.model_trainer:
                 algorithm.set_spatiotemporal_trainer(self.model_trainer)
+                self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Model trainer is None")
             
             if self.momentum_strategy:
                 algorithm.set_momentum_strategy(self.momentum_strategy)
+                self.logger.info("✅ Momentum strategy injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Momentum strategy is None")
             
             self.algorithm_instance = algorithm
             self.logger.info("✅ Algorithm instance created and configured")
@@ -262,7 +269,11 @@ class BacktestRunner:
             if training_results.get('error'):
                 raise Exception(f"Model training failed: {training_results['error']}")
             
-            # Step 4: Configure Misbuffet launcher
+            # Step 4: Create properly configured algorithm instance first
+            self.logger.info("🔧 Creating configured algorithm instance...")
+            configured_algorithm = self.create_algorithm_instance()
+            
+            # Step 5: Configure Misbuffet launcher
             self.logger.info("🔧 Configuring Misbuffet framework...")
             
             # Launch Misbuffet with config file path (not dictionary)
@@ -288,20 +299,23 @@ class BacktestRunner:
                 'model_type': model_type
             }
             
-            # Pass the algorithm class (not instance) for Misbuffet to instantiate
-            launcher_config.algorithm = BaseProjectAlgorithm
+            # Pass the configured algorithm INSTANCE (not class) for Misbuffet to use
+            launcher_config.algorithm = configured_algorithm
             
-            # Add database manager for real data access
+            # Add database manager and other dependencies for real data access
             launcher_config.database_manager = self.database_manager
+            launcher_config.factor_manager = self.factor_manager
+            launcher_config.model_trainer = self.model_trainer
+            launcher_config.momentum_strategy = self.momentum_strategy
             
-            # Step 5: Start engine and run backtest
+            # Step 6: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
             
             self.logger.info("📊 Executing backtest algorithm...")
             result = engine.run(launcher_config)
             
-            # Step 6: Process results
+            # Step 7: Process results
             end_time = datetime.now()
             elapsed_time = (end_time - start_time).total_seconds()
             
