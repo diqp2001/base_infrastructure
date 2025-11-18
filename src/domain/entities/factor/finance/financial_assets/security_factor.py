@@ -1,25 +1,9 @@
 from __future__ import annotations
-from domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor
 
+# Import from unified factor model for backward compatibility
+from src.infrastructure.models.factor.factor_model import SecurityFactor as UnifiedSecurityFactor
 
-
-from decimal import Decimal
-from typing import Optional
-
-
-
-class SecurityFactor(FinancialAssetFactor):
-
-    def __init__(
-        self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = "numeric",
-        source: Optional[str] = None,
-        definition: Optional[str] = None,
-        factor_id: Optional[int] = None,
-    ):
-        super().__init__(name, group, subgroup, data_type, source, definition, factor_id)
+# Export the unified model as SecurityFactor for backward compatibility
+SecurityFactor = UnifiedSecurityFactor
 
     
