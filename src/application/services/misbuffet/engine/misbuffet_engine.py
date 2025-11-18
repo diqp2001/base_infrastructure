@@ -179,12 +179,21 @@ class MisbuffetEngine(BaseEngine):
             pass
         
         try:
-            # Initialize algorithm - create instance from class
+            # Initialize algorithm - handle both class and instance
             if hasattr(config, 'algorithm') and config.algorithm:
-                self.logger.info(f"Creating algorithm instance from class: {config.algorithm}")
-                self._algorithm = config.algorithm()  # Instantiate the class
+                # Check if we received a class or an already-instantiated object
+                if isinstance(config.algorithm, type):
+                    # It's a class, instantiate it
+                    self.logger.info(f"Creating algorithm instance from class: {config.algorithm}")
+                    self._algorithm = config.algorithm()  # Instantiate the class
+                    self.logger.info(f"Algorithm instance created: {self._algorithm}")
+                else:
+                    # It's already an instance, use it directly
+                    self.logger.info(f"Using pre-configured algorithm instance: {config.algorithm}")
+                    self._algorithm = config.algorithm
+                    self.logger.info(f"Algorithm instance configured: {self._algorithm}")
+                
                 self.algorithm = self._algorithm  # Maintain backward compatibility
-                self.logger.info(f"Algorithm instance created: {self.algorithm}")
                 
             # Setup algorithm with config
             if self.algorithm:
@@ -439,12 +448,19 @@ class MisbuffetEngine(BaseEngine):
                         volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
                     )
                     
-                    # Add to slice
+                    # Add to slice - both to bars and data for proper has_data() check
                     slice_data.bars[symbol] = trade_bar
+                    # Also add to the data dictionary so has_data() returns True
+                    if symbol not in slice_data.data:
+                        slice_data.data[symbol] = []
+                    slice_data.data[symbol].append(trade_bar)
                     
             except Exception as e:
                 self.logger.debug(f"No data available for {ticker} on {current_date}: {e}")
                 continue
+        
+        # Add debug logging to help diagnose issues
+        self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} bars, has_data: {slice_data.has_data()}")
         
         return slice_data
     
