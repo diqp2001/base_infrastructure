@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from infrastructure.repositories.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.infrastructure.models.finance.financial_assets.share import Share as ShareModel
 from src.domain.entities.finance.financial_assets.share import Share as ShareEntity
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 
 
 class ShareRepository(FinancialAssetBaseRepository[ShareEntity, ShareModel]):

@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_live_trading import config
 from application.services.misbuffet.algorithm.order import OrderEvent
@@ -396,8 +396,8 @@ class TestProjectLiveTradingManager(ProjectManager):
     def __init__(self):
         super().__init__()
         # Initialize database manager
-        self.setup_database_manager(DatabaseManager(config.CONFIG_LIVE_TRADING['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
+        self.setup_database_manager(DatabaseService(config.CONFIG_LIVE_TRADING['DB_TYPE']))
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_service.session)
         
         # Live trading components
         self.algorithm = None
@@ -437,7 +437,7 @@ class TestProjectLiveTradingManager(ProjectManager):
         
         # Check database connectivity
         try:
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             self.logger.info("✅ Database connectivity verified")
         except Exception as e:
             self.logger.error(f"❌ Database check failed: {e}")
@@ -504,7 +504,7 @@ class TestProjectLiveTradingManager(ProjectManager):
             # Override with engine config
             config_obj.custom_config = MISBUFFET_ENGINE_CONFIG
             config_obj.algorithm = LiveTradingAlgorithm
-            config_obj.database_manager = self.database_manager
+            config_obj.database_manager = self.database_service
             
             self.logger.info("✅ Configuration setup for live trading")
             
@@ -553,7 +553,7 @@ class TestProjectLiveTradingManager(ProjectManager):
             return []
         
         try:
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             domain_shares = []
             for data in companies_data:

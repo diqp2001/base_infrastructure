@@ -23,7 +23,7 @@ import mlflow.sklearn
 import mlflow.pytorch
 
 # Base classes
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 
 # Interactive Brokers integration
@@ -77,17 +77,17 @@ class TestBaseProjectManager(ProjectManager):
         super().__init__()
         
         # Initialize required managers - use TEST config like test_project_backtest
-        self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
+        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         
         # Initialize core components
-        self.data_loader = SpatiotemporalDataLoader(self.database_manager)
-        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
-        self.factor_manager = FactorEnginedDataManager(self.database_manager)
-        self.model_trainer = SpatiotemporalModelTrainer(self.database_manager)
+        self.data_loader = SpatiotemporalDataLoader(self.database_service)
+        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
+        self.factor_manager = FactorEnginedDataManager(self.database_service)
+        self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
         self.portfolio_optimizer = HybridPortfolioOptimizer(get_config('test'))
         
         # Backtesting components
-        self.backtest_runner = BacktestRunner(self.database_manager)
+        self.backtest_runner = BacktestRunner(self.database_service)
         self.algorithm = None
         self.results = None
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -905,7 +905,7 @@ class TestBaseProjectManager(ProjectManager):
             S&P 500 data from database or None if not available
         """
         try:
-            if not self.database_manager:
+            if not self.database_service:
                 return None
             
             # Query for SPY data from today
@@ -923,7 +923,7 @@ class TestBaseProjectManager(ProjectManager):
                 LIMIT 1
             """
             
-            result = self.database_manager.execute_query(query)
+            result = self.database_service.execute_query(query)
             
             if result and len(result) > 0:
                 row = result[0]

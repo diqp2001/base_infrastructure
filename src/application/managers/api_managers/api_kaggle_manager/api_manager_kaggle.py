@@ -1,10 +1,10 @@
 # src/application/managers/api_managers/api_kaggle_manager/api_manager_kaggle.py
 
-from src.application.managers.api_managers.api_manager import APIManager
+from application.services.api_service import ApiService
 import os
 import kaggle
 
-class KaggleAPIManager(APIManager):
+class KaggleAPIManager(ApiService):
     """
     A class to manage Kaggle API interactions, including downloading datasets.
     """

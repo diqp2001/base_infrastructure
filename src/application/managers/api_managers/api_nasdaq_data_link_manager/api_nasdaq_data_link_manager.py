@@ -2,10 +2,10 @@ import os
 import pandas as pd
 import nasdaqdatalink
 import requests
-from src.application.managers.api_managers.api_manager import APIManager
+from application.services.api_service import ApiService
 
 
-class NasdaqDataLinkApiManager(APIManager):
+class NasdaqDataLinkApiManager(ApiService):
     """
     Manages interactions with the Nasdaq Data Link API, including data fetching, local storage, and data processing.
     """

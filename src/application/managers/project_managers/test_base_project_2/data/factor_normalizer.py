@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 
 
@@ -53,14 +53,14 @@ class FactorNormalizer:
     normalization methods and criteria.
     """
     
-    def __init__(self, database_manager: DatabaseManager):
+    def __init__(self, database_manager: DatabaseService):
         """
         Initialize the factor normalizer.
         
         Args:
             database_manager: Database manager for accessing company metadata
         """
-        self.database_manager = database_manager
+        self.database_service = database_manager
         self.company_repository = CompanyShareRepositoryLocal(database_manager.session)
         
         # Cache for company metadata

@@ -1,4 +1,4 @@
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_web import config
 from application.services.misbuffet.web.web_interface import WebInterfaceManager
@@ -21,8 +21,8 @@ class TestProjectWebManager(ProjectManager):
     def __init__(self):
         super().__init__()
         # Initialize required managers
-        self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
+        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_service.session)
         
         # Web testing components
         self.data_generator = None

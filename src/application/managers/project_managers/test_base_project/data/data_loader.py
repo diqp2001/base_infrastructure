@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.managers.database_managers.database_manager import DatabaseService
 from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
 from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -27,8 +27,8 @@ class SpatiotemporalDataLoader:
     spatiotemporal tensor preparation for ML models.
     """
     
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
+    def __init__(self, database_manager: DatabaseService):
+        self.database_service = database_manager
         self.config = DEFAULT_CONFIG['DATA']
         self.spatiotemporal_config = DEFAULT_CONFIG['SPATIOTEMPORAL']
         

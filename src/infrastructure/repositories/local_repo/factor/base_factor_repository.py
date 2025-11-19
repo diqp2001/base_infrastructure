@@ -23,7 +23,7 @@ from infrastructure.models.factor.factor_model import (
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 
 
 class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
@@ -31,9 +31,9 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
 
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize repository with a database type."""
-        self.database_manager = DatabaseManager(db_type)
+        self.database_service = DatabaseService(db_type)
         # Call parent constructor with session
-        super().__init__(self.database_manager.session)
+        super().__init__(self.database_service.session)
 
     # ----------------------------- Abstract methods -----------------------------
     #@abstractmethod

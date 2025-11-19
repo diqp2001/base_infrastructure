@@ -3,12 +3,12 @@
 import os
 from turtle import pd
 
-from application.managers.data_managers.data_manager import DataManager
+from application.services.data_service import DataService
 from application.managers.project_managers.cross_sectionnal_ML_stock_returns_project.config import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
 
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.api_managers.api_kaggle_manager.api_manager_kaggle import KaggleAPIManager
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from src.domain.entities.finance.financial_assets.stock import Stock as Stock_Entity
 # (Import other managers as necessary)
 #import CONFIG_CROSS_SECTIONNAL_ML_STOCK_RETURNS as config
@@ -20,8 +20,8 @@ class CrossSectionalMLStockReturnsProjectManager(ProjectManager):
         super().__init__()
         # Initialize required managers
         self.setup_api_manager(KaggleAPIManager())
-        self.setup_database_manager(DatabaseManager(config['DB_TYPE']))
-        self.setup_data_manager(DataManager(self.database_manager))
+        self.setup_database_manager(DatabaseService(config['DB_TYPE']))
+        self.setup_data_manager(DataService())
         # Initialize other managers as required (DataManager, ModelManager, etc.)
     def execute_database_management_tasks(self):
         """

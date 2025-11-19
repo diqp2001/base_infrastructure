@@ -32,7 +32,7 @@ from ..models.model_trainer import SpatiotemporalModelTrainer
 from ..strategy.momentum_strategy import SpatiotemporalMomentumStrategy
 
 # Database and infrastructure
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 
 
 class BacktestRunner:
@@ -44,18 +44,18 @@ class BacktestRunner:
     - Black-Litterman portfolio optimization
     """
     
-    def __init__(self, database_manager: DatabaseManager):
+    def __init__(self, database_service: DatabaseService):
         """
         Initialize the BacktestRunner.
         
         Args:
             database_manager: Database manager for factor system
         """
-        self.database_manager = database_manager
+        self.database_service = database_manager
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
-        self.factor_manager = FactorEnginedDataManager(self.database_manager)
+        self.factor_manager = FactorEnginedDataManager(self.database_service)
         self.model_trainer = None
         self.momentum_strategy = None
         self.algorithm_instance = None
@@ -78,7 +78,7 @@ class BacktestRunner:
             self.logger.info("Setting up test_base_project components...")
             
             # Initialize model trainer
-            self.model_trainer = SpatiotemporalModelTrainer(self.database_manager)
+            self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
             self.logger.info("✅ Model trainer initialized")
             
             # Initialize momentum strategy
@@ -106,7 +106,7 @@ class BacktestRunner:
         
         try:
             # Initialize database
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             # First ensure basic entities and price factors exist
             entities_summary = self.factor_manager._ensure_entities_exist(tickers)
             # Populate price factors
@@ -303,7 +303,7 @@ class BacktestRunner:
             launcher_config.algorithm = configured_algorithm
             
             # Add database manager and other dependencies for real data access
-            launcher_config.database_manager = self.database_manager
+            launcher_config.database_manager = self.database_service
             launcher_config.factor_manager = self.factor_manager
             launcher_config.model_trainer = self.model_trainer
             launcher_config.momentum_strategy = self.momentum_strategy

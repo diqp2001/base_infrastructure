@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Any
 
 import pandas as pd
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_data import config
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
@@ -31,9 +31,9 @@ class TestProjectDataManager(ProjectManager):
     def __init__(self):
         super().__init__()
         # Initialize required managers
-        self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
-        self.currency_repository_local = CurrencyRepositoryLocal(self.database_manager.session)
+        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_service.session)
+        self.currency_repository_local = CurrencyRepositoryLocal(self.database_service.session)
         
         # Initialize factor repositories
         self.currency_factor_repository = CurrencyFactorRepository(config.CONFIG_TEST['DB_TYPE'])
@@ -58,7 +58,7 @@ class TestProjectDataManager(ProjectManager):
         
         try:
             # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Validate and create domain entities
             domain_shares = []
@@ -116,10 +116,10 @@ class TestProjectDataManager(ProjectManager):
         start_date = datetime(2012, 3, 3)
         end_date = datetime(2013, 3, 3)
         
-        self.database_manager.db.initialize_database_and_create_all_tables()
+        self.database_service.db.initialize_database_and_create_all_tables()
         
         share_to_add = CompanyShareEntity(id, ticker, exchange_id, company_id, start_date, end_date)
-        print("Available tables:", list(self.database_manager.db.model_registry.base_factory.Base.metadata.tables.keys()))
+        print("Available tables:", list(self.database_service.db.model_registry.base_factory.Base.metadata.tables.keys()))
         
         self.company_share_repository_local.add(domain_share=share_to_add)
         
@@ -147,7 +147,7 @@ class TestProjectDataManager(ProjectManager):
         
         try:
             # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Use repository's OpenFIGI integration
             created_entity = self.company_share_repository_local.add_with_openfigi(
@@ -190,7 +190,7 @@ class TestProjectDataManager(ProjectManager):
         
         try:
             # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Use repository's bulk OpenFIGI integration
             created_entities = self.company_share_repository_local.bulk_add_with_openfigi(
@@ -283,7 +283,7 @@ class TestProjectDataManager(ProjectManager):
         
         try:
             # Initialize database
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Read CSV data
             df = pd.read_csv(data_path)
@@ -366,7 +366,7 @@ class TestProjectDataManager(ProjectManager):
         
         try:
             # Initialize database
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Get all CSV files in the directory
             csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]

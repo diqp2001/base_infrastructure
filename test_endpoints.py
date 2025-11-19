@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.interfaces.flask.flask import FlaskApp
-from src.application.managers.database_managers.database_manager import DatabaseManager
+from src.application.services.database_service import DatabaseService
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 
 def test_flask_app_creation():
@@ -28,7 +28,7 @@ def test_flask_app_creation():
 def test_database_connection():
     """Test database connection and repository"""
     try:
-        db_manager = DatabaseManager("sqlite")
+        db_manager = DatabaseService("sqlite")
         db_manager.db.initialize_database_and_create_all_tables()
         repository = CompanyShareRepository(db_manager.session)
         
@@ -44,7 +44,7 @@ def test_repository_methods():
     """Test all repository methods"""
     print("\n📋 Repository Methods Test:")
     try:
-        db_manager = DatabaseManager("sqlite")
+        db_manager = DatabaseService("sqlite")
         db_manager.db.initialize_database_and_create_all_tables()
         repository = CompanyShareRepository(db_manager.session)
         
