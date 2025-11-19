@@ -4,11 +4,17 @@ Provides a service layer for creating geographic domain entities like Country, C
 """
 
 from typing import Optional, List, Dict, Any
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from src.domain.entities.country import Country
 from src.domain.entities.continent import Continent
 from src.domain.entities.sector import Sector
 from src.domain.entities.industry import Industry
+from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+from src.infrastructure.repositories.local_repo.geographic.continent_repository import ContinentRepository
+from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
+from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
 
 
 class GeographicService:
@@ -17,6 +23,7 @@ class GeographicService:
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
         self.db_type = db_type
+        self._init_repositories()
     
     def create_country(
         self,
@@ -242,3 +249,197 @@ class GeographicService:
             errors.append("Population must be an integer")
         
         return errors
+    
+    def _init_repositories(self):
+        """Initialize database repositories."""
+        if self.db_type == 'sqlite':
+            engine = create_engine('sqlite:///geographic.db')
+        else:
+            # Default to sqlite for now
+            engine = create_engine('sqlite:///geographic.db')
+        
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        self.country_repository = CountryRepository(session)
+        self.continent_repository = ContinentRepository(session)
+        self.sector_repository = SectorRepository(session)
+        self.industry_repository = IndustryRepository(session)
+    
+    # Persistence Methods
+    def persist_country(self, country: Country) -> Optional[Country]:
+        """
+        Persist a country entity to the database.
+        
+        Args:
+            country: Country entity to persist
+            
+        Returns:
+            Persisted country entity or None if failed
+        """
+        try:
+            return self.country_repository.add_entity(country)
+        except Exception as e:
+            print(f"Error persisting country {country.name}: {str(e)}")
+            return None
+    
+    def persist_continent(self, continent: Continent) -> Optional[Continent]:
+        """
+        Persist a continent entity to the database.
+        
+        Args:
+            continent: Continent entity to persist
+            
+        Returns:
+            Persisted continent entity or None if failed
+        """
+        try:
+            return self.continent_repository.add_entity(continent)
+        except Exception as e:
+            print(f"Error persisting continent {continent.name}: {str(e)}")
+            return None
+    
+    def persist_sector(self, sector: Sector) -> Optional[Sector]:
+        """
+        Persist a sector entity to the database.
+        
+        Args:
+            sector: Sector entity to persist
+            
+        Returns:
+            Persisted sector entity or None if failed
+        """
+        try:
+            return self.sector_repository.add_entity(sector)
+        except Exception as e:
+            print(f"Error persisting sector {sector.name}: {str(e)}")
+            return None
+    
+    def persist_industry(self, industry: Industry) -> Optional[Industry]:
+        """
+        Persist an industry entity to the database.
+        
+        Args:
+            industry: Industry entity to persist
+            
+        Returns:
+            Persisted industry entity or None if failed
+        """
+        try:
+            return self.industry_repository.add_entity(industry)
+        except Exception as e:
+            print(f"Error persisting industry {industry.name}: {str(e)}")
+            return None
+    
+    # Pull Methods (Retrieve from database)
+    def pull_country_by_id(self, country_id: int) -> Optional[Country]:
+        """Pull country by ID from database."""
+        try:
+            return self.country_repository._to_entity(
+                self.country_repository.get(country_id)
+            )
+        except Exception as e:
+            print(f"Error pulling country by ID {country_id}: {str(e)}")
+            return None
+    
+    def pull_country_by_name(self, name: str) -> Optional[Country]:
+        """Pull country by name from database."""
+        try:
+            return self.country_repository.get_by_name(name)
+        except Exception as e:
+            print(f"Error pulling country by name {name}: {str(e)}")
+            return None
+    
+    def pull_country_by_iso_code(self, iso_code: str) -> Optional[Country]:
+        """Pull country by ISO code from database."""
+        try:
+            return self.country_repository.get_by_iso_code(iso_code)
+        except Exception as e:
+            print(f"Error pulling country by ISO code {iso_code}: {str(e)}")
+            return None
+    
+    def pull_continent_by_id(self, continent_id: int) -> Optional[Continent]:
+        """Pull continent by ID from database."""
+        try:
+            return self.continent_repository._to_entity(
+                self.continent_repository.get(continent_id)
+            )
+        except Exception as e:
+            print(f"Error pulling continent by ID {continent_id}: {str(e)}")
+            return None
+    
+    def pull_continent_by_name(self, name: str) -> Optional[Continent]:
+        """Pull continent by name from database."""
+        try:
+            return self.continent_repository.get_by_name(name)
+        except Exception as e:
+            print(f"Error pulling continent by name {name}: {str(e)}")
+            return None
+    
+    def pull_sector_by_id(self, sector_id: int) -> Optional[Sector]:
+        """Pull sector by ID from database."""
+        try:
+            return self.sector_repository._to_entity(
+                self.sector_repository.get(sector_id)
+            )
+        except Exception as e:
+            print(f"Error pulling sector by ID {sector_id}: {str(e)}")
+            return None
+    
+    def pull_sector_by_name(self, name: str) -> Optional[Sector]:
+        """Pull sector by name from database."""
+        try:
+            return self.sector_repository.get_by_name(name)
+        except Exception as e:
+            print(f"Error pulling sector by name {name}: {str(e)}")
+            return None
+    
+    def pull_industry_by_id(self, industry_id: int) -> Optional[Industry]:
+        """Pull industry by ID from database."""
+        try:
+            return self.industry_repository._to_entity(
+                self.industry_repository.get(industry_id)
+            )
+        except Exception as e:
+            print(f"Error pulling industry by ID {industry_id}: {str(e)}")
+            return None
+    
+    def pull_industry_by_name(self, name: str) -> Optional[Industry]:
+        """Pull industry by name from database."""
+        try:
+            return self.industry_repository.get_by_name(name)
+        except Exception as e:
+            print(f"Error pulling industry by name {name}: {str(e)}")
+            return None
+    
+    def pull_all_countries(self) -> List[Country]:
+        """Pull all countries from database."""
+        try:
+            return self.country_repository.get_all_entities()
+        except Exception as e:
+            print(f"Error pulling all countries: {str(e)}")
+            return []
+    
+    def pull_all_continents(self) -> List[Continent]:
+        """Pull all continents from database."""
+        try:
+            return self.continent_repository.get_all_entities()
+        except Exception as e:
+            print(f"Error pulling all continents: {str(e)}")
+            return []
+    
+    def pull_all_sectors(self) -> List[Sector]:
+        """Pull all sectors from database."""
+        try:
+            return self.sector_repository.get_all_entities()
+        except Exception as e:
+            print(f"Error pulling all sectors: {str(e)}")
+            return []
+    
+    def pull_all_industries(self) -> List[Industry]:
+        """Pull all industries from database."""
+        try:
+            return self.industry_repository.get_all_entities()
+        except Exception as e:
+            print(f"Error pulling all industries: {str(e)}")
+            return []
