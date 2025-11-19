@@ -21,12 +21,12 @@ from src.domain.entities.finance.financial_assets.index import Index
 from src.domain.entities.finance.financial_assets.etf_share import ETFShare
 from src.domain.entities.finance.financial_assets.security import Security
 from src.domain.entities.finance.financial_assets.share import Share
-from src.domain.entities.finance.financial_assets.futures import Futures
-from src.domain.entities.finance.financial_assets.options import Options
+from src.domain.entities.finance.financial_assets.derivatives.future import Future
+from src.domain.entities.finance.financial_assets.derivatives.option import Option
 from src.domain.entities.finance.financial_assets.stock import Stock
 from src.domain.entities.finance.financial_assets.equity import Equity
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-from src.domain.entities.finance.financial_assets.forward_contract import ForwardContract
+from domain.entities.finance.financial_assets.derivatives.forward import Forward
 
 # Import existing repositories
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
@@ -240,7 +240,7 @@ class FinancialAssetService:
             dividend_yield=dividend_yield
         )
     
-    def create_futures(
+    def create_future(
         self,
         symbol: str,
         underlying_asset: str,
@@ -250,9 +250,9 @@ class FinancialAssetService:
         currency: str = "USD",
         tick_size: Decimal = None,
         margin_requirement: Decimal = None
-    ) -> Futures:
-        """Create a Futures entity."""
-        return Futures(
+    ) -> Future:
+        """Create a Future entity."""
+        return Future(
             symbol=symbol,
             underlying_asset=underlying_asset,
             expiry_date=expiry_date,
@@ -360,8 +360,8 @@ class FinancialAssetService:
             return self.create_bond_from_config(config)
         elif entity_type == 'etf_share':
             return self.create_etf_share_from_config(config)
-        elif entity_type == 'futures':
-            return self.create_futures_from_config(config)
+        elif entity_type == 'future':
+            return self.create_future_from_config(config)
         elif entity_type == 'options':
             return self.create_options_from_config(config)
         elif entity_type == 'index':
@@ -409,12 +409,12 @@ class FinancialAssetService:
             config['inception_date'] = datetime.strptime(config['inception_date'], '%Y-%m-%d').date()
         return self.create_etf_share(**config)
     
-    def create_futures_from_config(self, config: Dict[str, Any]) -> Futures:
-        """Create a Futures from configuration."""
+    def create_future_from_config(self, config: Dict[str, Any]) -> Future:
+        """Create a Future from configuration."""
         # Convert date strings to date objects if needed
         if 'expiry_date' in config and isinstance(config['expiry_date'], str):
             config['expiry_date'] = datetime.strptime(config['expiry_date'], '%Y-%m-%d').date()
-        return self.create_futures(**config)
+        return self.create_future(**config)
     
     def create_options_from_config(self, config: Dict[str, Any]) -> Options:
         """Create an Options from configuration."""
@@ -621,13 +621,13 @@ class FinancialAssetService:
             print(f"Error persisting ETF share: {str(e)}")
             return None
     
-    def persist_futures(self, futures: Futures) -> Optional[Futures]:
-        """Persist a futures entity to the database."""
+    def persist_future(self, future: Future) -> Optional[Future]:
+        """Persist a future entity to the database."""
         try:
-            print(f"Warning: Futures persistence not yet implemented for {futures.symbol if hasattr(futures, 'symbol') else 'unknown'}")
-            return futures
+            print(f"Warning: Future persistence not yet implemented for {future.symbol if hasattr(future, 'symbol') else 'unknown'}")
+            return future
         except Exception as e:
-            print(f"Error persisting futures: {str(e)}")
+            print(f"Error persisting future: {str(e)}")
             return None
     
     def persist_options(self, options: Options) -> Optional[Options]:
