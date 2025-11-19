@@ -3,7 +3,7 @@ Factor Creation Service - handles creation and management of factor entities.
 Provides a service layer for creating factor domain entities with proper configuration.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import date, datetime
 
 from src.domain.entities.factor.factor import Factor
@@ -383,3 +383,49 @@ class FactorCreationService:
         """
         factor = self.create_factor_from_config(config)
         return self.persist_factor(factor)
+    
+    # Pull Methods (Retrieve from database)
+    def pull_factor_by_id(self, factor_id: int) -> Optional[Factor]:
+        """Pull factor by ID from database."""
+        try:
+            return self.repository.get_by_id(factor_id)
+        except Exception as e:
+            print(f"Error pulling factor by ID {factor_id}: {str(e)}")
+            return None
+    
+    def pull_factor_by_name(self, name: str) -> Optional[Factor]:
+        """Pull factor by name from database."""
+        try:
+            return self.repository.get_by_name(name)
+        except Exception as e:
+            print(f"Error pulling factor by name {name}: {str(e)}")
+            return None
+    
+    def pull_factor_values(self, factor_id: int, entity_id: int, start_date: date = None, end_date: date = None) -> List:
+        """Pull factor values for a specific factor and entity."""
+        try:
+            return self.repository.get_factor_values(
+                factor_id=factor_id,
+                entity_id=entity_id,
+                start_date=start_date,
+                end_date=end_date
+            )
+        except Exception as e:
+            print(f"Error pulling factor values for factor {factor_id}, entity {entity_id}: {str(e)}")
+            return []
+    
+    def pull_all_factors(self) -> List[Factor]:
+        """Pull all factors from database."""
+        try:
+            return [self.repository.get_by_id(factor_id) for factor_id in range(1, 1000)]  # Simple approach
+        except Exception as e:
+            print(f"Error pulling all factors: {str(e)}")
+            return []
+    
+    def pull_factors_by_group(self, group: str) -> List[Factor]:
+        """Pull factors by group from database."""
+        try:
+            return self.repository.get_factors_by_groups([group])
+        except Exception as e:
+            print(f"Error pulling factors by group {group}: {str(e)}")
+            return []

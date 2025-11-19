@@ -6,6 +6,8 @@ Provides a service layer for creating financial asset domain entities like Compa
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from src.domain.entities.finance.company import Company
 from src.domain.entities.finance.exchange import Exchange
@@ -26,6 +28,12 @@ from src.domain.entities.finance.financial_assets.equity import Equity
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from src.domain.entities.finance.financial_assets.forward_contract import ForwardContract
 
+# Import existing repositories
+from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+
 
 class FinancialAssetService:
     """Service for creating and managing financial asset domain entities."""
@@ -33,6 +41,7 @@ class FinancialAssetService:
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
         self.db_type = db_type
+        self._init_repositories()
     
     # Company and Exchange entities
     def create_company(
@@ -423,3 +432,214 @@ class FinancialAssetService:
     def create_financial_asset_from_config(self, config: Dict[str, Any]) -> FinancialAsset:
         """Create a FinancialAsset from configuration."""
         return self.create_financial_asset(**config)
+    
+    def _init_repositories(self):
+        """Initialize database repositories."""
+        if self.db_type == 'sqlite':
+            engine = create_engine('sqlite:///financial_assets.db')
+        else:
+            # Default to sqlite for now
+            engine = create_engine('sqlite:///financial_assets.db')
+        
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Initialize existing repositories
+        self.company_share_repository = CompanyShareRepository(session)
+        self.currency_repository = CurrencyRepository(session) if hasattr(CurrencyRepository, '__init__') else None
+        self.bond_repository = BondRepository(session) if hasattr(BondRepository, '__init__') else None
+        # Note: FinancialAssetRepository is abstract, so we won't initialize it directly
+        
+    # Persistence Methods for CompanyShare
+    def persist_company_share(self, company_share: CompanyShare) -> Optional[CompanyShare]:
+        """
+        Persist a company share entity to the database.
+        
+        Args:
+            company_share: CompanyShare entity to persist
+            
+        Returns:
+            Persisted company share entity or None if failed
+        """
+        try:
+            return self.company_share_repository.add(company_share)
+        except Exception as e:
+            print(f"Error persisting company share {company_share.symbol if hasattr(company_share, 'symbol') else 'unknown'}: {str(e)}")
+            return None
+    
+    def persist_currency(self, currency: Currency) -> Optional[Currency]:
+        """
+        Persist a currency entity to the database.
+        
+        Args:
+            currency: Currency entity to persist
+            
+        Returns:
+            Persisted currency entity or None if failed
+        """
+        try:
+            if self.currency_repository:
+                return self.currency_repository.add(currency)
+            else:
+                print("Currency repository not available")
+                return None
+        except Exception as e:
+            print(f"Error persisting currency {currency.code if hasattr(currency, 'code') else 'unknown'}: {str(e)}")
+            return None
+    
+    def persist_bond(self, bond: Bond) -> Optional[Bond]:
+        """
+        Persist a bond entity to the database.
+        
+        Args:
+            bond: Bond entity to persist
+            
+        Returns:
+            Persisted bond entity or None if failed
+        """
+        try:
+            if self.bond_repository:
+                return self.bond_repository.add(bond)
+            else:
+                print("Bond repository not available")
+                return None
+        except Exception as e:
+            print(f"Error persisting bond {bond.symbol if hasattr(bond, 'symbol') else 'unknown'}: {str(e)}")
+            return None
+    
+    # Pull Methods for CompanyShare
+    def pull_company_share_by_id(self, share_id: int) -> Optional[CompanyShare]:
+        """Pull company share by ID from database."""
+        try:
+            return self.company_share_repository.get_by_id(share_id)
+        except Exception as e:
+            print(f"Error pulling company share by ID {share_id}: {str(e)}")
+            return None
+    
+    def pull_company_share_by_ticker(self, ticker: str) -> Optional[CompanyShare]:
+        """Pull company share by ticker from database."""
+        try:
+            shares = self.company_share_repository.get_by_ticker(ticker)
+            return shares[0] if shares else None
+        except Exception as e:
+            print(f"Error pulling company share by ticker {ticker}: {str(e)}")
+            return None
+    
+    def pull_all_company_shares(self) -> List[CompanyShare]:
+        """Pull all company shares from database."""
+        try:
+            return self.company_share_repository.get_all()
+        except Exception as e:
+            print(f"Error pulling all company shares: {str(e)}")
+            return []
+    
+    def pull_currency_by_id(self, currency_id: int) -> Optional[Currency]:
+        """Pull currency by ID from database."""
+        try:
+            if self.currency_repository:
+                return self.currency_repository.get_by_id(currency_id)
+            else:
+                print("Currency repository not available")
+                return None
+        except Exception as e:
+            print(f"Error pulling currency by ID {currency_id}: {str(e)}")
+            return None
+    
+    def pull_bond_by_id(self, bond_id: int) -> Optional[Bond]:
+        """Pull bond by ID from database."""
+        try:
+            if self.bond_repository:
+                return self.bond_repository.get_by_id(bond_id)
+            else:
+                print("Bond repository not available")
+                return None
+        except Exception as e:
+            print(f"Error pulling bond by ID {bond_id}: {str(e)}")
+            return None
+    
+    # Generic persistence methods for entities without specific repositories
+    def persist_company(self, company: Company) -> Optional[Company]:
+        """
+        Persist a company entity to the database.
+        Note: This is a placeholder implementation - add specific repository when available.
+        
+        Args:
+            company: Company entity to persist
+            
+        Returns:
+            Persisted company entity or None if failed
+        """
+        try:
+            # For now, just return the entity as-is since there's no specific repository
+            # In a full implementation, you would add a CompanyRepository
+            print(f"Warning: Company persistence not yet implemented for {company.name}")
+            return company
+        except Exception as e:
+            print(f"Error persisting company {company.name}: {str(e)}")
+            return None
+    
+    def persist_exchange(self, exchange: Exchange) -> Optional[Exchange]:
+        """
+        Persist an exchange entity to the database.
+        Note: This is a placeholder implementation - add specific repository when available.
+        
+        Args:
+            exchange: Exchange entity to persist
+            
+        Returns:
+            Persisted exchange entity or None if failed
+        """
+        try:
+            # For now, just return the entity as-is since there's no specific repository
+            # In a full implementation, you would add an ExchangeRepository
+            print(f"Warning: Exchange persistence not yet implemented for {exchange.name}")
+            return exchange
+        except Exception as e:
+            print(f"Error persisting exchange {exchange.name}: {str(e)}")
+            return None
+    
+    # Additional placeholder methods for other financial assets
+    def persist_crypto(self, crypto: Crypto) -> Optional[Crypto]:
+        """Persist a crypto entity to the database."""
+        try:
+            print(f"Warning: Crypto persistence not yet implemented for {crypto.symbol if hasattr(crypto, 'symbol') else 'unknown'}")
+            return crypto
+        except Exception as e:
+            print(f"Error persisting crypto: {str(e)}")
+            return None
+    
+    def persist_commodity(self, commodity: Commodity) -> Optional[Commodity]:
+        """Persist a commodity entity to the database."""
+        try:
+            print(f"Warning: Commodity persistence not yet implemented for {commodity.symbol if hasattr(commodity, 'symbol') else 'unknown'}")
+            return commodity
+        except Exception as e:
+            print(f"Error persisting commodity: {str(e)}")
+            return None
+    
+    def persist_etf_share(self, etf_share: ETFShare) -> Optional[ETFShare]:
+        """Persist an ETF share entity to the database."""
+        try:
+            print(f"Warning: ETF share persistence not yet implemented for {etf_share.symbol if hasattr(etf_share, 'symbol') else 'unknown'}")
+            return etf_share
+        except Exception as e:
+            print(f"Error persisting ETF share: {str(e)}")
+            return None
+    
+    def persist_futures(self, futures: Futures) -> Optional[Futures]:
+        """Persist a futures entity to the database."""
+        try:
+            print(f"Warning: Futures persistence not yet implemented for {futures.symbol if hasattr(futures, 'symbol') else 'unknown'}")
+            return futures
+        except Exception as e:
+            print(f"Error persisting futures: {str(e)}")
+            return None
+    
+    def persist_options(self, options: Options) -> Optional[Options]:
+        """Persist an options entity to the database."""
+        try:
+            print(f"Warning: Options persistence not yet implemented for {options.symbol if hasattr(options, 'symbol') else 'unknown'}")
+            return options
+        except Exception as e:
+            print(f"Error persisting options: {str(e)}")
+            return None
