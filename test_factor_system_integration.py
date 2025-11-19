@@ -23,7 +23,7 @@ from src.infrastructure.repositories.local_repo.factor.base_factor_repository im
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 
 # Application services
-from src.application.services.factor_calculation_service import FactorCalculationService
+from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 
 
 def test_factor_mapper():
