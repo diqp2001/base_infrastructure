@@ -3,9 +3,7 @@ src/domain/entities/factor/factor.py
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from decimal import Decimal
+from abc import ABC
 from typing import Optional
 
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Factor(Base):
+class FactorModel(Base):
     """
     Unified SQLAlchemy ORM model for factors with discriminator column.
     This is used as a base model in the BaseFactorRepository.
@@ -39,62 +39,52 @@ class Factor(Base):
 
 
 # Polymorphic factor subclasses
-class FinancialAssetFactor(Factor):
+class FinancialAssetFactor(FactorModel):
     """Base financial asset factor."""
     __mapper_args__ = {'polymorphic_identity': 'financial_asset'}
 
 
-class SecurityFactor(Factor):
+class SecurityFactor(FactorModel):
     """Security-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'security'}
 
 
-class EquityFactor(Factor):
+class EquityFactor(FactorModel):
     """Equity-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'equity'}
 
 
-class ShareFactor(Factor):
+class ShareFactor(FactorModel):
     """Share-specific factor."""
-    equity_specific = Column(String(100), nullable=True)  # e.g. "return", "volatility"
     __mapper_args__ = {'polymorphic_identity': 'share'}
 
 
-class ShareMomentumFactor(Factor):
+class ShareMomentumFactor(FactorModel):
     """Share momentum factor with period parameter."""
-    period = Column(Integer, nullable=True)  # Time period for momentum calculation
     __mapper_args__ = {'polymorphic_identity': 'share_momentum'}
 
 
-class ShareTechnicalFactor(Factor):
+class ShareTechnicalFactor(FactorModel):
     """Share technical indicator factor."""
-    indicator_type = Column(String(50), nullable=True)  # e.g., 'RSI', 'Bollinger', 'Stochastic'
-    period = Column(Integer, nullable=True)  # Period for technical calculation
     __mapper_args__ = {'polymorphic_identity': 'share_technical'}
 
 
-class ShareTargetFactor(Factor):
+class ShareTargetFactor(FactorModel):
     """Share target variable factor for model training."""
-    target_type = Column(String(50), nullable=True)  # 'target_returns', 'target_returns_nonscaled'
-    forecast_horizon = Column(Integer, nullable=True)  # number of periods ahead to predict
-    is_scaled = Column(String(10), default='true')  # whether target is normalized/scaled
     __mapper_args__ = {'polymorphic_identity': 'share_target'}
 
 
-class ShareVolatilityFactor(Factor):
+class ShareVolatilityFactor(FactorModel):
     """Share volatility factor."""
-    volatility_type = Column(String(50), nullable=True)  # 'daily_vol', 'monthly_vol', 'vol_of_vol', 'realized_vol'
-    period = Column(Integer, nullable=True)  # window size for volatility calculation
-    annualization_factor = Column(Float, nullable=True)  # e.g., sqrt(252) for annualizing
     __mapper_args__ = {'polymorphic_identity': 'share_volatility'}
 
 
-class CountryFactor(Factor):
+class CountryFactor(FactorModel):
     """Country-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'country'}
 
 
-class ContinentFactor(Factor):
+class ContinentFactor(FactorModel):
     """Continent-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'continent'}
 

@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
-# Import from unified factor model for backward compatibility
-from src.infrastructure.models.factor.factor_model import ShareMomentumFactor as UnifiedShareMomentumFactor
 
-# Export the unified model as ShareMomentumFactor for backward compatibility
-ShareMomentumFactor = UnifiedShareMomentumFactor
+class ShareMomentumFactor(ShareFactor):
+    """
+    Domain entity representing a momentum factor for shares.
+    Contains only business logic. No ORM dependencies.
+    """
 
+    def calculate(self, prices, period: int, **kwargs):
+        """
+        Example domain logic: compute momentum based on past prices.
+        Replace with actual logic.
+        """
+        if len(prices) < period:
+            return None
 
+        return (prices[-1] / prices[-period]) - 1

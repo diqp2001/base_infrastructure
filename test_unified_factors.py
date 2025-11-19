@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
     from src.infrastructure.models.factor.factor_model import (
-        Factor, 
+        FactorModel, 
         ShareFactor, 
         ShareMomentumFactor, 
         ShareTechnicalFactor, 
@@ -30,7 +30,7 @@ try:
     # Test discriminator mapping
     print("\n📋 Factor Type Discriminator Mapping:")
     factor_types = [
-        (Factor, 'factor'),
+        (FactorModel, 'factor'),
         (FinancialAssetFactor, 'financial_asset'),
         (SecurityFactor, 'security'), 
         (EquityFactor, 'equity'),
@@ -65,9 +65,9 @@ try:
     print("✅ Backward compatibility verified - all imports point to unified model")
     
     print("\n🏗️ Testing polymorphic structure...")
-    print(f"Factors table: {Factor.__tablename__}")
+    print(f"Factors table: {FactorModel.__tablename__}")
     print(f"Factor values table: {FactorValue.__tablename__}")
-    print(f"Discriminator column: {Factor.factor_type.key}")
+    print(f"Discriminator column: {FactorModel.factor_type.key}")
     
     print("\n🎉 All tests passed! Unified factor discriminator structure is working correctly.")
     

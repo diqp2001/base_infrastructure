@@ -16,7 +16,7 @@ from domain.entities.factor.factor import Factor as FactorEntity
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 
 from infrastructure.models.factor.factor_model import (
-    Factor as FactorModel,
+    FactorModel as FactorModel,
     FactorValue as FactorValueModel,
 )
 
