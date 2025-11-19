@@ -15,6 +15,7 @@ from src.infrastructure.repositories.local_repo.geographic.country_repository im
 from src.infrastructure.repositories.local_repo.geographic.continent_repository import ContinentRepository
 from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
 from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
+from src.application.services.database_service import DatabaseService
 
 
 class GeographicService:
@@ -22,7 +23,7 @@ class GeographicService:
     
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
-        self.db_type = db_type
+        self.database_service = DatabaseService(db_type)
         self._init_repositories()
     
     def create_country(
@@ -251,15 +252,9 @@ class GeographicService:
         return errors
     
     def _init_repositories(self):
-        """Initialize database repositories."""
-        if self.db_type == 'sqlite':
-            engine = create_engine('sqlite:///geographic.db')
-        else:
-            # Default to sqlite for now
-            engine = create_engine('sqlite:///geographic.db')
-        
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        """Initialize database repositories using DatabaseService."""
+        # Use the shared database service session for all repositories
+        session = self.database_service.session
         
         self.country_repository = CountryRepository(session)
         self.continent_repository = ContinentRepository(session)

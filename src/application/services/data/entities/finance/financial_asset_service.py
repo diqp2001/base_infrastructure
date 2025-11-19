@@ -33,6 +33,7 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.company
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.application.services.database_service import DatabaseService
 
 
 class FinancialAssetService:
@@ -40,7 +41,7 @@ class FinancialAssetService:
     
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
-        self.db_type = db_type
+        self.database_service = DatabaseService(db_type)
         self._init_repositories()
     
     # Company and Exchange entities
@@ -434,15 +435,9 @@ class FinancialAssetService:
         return self.create_financial_asset(**config)
     
     def _init_repositories(self):
-        """Initialize database repositories."""
-        if self.db_type == 'sqlite':
-            engine = create_engine('sqlite:///financial_assets.db')
-        else:
-            # Default to sqlite for now
-            engine = create_engine('sqlite:///financial_assets.db')
-        
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        """Initialize database repositories using DatabaseService."""
+        # Use the shared database service session for all repositories
+        session = self.database_service.session
         
         # Initialize existing repositories
         self.company_share_repository = CompanyShareRepository(session)
