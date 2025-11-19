@@ -1,9 +1,7 @@
-# domain/entities/factor/finance/financial_assets/share_factor/technical_factor_share.py
-
 from __future__ import annotations
 
-# Import from unified factor model for backward compatibility
-from src.infrastructure.models.factor.factor_model import ShareTechnicalFactor as UnifiedShareTechnicalFactor
+# Import from unified domain entity for backward compatibility
+from src.domain.entities.factor.share_technical_factor import ShareTechnicalFactor as DomainShareTechnicalFactor
 
-# Export the unified model as ShareTechnicalFactor for backward compatibility
-ShareTechnicalFactor = UnifiedShareTechnicalFactor
+# Export the domain entity as ShareTechnicalFactor for backward compatibility
+ShareTechnicalFactor = DomainShareTechnicalFactor

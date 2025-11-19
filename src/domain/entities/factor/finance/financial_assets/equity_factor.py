@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-# Import from unified factor model for backward compatibility
-from src.infrastructure.models.factor.factor_model import EquityFactor as UnifiedEquityFactor
+# Import from unified domain entity for backward compatibility
+from src.domain.entities.factor.equity_factor import EquityFactor as DomainEquityFactor
 
-# Export the unified model as EquityFactor for backward compatibility
-EquityFactor = UnifiedEquityFactor
+# Export the domain entity as EquityFactor for backward compatibility
+EquityFactor = DomainEquityFactor
 
     

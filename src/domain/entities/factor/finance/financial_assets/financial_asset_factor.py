@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-# Import from unified factor model for backward compatibility
-from src.infrastructure.models.factor.factor_model import FinancialAssetFactor as UnifiedFinancialAssetFactor
+# Import from unified domain entity for backward compatibility
+from src.domain.entities.factor.financial_asset_factor import FinancialAssetFactor as DomainFinancialAssetFactor
 
-# Export the unified model as FinancialAssetFactor for backward compatibility
-FinancialAssetFactor = UnifiedFinancialAssetFactor
+# Export the domain entity as FinancialAssetFactor for backward compatibility
+FinancialAssetFactor = DomainFinancialAssetFactor
 
