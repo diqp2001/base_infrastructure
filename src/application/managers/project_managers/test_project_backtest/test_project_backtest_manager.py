@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
 import pandas as pd
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
 from application.services.misbuffet.algorithm.order import OrderEvent
@@ -293,8 +293,8 @@ class TestProjectBacktestManager(ProjectManager):
     def __init__(self):
         super().__init__()
         # Initialize required managers
-        self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
+        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_service.session)
         
         # Backtesting components
         self.data_generator = None
@@ -558,7 +558,7 @@ class TestProjectBacktestManager(ProjectManager):
             config.algorithm = MyAlgorithm  # Pass the class, not an instance
             
             # Add database manager for real data access
-            config.database_manager = self.database_manager
+            config.database_manager = self.database_service
             
             logger.info("Configuration setup with database access for real stock data")
 
@@ -619,7 +619,7 @@ class TestProjectBacktestManager(ProjectManager):
         
         try:
             # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Validate and create domain entities
             domain_shares = []
@@ -741,7 +741,7 @@ class TestProjectBacktestManager(ProjectManager):
                     # Save CSV data to database for backtesting engine to use
                     table_name = f"stock_price_data_{ticker.lower()}"
                     print(f"💾 Saving {len(stock_df)} price records for {ticker} to database table '{table_name}'")
-                    self.database_manager.dataframe_replace_table(stock_df, table_name)
+                    self.database_service.dataframe_replace_table(stock_df, table_name)
                     
                     # Use the most recent data point for current market data
                     latest_data = stock_df.iloc[-1]

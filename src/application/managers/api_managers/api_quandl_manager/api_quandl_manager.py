@@ -6,10 +6,10 @@ import datetime as dt
 from typing import List, Optional
 import pandas as pd
 import numpy as np
-from src.application.managers.api_managers.api_manager import APIManager
+from application.services.api_service import ApiService
 
 
-class QuandlApiManager(APIManager):
+class QuandlApiManager(ApiService):
     """
     Manages interactions with the Quandl API, including data fetching, local storage, and data processing.
     """

@@ -1,10 +1,10 @@
 # src/application/managers/database_managers/financial_assets/financial_asset_database_manager.py
 
-from src.application.managers.database_managers.database_manager import DatabaseManager
+from src.application.services.database_service import DatabaseService
 from sqlalchemy.orm import Session
 from src.infrastructure.models.financial_assets.stock import Stock  # or other asset types
 
-class FinancialAssetDatabaseManager(DatabaseManager):
+class FinancialAssetDatabaseManager(DatabaseService):
     """
     Base class for handling database interactions related to financial assets.
     """

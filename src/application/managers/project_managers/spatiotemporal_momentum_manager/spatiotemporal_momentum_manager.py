@@ -2,9 +2,9 @@ import os
 from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
 from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
 from application.managers.model_managers.mlp_model.mlp_model_manager import MLPModelManager
-from src.application.managers.data_managers.data_manager import DataManager
+from application.services.data_service import DataService
 from src.application.managers.model_managers.model_manager import ModelManager
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from src.application.managers.model_managers.tft_model_manager import TFTModelManager
 from src.application.managers.data_managers.data_manager_ratio import DataManagerRatio
 
@@ -12,9 +12,9 @@ import pandas as pd
 from typing import Dict
 
 class SpatioTemporalMomentumManager:
-    def __init__(self, database_manager: DatabaseManager, data_manager: DataManagerRatio, model_manager: TFTModelManager):
-        self.database_manager = database_manager
-        self.data_manager = data_manager
+    def __init__(self, database_service: DatabaseService, data_service: DataService, model_manager: TFTModelManager):
+        self.database_service = database_service
+        self.data_service = data_service
         self.model_manager = model_manager
 
     def load_data(self) -> pd.DataFrame:
@@ -22,8 +22,8 @@ class SpatioTemporalMomentumManager:
         Load data from the database.
         """
         # Example: Load data from the database
-        #data = self.database_manager.load_data("your_query_here")
-        data = self.database_manager.excel_to_dataframe(file_path='Data.xlsx',index_col='Dates')
+        #data = self.database_service.load_data("your_query_here")
+        data = self.database_service.excel_to_dataframe(file_path='Data.xlsx',index_col='Dates')
         return data
 
     def prepare_features(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -32,7 +32,7 @@ class SpatioTemporalMomentumManager:
         """
         assets_data = {}
         for asset_column_return in data.columns:
-            preprocessed_data = self.data_manager.preprocess(data, column_name= asset_column_return)
+            preprocessed_data = self.data_service.preprocess(data, column_name= asset_column_return)
             df, features, target = self.prepare_training_data(preprocessed_data, column_name= asset_column_return)
             asset_data = pd.concat([features, target], axis=1)
             asset_data = asset_data.dropna()
@@ -45,7 +45,7 @@ class SpatioTemporalMomentumManager:
         """
         Preprocess the data.
         """
-        preprocessed_data = self.data_manager.preprocess(data= data, column_name= column_name)
+        preprocessed_data = self.data_service.preprocess(data= data, column_name= column_name)
         return preprocessed_data
 
     def feature_engineering(self, data: pd.DataFrame, column_name: str, freq: int=1) -> pd.DataFrame:
@@ -54,10 +54,10 @@ class SpatioTemporalMomentumManager:
         """
         data = data [[column_name]]
         # Add Deep Momentum features
-        data = self.data_manager.add_deep_momentum_features(data=data, column_name=column_name)
+        data = self.data_service.add_deep_momentum_features(data=data, column_name=column_name)
 
         # Add MACD features
-        data = self.data_manager.add_macd_signal_features(data=data, column_name=column_name)
+        data = self.data_service.add_macd_signal_features(data=data, column_name=column_name)
 
         
 
@@ -70,8 +70,8 @@ class SpatioTemporalMomentumManager:
         # Perform feature engineering
         data = self.feature_engineering(data, column_name=column_name)
 
-        data, target_column_name = self.data_manager.add_target(data=data, column_name=column_name, freq=1)
-        data, target_non_scaled_column_name = self.data_manager.add_target_non_scaled(data=data, column_name=column_name, freq=1)
+        data, target_column_name = self.data_service.add_target(data=data, column_name=column_name, freq=1)
+        data, target_non_scaled_column_name = self.data_service.add_target_non_scaled(data=data, column_name=column_name, freq=1)
         target = data[[target_column_name,target_non_scaled_column_name]]
         features = data.drop(columns=[target_column_name,target_non_scaled_column_name,column_name])
 

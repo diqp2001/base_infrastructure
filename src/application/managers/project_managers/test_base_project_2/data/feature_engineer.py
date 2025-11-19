@@ -10,8 +10,8 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, date
 
-from application.managers.data_managers.data_manager_ratio import DataManagerRatio
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.data_service import DataService
+from application.services.database_service import DatabaseService
 from ..config import DEFAULT_CONFIG
 
 
@@ -21,10 +21,10 @@ class SpatiotemporalFeatureEngineer:
     for spatiotemporal models, integrated with the factor storage system.
     """
     
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
+    def __init__(self, database_service: DatabaseService):
+        self.database_service = database_service
         self.config = DEFAULT_CONFIG['SPATIOTEMPORAL']['FEATURES']
-        self.data_manager = DataManagerRatio(self.database_manager)
+        self.data_service = DataService()
     
     def engineer_all_features(self, data: pd.DataFrame, price_column: str = 'close_price') -> pd.DataFrame:
         """

@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share import ShareMomentumFactor
 from domain.entities.factor.finance.financial_assets.share_factor.momentum_factor_share_value import ShareMomentumFactorValue
 from domain.entities.factor.finance.financial_assets.share_factor.technical_factor_share import ShareTechnicalFactor
@@ -38,8 +38,8 @@ class FactorEnginedDataManager:
     with the advanced feature engineering from spatiotemporal_momentum_manager.
     """
     
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
+    def __init__(self, database_manager: DatabaseService):
+        self.database_service = database_manager
         self.config = DEFAULT_CONFIG
         
         # Initialize repositories
@@ -47,7 +47,7 @@ class FactorEnginedDataManager:
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
         # Initialize feature engineer
-        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
+        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         
         # Data paths - find project root by looking for data/stock_data directory
         current_path = Path(__file__).resolve()
@@ -508,7 +508,7 @@ class FactorEnginedDataManager:
 
         for factor in momentum_domain_factors:
             momentum_value = ShareMomentumFactorValue(
-                database_manager=self.database_manager, 
+                database_manager=self.database_service, 
                 factor=factor
             )
             
@@ -558,7 +558,7 @@ class FactorEnginedDataManager:
 
         for factor in technical_domain_factors:
             technical_value = ShareTechnicalFactorValue(
-                database_manager=self.database_manager, 
+                database_manager=self.database_service, 
                 factor=factor
             )
             
@@ -931,7 +931,7 @@ class FactorEnginedDataManager:
                     continue
                 
                 # Create value calculator
-                volatility_calculator = ShareVolatilityFactorValue(self.database_manager, volatility_factor)
+                volatility_calculator = ShareVolatilityFactorValue(self.database_service, volatility_factor)
                 
                 # Process each ticker
                 for ticker in tickers:
@@ -983,7 +983,7 @@ class FactorEnginedDataManager:
                     continue
                 
                 # Create value calculator
-                target_calculator = ShareTargetFactorValue(self.database_manager, target_factor)
+                target_calculator = ShareTargetFactorValue(self.database_service, target_factor)
                 
                 # Process each ticker
                 for ticker in tickers:

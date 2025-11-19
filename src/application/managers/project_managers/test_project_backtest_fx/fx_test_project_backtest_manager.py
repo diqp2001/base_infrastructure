@@ -20,7 +20,7 @@ except ImportError:
         lgb = None
         xgb = None
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_backtest import config
 
@@ -299,10 +299,10 @@ class FXTestProjectBacktestManager(ProjectManager):
     def __init__(self):
         super().__init__()
         # Initialize database manager
-        self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
+        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         
         # Initialize currency repository
-        self.currency_repository = CurrencyRepository(self.database_manager.session)
+        self.currency_repository = CurrencyRepository(self.database_service.session)
         
         # Backtesting components
         self.algorithm = None
@@ -368,7 +368,7 @@ class FXTestProjectBacktestManager(ProjectManager):
             # Override with engine config values
             config_obj.custom_config = MISBUFFET_ENGINE_CONFIG
             config_obj.algorithm = FX_LGBM_MeanReversion_Algorithm
-            config_obj.database_manager = self.database_manager
+            config_obj.database_manager = self.database_service
             
             logger.info("FX Configuration setup with database access for real FX data")
 
@@ -451,7 +451,7 @@ class FXTestProjectBacktestManager(ProjectManager):
         }
 
         # Initialize database
-        self.database_manager.db.initialize_database_and_create_all_tables()
+        self.database_service.db.initialize_database_and_create_all_tables()
 
         created_currencies = []
         
@@ -511,7 +511,7 @@ class FXTestProjectBacktestManager(ProjectManager):
                     table_name = f"fx_price_data_{iso_code.lower()}_usd"
                     ohlc_data_clean = ohlc_data[['Date', 'open', 'high', 'low', 'close', 'volume']].rename(columns={'Date': 'date'})
                     
-                    self.database_manager.dataframe_replace_table(ohlc_data_clean, table_name)
+                    self.database_service.dataframe_replace_table(ohlc_data_clean, table_name)
                     logger.info(f"Saved {len(ohlc_data_clean)} OHLC records for {iso_code} to table '{table_name}'")
 
                 # Print currency metrics

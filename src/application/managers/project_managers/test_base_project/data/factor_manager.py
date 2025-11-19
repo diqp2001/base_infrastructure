@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.managers.database_managers.database_manager import DatabaseService
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
@@ -31,8 +31,8 @@ class FactorEnginedDataManager:
     with the advanced feature engineering from spatiotemporal_momentum_manager.
     """
     
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
+    def __init__(self, database_manager: DatabaseService):
+        self.database_service = database_manager
         self.config = DEFAULT_CONFIG
         
         # Initialize repositories
@@ -40,7 +40,7 @@ class FactorEnginedDataManager:
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         
         # Initialize feature engineer
-        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_manager)
+        self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         
         # Data paths - find project root by looking for data/stock_data directory
         current_path = Path(__file__).resolve()

@@ -9,15 +9,15 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 
 
 class StockDataRepository:
     """Repository for accessing historical stock price data during backtesting."""
     
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
-        self.session = database_manager.session
+    def __init__(self, database_service: DatabaseService):
+        self.database_service = database_service
+        self.session = database_service.session
     
     def get_historical_data(
         self, 

@@ -6,7 +6,7 @@ from application.services.misbuffet import Misbuffet
 from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
 from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 import threading
 import uuid
@@ -77,7 +77,7 @@ def get_company_shares():
     """Get all company shares entities data"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseManager("sqlite")
+        db_manager = DatabaseService("sqlite")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)
@@ -140,7 +140,7 @@ def get_company_share_by_id(share_id):
     """Get specific company share by ID"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseManager("sqlite")
+        db_manager = DatabaseService("sqlite")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)
@@ -205,7 +205,7 @@ def get_entities_summary():
     """Get summary of all entities in the database"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseManager("sqlite")
+        db_manager = DatabaseService("sqlite")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)

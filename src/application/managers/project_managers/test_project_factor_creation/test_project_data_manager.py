@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
 import pandas as pd
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 from application.managers.project_managers.test_project_data import config
 from application.services.misbuffet.data.factor_factory.factor_factory import FactorFactory
@@ -54,7 +54,7 @@ class TestProjectFactorManager(ProjectManager):
 
         # Initialize database manager and repositories
         self.setup_database_manager(DatabaseManager(config.CONFIG_TEST['DB_TYPE']))
-        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_manager.session)
+        self.company_share_repository_local = CompanyShareRepositoryLocal(self.database_service.session)
 
         # Initialize factor repositories
         self.share_factor_repository = ShareFactorRepository(config.CONFIG_TEST['DB_TYPE'])
@@ -126,7 +126,7 @@ class TestProjectFactorManager(ProjectManager):
         print("🚀 Creating base entities (shares and currencies)...")
         
         # Initialize database
-        self.database_manager.db.initialize_database_and_create_all_tables()
+        self.database_service.db.initialize_database_and_create_all_tables()
         
         # Create entities
         shares_summary = self.add_shares()
@@ -216,7 +216,7 @@ class TestProjectFactorManager(ProjectManager):
         
         try:
             # Initialize database if needed
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Validate and create domain entities
             domain_shares = []

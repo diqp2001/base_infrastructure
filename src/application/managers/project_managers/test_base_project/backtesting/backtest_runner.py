@@ -32,7 +32,7 @@ from ..models.model_trainer import SpatiotemporalModelTrainer
 from ..strategy.momentum_strategy import SpatiotemporalMomentumStrategy
 
 # Database and infrastructure
-from application.managers.database_managers.database_manager import DatabaseManager
+from application.services.database_service import DatabaseService
 
 
 class BacktestRunner:
@@ -44,14 +44,14 @@ class BacktestRunner:
     - Black-Litterman portfolio optimization
     """
     
-    def __init__(self, database_manager: DatabaseManager):
+    def __init__(self, database_service: DatabaseService):
         """
         Initialize the BacktestRunner.
         
         Args:
             database_manager: Database manager for factor system
         """
-        self.database_manager = database_manager
+        self.database_service = database_manager
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
@@ -82,7 +82,7 @@ class BacktestRunner:
             self.logger.info("⚠️ Factor manager skipped (factor system removed)")
             
             # Initialize model trainer
-            self.model_trainer = SpatiotemporalModelTrainer(self.database_manager)
+            self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
             self.logger.info("✅ Model trainer initialized")
             
             # Initialize momentum strategy
@@ -110,7 +110,7 @@ class BacktestRunner:
         
         try:
             # Initialize database
-            self.database_manager.db.initialize_database_and_create_all_tables()
+            self.database_service.db.initialize_database_and_create_all_tables()
             
             # Populate momentum factors
             momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
@@ -291,7 +291,7 @@ class BacktestRunner:
             launcher_config.algorithm = BaseProjectAlgorithm
             
             # Add database manager for real data access
-            launcher_config.database_manager = self.database_manager
+            launcher_config.database_manager = self.database_service
             
             # Step 5: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
