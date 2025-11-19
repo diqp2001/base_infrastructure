@@ -263,7 +263,7 @@ class FinancialAssetService:
             margin_requirement=margin_requirement
         )
     
-    def create_options(
+    def create_option(
         self,
         symbol: str,
         underlying_asset: str,
@@ -274,9 +274,9 @@ class FinancialAssetService:
         currency: str = "USD",
         contract_size: int = 100,
         american_style: bool = True
-    ) -> Options:
-        """Create an Options entity."""
-        return Options(
+    ) -> Option:
+        """Create an Option entity."""
+        return Option(
             symbol=symbol,
             underlying_asset=underlying_asset,
             strike_price=strike_price,
@@ -362,8 +362,8 @@ class FinancialAssetService:
             return self.create_etf_share_from_config(config)
         elif entity_type == 'future':
             return self.create_future_from_config(config)
-        elif entity_type == 'options':
-            return self.create_options_from_config(config)
+        elif entity_type == 'option':
+            return self.create_option_from_config(config)
         elif entity_type == 'index':
             return self.create_index_from_config(config)
         elif entity_type == 'financial_asset':
@@ -416,12 +416,12 @@ class FinancialAssetService:
             config['expiry_date'] = datetime.strptime(config['expiry_date'], '%Y-%m-%d').date()
         return self.create_future(**config)
     
-    def create_options_from_config(self, config: Dict[str, Any]) -> Options:
-        """Create an Options from configuration."""
+    def create_option_from_config(self, config: Dict[str, Any]) -> Option:
+        """Create an Option from configuration."""
         # Convert date strings to date objects if needed
         if 'expiry_date' in config and isinstance(config['expiry_date'], str):
             config['expiry_date'] = datetime.strptime(config['expiry_date'], '%Y-%m-%d').date()
-        return self.create_options(**config)
+        return self.create_option(**config)
     
     def create_index_from_config(self, config: Dict[str, Any]) -> Index:
         """Create an Index from configuration."""
@@ -630,11 +630,11 @@ class FinancialAssetService:
             print(f"Error persisting future: {str(e)}")
             return None
     
-    def persist_options(self, options: Options) -> Optional[Options]:
-        """Persist an options entity to the database."""
+    def persist_option(self, option: Option) -> Optional[Option]:
+        """Persist an option entity to the database."""
         try:
-            print(f"Warning: Options persistence not yet implemented for {options.symbol if hasattr(options, 'symbol') else 'unknown'}")
-            return options
+            print(f"Warning: Option persistence not yet implemented for {option.symbol if hasattr(option, 'symbol') else 'unknown'}")
+            return option
         except Exception as e:
-            print(f"Error persisting options: {str(e)}")
+            print(f"Error persisting option: {str(e)}")
             return None

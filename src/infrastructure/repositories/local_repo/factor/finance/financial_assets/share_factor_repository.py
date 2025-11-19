@@ -5,9 +5,6 @@ Repository class for Share factor entities.
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.finance.financial_assets.share_factors import (
-    ShareFactor, ShareFactorValue
-)
 
 
 class ShareFactorRepository(BaseFactorRepository):

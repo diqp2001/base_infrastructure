@@ -2,10 +2,10 @@
 Repository class for Futures factor entities.
 """
 
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.finance.financial_assets.futures_factors import (
-    FuturesFactor, FuturesFactorValue
-)
+
 
 
 class FuturesFactorRepository(BaseFactorRepository):
@@ -15,10 +15,14 @@ class FuturesFactorRepository(BaseFactorRepository):
         super().__init__(db_type)
 
     def get_factor_model(self):
-        """Return the FuturesFactor model class."""
-        return FuturesFactor
+        return FactorMapper().get_factor_model()
+    
+    def get_factor_entity(self):
+        return FactorMapper().get_factor_entity()
 
+    
     def get_factor_value_model(self):
-        """Return the FuturesFactorValue model class."""
-        return FuturesFactorValue
-
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()

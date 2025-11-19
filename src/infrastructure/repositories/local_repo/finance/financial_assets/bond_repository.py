@@ -1,8 +1,8 @@
-from financial_assets.financial_asset_repository import FinancialAssetRepository
+from infrastructure.repositories.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.infrastructure.models.finance.financial_assets.bond import Bond as Bond_Model
 from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 
-class BondRepository(FinancialAssetRepository):
+class BondRepository(FinancialAssetBaseRepository):
     def get_by_id(self, id: int) -> Bond_Entity:
         """Fetches a Bond asset by its ID."""
         try:

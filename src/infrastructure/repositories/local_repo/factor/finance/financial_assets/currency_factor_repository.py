@@ -2,10 +2,9 @@
 Repository class for Currency factor entities.
 """
 
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.finance.financial_assets.currency_factors import (
-    CurrencyFactor, CurrencyFactorValue
-)
 
 
 class CurrencyFactorRepository(BaseFactorRepository):
@@ -15,11 +14,15 @@ class CurrencyFactorRepository(BaseFactorRepository):
         super().__init__(db_type)
 
     def get_factor_model(self):
-        """Return the CurrencyFactor model class."""
-        return CurrencyFactor
+        return FactorMapper().get_factor_model()
+    
+    def get_factor_entity(self):
+        return FactorMapper().get_factor_entity()
 
+    
     def get_factor_value_model(self):
-        """Return the CurrencyFactorValue model class."""
-        return CurrencyFactorValue
-
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()
     

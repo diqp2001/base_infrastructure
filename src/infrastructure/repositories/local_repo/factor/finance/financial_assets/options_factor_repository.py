@@ -2,10 +2,9 @@
 Repository class for Options factor entities.
 """
 
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.finance.financial_assets.options_factors import (
-    OptionsFactor, OptionsFactorValue
-)
 
 
 class OptionsFactorRepository(BaseFactorRepository):
@@ -13,13 +12,15 @@ class OptionsFactorRepository(BaseFactorRepository):
     
     def __init__(self, db_type='sqlite'):
         super().__init__(db_type)
-
     def get_factor_model(self):
-        """Return the OptionsFactor model class."""
-        return OptionsFactor
+        return FactorMapper().get_factor_model()
+    
+    def get_factor_entity(self):
+        return FactorMapper().get_factor_entity()
 
+    
     def get_factor_value_model(self):
-        """Return the OptionsFactorValue model class."""
-        return OptionsFactorValue
-
- 
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()

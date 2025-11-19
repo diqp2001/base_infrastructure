@@ -2,10 +2,9 @@
 Repository class for Equity factor entities.
 """
 
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.finance.financial_assets.equity_factors import (
-    EquityFactor, EquityFactorValue, 
-)
 
 
 class EquityFactorRepository(BaseFactorRepository):
@@ -15,10 +14,14 @@ class EquityFactorRepository(BaseFactorRepository):
         super().__init__(db_type)
 
     def get_factor_model(self):
-        """Return the EquityFactor model class."""
-        return EquityFactor
+        return FactorMapper().get_factor_model()
+    
+    def get_factor_entity(self):
+        return FactorMapper().get_factor_entity()
 
+    
     def get_factor_value_model(self):
-        """Return the EquityFactorValue model class."""
-        return EquityFactorValue
-
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()

@@ -2,9 +2,9 @@
 Repository class for Company Share factor entities.
 """
 
+from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
-from infrastructure.models.factor.factor_model import CompanyShareFactor
-
 
 
 class CompanyShareFactorRepository(BaseFactorRepository):
@@ -14,11 +14,16 @@ class CompanyShareFactorRepository(BaseFactorRepository):
         super().__init__(db_type)
 
     def get_factor_model(self):
-        """Return the CompanyShareFactor model class."""
-        return CompanyShareFactor
+        return FactorMapper().get_factor_model()
+    
+    def get_factor_entity(self):
+        return FactorMapper().get_factor_entity()
 
+    
     def get_factor_value_model(self):
-        """Return the CompanyShareFactorValue model class."""
-        #return CompanyShareFactorValue
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()
 
     
