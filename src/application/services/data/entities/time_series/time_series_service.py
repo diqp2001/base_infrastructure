@@ -6,12 +6,19 @@ Provides a service layer for creating time series domain entities like TimeSerie
 from typing import Optional, List, Dict, Any, Union
 from datetime import date, datetime
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from src.domain.entities.time_series.time_series import TimeSeries
 from src.domain.entities.time_series.dask_time_series import DaskTimeSeries
 from src.domain.entities.time_series.finance.stock_time_series import StockTimeSeries
 from src.domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
 from src.domain.entities.time_series.ml.ml_time_series import MLTimeSeries
+
+# Import existing repositories
+from src.infrastructure.repositories.local_repo.time_series.time_series_repository import TimeSeriesRepository
+from src.infrastructure.repositories.local_repo.time_series.stock_time_series_repository import StockTimeSeriesRepository
+from src.infrastructure.repositories.local_repo.time_series.financial_asset_time_series_repository import FinancialAssetTimeSeriesRepository
 
 
 class TimeSeriesService:
@@ -20,6 +27,7 @@ class TimeSeriesService:
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
         self.db_type = db_type
+        self._init_repositories()
     
     def create_time_series(
         self,
@@ -306,3 +314,201 @@ class TimeSeriesService:
             return data.resample(new_frequency).sum()
         else:
             raise ValueError(f"Unsupported resampling method: {method}")
+    
+    def _init_repositories(self):
+        """Initialize database repositories."""
+        if self.db_type == 'sqlite':
+            engine = create_engine('sqlite:///time_series.db')
+        else:
+            # Default to sqlite for now
+            engine = create_engine('sqlite:///time_series.db')
+        
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Initialize existing repositories
+        self.time_series_repository = TimeSeriesRepository(session) if hasattr(TimeSeriesRepository, '__init__') else None
+        self.stock_time_series_repository = StockTimeSeriesRepository(session) if hasattr(StockTimeSeriesRepository, '__init__') else None
+        self.financial_asset_time_series_repository = FinancialAssetTimeSeriesRepository(session) if hasattr(FinancialAssetTimeSeriesRepository, '__init__') else None
+    
+    # Persistence Methods
+    def persist_time_series(self, time_series: TimeSeries) -> Optional[TimeSeries]:
+        """
+        Persist a time series entity to the database.
+        
+        Args:
+            time_series: TimeSeries entity to persist
+            
+        Returns:
+            Persisted time series entity or None if failed
+        """
+        try:
+            if self.time_series_repository:
+                return self.time_series_repository.add(time_series)
+            else:
+                print("TimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error persisting time series {time_series.name}: {str(e)}")
+            return None
+    
+    def persist_stock_time_series(self, stock_time_series: StockTimeSeries) -> Optional[StockTimeSeries]:
+        """
+        Persist a stock time series entity to the database.
+        
+        Args:
+            stock_time_series: StockTimeSeries entity to persist
+            
+        Returns:
+            Persisted stock time series entity or None if failed
+        """
+        try:
+            if self.stock_time_series_repository:
+                return self.stock_time_series_repository.add(stock_time_series)
+            else:
+                print("StockTimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error persisting stock time series {stock_time_series.symbol if hasattr(stock_time_series, 'symbol') else stock_time_series.name}: {str(e)}")
+            return None
+    
+    def persist_financial_asset_time_series(self, financial_asset_time_series: FinancialAssetTimeSeries) -> Optional[FinancialAssetTimeSeries]:
+        """
+        Persist a financial asset time series entity to the database.
+        
+        Args:
+            financial_asset_time_series: FinancialAssetTimeSeries entity to persist
+            
+        Returns:
+            Persisted financial asset time series entity or None if failed
+        """
+        try:
+            if self.financial_asset_time_series_repository:
+                return self.financial_asset_time_series_repository.add(financial_asset_time_series)
+            else:
+                print("FinancialAssetTimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error persisting financial asset time series {financial_asset_time_series.asset_id if hasattr(financial_asset_time_series, 'asset_id') else 'unknown'}: {str(e)}")
+            return None
+    
+    def persist_dask_time_series(self, dask_time_series: DaskTimeSeries) -> Optional[DaskTimeSeries]:
+        """
+        Persist a dask time series entity to the database.
+        Note: This is a placeholder implementation - add specific repository when available.
+        
+        Args:
+            dask_time_series: DaskTimeSeries entity to persist
+            
+        Returns:
+            Persisted dask time series entity or None if failed
+        """
+        try:
+            print(f"Warning: DaskTimeSeries persistence not yet implemented for {dask_time_series.name}")
+            return dask_time_series
+        except Exception as e:
+            print(f"Error persisting dask time series: {str(e)}")
+            return None
+    
+    def persist_ml_time_series(self, ml_time_series: MLTimeSeries) -> Optional[MLTimeSeries]:
+        """
+        Persist an ML time series entity to the database.
+        Note: This is a placeholder implementation - add specific repository when available.
+        
+        Args:
+            ml_time_series: MLTimeSeries entity to persist
+            
+        Returns:
+            Persisted ML time series entity or None if failed
+        """
+        try:
+            print(f"Warning: MLTimeSeries persistence not yet implemented for {ml_time_series.name if hasattr(ml_time_series, 'name') else 'unknown'}")
+            return ml_time_series
+        except Exception as e:
+            print(f"Error persisting ML time series: {str(e)}")
+            return None
+    
+    # Pull Methods (Retrieve from database)
+    def pull_time_series_by_id(self, time_series_id: int) -> Optional[TimeSeries]:
+        """Pull time series by ID from database."""
+        try:
+            if self.time_series_repository:
+                return self.time_series_repository.get_by_id(time_series_id)
+            else:
+                print("TimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error pulling time series by ID {time_series_id}: {str(e)}")
+            return None
+    
+    def pull_stock_time_series_by_id(self, stock_time_series_id: int) -> Optional[StockTimeSeries]:
+        """Pull stock time series by ID from database."""
+        try:
+            if self.stock_time_series_repository:
+                return self.stock_time_series_repository.get_by_id(stock_time_series_id)
+            else:
+                print("StockTimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error pulling stock time series by ID {stock_time_series_id}: {str(e)}")
+            return None
+    
+    def pull_stock_time_series_by_symbol(self, symbol: str) -> Optional[StockTimeSeries]:
+        """Pull stock time series by symbol from database."""
+        try:
+            if self.stock_time_series_repository and hasattr(self.stock_time_series_repository, 'get_by_symbol'):
+                return self.stock_time_series_repository.get_by_symbol(symbol)
+            else:
+                print("StockTimeSeries repository not available or method not implemented")
+                return None
+        except Exception as e:
+            print(f"Error pulling stock time series by symbol {symbol}: {str(e)}")
+            return None
+    
+    def pull_financial_asset_time_series_by_id(self, financial_asset_time_series_id: int) -> Optional[FinancialAssetTimeSeries]:
+        """Pull financial asset time series by ID from database."""
+        try:
+            if self.financial_asset_time_series_repository:
+                return self.financial_asset_time_series_repository.get_by_id(financial_asset_time_series_id)
+            else:
+                print("FinancialAssetTimeSeries repository not available")
+                return None
+        except Exception as e:
+            print(f"Error pulling financial asset time series by ID {financial_asset_time_series_id}: {str(e)}")
+            return None
+    
+    def pull_financial_asset_time_series_by_asset_id(self, asset_id: str) -> List[FinancialAssetTimeSeries]:
+        """Pull financial asset time series by asset ID from database."""
+        try:
+            if self.financial_asset_time_series_repository and hasattr(self.financial_asset_time_series_repository, 'get_by_asset_id'):
+                return self.financial_asset_time_series_repository.get_by_asset_id(asset_id)
+            else:
+                print("FinancialAssetTimeSeries repository not available or method not implemented")
+                return []
+        except Exception as e:
+            print(f"Error pulling financial asset time series by asset ID {asset_id}: {str(e)}")
+            return []
+    
+    def pull_all_time_series(self) -> List[TimeSeries]:
+        """Pull all time series from database."""
+        try:
+            if self.time_series_repository:
+                return self.time_series_repository.get_all()
+            else:
+                print("TimeSeries repository not available")
+                return []
+        except Exception as e:
+            print(f"Error pulling all time series: {str(e)}")
+            return []
+    
+    def pull_all_stock_time_series(self) -> List[StockTimeSeries]:
+        """Pull all stock time series from database."""
+        try:
+            if self.stock_time_series_repository:
+                return self.stock_time_series_repository.get_all()
+            else:
+                print("StockTimeSeries repository not available")
+                return []
+        except Exception as e:
+            print(f"Error pulling all stock time series: {str(e)}")
+            return []
