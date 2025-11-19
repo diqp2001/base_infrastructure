@@ -19,6 +19,7 @@ from src.domain.entities.time_series.ml.ml_time_series import MLTimeSeries
 from src.infrastructure.repositories.local_repo.time_series.time_series_repository import TimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.stock_time_series_repository import StockTimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.financial_asset_time_series_repository import FinancialAssetTimeSeriesRepository
+from src.application.services.database_service import DatabaseService
 
 
 class TimeSeriesService:
@@ -26,7 +27,7 @@ class TimeSeriesService:
     
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
-        self.db_type = db_type
+        self.database_service = DatabaseService(db_type)
         self._init_repositories()
     
     def create_time_series(
@@ -316,15 +317,9 @@ class TimeSeriesService:
             raise ValueError(f"Unsupported resampling method: {method}")
     
     def _init_repositories(self):
-        """Initialize database repositories."""
-        if self.db_type == 'sqlite':
-            engine = create_engine('sqlite:///time_series.db')
-        else:
-            # Default to sqlite for now
-            engine = create_engine('sqlite:///time_series.db')
-        
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        """Initialize database repositories using DatabaseService."""
+        # Use the shared database service session for all repositories
+        session = self.database_service.session
         
         # Initialize existing repositories
         self.time_series_repository = TimeSeriesRepository(session) if hasattr(TimeSeriesRepository, '__init__') else None

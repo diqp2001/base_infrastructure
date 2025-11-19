@@ -19,6 +19,7 @@ from src.domain.entities.factor.finance.financial_assets.financial_asset_factor 
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+from src.application.services.database_service import DatabaseService
 
 
 class FactorCreationService:
@@ -26,7 +27,8 @@ class FactorCreationService:
     
     def __init__(self, db_type: str = 'sqlite'):
         """Initialize the service with a database type."""
-        self.repository = BaseFactorRepository(db_type)
+        self.database_service = DatabaseService(db_type)
+        self.repository = BaseFactorRepository(self.database_service.session)
     
     def create_share_momentum_factor(
         self,
