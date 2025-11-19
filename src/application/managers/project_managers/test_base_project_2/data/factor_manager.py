@@ -24,7 +24,8 @@ from infrastructure.repositories.local_repo.factor.base_factor_repository import
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
-from infrastructure.repositories.mappers.factor.finance.financial_assets.share_factor_value_mapper import ShareFactorValueMapper
+# ShareFactorValueMapper removed - using FactorValueMapper instead
+from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
 from .feature_engineer import SpatiotemporalFeatureEngineer
 from ..config import DEFAULT_CONFIG
