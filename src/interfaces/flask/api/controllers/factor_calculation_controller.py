@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime, date
 from decimal import Decimal
 
-from application.services.factor_calculation_service import FactorCalculationService
+from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 
 

@@ -8,14 +8,20 @@ from datetime import date, datetime
 from decimal import Decimal
 import pandas as pd
 
-from domain.entities.factor.factor import Factor
-from domain.entities.factor.factor_value import FactorValue
-from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
-from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
-from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
-from domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor
+from src.domain.entities.factor.factor import Factor
+from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor
+from src.domain.entities.factor.country_factor import CountryFactor
+from src.domain.entities.factor.continent_factor import ContinentFactor
+from src.domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor
+from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor
+from src.domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
-from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 
 
 class FactorCalculationService:
@@ -25,6 +31,219 @@ class FactorCalculationService:
         """Initialize the service with a database type."""
         self.repository = BaseFactorRepository(db_type)
     
+    # Entity Creation Functions
+    def create_share_momentum_factor(
+        self,
+        name: str,
+        group: str = "momentum",
+        subgroup: str = "price",
+        definition: str = None,
+        momentum_type: str = "price_momentum",
+        period: int = 20
+    ) -> ShareMomentumFactor:
+        """Create a ShareMomentumFactor entity."""
+        return ShareMomentumFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"{period}-period {momentum_type} momentum factor",
+            momentum_type=momentum_type,
+            period=period
+        )
+    
+    def create_share_technical_factor(
+        self,
+        name: str,
+        indicator_type: str = "SMA",
+        period: int = 20,
+        group: str = "technical",
+        subgroup: str = "trend",
+        definition: str = None
+    ) -> ShareTechnicalFactor:
+        """Create a ShareTechnicalFactor entity."""
+        return ShareTechnicalFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"{period}-period {indicator_type} technical indicator",
+            indicator_type=indicator_type,
+            period=period
+        )
+    
+    def create_share_volatility_factor(
+        self,
+        name: str,
+        volatility_type: str = "historical",
+        period: int = 30,
+        annualization_factor: float = 252.0,
+        group: str = "volatility",
+        subgroup: str = "risk",
+        definition: str = None
+    ) -> ShareVolatilityFactor:
+        """Create a ShareVolatilityFactor entity."""
+        return ShareVolatilityFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"{period}-period {volatility_type} volatility factor",
+            volatility_type=volatility_type,
+            period=period,
+            annualization_factor=annualization_factor
+        )
+    
+    def create_share_target_factor(
+        self,
+        name: str,
+        target_type: str = "returns",
+        forecast_horizon: int = 1,
+        is_scaled: bool = False,
+        group: str = "target",
+        subgroup: str = "prediction",
+        definition: str = None
+    ) -> ShareTargetFactor:
+        """Create a ShareTargetFactor entity."""
+        return ShareTargetFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"{forecast_horizon}-period {target_type} target factor",
+            target_type=target_type,
+            forecast_horizon=forecast_horizon,
+            is_scaled=is_scaled
+        )
+    
+    def create_share_factor(
+        self,
+        name: str,
+        group: str = "share",
+        subgroup: str = "general",
+        definition: str = None,
+        equity_specific: str = None
+    ) -> ShareFactor:
+        """Create a ShareFactor entity."""
+        return ShareFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"Share-specific factor: {name}",
+            equity_specific=equity_specific
+        )
+    
+    def create_country_factor(
+        self,
+        name: str,
+        group: str = "geographic",
+        subgroup: str = "country",
+        definition: str = None
+    ) -> CountryFactor:
+        """Create a CountryFactor entity."""
+        return CountryFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="external",
+            definition=definition or f"Country-level factor: {name}"
+        )
+    
+    def create_continent_factor(
+        self,
+        name: str,
+        group: str = "geographic",
+        subgroup: str = "continent",
+        definition: str = None
+    ) -> ContinentFactor:
+        """Create a ContinentFactor entity."""
+        return ContinentFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="external",
+            definition=definition or f"Continent-level factor: {name}"
+        )
+    
+    def create_security_factor(
+        self,
+        name: str,
+        group: str = "security",
+        subgroup: str = "general",
+        definition: str = None
+    ) -> SecurityFactor:
+        """Create a SecurityFactor entity."""
+        return SecurityFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"Security-level factor: {name}"
+        )
+    
+    def create_equity_factor(
+        self,
+        name: str,
+        group: str = "equity",
+        subgroup: str = "general",
+        definition: str = None
+    ) -> EquityFactor:
+        """Create an EquityFactor entity."""
+        return EquityFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"Equity-level factor: {name}"
+        )
+    
+    def create_financial_asset_factor(
+        self,
+        name: str,
+        group: str = "financial_asset",
+        subgroup: str = "general",
+        definition: str = None
+    ) -> FinancialAssetFactor:
+        """Create a FinancialAssetFactor entity."""
+        return FinancialAssetFactor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type="float",
+            source="calculated",
+            definition=definition or f"Financial asset factor: {name}"
+        )
+    
+    def create_base_factor(
+        self,
+        name: str,
+        group: str,
+        subgroup: str = None,
+        data_type: str = "float",
+        source: str = "calculated",
+        definition: str = None
+    ) -> Factor:
+        """Create a base Factor entity."""
+        return Factor(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition or f"Base factor: {name}"
+        )
+    
+    # Existing calculation methods...
     def calculate_and_store_momentum(
         self, 
         factor: ShareMomentumFactor, 
