@@ -31,50 +31,7 @@ class FactorModel(Base):
         'polymorphic_on': factor_type
     }
 
-    # Additional columns for specialized factor types (nullable for base factors)
-    # Geographic factors
-    continent_code = Column(String(5), nullable=True)  # ContinentFactor
-    geographic_zone = Column(String(50), nullable=True)  # ContinentFactor
-    country_code = Column(String(2), nullable=True)  # CountryFactor
-    is_developed = Column(String(10), nullable=True)  # CountryFactor
-    
-    # Financial asset factors
-    asset_class = Column(String(50), nullable=True)  # FinancialAssetFactor
-    market = Column(String(100), nullable=True)  # FinancialAssetFactor
-    currency = Column(String(3), nullable=True)  # FinancialAssetFactor, CountryFactor
-    
-    # Security factors
-    security_type = Column(String(50), nullable=True)  # SecurityFactor
-    isin = Column(String(12), nullable=True)  # SecurityFactor
-    cusip = Column(String(9), nullable=True)  # SecurityFactor
-    
-    # Equity factors
-    sector = Column(String(100), nullable=True)  # EquityFactor
-    industry = Column(String(100), nullable=True)  # EquityFactor
-    market_cap_category = Column(String(20), nullable=True)  # EquityFactor
-    
-    # Share factors
-    ticker_symbol = Column(String(10), nullable=True, index=True)  # ShareFactor
-    share_class = Column(String(10), nullable=True)  # ShareFactor
-    exchange = Column(String(20), nullable=True)  # ShareFactor
-    
-    # Share momentum factors
-    period = Column(Integer, nullable=True)  # ShareMomentumFactor, ShareTechnicalFactor, ShareVolatilityFactor
-    momentum_type = Column(String(20), nullable=True)  # ShareMomentumFactor
-    
-    # Share technical factors
-    indicator_type = Column(String(30), nullable=True)  # ShareTechnicalFactor
-    smoothing_factor = Column(Float, nullable=True)  # ShareTechnicalFactor
-    
-    # Share target factors
-    target_type = Column(String(20), nullable=True)  # ShareTargetFactor
-    forecast_horizon = Column(Integer, nullable=True)  # ShareTargetFactor
-    is_scaled = Column(String(10), nullable=True)  # ShareTargetFactor
-    scaling_method = Column(String(20), nullable=True)  # ShareTargetFactor
-    
-    # Share volatility factors
-    volatility_type = Column(String(20), nullable=True)  # ShareVolatilityFactor
-    annualization_factor = Column(Float, nullable=True)  # ShareVolatilityFactor
+
 
     # Relationships
     factor_values = relationship("FactorValue", back_populates="factor", cascade="all, delete-orphan")
@@ -94,16 +51,45 @@ class CountryFactor(FactorModel):
     """Country-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'country'}
 
-
 class FinancialAssetFactor(FactorModel):
     """Base financial asset factor."""
     __mapper_args__ = {'polymorphic_identity': 'financial_asset'}
-
 
 class SecurityFactor(FactorModel):
     """Security-specific factor."""
     __mapper_args__ = {'polymorphic_identity': 'security'}
 
+class BondFactor(FactorModel):
+    """Bond-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'bond'}
+
+class CommodityFactor(FactorModel):
+    """Commodity-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'commodity'}
+
+class CompanyShareFactor(FactorModel):
+    """Company-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'company'}
+
+class CurrencyFactor(FactorModel):
+    """CurrencyFactor-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'currency'}
+
+class ETFShareFactor(FactorModel):
+    """ETFShare-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'ETF'}
+
+class FuturesFactor(FactorModel):
+    """Futures-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'futures'}
+
+class IndexFactor(FactorModel):
+    """index-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'index'}
+
+class OptionsFactor(FactorModel):
+    """Option-specific factor."""
+    __mapper_args__ = {'polymorphic_identity': 'option'}
 
 class EquityFactor(FactorModel):
     """Equity-specific factor."""

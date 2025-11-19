@@ -21,6 +21,7 @@ class ContinentFactor(Factor):
         source: Optional[str] = None,
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        
         continent_code: Optional[str] = None,
         geographic_zone: Optional[str] = None,
     ):

@@ -4,7 +4,7 @@ Mapper for converting between ShareFactorValue domain entities and ORM models.
 
 from typing import Optional
 from decimal import Decimal
-from domain.entities.factor.finance.financial_assets.share_factor.share_factor_value import ShareFactorValue as ShareFactorValueEntity
+from domain.entities.factor.factor_model import ShareFactorValue as ShareFactorValueEntity
 from infrastructure.models.factor.finance.financial_assets.share_factors import ShareFactorValue as ShareFactorValueModel
 
 

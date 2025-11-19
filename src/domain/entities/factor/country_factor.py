@@ -21,6 +21,7 @@ class CountryFactor(Factor):
         source: Optional[str] = None,
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        
         country_code: Optional[str] = None,
         currency: Optional[str] = None,
         is_developed: Optional[bool] = None,
