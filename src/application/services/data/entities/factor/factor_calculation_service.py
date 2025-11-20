@@ -9,7 +9,7 @@ from decimal import Decimal
 import pandas as pd
 
 from src.domain.entities.factor.factor import Factor
-from domain.entities.factor.factor_serie import FactorSerie
+from src.domain.entities.factor.factor_serie import FactorSerie
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
@@ -25,7 +25,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.share_fact
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service import DatabaseService
 
 
 class FactorCalculationService:
@@ -482,21 +482,120 @@ class FactorCalculationService:
         factor: ShareTechnicalFactor,
         entity_id: int,
         entity_type: str,
-        data: pd.DataFrame,
+        ticker: str = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
         """
         Calculate technical indicator values and store them in the database.
         
+        Price data is extracted from the database using the FactorSerie domain entity.
+        This follows the same pattern as calculate_and_store_momentum.
+        
         Args:
             factor: ShareTechnicalFactor domain entity
-            entity_id: ID of the entity
-            entity_type: Type of entity
-            data: DataFrame with OHLCV data (columns: open, high, low, close, volume)
+            entity_id: ID of the entity (e.g., share ID)
+            entity_type: Type of entity ('share', 'equity', etc.)
+            ticker: Optional ticker symbol for context and logging
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
+        """
+        # Extract price data from database using FactorSerie
+        price_data = self._extract_price_data_from_database(entity_id, ticker)
+        if not price_data:
+            return {
+                'factor_name': factor.name,
+                'factor_id': factor.id,
+                'entity_id': entity_id,
+                'entity_type': entity_type,
+                'calculations': [],
+                'stored_values': 0,
+                'skipped_values': 0,
+                'errors': ['No price data available in database']
+            }
+        
+        results = {
+            'factor_name': factor.name,
+            'factor_id': factor.id,
+            'entity_id': entity_id,
+            'entity_type': entity_type,
+            'calculations': [],
+            'stored_values': 0,
+            'skipped_values': 0,
+            'errors': []
+        }
+        
+        # Calculate technical indicators for each date using the FactorSerie domain object
+        for i, (price_date, current_price) in enumerate(zip(price_data.dates, price_data.values)):
+            try:
+                # Get historical prices up to current date for technical calculation
+                historical_prices = price_data.get_historical_values(i + 1)
+                
+                # Calculate technical indicator using domain logic
+                technical_value = None
+                if factor.indicator_type.upper() == 'SMA':
+                    technical_value = factor.calculate_sma(historical_prices)
+                elif factor.indicator_type.upper() == 'EMA':
+                    # For EMA, we need the previous EMA value - simplified for now
+                    technical_value = factor.calculate_ema(historical_prices)
+                elif factor.indicator_type.upper() == 'RSI':
+                    technical_value = factor.calculate_rsi(historical_prices)
+                else:
+                    results['errors'].append(f"Unknown indicator type: {factor.indicator_type}")
+                    continue
+                
+                if technical_value is not None:
+                    # Check if value already exists
+                    if not overwrite and self.repository.factor_value_exists(
+                        factor.id, entity_id, price_date
+                    ):
+                        results['skipped_values'] += 1
+                        continue
+                    
+                    # Store the calculated value
+                    factor_value = self.repository.add_factor_value(
+                        factor_id=factor.id,
+                        entity_id=entity_id,
+                        date=price_date,
+                        value=Decimal(str(technical_value))
+                    )
+                    
+                    if factor_value:
+                        results['stored_values'] += 1
+                        results['calculations'].append({
+                            'date': price_date,
+                            'value': technical_value,
+                            'stored': True
+                        })
+                    else:
+                        results['errors'].append(f"Failed to store value for {price_date}")
+                else:
+                    results['calculations'].append({
+                        'date': price_date,
+                        'value': None,
+                        'stored': False,
+                        'reason': 'Insufficient data for technical calculation'
+                    })
+            
+            except Exception as e:
+                results['errors'].append(f"Error calculating technical indicator for {price_date}: {str(e)}")
+        
+        return results
+    
+    def _calculate_technical_legacy(
+        self,
+        factor: ShareTechnicalFactor,
+        entity_id: int,
+        entity_type: str,
+        data: pd.DataFrame,
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Legacy method for backward compatibility with DataFrame input.
+        
+        This method maintains the old interface while encouraging migration to 
+        the new FactorSerie-based approach.
         """
         results = {
             'factor_name': factor.name,
@@ -510,23 +609,29 @@ class FactorCalculationService:
         }
         
         try:
-            # Calculate technical indicators using domain logic
-            if factor.indicator_type.upper() == 'SMA':
-                values = factor.calculate_sma(data['close'].tolist())
-            elif factor.indicator_type.upper() == 'EMA':
-                values = factor.calculate_ema(data['close'].tolist())
-            elif factor.indicator_type.upper() == 'RSI':
-                values = factor.calculate_rsi(data['close'].tolist())
-            else:
-                results['errors'].append(f"Unknown indicator type: {factor.indicator_type}")
-                return results
+            # Calculate technical indicators using domain logic on DataFrame data
+            prices = data['close'].tolist()
+            dates = [idx.date() if hasattr(idx, 'date') else idx for idx in data.index]
             
-            # Store calculated values
-            for i, (date_idx, value) in enumerate(zip(data.index, values)):
+            # Calculate for each date
+            for i, (trade_date, current_price) in enumerate(zip(dates, prices)):
                 try:
-                    trade_date = date_idx.date() if hasattr(date_idx, 'date') else date_idx
+                    # Get historical prices up to current date
+                    historical_prices = prices[:i+1]
                     
-                    if value is not None:
+                    # Calculate technical indicator using domain logic
+                    technical_value = None
+                    if factor.indicator_type.upper() == 'SMA':
+                        technical_value = factor.calculate_sma(historical_prices)
+                    elif factor.indicator_type.upper() == 'EMA':
+                        technical_value = factor.calculate_ema(historical_prices)
+                    elif factor.indicator_type.upper() == 'RSI':
+                        technical_value = factor.calculate_rsi(historical_prices)
+                    else:
+                        results['errors'].append(f"Unknown indicator type: {factor.indicator_type}")
+                        continue
+                    
+                    if technical_value is not None:
                         # Check if value already exists
                         if not overwrite and self.repository.factor_value_exists(
                             factor.id, entity_id, trade_date
@@ -539,14 +644,14 @@ class FactorCalculationService:
                             factor_id=factor.id,
                             entity_id=entity_id,
                             date=trade_date,
-                            value=Decimal(str(value))
+                            value=Decimal(str(technical_value))
                         )
                         
                         if factor_value:
                             results['stored_values'] += 1
                             results['calculations'].append({
                                 'date': trade_date,
-                                'value': value,
+                                'value': technical_value,
                                 'stored': True
                             })
                         else:
@@ -572,23 +677,125 @@ class FactorCalculationService:
         factor: ShareVolatilityFactor,
         entity_id: int,
         entity_type: str,
-        returns: List[float],
-        dates: List[date],
+        ticker: str = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
         """
         Calculate volatility factor values and store them in the database.
         
+        Price data is extracted from the database using the FactorSerie domain entity.
+        This follows the same pattern as calculate_and_store_momentum and calculate_and_store_technical.
+        
         Args:
             factor: ShareVolatilityFactor domain entity
-            entity_id: ID of the entity
-            entity_type: Type of entity
-            returns: List of return values
-            dates: List of corresponding dates
+            entity_id: ID of the entity (e.g., share ID)
+            entity_type: Type of entity ('share', 'equity', etc.)
+            ticker: Optional ticker symbol for context and logging
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
+        """
+        # Extract price data from database using FactorSerie
+        price_data = self._extract_price_data_from_database(entity_id, ticker)
+        if not price_data:
+            return {
+                'factor_name': factor.name,
+                'factor_id': factor.id,
+                'entity_id': entity_id,
+                'entity_type': entity_type,
+                'calculations': [],
+                'stored_values': 0,
+                'skipped_values': 0,
+                'errors': ['No price data available in database']
+            }
+        
+        results = {
+            'factor_name': factor.name,
+            'factor_id': factor.id,
+            'entity_id': entity_id,
+            'entity_type': entity_type,
+            'calculations': [],
+            'stored_values': 0,
+            'skipped_values': 0,
+            'errors': []
+        }
+        
+        # Calculate volatility for each date using the FactorSerie domain object
+        for i, (price_date, current_price) in enumerate(zip(price_data.dates, price_data.values)):
+            try:
+                # Get historical prices up to current date for volatility calculation
+                historical_prices = price_data.get_historical_values(i + 1)
+                
+                # Calculate volatility using domain logic
+                volatility_value = None
+                if factor.volatility_type == 'historical':
+                    volatility_value = factor.calculate_historical_volatility(historical_prices)
+                elif factor.volatility_type == 'realized':
+                    # For realized volatility, we need returns, not prices
+                    # Convert prices to returns first
+                    if len(historical_prices) >= 2:
+                        returns = []
+                        for j in range(1, len(historical_prices)):
+                            if historical_prices[j-1] > 0:
+                                returns.append((historical_prices[j] / historical_prices[j-1]) - 1)
+                        volatility_value = factor.calculate_realized_volatility(returns)
+                else:
+                    results['errors'].append(f"Unknown volatility type: {factor.volatility_type}")
+                    continue
+                
+                if volatility_value is not None:
+                    # Check if value already exists
+                    if not overwrite and self.repository.factor_value_exists(
+                        factor.id, entity_id, price_date
+                    ):
+                        results['skipped_values'] += 1
+                        continue
+                    
+                    # Store the calculated value
+                    factor_value = self.repository.add_factor_value(
+                        factor_id=factor.id,
+                        entity_id=entity_id,
+                        date=price_date,
+                        value=Decimal(str(volatility_value))
+                    )
+                    
+                    if factor_value:
+                        results['stored_values'] += 1
+                        results['calculations'].append({
+                            'date': price_date,
+                            'value': volatility_value,
+                            'stored': True
+                        })
+                    else:
+                        results['errors'].append(f"Failed to store value for {price_date}")
+                else:
+                    results['calculations'].append({
+                        'date': price_date,
+                        'value': None,
+                        'stored': False,
+                        'reason': 'Insufficient data for volatility calculation'
+                    })
+            
+            except Exception as e:
+                results['errors'].append(f"Error calculating volatility for {price_date}: {str(e)}")
+        
+        return results
+    
+    def _calculate_volatility_legacy(
+        self,
+        factor: ShareVolatilityFactor,
+        entity_id: int,
+        entity_type: str,
+        returns: List[float],
+        dates: List[date],
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Legacy method for backward compatibility with direct returns/dates input.
+        
+        This method maintains the old interface while encouraging migration to 
+        the new FactorSerie-based approach.
         """
         if len(returns) != len(dates):
             raise ValueError("Returns and dates lists must have the same length")
@@ -604,7 +811,7 @@ class FactorCalculationService:
             'errors': []
         }
         
-        # Calculate volatility for each date
+        # Calculate volatility for each date (legacy approach)
         for i, (vol_date, current_return) in enumerate(zip(dates, returns)):
             try:
                 # Get historical returns up to current date for volatility calculation
@@ -700,20 +907,46 @@ class FactorCalculationService:
                 raise ValueError("ShareMomentumFactor requires either {'ticker': str} for database extraction or legacy {'prices': List[float], 'dates': List[date]} format")
         
         elif isinstance(factor, ShareTechnicalFactor):
-            if isinstance(data, pd.DataFrame):
+            # Support both new and legacy calling patterns
+            if isinstance(data, dict) and 'ticker' in data:
+                # New pattern: extract from database using ticker
                 return self.calculate_and_store_technical(
+                    factor, entity_id, entity_type, ticker=data['ticker'], overwrite=overwrite
+                )
+            elif isinstance(data, pd.DataFrame):
+                # Legacy pattern: DataFrame provided directly (deprecated)
+                print("⚠️  Warning: Direct DataFrame input is deprecated. Use database extraction with ticker instead.")
+                return self._calculate_technical_legacy(
                     factor, entity_id, entity_type, data, overwrite
                 )
-            else:
-                raise ValueError("ShareTechnicalFactor requires pandas DataFrame with OHLCV data")
-        
-        elif isinstance(factor, ShareVolatilityFactor):
-            if isinstance(data, dict) and 'returns' in data and 'dates' in data:
-                return self.calculate_and_store_volatility(
-                    factor, entity_id, entity_type, data['returns'], data['dates'], overwrite
+            elif data is None:
+                # New pattern: extract from database without ticker context
+                return self.calculate_and_store_technical(
+                    factor, entity_id, entity_type, ticker=None, overwrite=overwrite
                 )
             else:
-                raise ValueError("ShareVolatilityFactor requires data with 'returns' and 'dates' keys")
+                raise ValueError("ShareTechnicalFactor requires either {'ticker': str} for database extraction or legacy pandas DataFrame format")
+        
+        elif isinstance(factor, ShareVolatilityFactor):
+            # Support both new and legacy calling patterns
+            if isinstance(data, dict) and 'ticker' in data:
+                # New pattern: extract from database using ticker
+                return self.calculate_and_store_volatility(
+                    factor, entity_id, entity_type, ticker=data['ticker'], overwrite=overwrite
+                )
+            elif isinstance(data, dict) and 'returns' in data and 'dates' in data:
+                # Legacy pattern: returns/dates provided directly (deprecated)
+                print("⚠️  Warning: Direct returns/dates input is deprecated. Use database extraction with ticker instead.")
+                return self._calculate_volatility_legacy(
+                    factor, entity_id, entity_type, data['returns'], data['dates'], overwrite
+                )
+            elif data is None:
+                # New pattern: extract from database without ticker context
+                return self.calculate_and_store_volatility(
+                    factor, entity_id, entity_type, ticker=None, overwrite=overwrite
+                )
+            else:
+                raise ValueError("ShareVolatilityFactor requires either {'ticker': str} for database extraction or legacy {'returns': List[float], 'dates': List[date]} format")
         
         else:
             return {
