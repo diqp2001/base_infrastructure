@@ -239,6 +239,93 @@ def test_ensure_entities_exist_standardized():
 
 ---
 
+---
+
+## 💡 Recent Enhancement: Database-Driven Price Data Extraction (2025-11-20)
+
+### Problem Addressed
+Previously, factor calculations required external preparation of price data as raw `List[float]` parameters, violating DDD principles and creating tight coupling between data preparation and calculation logic.
+
+### Solution Implemented
+Updated `FactorEnginedDataManager` to use the new **database-driven price data extraction pattern** from `FactorCalculationService`:
+
+#### Before Enhancement
+```python
+def _calculate_momentum_factor_values(self, tickers: List[str], ...):
+    for ticker in tickers:
+        company = self.company_share_repository.get_by_ticker(ticker)[0]
+        
+        # Manual price data extraction
+        factorentityClose = self.share_factor_repository.get_by_name('Close')
+        df = self.share_factor_repository.get_factor_values_df(
+            factor_id=int(factorentityClose.id), 
+            entity_id=company.id
+        )
+        df["date"] = pd.to_datetime(df["date"])
+        df.set_index("date", inplace=True)
+        df["value"] = df["value"].astype(float)
+        
+        # Manual data preparation
+        prices = df["value"].tolist()
+        dates = df.index.tolist()
+        
+        # Factor calculation with raw data
+        momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
+            factor=factor,
+            entity_id=company.id,
+            entity_type='share',
+            prices=prices,    # Raw price list
+            dates=dates,      # Raw date list
+            overwrite=overwrite
+        )
+```
+
+#### After Enhancement
+```python
+def _calculate_momentum_factor_values(self, tickers: List[str], ...):
+    for ticker in tickers:
+        company = self.company_share_repository.get_by_ticker(ticker)[0]
+        
+        # Simplified: service handles price extraction internally
+        momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
+            factor=factor,
+            entity_id=company.id,
+            entity_type='share',
+            ticker=ticker,      # Optional ticker for logging
+            overwrite=overwrite
+        )
+        
+        # Updated result handling
+        values_stored = momentum_results.get('stored_values', 0) if momentum_results else 0
+```
+
+### Key Benefits
+
+1. **Domain-Driven Design Compliance**: Price data is now encapsulated in `PriceData` domain entity
+2. **Reduced Code Duplication**: No more manual price data extraction in multiple places
+3. **Improved Maintainability**: Price extraction logic centralized in service layer
+4. **Better Error Handling**: Standardized error responses from service layer
+5. **Enhanced Testability**: Service-level testing of price extraction logic
+
+### Integration with Standardized Patterns
+
+This enhancement builds upon the existing standardized entity creation patterns:
+
+```python
+# Entity creation (existing standardized pattern)
+share = self.company_share_repository._create_or_get_company_share(...)
+
+# Factor creation (existing standardized pattern)  
+factor = self.share_factor_repository._create_or_get_factor(...)
+
+# Factor calculation (NEW: database-driven pattern)
+results = self.factor_calculation_service.calculate_and_store_momentum(
+    factor=factor, entity_id=share.id, ticker=ticker
+)
+```
+
+---
+
 ## 🚀 Future Enhancements
 
 - [ ] Extend standardized pattern to all entity types in the system
@@ -247,3 +334,4 @@ def test_ensure_entities_exist_standardized():
 - [ ] Add entity lifecycle management (soft delete, archiving)
 - [ ] Integrate with audit logging system
 - [ ] Add entity versioning support
+- [ ] Extend database-driven extraction to volatility and technical factor calculations

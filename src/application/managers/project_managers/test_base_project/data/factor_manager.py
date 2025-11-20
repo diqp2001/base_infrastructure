@@ -49,6 +49,8 @@ class FactorEnginedDataManager:
         self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
+        # Initialize services
+        self.factor_calculation_service = FactorCalculationService(database_service, self.config['DATABASE']['DB_TYPE'])
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         
@@ -531,34 +533,20 @@ class FactorEnginedDataManager:
             for ticker in tickers:
                 try:
                     company = self.company_share_repository.get_by_ticker(ticker)[0]
-                    
-                    
-                    factorentityClose = self.share_factor_repository.get_by_name('Close')
-                    df = self.share_factor_repository.get_factor_values_df(
-                        factor_id=int(factorentityClose.id), 
-                        entity_id=company.id
-                    )
-                    df["date"] = pd.to_datetime(df["date"])
-                    df.set_index("date", inplace=True)
-                    df["value"] = df["value"].astype(float)
 
                     # Get repository factor for momentum storage
                     repository_factor = self.share_factor_repository.get_by_name(factor.name)
                     
                     if repository_factor:
-                        # Use factor calculation service
-                        prices = df["value"].tolist()
-                        dates = df.index.tolist()
-                        
+                        # Use new pattern: let service extract prices from database
                         momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
                             factor=factor,
                             entity_id=company.id,
                             entity_type='share',
-                            prices=prices,
-                            dates=dates,
+                            ticker=ticker,
                             overwrite=overwrite
                         )
-                        values_stored = len(momentum_results) if momentum_results else 0
+                        values_stored = momentum_results.get('stored_values', 0) if momentum_results else 0
 
                         total_values += values_stored
                         print(f"✅ {ticker}: stored {values_stored} {factor.period}-day momentum values")
