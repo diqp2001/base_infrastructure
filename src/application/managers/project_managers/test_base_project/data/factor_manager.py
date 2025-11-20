@@ -276,35 +276,43 @@ class FactorEnginedDataManager:
         return self._format_for_model_training(all_data)
     
     def _ensure_entities_exist(self, tickers: List[str]) -> Dict[str, Any]:
-        """Ensure all required entities exist in the database."""
+        """
+        Ensure all required entities exist in the database.
+        Uses the standardized _create_or_get_company_share pattern.
+        """
         print("  📋 Verifying entities exist...")
         
         existing_count = 0
         created_count = 0
         
         for ticker in tickers:
-            share = self.company_share_repository.get_by_ticker(ticker)
-            
-            if share:
-                existing_count += 1
-            else:
-                # Create the entity
-                try:
-                    new_share = CompanyShareEntity(
-                        ticker=ticker,
-                        exchange_id=1,
-                        company_id=None,
-                        start_date=datetime(2020, 1, 1)
-                    )
-                    new_share.set_company_name(f"{ticker} Inc.")
-                    new_share.update_sector_industry("Technology", None)
+            try:
+                # Use the standardized create-or-get method
+                share = self.company_share_repository._create_or_get_company_share(
+                    ticker=ticker,
+                    exchange_id=1,
+                    company_id=None,
+                    start_date=datetime(2020, 1, 1),
+                    company_name=f"{ticker} Inc.",
+                    sector="Technology",
+                    industry=None
+                )
+                
+                if share:
+                    # Check if it was newly created by seeing if it existed before
+                    existing_shares = self.company_share_repository.get_by_ticker(ticker)
+                    if len(existing_shares) == 1 and existing_shares[0].id == share.id:
+                        # This is a newly created share
+                        created_count += 1
+                        print(f"    ✅ Created entity for {ticker}")
+                    else:
+                        # This was an existing share
+                        existing_count += 1
+                else:
+                    print(f"    ❌ Failed to create or get entity for {ticker}")
                     
-                    created_share = self.company_share_repository.add(new_share)
-                    created_count += 1
-                    print(f"    ✅ Created entity for {ticker}")
-                    
-                except Exception as e:
-                    print(f"    ❌ Error creating entity for {ticker}: {str(e)}")
+            except Exception as e:
+                print(f"    ❌ Error ensuring entity exists for {ticker}: {str(e)}")
         
         return {
             'verified': existing_count + created_count,
