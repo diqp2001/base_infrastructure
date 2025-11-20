@@ -9,13 +9,17 @@ class DataService:
     Provides common methods for querying, handling data transformations (wrangling), and scaling.
     """
 
-    def __init__(self, db_type: str = 'sqlite', scaler: str = 'standard'):
+    def __init__(self, database_service=None, db_type: str = 'sqlite', scaler: str = 'standard'):
         """
         Initialize the DataService with a database service and scaler type.
-        :param db_type: The database type for the DatabaseService.
+        :param database_service: Optional existing DatabaseService instance
+        :param db_type: The database type for the DatabaseService (ignored if database_service provided).
         :param scaler: The type of scaler to use for data preprocessing ('standard' or 'minmax').
         """
-        self.database_service = DatabaseService(db_type)  # Use DatabaseService instead of database_manager
+        if database_service is not None:
+            self.database_service = database_service
+        else:
+            self.database_service = DatabaseService(db_type)  # Use DatabaseService instead of database_manager
         self.scaler = scaler  # Scaling method ('standard' or 'minmax')
         self.scaler_instance = None
 

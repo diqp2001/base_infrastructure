@@ -28,9 +28,18 @@ from application.services.database_service.database_service import DatabaseServi
 class FactorCalculationService:
     """Service for calculating factor values and storing them in the database."""
     
-    def __init__(self, db_type: str = 'sqlite'):
-        """Initialize the service with a database type."""
-        self.database_service = DatabaseService(db_type)
+    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite'):
+        """
+        Initialize the service with a database service or create one if not provided.
+        
+        Args:
+            database_service: Optional existing DatabaseService instance
+            db_type: Database type to use when creating new DatabaseService (ignored if database_service provided)
+        """
+        if database_service is not None:
+            self.database_service = database_service
+        else:
+            self.database_service = DatabaseService(db_type)
         self.repository = BaseFactorRepository(self.database_service.session)
     
     # Entity Creation Functions
@@ -613,3 +622,238 @@ class FactorCalculationService:
                 results['errors'].append(error_msg)
         
         return results
+    
+    # Cross-Factor Calculation Methods
+    
+    def calculate_factor_from_factors(
+        self,
+        source_factors: List[Dict[str, Any]],
+        target_factor: Factor,
+        entity_id: int,
+        entity_type: str,
+        calculation_function,
+        dates: List[date],
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate a new factor using values from existing factors.
+        
+        Args:
+            source_factors: List of factor dictionaries with 'factor' and 'values' keys
+            target_factor: Target factor domain entity to store results
+            entity_id: ID of the entity
+            entity_type: Type of entity
+            calculation_function: Function that takes source factor values and returns calculated value
+            dates: List of dates to calculate for
+            overwrite: Whether to overwrite existing values
+            
+        Returns:
+            Dict with calculation results and storage stats
+        """
+        results = {
+            'target_factor_name': target_factor.name,
+            'target_factor_id': target_factor.id,
+            'source_factors': [sf['factor'].name for sf in source_factors],
+            'entity_id': entity_id,
+            'entity_type': entity_type,
+            'calculations': [],
+            'stored_values': 0,
+            'skipped_values': 0,
+            'errors': []
+        }
+        
+        # Calculate for each date
+        for calc_date in dates:
+            try:
+                # Get source factor values for this date
+                source_values = {}
+                all_values_available = True
+                
+                for source_factor_info in source_factors:
+                    factor = source_factor_info['factor']
+                    value = self.repository.get_factor_value(
+                        factor.id, entity_id, calc_date
+                    )
+                    
+                    if value is None:
+                        all_values_available = False
+                        break
+                    
+                    source_values[factor.name] = float(value)
+                
+                if not all_values_available:
+                    results['calculations'].append({
+                        'date': calc_date,
+                        'value': None,
+                        'stored': False,
+                        'reason': 'Missing source factor values'
+                    })
+                    continue
+                
+                # Apply calculation function
+                calculated_value = calculation_function(source_values, calc_date)
+                
+                if calculated_value is not None:
+                    # Check if value already exists
+                    if not overwrite and self.repository.factor_value_exists(
+                        target_factor.id, entity_id, calc_date
+                    ):
+                        results['skipped_values'] += 1
+                        continue
+                    
+                    # Store the calculated value
+                    factor_value = self.repository.add_factor_value(
+                        factor_id=target_factor.id,
+                        entity_id=entity_id,
+                        date=calc_date,
+                        value=Decimal(str(calculated_value))
+                    )
+                    
+                    if factor_value:
+                        results['stored_values'] += 1
+                        results['calculations'].append({
+                            'date': calc_date,
+                            'value': calculated_value,
+                            'stored': True,
+                            'source_values': source_values
+                        })
+                    else:
+                        results['errors'].append(f"Failed to store value for {calc_date}")
+                else:
+                    results['calculations'].append({
+                        'date': calc_date,
+                        'value': None,
+                        'stored': False,
+                        'reason': 'Calculation function returned None'
+                    })
+                    
+            except Exception as e:
+                results['errors'].append(f"Error processing {calc_date}: {str(e)}")
+        
+        return results
+    
+    def calculate_momentum_relative_strength(
+        self,
+        momentum_factor: ShareMomentumFactor,
+        benchmark_momentum_factor: ShareMomentumFactor,
+        target_factor: Factor,
+        entity_id: int,
+        entity_type: str,
+        dates: List[date],
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate relative strength by comparing momentum factor to benchmark momentum.
+        
+        Example of calculating new factors from existing factors.
+        """
+        def relative_strength_calc(source_values, calc_date):
+            momentum_value = source_values.get(momentum_factor.name)
+            benchmark_momentum = source_values.get(benchmark_momentum_factor.name)
+            
+            if momentum_value is not None and benchmark_momentum is not None and benchmark_momentum != 0:
+                return momentum_value / benchmark_momentum - 1.0  # Relative performance
+            return None
+        
+        source_factors = [
+            {'factor': momentum_factor},
+            {'factor': benchmark_momentum_factor}
+        ]
+        
+        return self.calculate_factor_from_factors(
+            source_factors=source_factors,
+            target_factor=target_factor,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            calculation_function=relative_strength_calc,
+            dates=dates,
+            overwrite=overwrite
+        )
+    
+    def calculate_volatility_adjusted_momentum(
+        self,
+        momentum_factor: ShareMomentumFactor,
+        volatility_factor: ShareVolatilityFactor,
+        target_factor: Factor,
+        entity_id: int,
+        entity_type: str,
+        dates: List[date],
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate volatility-adjusted momentum (momentum / volatility).
+        
+        Another example of calculating new factors from existing factors.
+        """
+        def vol_adjusted_momentum_calc(source_values, calc_date):
+            momentum_value = source_values.get(momentum_factor.name)
+            volatility_value = source_values.get(volatility_factor.name)
+            
+            if momentum_value is not None and volatility_value is not None and volatility_value > 0:
+                return momentum_value / volatility_value  # Risk-adjusted momentum
+            return None
+        
+        source_factors = [
+            {'factor': momentum_factor},
+            {'factor': volatility_factor}
+        ]
+        
+        return self.calculate_factor_from_factors(
+            source_factors=source_factors,
+            target_factor=target_factor,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            calculation_function=vol_adjusted_momentum_calc,
+            dates=dates,
+            overwrite=overwrite
+        )
+    
+    def calculate_composite_factor(
+        self,
+        factor_weights: Dict[Factor, float],
+        target_factor: Factor,
+        entity_id: int,
+        entity_type: str,
+        dates: List[date],
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate a composite factor as weighted sum of multiple factors.
+        
+        Args:
+            factor_weights: Dictionary mapping factors to their weights
+            target_factor: Target composite factor
+            entity_id: ID of the entity
+            entity_type: Type of entity
+            dates: List of dates to calculate for
+            overwrite: Whether to overwrite existing values
+            
+        Returns:
+            Dict with calculation results and storage stats
+        """
+        def composite_calc(source_values, calc_date):
+            weighted_sum = 0.0
+            total_weight = 0.0
+            
+            for factor, weight in factor_weights.items():
+                factor_value = source_values.get(factor.name)
+                if factor_value is not None:
+                    weighted_sum += factor_value * weight
+                    total_weight += abs(weight)
+            
+            # Return weighted average if we have any valid values
+            if total_weight > 0:
+                return weighted_sum / total_weight
+            return None
+        
+        source_factors = [{'factor': factor} for factor in factor_weights.keys()]
+        
+        return self.calculate_factor_from_factors(
+            source_factors=source_factors,
+            target_factor=target_factor,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            calculation_function=composite_calc,
+            dates=dates,
+            overwrite=overwrite
+        )

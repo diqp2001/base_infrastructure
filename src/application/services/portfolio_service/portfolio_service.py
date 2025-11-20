@@ -9,12 +9,16 @@ from application.services.database_service.database_service import DatabaseServi
 class PortfolioService:
     """Service class for managing portfolios, positions, and portfolio analytics."""
     
-    def __init__(self, db_type: str = 'sqlite'):
+    def __init__(self, database_service=None, db_type: str = 'sqlite'):
         """
         Initialize the PortfolioService with a database service.
-        :param db_type: The database type for the DatabaseService.
+        :param database_service: Optional existing DatabaseService instance
+        :param db_type: The database type for the DatabaseService (ignored if database_service provided).
         """
-        self.database_service = DatabaseService(db_type)
+        if database_service is not None:
+            self.database_service = database_service
+        else:
+            self.database_service = DatabaseService(db_type)
     
     def create_portfolio(self, name: str, description: str = None, initial_cash: Decimal = None, 
                         currency: str = 'USD', benchmark: str = None) -> Dict[str, Any]:
