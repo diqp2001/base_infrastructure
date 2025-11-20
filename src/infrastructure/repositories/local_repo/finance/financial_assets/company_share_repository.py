@@ -432,6 +432,61 @@ class CompanyShareRepository(ShareRepository):
             print(f"Warning: Could not determine next available company share ID: {str(e)}")
             return 1  # Default to 1 if query fails
 
+    def _create_or_get_company_share(self, ticker: str, exchange_id: int = 1, 
+                                    company_id: Optional[int] = None, 
+                                    start_date=None, end_date=None,
+                                    company_name: Optional[str] = None,
+                                    sector: Optional[str] = None, 
+                                    industry: Optional[str] = None) -> CompanyShareEntity:
+        """
+        Create company share entity if it doesn't exist, otherwise return existing.
+        Follows the same pattern as BaseFactorRepository._create_or_get_factor().
+        
+        Args:
+            ticker: Stock ticker symbol (unique identifier)
+            exchange_id: Exchange ID (defaults to 1)
+            company_id: Company ID (optional)
+            start_date: Start date for the share
+            end_date: End date for the share
+            company_name: Company name for entity setup
+            sector: Sector for entity setup
+            industry: Industry for entity setup
+            
+        Returns:
+            CompanyShareEntity: Created or existing entity
+        """
+        # Check if entity already exists by ticker (unique identifier)
+        existing_share = self.get_by_ticker(ticker)
+        if existing_share:
+            return existing_share[0] if isinstance(existing_share, list) else existing_share
+        
+        try:
+            # Generate next available ID if not provided
+            next_id = self._get_next_available_company_share_id()
+            
+            # Create new company share entity
+            new_share = CompanyShareEntity(
+                id=next_id,
+                ticker=ticker,
+                exchange_id=exchange_id,
+                company_id=company_id,
+                start_date=start_date,
+                end_date=end_date
+            )
+            
+            # Set additional properties if provided
+            if company_name:
+                new_share.set_company_name(company_name)
+            if sector or industry:
+                new_share.update_sector_industry(sector, industry)
+            
+            # Add to database
+            return self.add(new_share)
+            
+        except Exception as e:
+            print(f"Error creating company share for {ticker}: {str(e)}")
+            return None
+
     # ----------------------------- Standard CRUD Interface -----------------------------
     def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:
         """Create new company share entity in database (standard CRUD interface)"""
