@@ -18,8 +18,8 @@ from domain.entities.finance.financial_assets.company_share import CompanyShare 
 from domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
-from infrastructure.repositories.local_repo.finance.sector_repository import SectorRepository
-from infrastructure.repositories.local_repo.finance.industry_repository import IndustryRepository
+from infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
+from infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
 
 
 class EntityExistenceService:
