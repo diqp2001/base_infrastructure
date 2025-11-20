@@ -53,15 +53,15 @@ class FactorNormalizer:
     normalization methods and criteria.
     """
     
-    def __init__(self, database_manager: DatabaseService):
+    def __init__(self, database_service: DatabaseService):
         """
         Initialize the factor normalizer.
         
         Args:
-            database_manager: Database manager for accessing company metadata
+            database_service: Database manager for accessing company metadata
         """
-        self.database_service = database_manager
-        self.company_repository = CompanyShareRepositoryLocal(database_manager.session)
+        self.database_service = database_service
+        self.company_repository = CompanyShareRepositoryLocal(database_service.session)
         
         # Cache for company metadata
         self._company_metadata_cache = {}

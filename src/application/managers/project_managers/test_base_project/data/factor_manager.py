@@ -40,17 +40,12 @@ class FactorEnginedDataManager:
     with the advanced feature engineering from spatiotemporal_momentum_manager.
     """
     
-    def __init__(self, database_manager: DatabaseService):
-        self.database_service = database_manager
+    def __init__(self, database_service: DatabaseService):
+        self.database_service = database_service
         self.config = DEFAULT_CONFIG
         
-        # Initialize services (new architecture)
-        self.factor_calculation_service = FactorCalculationService()
-        self.factor_creation_service = FactorCreationService()
-        self.financial_asset_service = FinancialAssetService()
-        
-        # Initialize repositories (legacy support)
-        self.company_share_repository = CompanyShareRepositoryLocal(database_manager.session)
+        # Initialize repositories
+        self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
         # Initialize feature engineer

@@ -28,12 +28,12 @@ class SpatiotemporalDataLoader:
     """
     
     def __init__(self, database_service: DatabaseService):
-        self.database_service = database_manager
+        self.database_service = database_service
         self.config = DEFAULT_CONFIG['DATA']
         self.spatiotemporal_config = DEFAULT_CONFIG['SPATIOTEMPORAL']
         
         # Initialize repositories
-        self.company_share_repository = CompanyShareRepositoryLocal(database_manager.session)
+        self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
         self.share_factor_repository = ShareFactorRepository(DEFAULT_CONFIG['DATABASE']['DB_TYPE'])
         
         # Data paths - find project root by looking for data/stock_data directory
