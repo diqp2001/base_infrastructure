@@ -175,7 +175,7 @@ class SpatiotemporalFeatureEngineer:
             )
             
             # Create calculator
-            vol_calculator = VolatilityFactorShareValue(self.database_manager, volatility_entity)
+            vol_calculator = VolatilityFactorShareValue(self.database_service, volatility_entity)
             
             # Calculate values and add to feature data
             calculated_data = vol_calculator.calculate(
@@ -220,7 +220,7 @@ class SpatiotemporalFeatureEngineer:
             )
             
             # Create calculator
-            target_calculator = ShareTargetFactorValue(self.database_manager, target_entity)
+            target_calculator = ShareTargetFactorValue(self.database_service, target_entity)
             
             # Calculate values and add to feature data
             calculated_data = target_calculator.calculate(

@@ -27,20 +27,20 @@ class SpatiotemporalModelTrainer:
     for both TFT and MLP architectures.
     """
     
-    def __init__(self, database_manager):
+    def __init__(self, database_service):
         """
         Initialize the model trainer.
         
         Args:
-            database_manager: Database manager for data access
+            database_service: Database manager for data access
         """
-        self.database_manager = database_manager
+        self.database_service = database_service
         self.config = DEFAULT_CONFIG['SPATIOTEMPORAL']
         
         # Initialize components
-        self.data_loader = SpatiotemporalDataLoader(database_manager)
-        self.factor_manager = FactorEnginedDataManager(database_manager)  # Use factor system for database-driven approach
-        self.factor_normalizer = FactorNormalizer(database_manager)  # NEW: Factor normalization component
+        self.data_loader = SpatiotemporalDataLoader(database_service)
+        self.factor_manager = FactorEnginedDataManager(database_service)  # Use factor system for database-driven approach
+        self.factor_normalizer = FactorNormalizer(database_service)  # NEW: Factor normalization component
         self.tensor_splitter = TensorSplitterManager()
         self.model = HybridSpatiotemporalModel()
         
