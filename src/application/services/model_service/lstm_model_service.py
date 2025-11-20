@@ -4,9 +4,11 @@ import numpy as np
 from typing import Dict, Any
 import torch
 from torch import nn, optim
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class GRUModelManager(ModelManager):
+class LSTMModelService(ModelService):
+    """Long Short-Term Memory (LSTM) Model Service - specialized neural network service."""
+    
     def __init__(self, input_size: int, hidden_size: int, output_size: int, target_column: str = 'price close', num_layers: int = 2):
         super().__init__()
         self.input_size = input_size
@@ -18,24 +20,24 @@ class GRUModelManager(ModelManager):
 
     def _build_model(self) -> nn.Module:
         """
-        Build the GRU model.
+        Build the LSTM model.
         """
-        class GRU(nn.Module):
+        class LSTM(nn.Module):
             def __init__(self, input_size, hidden_size, output_size, num_layers):
-                super(GRU, self).__init__()
-                self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+                super(LSTM, self).__init__()
+                self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
                 self.fc = nn.Linear(hidden_size, output_size)
 
             def forward(self, x):
-                h_gru, _ = self.gru(x)
-                out = self.fc(h_gru[:, -1, :])
+                h_lstm, _ = self.lstm(x)
+                out = self.fc(h_lstm[:, -1, :])
                 return out
 
-        return GRU(self.input_size, self.hidden_size, self.output_size, self.num_layers)
+        return LSTM(self.input_size, self.hidden_size, self.output_size, self.num_layers)
 
-    def train(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
         """
-        Train the GRU model.
+        Train the LSTM model.
         """
         X = torch.tensor(features.values, dtype=torch.float32)
         y = torch.tensor(target.values, dtype=torch.float32).view(-1, 1)
@@ -52,9 +54,9 @@ class GRUModelManager(ModelManager):
 
             print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item()}")
 
-    def evaluate(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
         """
-        Evaluate the GRU model.
+        Evaluate the LSTM model.
         """
         X_test = torch.tensor(test_data.drop(columns=[self.target_column]).values, dtype=torch.float32)
         y_test = torch.tensor(test_data[self.target_column].values, dtype=torch.float32).view(-1, 1)

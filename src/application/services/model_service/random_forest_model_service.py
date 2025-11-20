@@ -3,21 +3,23 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.ensemble import RandomForestRegressor
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class RandomForestModelManager(ModelManager):
+class RandomForestModelService(ModelService):
+    """Random Forest Model Service - ensemble learning service for robust predictions using multiple decision trees."""
+    
     def __init__(self, target_column: str = 'price close', n_estimators: int = 100):
         super().__init__()
         self.model = RandomForestRegressor(n_estimators=n_estimators)
         self.target_column = target_column
 
-    def train(self, features: pd.DataFrame, target: pd.Series) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series) -> None:
         """
         Train the Random Forest model.
         """
         self.model.fit(features, target)
 
-    def evaluate(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
         """
         Evaluate the Random Forest model.
         """

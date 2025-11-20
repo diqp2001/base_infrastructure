@@ -4,9 +4,11 @@ import numpy as np
 from typing import Dict, Any
 import torch
 from torch import nn, optim
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class SLPModelManager(ModelManager):
+class SLPModelService(ModelService):
+    """Single Layer Perceptron (SLP) Model Service - simple neural network service for linear transformations."""
+    
     def __init__(self, input_size: int, output_size: int, timesteps: int, target_column: str = 'price close'):
         super().__init__()
         self.input_size = input_size
@@ -35,7 +37,7 @@ class SLPModelManager(ModelManager):
 
         return SLP(self.input_size, self.output_size, self.timesteps)
 
-    def train(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
         """
         Train the SLP model.
         """
@@ -54,7 +56,7 @@ class SLPModelManager(ModelManager):
 
             print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item()}")
 
-    def evaluate(self, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, test_data: pd.DataFrame) -> Dict[str, float]:
         """
         Evaluate the SLP model.
         """
@@ -63,5 +65,3 @@ class SLPModelManager(ModelManager):
         y_pred = self.model(X_test)
         mse = nn.MSELoss()(y_pred, y_test).item()
         return {"MSE": mse}
-
-    
