@@ -14,7 +14,10 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.services.database_service.database_service import DatabaseService
+from application.services.database_service import DatabaseService
+from application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
+from application.services.data.entities.factor.factor_creation_service import FactorCreationService
+from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
 from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
@@ -41,7 +44,12 @@ class FactorEnginedDataManager:
         self.database_service = database_manager
         self.config = DEFAULT_CONFIG
         
-        # Initialize repositories
+        # Initialize services (new architecture)
+        self.factor_calculation_service = FactorCalculationService()
+        self.factor_creation_service = FactorCreationService()
+        self.financial_asset_service = FinancialAssetService()
+        
+        # Initialize repositories (legacy support)
         self.company_share_repository = CompanyShareRepositoryLocal(database_manager.session)
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
@@ -506,9 +514,14 @@ class FactorEnginedDataManager:
         total_values = 0
 
         for factor in momentum_domain_factors:
-            momentum_value = ShareMomentumFactorValue(
-                database_manager=self.database_service, 
-                factor=factor
+            # Use factor calculation service instead of direct value class
+            momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
+                factor=factor,
+                entity_id=None,  # Will be set per ticker
+                entity_type='share',
+                prices=[],  # Will be populated per ticker
+                dates=[],   # Will be populated per ticker
+                overwrite=overwrite
             )
             
             for ticker in tickers:
@@ -529,16 +542,19 @@ class FactorEnginedDataManager:
                     repository_factor = self.share_factor_repository.get_by_name(factor.name)
                     
                     if repository_factor:
-                        # Use repository pattern (same as _store_momentum_features)
-                        values_stored = momentum_value.store_package_momentum_factors(
-                            repository=self.share_factor_repository,
-                            factor=repository_factor,
-                            share=company,
-                            data=df,
-                            column_name="value",
-                            period=factor.period,
+                        # Use factor calculation service
+                        prices = df["value"].tolist()
+                        dates = df.index.tolist()
+                        
+                        momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
+                            factor=factor,
+                            entity_id=company.id,
+                            entity_type='share',
+                            prices=prices,
+                            dates=dates,
                             overwrite=overwrite
                         )
+                        values_stored = len(momentum_results) if momentum_results else 0
 
                         total_values += values_stored
                         print(f"✅ {ticker}: stored {values_stored} {factor.period}-day momentum values")
@@ -556,9 +572,14 @@ class FactorEnginedDataManager:
         total_values = 0
 
         for factor in technical_domain_factors:
-            technical_value = ShareTechnicalFactorValue(
-                database_manager=self.database_service, 
-                factor=factor
+            # Use factor calculation service instead of direct value class
+            technical_results = self.factor_calculation_service.calculate_and_store_technical(
+                factor=factor,
+                entity_id=None,  # Will be set per ticker
+                entity_type='share',
+                prices=[],  # Will be populated per ticker
+                dates=[],   # Will be populated per ticker
+                overwrite=overwrite
             )
             
             for ticker in tickers:
@@ -578,17 +599,19 @@ class FactorEnginedDataManager:
                     repository_factor = self.share_factor_repository.get_by_name(factor.name)
                     
                     if repository_factor:
-                        # Use repository pattern (same as momentum factors)
-                        values_stored = technical_value.store_package_technical_factors(
-                            repository=self.share_factor_repository,
-                            factor=repository_factor,
-                            share=company,
-                            data=df,
-                            column_name="value",  # Will be processed in calculate() method
-                            indicator_type=factor.indicator_type,
-                            period=factor.period,
+                        # Use factor calculation service
+                        prices = df["value"].tolist()
+                        dates = df.index.tolist()
+                        
+                        technical_results = self.factor_calculation_service.calculate_and_store_technical(
+                            factor=factor,
+                            entity_id=company.id,
+                            entity_type='share',
+                            prices=prices,
+                            dates=dates,
                             overwrite=overwrite
                         )
+                        values_stored = len(technical_results) if technical_results else 0
 
                         total_values += values_stored
                         print(f"✅ {ticker}: stored {values_stored} {factor.indicator_type} values")
@@ -929,8 +952,15 @@ class FactorEnginedDataManager:
                     print(f"      ❌ Repository factor not found for {volatility_factor.name}")
                     continue
                 
-                # Create value calculator
-                volatility_calculator = ShareVolatilityFactorValue(self.database_service, volatility_factor)
+                # Use factor calculation service instead of direct value class
+                volatility_results = self.factor_calculation_service.calculate_and_store_volatility(
+                    factor=volatility_factor,
+                    entity_id=None,  # Will be set per ticker
+                    entity_type='share',
+                    prices=[],  # Will be populated per ticker
+                    dates=[],   # Will be populated per ticker
+                    overwrite=overwrite
+                )
                 
                 # Process each ticker
                 for ticker in tickers:
@@ -944,17 +974,22 @@ class FactorEnginedDataManager:
                     if ticker_data is None or ticker_data.empty:
                         continue
                     
-                    # Store volatility values using repository pattern (same as momentum)
-                    values_stored = volatility_calculator.store_factor_values(
-                        repository=self.share_factor_repository,
-                        factor=repo_factor,
-                        share=share,
-                        data=ticker_data,
-                        column_name='close_price',
-                        volatility_type=volatility_factor.volatility_type,
-                        period=volatility_factor.period,
-                        overwrite=overwrite
-                    )
+                    # Use factor calculation service
+                    if 'close_price' in ticker_data.columns:
+                        prices = ticker_data['close_price'].tolist()
+                        dates = ticker_data.index.tolist()
+                        
+                        volatility_results = self.factor_calculation_service.calculate_and_store_volatility(
+                            factor=volatility_factor,
+                            entity_id=share.id,
+                            entity_type='share',
+                            prices=prices,
+                            dates=dates,
+                            overwrite=overwrite
+                        )
+                        values_stored = len(volatility_results) if volatility_results else 0
+                    else:
+                        values_stored = 0
                     
                     total_values_stored += values_stored
                     print(f"      ✅ {ticker}: stored {values_stored} {volatility_factor.volatility_type} values")
@@ -981,8 +1016,8 @@ class FactorEnginedDataManager:
                     print(f"      ❌ Repository factor not found for {target_factor.name}")
                     continue
                 
-                # Create value calculator
-                target_calculator = ShareTargetFactorValue(self.database_service, target_factor)
+                # Use factor calculation service instead of direct value class
+                target_results = []
                 
                 # Process each ticker
                 for ticker in tickers:
@@ -996,18 +1031,29 @@ class FactorEnginedDataManager:
                     if ticker_data is None or ticker_data.empty:
                         continue
                     
-                    # Store target values using repository pattern (same as momentum)
-                    values_stored = target_calculator.store_factor_values(
-                        repository=self.share_factor_repository,
-                        factor=repo_factor,
-                        share=share,
-                        data=ticker_data,
-                        column_name='close_price',
-                        target_type=target_factor.target_type,
-                        forecast_horizon=target_factor.forecast_horizon,
-                        is_scaled=target_factor.is_scaled,
-                        overwrite=overwrite
-                    )
+                    # Use factor calculation service for target factors
+                    if 'close_price' in ticker_data.columns:
+                        prices = ticker_data['close_price'].tolist()
+                        dates = ticker_data.index.tolist()
+                        
+                        # Calculate target returns using domain logic
+                        target_values = target_factor.calculate_target(
+                            prices=prices,
+                            forecast_horizon=target_factor.forecast_horizon,
+                            is_scaled=target_factor.is_scaled
+                        )
+                        
+                        # Store via factor service
+                        values_stored = self.factor_calculation_service._store_factor_values(
+                            factor=repo_factor,
+                            entity_id=share.id,
+                            entity_type='share',
+                            values=target_values,
+                            dates=dates[:-target_factor.forecast_horizon] if dates else [],
+                            overwrite=overwrite
+                        )
+                    else:
+                        values_stored = 0
                     
                     total_values_stored += values_stored
                     print(f"      ✅ {ticker}: stored {values_stored} {target_factor.target_type} values")

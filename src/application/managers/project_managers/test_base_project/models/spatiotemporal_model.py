@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
-from application.managers.model_managers.tft_model_manager import TFTModelManager
-from application.managers.model_managers.mlp_model.mlp_model_manager import MLPModelManager
+from application.services.model_service.tft_model_service import TFTModelService
+from application.services.model_service.mlp_model_service import MLPModelService
 from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
 from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
 
@@ -37,8 +37,8 @@ class HybridSpatiotemporalModel:
         self.config = model_config or DEFAULT_CONFIG['SPATIOTEMPORAL']
         
         # Initialize model managers
-        self.tft_manager = TFTModelManager()
-        self.mlp_manager = MLPModelManager()
+        self.tft_service = TFTModelService()
+        self.mlp_service = MLPModelService()
         
         # Initialize loss functions
         self.loss_functions = SpatiotemporalLossFunctions()
@@ -91,7 +91,7 @@ class HybridSpatiotemporalModel:
             
             # Train using the TFT manager with custom parameters
             test_dt, val_preds, val_returns, val_vols, test_preds, test_returns, test_vols = \
-                self.tft_manager.train_multivariate(
+                self.tft_service.train_multivariate(
                     splitter, start_date, val_delta, test_delta, seed, **model_params
                 )
             
@@ -160,7 +160,7 @@ class HybridSpatiotemporalModel:
             
             # Train using the MLP manager
             test_dt, val_preds, val_returns, val_vols, test_preds, test_returns, test_vols = \
-                self.mlp_manager.train_univariate(
+                self.mlp_service.train_univariate(
                     splitter, start_date, val_delta, test_delta, seed, **model_params
                 )
             

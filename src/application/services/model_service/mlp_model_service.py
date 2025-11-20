@@ -8,9 +8,11 @@ from typing import Dict, Any
 import torch
 from torch import nn, optim
 from application.managers.model_managers.mlp_model.mlp_tools.mlp_model_tools import reg_turnover, sharpe_loss, sharpe_ratio
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class MLPModelManager(ModelManager):
+class MLPModelService(ModelService):
+    """Multi-Layer Perceptron (MLP) Model Service - advanced neural network service with financial trading capabilities."""
+    
     def __init__(self):
         super().__init__()
         
@@ -43,6 +45,9 @@ class MLPModelManager(ModelManager):
         return MLP(input_dim, output_dim, timesteps,mult)
 
     def train_univariate(self, splitter, start, val_delta, test_delta, seed):
+        """
+        Advanced training method for univariate time series prediction with financial metrics.
+        """
         val_delta = pd.Timedelta('365days')
         test_delta = pd.Timedelta('365days')
         
@@ -405,7 +410,9 @@ class MLPModelManager(ModelManager):
 
 
     def _set_seed(self,seed):
-        
+        """
+        Set random seed for reproducibility across multiple libraries.
+        """
         np.random.seed(seed)
         random.seed(seed)
         torch.manual_seed(seed)
@@ -417,9 +424,9 @@ class MLPModelManager(ModelManager):
         os.environ["PYTHONHASHSEED"] = str(seed)
         print(f"Random seed set as {seed}")
 
-    def train(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series, epochs: int = 10, lr: float = 0.001) -> None:
         """
-        Train the MLP model. classic
+        Train the MLP model using classic approach.
         """
         X = torch.tensor(features.values, dtype=torch.float32)
         y = torch.tensor(target.values, dtype=torch.float32).view(-1, 1)
@@ -436,9 +443,9 @@ class MLPModelManager(ModelManager):
 
             print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item()}")
 
-    def evaluate(self, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, test_data: pd.DataFrame) -> Dict[str, float]:
         """
-        Evaluate the MLP model. classic
+        Evaluate the MLP model using classic approach.
         """
         X_test = torch.tensor(test_data.drop(columns=[self.target_column]).values, dtype=torch.float32)
         y_test = torch.tensor(test_data[self.target_column].values, dtype=torch.float32).view(-1, 1)

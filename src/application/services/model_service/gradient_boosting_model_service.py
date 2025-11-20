@@ -3,21 +3,23 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.ensemble import GradientBoostingRegressor
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class GradientBoostingModelManager(ModelManager):
+class GradientBoostingModelService(ModelService):
+    """Gradient Boosting Model Service - advanced ensemble learning service using sequential weak learners."""
+    
     def __init__(self, target_column: str = 'price close', n_estimators: int = 100, learning_rate: float = 0.1):
         super().__init__()
         self.model = GradientBoostingRegressor(n_estimators=n_estimators, learning_rate=learning_rate)
         self.target_column = target_column
 
-    def train(self, features: pd.DataFrame, target: pd.Series) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series) -> None:
         """
         Train the Gradient Boosting model.
         """
         self.model.fit(features, target)
 
-    def evaluate(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
         """
         Evaluate the Gradient Boosting model.
         """

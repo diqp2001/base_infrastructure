@@ -3,21 +3,23 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.linear_model import LinearRegression
-from src.application.managers.model_managers.model_manager import ModelManager
+from application.services.model_service.model_service import ModelService
 
-class LinearRegressionModelManager(ModelManager):
+class LinearRegressionModelService(ModelService):
+    """Linear Regression Model Service - specialized statistical model service."""
+    
     def __init__(self, target_column: str = 'price close'):
         super().__init__()
         self.model = LinearRegression()
         self.target_column = target_column
 
-    def train(self, features: pd.DataFrame, target: pd.Series) -> None:
+    def train_model(self, features: pd.DataFrame, target: pd.Series) -> None:
         """
         Train the Linear Regression model.
         """
         self.model.fit(features, target)
 
-    def evaluate(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
+    def evaluate_model(self, model: Any, test_data: pd.DataFrame) -> Dict[str, float]:
         """
         Evaluate the Linear Regression model.
         """
