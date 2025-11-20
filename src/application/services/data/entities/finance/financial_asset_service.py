@@ -32,8 +32,7 @@ from domain.entities.finance.financial_assets.derivatives.forward import Forward
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class FinancialAssetService:
@@ -443,7 +442,6 @@ class FinancialAssetService:
         self.company_share_repository = CompanyShareRepository(session)
         self.currency_repository = CurrencyRepository(session) if hasattr(CurrencyRepository, '__init__') else None
         self.bond_repository = BondRepository(session) if hasattr(BondRepository, '__init__') else None
-        # Note: FinancialAssetRepository is abstract, so we won't initialize it directly
         
     # Persistence Methods for CompanyShare
     def persist_company_share(self, company_share: CompanyShare) -> Optional[CompanyShare]:

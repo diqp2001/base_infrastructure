@@ -1,3 +1,5 @@
+#src/application/services/data/entities/time_series/time_series_service.py
+
 """
 Time Series Service - handles creation and management of time series entities.
 Provides a service layer for creating time series domain entities like TimeSeries, FinancialAssetTimeSeries, etc.
@@ -13,13 +15,13 @@ from src.domain.entities.time_series.time_series import TimeSeries
 from src.domain.entities.time_series.dask_time_series import DaskTimeSeries
 from src.domain.entities.time_series.finance.stock_time_series import StockTimeSeries
 from src.domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
-from src.domain.entities.time_series.ml.ml_time_series import MLTimeSeries
+from src.domain.entities.time_series.ml.ml_time_series import MlTimeSeries
 
 # Import existing repositories
 from src.infrastructure.repositories.local_repo.time_series.time_series_repository import TimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.stock_time_series_repository import StockTimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.financial_asset_time_series_repository import FinancialAssetTimeSeriesRepository
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class TimeSeriesService:
@@ -140,9 +142,9 @@ class TimeSeriesService:
         metadata: Dict[str, Any] = None,
         model_type: str = None,
         prediction_horizon: int = 1
-    ) -> MLTimeSeries:
+    ) -> MlTimeSeries:
         """Create an MLTimeSeries entity for machine learning purposes."""
-        return MLTimeSeries(
+        return MlTimeSeries(
             name=name,
             target_variable=target_variable,
             feature_columns=feature_columns or [],
@@ -222,8 +224,8 @@ class TimeSeriesService:
         
         return self.create_financial_asset_time_series(**config)
     
-    def create_ml_time_series_from_config(self, config: Dict[str, Any]) -> MLTimeSeries:
-        """Create an MLTimeSeries from configuration."""
+    def create_ml_time_series_from_config(self, config: Dict[str, Any]) -> MlTimeSeries:
+        """Create an MlTimeSeries from configuration."""
         # Convert date strings to date objects if needed
         if 'start_date' in config and isinstance(config['start_date'], str):
             config['start_date'] = datetime.strptime(config['start_date'], '%Y-%m-%d').date()
@@ -405,19 +407,19 @@ class TimeSeriesService:
             print(f"Error persisting dask time series: {str(e)}")
             return None
     
-    def persist_ml_time_series(self, ml_time_series: MLTimeSeries) -> Optional[MLTimeSeries]:
+    def persist_ml_time_series(self, ml_time_series: MlTimeSeries) -> Optional[MlTimeSeries]:
         """
         Persist an ML time series entity to the database.
         Note: This is a placeholder implementation - add specific repository when available.
         
         Args:
-            ml_time_series: MLTimeSeries entity to persist
+            ml_time_series: MlTimeSeries entity to persist
             
         Returns:
             Persisted ML time series entity or None if failed
         """
         try:
-            print(f"Warning: MLTimeSeries persistence not yet implemented for {ml_time_series.name if hasattr(ml_time_series, 'name') else 'unknown'}")
+            print(f"Warning: MlTimeSeries persistence not yet implemented for {ml_time_series.name if hasattr(ml_time_series, 'name') else 'unknown'}")
             return ml_time_series
         except Exception as e:
             print(f"Error persisting ML time series: {str(e)}")

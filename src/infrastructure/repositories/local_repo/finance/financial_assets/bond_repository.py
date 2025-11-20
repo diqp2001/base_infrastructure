@@ -1,4 +1,4 @@
-from infrastructure.repositories.financial_asset_base_repository import FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.infrastructure.models.finance.financial_assets.bond import Bond as Bond_Model
 from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 

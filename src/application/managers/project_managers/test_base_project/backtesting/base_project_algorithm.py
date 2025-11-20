@@ -86,21 +86,25 @@ class BaseProjectAlgorithm(QCAlgorithm):
         # Initialize test_base_project components
         self._initialize_base_project_components()
         
-        # Initial training
-        self._train_models(self.time)
+        # Defer initial training until dependencies are injected
+        # This will be triggered by the first on_data() call or explicit training call
+        self._initial_training_completed = False
 
     def _initialize_base_project_components(self):
         """Initialize the test_base_project specific components."""
         try:
             self.log("Initializing test_base_project components...")
             
-            # Note: In a real implementation, these would be injected from the manager
-            # For now, we'll simulate their presence
-            self.factor_manager = None  # Will be injected by BacktestRunner
-            self.spatiotemporal_trainer = None  # Will be injected by BacktestRunner
-            self.momentum_strategy = None  # Will be injected by BacktestRunner
+            # Initialize as None - they MUST be injected by BacktestRunner before use
+            # If they remain None, the algorithm will have limited functionality
+            self.factor_manager = None  # MUST be injected by BacktestRunner
+            self.spatiotemporal_trainer = None  # MUST be injected by BacktestRunner  
+            self.momentum_strategy = None  # MUST be injected by BacktestRunner
             
-            self.log("test_base_project components initialized successfully")
+            # Flag to track if proper injection occurred
+            self._dependencies_injected = False
+            
+            self.log("test_base_project components initialized - awaiting dependency injection")
             
         except Exception as e:
             self.log(f"Error initializing test_base_project components: {str(e)}")
@@ -108,70 +112,111 @@ class BaseProjectAlgorithm(QCAlgorithm):
     # ---------------------------
     # Features (Enhanced with factor system)
     # ---------------------------
-    def _prepare_features(self, history: pd.DataFrame) -> pd.DataFrame:
+
+
+   
+    def _setup_factor_data_for_ticker(self, ticker: str, current_time: datetime) -> pd.DataFrame:
         """
-        Prepare features combining traditional indicators with factor system.
+        Set up factor-based data for a specific ticker, similar to setup_factor_system.
         
-        This matches MyAlgorithm's _prepare_features but adds our factor enhancements.
+        This replaces _prepare_features() and uses the comprehensive factor system
+        instead of basic technical analysis.
         """
-        df = history.copy()
-        
-        # Traditional features (matching MyAlgorithm)
-        df["return"] = df["close"].pct_change()
-        df["return_lag1"] = df["return"].shift(1)
-        df["return_lag2"] = df["return"].shift(2)
-        df["volatility"] = df["return"].rolling(self.lookback_window).std()
-        df["return_fwd1"] = df["return"].shift(-1)
-        
-        # Enhanced features from our spatiotemporal system
         try:
-            # Add momentum features if we have the factor manager
+            self.log(f"Setting up factor data for {ticker}...")
+            
+            # If we have a factor manager, use the comprehensive factor system
             if hasattr(self, 'factor_manager') and self.factor_manager:
-                # Add deep momentum features
-                df["momentum_5d"] = df["close"].pct_change(5)
-                df["momentum_10d"] = df["close"].pct_change(10)
-                df["momentum_20d"] = df["close"].pct_change(20)
+                self.log(f"Using factor manager for {ticker} data...")
                 
-                # Add moving averages
-                df["ma_5"] = df["close"].rolling(5).mean()
-                df["ma_10"] = df["close"].rolling(10).mean()
-                df["ma_20"] = df["close"].rolling(20).mean()
+                # Ensure entity exists for this ticker
+                try:
+                    self.factor_manager._ensure_entities_exist([ticker])
+                except Exception as e:
+                    self.log(f"Warning: Could not ensure entities for {ticker}: {e}")
                 
-                # Add relative strength
-                df["rsi"] = self._calculate_rsi(df["close"], 14)
+                # Get factor data for the training window
+                try:
+                    # Get comprehensive factor data including price, momentum, and technical factors
+                    factor_data = self.factor_manager.get_factor_data_for_training(
+                        tickers=[ticker],
+                        factor_groups=['price', 'momentum', 'technical'],
+                        lookback_days=self.train_window,
+                        end_date=current_time
+                    )
+                    
+                    if not factor_data.empty:
+                        self.log(f"Retrieved {len(factor_data)} factor data points for {ticker}")
+                        
+                        # Convert factor data to the format expected by the model
+                        df = self._convert_factor_data_to_training_format(factor_data, ticker)
+                        if not df.empty:
+                            return df
+                    else:
+                        self.log(f"No factor data available for {ticker}, falling back to basic features")
+                except Exception as e:
+                    self.log(f"Error getting factor data for {ticker}: {e}")
                 
-                # Add MACD
-                macd_data = self._calculate_macd(df["close"])
-                df["macd"] = macd_data["macd"]
-                df["macd_signal"] = macd_data["signal"]
-                df["macd_histogram"] = macd_data["histogram"]
+            
+            
         except Exception as e:
-            self.log(f"Error adding enhanced features: {str(e)}")
+            self.log(f"Error setting up factor data for {ticker}: {str(e)}")
+            # Return empty DataFrame to trigger fallback logic
+            return pd.DataFrame()
+    
+    def _convert_factor_data_to_training_format(self, factor_data: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """
+        Convert factor system data to the format expected by the training algorithm.
         
-        return df.dropna()
-
-    def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
-        """Calculate RSI indicator."""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
-
-    def _calculate_macd(self, prices: pd.Series, fast=12, slow=26, signal=9) -> Dict[str, pd.Series]:
-        """Calculate MACD indicator."""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd = ema_fast - ema_slow
-        signal_line = macd.ewm(span=signal).mean()
-        histogram = macd - signal_line
-        
-        return {
-            "macd": macd,
-            "signal": signal_line,
-            "histogram": histogram
-        }
+        This ensures compatibility with existing model training code that expects
+        specific column names like return_lag1, return_lag2, volatility, etc.
+        """
+        try:
+            df = factor_data.copy()
+            
+            # Map factor system columns to expected training columns
+            column_mapping = {}
+            
+            # Price-based features
+            if 'Close' in df.columns:
+                df['close'] = df['Close']
+                df["return"] = df["close"].pct_change()
+                df["return_lag1"] = df["return"].shift(1)
+                df["return_lag2"] = df["return"].shift(2)
+                df["return_fwd1"] = df["return"].shift(-1)  # Target variable
+                column_mapping['Close'] = 'close'
+            
+            # Volatility from factor system or calculate it
+            if 'realized_vol' in df.columns:
+                df['volatility'] = df['realized_vol']
+                column_mapping['realized_vol'] = 'volatility'
+            elif 'daily_vol' in df.columns:
+                df['volatility'] = df['daily_vol']
+                column_mapping['daily_vol'] = 'volatility'
+            elif 'close' in df.columns:
+                # Calculate volatility if not available in factor system
+                df["volatility"] = df["return"].rolling(self.lookback_window).std()
+            
+            # Use momentum factors from the factor system
+            momentum_factors = ['deep_momentum_1d', 'deep_momentum_5d', 'deep_momentum_21d', 'deep_momentum_63d']
+            for factor in momentum_factors:
+                if factor in df.columns:
+                    # Keep momentum factors as they are - they're already properly calculated
+                    continue
+            
+            # Use technical indicators from factor system
+            technical_factors = ['rsi_14', 'macd', 'bollinger_upper', 'bollinger_lower']
+            for factor in technical_factors:
+                if factor in df.columns:
+                    # Keep technical factors as they are
+                    continue
+            
+            self.log(f"Converted factor data for {ticker}: {len(df)} rows, columns: {list(df.columns)}")
+            return df.dropna()
+            
+        except Exception as e:
+            self.log(f"Error converting factor data for {ticker}: {str(e)}")
+            return pd.DataFrame()
 
     # ---------------------------
     # Train one model (Enhanced with ML integration)
@@ -190,7 +235,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 end_time=current_time
             )
 
-            df = self._prepare_features(history)
+            df = self._setup_factor_data_for_ticker(ticker, current_time)
             if df.empty:
                 return None
 
@@ -257,6 +302,13 @@ class BaseProjectAlgorithm(QCAlgorithm):
         
         Exactly matches MyAlgorithm structure but integrates ML signals.
         """
+        # DEBUG: Log every on_data call to ensure it's being called
+        self.log(f"🔔 on_data called at {self.time} - data type: {type(data)}")
+        
+        # Check if dependencies were properly injected
+        if not self._dependencies_injected:
+            self.log(f"⚠️ on_data called but dependencies not fully injected - factor_manager: {self.factor_manager is not None}, trainer: {self.spatiotemporal_trainer is not None}, strategy: {self.momentum_strategy is not None}")
+        
         # Comprehensive data type handling - accept both Slice and DataFrame objects
         if hasattr(data, 'columns') and hasattr(data, 'index'):
             # This is a DataFrame - convert it to a format we can work with
@@ -266,6 +318,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
             self._current_data_slice = None
         elif hasattr(data, 'bars'):
             # This is a proper Slice object
+            self.log(f"INFO: on_data received Slice object with bars")
             self._current_data_frame = None
             self._current_data_slice = data
         else:
@@ -299,9 +352,8 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 self.log(f"Warning: {ticker} price data not available in current data")
                 continue
 
-            # Get traditional signals
-            history = self.history([ticker], self.lookback_window + 2, Resolution.DAILY)
-            df = self._prepare_features(history)
+            # Get traditional signals using factor system
+            df = self._setup_factor_data_for_ticker(ticker, self.time)
             if df.empty:
                 continue
 
@@ -455,14 +507,44 @@ class BaseProjectAlgorithm(QCAlgorithm):
     def set_factor_manager(self, factor_manager):
         """Inject factor manager from the BacktestRunner."""
         self.factor_manager = factor_manager
-        self.log("Factor manager injected successfully")
+        self.log("✅ Factor manager injected successfully")
+        self._check_dependencies_complete()
     
     def set_spatiotemporal_trainer(self, trainer):
         """Inject spatiotemporal trainer from the BacktestRunner."""
         self.spatiotemporal_trainer = trainer
-        self.log("Spatiotemporal trainer injected successfully")
+        self.log("✅ Spatiotemporal trainer injected successfully")
+        self._check_dependencies_complete()
     
     def set_momentum_strategy(self, strategy):
         """Inject momentum strategy from the BacktestRunner."""
         self.momentum_strategy = strategy
-        self.log("Momentum strategy injected successfully")
+        self.log("✅ Momentum strategy injected successfully")
+        self._check_dependencies_complete()
+    
+    def _check_dependencies_complete(self):
+        """Check if all critical dependencies have been injected."""
+        if (self.factor_manager is not None and 
+            self.spatiotemporal_trainer is not None and 
+            self.momentum_strategy is not None):
+            self._dependencies_injected = True
+            self.log("🎉 All dependencies injected - algorithm fully configured!")
+            
+            # Trigger initial training now that all dependencies are available
+            if not self._initial_training_completed:
+                self.log("🚀 Performing deferred initial training...")
+                try:
+                    self._train_models(self.time)
+                    self._initial_training_completed = True
+                    self.log("✅ Initial training completed successfully")
+                except Exception as e:
+                    self.log(f"⚠️ Initial training failed: {str(e)}")
+        else:
+            missing = []
+            if self.factor_manager is None:
+                missing.append("factor_manager")
+            if self.spatiotemporal_trainer is None:
+                missing.append("spatiotemporal_trainer") 
+            if self.momentum_strategy is None:
+                missing.append("momentum_strategy")
+            self.log(f"⏳ Still awaiting dependencies: {', '.join(missing)}")

@@ -15,7 +15,7 @@ from src.infrastructure.repositories.local_repo.geographic.country_repository im
 from src.infrastructure.repositories.local_repo.geographic.continent_repository import ContinentRepository
 from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
 from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class GeographicService:

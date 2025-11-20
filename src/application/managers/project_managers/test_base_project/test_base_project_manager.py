@@ -23,7 +23,7 @@ import mlflow.sklearn
 import mlflow.pytorch
 
 # Base classes
-from application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 from application.managers.project_managers.project_manager import ProjectManager
 
 # Interactive Brokers integration
@@ -621,14 +621,10 @@ class TestBaseProjectManager(ProjectManager):
             # Setup factor system
             factor_results = self.setup_factor_system(tickers, overwrite=False)
             
-            # Train models
-            training_results = self.train_spatiotemporal_models(tickers, model_type, seeds)
             
             return {
                 'factor_system': factor_results,
-                'model_training': training_results,
                 'backtest': None,
-                'success': not training_results.get('error'),
                 'timestamp': datetime.now().isoformat()
             }
         else:

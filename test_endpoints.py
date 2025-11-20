@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.interfaces.flask.flask import FlaskApp
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 
 def test_flask_app_creation():

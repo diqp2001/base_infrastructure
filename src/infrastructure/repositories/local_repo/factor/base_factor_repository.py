@@ -23,7 +23,7 @@ from infrastructure.models.factor.factor_model import (
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
-from application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):

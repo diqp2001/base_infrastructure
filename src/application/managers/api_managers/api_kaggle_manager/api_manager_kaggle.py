@@ -1,6 +1,6 @@
 # src/application/managers/api_managers/api_kaggle_manager/api_manager_kaggle.py
 
-from application.services.api_service import ApiService
+from application.services.api_service.api_service import ApiService
 import os
 import kaggle
 

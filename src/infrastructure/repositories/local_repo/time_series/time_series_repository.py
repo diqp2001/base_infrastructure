@@ -1,15 +1,10 @@
 from typing import List
-from src.infrastructure.database.connections import get_database_session
+from infrastructure.repositories.base_repository import BaseRepository, EntityType, ModelType
 from sqlalchemy.orm import Session
 
-class TimeSeriesRepository:
-    def __init__(self, db_type='sqlite'):
-        """
-        Initializes the repository with the specified database type.
-        :param db_type: Type of the database (sqlite, sql_server, etc.)
-        """
-        self.db_type = db_type
-        self.session: Session = get_database_session(db_type)
+class TimeSeriesRepository(BaseRepository[EntityType, ModelType]):
+    def __init__(self, session: Session):
+        super().__init__(session)
     
     def get_by_id(self, id: int) -> object:
         """

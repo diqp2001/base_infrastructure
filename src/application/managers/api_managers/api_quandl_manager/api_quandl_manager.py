@@ -6,7 +6,7 @@ import datetime as dt
 from typing import List, Optional
 import pandas as pd
 import numpy as np
-from application.services.api_service import ApiService
+from application.services.api_service.api_service import ApiService
 
 
 class QuandlApiManager(ApiService):

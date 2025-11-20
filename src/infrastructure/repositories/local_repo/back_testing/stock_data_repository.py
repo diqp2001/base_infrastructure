@@ -9,7 +9,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class StockDataRepository:

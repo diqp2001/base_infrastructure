@@ -32,7 +32,7 @@ from ..models.model_trainer import SpatiotemporalModelTrainer
 from ..strategy.momentum_strategy import SpatiotemporalMomentumStrategy
 
 # Database and infrastructure
-from application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class BacktestRunner:
@@ -55,7 +55,7 @@ class BacktestRunner:
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
-        self.factor_manager = None
+        self.factor_manager = FactorEnginedDataManager(self.database_service)
         self.model_trainer = None
         self.momentum_strategy = None
         self.algorithm_instance = None
@@ -76,10 +76,6 @@ class BacktestRunner:
         """
         try:
             self.logger.info("Setting up test_base_project components...")
-            
-            # Skip factor manager initialization (factor system removed)
-            self.factor_manager = None
-            self.logger.info("⚠️ Factor manager skipped (factor system removed)")
             
             # Initialize model trainer
             self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
@@ -111,12 +107,15 @@ class BacktestRunner:
         try:
             # Initialize database
             self.database_service.db.initialize_database_and_create_all_tables()
-            
+            # First ensure basic entities and price factors exist
+            entities_summary = self.factor_manager._ensure_entities_exist(tickers)
+            # Populate price factors
+            price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
             # Populate momentum factors
             momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
             
             # Calculate technical indicators
-            technical_summary = self.factor_manager.calculate_technical_indicators(tickers, overwrite)
+            technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
             
             setup_results = {
                 'tickers': tickers,
@@ -187,17 +186,24 @@ class BacktestRunner:
             # Create algorithm instance
             algorithm = BaseProjectAlgorithm()
             
-            # Inject our components (skip factor manager since it's not available)
+            # Always inject our components - ensure they are not None
             if self.factor_manager:
                 algorithm.set_factor_manager(self.factor_manager)
+                self.logger.info("✅ Factor manager injected into algorithm")
             else:
-                self.logger.info("⚠️ Factor manager not available - algorithm will use CSV data directly")
+                self.logger.warning("⚠️ Factor manager is None - algorithm will have limited functionality")
             
             if self.model_trainer:
                 algorithm.set_spatiotemporal_trainer(self.model_trainer)
+                self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Model trainer is None")
             
             if self.momentum_strategy:
                 algorithm.set_momentum_strategy(self.momentum_strategy)
+                self.logger.info("✅ Momentum strategy injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Momentum strategy is None")
             
             self.algorithm_instance = algorithm
             self.logger.info("✅ Algorithm instance created and configured")
@@ -251,9 +257,11 @@ class BacktestRunner:
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
             
-            # Step 2: Skip factor system setup (removed from codebase)
-            self.logger.info("🏗️ Skipping factor system setup (using CSV data directly)...")
-            factor_results = {'system_ready': True, 'note': 'Factor system removed - using CSV data'}
+            # Step 2:  factor system setup 
+            self.setup_factor_system(tickers)
+            self.logger.info("🏗️ Factor system setup ")
+
+            factor_results = {'system_ready': True, 'note': 'Factor system working'}
             
             # Step 3: Train models
             self.logger.info("🧠 Training spatiotemporal models...")
@@ -261,7 +269,11 @@ class BacktestRunner:
             if training_results.get('error'):
                 raise Exception(f"Model training failed: {training_results['error']}")
             
-            # Step 4: Configure Misbuffet launcher
+            # Step 4: Create properly configured algorithm instance first
+            self.logger.info("🔧 Creating configured algorithm instance...")
+            configured_algorithm = self.create_algorithm_instance()
+            
+            # Step 5: Configure Misbuffet launcher
             self.logger.info("🔧 Configuring Misbuffet framework...")
             
             # Launch Misbuffet with config file path (not dictionary)
@@ -287,20 +299,23 @@ class BacktestRunner:
                 'model_type': model_type
             }
             
-            # Pass the algorithm class (not instance) for Misbuffet to instantiate
-            launcher_config.algorithm = BaseProjectAlgorithm
+            # Pass the configured algorithm INSTANCE (not class) for Misbuffet to use
+            launcher_config.algorithm = configured_algorithm
             
-            # Add database manager for real data access
+            # Add database manager and other dependencies for real data access
             launcher_config.database_manager = self.database_service
+            launcher_config.factor_manager = self.factor_manager
+            launcher_config.model_trainer = self.model_trainer
+            launcher_config.momentum_strategy = self.momentum_strategy
             
-            # Step 5: Start engine and run backtest
+            # Step 6: Start engine and run backtest
             self.logger.info("🚀 Starting backtest engine...")
             engine = misbuffet.start_engine(config_file="engine_config.py")
             
             self.logger.info("📊 Executing backtest algorithm...")
             result = engine.run(launcher_config)
             
-            # Step 6: Process results
+            # Step 7: Process results
             end_time = datetime.now()
             elapsed_time = (end_time - start_time).total_seconds()
             

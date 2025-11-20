@@ -90,18 +90,17 @@ SPATIOTEMPORAL_CONFIG = {
 # Factor System Configuration
 FACTOR_CONFIG = {
     'PRICE_FACTORS': [
-        {'name': 'open_price', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'high_price', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'low_price', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'close_price', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'adj_close_price', 'group': 'price', 'subgroup': 'adjusted'},
-        {'name': 'volume', 'group': 'volume', 'subgroup': 'trading'}
+        {'name': 'Open', 'group': 'price', 'subgroup': 'ohlc'},
+        {'name': 'High', 'group': 'price', 'subgroup': 'ohlc'},
+        {'name': 'Low', 'group': 'price', 'subgroup': 'ohlc'},
+        {'name': 'Close', 'group': 'price', 'subgroup': 'ohlc'},
+        {'name': 'Adj Close', 'group': 'price', 'subgroup': 'adjusted'}
     ],
     'MOMENTUM_FACTORS': [
-        {'name': 'deep_momentum_1d', 'group': 'momentum', 'subgroup': 'short_term'},
-        {'name': 'deep_momentum_5d', 'group': 'momentum', 'subgroup': 'short_term'},
-        {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term'},
-        {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term'},
+        {'name': 'deep_momentum_1d', 'group': 'momentum', 'subgroup': 'short_term','period': 1},
+        {'name': 'deep_momentum_5d', 'group': 'momentum', 'subgroup': 'short_term','period': 5},
+        {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term','period': 21},
+        {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term','period': 63},
     ],
     'TECHNICAL_FACTORS': [
         {'name': 'macd_8_24', 'group': 'technical', 'subgroup': 'momentum'},

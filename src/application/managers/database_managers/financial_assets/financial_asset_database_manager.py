@@ -1,6 +1,6 @@
 # src/application/managers/database_managers/financial_assets/financial_asset_database_manager.py
 
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 from sqlalchemy.orm import Session
 from src.infrastructure.models.financial_assets.stock import Stock  # or other asset types
 

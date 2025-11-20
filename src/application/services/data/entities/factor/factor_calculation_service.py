@@ -22,7 +22,7 @@ from src.domain.entities.factor.finance.financial_assets.financial_asset_factor 
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.application.services.database_service import DatabaseService
+from application.services.database_service.database_service import DatabaseService
 
 
 class FactorCalculationService:

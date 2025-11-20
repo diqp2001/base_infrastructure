@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import nasdaqdatalink
 import requests
-from application.services.api_service import ApiService
+from application.services.api_service.api_service import ApiService
 
 
 class NasdaqDataLinkApiManager(ApiService):

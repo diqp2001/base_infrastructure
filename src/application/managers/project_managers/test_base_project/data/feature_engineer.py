@@ -10,8 +10,8 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, date
 
-from application.services.data_service import DataService
-from application.services.database_service import DatabaseService
+from application.services.data_service.data_service import DataService
+from application.services.database_service.database_service import DatabaseService
 from ..config import DEFAULT_CONFIG
 
 
@@ -148,61 +148,93 @@ class SpatiotemporalFeatureEngineer:
     
     def add_volatility_features(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """
-        Add volatility features for risk modeling.
+        Add volatility features using new domain classes and factor manager pattern.
         """
-        print("  📉 Adding volatility features...")
+        print("  📉 Adding volatility features using domain classes...")
+        
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import VolatilityFactorShareValue
+        from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import ShareVolatilityFactor
         
         feature_data = data.copy()
         
-        # Calculate returns for volatility computation
-        if 'returns' not in feature_data.columns:
-            feature_data['returns'] = feature_data[column_name].pct_change()
+        volatility_configs = [
+            {'name': 'daily_vol', 'volatility_type': 'daily_vol', 'period': 21},
+            {'name': 'monthly_vol', 'volatility_type': 'monthly_vol', 'period': 63},
+            {'name': 'vol_of_vol', 'volatility_type': 'vol_of_vol', 'period': 21},
+            {'name': 'realized_vol', 'volatility_type': 'realized_vol', 'period': 21}
+        ]
         
-        # Daily volatility (rolling 21-day)
-        feature_data['daily_vol'] = feature_data['returns'].rolling(window=21).std() * np.sqrt(252)
-        
-        # Monthly volatility (rolling 63-day)
-        feature_data['monthly_vol'] = feature_data['returns'].rolling(window=63).std() * np.sqrt(252)
-        
-        # Volatility of volatility (vol of vol)
-        feature_data['vol_of_vol'] = feature_data['daily_vol'].rolling(window=21).std()
-        
-        # Realized volatility (sum of squared returns)
-        feature_data['realized_vol'] = feature_data['returns'].rolling(window=21).apply(
-            lambda x: np.sqrt(np.sum(x**2) * 252)
-        )
+        for vol_config in volatility_configs:
+            # Create domain entity
+            volatility_entity = ShareVolatilityFactor(
+                name=vol_config['name'],
+                factor_type='volatility',
+                description=f"Volatility: {vol_config['volatility_type']}",
+                volatility_type=vol_config['volatility_type'],
+                period=vol_config['period']
+            )
+            
+            # Create calculator
+            vol_calculator = VolatilityFactorShareValue(self.database_manager, volatility_entity)
+            
+            # Calculate values and add to feature data
+            calculated_data = vol_calculator.calculate(
+                data=feature_data,
+                column_name=column_name,
+                volatility_type=vol_config['volatility_type'],
+                period=vol_config['period']
+            )
+            
+            # Add the calculated column to feature data
+            feature_data[vol_config['name']] = calculated_data['indicator_value']
         
         return feature_data
     
     def add_target_variables(self, data: pd.DataFrame, column_name: str, freq: int = 1) -> pd.DataFrame:
         """
-        Add target variables for model training.
+        Add target variables using new domain classes and factor manager pattern.
         
-        Creates both scaled and non-scaled target returns for model training,
-        following the spatiotemporal_momentum_manager pattern.
+        Creates both scaled and non-scaled target returns for model training.
         """
-        print("  🎯 Adding target variables...")
+        print("  🎯 Adding target variables using domain classes...")
         
-        try:
-            # Use the data_manager methods for target creation
-            enhanced_data, target_col = self.data_manager.add_target(
-                data=data, 
-                column_name=column_name, 
-                freq=freq
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import ShareTargetFactorValue
+        from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import ShareTargetFactor
+        
+        feature_data = data.copy()
+        
+        target_configs = [
+            {'name': 'target_returns', 'target_type': 'target_returns', 'forecast_horizon': freq, 'is_scaled': True},
+            {'name': 'target_returns_nonscaled', 'target_type': 'target_returns_nonscaled', 'forecast_horizon': freq, 'is_scaled': False}
+        ]
+        
+        for target_config in target_configs:
+            # Create domain entity
+            target_entity = ShareTargetFactor(
+                name=target_config['name'],
+                factor_type='target',
+                description=f"Target: {target_config['target_type']}",
+                target_type=target_config['target_type'],
+                forecast_horizon=target_config['forecast_horizon'],
+                is_scaled=target_config['is_scaled']
             )
             
-            enhanced_data, target_non_scaled_col = self.data_manager.add_target_non_scaled(
-                data=enhanced_data,
+            # Create calculator
+            target_calculator = ShareTargetFactorValue(self.database_manager, target_entity)
+            
+            # Calculate values and add to feature data
+            calculated_data = target_calculator.calculate(
+                data=feature_data,
                 column_name=column_name,
-                freq=freq
+                target_type=target_config['target_type'],
+                forecast_horizon=target_config['forecast_horizon'],
+                is_scaled=target_config['is_scaled']
             )
             
-            return enhanced_data
-            
-        except Exception as e:
-            print(f"  ⚠️  Error in target creation: {str(e)}")
-            # Fallback: create basic target variables
-            return self._create_basic_targets(data, column_name, freq)
+            # Add the calculated column to feature data
+            feature_data[target_config['name']] = calculated_data['indicator_value']
+        
+        return feature_data
     
     def _create_basic_targets(self, data: pd.DataFrame, column_name: str, freq: int = 1) -> pd.DataFrame:
         """Fallback method to create basic target variables."""
