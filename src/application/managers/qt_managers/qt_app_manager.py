@@ -1,10 +1,11 @@
 from PyQt5 import uic
 from PyQt5.QtWidgets import QMainWindow
-from qt_managers.qt_manager import QtManager
+from application.services.ui_service.qt_service import QtService
 
-class QtAppManager(QtManager):
+class QtAppManager(QtService):
     """
     A manager class for loading and running a PyQt5 application with Qt Designer UI files.
+    Uses the new QtService for application management.
     """
     def __init__(self, ui_file_path: str):
         super().__init__()
