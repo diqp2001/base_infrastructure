@@ -335,3 +335,127 @@ results = self.factor_calculation_service.calculate_and_store_momentum(
 - [ ] Integrate with audit logging system
 - [ ] Add entity versioning support
 - [ ] Extend database-driven extraction to volatility and technical factor calculations
+
+---
+
+## 💫 Latest Enhancement: EntityExistenceService Integration (2025-11-20)
+
+### Refactoring Goal
+Transform the `_ensure_entities_exist` method from a manager-specific implementation into a reusable service that follows the same standardized patterns as other repository operations.
+
+### New Architecture: EntityExistenceService
+
+#### Service Creation
+Created `/src/application/services/data/entities/entity_existence_service.py` with:
+
+```python
+class EntityExistenceService:
+    """Centralized service for ensuring entity dependencies exist."""
+    
+    def __init__(self, database_service: DatabaseService):
+        self.company_share_repository = CompanyShareRepository(database_service.session)
+        self.country_repository = CountryRepository(database_service.session)  
+        self.sector_repository = SectorRepository(database_service.session)
+        self.industry_repository = IndustryRepository(database_service.session)
+    
+    def ensure_entities_exist(self, tickers: List[str]) -> Dict[str, Any]:
+        """
+        Ensure all required entities exist for tickers.
+        Verifies CompanyShare, Company, and related entities.
+        """
+```
+
+#### Enhanced Entity Verification
+The service now verifies multiple entity types:
+
+1. **CompanyShare entities** - Uses existing `_create_or_get_company_share` pattern
+2. **Company entities** - Placeholder for future CompanyRepository implementation
+3. **Country entities** - Uses `CountryRepository._create_or_get_country`
+4. **Sector entities** - Uses `SectorRepository._create_or_get_sector`  
+5. **Industry entities** - Placeholder for future development
+
+### Manager Integration
+
+#### Updated FactorEnginedDataManager
+```python
+class FactorEnginedDataManager:
+    def __init__(self, database_service: DatabaseService):
+        # NEW: EntityExistenceService injection
+        self.entity_existence_service = EntityExistenceService(database_service)
+        
+    def populate_momentum_factors(self, tickers=None, overwrite=False):
+        # NEW: Use service for entity verification
+        entities_summary = self.entity_existence_service.ensure_entities_exist(tickers)
+        
+        # Existing factor creation logic continues...
+        momentum_factors_ = self._create_momentum_factor_definitions()
+        
+    def _ensure_entities_exist(self, tickers: List[str]) -> Dict[str, Any]:
+        """
+        DEPRECATED: Use EntityExistenceService.ensure_entities_exist() instead.
+        Kept for backward compatibility.
+        """
+        return self.entity_existence_service.ensure_entities_exist(tickers)
+```
+
+### Company Entity Enhancement
+
+#### Current State
+- `Company` domain entity exists but no dedicated repository
+- Companies referenced through `CompanyShare.company_id`
+- EntityExistenceService includes placeholder for company verification
+
+#### Future Implementation Path
+```python
+# 1. Create CompanyRepository following standardized pattern
+class CompanyRepository:
+    def _create_or_get_company(self, name: str, legal_name: str, 
+                              country_id: int, industry_id: int) -> Company:
+        """Follow same pattern as BaseFactorRepository._create_or_get_factor"""
+        
+# 2. Update EntityExistenceService to use CompanyRepository  
+def _ensure_company_exists_for_share(self, share: CompanyShareEntity):
+    """Use CompanyRepository for actual company verification"""
+    company = self.company_repository._create_or_get_company(...)
+```
+
+### Enhanced Reporting
+
+#### Before (Simple Counts)
+```python
+return {
+    'verified': existing_count + created_count,
+    'existing': existing_count, 
+    'created': created_count
+}
+```
+
+#### After (Comprehensive Entity Breakdown)
+```python
+return {
+    'company_shares': {'verified': 3, 'existing': 2, 'created': 1},
+    'companies': {'verified': 3, 'existing': 3, 'created': 0}, 
+    'countries': {'verified': 1, 'existing': 1, 'created': 0},
+    'sectors': {'verified': 1, 'existing': 0, 'created': 1},
+    'industries': {'verified': 0, 'existing': 0, 'created': 0},
+    'errors': []  # Detailed error collection
+}
+```
+
+### Benefits of Service Refactoring
+
+1. **Reusability**: Other managers can use EntityExistenceService
+2. **Consistency**: Same standardized patterns across all entity types  
+3. **Company Verification**: Added company entity verification (with future enhancement path)
+4. **Separation of Concerns**: Entity management separated from factor management
+5. **Enhanced Reporting**: Comprehensive statistics by entity type
+6. **Backward Compatibility**: Existing code continues to work unchanged
+
+### Integration Points
+
+The service is now integrated into all factor population methods:
+- `populate_price_factors()` ✅
+- `populate_momentum_factors()` ✅  
+- `populate_technical_indicators()` ✅
+- `populate_volatility_factors()` (future)
+- `populate_target_factors()` (future)
