@@ -29,11 +29,10 @@ from application.services.database_service.database_service import DatabaseServi
 class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     """Repository managing Factor entities, their values."""
 
-    def __init__(self, db_type: str = 'sqlite'):
+    def __init__(self,session: Session):
         """Initialize repository with a database type."""
-        self.database_service = DatabaseService(db_type)
         # Call parent constructor with session
-        super().__init__(self.database_service.session)
+        super().__init__(session)
 
     # ----------------------------- Abstract methods -----------------------------
     #@abstractmethod

@@ -10,7 +10,7 @@ class MLDataService(DataService):
     Handles ML data preprocessing, feature engineering, and model data preparation.
     """
 
-    def __init__(self, database_service: DatabaseService, project_name: str, scaler: str = 'standard'):
+    def __init__(self, project_name: str, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite',  scaler: str = 'standard'):
         """
         Initialize the ML data service.
         
@@ -19,7 +19,7 @@ class MLDataService(DataService):
             project_name: Specific project context for ML operations
             scaler: Scaling method for data normalization
         """
-        super().__init__(database_service, scaler)
+        super().__init__(database_service,db_type, scaler)
         self.project_name = project_name
 
     def get_training_data(self, query_key: str) -> Optional[pd.DataFrame]:

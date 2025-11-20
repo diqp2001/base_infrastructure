@@ -8,6 +8,7 @@ from datetime import date, datetime
 from decimal import Decimal
 import pandas as pd
 
+from application.services.database_service.database_service import DatabaseService
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_serie import FactorSerie
 from src.domain.entities.factor.factor_value import FactorValue
@@ -25,7 +26,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.share_fact
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from src.application.services.database_service import DatabaseService
+
 
 
 class FactorCalculationService:

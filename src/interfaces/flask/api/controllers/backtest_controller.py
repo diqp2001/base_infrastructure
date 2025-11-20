@@ -3,8 +3,6 @@ import logging
 from datetime import datetime
 
 from application.services.misbuffet import Misbuffet
-from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
-from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
 from application.services.database_service.database_service import DatabaseService
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository

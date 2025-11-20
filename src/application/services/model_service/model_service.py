@@ -15,7 +15,7 @@ from application.services.database_service.database_service import DatabaseServi
 class ModelService:
     """Service class for managing machine learning models, training, evaluation, and persistence."""
     
-    def __init__(self, database_service=None, db_type: str = 'sqlite', models_directory: str = "./models"):
+    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite', models_directory: str = "./models"):
         """
         Initialize the ModelService.
         :param database_service: Optional existing DatabaseService instance

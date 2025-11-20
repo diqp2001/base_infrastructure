@@ -11,7 +11,7 @@ class RatioDataService(DataService):
     Specializes in financial ratio calculations and technical analysis.
     """
     
-    def __init__(self, database_service: DatabaseService, scaler: str = 'standard'):
+    def __init__(self,  database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite',  scaler: str = 'standard'):
         """
         Initialize the ratio data service.
         
@@ -19,7 +19,7 @@ class RatioDataService(DataService):
             database_service: DatabaseService instance for data operations
             scaler: Scaling method for data normalization
         """
-        super().__init__(database_service, scaler)
+        super().__init__(database_service,db_type, scaler)
 
     def preprocess(self, data: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """

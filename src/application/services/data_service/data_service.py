@@ -1,4 +1,5 @@
 # src/services/data_service.py
+from typing import Optional
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from application.services.database_service.database_service import DatabaseService
@@ -9,7 +10,7 @@ class DataService:
     Provides common methods for querying, handling data transformations (wrangling), and scaling.
     """
 
-    def __init__(self, database_service=None, db_type: str = 'sqlite', scaler: str = 'standard'):
+    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite', scaler: str = 'standard'):
         """
         Initialize the DataService with a database service and scaler type.
         :param database_service: Optional existing DatabaseService instance
