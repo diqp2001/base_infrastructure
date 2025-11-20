@@ -1,6 +1,6 @@
 # config_data_source_manager.py
 
-from .config_data_source_queries_manager import QUERIES
+from .config_data_source_queries_service import QUERIES
 
 DATABASE_URLS = {
     "sqlite": "sqlite:///mydatabase.db",

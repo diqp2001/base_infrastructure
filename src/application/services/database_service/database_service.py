@@ -5,7 +5,8 @@ import pandas as pd
 import dask.dataframe as dd
 from sqlalchemy.orm import Session,sessionmaker
 from sqlalchemy import Tuple, create_engine, text
-from application.managers.database_managers.config.config_data_source_manager import QUERIES, get_query
+from application.services.database_service.config.config_data_source_service import get_query
+from application.services.database_service.config.config_data_source_queries_service import QUERIES
 from domain.database import Database
 from infrastructure.database.settings import get_database_url
 

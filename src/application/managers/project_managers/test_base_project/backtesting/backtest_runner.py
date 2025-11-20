@@ -51,7 +51,7 @@ class BacktestRunner:
         Args:
             database_manager: Database manager for factor system
         """
-        self.database_service = database_manager
+        self.database_service = database_service
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
