@@ -9,7 +9,7 @@ from decimal import Decimal
 import pandas as pd
 
 from src.domain.entities.factor.factor import Factor
-from domain.entities.finance.factor_serie import FactorSerie
+from domain.entities.factor.factor_serie import FactorSerie
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
