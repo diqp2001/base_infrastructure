@@ -12,10 +12,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
+from application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
 from application.services.model_service.tft_model_service import TFTModelService
 from application.services.model_service.mlp_model_service import MLPModelService
-from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
-from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
 
 from ..config import DEFAULT_CONFIG
 from ..utils.loss_functions import SpatiotemporalLossFunctions
@@ -63,7 +62,7 @@ class HybridSpatiotemporalModel:
         self.results_dir.mkdir(exist_ok=True)
     
     def train_tft_with_factors(self, 
-                             splitter: MultivariateTrainValTestSplitter,
+                             splitter: MultivariateTrainValTestSplitterService,
                              start_date: datetime,
                              val_delta: timedelta,
                              test_delta: timedelta,
@@ -134,7 +133,7 @@ class HybridSpatiotemporalModel:
             return {'error': str(e), 'model_type': 'tft'}
     
     def train_mlp_with_factors(self,
-                             splitter: UnivariateTrainValTestSplitter,
+                             splitter: UnivariateTrainValTestSplitterService,
                              start_date: datetime,
                              val_delta: timedelta,
                              test_delta: timedelta,
@@ -386,7 +385,7 @@ class HybridSpatiotemporalModel:
                 
                 # Train TFT if requested
                 if model_type in ['tft', 'both']:
-                    if hasattr(data_splitter, 'data') and isinstance(data_splitter, MultivariateTrainValTestSplitter):
+                    if hasattr(data_splitter, 'data') and isinstance(data_splitter, MultivariateTrainValTestSplitterService):
                         tft_results = self.train_tft_with_factors(
                             data_splitter, start_date, val_delta, test_delta, seed
                         )
@@ -394,7 +393,7 @@ class HybridSpatiotemporalModel:
                 
                 # Train MLP if requested  
                 if model_type in ['mlp', 'both']:
-                    if hasattr(data_splitter, 'data') and isinstance(data_splitter, UnivariateTrainValTestSplitter):
+                    if hasattr(data_splitter, 'data') and isinstance(data_splitter, UnivariateTrainValTestSplitterService):
                         mlp_results = self.train_mlp_with_factors(
                             data_splitter, start_date, val_delta, test_delta, seed
                         )

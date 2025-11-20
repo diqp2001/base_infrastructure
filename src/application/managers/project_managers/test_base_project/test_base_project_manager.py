@@ -77,7 +77,7 @@ class TestBaseProjectManager(ProjectManager):
         super().__init__()
         
         # Initialize required managers - use TEST config like test_project_backtest
-        self.setup_database_manager(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
+        self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         
         # Initialize core components
         self.data_loader = SpatiotemporalDataLoader(self.database_service)

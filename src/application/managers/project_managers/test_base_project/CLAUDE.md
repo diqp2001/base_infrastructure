@@ -197,7 +197,7 @@ class TestBaseProjectManager(ProjectManager):
 ```python
 class SpatiotemporalDataLoader:
     def load_historical_data_with_factors(self) -> pd.DataFrame
-    def prepare_multivariate_tensors(self) -> MultivariateTrainValTestSplitter
+    def prepare_multivariate_tensors(self) -> MultivariateTrainValTestSplitterService
     def create_factor_features(self) -> pd.DataFrame
 
 class FactorEnginedDataManager:

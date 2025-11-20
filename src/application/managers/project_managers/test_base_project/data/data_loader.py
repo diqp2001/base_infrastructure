@@ -12,9 +12,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
+from application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
 from application.services.database_service.database_service import DatabaseService
-from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
-from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 
@@ -209,7 +208,7 @@ class SpatiotemporalDataLoader:
                                    target_col: str = 'target_returns',
                                    timesteps: int = 63,
                                    batch_size: int = 64,
-                                   encoder_length: Optional[int] = None) -> MultivariateTrainValTestSplitter:
+                                   encoder_length: Optional[int] = None) -> MultivariateTrainValTestSplitterService:
         """
         Prepare multivariate tensors for TFT model training.
         
@@ -221,7 +220,7 @@ class SpatiotemporalDataLoader:
             encoder_length: Encoder length for TFT (if None, uses config)
             
         Returns:
-            MultivariateTrainValTestSplitter ready for model training
+            MultivariateTrainValTestSplitterService ready for model training
         """
         if encoder_length is None:
             encoder_length = self.spatiotemporal_config['TRAINING_CONFIG']['encoder_length']
@@ -235,7 +234,7 @@ class SpatiotemporalDataLoader:
         vol_col = 'daily_vol'
         
         # Create the splitter
-        splitter = MultivariateTrainValTestSplitter(
+        splitter = MultivariateTrainValTestSplitterService(
             data=data,
             cols=feature_cols,
             cat_cols=categorical_cols,
@@ -254,7 +253,7 @@ class SpatiotemporalDataLoader:
                                  data: Dict[str, pd.DataFrame],
                                  target_col: str = 'target_returns',
                                  timesteps: int = 21,
-                                 encoder_length: Optional[int] = None) -> UnivariateTrainValTestSplitter:
+                                 encoder_length: Optional[int] = None) -> UnivariateTrainValTestSplitterService:
         """
         Prepare univariate tensors for MLP model training.
         
@@ -282,7 +281,7 @@ class SpatiotemporalDataLoader:
         vol_col = 'daily_vol'
         
         # Create the splitter
-        splitter = UnivariateTrainValTestSplitter(
+        splitter = UnivariateTrainValTestSplitterService(
             data=data,
             cols=feature_cols,
             cat_cols=categorical_cols,

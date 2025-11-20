@@ -14,10 +14,11 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.services.database_service import DatabaseService
+
 from application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.database_service.database_service import DatabaseService
 from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity

@@ -9,8 +9,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Any
 
-from application.managers.data_managers.machine_learning.multivariate_train_val_test_splitter import MultivariateTrainValTestSplitter
-from application.managers.data_managers.machine_learning.univariate_train_val_test_splitter import UnivariateTrainValTestSplitter
+from application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
+
 from ..config import DEFAULT_CONFIG
 
 
@@ -40,7 +40,7 @@ class TensorSplitterManager:
                                   timesteps: int = 63,
                                   batch_size: int = 64,
                                   encoder_length: Optional[int] = None,
-                                  scaling: Optional[str] = None) -> MultivariateTrainValTestSplitter:
+                                  scaling: Optional[str] = None) -> MultivariateTrainValTestSplitterService:
         """
         Create multivariate tensor splitter for TFT models.
         
@@ -54,7 +54,7 @@ class TensorSplitterManager:
             scaling: Scaling method ('standard', 'minmax', or None)
             
         Returns:
-            Configured MultivariateTrainValTestSplitter
+            Configured MultivariateTrainValTestSplitterService
         """
         print(f"🔄 Creating multivariate tensors: {len(cols)} features, {timesteps} timesteps")
         
@@ -81,7 +81,7 @@ class TensorSplitterManager:
             print(f"  ✅ Using {len(available_cols)} available features")
         
         try:
-            splitter = MultivariateTrainValTestSplitter(
+            splitter = MultivariateTrainValTestSplitterService(
                 data=data,
                 cols=available_cols,
                 cat_cols=cat_cols,
@@ -110,7 +110,7 @@ class TensorSplitterManager:
                                 target_col: str = 'target_returns',
                                 timesteps: int = 21,
                                 encoder_length: Optional[int] = None,
-                                scaling: Optional[str] = None) -> UnivariateTrainValTestSplitter:
+                                scaling: Optional[str] = None) -> UnivariateTrainValTestSplitterService:
         """
         Create univariate tensor splitter for MLP models.
         
@@ -123,7 +123,7 @@ class TensorSplitterManager:
             scaling: Scaling method
             
         Returns:
-            Configured UnivariateTrainValTestSplitter
+            Configured UnivariateTrainValTestSplitterService
         """
         print(f"🔄 Creating univariate tensors: {len(data)} assets, {len(cols)} features")
         
@@ -156,7 +156,7 @@ class TensorSplitterManager:
             print(f"  ✅ Using {len(available_cols)} available features")
         
         try:
-            splitter = UnivariateTrainValTestSplitter(
+            splitter = UnivariateTrainValTestSplitterService(
                 data=prepared_data,
                 cols=available_cols,
                 cat_cols=cat_cols,
@@ -228,7 +228,7 @@ class TensorSplitterManager:
                                              cols: List[str],
                                              target_col: str,
                                              timesteps: int,
-                                             batch_size: int) -> MultivariateTrainValTestSplitter:
+                                             batch_size: int) -> MultivariateTrainValTestSplitterService:
         """Create a fallback multivariate splitter with minimal configuration."""
         print("  🔧 Creating fallback multivariate splitter...")
         
@@ -245,7 +245,7 @@ class TensorSplitterManager:
                 fallback_data['dummy_feature'] = np.random.randn(len(fallback_data))
                 fallback_cols = ['dummy_feature']
         
-        return MultivariateTrainValTestSplitter(
+        return MultivariateTrainValTestSplitterService(
             data=fallback_data,
             cols=fallback_cols,
             cat_cols=[],
@@ -262,7 +262,7 @@ class TensorSplitterManager:
                                            data: Dict[str, pd.DataFrame],
                                            cols: List[str],
                                            target_col: str,
-                                           timesteps: int) -> UnivariateTrainValTestSplitter:
+                                           timesteps: int) -> UnivariateTrainValTestSplitterService:
         """Create a fallback univariate splitter with minimal configuration."""
         print("  🔧 Creating fallback univariate splitter...")
         
@@ -282,7 +282,7 @@ class TensorSplitterManager:
             
             fallback_data[asset] = asset_data
         
-        return UnivariateTrainValTestSplitter(
+        return UnivariateTrainValTestSplitterService(
             data=fallback_data,
             cols=fallback_cols,
             cat_cols=['asset'],
