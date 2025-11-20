@@ -459,3 +459,59 @@ def test_service_integration():
 5. **Evolution**: Design for easy addition of new entity types
 
 The Entity Data Services layer provides a robust, scalable foundation for managing all domain entities in the system while maintaining clean architecture principles and providing a consistent developer experience across different entity types.
+
+---
+
+## Recent Enhancement: EntityExistenceService
+
+### Overview
+**NEW: EntityExistenceService** - Centralized entity verification and creation service, refactored from `FactorEnginedDataManager._ensure_entities_exist()` to promote reusability and separation of concerns.
+
+### Key Features
+- **Standardized Pattern**: Follows same `_create_or_get_*` pattern as `BaseFactorRepository`
+- **Company Verification**: Verifies both CompanyShare and underlying Company entities
+- **Related Entity Support**: Ensures Country, Sector, Industry entities exist
+- **Comprehensive Reporting**: Detailed statistics on verification/creation operations
+- **Error Handling**: Graceful failure handling with transaction rollback
+
+### Usage Example
+```python
+from application.services.data.entities.entity_existence_service import EntityExistenceService
+
+# Initialize service
+entity_service = EntityExistenceService(database_service)
+
+# Ensure entities exist for tickers
+results = entity_service.ensure_entities_exist(['AAPL', 'GOOGL', 'MSFT'])
+
+# Results structure
+{
+    'company_shares': {'verified': 3, 'existing': 2, 'created': 1},
+    'companies': {'verified': 3, 'existing': 3, 'created': 0},
+    'countries': {'verified': 1, 'existing': 1, 'created': 0},
+    'sectors': {'verified': 1, 'existing': 0, 'created': 1},
+    'industries': {'verified': 0, 'existing': 0, 'created': 0},
+    'errors': []
+}
+```
+
+### Integration with FactorEnginedDataManager
+The service is now integrated into all factor population methods:
+- `populate_price_factors()`
+- `populate_momentum_factors()`
+- `populate_technical_indicators()`
+
+The original `_ensure_entities_exist()` method remains as a deprecated wrapper for backward compatibility.
+
+### Future Enhancements
+The service includes placeholder logic for Company entity verification. To fully implement company verification:
+
+1. **Create CompanyRepository** following the standardized pattern:
+   ```python
+   class CompanyRepository:
+       def _create_or_get_company(self, name: str, legal_name: str, 
+                                 country_id: int, industry_id: int) -> Company:
+           # Implementation following BaseFactorRepository pattern
+   ```
+
+2. **Update EntityExistenceService** to use CompanyRepository for full company verification.

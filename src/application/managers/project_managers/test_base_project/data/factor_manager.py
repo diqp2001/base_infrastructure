@@ -18,6 +18,7 @@ from pathlib import Path
 from application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.data.entities.entity_existence_service import EntityExistenceService
 from application.services.database_service.database_service import DatabaseService
 from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
@@ -51,6 +52,7 @@ class FactorEnginedDataManager:
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
         # Initialize services
         self.factor_calculation_service = FactorCalculationService(database_service, self.config['DATABASE']['DB_TYPE'])
+        self.entity_existence_service = EntityExistenceService(database_service)
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         
@@ -84,6 +86,8 @@ class FactorEnginedDataManager:
         print(f"🚀 Populating price factors for {len(tickers)} tickers...")
         
         
+        # Ensure entities exist using service
+        entities_summary = self.entity_existence_service.ensure_entities_exist(tickers)
         
         # Create price factor definitions
         price_factors_summary = self._create_price_factor_definitions()
@@ -123,6 +127,8 @@ class FactorEnginedDataManager:
         print(f"🚀 Populating momentum factors for {len(tickers)} tickers...")
         
         
+        # Ensure entities exist using service
+        entities_summary = self.entity_existence_service.ensure_entities_exist(tickers)
         
         # Create momentum factor definitions
         momentum_factors_ = self._create_momentum_factor_definitions()
@@ -160,6 +166,9 @@ class FactorEnginedDataManager:
             tickers = self.config['DATA']['DEFAULT_UNIVERSE']
         
         print(f"📊 Calculating technical indicators for {len(tickers)} tickers...")
+        
+        # Ensure entities exist using service
+        entities_summary = self.entity_existence_service.ensure_entities_exist(tickers)
         
         # Create technical factor definitions
         technical_factors_summary = self._create_technical_factor_definitions()
@@ -280,47 +289,11 @@ class FactorEnginedDataManager:
     def _ensure_entities_exist(self, tickers: List[str]) -> Dict[str, Any]:
         """
         Ensure all required entities exist in the database.
-        Uses the standardized _create_or_get_company_share pattern.
+        
+        DEPRECATED: Use EntityExistenceService.ensure_entities_exist() instead.
+        This method is kept for backward compatibility but delegates to the service.
         """
-        print("  📋 Verifying entities exist...")
-        
-        existing_count = 0
-        created_count = 0
-        
-        for ticker in tickers:
-            try:
-                # Use the standardized create-or-get method
-                share = self.company_share_repository._create_or_get_company_share(
-                    ticker=ticker,
-                    exchange_id=1,
-                    company_id=None,
-                    start_date=datetime(2020, 1, 1),
-                    company_name=f"{ticker} Inc.",
-                    sector="Technology",
-                    industry=None
-                )
-                
-                if share:
-                    # Check if it was newly created by seeing if it existed before
-                    existing_shares = self.company_share_repository.get_by_ticker(ticker)
-                    if len(existing_shares) == 1 and existing_shares[0].id == share.id:
-                        # This is a newly created share
-                        created_count += 1
-                        print(f"    ✅ Created entity for {ticker}")
-                    else:
-                        # This was an existing share
-                        existing_count += 1
-                else:
-                    print(f"    ❌ Failed to create or get entity for {ticker}")
-                    
-            except Exception as e:
-                print(f"    ❌ Error ensuring entity exists for {ticker}: {str(e)}")
-        
-        return {
-            'verified': existing_count + created_count,
-            'existing': existing_count,
-            'created': created_count
-        }
+        return self.entity_existence_service.ensure_entities_exist(tickers)
     
 
     def _create_price_factor_definitions(self) -> Dict[str, Any]:
