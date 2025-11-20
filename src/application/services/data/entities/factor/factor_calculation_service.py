@@ -9,7 +9,7 @@ from decimal import Decimal
 import pandas as pd
 
 from src.domain.entities.factor.factor import Factor
-from src.domain.entities.finance.price_data import PriceData
+from domain.entities.finance.factor_serie import FactorSerie
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
@@ -259,7 +259,7 @@ class FactorCalculationService:
             definition=definition or f"Base factor: {name}"
         )
     
-    def _extract_price_data_from_database(self, entity_id: int, ticker: str = None) -> Optional[PriceData]:
+    def _extract_price_data_from_database(self, entity_id: int, ticker: str = None) -> Optional[FactorSerie]:
         """
         Extract price data from database and create PriceData domain object.
         
@@ -293,8 +293,8 @@ class FactorCalculationService:
             df = df.sort_values("date")
             
             # Create PriceData domain object
-            return PriceData(
-                prices=df["value"].tolist(),
+            return FactorSerie(
+                values=df["value"].tolist(),
                 dates=df["date"].tolist(),
                 ticker=ticker or f"entity_{entity_id}",
                 entity_id=entity_id
@@ -355,10 +355,10 @@ class FactorCalculationService:
         }
         
         # Calculate momentum for each date using the PriceData domain object
-        for i, (price_date, current_price) in enumerate(zip(price_data.dates, price_data.prices)):
+        for i, (price_date, current_price) in enumerate(zip(price_data.dates, price_data.values)):
             try:
                 # Get historical prices up to current date for momentum calculation
-                historical_prices = price_data.get_historical_prices(i + 1)
+                historical_prices = price_data.get_historical_values(i + 1)
                 
                 # Calculate momentum using domain logic
                 momentum_value = factor.calculate_momentum(historical_prices)
