@@ -17,6 +17,7 @@ from application.services.database_service.database_service import DatabaseServi
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+from infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
 from infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
 from infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
@@ -42,6 +43,7 @@ class EntityExistenceService:
         
         # Initialize repositories
         self.company_share_repository = CompanyShareRepository(self.session)
+        self.company_repository = CompanyRepository(self.session)
         self.country_repository = CountryRepository(self.session)
         self.sector_repository = SectorRepository(self.session)
         self.industry_repository = IndustryRepository(self.session)
@@ -74,22 +76,24 @@ class EntityExistenceService:
         
         for ticker in tickers:
             try:
-                # Ensure CompanyShare exists
-                share_result = self._ensure_company_share_exists(ticker)
-                self._update_results(results['company_shares'], share_result)
+                # Step 1: Ensure related entities exist first
+                related_results = self._ensure_related_entities_exist(ticker)
+                self._update_results(results['countries'], related_results.get('country', {}))
+                self._update_results(results['sectors'], related_results.get('sector', {}))
+                self._update_results(results['industries'], related_results.get('industry', {}))
                 
-                if share_result.get('entity'):
-                    # Ensure Company exists (if CompanyShare was created/found)
-                    company_result = self._ensure_company_exists_for_share(
-                        share_result['entity'], ticker
-                    )
-                    self._update_results(results['companies'], company_result)
-                    
-                    # Ensure related entities exist
-                    related_results = self._ensure_related_entities_exist(ticker)
-                    self._update_results(results['countries'], related_results.get('country', {}))
-                    self._update_results(results['sectors'], related_results.get('sector', {}))
-                    self._update_results(results['industries'], related_results.get('industry', {}))
+                # Step 2: Ensure Company exists (create company first to get company_id)
+                company_result = self._ensure_company_exists(ticker)
+                self._update_results(results['companies'], company_result)
+                
+                # Step 3: Ensure CompanyShare exists with proper company_id
+                if company_result.get('entity'):
+                    share_result = self._ensure_company_share_exists(ticker, company_result['entity'])
+                    self._update_results(results['company_shares'], share_result)
+                else:
+                    # Fallback: create share without company_id if company creation failed
+                    share_result = self._ensure_company_share_exists(ticker, None)
+                    self._update_results(results['company_shares'], share_result)
                 
             except Exception as e:
                 error_msg = f"Error ensuring entities exist for {ticker}: {str(e)}"
@@ -101,22 +105,37 @@ class EntityExistenceService:
         
         return results
     
-    def _ensure_company_share_exists(self, ticker: str) -> Dict[str, Any]:
+    def _ensure_company_share_exists(self, ticker: str, company: Optional[CompanyEntity] = None) -> Dict[str, Any]:
         """
         Ensure CompanyShare entity exists for the given ticker.
         
         Args:
             ticker: Stock ticker symbol
+            company: Company entity to link to the share (optional)
             
         Returns:
             Dict with creation/verification result
         """
         try:
+            # Extract company_id from company entity if provided
+            company_id = None
+            if company:
+                # Get the company ID from the database (since domain entity might not have it set)
+                db_companies = self.company_repository.get_by_name(company.name)
+                if db_companies:
+                    # Get the first company and extract its ID from the database model
+                    db_model = self.company_repository.session.query(
+                        self.company_repository.model_class
+                    ).filter(
+                        self.company_repository.model_class.name == company.name
+                    ).first()
+                    company_id = db_model.id if db_model else None
+            
             # Use the standardized create-or-get method from CompanyShareRepository
             share = self.company_share_repository._create_or_get_company_share(
                 ticker=ticker,
                 exchange_id=1,
-                company_id=None,  # Will be set when Company is created
+                company_id=company_id,  # Now properly set from company
                 start_date=datetime(2020, 1, 1),
                 company_name=f"{ticker} Inc.",
                 sector="Technology",
@@ -129,9 +148,10 @@ class EntityExistenceService:
                 was_created = len(existing_shares) == 1 and existing_shares[0].id == share.id
                 
                 if was_created:
-                    print(f"    ✅ Created CompanyShare for {ticker}")
+                    print(f"    ✅ Created CompanyShare for {ticker} (company_id: {company_id})")
                     return {'status': 'created', 'entity': share}
                 else:
+                    print(f"    ✅ Found existing CompanyShare for {ticker} (company_id: {company_id})")
                     return {'status': 'existing', 'entity': share}
             else:
                 print(f"    ❌ Failed to create/get CompanyShare for {ticker}")
@@ -141,37 +161,43 @@ class EntityExistenceService:
             print(f"    ❌ Error ensuring CompanyShare exists for {ticker}: {str(e)}")
             return {'status': 'error', 'error': str(e)}
     
-    def _ensure_company_exists_for_share(self, share: CompanyShareEntity, ticker: str) -> Dict[str, Any]:
+    def _ensure_company_exists(self, ticker: str) -> Dict[str, Any]:
         """
-        Ensure Company entity exists for the given CompanyShare.
-        
-        Note: This is a placeholder implementation as there's no dedicated CompanyRepository yet.
-        In a full implementation, this would use a CompanyRepository with _create_or_get_company.
+        Ensure Company entity exists for the given ticker.
         
         Args:
-            share: CompanyShare entity
             ticker: Stock ticker symbol
             
         Returns:
-            Dict with creation/verification result
+            Dict with creation/verification result including the created/found entity
         """
         try:
-            # Check if share already has company_id set
-            if hasattr(share, 'company_id') and share.company_id is not None:
-                print(f"    ✅ Company already exists for {ticker} (ID: {share.company_id})")
-                return {'status': 'existing'}
+            company_name = f"{ticker} Inc."
             
-            # Since there's no CompanyRepository yet, we'll create a placeholder approach
-            # In a full implementation, this would use CompanyRepository._create_or_get_company
+            # Use the standardized create-or-get method from CompanyRepository
+            company = self.company_repository._create_or_get_company(
+                name=company_name,
+                legal_name=company_name,
+                country_id=1,  # Default to USA (ID 1)
+                industry_id=1,  # Default to Technology (ID 1)
+                start_date=datetime(2020, 1, 1).date()
+            )
             
-            # For now, we simulate company creation by setting a company_id on the share
-            # This would be replaced with actual Company entity creation when CompanyRepository is available
-            
-            print(f"    ⚠️  Company verification skipped for {ticker} - CompanyRepository not implemented")
-            print(f"    💡 Suggestion: Create CompanyRepository with _create_or_get_company method")
-            
-            return {'status': 'skipped', 'reason': 'CompanyRepository not implemented'}
-            
+            if company:
+                # Check if this was newly created or already existed
+                existing_companies = self.company_repository.get_by_name(company_name)
+                was_created = len(existing_companies) == 1 and existing_companies[0].name == company.name
+                
+                if was_created:
+                    print(f"    ✅ Created Company '{company_name}' for {ticker}")
+                    return {'status': 'created', 'entity': company}
+                else:
+                    print(f"    ✅ Found existing Company '{company_name}' for {ticker}")
+                    return {'status': 'existing', 'entity': company}
+            else:
+                print(f"    ❌ Failed to create/get Company for {ticker}")
+                return {'status': 'failed'}
+                
         except Exception as e:
             print(f"    ❌ Error ensuring Company exists for {ticker}: {str(e)}")
             return {'status': 'error', 'error': str(e)}
