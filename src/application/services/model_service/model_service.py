@@ -15,13 +15,17 @@ from application.services.database_service.database_service import DatabaseServi
 class ModelService:
     """Service class for managing machine learning models, training, evaluation, and persistence."""
     
-    def __init__(self, db_type: str = 'sqlite', models_directory: str = "./models"):
+    def __init__(self, database_service=None, db_type: str = 'sqlite', models_directory: str = "./models"):
         """
         Initialize the ModelService.
-        :param db_type: Database type for DatabaseService.
+        :param database_service: Optional existing DatabaseService instance
+        :param db_type: Database type for DatabaseService (ignored if database_service provided).
         :param models_directory: Directory to store model files.
         """
-        self.database_service = DatabaseService(db_type)
+        if database_service is not None:
+            self.database_service = database_service
+        else:
+            self.database_service = DatabaseService(db_type)
         self.models_directory = models_directory
         self.current_model = None
         self.model_metadata = {}

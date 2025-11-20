@@ -25,9 +25,18 @@ from application.services.database_service.database_service import DatabaseServi
 class FactorCreationService:
     """Service for creating and managing factor domain entities."""
     
-    def __init__(self, db_type: str = 'sqlite'):
-        """Initialize the service with a database type."""
-        self.database_service = DatabaseService(db_type)
+    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite'):
+        """
+        Initialize the service with a database service or create one if not provided.
+        
+        Args:
+            database_service: Optional existing DatabaseService instance
+            db_type: Database type to use when creating new DatabaseService (ignored if database_service provided)
+        """
+        if database_service is not None:
+            self.database_service = database_service
+        else:
+            self.database_service = DatabaseService(db_type)
         self.repository = BaseFactorRepository(self.database_service.session)
     
     def create_share_momentum_factor(
