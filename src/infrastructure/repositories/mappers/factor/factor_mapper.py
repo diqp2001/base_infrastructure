@@ -39,6 +39,8 @@ def _get_entity_type_from_factor(factor) -> str:
     elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
         return 'continent'
     else:
+        # For basic price factors and other general factors, default to 'share'
+        # as most factors in the trading system are share-related
         return 'share'  # Default fallback
 
 
