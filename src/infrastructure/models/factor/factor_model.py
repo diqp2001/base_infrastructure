@@ -24,6 +24,7 @@ class FactorModel(Base):
     data_type = Column(String(50), default='numeric')
     source = Column(String(100), nullable=True)
     definition = Column(Text, nullable=True)
+    entity_type = Column(String(50), nullable=False, index=True)  # For clarity and querying
 
     # Geographic factor columns
     continent_code = Column(String(10), nullable=True)
@@ -165,7 +166,6 @@ class FactorValue(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     factor_id = Column(Integer, ForeignKey('factors.id'), nullable=False)
     entity_id = Column(Integer, nullable=False)  # Generic entity reference
-    entity_type = Column(String(50), nullable=False, index=True)  # For clarity and querying
     date = Column(Date, nullable=False, index=True)
     value = Column(Numeric(20, 8), nullable=False)
 
