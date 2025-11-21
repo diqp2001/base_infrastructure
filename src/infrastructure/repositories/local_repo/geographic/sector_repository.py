@@ -90,10 +90,9 @@ class SectorRepository(GeographicRepository):
             
             # Create new sector entity
             new_sector = Sector(
-                id=next_id,
                 name=name,
-                classification_system=classification_system,
-                description=description
+                description=description or "",  # Default to empty string
+                sector_id=next_id  # Use sector_id parameter
             )
             
             # Convert to ORM model and add to database

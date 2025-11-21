@@ -234,8 +234,8 @@ class EntityExistenceService:
         """Ensure Country entity exists using CountryRepository."""
         try:
             country = self.country_repository._create_or_get_country(
-                name=name,
-                iso_code=iso_code
+                name=name
+                # Note: iso_code is stored via mapper, not constructor parameter
             )
             
             if country:
@@ -244,7 +244,8 @@ class EntityExistenceService:
                 return {'status': 'failed'}
                 
         except Exception as e:
-            return {'status': 'error', 'error': str(e)}
+            print(f"Error creating country {name}: {str(e)}")
+            return {'status': 'failed', 'error': str(e)}
     
     def _ensure_sector_exists(self, name: str) -> Dict[str, Any]:
         """Ensure Sector entity exists using SectorRepository."""
@@ -257,7 +258,8 @@ class EntityExistenceService:
                 return {'status': 'failed'}
                 
         except Exception as e:
-            return {'status': 'error', 'error': str(e)}
+            print(f"Error creating sector {name}: {str(e)}")
+            return {'status': 'failed', 'error': str(e)}
     
     def _update_results(self, target_results: Dict[str, int], operation_result: Dict[str, Any]):
         """Update results dictionary with operation outcome."""
