@@ -440,7 +440,7 @@ class FactorEnginedDataManager:
                         period=period if isinstance(period, int) else (period[0] if period else 20),
                         group=factor_def['group'],
                         subgroup=factor_def['subgroup'],
-                        definition=f"{indicator_type} technical indicator{f ' ({period}-period)' if period else ''}"
+                        definition=f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
                     )
                     technical_factor.factor_id = repo_factor.id
                     
