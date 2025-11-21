@@ -17,6 +17,7 @@ from pathlib import Path
 
 from application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from application.services.data.entities.factor.factor_creation_service import FactorCreationService
+from application.services.data.entities.factor.factor_data_service import FactorDataService
 from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
 from application.services.data.entities.entity_existence_service import EntityExistenceService
 from application.services.database_service.database_service import DatabaseService
@@ -25,9 +26,6 @@ from domain.entities.factor.finance.financial_assets.share_factor.share_target_f
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
-from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 # ShareFactorValueMapper removed - using FactorValueMapper instead
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -48,13 +46,10 @@ class FactorEnginedDataManager:
         self.database_service = database_service
         self.config = DEFAULT_CONFIG
         
-        # Initialize repositories
-        self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
-        self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
-        self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
         # Initialize services with clear separation of responsibilities
         self.factor_creation_service = FactorCreationService(database_service, self.config['DATABASE']['DB_TYPE'])  # For factor definition creation/storage
         self.factor_calculation_service = FactorCalculationService(database_service, self.config['DATABASE']['DB_TYPE'])  # For factor value calculation/storage
+        self.factor_data_service = FactorDataService(database_service, self.config['DATABASE']['DB_TYPE'])  # For all data operations
         self.entity_existence_service = EntityExistenceService(database_service)
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
@@ -207,8 +202,8 @@ class FactorEnginedDataManager:
         """
         print(f"💾 Storing engineered factors for {ticker}...")
         
-        # Get the company share entity
-        share = self.company_share_repository.get_by_ticker(ticker)
+        # Get the company share entity using service
+        share = self.factor_data_service.get_company_share_by_ticker(ticker)
         if not share:
             raise ValueError(f"Company share not found for ticker: {ticker}")
         
@@ -221,13 +216,11 @@ class FactorEnginedDataManager:
                 continue
                 
             try:
-                # Create or get factor
-
-                
-                factor = self.base_factor_repository._create_or_get_factor(
+                # Create or get factor using service
+                factor = self.factor_data_service.create_or_get_factor(
                     name=column,
                     group=factor_group,
-                    subgroup= "general",
+                    subgroup="general",
                     data_type="int",
                     source="excel",
                     definition=f"Technical indicator: {column}"
@@ -310,7 +303,7 @@ class FactorEnginedDataManager:
         
         for factor_def in price_factors:
             try:
-                factor = self.base_factor_repository._create_or_get_factor(
+                factor = self.factor_data_service.create_or_get_factor(
                     name=factor_def['name'],
                     group=factor_def['group'],
                     subgroup=factor_def['subgroup'],
@@ -508,10 +501,10 @@ class FactorEnginedDataManager:
             
             for ticker in tickers:
                 try:
-                    company = self.company_share_repository.get_by_ticker(ticker)[0]
+                    company = self.factor_data_service.get_company_share_by_ticker(ticker)
 
                     # Get repository factor for momentum storage
-                    repository_factor = self.share_factor_repository.get_by_name(factor.name)
+                    repository_factor = self.factor_data_service.get_factor_by_name(factor.name)
                     
                     if repository_factor:
                         # Use new pattern: let service extract prices from database
@@ -552,10 +545,10 @@ class FactorEnginedDataManager:
             
             for ticker in tickers:
                 try:
-                    company = self.company_share_repository.get_by_ticker(ticker)[0]
+                    company = self.factor_data_service.get_company_share_by_ticker(ticker)
                     
-                    factorentityClose = self.share_factor_repository.get_by_name('Close')
-                    df = self.share_factor_repository.get_factor_values_df(
+                    factorentityClose = self.factor_data_service.get_factor_by_name('Close')
+                    df = self.factor_data_service.get_factor_values_df(
                         factor_id=int(factorentityClose.id), 
                         entity_id=company.id
                     )
@@ -564,7 +557,7 @@ class FactorEnginedDataManager:
                     df["value"] = df["value"].astype(float)
                     
                     # Get repository factor for technical storage
-                    repository_factor = self.share_factor_repository.get_by_name(factor.name)
+                    repository_factor = self.factor_data_service.get_factor_by_name(factor.name)
                     
                     if repository_factor:
                         # Use factor calculation service
@@ -591,7 +584,7 @@ class FactorEnginedDataManager:
     
     def _store_momentum_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store momentum features as factor values."""
-        share = self.company_share_repository.get_by_ticker(ticker)[0]
+        share = self.factor_data_service.get_company_share_by_ticker(ticker)
         if not share:
             return 0
         
@@ -599,9 +592,9 @@ class FactorEnginedDataManager:
         momentum_columns = [col for col in data.columns if 'norm_' in col and 'return' in col]
         
         for column in momentum_columns:
-            factor = self.share_factor_repository.get_by_name(column)
+            factor = self.factor_data_service.get_factor_by_name(column)
             if factor:
-                values_stored += self.share_factor_repository._store_factor_values(
+                values_stored += self.factor_data_service.store_factor_values(
                     factor, share, data, column, overwrite
                 )
 
@@ -609,7 +602,7 @@ class FactorEnginedDataManager:
     
     def _store_price_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store price features as factor values."""
-        share = self.company_share_repository.get_by_ticker(ticker)[0]
+        share = self.factor_data_service.get_company_share_by_ticker(ticker)
         if not share:
             return 0
         
@@ -627,12 +620,12 @@ class FactorEnginedDataManager:
         }
         
         for column in price_columns:
-            factor = self.share_factor_repository.get_by_name(column['name'])
+            factor = self.factor_data_service.get_factor_by_name(column['name'])
             if factor:
                 # Map factor name to actual CSV column name
                 csv_column_name = factor_to_column_mapping.get(column['name'], column['name'])
                 if csv_column_name in data.columns:
-                    values_stored += self.share_factor_repository._store_factor_values(
+                    values_stored += self.factor_data_service.store_factor_values(
                         factor, share, data, csv_column_name, overwrite
                     )
                 else:
@@ -642,7 +635,7 @@ class FactorEnginedDataManager:
     
     def _store_technical_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
         """Store technical features as factor values."""
-        share = self.company_share_repository.get_by_ticker(ticker)
+        share = self.factor_data_service.get_company_share_by_ticker(ticker)
         if not share:
             return 0
         
@@ -651,9 +644,9 @@ class FactorEnginedDataManager:
         
         for column in technical_columns:
             if column in data.columns:
-                factor = self.share_factor_repository.get_by_name(column)
+                factor = self.factor_data_service.get_factor_by_name(column)
                 if factor:
-                    values_stored += self.share_factor_repository._store_factor_values(
+                    values_stored += self.factor_data_service.store_factor_values(
                         factor, share, data, column, overwrite
                     )
         
@@ -667,37 +660,10 @@ class FactorEnginedDataManager:
     def _get_ticker_factor_data(self, ticker: str, start_date: Optional[str], 
                               end_date: Optional[str], factor_groups: List[str]) -> Optional[pd.DataFrame]:
         """Get factor data for a specific ticker."""
-        share = self.company_share_repository.get_by_ticker(ticker)
-        if not share:
-            return None
-        
-        # Handle list return from get_by_ticker
-        share = share[0] if isinstance(share, list) else share
-        
-        # Get factors for the specified groups
-        factors = self.share_factor_repository.get_factors_by_groups(factor_groups)
-        
-        if not factors:
-            return None
-        
-        # Retrieve factor values
-        factor_data = {}
-        for factor in factors:
-            values = self.share_factor_repository.get_factor_values(
-                int(factor.id), share.id, start_date, end_date
-            )
-            if values:
-                factor_data[factor.name] = {
-                    pd.to_datetime(v.date): float(v.value) for v in values
-                }
-        
-        if not factor_data:
-            return None
-        
-        # Convert to DataFrame
-        df = pd.DataFrame(factor_data)
-        df.index.name = 'Date'
-        return df
+        # Use FactorDataService for all data operations
+        return self.factor_data_service.get_ticker_factor_data(
+            ticker, start_date, end_date, factor_groups
+        )
     
     def _format_for_model_training(self, data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         """Format factor data for spatiotemporal model training."""
@@ -821,7 +787,7 @@ class FactorEnginedDataManager:
                 )
                 
                 # Create or get corresponding repository factor
-                repo_factor = self.share_factor_repository._create_or_get_factor(
+                repo_factor = self.factor_data_service.create_or_get_factor(
                     name=vol_config['name'],
                     group=vol_config['group'],
                     subgroup=vol_config['subgroup'],
@@ -876,7 +842,7 @@ class FactorEnginedDataManager:
                 )
                 
                 # Create or get corresponding repository factor
-                repo_factor = self.share_factor_repository._create_or_get_factor(
+                repo_factor = self.factor_data_service.create_or_get_factor(
                     name=target_config['name'],
                     group=target_config['group'],
                     subgroup=target_config['subgroup'],
@@ -910,7 +876,7 @@ class FactorEnginedDataManager:
             try:
                 
                 # Get repository factor by name
-                repo_factor = self.share_factor_repository.get_by_name(volatility_factor.name)
+                repo_factor = self.factor_data_service.get_factor_by_name(volatility_factor.name)
                 if not repo_factor:
                     print(f"      ❌ Repository factor not found for {volatility_factor.name}")
                     continue
@@ -927,10 +893,9 @@ class FactorEnginedDataManager:
                 
                 # Process each ticker
                 for ticker in tickers:
-                    share = self.company_share_repository.get_by_ticker(ticker)
+                    share = self.factor_data_service.get_company_share_by_ticker(ticker)
                     if not share:
                         continue
-                    share = share[0] if isinstance(share, list) else share
                     
                     # Load price data for ticker
                     ticker_data = self._load_ticker_price_data(ticker)
@@ -972,7 +937,7 @@ class FactorEnginedDataManager:
             try:
                 
                 # Get repository factor by name
-                repo_factor = self.share_factor_repository.get_by_name(target_factor.name)
+                repo_factor = self.factor_data_service.get_factor_by_name(target_factor.name)
                 if not repo_factor:
                     print(f"      ❌ Repository factor not found for {target_factor.name}")
                     continue
@@ -982,10 +947,9 @@ class FactorEnginedDataManager:
                 
                 # Process each ticker
                 for ticker in tickers:
-                    share = self.company_share_repository.get_by_ticker(ticker)
+                    share = self.factor_data_service.get_company_share_by_ticker(ticker)
                     if not share:
                         continue
-                    share = share[0] if isinstance(share, list) else share
                     
                     # Load price data for ticker
                     ticker_data = self._load_ticker_price_data(ticker)
@@ -1027,48 +991,8 @@ class FactorEnginedDataManager:
     def _load_ticker_price_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Load price data for a single ticker from database using repository pattern."""
         try:
-            # Get company entity
-            company = self.company_share_repository.get_by_ticker(ticker)
-            if not company:
-                print(f"      ⚠️  Company not found for ticker: {ticker}")
-                return None
-            company = company[0] if isinstance(company, list) else company
-            
-            # Define price factor names to fetch
-            price_factor_names = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
-            price_data = {}
-            
-            # Fetch each price factor from database
-            for factor_name in price_factor_names:
-                factor_entity = self.share_factor_repository.get_by_name(factor_name)
-                if factor_entity:
-                    df = self.share_factor_repository.get_factor_values_df(
-                        factor_id=int(factor_entity.id), 
-                        entity_id=company.id
-                    )
-                    if not df.empty:
-                        df["date"] = pd.to_datetime(df["date"])
-                        df.set_index("date", inplace=True)
-                        df["value"] = df["value"].astype(float)
-                        # Map to expected column names
-                        column_mapping = {
-                            'Open': 'open_price',
-                            'High': 'high_price', 
-                            'Low': 'low_price',
-                            'Close': 'close_price',
-                            'Adj Close': 'adj_close_price',
-                            'Volume': 'volume'
-                        }
-                        price_data[column_mapping.get(factor_name, factor_name.lower())] = df['value']
-            
-            if not price_data:
-                print(f"      ⚠️  No price data found in database for {ticker}")
-                return None
-            
-            # Combine into single DataFrame
-            price_df = pd.DataFrame(price_data)
-            price_df.index.name = 'Date'
-            return price_df
+            # Use FactorDataService for price data loading
+            return self.factor_data_service.load_ticker_price_data(ticker)
                 
         except Exception as e:
             print(f"      ⚠️  Error loading price data for {ticker}: {str(e)}")

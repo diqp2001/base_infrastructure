@@ -20,6 +20,11 @@ The factor services follow the **Application Service** pattern with clear separa
 - **File**: `factor_calculation_service.py`
 - **Purpose**: Calculate factor values using existing factors and store computed results
 
+### **FactorDataService** 
+- **Responsibility**: All factor data retrieval and storage operations
+- **File**: `factor_data_service.py`
+- **Purpose**: Replace direct repository calls with service layer abstraction
+
 ---
 
 ## 📁 Directory Structure
@@ -29,6 +34,7 @@ factor/
 ├── CLAUDE.md                           # This documentation file
 ├── factor_creation_service.py          # Factor definition creation/storage
 ├── factor_calculation_service.py       # Factor value calculation/storage
+├── factor_data_service.py              # Factor data operations service
 └── __init__.py
 ```
 
@@ -121,6 +127,68 @@ results = calc_service.calculate_and_store_momentum(
 print(f"Stored {results['stored_values']} momentum values")
 ```
 
+### 3. FactorDataService
+
+**Primary Functions**:
+- Replace all direct repository calls from managers
+- Provide unified data access layer for factor operations
+- Handle company share retrieval by ticker
+- Manage factor creation/retrieval operations
+- Store and retrieve factor values with proper error handling
+- Load price data from database with standardized format
+
+**Key Methods**:
+```python
+# Company Share Operations
+get_company_share_by_ticker(ticker: str) -> Optional[CompanyShare]
+get_company_shares_by_tickers(tickers: List[str]) -> Dict[str, Optional[CompanyShare]]
+
+# Factor Operations  
+create_or_get_factor(name, group, subgroup, data_type, source, definition) -> Optional[Factor]
+get_factor_by_name(name: str) -> Optional[Factor]
+get_factors_by_groups(groups: List[str]) -> List[Factor]
+
+# Factor Value Operations
+store_factor_values(factor, share, data, column, overwrite=False) -> int
+get_factor_values(factor_id, entity_id, start_date=None, end_date=None) -> List
+get_factor_values_df(factor_id: int, entity_id: int) -> pd.DataFrame
+
+# Bulk Operations  
+bulk_store_factor_values(storage_operations: List[Dict[str, Any]]) -> Dict[str, int]
+
+# Data Loading
+load_ticker_price_data(ticker: str) -> Optional[pd.DataFrame]
+get_ticker_factor_data(ticker, start_date, end_date, factor_groups) -> Optional[pd.DataFrame]
+```
+
+**Usage Pattern**:
+```python
+# Create service
+data_service = FactorDataService(database_service)
+
+# Get company share (replaces repository call)
+share = data_service.get_company_share_by_ticker('AAPL')
+
+# Create/get factor (replaces repository call)  
+factor = data_service.create_or_get_factor(
+    name='Close',
+    group='price', 
+    subgroup='ohlcv',
+    data_type='numeric',
+    source='market_data',
+    definition='Daily closing price'
+)
+
+# Store factor values (replaces repository call)
+values_stored = data_service.store_factor_values(
+    factor=factor,
+    share=share, 
+    data=price_df,
+    column='Close',
+    overwrite=False
+)
+```
+
 ---
 
 ## 🔄 Service Integration
@@ -135,6 +203,7 @@ class FactorEnginedDataManager:
         # Clear service separation
         self.factor_creation_service = FactorCreationService(database_service)  # For factor definitions
         self.factor_calculation_service = FactorCalculationService(database_service)  # For factor values
+        self.factor_data_service = FactorDataService(database_service)  # For all data operations
     
     def populate_momentum_factors(self, tickers, overwrite=False):
         # Step 1: Create factor definitions using creation service
@@ -173,22 +242,27 @@ class BacktestRunner:
 ### 1. **Single Responsibility Principle**
 - **Creation Service**: Only handles factor definitions and persistence
 - **Calculation Service**: Only handles factor value computation and storage
+- **Data Service**: Only handles data retrieval and storage operations (replaces direct repository calls)
 
-### 2. **Elimination of Duplication** 
-- Removed duplicate `create_*_factor()` methods from FactorCalculationService
-- Centralized factor creation logic in FactorCreationService
+### 2. **Elimination of Repository Coupling**
+- FactorEnginedDataManager no longer directly calls repositories 
+- All data operations abstracted through FactorDataService
+- Managers only interact with services, following proper DDD layering
 
 ### 3. **Clear Interface Contracts**
 - Creation service returns persisted Factor entities
-- Calculation service returns computation results and statistics
+- Calculation service returns computation results and statistics  
+- Data service provides unified data access abstraction
 
 ### 4. **Enhanced Maintainability**
-- Easier to modify factor creation logic without affecting calculations
-- Easier to add new calculation methods without touching factor definitions
+- Easier to modify data access patterns in one central location
+- Reduced coupling between managers and infrastructure layer
+- Repository changes don't affect manager implementations
 
 ### 5. **Standardized Patterns**
-- Both services follow the same `_create_or_get_*()` pattern as BaseFactorRepository
-- Consistent error handling and logging across services
+- All services follow the same `_create_or_get_*()` pattern as BaseFactorRepository
+- Consistent error handling and logging across all service layers
+- Uniform approach to data operations throughout the application
 
 ---
 
