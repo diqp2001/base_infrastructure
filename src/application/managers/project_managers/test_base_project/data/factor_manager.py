@@ -52,8 +52,9 @@ class FactorEnginedDataManager:
         self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
         self.share_factor_repository = ShareFactorRepository(self.config['DATABASE']['DB_TYPE'])
         self.base_factor_repository = BaseFactorRepository(self.config['DATABASE']['DB_TYPE'])
-        # Initialize services
-        self.factor_calculation_service = FactorCalculationService(database_service, self.config['DATABASE']['DB_TYPE'])
+        # Initialize services with clear separation of responsibilities
+        self.factor_creation_service = FactorCreationService(database_service, self.config['DATABASE']['DB_TYPE'])  # For factor definition creation/storage
+        self.factor_calculation_service = FactorCalculationService(database_service, self.config['DATABASE']['DB_TYPE'])  # For factor value calculation/storage
         self.entity_existence_service = EntityExistenceService(database_service)
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
@@ -341,32 +342,31 @@ class FactorEnginedDataManager:
         
         for factor_def in momentum_factors:
             try:
+                # Use FactorCreationService to create and persist factor
+                factor_config = {
+                    'factor_type': 'share_momentum',
+                    'name': factor_def['name'],
+                    'period': factor_def['period'],
+                    'group': factor_def['group'],
+                    'subgroup': factor_def['subgroup'],
+                    'definition': f"{factor_def['period']}-day momentum return factor",
+                    'momentum_type': 'price_momentum'
+                }
                 
-                
-                # Create domain momentum factor entity
-                momentum_factor = ShareMomentumFactor(
-                    name=factor_def['name'],
-                    period=factor_def['period'],
-                    group=factor_def['group'],
-                    subgroup=factor_def['subgroup'],
-                    data_type="numeric",
-                    source="internal",
-                    definition=f"{factor_def['period']}-day momentum return factor"
-                )
-                
-                # Create or get corresponding repository factor
-                repo_factor = self.share_factor_repository._create_or_get_factor(
-                    name=factor_def['name'],
-                    group=factor_def['group'],
-                    subgroup=factor_def['subgroup'],
-                    data_type="numeric",
-                    source="internal",
-                    definition=f"{factor_def['period']}-day momentum return factor"
-                )
+                # Get or create factor using creation service
+                repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
                 
                 if repo_factor:
-                    # Set the factor_id from repository
+                    # Create domain entity with repository ID
+                    momentum_factor = self.factor_creation_service.create_share_momentum_factor(
+                        name=factor_def['name'],
+                        period=factor_def['period'],
+                        group=factor_def['group'],
+                        subgroup=factor_def['subgroup'],
+                        definition=f"{factor_def['period']}-day momentum return factor"
+                    )
                     momentum_factor.factor_id = repo_factor.id
+                    
                     momentum_domain_factors.append(momentum_factor)
                     factors_created += 1
                     print(f"    ✅ Created momentum factor: {factor_def['name']} (ID: {repo_factor.id})")
@@ -418,31 +418,32 @@ class FactorEnginedDataManager:
                     else:
                         period = (12, 26)  # Default MACD periods
                 
-                # Create domain technical factor entity
-                technical_factor = ShareTechnicalFactor(
-                    name=factor_def['name'],
-                    indicator_type=indicator_type,
-                    period=period,
-                    group=factor_def['group'],
-                    subgroup=factor_def['subgroup'],
-                    data_type="numeric",
-                    source="internal",
-                    definition=f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
-                )
+                # Use FactorCreationService to create and persist factor
+                factor_config = {
+                    'factor_type': 'share_technical',
+                    'name': factor_def['name'],
+                    'indicator_type': indicator_type,
+                    'period': period if isinstance(period, int) else (period[0] if period else 20),
+                    'group': factor_def['group'],
+                    'subgroup': factor_def['subgroup'],
+                    'definition': f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
+                }
                 
-                # Create or get corresponding repository factor
-                repo_factor = self.share_factor_repository._create_or_get_factor(
-                    name=factor_def['name'],
-                    group=factor_def['group'],
-                    subgroup=factor_def['subgroup'],
-                    data_type="numeric",
-                    source="internal",
-                    definition=f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
-                )
+                # Get or create factor using creation service
+                repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
                 
                 if repo_factor:
-                    # Set the factor_id from repository
+                    # Create domain entity with repository ID
+                    technical_factor = self.factor_creation_service.create_share_technical_factor(
+                        name=factor_def['name'],
+                        indicator_type=indicator_type,
+                        period=period if isinstance(period, int) else (period[0] if period else 20),
+                        group=factor_def['group'],
+                        subgroup=factor_def['subgroup'],
+                        definition=f"{indicator_type} technical indicator{f ' ({period}-period)' if period else ''}"
+                    )
                     technical_factor.factor_id = repo_factor.id
+                    
                     technical_domain_factors.append(technical_factor)
                     factors_created += 1
                     print(f"    ✅ Created technical factor: {factor_def['name']} (ID: {repo_factor.id})")

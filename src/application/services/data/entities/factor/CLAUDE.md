@@ -1,19 +1,24 @@
-# Factor Calculation Services - CLAUDE.md
+# Factor Services - CLAUDE.md
 
 ## 📖 Overview
 
-This directory contains application services responsible for calculating and storing factor values in the database. These services orchestrate domain logic with infrastructure concerns to execute factor calculation use cases.
+This directory contains application services responsible for factor management in the base_infrastructure project. Following Domain-Driven Design principles, these services provide clear separation of concerns between factor creation and factor calculation.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Service Architecture
 
-The factor calculation services follow the **Application Service** pattern from Domain-Driven Design:
+The factor services follow the **Application Service** pattern with clear separation of responsibilities:
 
-- **Use Case Orchestration**: Coordinate domain entities and repositories
-- **Database Transaction Management**: Handle persistence concerns
-- **Domain-Infrastructure Bridge**: Translate between domain objects and database models
-- **Standardized Patterns**: Consistent approach across all factor types
+### **FactorCreationService** 
+- **Responsibility**: Factor entity creation and database persistence
+- **File**: `factor_creation_service.py`
+- **Purpose**: Create factor definitions and store them in the database
+
+### **FactorCalculationService**
+- **Responsibility**: Factor value calculation and storage  
+- **File**: `factor_calculation_service.py`
+- **Purpose**: Calculate factor values using existing factors and store computed results
 
 ---
 
@@ -22,179 +27,90 @@ The factor calculation services follow the **Application Service** pattern from 
 ```
 factor/
 ├── CLAUDE.md                           # This documentation file
-├── factor_calculation_service.py       # Core calculation service
-├── factor_creation_service.py          # Factor definition creation
+├── factor_creation_service.py          # Factor definition creation/storage
+├── factor_calculation_service.py       # Factor value calculation/storage
 └── __init__.py
 ```
 
 ---
 
-## 🆕 Recent Enhancements (2025-11-20)
+## 🔧 Service Responsibilities
 
-### ✅ Database-Driven Price Data Extraction
+### 1. FactorCreationService
 
-**Problem Solved**: Previously, factor calculations required external price data to be passed as raw `List[float]` parameters. This violated DDD principles and created tight coupling.
+**Primary Functions**:
+- Create factor domain entities (ShareMomentumFactor, ShareTechnicalFactor, etc.)
+- Persist factor definitions to database using repositories
+- Retrieve existing factors by name or ID
+- Provide factory methods for different factor types
+- Follow standardized `get_or_create_factor()` pattern
 
-**Solution Implemented**: 
-- **PriceData Domain Object**: Created standardized domain entity for price data
-- **Database Extraction**: Service now extracts price data internally from database
-- **Backward Compatibility**: Legacy interface preserved for smooth migration
+**Key Methods**:
+```python
+# Factor Creation Methods
+create_share_momentum_factor(name, period, group, ...)
+create_share_technical_factor(name, indicator_type, period, ...)
+create_share_volatility_factor(name, volatility_type, period, ...)
+create_share_target_factor(name, target_type, forecast_horizon, ...)
 
----
+# Persistence Methods  
+persist_factor(factor: Factor) -> Optional[Factor]
+get_or_create_factor(config: Dict[str, Any]) -> Optional[Factor]
 
-## 🔧 Key Components
+# Retrieval Methods
+pull_factor_by_id(factor_id: int) -> Optional[Factor]
+pull_factor_by_name(name: str) -> Optional[Factor]
+```
 
-### 1. FactorCalculationService
+**Usage Pattern**:
+```python
+# Create service
+creation_service = FactorCreationService(database_service)
 
-**File**: `factor_calculation_service.py`
+# Create momentum factor definition
+factor_config = {
+    'factor_type': 'share_momentum',
+    'name': 'momentum_20d',
+    'period': 20,
+    'group': 'momentum',
+    'subgroup': 'price'
+}
 
-**Responsibilities**:
-- Calculate momentum, technical, volatility, and target factors
-- Extract price data from database using repositories
+# Get or create factor in database
+factor = creation_service.get_or_create_factor(factor_config)
+print(f"Factor ID: {factor.id}")
+```
+
+### 2. FactorCalculationService
+
+**Primary Functions**:
+- Calculate factor values using domain logic
+- Extract price data from database automatically
 - Store calculated values with proper error handling
-- Maintain calculation history and statistics
+- Support multiple factor types (momentum, technical, volatility)
+- Provide bulk calculation capabilities
 
-#### New Price Data Pattern
-
-**Before** (Deprecated):
+**Key Methods**:
 ```python
-# External data preparation required
-prices = [100.0, 102.5, 101.8]
-dates = [date(2024, 1, 1), date(2024, 1, 2), date(2024, 1, 3)]
+# Core Calculation Methods
+calculate_and_store_momentum(factor, entity_id, entity_type, ticker=None, overwrite=False)
+calculate_and_store_technical(factor, entity_id, entity_type, ticker=None, overwrite=False)
+calculate_and_store_volatility(factor, entity_id, entity_type, ticker=None, overwrite=False)
 
-service.calculate_and_store_momentum(
-    factor=momentum_factor,
-    entity_id=123,
-    entity_type='share',
-    prices=prices,    # Raw data passed in
-    dates=dates,      # Raw data passed in
-    overwrite=False
-)
+# Generic Calculation
+calculate_and_store_factor(factor, entity_id, entity_type, data, overwrite=False)
+
+# Bulk Operations
+bulk_calculate_and_store(calculations: List[Dict], overwrite=False)
 ```
 
-**After** (Recommended):
+**Usage Pattern**:
 ```python
-# Service extracts data internally from database
-service.calculate_and_store_momentum(
-    factor=momentum_factor,
-    entity_id=123,
-    entity_type='share',
-    ticker='AAPL',    # Optional ticker for logging
-    overwrite=False
-)
-```
+# Create service
+calc_service = FactorCalculationService(database_service)
 
-#### Internal Architecture
-
-**Price Data Extraction**:
-```python
-def _extract_price_data_from_database(self, entity_id: int, ticker: str = None) -> Optional[PriceData]:
-    """
-    Extract price data from database and create PriceData domain object.
-    
-    Flow:
-    1. Get 'Close' price factor from ShareFactorRepository
-    2. Extract factor values as DataFrame
-    3. Convert and sort data by date
-    4. Create PriceData domain object
-    5. Return standardized domain object
-    """
-```
-
-**Calculation Flow**:
-```python
-def calculate_and_store_momentum(self, factor, entity_id, entity_type, ticker=None, overwrite=False):
-    """
-    Enhanced calculation flow:
-    1. Extract price data using _extract_price_data_from_database()
-    2. Create PriceData domain object with validation
-    3. Use PriceData.get_historical_prices() for each calculation point
-    4. Apply domain factor.calculate_momentum() method
-    5. Store results with proper error handling
-    """
-```
-
----
-
-## 📊 Calculation Patterns
-
-### 1. Momentum Factor Calculation
-```python
-# Domain-driven approach
-price_data = self._extract_price_data_from_database(entity_id, ticker)
-for i, (date, price) in enumerate(zip(price_data.dates, price_data.prices)):
-    historical_prices = price_data.get_historical_prices(i + 1)
-    momentum_value = factor.calculate_momentum(historical_prices)
-    # Store result...
-```
-
-### 2. Generic Factor Calculation
-```python
-# Support multiple calling patterns
-if isinstance(factor, ShareMomentumFactor):
-    if isinstance(data, dict) and 'ticker' in data:
-        # New database extraction pattern
-        return self.calculate_and_store_momentum(factor, entity_id, entity_type, 
-                                               ticker=data['ticker'], overwrite=overwrite)
-    elif isinstance(data, dict) and 'prices' in data:
-        # Legacy compatibility mode
-        return self._calculate_momentum_legacy(factor, entity_id, entity_type,
-                                             data['prices'], data['dates'], overwrite)
-```
-
----
-
-## 🔗 Integration Points
-
-### Repository Dependencies
-- **BaseFactorRepository**: Factor definition and value storage
-- **ShareFactorRepository**: Share-specific factor operations
-- **CompanyShareRepository**: Entity lookup and validation
-
-### Domain Entity Usage
-- **ShareMomentumFactor**: Domain calculation logic
-- **PriceData**: Standardized price data container
-- **FactorValue**: Calculated result storage
-
-### Database Services
-- **DatabaseService**: Transaction management and session handling
-
----
-
-## 📈 Performance Considerations
-
-### Database Query Optimization
-- **Single Query**: Extract all price data at once per entity
-- **Sorted Data**: Ensure chronological order for calculations
-- **Type Conversion**: Convert to proper numeric types early
-
-### Memory Management
-- **Streaming Processing**: Process one calculation point at a time
-- **Garbage Collection**: Clear intermediate results appropriately
-- **Connection Pooling**: Reuse database connections efficiently
-
----
-
-## 🎯 Usage Examples
-
-### Basic Momentum Calculation
-```python
-from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
-from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
-
-# Initialize service
-service = FactorCalculationService(database_service)
-
-# Create momentum factor
-momentum_factor = ShareMomentumFactor(
-    name="momentum_20d",
-    period=20,
-    group="momentum", 
-    subgroup="price"
-)
-
-# Calculate and store (new pattern)
-results = service.calculate_and_store_momentum(
+# Calculate momentum values (extracts price data automatically)
+results = calc_service.calculate_and_store_momentum(
     factor=momentum_factor,
     entity_id=123,
     entity_type='share',
@@ -205,73 +121,174 @@ results = service.calculate_and_store_momentum(
 print(f"Stored {results['stored_values']} momentum values")
 ```
 
-### Legacy Compatibility
+---
+
+## 🔄 Service Integration
+
+### Clear Separation Pattern
+
+The services work together but have distinct responsibilities:
+
 ```python
-# Still supported for backward compatibility
-results = service.calculate_and_store_factor(
-    factor=momentum_factor,
-    entity_id=123,
-    entity_type='share',
-    data={'prices': [100.0, 102.5], 'dates': [date(2024, 1, 1), date(2024, 1, 2)]},
-    overwrite=False
-)
+class FactorEnginedDataManager:
+    def __init__(self, database_service):
+        # Clear service separation
+        self.factor_creation_service = FactorCreationService(database_service)  # For factor definitions
+        self.factor_calculation_service = FactorCalculationService(database_service)  # For factor values
+    
+    def populate_momentum_factors(self, tickers, overwrite=False):
+        # Step 1: Create factor definitions using creation service
+        for factor_def in momentum_factors:
+            factor_config = {...}
+            repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
+            
+        # Step 2: Calculate values using calculation service  
+        for ticker in tickers:
+            results = self.factor_calculation_service.calculate_and_store_momentum(
+                factor=momentum_factor,
+                entity_id=entity_id,
+                entity_type='share',
+                ticker=ticker,
+                overwrite=overwrite
+            )
+```
+
+### Integration with BacktestRunner
+
+The BacktestRunner uses factor services through the FactorEnginedDataManager:
+
+```python
+class BacktestRunner:
+    def run_backtest(self, tickers, overwrite=False):
+        # Uses both services through factor_manager
+        price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
+        momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite) 
+        technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
 ```
 
 ---
 
-## 🛠️ Error Handling
+## 🎯 Key Benefits
 
-### Common Error Scenarios
-1. **No Price Data**: Entity has no 'Close' factor values in database
-2. **Data Validation**: Inconsistent price/date arrays
-3. **Storage Failures**: Database constraints or connection issues
-4. **Domain Logic Errors**: Insufficient data for factor calculations
+### 1. **Single Responsibility Principle**
+- **Creation Service**: Only handles factor definitions and persistence
+- **Calculation Service**: Only handles factor value computation and storage
 
-### Error Response Format
+### 2. **Elimination of Duplication** 
+- Removed duplicate `create_*_factor()` methods from FactorCalculationService
+- Centralized factor creation logic in FactorCreationService
+
+### 3. **Clear Interface Contracts**
+- Creation service returns persisted Factor entities
+- Calculation service returns computation results and statistics
+
+### 4. **Enhanced Maintainability**
+- Easier to modify factor creation logic without affecting calculations
+- Easier to add new calculation methods without touching factor definitions
+
+### 5. **Standardized Patterns**
+- Both services follow the same `_create_or_get_*()` pattern as BaseFactorRepository
+- Consistent error handling and logging across services
+
+---
+
+## 📊 Database Integration
+
+### Factor Definition Flow (Creation Service)
+```
+1. FactorCreationService.get_or_create_factor(config)
+2. Check if factor exists by name
+3. If not exists, create new factor entity
+4. Persist to database via BaseFactorRepository
+5. Return persisted factor with ID
+```
+
+### Factor Value Flow (Calculation Service)  
+```
+1. FactorCalculationService.calculate_and_store_momentum(...)
+2. Extract price data from database automatically
+3. Apply domain calculation logic (factor.calculate_momentum())
+4. Store results via BaseFactorRepository.add_factor_value()
+5. Return calculation statistics
+```
+
+---
+
+## 🚀 Usage Examples
+
+### Complete Factor Population Flow
+
 ```python
-{
-    'factor_name': 'momentum_20d',
-    'factor_id': 42,
-    'entity_id': 123,
-    'entity_type': 'share',
-    'calculations': [],
-    'stored_values': 0,
-    'skipped_values': 0,
-    'errors': ['No price data available in database']
+from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
+from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
+
+# Initialize services
+creation_service = FactorCreationService(database_service)
+calculation_service = FactorCalculationService(database_service)
+
+# Step 1: Create factor definition
+factor_config = {
+    'factor_type': 'share_momentum',
+    'name': 'momentum_20d',
+    'period': 20,
+    'group': 'momentum',
+    'subgroup': 'price'
 }
+momentum_factor = creation_service.get_or_create_factor(factor_config)
+
+# Step 2: Calculate values for entities
+for ticker in ['AAPL', 'GOOGL', 'MSFT']:
+    entity_id = get_entity_id_for_ticker(ticker)
+    results = calculation_service.calculate_and_store_momentum(
+        factor=momentum_factor,
+        entity_id=entity_id,
+        entity_type='share',
+        ticker=ticker,
+        overwrite=False
+    )
+    print(f"{ticker}: {results['stored_values']} values calculated")
+```
+
+### Factory Pattern for Multiple Factor Types
+
+```python
+# Create multiple factor types using creation service
+factor_configs = [
+    {'factor_type': 'share_momentum', 'name': 'momentum_20d', 'period': 20},
+    {'factor_type': 'share_technical', 'name': 'rsi_14', 'indicator_type': 'RSI', 'period': 14},
+    {'factor_type': 'share_volatility', 'name': 'vol_30d', 'period': 30}
+]
+
+created_factors = []
+for config in factor_configs:
+    factor = creation_service.get_or_create_factor(config)
+    created_factors.append(factor)
+    
+print(f"Created {len(created_factors)} factor definitions")
 ```
 
 ---
 
-## 🔄 Migration Guide
+## 🔧 Configuration Integration
 
-### From Raw Price Lists to Database Extraction
+### Factor Manager Integration
 
-**Step 1**: Update service calls to use new signature
+The FactorEnginedDataManager uses both services seamlessly:
+
 ```python
-# Old
-service.calculate_and_store_momentum(factor, entity_id, 'share', prices, dates, overwrite)
-
-# New  
-service.calculate_and_store_momentum(factor, entity_id, 'share', ticker='AAPL', overwrite=overwrite)
-```
-
-**Step 2**: Remove external price data preparation
-```python
-# Remove this code
-factorentityClose = self.share_factor_repository.get_by_name('Close')
-df = self.share_factor_repository.get_factor_values_df(factor_id=int(factorentityClose.id), entity_id=company.id)
-prices = df["value"].tolist()
-dates = df.index.tolist()
-```
-
-**Step 3**: Update result handling
-```python
-# Old
-values_stored = len(momentum_results) if momentum_results else 0
-
-# New
-values_stored = momentum_results.get('stored_values', 0) if momentum_results else 0
+def _create_momentum_factor_definitions(self) -> Dict[str, Any]:
+    """Create momentum factor definitions using FactorCreationService."""
+    momentum_factors = self.config['FACTORS']['MOMENTUM_FACTORS']
+    
+    for factor_def in momentum_factors:
+        # Use creation service for factor definitions
+        factor_config = {
+            'factor_type': 'share_momentum',
+            'name': factor_def['name'],
+            'period': factor_def['period'],
+            # ... other config
+        }
+        repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
 ```
 
 ---
@@ -279,15 +296,34 @@ values_stored = momentum_results.get('stored_values', 0) if momentum_results els
 ## 📝 Contributing Guidelines
 
 ### Adding New Factor Types
-1. **Create Domain Entity**: Implement in `src/domain/entities/factor/`
-2. **Add Calculation Method**: Follow `calculate_and_store_momentum` pattern
-3. **Update Generic Handler**: Add case to `calculate_and_store_factor`
-4. **Write Tests**: Unit tests for domain logic, integration tests for service
-5. **Document Usage**: Add examples and patterns to this file
+
+1. **Domain Entity**: Create in `src/domain/entities/factor/`
+2. **Creation Method**: Add to FactorCreationService.create_*_factor()
+3. **Calculation Method**: Add to FactorCalculationService.calculate_and_store_*()
+4. **Config Support**: Update FactorCreationService.create_factor_from_config()
+5. **Integration**: Update FactorEnginedDataManager methods
 
 ### Code Quality Standards
-- **Error Handling**: Always return structured error information
-- **Logging**: Use descriptive log messages for debugging
-- **Type Hints**: Full type annotations for all method parameters
-- **Docstrings**: Comprehensive documentation for all public methods
-- **Testing**: Unit tests with >80% coverage
+
+- **Error Handling**: Return structured error information
+- **Type Hints**: Full type annotations for all methods
+- **Docstrings**: Comprehensive documentation with examples
+- **Testing**: Unit tests for both services separately
+- **Logging**: Descriptive messages for debugging
+
+---
+
+## 🔮 Future Enhancements
+
+### Planned Features
+- [ ] Caching layer for factor definitions
+- [ ] Async calculation support for large datasets
+- [ ] Factor dependency graph management
+- [ ] Real-time factor value streaming
+- [ ] Cross-factor calculation optimizations
+
+### Performance Optimizations
+- [ ] Batch factor value insertions
+- [ ] Connection pooling improvements  
+- [ ] Query optimization for price data extraction
+- [ ] Memory usage optimization for large calculations
