@@ -27,12 +27,11 @@ class FactorDataService:
             db_type: Database type for repository initialization
         """
         self.database_service = database_service
-        self.db_type = db_type
         
         # Initialize repositories
-        self.base_factor_repository = BaseFactorRepository(db_type)
+        self.base_factor_repository = BaseFactorRepository(database_service.session)
         self.company_share_repository = CompanyShareRepository(database_service.session)
-        self.share_factor_repository = ShareFactorRepository(db_type)
+        self.share_factor_repository = ShareFactorRepository(database_service.session)
     
     # CompanyShare operations
     def get_company_share_by_ticker(self, ticker: str) -> Optional[CompanyShare]:

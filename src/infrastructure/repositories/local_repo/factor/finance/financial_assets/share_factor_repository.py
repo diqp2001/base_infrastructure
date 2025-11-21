@@ -5,13 +5,14 @@ Repository class for Share factor entities.
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
+from sqlalchemy.orm import Session
 
 
 class ShareFactorRepository(BaseFactorRepository):
     """Repository for Share factor entities with CRUD operations."""
     
-    def __init__(self, db_type='sqlite'):
-        super().__init__(db_type)
+    def __init__(self, session: Session):
+        super().__init__(session)
 
     
     def get_factor_model(self):

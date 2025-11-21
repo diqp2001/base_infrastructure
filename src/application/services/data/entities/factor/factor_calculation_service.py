@@ -45,7 +45,7 @@ class FactorCalculationService:
         else:
             self.database_service = DatabaseService(db_type)
         self.repository = BaseFactorRepository(self.database_service.session)
-        self.share_factor_repository = ShareFactorRepository(db_type)
+        self.share_factor_repository = ShareFactorRepository(self.database_service.session)
         self.company_share_repository = CompanyShareRepositoryLocal(self.database_service.session)
     
     # NOTE: Factor creation methods have been moved to FactorCreationService

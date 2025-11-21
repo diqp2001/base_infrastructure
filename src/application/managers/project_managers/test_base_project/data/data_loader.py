@@ -33,7 +33,7 @@ class SpatiotemporalDataLoader:
         
         # Initialize repositories
         self.company_share_repository = CompanyShareRepositoryLocal(database_service.session)
-        self.share_factor_repository = ShareFactorRepository(DEFAULT_CONFIG['DATABASE']['DB_TYPE'])
+        self.share_factor_repository = ShareFactorRepository(database_service.session)
         
         # Data paths - find project root by looking for data/stock_data directory
         current_path = Path(__file__).resolve()
