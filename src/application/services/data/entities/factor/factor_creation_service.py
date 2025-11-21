@@ -395,6 +395,29 @@ class FactorCreationService:
         factor = self.create_factor_from_config(config)
         return self.persist_factor(factor)
     
+    def get_or_create_factor(self, config: Dict[str, Any]) -> Optional[Factor]:
+        """
+        Get existing factor by name or create new one if not found.
+        Follows the same pattern as BaseFactorRepository._create_or_get_factor().
+        
+        Args:
+            config: Factor configuration dictionary (must include 'name')
+            
+        Returns:
+            Existing or newly created factor entity
+        """
+        factor_name = config.get('name')
+        if not factor_name:
+            return None
+        
+        # Try to get existing factor first
+        existing_factor = self.pull_factor_by_name(factor_name)
+        if existing_factor:
+            return existing_factor
+        
+        # Create new factor if not found
+        return self.create_and_persist_factor(config)
+    
     # Pull Methods (Retrieve from database)
     def pull_factor_by_id(self, factor_id: int) -> Optional[Factor]:
         """Pull factor by ID from database."""
