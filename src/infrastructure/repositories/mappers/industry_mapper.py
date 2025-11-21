@@ -16,15 +16,13 @@ class IndustryMapper:
     @staticmethod
     def to_domain(orm_obj: ORMIndustry) -> DomainIndustry:
         """Convert ORM model to domain entity."""
-        # Create domain entity with all available attributes
+        # Create domain entity with correct constructor parameters: (id, name, sector_id, description, key_metrics)
         domain_entity = DomainIndustry(
             id=orm_obj.id,
             name=orm_obj.name,
-            code=getattr(orm_obj, 'code', None),
-            sector_name=getattr(orm_obj, 'sector_name', None),
-            sector_code=getattr(orm_obj, 'sector_code', None),
-            description=getattr(orm_obj, 'description', None),
-            classification_system=getattr(orm_obj, 'classification_system', 'GICS')
+            sector_id=orm_obj.sector_id,
+            description=getattr(orm_obj, 'description', ''),
+            key_metrics=[]  # Default empty list for key metrics
         )
         
         return domain_entity
@@ -33,11 +31,17 @@ class IndustryMapper:
     def to_orm(domain_obj: DomainIndustry, orm_obj: Optional[ORMIndustry] = None) -> ORMIndustry:
         """Convert domain entity to ORM model."""
         if orm_obj is None:
-            orm_obj = ORMIndustry()
+            # Create ORM object with required parameters: (name, sector_id, description)
+            orm_obj = ORMIndustry(
+                name=domain_obj.name,
+                sector_id=domain_obj.sector_id,
+                description=domain_obj.description
+            )
         
         # Map basic fields
         orm_obj.id = domain_obj.id
         orm_obj.name = domain_obj.name
+        orm_obj.sector_id = domain_obj.sector_id
         
         # Map optional attributes if they exist
         if hasattr(domain_obj, 'code') and hasattr(orm_obj, 'code'):

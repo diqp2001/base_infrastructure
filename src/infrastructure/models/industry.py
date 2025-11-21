@@ -5,7 +5,7 @@ from src.domain.entities.industry import Industry as DomainIndustry
 class Industry(Base):
     __tablename__ = 'industries'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String, nullable=True)  # Optional description for the industry
     sector_id = Column(Integer, ForeignKey('sectors.id'), nullable=False)  # Foreign key for related Sector

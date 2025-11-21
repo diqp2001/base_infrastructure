@@ -8,7 +8,7 @@ from src.domain.entities.country import Country as DomainCountry
 class Country(Base):
     __tablename__ = 'countries'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     iso_code = Column(String(3), nullable=False, unique=True)  # e.g., 'USA', 'CAN'
     region = Column(String, nullable=True)  # Optional region classification (e.g., 'North America')

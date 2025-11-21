@@ -31,10 +31,11 @@ class CompanyRepository(BaseRepository):
             return None
         
         return CompanyEntity(
+            id=model.id,
             name=model.name,
             legal_name=model.legal_name,
-            countryId=model.country_id,
-            industryId=model.industry_id,
+            country_id=model.country_id,
+            industry_id=model.industry_id,
             start_date=model.start_date,
             end_date=model.end_date
         )
@@ -47,8 +48,8 @@ class CompanyRepository(BaseRepository):
         return CompanyModel(
             name=entity.name,
             legal_name=entity.legal_name,
-            country_id=entity.countryId,
-            industry_id=entity.industryId,
+            country_id=entity.country_id,
+            industry_id=entity.industry_id,
             start_date=entity.start_date,
             end_date=entity.end_date
         )
@@ -163,12 +164,16 @@ class CompanyRepository(BaseRepository):
             return existing_companies[0] if existing_companies else None
         
         try:
+            # Get next available ID
+            next_id = self._get_next_available_company_id()
+            
             # Create new company entity
             company = CompanyEntity(
+                id=next_id,
                 name=name,
                 legal_name=legal_name or name,
-                countryId=country_id,
-                industryId=industry_id,
+                country_id=country_id,
+                industry_id=industry_id,
                 start_date=start_date or date.today(),
                 end_date=None
             )

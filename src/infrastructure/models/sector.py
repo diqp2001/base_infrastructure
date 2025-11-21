@@ -4,7 +4,7 @@ from src.infrastructure.models import ModelBase as Base
 class Sector(Base):
     __tablename__ = 'sectors'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String, nullable=True)  
     

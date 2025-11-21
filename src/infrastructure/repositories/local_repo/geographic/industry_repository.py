@@ -103,9 +103,9 @@ class IndustryRepository(GeographicRepository):
             new_industry = Industry(
                 id=next_id,
                 name=name,
-                sector_name=sector_name,
-                classification_system=classification_system,
-                description=description
+                sector_id=1,  # Default sector ID
+                description=description or "",
+                key_metrics=[]  # Empty list for key metrics
             )
             
             # Convert to ORM model and add to database

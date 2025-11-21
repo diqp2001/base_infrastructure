@@ -16,11 +16,11 @@ class SectorMapper:
     @staticmethod
     def to_domain(orm_obj: ORMSector) -> DomainSector:
         """Convert ORM model to domain entity."""
-        # Create domain entity with correct constructor parameters: (name, description, sector_id)
+        # Create domain entity with correct constructor parameters: (id, name, description)
         domain_entity = DomainSector(
+            id=orm_obj.id,
             name=orm_obj.name,
-            description=getattr(orm_obj, 'description', ''),
-            sector_id=getattr(orm_obj, 'sector_id', orm_obj.id)  # Use sector_id or fallback to id
+            description=getattr(orm_obj, 'description', '')
         )
         
         return domain_entity
@@ -29,9 +29,9 @@ class SectorMapper:
     def to_orm(domain_obj: DomainSector, orm_obj: Optional[ORMSector] = None) -> ORMSector:
         """Convert domain entity to ORM model."""
         if orm_obj is None:
-            # Create ORM object with required parameters: (name, sector_id)
+            # Create ORM object with required parameters: (name, description)
             orm_obj = ORMSector(
-                name=domain_obj.name, # Use sector_id from domain entity
+                name=domain_obj.name,
                 description=domain_obj.description
             )
         
