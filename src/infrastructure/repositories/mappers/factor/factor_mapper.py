@@ -22,6 +22,26 @@ from domain.entities.factor.finance.financial_assets.share_factor.share_target_f
 from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor as ShareVolatilityFactorEntity
 
 
+def _get_entity_type_from_factor(factor) -> str:
+    """
+    Helper function to determine entity_type from factor type.
+    This avoids circular dependency with FactorCalculationService.
+    """
+    factor_class_name = factor.__class__.__name__
+    
+    # Map factor types to entity types
+    if any(share_type in factor_class_name for share_type in ['Share', 'share']):
+        return 'share'
+    elif any(equity_type in factor_class_name for equity_type in ['Equity', 'equity']):
+        return 'equity'
+    elif any(country_type in factor_class_name for country_type in ['Country', 'country']):
+        return 'country'
+    elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
+        return 'continent'
+    else:
+        return 'share'  # Default fallback
+
+
 
 class FactorMapper:
     """Mapper for Factor domain entity and ORM model conversion."""
@@ -206,6 +226,7 @@ class FactorMapper:
             'data_type': domain_entity.data_type,
             'source': domain_entity.source,
             'definition': domain_entity.definition,
+            'entity_type': _get_entity_type_from_factor(domain_entity),  # Derive entity_type from factor type
         }
         
         # Determine the appropriate ORM model and set specialized fields

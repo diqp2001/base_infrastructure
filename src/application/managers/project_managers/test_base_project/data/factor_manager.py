@@ -490,14 +490,7 @@ class FactorEnginedDataManager:
 
         for factor in momentum_domain_factors:
             # Use factor calculation service instead of direct value class
-            momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
-                factor=factor,
-                entity_id=None,  # Will be set per ticker
-                entity_type='share',
-                prices=[],  # Will be populated per ticker
-                dates=[],   # Will be populated per ticker
-                overwrite=overwrite
-            )
+            # Proper calculations are done per ticker below
             
             for ticker in tickers:
                 try:
@@ -511,7 +504,6 @@ class FactorEnginedDataManager:
                         momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
                             factor=factor,
                             entity_id=company.id,
-                            entity_type='share',
                             ticker=ticker,
                             overwrite=overwrite
                         )
@@ -534,14 +526,7 @@ class FactorEnginedDataManager:
 
         for factor in technical_domain_factors:
             # Use factor calculation service instead of direct value class
-            technical_results = self.factor_calculation_service.calculate_and_store_technical(
-                factor=factor,
-                entity_id=None,  # Will be set per ticker
-                entity_type='share',
-                prices=[],  # Will be populated per ticker
-                dates=[],   # Will be populated per ticker
-                overwrite=overwrite
-            )
+# Remove unused first call - proper calculations are done per ticker below
             
             for ticker in tickers:
                 try:
@@ -567,9 +552,7 @@ class FactorEnginedDataManager:
                         technical_results = self.factor_calculation_service.calculate_and_store_technical(
                             factor=factor,
                             entity_id=company.id,
-                            entity_type='share',
-                            prices=prices,
-                            dates=dates,
+                            ticker=ticker,
                             overwrite=overwrite
                         )
                         values_stored = len(technical_results) if technical_results else 0
@@ -882,14 +865,7 @@ class FactorEnginedDataManager:
                     continue
                 
                 # Use factor calculation service instead of direct value class
-                volatility_results = self.factor_calculation_service.calculate_and_store_volatility(
-                    factor=volatility_factor,
-                    entity_id=None,  # Will be set per ticker
-                    entity_type='share',
-                    prices=[],  # Will be populated per ticker
-                    dates=[],   # Will be populated per ticker
-                    overwrite=overwrite
-                )
+                # Proper calculations are done per ticker below
                 
                 # Process each ticker
                 for ticker in tickers:
@@ -910,9 +886,7 @@ class FactorEnginedDataManager:
                         volatility_results = self.factor_calculation_service.calculate_and_store_volatility(
                             factor=volatility_factor,
                             entity_id=share.id,
-                            entity_type='share',
-                            prices=prices,
-                            dates=dates,
+                            ticker=ticker,
                             overwrite=overwrite
                         )
                         values_stored = len(volatility_results) if volatility_results else 0
