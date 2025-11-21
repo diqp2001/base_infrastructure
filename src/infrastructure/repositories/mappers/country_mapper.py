@@ -16,17 +16,11 @@ class CountryMapper:
     @staticmethod
     def to_domain(orm_obj: ORMCountry) -> DomainCountry:
         """Convert ORM model to domain entity."""
-        # Create domain entity with all available attributes
+        # Create domain entity with correct constructor parameters: (id, name, continent_id)
         domain_entity = DomainCountry(
             id=orm_obj.id,
             name=orm_obj.name,
-            iso_code=getattr(orm_obj, 'iso_code', None),
-            iso3_code=getattr(orm_obj, 'iso3_code', None),
-            continent=getattr(orm_obj, 'continent', None),
-            region=getattr(orm_obj, 'region', None),
-            currency=getattr(orm_obj, 'currency', None),
-            timezone=getattr(orm_obj, 'timezone', None),
-            population=getattr(orm_obj, 'population', None)
+            continent_id=getattr(orm_obj, 'continent_id', 1)  # Default to continent 1 if not set
         )
         
         return domain_entity
@@ -35,7 +29,11 @@ class CountryMapper:
     def to_orm(domain_obj: DomainCountry, orm_obj: Optional[ORMCountry] = None) -> ORMCountry:
         """Convert domain entity to ORM model."""
         if orm_obj is None:
-            orm_obj = ORMCountry()
+            # Create ORM object with required parameters: (name, iso_code)
+            orm_obj = ORMCountry(
+                name=domain_obj.name,
+                iso_code=getattr(domain_obj, 'iso_code', 'US')  # Default to 'US' if not set
+            )
         
         # Map basic fields
         orm_obj.id = domain_obj.id
