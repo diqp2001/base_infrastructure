@@ -32,6 +32,26 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.company
 class FactorCalculationService:
     """Service for calculating factor values and storing them in the database."""
     
+    @staticmethod
+    def _get_entity_type_from_factor(factor) -> str:
+        """
+        Determine entity_type from factor type.
+        Since entity_type moved to FactorModel, derive it from factor class type.
+        """
+        factor_class_name = factor.__class__.__name__
+        
+        # Map factor types to entity types
+        if any(share_type in factor_class_name for share_type in ['Share', 'share']):
+            return 'share'
+        elif any(equity_type in factor_class_name for equity_type in ['Equity', 'equity']):
+            return 'equity'
+        elif any(country_type in factor_class_name for country_type in ['Country', 'country']):
+            return 'country'
+        elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
+            return 'continent'
+        else:
+            return 'share'  # Default fallback
+    
     def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite'):
         """
         Initialize the service with a database service or create one if not provided.
@@ -101,7 +121,6 @@ class FactorCalculationService:
         self, 
         factor: ShareMomentumFactor, 
         entity_id: int, 
-        entity_type: str,
         ticker: str = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
@@ -114,13 +133,15 @@ class FactorCalculationService:
         Args:
             factor: ShareMomentumFactor domain entity
             entity_id: ID of the entity (e.g., share ID)
-            entity_type: Type of entity ('share', 'equity', etc.)
             ticker: Optional ticker symbol for context and logging
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
+        
         # Extract price data from database
         price_data = self._extract_price_data_from_database(entity_id, ticker)
         if not price_data:
@@ -197,7 +218,6 @@ class FactorCalculationService:
         self, 
         factor: ShareMomentumFactor, 
         entity_id: int, 
-        entity_type: str,
         prices: List[float], 
         dates: List[date],
         overwrite: bool = False
@@ -208,6 +228,9 @@ class FactorCalculationService:
         This method maintains the old interface while the new interface extracts 
         price data from the database using the PriceData domain object.
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
+        
         if len(prices) != len(dates):
             raise ValueError("Prices and dates lists must have the same length")
         
@@ -273,7 +296,6 @@ class FactorCalculationService:
         self,
         factor: ShareTechnicalFactor,
         entity_id: int,
-        entity_type: str,
         ticker: str = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
@@ -286,13 +308,14 @@ class FactorCalculationService:
         Args:
             factor: ShareTechnicalFactor domain entity
             entity_id: ID of the entity (e.g., share ID)
-            entity_type: Type of entity ('share', 'equity', etc.)
             ticker: Optional ticker symbol for context and logging
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
         # Extract price data from database using FactorSerie
         price_data = self._extract_price_data_from_database(entity_id, ticker)
         if not price_data:
@@ -379,7 +402,6 @@ class FactorCalculationService:
         self,
         factor: ShareTechnicalFactor,
         entity_id: int,
-        entity_type: str,
         data: pd.DataFrame,
         overwrite: bool = False
     ) -> Dict[str, Any]:
@@ -389,6 +411,8 @@ class FactorCalculationService:
         This method maintains the old interface while encouraging migration to 
         the new FactorSerie-based approach.
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
         results = {
             'factor_name': factor.name,
             'factor_id': factor.id,
@@ -468,7 +492,6 @@ class FactorCalculationService:
         self,
         factor: ShareVolatilityFactor,
         entity_id: int,
-        entity_type: str,
         ticker: str = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
@@ -481,13 +504,14 @@ class FactorCalculationService:
         Args:
             factor: ShareVolatilityFactor domain entity
             entity_id: ID of the entity (e.g., share ID)
-            entity_type: Type of entity ('share', 'equity', etc.)
             ticker: Optional ticker symbol for context and logging
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
         # Extract price data from database using FactorSerie
         price_data = self._extract_price_data_from_database(entity_id, ticker)
         if not price_data:
@@ -578,7 +602,6 @@ class FactorCalculationService:
         self,
         factor: ShareVolatilityFactor,
         entity_id: int,
-        entity_type: str,
         returns: List[float],
         dates: List[date],
         overwrite: bool = False
@@ -589,6 +612,9 @@ class FactorCalculationService:
         This method maintains the old interface while encouraging migration to 
         the new FactorSerie-based approach.
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
+        
         if len(returns) != len(dates):
             raise ValueError("Returns and dates lists must have the same length")
         
@@ -657,7 +683,6 @@ class FactorCalculationService:
         self,
         factor: Factor,
         entity_id: int,
-        entity_type: str,
         data: Any,
         overwrite: bool = False
     ) -> Dict[str, Any]:
@@ -667,19 +692,20 @@ class FactorCalculationService:
         Args:
             factor: Factor domain entity
             entity_id: ID of the entity
-            entity_type: Type of entity
             data: Input data (format depends on factor type)
             overwrite: Whether to overwrite existing values
             
         Returns:
             Dict with calculation results and storage stats
         """
+        # Determine entity_type from factor type
+        entity_type = self._get_entity_type_from_factor(factor)
         if isinstance(factor, ShareMomentumFactor):
             # Support both old and new calling patterns
             if isinstance(data, dict) and 'ticker' in data:
                 # New pattern: extract from database using ticker
                 return self.calculate_and_store_momentum(
-                    factor, entity_id, entity_type, ticker=data['ticker'], overwrite=overwrite
+                    factor, entity_id, ticker=data['ticker'], overwrite=overwrite
                 )
             elif isinstance(data, dict) and 'prices' in data and 'dates' in data:
                 # Legacy pattern: prices provided directly (deprecated)
@@ -687,13 +713,13 @@ class FactorCalculationService:
                 # Create backward-compatible call by temporarily modifying the method
                 # This ensures existing code still works while encouraging migration to new pattern
                 legacy_results = self._calculate_momentum_legacy(
-                    factor, entity_id, entity_type, data['prices'], data['dates'], overwrite
+                    factor, entity_id, data['prices'], data['dates'], overwrite
                 )
                 return legacy_results
             elif data is None:
                 # New pattern: extract from database without ticker context
                 return self.calculate_and_store_momentum(
-                    factor, entity_id, entity_type, ticker=None, overwrite=overwrite
+                    factor, entity_id, ticker=None, overwrite=overwrite
                 )
             else:
                 raise ValueError("ShareMomentumFactor requires either {'ticker': str} for database extraction or legacy {'prices': List[float], 'dates': List[date]} format")
@@ -703,18 +729,18 @@ class FactorCalculationService:
             if isinstance(data, dict) and 'ticker' in data:
                 # New pattern: extract from database using ticker
                 return self.calculate_and_store_technical(
-                    factor, entity_id, entity_type, ticker=data['ticker'], overwrite=overwrite
+                    factor, entity_id, ticker=data['ticker'], overwrite=overwrite
                 )
             elif isinstance(data, pd.DataFrame):
                 # Legacy pattern: DataFrame provided directly (deprecated)
                 print("⚠️  Warning: Direct DataFrame input is deprecated. Use database extraction with ticker instead.")
                 return self._calculate_technical_legacy(
-                    factor, entity_id, entity_type, data, overwrite
+                    factor, entity_id, data, overwrite
                 )
             elif data is None:
                 # New pattern: extract from database without ticker context
                 return self.calculate_and_store_technical(
-                    factor, entity_id, entity_type, ticker=None, overwrite=overwrite
+                    factor, entity_id, ticker=None, overwrite=overwrite
                 )
             else:
                 raise ValueError("ShareTechnicalFactor requires either {'ticker': str} for database extraction or legacy pandas DataFrame format")
@@ -724,18 +750,18 @@ class FactorCalculationService:
             if isinstance(data, dict) and 'ticker' in data:
                 # New pattern: extract from database using ticker
                 return self.calculate_and_store_volatility(
-                    factor, entity_id, entity_type, ticker=data['ticker'], overwrite=overwrite
+                    factor, entity_id, ticker=data['ticker'], overwrite=overwrite
                 )
             elif isinstance(data, dict) and 'returns' in data and 'dates' in data:
                 # Legacy pattern: returns/dates provided directly (deprecated)
                 print("⚠️  Warning: Direct returns/dates input is deprecated. Use database extraction with ticker instead.")
                 return self._calculate_volatility_legacy(
-                    factor, entity_id, entity_type, data['returns'], data['dates'], overwrite
+                    factor, entity_id, data['returns'], data['dates'], overwrite
                 )
             elif data is None:
                 # New pattern: extract from database without ticker context
                 return self.calculate_and_store_volatility(
-                    factor, entity_id, entity_type, ticker=None, overwrite=overwrite
+                    factor, entity_id, ticker=None, overwrite=overwrite
                 )
             else:
                 raise ValueError("ShareVolatilityFactor requires either {'ticker': str} for database extraction or legacy {'returns': List[float], 'dates': List[date]} format")

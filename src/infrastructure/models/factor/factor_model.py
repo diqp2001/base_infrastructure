@@ -173,6 +173,6 @@ class FactorValue(Base):
     factor = relationship("FactorModel", back_populates="factor_values")
 
     def __repr__(self):
-        return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, entity_type={self.entity_type}, date={self.date}, value={self.value})>"
+        return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date}, value={self.value})>"
 
 

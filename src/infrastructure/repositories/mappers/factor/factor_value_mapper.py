@@ -29,7 +29,6 @@ class FactorValueMapper:
             id=orm_model.id,
             factor_id=orm_model.factor_id,
             entity_id=orm_model.entity_id,
-            entity_type=getattr(orm_model, 'entity_type', 'share'),
             date=orm_model.date,
             value=Decimal(str(orm_model.value)) if orm_model.value is not None else Decimal('0')
         )
@@ -41,7 +40,6 @@ class FactorValueMapper:
             id=domain_entity.id,
             factor_id=domain_entity.factor_id,
             entity_id=domain_entity.entity_id,
-            entity_type=getattr(domain_entity, 'entity_type', 'share'),
             date=domain_entity.date,
             value=domain_entity.value
         )
