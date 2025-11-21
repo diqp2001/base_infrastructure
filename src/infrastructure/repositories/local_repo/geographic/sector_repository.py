@@ -92,7 +92,7 @@ class SectorRepository(GeographicRepository):
             new_sector = Sector(
                 name=name,
                 description=description or "",  # Default to empty string
-                sector_id=next_id  # Use sector_id parameter
+                id=next_id  # Use sector_id parameter
             )
             
             # Convert to ORM model and add to database

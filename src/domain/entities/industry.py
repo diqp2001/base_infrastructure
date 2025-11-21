@@ -2,7 +2,7 @@
 from typing import List
 
 class Industry:
-    def __init__(self, name: str, sector_id: int, description: str = "", key_metrics: List[str] = []):
+    def __init__(self,  id:int,name: str, sector_id: int, description: str = "", key_metrics: List[str] = []):
         """
         Initialize an Industry object with essential details.
         

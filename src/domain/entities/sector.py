@@ -1,7 +1,7 @@
 from typing import List
 
 class Sector:
-    def __init__(self, name: str, description: str = "", sector_id: int = "",):
+    def __init__(self, name: str, description: str = "", ):
         """
         Initialize a Sector object with essential details.
 
@@ -11,7 +11,6 @@ class Sector:
         """
         self.name = name
         self.description = description
-        self.sector_id = sector_id
 
   
     def get_sector_info(self):
@@ -20,9 +19,8 @@ class Sector:
         """
         return {
             'name': self.name,
-            'description': self.description,
-            'sector_id': self.sector_id
+            'description': self.description
         }
 
     def __repr__(self):
-        return f"Sector({self.name}, {self.description}, {self.sector_id})"
+        return f"Sector({self.name}, {self.description})"

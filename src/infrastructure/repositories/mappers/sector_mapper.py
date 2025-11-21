@@ -31,9 +31,8 @@ class SectorMapper:
         if orm_obj is None:
             # Create ORM object with required parameters: (name, sector_id)
             orm_obj = ORMSector(
-                name=domain_obj.name,
-                sector_id=getattr(domain_obj, 'sector_id', 1),  # Use sector_id from domain entity
-                description=getattr(domain_obj, 'description', '')
+                name=domain_obj.name, # Use sector_id from domain entity
+                description=domain_obj.description
             )
         
         # Map basic fields
