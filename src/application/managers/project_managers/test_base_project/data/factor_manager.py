@@ -21,7 +21,9 @@ from application.services.data.entities.finance.financial_asset_service import F
 from application.services.data.entities.entity_existence_service import EntityExistenceService
 from application.services.database_service.database_service import DatabaseService
 from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
+from domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
+from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
@@ -804,8 +806,6 @@ class FactorEnginedDataManager:
         
         for vol_config in volatility_configs:
             try:
-                # Import domain classes
-                from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share import ShareVolatilityFactor
                 
                 # Create domain volatility factor entity
                 volatility_factor = ShareVolatilityFactor(
@@ -859,8 +859,7 @@ class FactorEnginedDataManager:
         
         for target_config in target_configs:
             try:
-                # Import domain classes
-                from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share import ShareTargetFactor
+                
                 
                 # Create domain target factor entity
                 target_factor = ShareTargetFactor(
@@ -908,8 +907,6 @@ class FactorEnginedDataManager:
         
         for volatility_factor in volatility_factors_list:
             try:
-                # Import domain value calculator
-                from domain.entities.factor.finance.financial_assets.share_factor.volatility_factor_share_value import ShareVolatilityFactorValue
                 
                 # Get repository factor by name
                 repo_factor = self.share_factor_repository.get_by_name(volatility_factor.name)
@@ -972,8 +969,6 @@ class FactorEnginedDataManager:
         
         for target_factor in target_factors_list:
             try:
-                # Import domain value calculator
-                from domain.entities.factor.finance.financial_assets.share_factor.target_factor_share_value import ShareTargetFactorValue
                 
                 # Get repository factor by name
                 repo_factor = self.share_factor_repository.get_by_name(target_factor.name)

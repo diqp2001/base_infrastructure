@@ -107,8 +107,6 @@ class BacktestRunner:
         try:
             # Initialize database
             self.database_service.db.initialize_database_and_create_all_tables()
-            # First ensure basic entities and price factors exist
-            entities_summary = self.factor_manager._ensure_entities_exist(tickers)
             # Populate price factors
             price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
             # Populate momentum factors

@@ -91,9 +91,7 @@ class EntityExistenceService:
                     share_result = self._ensure_company_share_exists(ticker, company_result['entity'])
                     self._update_results(results['company_shares'], share_result)
                 else:
-                    # Fallback: create share without company_id if company creation failed
-                    share_result = self._ensure_company_share_exists(ticker, None)
-                    self._update_results(results['company_shares'], share_result)
+                    break
                 
             except Exception as e:
                 error_msg = f"Error ensuring entities exist for {ticker}: {str(e)}"
