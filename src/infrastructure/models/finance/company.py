@@ -7,7 +7,7 @@ from infrastructure.database.base_factory import Base  # Import Base from the in
 class Company(Base):
     __tablename__ = 'companies'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     legal_name = Column(String, nullable=False)
     country_id = Column(Integer, ForeignKey('countries.id'), nullable=False)
