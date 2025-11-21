@@ -110,9 +110,7 @@ class CountryRepository(GeographicRepository):
             new_country = Country(
                 id=next_id,
                 name=name,
-                iso_code=iso_code,
-                continent=continent,
-                currency=currency
+                continent_id=1  # Default continent ID
             )
             
             # Convert to ORM model and add to database
