@@ -129,13 +129,13 @@ class FactorEnginedDataManager:
         entities_summary = self.entity_existence_service.ensure_entities_exist(tickers)
         
         # Create momentum factor definitions
-        momentum_factors_ = self._create_momentum_factor_definitions()
+        momentum_factors_summary = self._create_momentum_factor_definitions()
         
         # Calculate and store momentum factor values
-        values_summary = self._calculate_momentum_factor_values(tickers, overwrite, momentum_factors_['factors_created_list'])
+        values_summary = self._calculate_momentum_factor_values(tickers, overwrite)
         
         total_summary = {
-            'factors_created': momentum_factors_['factors_created'],
+            'factors_created': momentum_factors_summary['factors_created'],
             'values_calculated': values_summary['total_values'],
             'tickers_processed': len(tickers),
             'success': True
@@ -172,9 +172,7 @@ class FactorEnginedDataManager:
         technical_factors_summary = self._create_technical_factor_definitions()
         
         # Calculate and store values using the domain factors
-        values_summary = self._calculate_technical_factor_values(
-            tickers, overwrite, technical_factors_summary['factors_created_list']
-        )
+        values_summary = self._calculate_technical_factor_values(tickers, overwrite)
         
         return {
             'factors_created': technical_factors_summary['factors_created'],
@@ -324,129 +322,63 @@ class FactorEnginedDataManager:
             'factors_created': factors_created
         }
     def _create_momentum_factor_definitions(self) -> Dict[str, Any]:
-        """Create momentum factor domain entities and their repository representations."""
+        """Create factor definitions for momentum features."""
         print("  📈 Creating momentum factor definitions...")
         
         factors_created = 0
-        momentum_domain_factors = []
         
         # Momentum factors from config
         momentum_factors = self.config['FACTORS']['MOMENTUM_FACTORS']
         
         for factor_def in momentum_factors:
             try:
-                # Use FactorCreationService to create and persist factor
-                factor_config = {
-                    'factor_type': 'share_momentum',
-                    'name': factor_def['name'],
-                    'period': factor_def['period'],
-                    'group': factor_def['group'],
-                    'subgroup': factor_def['subgroup'],
-                    'definition': f"{factor_def['period']}-day momentum return factor",
-                    'momentum_type': 'price_momentum'
-                }
+                factor = self.factor_data_service.create_or_get_factor(
+                    name=factor_def['name'],
+                    group=factor_def['group'],
+                    subgroup=factor_def['subgroup'],
+                    data_type="numeric",
+                    source="internal",
+                    definition=f"{factor_def['period']}-day momentum return factor"
+                )
                 
-                # Get or create factor using creation service
-                repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
-                
-                if repo_factor:
-                    # Create domain entity with repository ID
-                    momentum_factor = self.factor_creation_service.create_share_momentum_factor(
-                        name=factor_def['name'],
-                        period=factor_def['period'],
-                        group=factor_def['group'],
-                        subgroup=factor_def['subgroup'],
-                        definition=f"{factor_def['period']}-day momentum return factor"
-                    )
-                    momentum_factor.factor_id = repo_factor.id
-                    
-                    momentum_domain_factors.append(momentum_factor)
+                if factor:
                     factors_created += 1
-                    print(f"    ✅ Created momentum factor: {factor_def['name']} (ID: {repo_factor.id})")
                         
             except Exception as e:
                 print(f"    ❌ Error creating momentum factor {factor_def['name']}: {str(e)}")
         
         return {
-            'factors_created': factors_created,
-            'factors_created_list': momentum_domain_factors
+            'factors_created': factors_created
         }
     
     def _create_technical_factor_definitions(self) -> Dict[str, Any]:
-        """Create technical indicator factor domain entities and their repository representations."""
+        """Create factor definitions for technical features."""
         print("  🔧 Creating technical factor definitions...")
         
         factors_created = 0
-        technical_domain_factors = []
         
         # Technical factors from config
         technical_factors = self.config['FACTORS']['TECHNICAL_FACTORS']
         
         for factor_def in technical_factors:
             try:
-                # Extract indicator type and period from factor name
-                indicator_type = "oscillator"  # Default type
-                period = None
+                factor = self.factor_data_service.create_or_get_factor(
+                    name=factor_def['name'],
+                    group=factor_def['group'],
+                    subgroup=factor_def['subgroup'],
+                    data_type="numeric",
+                    source="internal",
+                    definition=f"Technical indicator: {factor_def['name']}"
+                )
                 
-                name_lower = factor_def['name'].lower()
-                if 'rsi' in name_lower:
-                    indicator_type = "RSI"
-                    import re
-                    period_match = re.search(r'(\d+)', factor_def['name'])
-                    if period_match:
-                        period = int(period_match.group(1))
-                elif 'bollinger' in name_lower:
-                    indicator_type = "Bollinger"
-                    period = 20  # Default Bollinger period
-                elif 'stoch' in name_lower:
-                    indicator_type = "Stochastic"
-                    period = 14  # Default Stochastic period
-                elif 'macd' in name_lower:
-                    indicator_type = "MACD"
-                    # Extract fast and slow periods from MACD name like "macd_8_24"
-                    import re
-                    periods_match = re.findall(r'(\d+)', factor_def['name'])
-                    if len(periods_match) >= 2:
-                        period = (int(periods_match[0]), int(periods_match[1]))  # (fast, slow)
-                    else:
-                        period = (12, 26)  # Default MACD periods
-                
-                # Use FactorCreationService to create and persist factor
-                factor_config = {
-                    'factor_type': 'share_technical',
-                    'name': factor_def['name'],
-                    'indicator_type': indicator_type,
-                    'period': period if isinstance(period, int) else (period[0] if period else 20),
-                    'group': factor_def['group'],
-                    'subgroup': factor_def['subgroup'],
-                    'definition': f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
-                }
-                
-                # Get or create factor using creation service
-                repo_factor = self.factor_creation_service.get_or_create_factor(factor_config)
-                
-                if repo_factor:
-                    # Create domain entity with repository ID
-                    technical_factor = self.factor_creation_service.create_share_technical_factor(
-                        name=factor_def['name'],
-                        indicator_type=indicator_type,
-                        period=period if isinstance(period, int) else (period[0] if period else 20),
-                        group=factor_def['group'],
-                        subgroup=factor_def['subgroup'],
-                        definition=f"{indicator_type} technical indicator{f' ({period}-period)' if period else ''}"
-                    )
-                    technical_factor.factor_id = repo_factor.id
-                    
-                    technical_domain_factors.append(technical_factor)
+                if factor:
                     factors_created += 1
-                    print(f"    ✅ Created technical factor: {factor_def['name']} (ID: {repo_factor.id})")
-                    
+                        
             except Exception as e:
                 print(f"    ❌ Error creating technical factor {factor_def['name']}: {str(e)}")
         
         return {
-            'factors_created': factors_created,
-            'factors_created_list': technical_domain_factors
+            'factors_created': factors_created
         }
     
     def _calculate_price_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
@@ -482,27 +414,40 @@ class FactorEnginedDataManager:
         
         return {'total_values': total_values}
     
-    def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool, 
-                                         momentum_domain_factors: List[ShareMomentumFactor]) -> Dict[str, Any]:
-        """Calculate and store momentum factor values using domain entities."""
+    def _calculate_momentum_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
+        """Calculate and store momentum factor values."""
         print("📊 Calculating momentum factor values...")
         total_values = 0
 
-        for factor in momentum_domain_factors:
-            # Use factor calculation service instead of direct value class
-            # Proper calculations are done per ticker below
-            
+        # Get momentum factors from config
+        momentum_factors = self.config['FACTORS']['MOMENTUM_FACTORS']
+        
+        for factor_def in momentum_factors:
             for ticker in tickers:
                 try:
                     company = self.factor_data_service.get_company_share_by_ticker(ticker)
+                    if not company:
+                        continue
 
                     # Get repository factor for momentum storage
-                    repository_factor = self.factor_data_service.get_factor_by_name(factor.name)
+                    repository_factor = self.factor_data_service.get_factor_by_name(factor_def['name'])
                     
                     if repository_factor:
-                        # Use new pattern: let service extract prices from database
+                        # Create domain factor for calculation
+                        momentum_factor = ShareMomentumFactor(
+                            name=factor_def['name'],
+                            period=factor_def['period'],
+                            group=factor_def['group'],
+                            subgroup=factor_def['subgroup'],
+                            data_type="numeric",
+                            source="internal",
+                            definition=f"{factor_def['period']}-day momentum return factor"
+                        )
+                        momentum_factor.factor_id = repository_factor.id
+                        
+                        # Use factor calculation service
                         momentum_results = self.factor_calculation_service.calculate_and_store_momentum(
-                            factor=factor,
+                            factor=momentum_factor,
                             entity_id=company.id,
                             ticker=ticker,
                             overwrite=overwrite
@@ -510,47 +455,49 @@ class FactorEnginedDataManager:
                         values_stored = momentum_results.get('stored_values', 0) if momentum_results else 0
 
                         total_values += values_stored
-                        print(f"✅ {ticker}: stored {values_stored} {factor.period}-day momentum values")
+                        print(f"✅ {ticker}: stored {values_stored} {factor_def['name']} values")
 
                 except Exception as e:
-                    print(f"❌ Error processing {ticker} for {factor.name}: {e}")
+                    print(f"❌ Error processing {ticker} for {factor_def['name']}: {e}")
 
         return {"total_values": total_values}
 
     
-    def _calculate_technical_factor_values(self, tickers: List[str], overwrite: bool, 
-                                         technical_domain_factors: List[ShareTechnicalFactor]) -> Dict[str, Any]:
-        """Calculate and store technical indicator values using domain entities (same pattern as momentum factors)."""
+    def _calculate_technical_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
+        """Calculate and store technical indicator values."""
         print("📊 Calculating technical indicator values...")
         total_values = 0
 
-        for factor in technical_domain_factors:
-            # Use factor calculation service instead of direct value class
-# Remove unused first call - proper calculations are done per ticker below
-            
+        # Get technical factors from config
+        technical_factors = self.config['FACTORS']['TECHNICAL_FACTORS']
+        
+        for factor_def in technical_factors:
             for ticker in tickers:
                 try:
                     company = self.factor_data_service.get_company_share_by_ticker(ticker)
-                    
-                    factorentityClose = self.factor_data_service.get_factor_by_name('Close')
-                    df = self.factor_data_service.get_factor_values_df(
-                        factor_id=int(factorentityClose.id), 
-                        entity_id=company.id
-                    )
-                    df["date"] = pd.to_datetime(df["date"])
-                    df.set_index("date", inplace=True)
-                    df["value"] = df["value"].astype(float)
+                    if not company:
+                        continue
                     
                     # Get repository factor for technical storage
-                    repository_factor = self.factor_data_service.get_factor_by_name(factor.name)
+                    repository_factor = self.factor_data_service.get_factor_by_name(factor_def['name'])
                     
                     if repository_factor:
-                        # Use factor calculation service
-                        prices = df["value"].tolist()
-                        dates = df.index.tolist()
+                        # Create domain factor for calculation
+                        technical_factor = ShareTechnicalFactor(
+                            name=factor_def['name'],
+                            indicator_type="oscillator",  # Default type
+                            period=20,  # Default period
+                            group=factor_def['group'],
+                            subgroup=factor_def['subgroup'],
+                            data_type="numeric",
+                            source="internal",
+                            definition=f"Technical indicator: {factor_def['name']}"
+                        )
+                        technical_factor.factor_id = repository_factor.id
                         
+                        # Use factor calculation service
                         technical_results = self.factor_calculation_service.calculate_and_store_technical(
-                            factor=factor,
+                            factor=technical_factor,
                             entity_id=company.id,
                             ticker=ticker,
                             overwrite=overwrite
@@ -558,10 +505,10 @@ class FactorEnginedDataManager:
                         values_stored = len(technical_results) if technical_results else 0
 
                         total_values += values_stored
-                        print(f"✅ {ticker}: stored {values_stored} {factor.indicator_type} values")
+                        print(f"✅ {ticker}: stored {values_stored} {factor_def['name']} values")
 
                 except Exception as e:
-                    print(f"❌ Error processing {ticker} for {factor.name}: {e}")
+                    print(f"❌ Error processing {ticker} for {factor_def['name']}: {e}")
 
         return {"total_values": total_values}
     
