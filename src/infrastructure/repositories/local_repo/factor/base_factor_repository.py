@@ -425,6 +425,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     def factor_value_exists(self, factor_id: int, entity_id: int, date_value: date) -> bool:
         """
         Check if a factor value already exists for the given factor_id, entity_id, and date.
+        Verification is based on combination of factor_id + date + entity_id as requested.
         
         Args:
             factor_id: ID of the factor
@@ -449,6 +450,36 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         except Exception as e:
             print(f"Error checking factor value existence: {e}")
             return False
+
+    def _create_or_get_factor_value(self, factor_id: int, entity_id: int, date_value: date, value) -> Optional[FactorValueEntity]:
+        """
+        Create factor value if it doesn't exist, otherwise return existing.
+        Verification is based on combination of factor_id + date + entity_id.
+        """
+        # Check if value already exists using factor_id + date + entity_id combination
+        existing_value = self.get_factor_value_by_combination(factor_id, entity_id, date_value)
+        if existing_value:
+            return existing_value
+        
+        return self.add_factor_value(factor_id, entity_id, date_value, value)
+
+    def get_factor_value_by_combination(self, factor_id: int, entity_id: int, date_value: date) -> Optional[FactorValueEntity]:
+        """Retrieve factor value by the combination of factor_id + date + entity_id."""
+        try:
+            FactorValueModel = self.get_factor_value_model()
+            factor_value = (
+                self.session.query(FactorValueModel)
+                .filter(
+                    FactorValueModel.factor_id == factor_id,
+                    FactorValueModel.entity_id == entity_id,
+                    FactorValueModel.date == date_value
+                )
+                .first()
+            )
+            return self._to_domain_value(factor_value)
+        except Exception as e:
+            print(f"Error retrieving factor value by combination: {e}")
+            return None
 
     def get_existing_value_dates(self, factor_id: int, entity_id: int) -> set:
         """
@@ -665,9 +696,9 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         
         return values_stored
     
-    def _create_or_get_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str):
-        """Create factor if it doesn't exist, otherwise return existing."""
-        existing_factor = self.get_by_name(name) #do get by discriminator
+    def _create_or_get_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, entity_type: str = "ShareFactor"):
+        """Create factor if it doesn't exist, otherwise return existing based on name AND discriminator."""
+        existing_factor = self.get_by_name_and_discriminator(name, entity_type)
         if existing_factor:
             return existing_factor
         
@@ -679,4 +710,17 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
             source=source,
             definition=definition
         )
+
+    def get_by_name_and_discriminator(self, name: str, entity_type: str) -> Optional[FactorEntity]:
+        """Retrieve a factor by its name and entity_type discriminator."""
+        try:
+            FactorModel = self.get_factor_model()
+            factor = self.session.query(FactorModel).filter(
+                FactorModel.name == name,
+                FactorModel.entity_type == entity_type
+            ).first()
+            return self._to_domain_factor(factor)
+        except Exception as e:
+            print(f"Error retrieving factor by name and discriminator: {e}")
+            return None
 

@@ -25,23 +25,12 @@ from domain.entities.factor.finance.financial_assets.share_factor.share_volatili
 def _get_entity_type_from_factor(factor) -> str:
     """
     Helper function to determine entity_type from factor type.
-    This avoids circular dependency with FactorCalculationService.
+    Returns the exact domain entity class name to represent accurately what's a discriminator is.
     """
     factor_class_name = factor.__class__.__name__
     
-    # Map factor types to entity types
-    if any(share_type in factor_class_name for share_type in ['Share', 'share']):
-        return 'share'
-    elif any(equity_type in factor_class_name for equity_type in ['Equity', 'equity']):
-        return 'equity'
-    elif any(country_type in factor_class_name for country_type in ['Country', 'country']):
-        return 'country'
-    elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
-        return 'continent'
-    else:
-        # For basic price factors and other general factors, default to 'share'
-        # as most factors in the trading system are share-related
-        return 'share'  # Default fallback
+    # Return exact domain class names as discriminators
+    return factor_class_name
 
 
 
@@ -58,12 +47,11 @@ class FactorMapper:
     
     @staticmethod
     def to_domain(orm_model: Optional[FactorModel]) -> Optional[FactorEntity]:
-        """Convert ORM model to domain entity based on factor_type discriminator."""
+        """Convert ORM model to domain entity based on entity_type discriminator."""
         if not orm_model:
             return None
         
-        # Map based on discriminator type
-        factor_type = orm_model.factor_type
+        # Use only base args for all factor entity mappings
         base_args = {
             'name': orm_model.name,
             'group': orm_model.group,
@@ -74,12 +62,36 @@ class FactorMapper:
             'factor_id': orm_model.id,
         }
         
+        # Map based on entity_type discriminator to appropriate domain class
+        entity_type = orm_model.entity_type
         
-        return FactorEntity(**base_args)
+        if entity_type == 'ContinentFactor':
+            return ContinentFactorEntity(**base_args)
+        elif entity_type == 'CountryFactor':
+            return CountryFactorEntity(**base_args)
+        elif entity_type == 'ShareVolatilityFactor':
+            return ShareVolatilityFactorEntity(**base_args)
+        elif entity_type == 'ShareTargetFactor':
+            return ShareTargetFactorEntity(**base_args)
+        elif entity_type == 'ShareTechnicalFactor':
+            return ShareTechnicalFactorEntity(**base_args)
+        elif entity_type == 'ShareMomentumFactor':
+            return ShareMomentumFactorEntity(**base_args)
+        elif entity_type == 'ShareFactor':
+            return ShareFactorEntity(**base_args)
+        elif entity_type == 'EquityFactor':
+            return EquityFactorEntity(**base_args)
+        elif entity_type == 'SecurityFactor':
+            return SecurityFactorEntity(**base_args)
+        elif entity_type == 'FinancialAssetFactor':
+            return FinancialAssetFactorEntity(**base_args)
+        else:
+            # Default to base Factor entity
+            return FactorEntity(**base_args)
 
     @staticmethod
     def to_orm(domain_entity: FactorEntity) -> FactorModel:
-        """Convert domain entity to ORM model based on entity type."""
+        """Convert domain entity to ORM model using only base args."""
         base_data = {
             'id': domain_entity.id,
             'name': domain_entity.name,
@@ -91,143 +103,6 @@ class FactorMapper:
             'entity_type': _get_entity_type_from_factor(domain_entity),  # Derive entity_type from factor type
         }
         
-        # Determine the appropriate ORM model and set specialized fields
-        if isinstance(domain_entity, ContinentFactorEntity):
-            return ContinentFactor(
-                **base_data,
-                continent_code=domain_entity.continent_code,
-                geographic_zone=domain_entity.geographic_zone,
-            )
-        elif isinstance(domain_entity, CountryFactorEntity):
-            return CountryFactor(
-                **base_data,
-                country_code=domain_entity.country_code,
-                currency=domain_entity.currency,
-                is_developed='true' if domain_entity.is_developed else 'false' if domain_entity.is_developed is False else None,
-            )
-        elif isinstance(domain_entity, ShareVolatilityFactorEntity):
-            return ShareVolatilityFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=getattr(domain_entity, 'sector', None),
-                industry=getattr(domain_entity, 'industry', None),
-                market_cap_category=getattr(domain_entity, 'market_cap_category', None),
-                ticker_symbol=getattr(domain_entity, 'ticker_symbol', None),
-                share_class=getattr(domain_entity, 'share_class', None),
-                exchange=getattr(domain_entity, 'exchange', None),
-                volatility_type=domain_entity.volatility_type,
-                period=domain_entity.period,
-                annualization_factor=domain_entity.annualization_factor,
-            )
-        elif isinstance(domain_entity, ShareTargetFactorEntity):
-            return ShareTargetFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=getattr(domain_entity, 'sector', None),
-                industry=getattr(domain_entity, 'industry', None),
-                market_cap_category=getattr(domain_entity, 'market_cap_category', None),
-                ticker_symbol=getattr(domain_entity, 'ticker_symbol', None),
-                share_class=getattr(domain_entity, 'share_class', None),
-                exchange=getattr(domain_entity, 'exchange', None),
-                target_type=domain_entity.target_type,
-                forecast_horizon=domain_entity.forecast_horizon,
-                is_scaled='true' if domain_entity.is_scaled else 'false' if domain_entity.is_scaled is False else None,
-                scaling_method=domain_entity.scaling_method,
-            )
-        elif isinstance(domain_entity, ShareTechnicalFactorEntity):
-            return ShareTechnicalFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=getattr(domain_entity, 'sector', None),
-                industry=getattr(domain_entity, 'industry', None),
-                market_cap_category=getattr(domain_entity, 'market_cap_category', None),
-                ticker_symbol=getattr(domain_entity, 'ticker_symbol', None),
-                share_class=getattr(domain_entity, 'share_class', None),
-                exchange=getattr(domain_entity, 'exchange', None),
-                indicator_type=domain_entity.indicator_type,
-                period=domain_entity.period,
-                smoothing_factor=domain_entity.smoothing_factor,
-            )
-        elif isinstance(domain_entity, ShareMomentumFactorEntity):
-            return ShareMomentumFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=getattr(domain_entity, 'sector', None),
-                industry=getattr(domain_entity, 'industry', None),
-                market_cap_category=getattr(domain_entity, 'market_cap_category', None),
-                ticker_symbol=getattr(domain_entity, 'ticker_symbol', None),
-                share_class=getattr(domain_entity, 'share_class', None),
-                exchange=getattr(domain_entity, 'exchange', None),
-                period=domain_entity.period,
-                momentum_type=domain_entity.momentum_type,
-            )
-        elif isinstance(domain_entity, ShareFactorEntity):
-            return ShareFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=getattr(domain_entity, 'sector', None),
-                industry=getattr(domain_entity, 'industry', None),
-                market_cap_category=getattr(domain_entity, 'market_cap_category', None),
-                ticker_symbol=domain_entity.ticker_symbol,
-                share_class=domain_entity.share_class,
-                exchange=domain_entity.exchange,
-            )
-        elif isinstance(domain_entity, EquityFactorEntity):
-            return EquityFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=getattr(domain_entity, 'security_type', None),
-                isin=getattr(domain_entity, 'isin', None),
-                cusip=getattr(domain_entity, 'cusip', None),
-                sector=domain_entity.sector,
-                industry=domain_entity.industry,
-                market_cap_category=domain_entity.market_cap_category,
-            )
-        elif isinstance(domain_entity, SecurityFactorEntity):
-            return SecurityFactor(
-                **base_data,
-                asset_class=getattr(domain_entity, 'asset_class', None),
-                currency=getattr(domain_entity, 'currency', None),
-                market=getattr(domain_entity, 'market', None),
-                security_type=domain_entity.security_type,
-                isin=domain_entity.isin,
-                cusip=domain_entity.cusip,
-            )
-        elif isinstance(domain_entity, FinancialAssetFactorEntity):
-            return FinancialAssetFactor(
-                **base_data,
-                asset_class=domain_entity.asset_class,
-                currency=domain_entity.currency,
-                market=domain_entity.market,
-            )
-        else:
-            # Default to base FactorModel
-            return FactorModel(**base_data)
+        # Always return base FactorModel with only base args
+        return FactorModel(**base_data)
     

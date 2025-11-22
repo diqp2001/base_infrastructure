@@ -40,6 +40,142 @@ factor/
 
 ---
 
+## 🎯 Factor Discriminator System
+
+### Overview
+
+The factor system uses a **precise discriminator-based approach** for entity identification and verification. This ensures accurate factor type classification and prevents conflicts between similar factor names across different domains.
+
+### **Entity Type Discriminators**
+
+The `_get_entity_type_from_factor()` function returns **exact domain class names** as discriminators:
+
+```python
+# Examples of entity_type discriminators:
+"ShareFactor"              # Basic share factors
+"ShareMomentumFactor"      # Momentum factors for shares  
+"ShareTechnicalFactor"     # Technical indicators for shares
+"ShareVolatilityFactor"    # Volatility factors for shares
+"ShareTargetFactor"        # Target/prediction factors for shares
+"CountryFactor"            # Country-level factors
+"ContinentFactor"          # Continent-level factors
+```
+
+### **Verification Logic**
+
+#### **Factor Entity Verification** 
+Factors are verified using **name + discriminator** combination:
+
+```python
+def get_by_name_and_discriminator(self, name: str, entity_type: str) -> Optional[Factor]:
+    """Retrieve factor by name AND entity_type discriminator."""
+    factor = self.session.query(FactorModel).filter(
+        FactorModel.name == name,
+        FactorModel.entity_type == entity_type  # Exact discriminator match
+    ).first()
+    return self._to_domain_factor(factor)
+```
+
+**Benefits:**
+- ✅ Allows same factor name across different entity types (e.g., "Close" for ShareFactor vs CountryFactor)
+- ✅ Prevents cross-domain factor conflicts
+- ✅ Enables precise factor retrieval and creation
+
+#### **Factor Value Verification**
+Factor values are verified using **factor_id + date + entity_id** combination:
+
+```python
+def get_factor_value_by_combination(self, factor_id: int, entity_id: int, date_value: date) -> Optional[FactorValue]:
+    """Retrieve factor value by the combination of factor_id + date + entity_id."""
+    factor_value = self.session.query(FactorValueModel).filter(
+        FactorValueModel.factor_id == factor_id,
+        FactorValueModel.entity_id == entity_id, 
+        FactorValueModel.date == date_value
+    ).first()
+    return self._to_domain_value(factor_value)
+```
+
+**Benefits:**
+- ✅ Precise identification of specific factor values
+- ✅ Prevents duplicate factor value entries
+- ✅ Enables efficient factor value updates and retrieval
+
+---
+
+## 📋 Base Args Mapping System
+
+### Overview
+
+All factor entities use a **simplified base arguments mapping** approach for consistent domain ↔ ORM conversion.
+
+### **Standard Base Arguments**
+
+Every factor entity mapping uses only these core arguments:
+
+```python
+base_args = {
+    'name': orm_model.name,                # Factor name
+    'group': orm_model.group,              # Factor group (price, momentum, etc.)
+    'subgroup': orm_model.subgroup,        # Factor subgroup (ohlc, returns, etc.) 
+    'data_type': orm_model.data_type,      # Data type (numeric, string, etc.)
+    'source': orm_model.source,            # Data source (market_data, calculated, etc.)
+    'definition': orm_model.definition,    # Factor definition/description
+    'factor_id': orm_model.id,            # Database ID
+}
+```
+
+### **Simplified Mapping Process**
+
+#### **Domain → ORM Conversion (to_orm)**
+```python
+@staticmethod
+def to_orm(domain_entity: FactorEntity) -> FactorModel:
+    """Convert domain entity to ORM model using only base args."""
+    base_data = {
+        'id': domain_entity.id,
+        'name': domain_entity.name,
+        'group': domain_entity.group,
+        'subgroup': domain_entity.subgroup,
+        'data_type': domain_entity.data_type,
+        'source': domain_entity.source,
+        'definition': domain_entity.definition,
+        'entity_type': _get_entity_type_from_factor(domain_entity),  # Exact discriminator
+    }
+    
+    # Always return base FactorModel with only base args
+    return FactorModel(**base_data)
+```
+
+#### **ORM → Domain Conversion (to_domain)**
+```python
+@staticmethod
+def to_domain(orm_model: Optional[FactorModel]) -> Optional[FactorEntity]:
+    """Convert ORM model to domain entity based on entity_type discriminator."""
+    # Use only base args for all factor entity mappings
+    base_args = { ... }  # Standard base args as above
+    
+    # Map based on entity_type discriminator to appropriate domain class
+    entity_type = orm_model.entity_type
+    
+    if entity_type == 'ShareMomentumFactor':
+        return ShareMomentumFactorEntity(**base_args)
+    elif entity_type == 'ShareTechnicalFactor':
+        return ShareTechnicalFactorEntity(**base_args)
+    # ... other mappings
+    else:
+        return FactorEntity(**base_args)  # Default fallback
+```
+
+### **Benefits of Base Args Approach**
+
+✅ **Consistent Mapping**: All factor types use the same core arguments  
+✅ **Simplified Maintenance**: No complex specialized field handling  
+✅ **Type Safety**: Clear discriminator-based type mapping  
+✅ **Domain Purity**: Only essential factor information persisted  
+✅ **Future-Proof**: Easy to add new factor types without mapping changes
+
+---
+
 ## 🔧 Service Responsibilities
 
 ### 1. FactorCreationService
