@@ -25,12 +25,23 @@ from domain.entities.factor.finance.financial_assets.share_factor.share_volatili
 def _get_entity_type_from_factor(factor) -> str:
     """
     Helper function to determine entity_type from factor type.
-    Returns the exact domain entity class name to represent accurately what's a discriminator is.
+    This avoids circular dependency with FactorCalculationService.
     """
     factor_class_name = factor.__class__.__name__
     
-    # Return exact domain class names as discriminators
-    return factor_class_name
+    # Map factor types to entity types
+    if any(share_type in factor_class_name for share_type in ['Share', 'share']):
+        return 'share'
+    elif any(equity_type in factor_class_name for equity_type in ['Equity', 'equity']):
+        return 'equity'
+    elif any(country_type in factor_class_name for country_type in ['Country', 'country']):
+        return 'country'
+    elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
+        return 'continent'
+    else:
+        # For basic price factors and other general factors, default to 'share'
+        # as most factors in the trading system are share-related
+        return 'share'  # Default fallback
 
 
 
@@ -47,11 +58,12 @@ class FactorMapper:
     
     @staticmethod
     def to_domain(orm_model: Optional[FactorModel]) -> Optional[FactorEntity]:
-        """Convert ORM model to domain entity based on entity_type discriminator."""
+        """Convert ORM model to domain entity based on factor_type discriminator."""
         if not orm_model:
             return None
         
-        # Use only base args for all factor entity mappings
+        # Map based on discriminator type
+        factor_type = orm_model.factor_type
         base_args = {
             'name': orm_model.name,
             'group': orm_model.group,
@@ -62,36 +74,65 @@ class FactorMapper:
             'factor_id': orm_model.id,
         }
         
-        # Map based on entity_type discriminator to appropriate domain class
-        entity_type = orm_model.entity_type
-        
-        if entity_type == 'ContinentFactor':
-            return ContinentFactorEntity(**base_args)
-        elif entity_type == 'CountryFactor':
-            return CountryFactorEntity(**base_args)
-        elif entity_type == 'ShareVolatilityFactor':
-            return ShareVolatilityFactorEntity(**base_args)
-        elif entity_type == 'ShareTargetFactor':
-            return ShareTargetFactorEntity(**base_args)
-        elif entity_type == 'ShareTechnicalFactor':
-            return ShareTechnicalFactorEntity(**base_args)
-        elif entity_type == 'ShareMomentumFactor':
-            return ShareMomentumFactorEntity(**base_args)
-        elif entity_type == 'ShareFactor':
-            return ShareFactorEntity(**base_args)
-        elif entity_type == 'EquityFactor':
-            return EquityFactorEntity(**base_args)
-        elif entity_type == 'SecurityFactor':
-            return SecurityFactorEntity(**base_args)
-        elif entity_type == 'FinancialAssetFactor':
-            return FinancialAssetFactorEntity(**base_args)
+        if factor_type == 'continent':
+            return ContinentFactorEntity(
+                **base_args,
+            )
+        elif factor_type == 'country':
+            return CountryFactorEntity(
+                **base_args,
+               
+            )
+        elif factor_type == 'financial_asset':
+            return FinancialAssetFactorEntity(
+                **base_args,
+            )
+        elif factor_type == 'security':
+            return SecurityFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'equity':
+            return EquityFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'share':
+            return ShareFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'share_momentum':
+            return ShareMomentumFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'share_technical':
+            return ShareTechnicalFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'share_target':
+            return ShareTargetFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'share_volatility':
+            return ShareVolatilityFactorEntity(
+                **base_args,
+                
+            )
         else:
-            # Default to base Factor entity
-            return FactorEntity(**base_args)
+            # Default to base Factor for unknown types
+            # Since Factor is abstract, create a concrete implementation
+            class GenericFactor(FactorEntity):
+                pass
+            
+            return GenericFactor(**base_args)
 
     @staticmethod
     def to_orm(domain_entity: FactorEntity) -> FactorModel:
-        """Convert domain entity to ORM model using only base args."""
+        """Convert domain entity to ORM model based on entity type."""
         base_data = {
             'id': domain_entity.id,
             'name': domain_entity.name,
@@ -103,6 +144,6 @@ class FactorMapper:
             'entity_type': _get_entity_type_from_factor(domain_entity),  # Derive entity_type from factor type
         }
         
-        # Always return base FactorModel with only base args
+        
         return FactorModel(**base_data)
     
