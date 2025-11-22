@@ -9,7 +9,7 @@ the advanced feature engineering from spatiotemporal models.
 import os
 import time
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from pathlib import Path
@@ -433,10 +433,10 @@ class FactorEnginedDataManager:
                     repository_factor = self.factor_data_service.get_factor_by_name(factor_def['name'])
                     
                     if repository_factor:
-                        # Create domain factor for calculation
+                        # Create domain factor for calculation with period as timedelta
                         momentum_factor = ShareMomentumFactor(
                             name=factor_def['name'],
-                            period=factor_def['period'],
+                            period=timedelta(days=factor_def['period']),  # Convert to timedelta for date-aware calculations
                             group=factor_def['group'],
                             subgroup=factor_def['subgroup'],
                             data_type="numeric",

@@ -3,7 +3,7 @@ Price data domain entity for factor calculations.
 """
 
 from typing import List, Optional
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass
 
 
@@ -42,6 +42,48 @@ class FactorSerie:
             return self.values
         
         return self.values[-lookback_periods:] if len(self.values) >= lookback_periods else self.values
+    
+    def get_historical_values_by_date_range(self, current_date: date, period_delta: timedelta) -> List[float]:
+        """
+        Get historical values within a specific date range from current_date.
+        
+        Args:
+            current_date: The reference date for the calculation
+            period_delta: Time delta to look back from current_date
+            
+        Returns:
+            List of historical values within the date range
+        """
+        start_date = current_date - period_delta
+        
+        historical_values = []
+        for i, value_date in enumerate(self.dates):
+            if start_date <= value_date <= current_date:
+                historical_values.append(self.values[i])
+        
+        return historical_values
+    
+    def get_historical_dates_and_values(self, current_date: date, period_delta: timedelta) -> tuple[List[date], List[float]]:
+        """
+        Get historical dates and values within a specific date range from current_date.
+        
+        Args:
+            current_date: The reference date for the calculation
+            period_delta: Time delta to look back from current_date
+            
+        Returns:
+            Tuple of (dates, values) within the date range
+        """
+        start_date = current_date - period_delta
+        
+        historical_dates = []
+        historical_values = []
+        for i, value_date in enumerate(self.dates):
+            if start_date <= value_date <= current_date:
+                historical_dates.append(value_date)
+                historical_values.append(self.values[i])
+        
+        return historical_dates, historical_values
     
     def get_latest_values(self) -> float:
         """Get the most recent value."""

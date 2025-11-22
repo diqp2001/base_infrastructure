@@ -167,14 +167,21 @@ class FactorCalculationService:
             'errors': []
         }
         
-        # Calculate momentum for each date using the PriceData domain object
+        # Calculate momentum for each date using the PriceData domain object with date awareness
         for i, (price_date, current_price) in enumerate(zip(price_data.dates, price_data.values)):
             try:
-                # Get historical prices up to current date for momentum calculation
-                historical_prices = price_data.get_historical_values(i + 1)
+                # Get historical dates and values within the factor's period delta
+                historical_dates, historical_prices = price_data.get_historical_dates_and_values(
+                    current_date=price_date, 
+                    period_delta=factor.period
+                )
                 
-                # Calculate momentum using domain logic
-                momentum_value = factor.calculate_momentum(historical_prices)
+                # Calculate momentum using date-aware domain logic
+                momentum_value = factor.calculate_momentum_with_dates(
+                    historical_prices, 
+                    historical_dates, 
+                    price_date
+                )
                 
                 if momentum_value is not None:
                     # Check if value already exists
