@@ -26,39 +26,7 @@ class FactorModel(Base):
     definition = Column(Text, nullable=True)
     entity_type = Column(String(50), nullable=False, index=True)  # For clarity and querying
 
-    # Geographic factor columns
-    continent_code = Column(String(10), nullable=True)
-    geographic_zone = Column(String(50), nullable=True)
-    country_code = Column(String(10), nullable=True)
-    currency = Column(String(10), nullable=True)
-    is_developed = Column(String(10), nullable=True)  # 'true'/'false' string
-
-    # Financial asset columns
-    asset_class = Column(String(50), nullable=True)
-    market = Column(String(100), nullable=True)
-    security_type = Column(String(50), nullable=True)
-    isin = Column(String(20), nullable=True)
-    cusip = Column(String(20), nullable=True)
-
-    # Equity/Share specific columns
-    sector = Column(String(100), nullable=True)
-    industry = Column(String(100), nullable=True)
-    market_cap_category = Column(String(20), nullable=True)
-    ticker_symbol = Column(String(20), nullable=True)
-    share_class = Column(String(10), nullable=True)
-    exchange = Column(String(50), nullable=True)
-
-    # Share factor specialized columns
-    period = Column(Integer, nullable=True)
-    momentum_type = Column(String(50), nullable=True)
-    indicator_type = Column(String(50), nullable=True)
-    smoothing_factor = Column(Float, nullable=True)
-    target_type = Column(String(50), nullable=True)
-    forecast_horizon = Column(Integer, nullable=True)
-    is_scaled = Column(String(10), nullable=True)  # 'true'/'false' string
-    scaling_method = Column(String(50), nullable=True)
-    volatility_type = Column(String(50), nullable=True)
-    annualization_factor = Column(Float, nullable=True)
+    
 
     # Polymorphic configuration
     __mapper_args__ = {

@@ -667,7 +667,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     
     def _create_or_get_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str):
         """Create factor if it doesn't exist, otherwise return existing."""
-        existing_factor = self.get_by_name(name)
+        existing_factor = self.get_by_name(name) #do get by discriminator
         if existing_factor:
             return existing_factor
         
