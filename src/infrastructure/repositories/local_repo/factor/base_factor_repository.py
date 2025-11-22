@@ -84,23 +84,15 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
     def create_factor(self, domain_factor: FactorEntity) -> Optional[FactorEntity]:
         """Add a new factor to the database using sequential ID generation."""
         try:
-            FactorModel = self.get_factor_model()
-            
             # Use sequential ID generation if factor doesn't have an ID
             if not hasattr(domain_factor, 'id') or domain_factor.id is None:
                 next_id = self._get_next_available_factor_id()
                 domain_factor.id = next_id
             
-            # Create ORM object directly using the specific model
-            orm_factor = FactorModel(
-                id=domain_factor.id,  # Use sequential ID
-                name=domain_factor.name,
-                group=domain_factor.group,
-                subgroup=domain_factor.subgroup,
-                data_type=domain_factor.data_type,
-                source=domain_factor.source,
-                definition=domain_factor.definition
-            )
+            # Use FactorMapper to convert domain entity to ORM model
+            # This ensures entity_type is properly set
+            orm_factor = self._to_model(domain_factor)
+            
             self.session.add(orm_factor)
             self.session.commit()
             return self._to_domain_factor(orm_factor)
@@ -539,9 +531,11 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         Returns:
             Created factor entity or None if failed
         """
-        FactorEntity = self.get_factor_entity()
+        from domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
         
-        domain_factor = FactorEntity(
+        # Create ShareFactor for price factors (most common case)
+        # This ensures proper entity_type mapping in FactorMapper
+        domain_factor = ShareFactor(
             name=name,
             group=group,
             subgroup=subgroup,
