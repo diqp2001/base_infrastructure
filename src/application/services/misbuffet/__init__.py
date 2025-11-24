@@ -70,7 +70,7 @@ __version__ = "1.0.0"
 __author__ = "QuantConnect Lean Python Implementation"
 
 # Import engine components from separate file
-from .engine.misbuffet_engine import MisbuffetEngine, BacktestResult
+from .engine.misbuffet_engine import MisbuffetEngine, MisbuffetEngineConfig, BacktestResult
 
 
 # Main Misbuffet class with engine integration
@@ -127,8 +127,9 @@ class Misbuffet:
                 exec(f.read(), config_globals)
             self.logger.info(f"Loaded engine configuration from {config_file}")
         
-        # Create engine with handlers
-        engine = MisbuffetEngine()
+        # Create engine with handlers (using default config for backward compatibility)
+        engine_config = MisbuffetEngineConfig()  # Default to company_shares
+        engine = MisbuffetEngine(engine_config)
         engine._create_handlers()
         
         self.engine = engine
@@ -143,6 +144,7 @@ __all__ = [
     
     # Engine classes
     "MisbuffetEngine",
+    "MisbuffetEngineConfig", 
     "BacktestResult",
     
     # Core modules are exported via their own __all__ lists

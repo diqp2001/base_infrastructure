@@ -20,11 +20,10 @@ except ImportError:
     relativedelta = None
 
 from decimal import Decimal
-# Import the stock data repository for real data access
-
-# Import factor repositories for the new data source
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_factor_repository import CompanyShareFactorRepository
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+# Import service layer instead of direct repository access
+from application.services.data.entities.factor.factor_data_service import FactorDataService
+from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.database_service.database_service import DatabaseService
 
 # Import algorithm framework components instead of domain entities
 from ..algorithm.security import SecurityPortfolioManager
@@ -34,20 +33,45 @@ from .base_engine import BaseEngine
 from .engine_node_packet import EngineNodePacket
 
 
+class MisbuffetEngineConfig:
+    """Configuration for MisbuffetEngine to support different entity types."""
+    
+    def __init__(self, entity_type: str = 'company_shares', entity_config: dict = None):
+        self.entity_type = entity_type.lower()
+        self.entity_config = entity_config or {}
+        self.supported_entity_types = {
+            'company_shares': 'CompanyShare',
+            'commodities': 'Commodity', 
+            'bonds': 'Bond',
+            'options': 'Option',
+            'currencies': 'Currency',
+            'crypto': 'Crypto',
+            'etfs': 'ETFShare',
+            'futures': 'Future'
+        }
+        
+        if self.entity_type not in self.supported_entity_types:
+            raise ValueError(f"Unsupported entity type: {entity_type}. Supported types: {list(self.supported_entity_types.keys())}")
+
+
 class MisbuffetEngine(BaseEngine):
     """Misbuffet backtesting and live trading engine."""
     
-    def __init__(self):
+    def __init__(self, config: MisbuffetEngineConfig = None):
         # Initialize BaseEngine first
         super().__init__()
+        
+        # Engine configuration for entity type support
+        self.engine_config = config or MisbuffetEngineConfig()
         
         # Additional MisbuffetEngine specific attributes
         self.stock_data_repository = None
         self.database_manager = None
         
-        # Factor repositories for the new data source
-        self.factor_repository = None
-        self.company_share_repository = None
+        # Service layer instances (replacing direct repository access)
+        self.factor_data_service = None
+        self.financial_asset_service = None
+        self.database_service = None
         
         # Override logger to maintain existing naming
         self.logger = logging.getLogger("misbuffet.engine")
@@ -283,10 +307,11 @@ class MisbuffetEngine(BaseEngine):
                 if hasattr(config, 'database_manager'):
                     self.database_manager = config.database_manager
                     
-                    # Initialize factor repositories
-                    self.factor_repository = CompanyShareFactorRepository()
-                    self.company_share_repository = CompanyShareRepository(self.database_manager.session)
-                    self.logger.info("Factor repositories initialized for CompanyShareFactor data access")
+                    # Initialize service layer (following DDD principles)
+                    self.database_service = DatabaseService('sqlite')  # or get from config
+                    self.factor_data_service = FactorDataService(self.database_service)
+                    self.financial_asset_service = FinancialAssetService(self.database_service)
+                    self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")
                 
                 # Add history method that uses real data from database
                 if not hasattr(self.algorithm, 'history'):
@@ -507,31 +532,28 @@ class MisbuffetEngine(BaseEngine):
             return 100.0
     
     def _get_single_day_data(self, ticker, target_date):
-        """Get stock data for a single day using CompanyShareFactorRepository."""
-        if not hasattr(self, 'factor_repository') or self.factor_repository is None:
+        """Get data for a single day using FactorDataService (entity-agnostic)."""
+        if not self.factor_data_service:
             return None
         
         try:
-            # Get the CompanyShare entity ID for this ticker
-            company_share_entities = self.company_share_repository.get_by_ticker(ticker)
-            if not company_share_entities:
-                self.logger.debug(f"No CompanyShare entity found for ticker {ticker}")
+            # Get entity based on configured entity type
+            entity = self._get_entity_by_identifier(ticker)
+            if not entity:
+                self.logger.debug(f"No {self.engine_config.entity_type} entity found for identifier {ticker}")
                 return None
             
-            # Use the first entity (assuming unique ticker per entity)
-            entity_id = company_share_entities[0].id
-            
-            # Get factor IDs for price data (OHLCV)
-            price_factor_names = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+            # Get factor data based on entity type
+            factor_names = self._get_factor_names_for_entity_type()
             factor_data = {}
             
-            for factor_name in price_factor_names:
-                factor_id = self.factor_repository.get_factor_id_by_name(factor_name)
-                if factor_id:
+            for factor_name in factor_names:
+                factor = self.factor_data_service.get_factor_by_name(factor_name)
+                if factor:
                     # Get factor values for the specific date
-                    factor_values = self.factor_repository.get_factor_values(
-                        factor_id=factor_id,
-                        entity_id=entity_id,
+                    factor_values = self.factor_data_service.get_factor_values(
+                        factor_id=int(factor.id),
+                        entity_id=entity.id,
                         start_date=target_date.strftime('%Y-%m-%d'),
                         end_date=target_date.strftime('%Y-%m-%d')
                     )
@@ -556,6 +578,52 @@ class MisbuffetEngine(BaseEngine):
         except Exception as e:
             self.logger.debug(f"Error getting single day data for {ticker} on {target_date}: {e}")
             return None
+    
+    def _get_entity_by_identifier(self, identifier: str):
+        """Get entity by identifier based on configured entity type."""
+        if not self.financial_asset_service:
+            return None
+            
+        try:
+            entity_type = self.engine_config.entity_type
+            
+            # Handle different entity types
+            if entity_type == 'company_shares':
+                return self.factor_data_service.get_company_share_by_ticker(identifier)
+            elif entity_type == 'commodities':
+                # For commodities, identifier could be symbol
+                # This would need a corresponding method in FinancialAssetService
+                self.logger.warning(f"Commodity lookup not yet implemented for {identifier}")
+                return None
+            elif entity_type in ['bonds', 'options', 'currencies', 'crypto', 'etfs', 'futures']:
+                # These would need corresponding lookup methods in FinancialAssetService
+                self.logger.warning(f"{entity_type} lookup not yet implemented for {identifier}")
+                return None
+            else:
+                self.logger.error(f"Unsupported entity type: {entity_type}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error getting entity for {identifier}: {e}")
+            return None
+    
+    def _get_factor_names_for_entity_type(self) -> list:
+        """Get relevant factor names based on entity type."""
+        entity_type = self.engine_config.entity_type
+        
+        # Define factor names for different entity types
+        factor_mapping = {
+            'company_shares': ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'],
+            'commodities': ['Price', 'Volume', 'Open Interest'],
+            'bonds': ['Price', 'Yield', 'Duration', 'Credit Spread'],
+            'options': ['Price', 'Implied Volatility', 'Delta', 'Gamma', 'Theta', 'Vega'],
+            'currencies': ['Exchange Rate', 'Bid', 'Ask', 'Volume'],
+            'crypto': ['Price', 'Volume', 'Market Cap', 'Circulating Supply'],
+            'etfs': ['Open', 'High', 'Low', 'Close', 'Volume', 'NAV'],
+            'futures': ['Open', 'High', 'Low', 'Close', 'Volume', 'Open Interest']
+        }
+        
+        return factor_mapping.get(entity_type, ['Open', 'High', 'Low', 'Close', 'Volume'])
     
     def _get_historical_data(self, tickers, periods, end_time=None):
         """
@@ -933,5 +1001,6 @@ class BacktestResult:
 
 __all__ = [
     'MisbuffetEngine',
+    'MisbuffetEngineConfig',
     'BacktestResult'
 ]

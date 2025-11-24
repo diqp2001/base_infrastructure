@@ -111,9 +111,11 @@ def test_interval_calculation():
     print("=" * 40)
     
     try:
-        from application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine
+        from application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine, MisbuffetEngineConfig
         
-        engine = MisbuffetEngine()
+        # Create engine with default configuration
+        engine_config = MisbuffetEngineConfig()
+        engine = MisbuffetEngine(engine_config)
         
         test_configs = [
             {"backtest_interval": "daily"},
