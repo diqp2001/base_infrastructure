@@ -416,16 +416,10 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 for symbol in self.universe:
                     # Use factor-based historical data if available, otherwise mock
                     if hasattr(self, 'factor_manager') and self.factor_manager:
-                        try:
-                            factor_data = self._get_factor_historical_data(symbol)
-                            if factor_data is not None:
-                                returns_data[symbol] = factor_data
-                            else:
-                                returns_data[symbol] = np.random.normal(0.001, 0.02, self.train_window)
-                        except:
-                            returns_data[symbol] = np.random.normal(0.001, 0.02, self.train_window)
-                    else:
-                        returns_data[symbol] = np.random.normal(0.001, 0.02, self.train_window)
+                        factor_data = self._get_factor_historical_data(symbol)
+                        if factor_data is not None:
+                            returns_data[symbol] = factor_data
+                        
                 pivoted = pd.DataFrame(returns_data)
         else:
             # Assume it's already a DataFrame
@@ -508,43 +502,15 @@ class BaseProjectAlgorithm(QCAlgorithm):
         """Inject factor manager from the BacktestRunner."""
         self.factor_manager = factor_manager
         self.log("✅ Factor manager injected successfully")
-        self._check_dependencies_complete()
+        
     
     def set_spatiotemporal_trainer(self, trainer):
         """Inject spatiotemporal trainer from the BacktestRunner."""
         self.spatiotemporal_trainer = trainer
         self.log("✅ Spatiotemporal trainer injected successfully")
-        self._check_dependencies_complete()
     
     def set_momentum_strategy(self, strategy):
         """Inject momentum strategy from the BacktestRunner."""
         self.momentum_strategy = strategy
         self.log("✅ Momentum strategy injected successfully")
-        self._check_dependencies_complete()
     
-    def _check_dependencies_complete(self):
-        """Check if all critical dependencies have been injected."""
-        if (self.factor_manager is not None and 
-            self.spatiotemporal_trainer is not None and 
-            self.momentum_strategy is not None):
-            self._dependencies_injected = True
-            self.log("🎉 All dependencies injected - algorithm fully configured!")
-            
-            # Trigger initial training now that all dependencies are available
-            if not self._initial_training_completed:
-                self.log("🚀 Performing deferred initial training...")
-                try:
-                    self._train_models(self.time)
-                    self._initial_training_completed = True
-                    self.log("✅ Initial training completed successfully")
-                except Exception as e:
-                    self.log(f"⚠️ Initial training failed: {str(e)}")
-        else:
-            missing = []
-            if self.factor_manager is None:
-                missing.append("factor_manager")
-            if self.spatiotemporal_trainer is None:
-                missing.append("spatiotemporal_trainer") 
-            if self.momentum_strategy is None:
-                missing.append("momentum_strategy")
-            self.log(f"⏳ Still awaiting dependencies: {', '.join(missing)}")
