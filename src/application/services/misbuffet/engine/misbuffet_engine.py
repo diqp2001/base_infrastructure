@@ -305,10 +305,10 @@ class MisbuffetEngine(BaseEngine):
                 
                 # Setup database connection for real data access
                 if hasattr(config, 'database_manager'):
-                    self.database_manager = config.database_manager
+                    #self.database_manager = config.database_manager
                     
                     # Initialize service layer (following DDD principles)
-                    self.database_service = DatabaseService('sqlite')  # or get from config
+                    self.database_service = config.get('database_service') # or get from config 
                     self.factor_data_service = FactorDataService(self.database_service)
                     self.financial_asset_service = FinancialAssetService(self.database_service)
                     self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")

@@ -301,7 +301,7 @@ class BacktestRunner:
             launcher_config.algorithm = configured_algorithm
             
             # Add database manager and other dependencies for real data access
-            launcher_config.database_manager = self.database_service
+            launcher_config.database_service = self.database_service
             launcher_config.factor_manager = self.factor_manager
             launcher_config.model_trainer = self.model_trainer
             launcher_config.momentum_strategy = self.momentum_strategy
