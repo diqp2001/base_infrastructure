@@ -6,7 +6,6 @@ from flask import Blueprint, request, jsonify
 from typing import Dict, Any, List
 import pandas as pd
 from datetime import datetime, date
-from decimal import Decimal
 
 from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
@@ -203,7 +202,7 @@ def create_factor_calculation_blueprint() -> Blueprint:
                         'date': v.date,
                         'entity_id': v.entity_id,
                         'entity_type': getattr(v, 'entity_type', 'share'),
-                        'value': float(v.value)
+                        'value': v.value
                     } for v in values
                 ])
                 
@@ -229,7 +228,7 @@ def create_factor_calculation_blueprint() -> Blueprint:
                             "entity_id": v.entity_id,
                             "entity_type": getattr(v, 'entity_type', 'share'),
                             "date": v.date.isoformat(),
-                            "value": float(v.value)
+                            "value": v.value
                         } for v in values
                     ],
                     "count": len(values)

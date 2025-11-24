@@ -4,7 +4,6 @@ Domain entity for FactorValue.
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
 from typing import Optional
 
 
@@ -18,7 +17,7 @@ class FactorValue:
     factor_id: int
     entity_id: int
     date: date
-    value: any
+    value: str
 
     def __post_init__(self):
         """Validate domain constraints."""

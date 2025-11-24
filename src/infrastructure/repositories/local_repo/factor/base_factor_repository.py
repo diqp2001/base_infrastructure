@@ -5,7 +5,6 @@ Base repository class for factor entities with common CRUD operations.
 
 
 from abc import ABC, abstractmethod
-from decimal import Decimal
 from typing import List, Optional, Union
 from datetime import date
 import pandas as pd
@@ -604,18 +603,18 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
 
         return self.create_factor_value(domain_value)
     
-    def _sanitize_factor_value(self, value) -> Optional[Decimal]:
+    def _sanitize_factor_value(self, value) -> Optional[str]:
         """
         Sanitize and validate factor values to handle ANY data type safely.
         
-        This method ensures that only valid numeric values reach SQLAlchemy,
-        preventing type comparison errors with string values.
+        This method ensures values are converted to strings for storage,
+        handling various data types uniformly.
         
         Args:
             value: Raw value from data source (any type)
             
         Returns:
-            Decimal value if valid, None if invalid/non-numeric
+            String representation of value if valid, None if invalid/empty
         """
         if value is None:
             return None
@@ -624,35 +623,16 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         if pd.isna(value):
             return None
             
-        # If already Decimal, validate it's finite
-        if isinstance(value, Decimal):
-            if value.is_finite():
-                return value
-            return None
-            
         # Convert to string first to handle all types uniformly
         str_value = str(value).strip()
         
-        # Handle common non-numeric indicators
-        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 'inf', '-inf'}
+        # Handle common empty/invalid indicators
+        invalid_indicators = {'', 'n/a', 'na', 'null', 'none', 'nan'}
         if str_value.lower() in invalid_indicators:
             return None
             
-        # Attempt numeric conversion
-        try:
-            # Try float conversion first (handles scientific notation)
-            float_value = float(str_value)
-            
-            # Check for infinite or NaN values
-            if not (float_value == float_value and abs(float_value) != float('inf')):
-                return None
-                
-            # Convert to Decimal for precision
-            return Decimal(str(float_value))
-            
-        except (ValueError, TypeError, OverflowError, Decimal.InvalidOperation):
-            # Log the invalid value for debugging but don't fail
-            return None
+        # Return the string value as-is
+        return str_value
     
     def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
         """Store factor values for a specific factor."""
