@@ -4,7 +4,6 @@ Mapper for converting between FactorValue domain entities and ORM models.
 
 from abc import abstractmethod
 from typing import Optional
-from decimal import Decimal
 from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 from infrastructure.models.factor.factor_model import FactorValue as FactorValueModel
 
@@ -30,7 +29,7 @@ class FactorValueMapper:
             factor_id=orm_model.factor_id,
             entity_id=orm_model.entity_id,
             date=orm_model.date,
-            value=Decimal(str(orm_model.value)) if orm_model.value is not None else Decimal('0')
+            value=str(orm_model.value) if orm_model.value is not None else '0'
         )
 
     @staticmethod

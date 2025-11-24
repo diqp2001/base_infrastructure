@@ -3,7 +3,7 @@ Generic SQLAlchemy ORM models for Factor entities with discriminator support.
 These are base models used by the BaseFactorRepository.
 """
 
-from sqlalchemy import Column, Integer, String, Date, Numeric, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
@@ -135,7 +135,7 @@ class FactorValue(Base):
     factor_id = Column(Integer, ForeignKey('factors.id'), nullable=False)
     entity_id = Column(Integer, nullable=False)  # Generic entity reference
     date = Column(Date, nullable=False, index=True)
-    value = Column(Numeric(20, 8), nullable=False)
+    value = Column(String(255), nullable=False)
 
     # Relationships
     factor = relationship("FactorModel", back_populates="factor_values")

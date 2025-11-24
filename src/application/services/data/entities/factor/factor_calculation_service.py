@@ -5,7 +5,6 @@ Provides a service layer for calculating and storing factor calculations from do
 
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime
-from decimal import Decimal
 import pandas as pd
 
 from application.services.database_service.database_service import DatabaseService
@@ -196,7 +195,7 @@ class FactorCalculationService:
                         factor_id=factor.id,
                         entity_id=entity_id,
                         date=price_date,
-                        value=Decimal(str(momentum_value))
+                        value=str(momentum_value)
                     )
                     
                     if factor_value:
@@ -274,7 +273,7 @@ class FactorCalculationService:
                         factor_id=factor.id,
                         entity_id=entity_id,
                         date=price_date,
-                        value=Decimal(str(momentum_value))
+                        value=str(momentum_value)
                     )
                     
                     if factor_value:
@@ -380,7 +379,7 @@ class FactorCalculationService:
                         factor_id=factor.id,
                         entity_id=entity_id,
                         date=price_date,
-                        value=Decimal(str(technical_value))
+                        value=str(technical_value)
                     )
                     
                     if factor_value:
@@ -467,7 +466,7 @@ class FactorCalculationService:
                             factor_id=factor.id,
                             entity_id=entity_id,
                             date=trade_date,
-                            value=Decimal(str(technical_value))
+                            value=str(technical_value)
                         )
                         
                         if factor_value:
@@ -580,7 +579,7 @@ class FactorCalculationService:
                         factor_id=factor.id,
                         entity_id=entity_id,
                         date=price_date,
-                        value=Decimal(str(volatility_value))
+                        value=str(volatility_value)
                     )
                     
                     if factor_value:
@@ -661,7 +660,7 @@ class FactorCalculationService:
                         factor_id=factor.id,
                         entity_id=entity_id,
                         date=vol_date,
-                        value=Decimal(str(volatility_value))
+                        value=str(volatility_value)
                     )
                     
                     if factor_value:
@@ -918,7 +917,7 @@ class FactorCalculationService:
                         factor_id=target_factor.id,
                         entity_id=entity_id,
                         date=calc_date,
-                        value=Decimal(str(calculated_value))
+                        value=str(calculated_value)
                     )
                     
                     if factor_value:

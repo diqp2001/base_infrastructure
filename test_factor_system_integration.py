@@ -9,7 +9,6 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from datetime import date, datetime
-from decimal import Decimal
 from typing import List
 import pandas as pd
 
@@ -87,7 +86,7 @@ def test_repository_integration():
             
             # Test factor value creation
             test_date = date(2023, 1, 15)
-            test_value = Decimal('0.05')  # 5% momentum
+            test_value = '0.05'  # 5% momentum
             
             factor_value = repository.add_factor_value(
                 factor_id=created_factor.id,
