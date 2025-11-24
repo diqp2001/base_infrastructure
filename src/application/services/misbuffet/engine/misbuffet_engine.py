@@ -304,14 +304,28 @@ class MisbuffetEngine(BaseEngine):
                     self.algorithm.add_equity = add_equity_with_database
                 
                 # Setup database connection for real data access
-                if hasattr(config, 'database_manager'):
-                    #self.database_manager = config.database_manager
-                    
+                if hasattr(config, 'database_service') and config.database_service:
                     # Initialize service layer (following DDD principles)
-                    self.database_service = config.get('database_service') # or get from config 
+                    self.database_service = config.database_service
                     self.factor_data_service = FactorDataService(self.database_service)
                     self.financial_asset_service = FinancialAssetService(self.database_service)
                     self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")
+                elif hasattr(config, 'database_manager'):
+                    # Backward compatibility: if database_manager is provided instead
+                    self.database_manager = config.database_manager
+                    # Try to create database_service from database_manager if needed
+                    try:
+                        if not self.database_service and hasattr(config.database_manager, 'session'):
+                            from application.services.database_service.database_service import DatabaseService
+                            self.database_service = DatabaseService()
+                            self.database_service.session = config.database_manager.session
+                            self.factor_data_service = FactorDataService(self.database_service)
+                            self.financial_asset_service = FinancialAssetService(self.database_service)
+                            self.logger.info(f"Services initialized from database_manager for {self.engine_config.entity_type} data access")
+                    except Exception as e:
+                        self.logger.warning(f"Could not create services from database_manager: {e}")
+                else:
+                    self.logger.warning("No database_service or database_manager provided in config")
                 
                 # Add history method that uses real data from database
                 if not hasattr(self.algorithm, 'history'):
