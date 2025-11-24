@@ -29,7 +29,7 @@ class FactorValueMapper:
             factor_id=orm_model.factor_id,
             entity_id=orm_model.entity_id,
             date=orm_model.date,
-            value=str(orm_model.value) if orm_model.value is not None else '0'
+            value= orm_model.value if orm_model.value is not None else '0'
         )
 
     @staticmethod

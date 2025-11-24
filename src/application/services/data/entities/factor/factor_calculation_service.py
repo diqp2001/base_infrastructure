@@ -146,7 +146,7 @@ class FactorCalculationService:
         if not price_data:
             return {
                 'factor_name': factor.name,
-                'factor_id': factor.id,
+                'factor_id': factor.factor_id,
                 'entity_id': entity_id,
                 'entity_type': entity_type,
                 'calculations': [],
@@ -157,7 +157,7 @@ class FactorCalculationService:
         
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -185,14 +185,14 @@ class FactorCalculationService:
                 if momentum_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        factor.id, entity_id, price_date
+                        factor.factor_id, entity_id, price_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=factor.id,
+                        factor_id=factor.factor_id,
                         entity_id=entity_id,
                         date=price_date,
                         value=str(momentum_value)
@@ -242,7 +242,7 @@ class FactorCalculationService:
         
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -263,14 +263,14 @@ class FactorCalculationService:
                 if momentum_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        factor.id, entity_id, price_date
+                        factor.factor_id, entity_id, price_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=factor.id,
+                        factor_id=factor.factor_id,
                         entity_id=entity_id,
                         date=price_date,
                         value=str(momentum_value)
@@ -327,7 +327,7 @@ class FactorCalculationService:
         if not price_data:
             return {
                 'factor_name': factor.name,
-                'factor_id': factor.id,
+                'factor_id': factor.factor_id,
                 'entity_id': entity_id,
                 'entity_type': entity_type,
                 'calculations': [],
@@ -338,7 +338,7 @@ class FactorCalculationService:
         
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -369,14 +369,14 @@ class FactorCalculationService:
                 if technical_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        factor.id, entity_id, price_date
+                        factor.factor_id, entity_id, price_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=factor.id,
+                        factor_id=factor.factor_id,
                         entity_id=entity_id,
                         date=price_date,
                         value=str(technical_value)
@@ -421,7 +421,7 @@ class FactorCalculationService:
         entity_type = self._get_entity_type_from_factor(factor)
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -456,14 +456,14 @@ class FactorCalculationService:
                     if technical_value is not None:
                         # Check if value already exists
                         if not overwrite and self.repository.factor_value_exists(
-                            factor.id, entity_id, trade_date
+                            factor.factor_id, entity_id, trade_date
                         ):
                             results['skipped_values'] += 1
                             continue
                         
                         # Store the calculated value
                         factor_value = self.repository.add_factor_value(
-                            factor_id=factor.id,
+                            factor_id=factor.factor_id,
                             entity_id=entity_id,
                             date=trade_date,
                             value=str(technical_value)
@@ -523,7 +523,7 @@ class FactorCalculationService:
         if not price_data:
             return {
                 'factor_name': factor.name,
-                'factor_id': factor.id,
+                'factor_id': factor.factor_id,
                 'entity_id': entity_id,
                 'entity_type': entity_type,
                 'calculations': [],
@@ -534,7 +534,7 @@ class FactorCalculationService:
         
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -569,14 +569,14 @@ class FactorCalculationService:
                 if volatility_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        factor.id, entity_id, price_date
+                        factor.factor_id, entity_id, price_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=factor.id,
+                        factor_id=factor.factor_id,
                         entity_id=entity_id,
                         date=price_date,
                         value=str(volatility_value)
@@ -626,7 +626,7 @@ class FactorCalculationService:
         
         results = {
             'factor_name': factor.name,
-            'factor_id': factor.id,
+            'factor_id': factor.factor_id,
             'entity_id': entity_id,
             'entity_type': entity_type,
             'calculations': [],
@@ -650,14 +650,14 @@ class FactorCalculationService:
                 if volatility_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        factor.id, entity_id, vol_date
+                        factor.factor_id, entity_id, vol_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=factor.id,
+                        factor_id=factor.factor_id,
                         entity_id=entity_id,
                         date=vol_date,
                         value=str(volatility_value)
@@ -863,7 +863,7 @@ class FactorCalculationService:
         """
         results = {
             'target_factor_name': target_factor.name,
-            'target_factor_id': target_factor.id,
+            'target_factor_id': target_factor.factor_id,
             'source_factors': [sf['factor'].name for sf in source_factors],
             'entity_id': entity_id,
             'entity_type': entity_type,
@@ -883,7 +883,7 @@ class FactorCalculationService:
                 for source_factor_info in source_factors:
                     factor = source_factor_info['factor']
                     value = self.repository.get_factor_value(
-                        factor.id, entity_id, calc_date
+                        factor.factor_id, entity_id, calc_date
                     )
                     
                     if value is None:
@@ -907,14 +907,14 @@ class FactorCalculationService:
                 if calculated_value is not None:
                     # Check if value already exists
                     if not overwrite and self.repository.factor_value_exists(
-                        target_factor.id, entity_id, calc_date
+                        target_factor.factor_id, entity_id, calc_date
                     ):
                         results['skipped_values'] += 1
                         continue
                     
                     # Store the calculated value
                     factor_value = self.repository.add_factor_value(
-                        factor_id=target_factor.id,
+                        factor_id=target_factor.factor_id,
                         entity_id=entity_id,
                         date=calc_date,
                         value=str(calculated_value)
