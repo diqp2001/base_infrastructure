@@ -420,11 +420,16 @@ class UnivariateTrainValTestSplitterService(TrainValTestSplitterService):
             cat_info = {}
             return train_loader, val_loader, test_loader, test_dt, cat_info
         
-        # Standard ratio-based splitting
+        # Standard ratio-based splitting - return compatible format with placeholders
         if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
             raise ValueError("Ratios must sum to 1.0")
         
-        return self._create_ratio_based_split(train_ratio, val_ratio, test_ratio, seed)
+        train_loader, val_loader, test_loader = self._create_ratio_based_split(train_ratio, val_ratio, test_ratio, seed)
+        # For compatibility with MLP service, return placeholders for test_dt and cat_info
+        import pandas as pd
+        test_dt = pd.Timestamp.now()  # Dummy timestamp for compatibility
+        cat_info = {}
+        return train_loader, val_loader, test_loader, test_dt, cat_info
     
     def _create_ratio_based_split(self, train_ratio: float, val_ratio: float, test_ratio: float, seed: int):
         """Create data splits based on ratios."""

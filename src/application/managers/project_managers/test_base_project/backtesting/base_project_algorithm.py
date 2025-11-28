@@ -158,25 +158,46 @@ class BaseProjectAlgorithm(QCAlgorithm):
             # Map factor system columns to expected training columns
             column_mapping = {}
             
-            # Price-based features
-            if 'Close' in df.columns:
-                df['close'] = df['Close']
+            # Price-based features - handle different price column names
+            price_column = None
+            for col in ['Close', 'close', 'Adj Close', 'price']:
+                if col in df.columns:
+                    price_column = col
+                    break
+            
+            if price_column:
+                df['close'] = df[price_column]
                 df["return"] = df["close"].pct_change()
                 df["return_lag1"] = df["return"].shift(1)
                 df["return_lag2"] = df["return"].shift(2)
                 df["return_fwd1"] = df["return"].shift(-1)  # Target variable
-                column_mapping['Close'] = 'close'
+                column_mapping[price_column] = 'close'
+            else:
+                self.log(f"Warning: No price column found for {ticker}. Available columns: {list(df.columns)}")
+                # Create dummy columns to prevent KeyError
+                df["return"] = 0.0
+                df["return_lag1"] = 0.0 
+                df["return_lag2"] = 0.0
+                df["return_fwd1"] = 0.0
             
             # Volatility from factor system or calculate it
-            if 'realized_vol' in df.columns:
-                df['volatility'] = df['realized_vol']
-                column_mapping['realized_vol'] = 'volatility'
-            elif 'daily_vol' in df.columns:
-                df['volatility'] = df['daily_vol']
-                column_mapping['daily_vol'] = 'volatility'
-            elif 'close' in df.columns:
+            volatility_column = None
+            for col in ['realized_vol', 'daily_vol', 'volatility', 'vol_of_vol']:
+                if col in df.columns:
+                    volatility_column = col
+                    break
+            
+            if volatility_column:
+                df['volatility'] = df[volatility_column]
+                column_mapping[volatility_column] = 'volatility'
+            elif 'close' in df.columns or price_column:
                 # Calculate volatility if not available in factor system
                 df["volatility"] = df["return"].rolling(self.lookback_window).std()
+                self.log(f"Calculated volatility for {ticker} using rolling window")
+            else:
+                # Create dummy volatility column to prevent KeyError
+                df["volatility"] = 0.01  # Small non-zero volatility
+                self.log(f"Warning: No volatility data available for {ticker}, using dummy value")
             
             # Use momentum factors from the factor system
             momentum_factors = ['deep_momentum_1d', 'deep_momentum_5d', 'deep_momentum_21d', 'deep_momentum_63d']
