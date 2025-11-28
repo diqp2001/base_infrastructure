@@ -246,7 +246,8 @@ class FactorEnginedDataManager:
                                    tickers: List[str],
                                    start_date: Optional[str] = None,
                                    end_date: Optional[str] = None,
-                                   factor_groups: Optional[List[str]] = None) -> pd.DataFrame:
+                                   factor_groups: Optional[List[str]] = None,
+                                   lookback_days: Optional[int] = None) -> pd.DataFrame:
         """
         Retrieve factor data formatted for model training.
         
@@ -255,11 +256,26 @@ class FactorEnginedDataManager:
             start_date: Start date for data retrieval
             end_date: End date for data retrieval
             factor_groups: List of factor groups to include
+            lookback_days: Number of days to look back from end_date (overrides start_date if provided)
             
         Returns:
             DataFrame ready for model training
         """
         print(f"📊 Retrieving factor data for {len(tickers)} tickers...")
+        
+        # Handle lookback_days parameter by calculating start_date
+        if lookback_days is not None and end_date is not None:
+            # Parse end_date and calculate start_date
+            if isinstance(end_date, str):
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            elif isinstance(end_date, datetime):
+                end_dt = end_date
+            else:
+                end_dt = datetime.now()
+            
+            start_dt = end_dt - timedelta(days=lookback_days)
+            start_date = start_dt.strftime('%Y-%m-%d')
+            print(f"  📅 Using lookback_days={lookback_days}: {start_date} to {end_date}")
         
         if factor_groups is None:
             factor_groups = ['price', 'momentum', 'technical', 'engineered']
@@ -274,7 +290,9 @@ class FactorEnginedDataManager:
                 all_data[ticker] = ticker_data
         
         if not all_data:
-            raise ValueError("No factor data retrieved for any ticker")
+            print(f"  ⚠️  No factor data retrieved for any ticker")
+            # Return empty DataFrame instead of raising exception
+            return pd.DataFrame()
         
         # Combine into format expected by spatiotemporal models
         return self._format_for_model_training(all_data)

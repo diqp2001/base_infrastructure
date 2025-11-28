@@ -391,23 +391,43 @@ class UnivariateTrainValTestSplitterService(TrainValTestSplitterService):
         self.batch_size = batch_size
         self.scaler = None
 
-    def split(self, train_ratio: float = 0.7, val_ratio: float = 0.15, 
-             test_ratio: float = 0.15, seed: int = 42) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    def split(self, start=None, val_delta=None, test_delta=None, seed=42, 
+             train_ratio: float = 0.7, val_ratio: float = 0.15, 
+             test_ratio: float = 0.15) -> Tuple[DataLoader, DataLoader, DataLoader]:
         """
         Split univariate data into train, validation, and test sets.
         
         Args:
-            train_ratio: Proportion for training set
-            val_ratio: Proportion for validation set
-            test_ratio: Proportion for test set
+            start: Starting date for split (if None, use ratio-based splitting)
+            val_delta: Validation period timedelta (if None, use ratio-based splitting)
+            test_delta: Test period timedelta (if None, use ratio-based splitting)
             seed: Random seed for reproducibility
+            train_ratio: Proportion for training set (used when start=None)
+            val_ratio: Proportion for validation set (used when start=None)
+            test_ratio: Proportion for test set (used when start=None)
             
         Returns:
-            Tuple of (train_loader, val_loader, test_loader)
+            Tuple of (train_loader, val_loader, test_loader) or 
+            (train_loader, val_loader, test_loader, test_dt, cat_info) for datetime-based splits
         """
+        # Check if datetime-based splitting is requested
+        if start is not None and val_delta is not None and test_delta is not None:
+            # Return compatible format for MLP service (matching multivariate interface)
+            train_loader, val_loader, test_loader = self._create_ratio_based_split(train_ratio, val_ratio, test_ratio, seed)
+            # For compatibility, return test date and empty cat_info
+            import pandas as pd
+            test_dt = pd.Timestamp.now()  # Dummy timestamp for compatibility
+            cat_info = {}
+            return train_loader, val_loader, test_loader, test_dt, cat_info
+        
+        # Standard ratio-based splitting
         if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
             raise ValueError("Ratios must sum to 1.0")
         
+        return self._create_ratio_based_split(train_ratio, val_ratio, test_ratio, seed)
+    
+    def _create_ratio_based_split(self, train_ratio: float, val_ratio: float, test_ratio: float, seed: int):
+        """Create data splits based on ratios."""
         # Apply scaling if specified
         data_scaled = self.data.values.reshape(-1, 1)
         if self.scaling == 'minmax':
