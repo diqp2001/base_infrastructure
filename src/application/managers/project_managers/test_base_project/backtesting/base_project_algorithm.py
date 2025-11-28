@@ -158,12 +158,21 @@ class BaseProjectAlgorithm(QCAlgorithm):
             # Map factor system columns to expected training columns
             column_mapping = {}
             
-            # Price-based features - handle different price column names
+            # Price-based features - handle different price column names including ticker-prefixed
             price_column = None
+            # First try exact matches
             for col in ['Close', 'close', 'Adj Close', 'price']:
                 if col in df.columns:
                     price_column = col
                     break
+            
+            # If no exact match, look for ticker-prefixed columns
+            if not price_column:
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(price_suffix in col_lower for price_suffix in ['_close', '_adj close', '_price']):
+                        price_column = col
+                        break
             
             if price_column:
                 df['close'] = df[price_column]
@@ -173,19 +182,25 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 df["return_fwd1"] = df["return"].shift(-1)  # Target variable
                 column_mapping[price_column] = 'close'
             else:
-                self.log(f"Warning: No price column found for {ticker}. Available columns: {list(df.columns)}")
-                # Create dummy columns to prevent KeyError
-                df["return"] = 0.0
-                df["return_lag1"] = 0.0 
-                df["return_lag2"] = 0.0
-                df["return_fwd1"] = 0.0
+                error_msg = f"ERROR: No price column found for {ticker}. Available columns: {list(df.columns)}"
+                self.log(error_msg)
+                raise ValueError(error_msg)
             
             # Volatility from factor system or calculate it
             volatility_column = None
+            # First try exact matches
             for col in ['realized_vol', 'daily_vol', 'volatility', 'vol_of_vol']:
                 if col in df.columns:
                     volatility_column = col
                     break
+            
+            # If no exact match, look for ticker-prefixed volatility columns
+            if not volatility_column:
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(vol_suffix in col_lower for vol_suffix in ['_realized_vol', '_daily_vol', '_volatility', '_vol_of_vol']):
+                        volatility_column = col
+                        break
             
             if volatility_column:
                 df['volatility'] = df[volatility_column]
@@ -195,9 +210,9 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 df["volatility"] = df["return"].rolling(self.lookback_window).std()
                 self.log(f"Calculated volatility for {ticker} using rolling window")
             else:
-                # Create dummy volatility column to prevent KeyError
-                df["volatility"] = 0.01  # Small non-zero volatility
-                self.log(f"Warning: No volatility data available for {ticker}, using dummy value")
+                error_msg = f"ERROR: No volatility data available for {ticker} and cannot calculate from price data"
+                self.log(error_msg)
+                raise ValueError(error_msg)
             
             # Use momentum factors from the factor system
             momentum_factors = ['deep_momentum_1d', 'deep_momentum_5d', 'deep_momentum_21d', 'deep_momentum_63d']
@@ -370,7 +385,11 @@ class BaseProjectAlgorithm(QCAlgorithm):
 
             # Enhanced ML signals from spatiotemporal model
             try:
-                if self.spatiotemporal_model and hasattr(self, 'momentum_strategy') and self.momentum_strategy:
+                if (self.spatiotemporal_model is not None and 
+                    hasattr(self, 'momentum_strategy') and 
+                    self.momentum_strategy is not None and
+                    hasattr(self.momentum_strategy, 'trained_model') and
+                    self.momentum_strategy.trained_model is not None):
                     # Get ML signal from our ensemble model
                     ml_signal = self.momentum_strategy.generate_strategy_signals(
                         df, df, self.time
@@ -380,6 +399,8 @@ class BaseProjectAlgorithm(QCAlgorithm):
                     # Combine traditional and ML signals (weighted average)
                     combined_signal = 0.6 * pred + 0.4 * (1 if ml_signal > 0 else 0)
                     signals[ticker] = int(combined_signal > 0.5)
+                else:
+                    self.log(f"ML model not available for {ticker}, using traditional signal only")
                     
             except Exception as e:
                 self.log(f"Error getting ML signal for {ticker}: {str(e)}")

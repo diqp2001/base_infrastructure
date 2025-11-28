@@ -417,7 +417,8 @@ class MLPModelService(ModelService):
         test_returns = np.concatenate(test_returns)
         test_vols = np.concatenate(test_vols)
 
-
+        # Return the expected 7 values for compatibility with calling code
+        return test_dt, val_preds, val_returns, val_vols, test_preds, test_returns, test_vols
 
 
 
