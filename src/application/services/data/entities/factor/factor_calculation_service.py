@@ -772,6 +772,26 @@ class FactorCalculationService:
             else:
                 raise ValueError("ShareVolatilityFactor requires either {'ticker': str} for database extraction or legacy {'returns': List[float], 'dates': List[date]} format")
         
+        elif isinstance(factor, ShareTargetFactor):
+            # Target factor calculation - supports different calling patterns
+            if isinstance(data, dict) and 'prices' in data:
+                # Direct prices provided
+                return self.calculate_and_store_target(
+                    factor, entity_id, prices=data['prices'], dates=data.get('dates'), overwrite=overwrite
+                )
+            elif isinstance(data, dict) and 'ticker' in data:
+                # Extract from database using ticker
+                return self.calculate_and_store_target(
+                    factor, entity_id, ticker=data['ticker'], overwrite=overwrite
+                )
+            elif data is None:
+                # Extract from database without ticker context
+                return self.calculate_and_store_target(
+                    factor, entity_id, ticker=None, overwrite=overwrite
+                )
+            else:
+                raise ValueError("ShareTargetFactor requires either {'prices': List[float], 'dates': List[date]} or {'ticker': str} format")
+        
         else:
             return {
                 'error': f"Unsupported factor type: {type(factor).__name__}",
@@ -1068,3 +1088,190 @@ class FactorCalculationService:
             dates=dates,
             overwrite=overwrite
         )
+    
+    def calculate_and_store_target(
+        self,
+        factor: ShareTargetFactor,
+        entity_id: int,
+        prices: Optional[List[float]] = None,
+        dates: Optional[List] = None,
+        ticker: Optional[str] = None,
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate and store target factor values (returns or price directions).
+        
+        Args:
+            factor: ShareTargetFactor domain entity
+            entity_id: ID of the entity
+            prices: List of price values (if provided directly)
+            dates: List of corresponding dates (if provided directly)
+            ticker: Ticker symbol to extract price data from database
+            overwrite: Whether to overwrite existing values
+            
+        Returns:
+            Dict with calculation results and storage stats
+        """
+        try:
+            # Extract price data if not provided
+            if prices is None:
+                if ticker:
+                    # Extract from database using ticker - implement extraction logic
+                    print(f"⚠️  Database extraction for target factors not implemented for ticker: {ticker}")
+                    return {
+                        'error': f"Database extraction not implemented for target factors",
+                        'factor_name': factor.name,
+                        'stored_values': 0,
+                        'errors': ['Database extraction for target factors not yet implemented']
+                    }
+                else:
+                    return {
+                        'error': f"No price data provided for target factor calculation",
+                        'factor_name': factor.name,
+                        'stored_values': 0,
+                        'errors': ['No prices or ticker provided for target calculation']
+                    }
+            
+            # Calculate target values using the provided calculation logic
+            target_values = self.calculate_target_values(
+                factor=factor,
+                prices=prices,
+                forecast_horizon=factor.forecast_horizon,
+                is_scaled=factor.is_scaled
+            )
+            
+            if not target_values:
+                return {
+                    'factor_name': factor.name,
+                    'stored_values': 0,
+                    'errors': ['No target values could be calculated'],
+                    'calculation_dates': []
+                }
+            
+            # Store target values using factor service
+            entity_type = self._get_entity_type_from_factor(factor)
+            
+            # Adjust dates to match target values length (remove forecast horizon)
+            adjusted_dates = dates[:-factor.forecast_horizon] if dates and len(dates) >= factor.forecast_horizon else []
+            
+            stored_values = self._store_factor_values(
+                factor=factor,
+                entity_id=entity_id,
+                entity_type=entity_type,
+                values=target_values,
+                dates=adjusted_dates,
+                overwrite=overwrite
+            )
+            
+            return {
+                'factor_name': factor.name,
+                'stored_values': stored_values,
+                'calculation_dates': adjusted_dates,
+                'errors': [],
+                'forecast_horizon': factor.forecast_horizon,
+                'target_type': factor.target_type
+            }
+            
+        except Exception as e:
+            return {
+                'error': f"Error calculating target factor {factor.name}: {str(e)}",
+                'factor_name': factor.name,
+                'stored_values': 0,
+                'errors': [str(e)]
+            }
+    
+    def calculate_target_values(
+        self, 
+        factor: ShareTargetFactor,
+        prices: List[float], 
+        forecast_horizon: int = None, 
+        is_scaled: bool = None
+    ) -> List:
+        """
+        Calculate target values based on price data.
+        
+        Args:
+            factor: ShareTargetFactor domain entity with configuration
+            prices: List of price values
+            forecast_horizon: Number of periods ahead to predict (uses factor default if None)
+            is_scaled: Whether to return scaled values (uses factor default if None)
+            
+        Returns:
+            List of target values (returns or price directions)
+        """
+        if not prices or len(prices) < 2:
+            return []
+
+        horizon = forecast_horizon if forecast_horizon is not None else factor.forecast_horizon
+        scaled = is_scaled if is_scaled is not None else factor.is_scaled
+
+        target_values = []
+
+        # Calculate target values based on target_type
+        if factor.target_type.lower() == "return":
+            # Calculate future returns
+            for i in range(len(prices) - horizon):
+                current_price = prices[i]
+                future_price = prices[i + horizon]
+
+                if current_price > 0 and future_price > 0:
+                    return_value = (future_price / current_price) - 1
+                    target_values.append(return_value)
+                else:
+                    target_values.append(0.0)  # Default to 0 for invalid prices
+
+        elif "direction" in factor.target_type.lower() or "binary" in factor.target_type.lower():
+            # Calculate price direction (1 for up, 0 for down)
+            for i in range(len(prices) - horizon):
+                current_price = prices[i]
+                future_price = prices[i + horizon]
+
+                if current_price > 0 and future_price > 0:
+                    direction = 1 if future_price > current_price else 0
+                    target_values.append(direction)
+                else:
+                    target_values.append(0)  # Default to 0 for invalid prices
+        else:
+            # Default to return calculation
+            for i in range(len(prices) - horizon):
+                current_price = prices[i]
+                future_price = prices[i + horizon]
+
+                if current_price > 0 and future_price > 0:
+                    return_value = (future_price / current_price) - 1
+                    target_values.append(return_value)
+                else:
+                    target_values.append(0.0)
+
+        # Apply scaling if requested
+        if scaled and target_values and factor.scaling_method:
+            target_values = self._apply_scaling(target_values, factor.scaling_method)
+
+        return target_values
+
+    def _apply_scaling(self, values: List, scaling_method: str) -> List:
+        """Apply scaling to target values based on scaling_method."""
+        if not values or scaling_method is None:
+            return values
+
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+
+        values_array = np.array(values).reshape(-1, 1)
+
+        if scaling_method.lower() == 'z_score' or scaling_method.lower() == 'standard':
+            scaler = StandardScaler()
+        elif scaling_method.lower() == 'min_max' or scaling_method.lower() == 'minmax':
+            scaler = MinMaxScaler()
+        elif scaling_method.lower() == 'robust':
+            scaler = RobustScaler()
+        else:
+            # Default to standard scaling
+            scaler = StandardScaler()
+
+        try:
+            scaled_values = scaler.fit_transform(values_array)
+            return scaled_values.flatten().tolist()
+        except Exception:
+            # Return original values if scaling fails
+            return values

@@ -77,3 +77,35 @@ class ShareTargetFactor(ShareFactor):
     def is_long_term_target(self) -> bool:
         """Check if this is a long-term prediction target."""
         return self.forecast_horizon > 30
+
+    def calculate_target(self, prices: list, forecast_horizon: int = None, is_scaled: bool = None) -> list:
+        """
+        Calculate target values based on price data.
+        
+        This method delegates to the FactorCalculationService for proper DDD separation.
+        It should be called with the service layer for actual calculation.
+        
+        Args:
+            prices: List of price values
+            forecast_horizon: Number of periods ahead to predict (uses instance default if None)
+            is_scaled: Whether to return scaled values (uses instance default if None)
+            
+        Returns:
+            List of target values (returns or price directions)
+            
+        Note:
+            This is a convenience method that should delegate to FactorCalculationService.
+            Direct use is discouraged - use the service layer instead.
+        """
+        # Import here to avoid circular imports
+        from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
+        
+        # Create service instance (in production this should be injected)
+        service = FactorCalculationService()
+        
+        return service.calculate_target_values(
+            factor=self,
+            prices=prices,
+            forecast_horizon=forecast_horizon,
+            is_scaled=is_scaled
+        )
