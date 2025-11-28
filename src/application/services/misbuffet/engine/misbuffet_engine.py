@@ -499,7 +499,7 @@ class MisbuffetEngine(BaseEngine):
                 continue
         
         # Add debug logging to help diagnose issues
-        self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} bars, has_data: {slice_data.has_data()}")
+        self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} bars, has_data: {slice_data.has_data}")
         
         return slice_data
     

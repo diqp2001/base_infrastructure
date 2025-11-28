@@ -83,31 +83,12 @@ class BaseProjectAlgorithm(QCAlgorithm):
         self._current_data_frame = None
         self._current_data_slice = None
 
-        # Initialize test_base_project components
-        self._initialize_base_project_components()
         
         # Defer initial training until dependencies are injected
         # This will be triggered by the first on_data() call or explicit training call
         self._initial_training_completed = False
 
-    def _initialize_base_project_components(self):
-        """Initialize the test_base_project specific components."""
-        try:
-            self.log("Initializing test_base_project components...")
-            
-            # Initialize as None - they MUST be injected by BacktestRunner before use
-            # If they remain None, the algorithm will have limited functionality
-            self.factor_manager = None  # MUST be injected by BacktestRunner
-            self.spatiotemporal_trainer = None  # MUST be injected by BacktestRunner  
-            self.momentum_strategy = None  # MUST be injected by BacktestRunner
-            
-            # Flag to track if proper injection occurred
-            self._dependencies_injected = False
-            
-            self.log("test_base_project components initialized - awaiting dependency injection")
-            
-        except Exception as e:
-            self.log(f"Error initializing test_base_project components: {str(e)}")
+    
 
     # ---------------------------
     # Features (Enhanced with factor system)
@@ -306,8 +287,12 @@ class BaseProjectAlgorithm(QCAlgorithm):
         self.log(f"🔔 on_data called at {self.time} - data type: {type(data)}")
         
         # Check if dependencies were properly injected
-        if not self._dependencies_injected:
-            self.log(f"⚠️ on_data called but dependencies not fully injected - factor_manager: {self.factor_manager is not None}, trainer: {self.spatiotemporal_trainer is not None}, strategy: {self.momentum_strategy is not None}")
+        if not self.factor_manager:
+            self.log(f"⚠️ on_data called but dependencies not fully injected - factor_manager: {self.factor_manager is not None}")
+        if not self.spatiotemporal_trainer:
+            self.log(f"⚠️ on_data called but dependencies not fully injected - trainer: {self.spatiotemporal_trainer is not None}")
+        if not self.momentum_strategy:
+            self.log(f"⚠️ on_data called but dependencies not fully injected -  strategy: {self.momentum_strategy is not None}")
         
         # Comprehensive data type handling - accept both Slice and DataFrame objects
         if hasattr(data, 'columns') and hasattr(data, 'index'):
