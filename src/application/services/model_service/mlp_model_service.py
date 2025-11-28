@@ -98,7 +98,12 @@ class MLPModelService(ModelService):
 
         batch_data = next(iter(train_loader))
         if model_type != 'tft':
-            batch_x, batch_y, _, _ = batch_data
+            # Handle case where batch_data only contains 2 tensors: features and targets
+            if len(batch_data) == 2:
+                batch_x, batch_y = batch_data
+            else:
+                # Handle case with 4 values (includes mask and volatility)
+                batch_x, batch_y, _, _ = batch_data
         else:
             batch_x, _, _, _, _, _, batch_y, _, _ = batch_data
         
@@ -133,7 +138,13 @@ class MLPModelService(ModelService):
                     batch_data[i] = batch_data[i].to(device)
                 
                 if model_type != 'tft':
-                    batch_x, batch_y, batch_mask, batch_vol = batch_data
+                    # Handle case where batch_data only contains 2 tensors: features and targets
+                    if len(batch_data) == 2:
+                        batch_x, batch_y = batch_data
+                        batch_mask, batch_vol = None, None
+                    else:
+                        # Handle case with 4 values (includes mask and volatility)
+                        batch_x, batch_y, batch_mask, batch_vol = batch_data
                     input_data = [batch_x]
                 else:
                     batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real, batch_x_dec_cat, \
@@ -147,11 +158,11 @@ class MLPModelService(ModelService):
                 output = model(*input_data)
                 
                 # mask is used to avoid overlapping of data of different assets in single batch
-                l = sharpe_loss(output, batch_y, batch_mask)
+                l = sharpe_loss(output, batch_y, mask=batch_mask)
                 train_loss += l.item()
                 
                 # optionally apply regularization
-                if apply_turnover_reg:
+                if apply_turnover_reg and batch_vol is not None:
                     l_turnover = reg_turnover(output, batch_vol, batch_mask)
                     train_turnover_loss += l_turnover.item()
                     l += l_turnover
