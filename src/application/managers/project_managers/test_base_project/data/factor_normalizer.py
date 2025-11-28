@@ -543,6 +543,18 @@ class FactorNormalizer:
             'bollinger_lower': NormalizationConfig(
                 method=NormalizationMethod.Z_SCORE,
                 scope=NormalizationScope.CROSS_SECTIONAL
+            ),
+
+            # Target factors - cross-sectional normalization
+            'target_returns': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'target_returns_nonscaled': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
             )
         }
     

@@ -271,11 +271,23 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
 
             # Apply date filters
             if start_date:
-                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                # Handle both string and datetime objects
+                if isinstance(start_date, str):
+                    start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                elif isinstance(start_date, datetime):
+                    start_date_obj = start_date.date()
+                else:
+                    start_date_obj = start_date
                 query = query.filter(FactorValueModel.date >= start_date_obj)
 
             if end_date:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                # Handle both string and datetime objects
+                if isinstance(end_date, str):
+                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                elif isinstance(end_date, datetime):
+                    end_date_obj = end_date.date()
+                else:
+                    end_date_obj = end_date
                 query = query.filter(FactorValueModel.date <= end_date_obj)
 
             # Order by date, factor, and entity for consistent results
@@ -331,11 +343,22 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
 
             # Apply date filters
             if start_date:
-                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                if isinstance(start_date, str):
+                    start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                elif isinstance(start_date, datetime):
+                    start_date_obj = start_date.date()
+                else:
+                    start_date_obj = start_date
                 query = query.filter(FactorValueModel.date >= start_date_obj)
 
             if end_date:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                # Handle both string and datetime objects
+                if isinstance(end_date, str):
+                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                elif isinstance(end_date, datetime):
+                    end_date_obj = end_date.date()
+                else:
+                    end_date_obj = end_date
                 query = query.filter(FactorValueModel.date <= end_date_obj)
 
             # Order by date, factor, and entity

@@ -178,7 +178,7 @@ class SpatiotemporalModelTrainer:
                         factor_id=int(factor_entity.id), 
                         entity_id=company.id
                     )
-                    if not df.empty:
+                    if df is not None and hasattr(df, 'empty') and not df.empty:
                         df["date"] = pd.to_datetime(df["date"])
                         df.set_index("date", inplace=True)
                         df["value"] = df["value"].astype(float)
@@ -220,7 +220,7 @@ class SpatiotemporalModelTrainer:
             print(f"  🔍 Loading factor data for {ticker}...")
             ticker_data = self._load_ticker_factor_data(ticker)
             
-            if ticker_data is not None and not ticker_data.empty:
+            if ticker_data is not None and hasattr(ticker_data, 'empty') and not ticker_data.empty:
                 factor_data[ticker] = ticker_data
                 print(f"    ✅ Loaded {len(ticker_data)} records with {len(ticker_data.columns)} factors")
             else:
