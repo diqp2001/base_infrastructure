@@ -1336,3 +1336,58 @@ class FactorCalculationService:
         except Exception:
             # Return original values if scaling fails
             return values
+    
+    def _store_factor_values(
+        self,
+        factor: Factor,
+        entity_id: int,
+        entity_type: str,
+        values: List[float],
+        dates: List,
+        overwrite: bool = False
+    ) -> int:
+        """
+        Store calculated factor values in the database.
+        
+        Args:
+            factor: Factor domain entity
+            entity_id: ID of the entity
+            entity_type: Type of entity
+            values: List of calculated values
+            dates: List of corresponding dates
+            overwrite: Whether to overwrite existing values
+            
+        Returns:
+            Number of successfully stored values
+        """
+        stored_count = 0
+        
+        if len(values) != len(dates):
+            print(f"⚠️  Warning: Mismatch between values ({len(values)}) and dates ({len(dates)}) for factor {factor.name}")
+            min_length = min(len(values), len(dates))
+            values = values[:min_length]
+            dates = dates[:min_length]
+        
+        for value, date in zip(values, dates):
+            try:
+                # Check if value already exists
+                if not overwrite and self.repository.factor_value_exists(
+                    factor.factor_id, entity_id, date
+                ):
+                    continue
+                
+                # Store the value
+                factor_value = self.repository.add_factor_value(
+                    factor_id=factor.factor_id,
+                    entity_id=entity_id,
+                    date=date,
+                    value=str(value)
+                )
+                
+                if factor_value:
+                    stored_count += 1
+            
+            except Exception as e:
+                print(f"❌ Error storing factor value for {factor.name} on {date}: {str(e)}")
+        
+        return stored_count
