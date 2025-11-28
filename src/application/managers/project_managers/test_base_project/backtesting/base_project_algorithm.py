@@ -126,7 +126,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
                         end_date=current_time
                     )
                     
-                    if not factor_data.empty:
+                    if factor_data is not None and not factor_data.empty:
                         self.log(f"Retrieved {len(factor_data)} factor data points for {ticker}")
                         
                         # Convert factor data to the format expected by the model
@@ -472,7 +472,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
                     factor_groups=['price'],
                     lookback_days=self.train_window
                 )
-                if not factor_data.empty and 'price' in factor_data.columns:
+                if factor_data is not None and not factor_data.empty and 'price' in factor_data.columns:
                     prices = factor_data['price'].values
                     returns = np.diff(prices) / prices[:-1]
                     return returns

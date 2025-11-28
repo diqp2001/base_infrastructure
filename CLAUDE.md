@@ -182,3 +182,13 @@ Each layer now includes comprehensive CLAUDE.md files:
 - [ ] Mobile companion app (React Native/Flutter)
 - [ ] Machine learning model marketplace
 - [ ] Multi-broker support expansion
+
+---
+
+## 11. 🔗 External References
+
+### SpatioTemporalMomentum Implementation
+For tensor creation, training of multivariate and univariate models, MLP models, and TFT models, refer to the reference implementation at:
+https://github.com/KurochkinAlexey/SpatioTemporalMomentum
+
+This repository provides the foundational algorithms and data structures used in the spatiotemporal modeling components of this project.
