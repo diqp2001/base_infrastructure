@@ -362,6 +362,15 @@ class FactorCalculationService:
                     technical_value = factor.calculate_ema(historical_prices)
                 elif factor.indicator_type.upper() == 'RSI':
                     technical_value = factor.calculate_rsi(historical_prices)
+
+                elif factor.indicator_type.upper() == 'MACD' or 'macd' in factor.name.lower():
+                    # Handle MACD calculation - extract periods from factor name if specified
+                    fast_period, slow_period = self._extract_macd_periods_from_factor_name(factor.name)
+                    if hasattr(factor, 'calculate_macd'):
+                        technical_value = factor.calculate_macd(historical_prices, fast_period, slow_period)
+                    else:
+                        # Use the same MACD calculation logic as in factor_normalizer
+                        technical_value = self._calculate_macd_value(historical_prices, fast_period, slow_period)
                 else:
                     results['errors'].append(f"Unknown indicator type: {factor.indicator_type}")
                     continue
@@ -404,6 +413,50 @@ class FactorCalculationService:
         
         return results
     
+    def _extract_macd_periods_from_factor_name(self, factor_name: str) -> tuple:
+        """Extract MACD fast and slow periods from factor name like 'macd_8_24'."""
+        try:
+            if 'macd_' in factor_name.lower():
+                # Extract periods from name like 'macd_8_24' -> (8, 24)
+                parts = factor_name.lower().split('_')
+                if len(parts) >= 3:
+                    fast_period = int(parts[1])
+                    slow_period = int(parts[2])
+                    return fast_period, slow_period
+        except (ValueError, IndexError):
+            pass
+        # Default MACD periods
+        return 12, 26
+
+    def _calculate_macd_value(self, prices: list, fast_period: int, slow_period: int) -> float:
+        """
+        Calculate MACD value for a single point in time.
+        
+        Uses exponential moving averages and returns the MACD line (fast EMA - slow EMA).
+        """
+        try:
+            import pandas as pd
+
+            if len(prices) < max(fast_period, slow_period):
+                return None
+
+            # Convert to pandas Series for EMA calculation
+            price_series = pd.Series(prices)
+
+            # Calculate exponential moving averages
+            ema_fast = price_series.ewm(span=fast_period).mean()
+            ema_slow = price_series.ewm(span=slow_period).mean()
+
+            # MACD line = fast EMA - slow EMA
+            macd_line = ema_fast - ema_slow
+
+            # Return the most recent MACD value
+            return float(macd_line.iloc[-1])
+
+        except Exception as e:
+            print(f"Error calculating MACD value: {str(e)}")
+            return None
+        
     def _calculate_technical_legacy(
         self,
         factor: ShareTechnicalFactor,
@@ -449,6 +502,14 @@ class FactorCalculationService:
                         technical_value = factor.calculate_ema(historical_prices)
                     elif factor.indicator_type.upper() == 'RSI':
                         technical_value = factor.calculate_rsi(historical_prices)
+                    elif factor.indicator_type.upper() == 'MACD' or 'macd' in factor.name.lower():
+                        # Handle MACD calculation - extract periods from factor name if specified
+                        fast_period, slow_period = self._extract_macd_periods_from_factor_name(factor.name)
+                        if hasattr(factor, 'calculate_macd'):
+                            technical_value = factor.calculate_macd(historical_prices, fast_period, slow_period)
+                        else:
+                            # Use the same MACD calculation logic as in factor_normalizer
+                            technical_value = self._calculate_macd_value(historical_prices, fast_period, slow_period)
                     else:
                         results['errors'].append(f"Unknown indicator type: {factor.indicator_type}")
                         continue

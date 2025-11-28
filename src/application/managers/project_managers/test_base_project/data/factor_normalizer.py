@@ -438,6 +438,55 @@ class FactorNormalizer:
         """Get default normalization configurations for different factor types."""
         
         return {
+            # Basic price data - cross-sectional normalization
+            'High': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'Low': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'Open': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'Close': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'Adj Close': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+
+            # Raw momentum factors - cross-sectional normalization
+            'deep_momentum_1d': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'deep_momentum_5d': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'deep_momentum_21d': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+            'deep_momentum_63d': NormalizationConfig(
+                method=NormalizationMethod.Z_SCORE,
+                scope=NormalizationScope.CROSS_SECTIONAL,
+                winsorize_percentiles=(0.01, 0.99)
+            ),
+
             # Normalized returns - cross-sectional z-score
             'norm_daily_return': NormalizationConfig(
                 method=NormalizationMethod.Z_SCORE,
