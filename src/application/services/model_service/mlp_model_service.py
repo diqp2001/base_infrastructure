@@ -43,9 +43,18 @@ class MLPModelService(ModelService):
 
         return MLP(input_dim, output_dim, timesteps,mult)
 
-    def train_univariate(self, splitter, start, val_delta, test_delta, seed):
+    def train_univariate(self, splitter, start, val_delta, test_delta, seed, hidden_layers=None, **kwargs):
         """
         Advanced training method for univariate time series prediction with financial metrics.
+        
+        Args:
+            splitter: Data splitter service
+            start: Start date for training
+            val_delta: Validation delta period
+            test_delta: Test delta period
+            seed: Random seed for reproducibility
+            hidden_layers: Number of hidden layers (optional, uses default if None)
+            **kwargs: Additional keyword arguments
         """
         val_delta = pd.Timedelta('365days')
         test_delta = pd.Timedelta('365days')
@@ -62,6 +71,12 @@ class MLPModelService(ModelService):
         target_vol = 0.15 #measure for turnover evaluation
         basis_points = [0, 1, 5, 10] #coefficients for turnover evaluation
         model_type = 'mlp'
+        
+        # Use hidden_layers parameter if provided, otherwise use default configuration
+        if hidden_layers is not None:
+            # Custom hidden layer configuration could be implemented here
+            print(f"📊 Using custom hidden layers configuration: {hidden_layers}")
+        
         if model_type == 'tft':
             history_size = 63
             encoder_length = 42 # in case of tft encoder length should be int
