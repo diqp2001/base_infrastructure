@@ -490,9 +490,9 @@ class MisbuffetEngine(BaseEngine):
                     # Add to slice - both to bars and data for proper has_data() check
                     slice_data.bars[symbol] = trade_bar
                     # Also add to the data dictionary so has_data() returns True
-                    if symbol not in slice_data.data:
-                        slice_data.data[symbol] = []
-                    slice_data.data[symbol].append(trade_bar)
+                    if symbol not in slice_data._data:
+                        slice_data._data[symbol] = []
+                    slice_data._data[symbol].append(trade_bar)
                     
             except Exception as e:
                 self.logger.debug(f"No data available for {ticker} on {current_date}: {e}")

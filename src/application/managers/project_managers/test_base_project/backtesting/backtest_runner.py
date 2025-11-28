@@ -326,7 +326,7 @@ class BacktestRunner:
                     'model_type': model_type
                 },
                 'factor_system': factor_results if setup_factors else None,
-                'model_training': training_results,
+                #'model_training': training_results,
                 'misbuffet_result': result.summary() if result else None,
                 'execution_time': elapsed_time,
                 'success': True,
