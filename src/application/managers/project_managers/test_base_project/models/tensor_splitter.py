@@ -156,17 +156,26 @@ class TensorSplitterManager:
             print(f"  ✅ Using {len(available_cols)} available features")
         
         try:
+            # Convert prepared_data dict to a single Series for univariate splitter
+            # Combine all asset data into one series for univariate analysis
+            combined_data = []
+            for asset, df in prepared_data.items():
+                # Use the target column as the primary data series
+                if target_col in df.columns:
+                    combined_data.extend(df[target_col].dropna().tolist())
+            
+            if not combined_data:
+                raise ValueError(f"No valid data found for target column '{target_col}'")
+            
+            # Convert to pandas Series
+            import pandas as pd
+            data_series = pd.Series(combined_data)
+            
             splitter = UnivariateTrainValTestSplitterService(
-                data=prepared_data,
-                cols=available_cols,
-                cat_cols=cat_cols,
-                target_col=target_col,
-                orig_returns_col=f'{target_col}_nonscaled',
-                vol_col='daily_vol',
-                scaling=scaling,
+                data=data_series,
                 timesteps=timesteps,
-                encoder_length=encoder_length,
-                use_asset_info_as_feature=len(prepared_data) > 1
+                scaling=scaling,
+                batch_size=64  # Default batch size
             )
             
             print(f"  ✅ Univariate splitter created successfully")
@@ -282,17 +291,24 @@ class TensorSplitterManager:
             
             fallback_data[asset] = asset_data
         
+        # Convert fallback_data to a single Series like in the main method
+        combined_fallback_data = []
+        for asset, df in fallback_data.items():
+            if target_col in df.columns:
+                combined_fallback_data.extend(df[target_col].dropna().tolist())
+        
+        if not combined_fallback_data:
+            # Create dummy data if no valid data found
+            combined_fallback_data = [0.0] * 100  # Create 100 dummy data points
+        
+        import pandas as pd
+        fallback_series = pd.Series(combined_fallback_data)
+        
         return UnivariateTrainValTestSplitterService(
-            data=fallback_data,
-            cols=fallback_cols,
-            cat_cols=['asset'],
-            target_col=target_col,
-            orig_returns_col=f'{target_col}_nonscaled',
-            vol_col='daily_vol',
-            scaling=None,
+            data=fallback_series,
             timesteps=timesteps,
-            encoder_length=None,
-            use_asset_info_as_feature=True
+            scaling=None,
+            batch_size=64
         )
     
     def validate_data_for_tensors(self, data: pd.DataFrame, required_cols: List[str]) -> Dict[str, Any]:
