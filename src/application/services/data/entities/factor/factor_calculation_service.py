@@ -1372,13 +1372,13 @@ class FactorCalculationService:
             try:
                 # Check if value already exists
                 if not overwrite and self.repository.factor_value_exists(
-                    factor.factor_id, entity_id, date
+                    factor.id, entity_id, date
                 ):
                     continue
                 
                 # Store the value
                 factor_value = self.repository.add_factor_value(
-                    factor_id=factor.factor_id,
+                    factor_id=factor.id,
                     entity_id=entity_id,
                     date=date,
                     value=str(value)
