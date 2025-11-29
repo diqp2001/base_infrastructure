@@ -1109,6 +1109,7 @@ class PowerBuffetService:
     def get_sample_queries(self) -> List[Dict[str, Any]]:
         """Get a list of sample SQL queries for common use cases"""
         return [
+            # Original existing queries
             {
                 "id": "stock_price_comparison",
                 "title": "📈 Stock Price Comparison",
@@ -1175,6 +1176,178 @@ ORDER BY Month DESC""",
                 "expected_columns": ["Month", "Monthly_Low", "Monthly_High", "Avg_Close", "Total_Volume"],
                 "chart_suggestions": ["line", "bar"]
             },
+            
+            # NEW: SELECT TOP 1000 queries for each table
+            {
+                "id": "aapl_top_1000",
+                "title": "🍎 AAPL - Top 1000 Records",
+                "description": "Select top 1000 records from AAPL stock data",
+                "query": """SELECT Date, Open, High, Low, Close, `Adj Close`, Volume
+FROM aapl 
+ORDER BY Date DESC 
+LIMIT 1000""",
+                "category": "Data Exploration",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            {
+                "id": "msft_top_1000",
+                "title": "🪟 MSFT - Top 1000 Records",
+                "description": "Select top 1000 records from Microsoft stock data",
+                "query": """SELECT Date, Open, High, Low, Close, `Adj Close`, Volume
+FROM msft 
+ORDER BY Date DESC 
+LIMIT 1000""",
+                "category": "Data Exploration",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            {
+                "id": "googl_top_1000",
+                "title": "🔍 GOOGL - Top 1000 Records",
+                "description": "Select top 1000 records from Google stock data",
+                "query": """SELECT Date, Open, High, Low, Close, `Adj Close`, Volume
+FROM googl 
+ORDER BY Date DESC 
+LIMIT 1000""",
+                "category": "Data Exploration",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            {
+                "id": "amzn_top_1000",
+                "title": "📦 AMZN - Top 1000 Records",
+                "description": "Select top 1000 records from Amazon stock data",
+                "query": """SELECT Date, Open, High, Low, Close, `Adj Close`, Volume
+FROM amzn 
+ORDER BY Date DESC 
+LIMIT 1000""",
+                "category": "Data Exploration",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            {
+                "id": "spy_top_1000",
+                "title": "📊 SPY - Top 1000 Records",
+                "description": "Select top 1000 records from S&P 500 ETF data",
+                "query": """SELECT Date, Open, High, Low, Close, `Adj Close`, Volume
+FROM spy 
+ORDER BY Date DESC 
+LIMIT 1000""",
+                "category": "Data Exploration",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            
+            # NEW: JOIN queries between tables using date
+            {
+                "id": "stock_correlation_join",
+                "title": "🔗 Stock Price Correlation (AAPL vs MSFT)",
+                "description": "Join AAPL and MSFT data by date to analyze correlation",
+                "query": """SELECT 
+    a.Date,
+    a.Close as AAPL_Close,
+    m.Close as MSFT_Close,
+    a.Volume as AAPL_Volume,
+    m.Volume as MSFT_Volume,
+    ((a.Close - a.Open) / a.Open * 100) as AAPL_Daily_Return,
+    ((m.Close - m.Open) / m.Open * 100) as MSFT_Daily_Return
+FROM aapl a
+INNER JOIN msft m ON a.Date = m.Date
+WHERE a.Date >= '2023-01-01'
+ORDER BY a.Date DESC
+LIMIT 1000""",
+                "category": "JOIN Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "AAPL_Close", "MSFT_Close", "AAPL_Volume", "MSFT_Volume", "AAPL_Daily_Return", "MSFT_Daily_Return"],
+                "chart_suggestions": ["scatter", "line", "correlation"]
+            },
+            {
+                "id": "tech_stocks_comparison_join",
+                "title": "🔗 Tech Giants Comparison (3-Way JOIN)",
+                "description": "Compare AAPL, MSFT, and GOOGL using date-based JOINs",
+                "query": """SELECT 
+    a.Date,
+    a.Close as AAPL_Price,
+    m.Close as MSFT_Price,
+    g.Close as GOOGL_Price,
+    a.Volume as AAPL_Vol,
+    m.Volume as MSFT_Vol,
+    g.Volume as GOOGL_Vol,
+    (a.High - a.Low) as AAPL_DayRange,
+    (m.High - m.Low) as MSFT_DayRange,
+    (g.High - g.Low) as GOOGL_DayRange
+FROM aapl a
+INNER JOIN msft m ON a.Date = m.Date
+INNER JOIN googl g ON a.Date = g.Date
+WHERE a.Date >= '2022-01-01'
+ORDER BY a.Date DESC
+LIMIT 1000""",
+                "category": "JOIN Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "AAPL_Price", "MSFT_Price", "GOOGL_Price", "AAPL_Vol", "MSFT_Vol", "GOOGL_Vol", "AAPL_DayRange", "MSFT_DayRange", "GOOGL_DayRange"],
+                "chart_suggestions": ["line", "scatter", "correlation"]
+            },
+            {
+                "id": "market_vs_tech_join",
+                "title": "🔗 Market ETF vs Tech Stock (SPY vs AAPL)",
+                "description": "Join SPY market data with AAPL to compare individual vs market performance",
+                "query": """SELECT 
+    s.Date,
+    s.Close as SPY_Close,
+    a.Close as AAPL_Close,
+    s.Volume as SPY_Volume,
+    a.Volume as AAPL_Volume,
+    ((s.Close - s.Open) / s.Open * 100) as SPY_Return,
+    ((a.Close - a.Open) / a.Open * 100) as AAPL_Return,
+    CASE 
+        WHEN ((a.Close - a.Open) / a.Open) > ((s.Close - s.Open) / s.Open) THEN 'AAPL Outperformed'
+        ELSE 'SPY Outperformed'
+    END as Performance_Winner
+FROM spy s
+INNER JOIN aapl a ON s.Date = a.Date
+WHERE s.Date >= '2023-01-01'
+ORDER BY s.Date DESC
+LIMIT 1000""",
+                "category": "JOIN Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "SPY_Close", "AAPL_Close", "SPY_Volume", "AAPL_Volume", "SPY_Return", "AAPL_Return", "Performance_Winner"],
+                "chart_suggestions": ["line", "scatter", "bar"]
+            },
+            {
+                "id": "all_stocks_join_summary",
+                "title": "🔗 All Stocks Daily Summary (5-Way JOIN)",
+                "description": "Join all available stock tables by date for comprehensive daily comparison",
+                "query": """SELECT 
+    a.Date,
+    a.Close as AAPL,
+    m.Close as MSFT,
+    g.Close as GOOGL,
+    amz.Close as AMZN,
+    s.Close as SPY,
+    (a.Volume + m.Volume + g.Volume + amz.Volume) as Total_Stock_Volume,
+    s.Volume as Market_Volume,
+    ROUND(AVG(a.Close + m.Close + g.Close + amz.Close) / 4, 2) as Avg_Stock_Price
+FROM aapl a
+INNER JOIN msft m ON a.Date = m.Date
+INNER JOIN googl g ON a.Date = g.Date  
+INNER JOIN amzn amz ON a.Date = amz.Date
+INNER JOIN spy s ON a.Date = s.Date
+WHERE a.Date >= '2022-01-01'
+ORDER BY a.Date DESC
+LIMIT 1000""",
+                "category": "JOIN Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "AAPL", "MSFT", "GOOGL", "AMZN", "SPY", "Total_Stock_Volume", "Market_Volume", "Avg_Stock_Price"],
+                "chart_suggestions": ["line", "bar", "correlation"]
+            },
+            
+            # Original remaining queries
             {
                 "id": "multi_stock_comparison",
                 "title": "🔄 Multi-Stock Price Comparison",
