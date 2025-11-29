@@ -104,7 +104,7 @@ class MLPModelService(ModelService):
         decay_gamma = 0.75
         early_stopping_rounds = 10
         n_epochs = 2
-        device = 'cuda'
+        device = 'cpu'
         target_vol = 0.15 #measure for turnover evaluation
         basis_points = [0, 1, 5, 10] #coefficients for turnover evaluation
         model_type = 'mlp'
@@ -117,7 +117,7 @@ class MLPModelService(ModelService):
         if model_type == 'tft':
             history_size = 63
             encoder_length = 42 # in case of tft encoder length should be int
-            model_params = {'device': 'cuda'}
+            model_params = {'device': 'cpu'}
             use_asset_info_as_feature = True # use asset name as categorical variable
         else:
             history_size = 21

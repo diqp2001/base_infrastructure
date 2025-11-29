@@ -30,8 +30,8 @@ class CustomJSONProvider(DefaultJSONProvider):
             return obj.tolist()
         return super().default(obj)
 
-from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
-from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
+from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+#from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from src.application.services.misbuffet.web.powerbuffet.powerbuffet import PowerBuffetService
 
 web_bp = Blueprint("web", __name__)
