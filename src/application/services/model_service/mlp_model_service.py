@@ -16,32 +16,69 @@ class MLPModelService(ModelService):
         super().__init__()
         
 
-    def _build_model(self, input_dim, output_dim, timesteps,cat_info=None, mult=0.3) -> nn.Module:
+    def _build_model(self, input_dim, output_dim, timesteps, cat_info=None, mult=0.3, hidden_layers=None) -> nn.Module:
         """
-        Build the MLP model.
+        Build the MLP model with configurable hidden layers.
+        
+        Args:
+            input_dim: Number of input features
+            output_dim: Number of output features
+            timesteps: Number of timesteps in sequence
+            cat_info: Categorical information (unused in this implementation)
+            mult: Multiplier for default hidden dimension calculation
+            hidden_layers: List of hidden layer sizes (e.g., [128, 64, 32])
         """
         class MLP(nn.Module):
-            def __init__(self, input_dim, output_dim, timesteps,cat_info=None, mult=0.3):
+            def __init__(self, input_dim, output_dim, timesteps, cat_info=None, mult=0.3, hidden_layers=None):
                 super().__init__()
-
-                hidden_dim = int(input_dim * timesteps * mult)
-
-                self.hidden_layer = nn.Linear(input_dim * timesteps, hidden_dim)
-                self.bn = nn.BatchNorm1d(hidden_dim)
-                self.output_layer = nn.Linear(hidden_dim, output_dim * timesteps)
+                
                 self.timesteps = timesteps
                 self.output_dim = output_dim
+                
+                # Calculate input size after flattening
+                input_size = input_dim * timesteps
+                
+                # Use configured hidden layers or default calculation
+                if hidden_layers is not None and len(hidden_layers) > 0:
+                    # Use configured hidden layers
+                    layers = []
+                    prev_size = input_size
+                    
+                    # Add hidden layers
+                    for i, hidden_size in enumerate(hidden_layers):
+                        layers.append(nn.Linear(prev_size, hidden_size))
+                        if i < len(hidden_layers) - 1:  # Don't add activation after last hidden layer
+                            layers.append(nn.BatchNorm1d(hidden_size))
+                            layers.append(nn.ReLU())
+                        prev_size = hidden_size
+                    
+                    # Final output layer
+                    layers.append(nn.Linear(prev_size, output_dim * timesteps))
+                    
+                    self.network = nn.Sequential(*layers)
+                else:
+                    # Use original simple architecture
+                    hidden_dim = int(input_size * mult)
+                    self.network = nn.Sequential(
+                        nn.Linear(input_size, hidden_dim),
+                        nn.BatchNorm1d(hidden_dim),
+                        nn.Tanh(),
+                        nn.Linear(hidden_dim, output_dim * timesteps)
+                    )
 
             def forward(self, x):
+                # Flatten the input tensor: [batch_size, timesteps, features] -> [batch_size, timesteps * features]
                 x = x.flatten(start_dim=1)
-                x = self.bn(self.hidden_layer(x))
-                x = torch.tanh(x)
-                out = self.output_layer(x)
+                
+                # Pass through network
+                out = self.network(x)
+                
+                # Reshape to [batch_size, timesteps, output_dim]
                 out = out.view(out.shape[0], self.timesteps, self.output_dim)
                 out = torch.tanh(out)
                 return out
 
-        return MLP(input_dim, output_dim, timesteps,mult)
+        return MLP(input_dim, output_dim, timesteps, cat_info, mult, hidden_layers)
 
     def train_univariate(self, splitter, start, val_delta, test_delta, seed, hidden_layers=None, **kwargs):
         """
@@ -113,7 +150,7 @@ class MLPModelService(ModelService):
         
         # fix weights initialization for reproducibility
         self._set_seed(seed)
-        model = self._build_model(input_dim, output_dim, timesteps= history_size, cat_info=cat_info).to(device)
+        model = self._build_model(input_dim, output_dim, timesteps=history_size, cat_info=cat_info, hidden_layers=hidden_layers).to(device)
         
         opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         sc = torch.optim.lr_scheduler.StepLR(opt, decay_steps, decay_gamma)
