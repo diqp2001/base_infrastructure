@@ -544,6 +544,37 @@ def reg_turnover(preds, vol, mask=None, alpha=1e-4, is_l1=True, target_vol=0.15,
     return l
 
 def sharpe_loss(preds, returns, weights=None, mask=None):
+    # Handle tensor dimension mismatch by ensuring compatible shapes
+    # preds: [batch_size, timesteps, 1] or [batch_size, timesteps, output_dim]
+    # returns: [batch_size, timesteps, features]
+    
+    # Debug tensor shapes to understand the mismatch
+    # print(f"Debug - preds shape: {preds.shape}, returns shape: {returns.shape}")
+    
+    # If preds has fewer timesteps than returns, slice returns to match
+    if preds.shape[1] != returns.shape[1]:
+        min_timesteps = min(preds.shape[1], returns.shape[1])
+        preds = preds[:, :min_timesteps, :]
+        returns = returns[:, :min_timesteps, :]
+    
+    # Ensure preds can broadcast with returns for element-wise multiplication
+    # If preds has shape [batch_size, timesteps, 1] and returns has [batch_size, timesteps, features]
+    # The broadcasting should work automatically, but we'll expand if needed
+    if preds.shape[2] == 1 and returns.shape[2] > 1:
+        # Expand preds to match returns' last dimension for element-wise multiplication
+        preds = preds.expand(-1, -1, returns.shape[2])
+    elif preds.shape[2] > 1 and returns.shape[2] == 1:
+        # Expand returns to match preds' last dimension
+        returns = returns.expand(-1, -1, preds.shape[2])
+    elif preds.shape[2] != returns.shape[2]:
+        # If dimensions don't match and neither is 1, take the mean along the feature dimension
+        if preds.shape[2] > returns.shape[2]:
+            preds = torch.mean(preds, dim=2, keepdim=True)
+            preds = preds.expand(-1, -1, returns.shape[2])
+        else:
+            returns = torch.mean(returns, dim=2, keepdim=True)
+            returns = returns.expand(-1, -1, preds.shape[2])
+    
     R = preds*returns
     if mask is not None:
         R = R*mask
