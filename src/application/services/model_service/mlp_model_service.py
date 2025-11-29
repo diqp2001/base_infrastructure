@@ -48,7 +48,7 @@ class MLPModelService(ModelService):
                     for i, hidden_size in enumerate(hidden_layers):
                         layers.append(nn.Linear(prev_size, hidden_size))
                         if i < len(hidden_layers) - 1:  # Don't add activation after last hidden layer
-                            layers.append(nn.BatchNorm1d(hidden_size))
+                            layers.append(nn.LayerNorm(hidden_size))  # Use LayerNorm instead of BatchNorm1d
                             layers.append(nn.ReLU())
                         prev_size = hidden_size
                     
@@ -61,7 +61,7 @@ class MLPModelService(ModelService):
                     hidden_dim = int(input_size * mult)
                     self.network = nn.Sequential(
                         nn.Linear(input_size, hidden_dim),
-                        nn.BatchNorm1d(hidden_dim),
+                        nn.LayerNorm(hidden_dim),  # Use LayerNorm instead of BatchNorm1d
                         nn.Tanh(),
                         nn.Linear(hidden_dim, output_dim * timesteps)
                     )
