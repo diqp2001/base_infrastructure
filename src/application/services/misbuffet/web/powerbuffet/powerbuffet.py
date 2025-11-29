@@ -142,6 +142,8 @@ class PowerBuffetService:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
                     full_df = pd.read_csv(csv_file)
+                    # Clean NaN values to prevent fillna() issues
+                    full_df = full_df.fillna(value=None)
                     row_count = len(full_df)
                     
                     # Get preview data (first 10 rows)
@@ -172,6 +174,8 @@ class PowerBuffetService:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
                     full_df = pd.read_csv(csv_file)
+                    # Clean NaN values to prevent fillna() issues
+                    full_df = full_df.fillna(value=None)
                     row_count = len(full_df)
                     
                     # Get preview data (first 10 rows)
@@ -254,6 +258,8 @@ class PowerBuffetService:
                 
                 if csv_file.exists():
                     df = pd.read_csv(csv_file)
+                    # Clean NaN values to prevent fillna() issues
+                    df = df.fillna(value=None)
                     preview_df = df.head(10)
                     # Replace NaN values with None for JSON serialization
                     preview_df = preview_df.fillna(None)
@@ -331,6 +337,8 @@ class PowerBuffetService:
             
             if csv_file.exists():
                 data = pd.read_csv(csv_file)
+                # Clean NaN values to prevent fillna() issues
+                data = data.fillna(value=None)
                 # Convert Date column to datetime if it exists
                 if 'Date' in data.columns:
                     data['Date'] = pd.to_datetime(data['Date'])
@@ -1015,6 +1023,8 @@ class PowerBuffetService:
             for csv_file in csv_files:
                 try:
                     df = pd.read_csv(csv_file)
+                    # Clean NaN values before loading to SQLite to prevent fillna() issues
+                    df = df.fillna(value=None)
                     table_name = csv_file.stem.lower()  # Use lowercase table name
                     df.to_sql(table_name, conn, if_exists='replace', index=False)
                     table_info[table_name] = {
