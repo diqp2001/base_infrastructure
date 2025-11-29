@@ -225,44 +225,45 @@ class MLPModelService(ModelService):
                 for batch_data in val_loader:
                     # unpack batches
                     for i in range(len(batch_data)):
-                        for k in batch_data[i].keys():
-                            batch_data[i][k] = batch_data[i][k].to(device)
+                        batch_data[i] = batch_data[i].to(device)
 
                     if model_type != 'tft':
-                        batch_x, batch_y, batch_vol = batch_data
+                        # Handle case where batch_data only contains 2 tensors: features and targets
+                        if len(batch_data) == 2:
+                            batch_x, batch_y = batch_data
+                            batch_vol = None
+                        else:
+                            # Handle case with 3+ values (includes volatility)
+                            batch_x, batch_y, batch_vol = batch_data
                     else:
                         batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real, batch_x_dec_cat, \
                         batch_enc_len, batch_dec_len, batch_y, batch_vol = batch_data
 
-                    preds_, returns_, vols_ = [], [], []
-                
-                    for key in batch_y.keys():
-                        if model_type != 'tft':
-                            input_data = [batch_x[key]]
-                        else:                                     
-                            input_data = [batch_x_enc_real[key], batch_x_enc_cat[key], batch_x_dec_real[key],
-                                          batch_x_dec_cat[key], batch_enc_len[key], batch_dec_len[key]]
+                    if model_type != 'tft':
+                        input_data = batch_x
+                    else:                                     
+                        input_data = [batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real,
+                                      batch_x_dec_cat, batch_enc_len, batch_dec_len]
 
-                        output = model(*input_data)
-                        
-                        l = sharpe_loss(output, batch_y[key])
-                        val_loss += l.item()
-
-                        if apply_turnover_reg:
-                            l_turnover = reg_turnover(output, batch_vol[key])
-                            val_turnover_loss += l_turnover.item()
-
-                        # select last timestep as we no longer need for time axis in batch, collect data
-                        returns_.append(batch_y[key][:, -1, :].detach().cpu().numpy())
-                        preds_.append(output[:, -1, :].detach().cpu().numpy())
-                        vols_.append(batch_vol[key][:, -1, :].detach().cpu().numpy())
+                    output = model(input_data) if model_type != 'tft' else model(*input_data)
                     
-                    val_loss /= len(batch_y.keys())
+                    l = sharpe_loss(output, batch_y)
+                    val_loss += l.item()
+
+                    if apply_turnover_reg and batch_vol is not None:
+                        l_turnover = reg_turnover(output, batch_vol)
+                        val_turnover_loss += l_turnover.item()
+
+                    # select last timestep as we no longer need for time axis in batch, collect data
+                    preds_ = output[:, -1, :].detach().cpu().numpy()
+                    returns_ = batch_y[:, -1, :].detach().cpu().numpy()
+                    if batch_vol is not None:
+                        vols_ = batch_vol[:, -1, :].detach().cpu().numpy()
+                    else:
+                        # Create dummy volatility if not available
+                        vols_ = np.ones_like(output[:, -1, :].detach().cpu().numpy()) * 0.2
                     
-                    # create tensors from collected batches of asset data
-                    preds_ = np.concatenate(preds_, axis=-1)
-                    returns_ = np.concatenate(returns_, axis=-1)
-                    vols_ = np.concatenate(vols_, axis=-1)
+                    # data is already in the correct format, no need to concatenate
                     
                     preds.append(preds_)
                     returns.append(returns_)
@@ -380,35 +381,35 @@ class MLPModelService(ModelService):
             for batch_data in val_loader:
                 
                 for i in range(len(batch_data)):
-                    for k in batch_data[i].keys():
-                        batch_data[i][k] = batch_data[i][k].to(device)
+                    batch_data[i] = batch_data[i].to(device)
 
                 if model_type != 'tft':
-                    batch_x, batch_y, batch_vol = batch_data
+                    # Handle case where batch_data only contains 2 tensors: features and targets
+                    if len(batch_data) == 2:
+                        batch_x, batch_y = batch_data
+                        batch_vol = None
+                    else:
+                        # Handle case with 3+ values (includes volatility)
+                        batch_x, batch_y, batch_vol = batch_data
                 else:
                     batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real, batch_x_dec_cat, \
                     batch_enc_len, batch_dec_len, batch_y, batch_vol = batch_data
-                
-                preds_, returns_, vols_ = [], [], []
-                
-                for key in batch_y.keys():
-                    if model_type != 'tft':
-                        input_data = [batch_x[key]]
-                    else:                                     
-                        input_data = [batch_x_enc_real[key], batch_x_enc_cat[key], batch_x_dec_real[key],
-                                      batch_x_dec_cat[key], batch_enc_len[key], batch_dec_len[key]]
 
-                    output = model(*input_data)
+                if model_type != 'tft':
+                    input_data = batch_x
+                else:                                     
+                    input_data = [batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real,
+                                  batch_x_dec_cat, batch_enc_len, batch_dec_len]
 
-                
-                    returns_.append(batch_y[key][:, -1, :].detach().cpu().numpy())
-                    preds_.append(output[:, -1, :].detach().cpu().numpy())
-                    vols_.append(batch_vol[key][:, -1, :].detach().cpu().numpy())
+                output = model(input_data) if model_type != 'tft' else model(*input_data)
 
-
-                preds_ = np.concatenate(preds_, axis=-1)
-                returns_ = np.concatenate(returns_, axis=-1)
-                vols_ = np.concatenate(vols_, axis=-1)
+                preds_ = output[:, -1, :].detach().cpu().numpy()
+                returns_ = batch_y[:, -1, :].detach().cpu().numpy()
+                if batch_vol is not None:
+                    vols_ = batch_vol[:, -1, :].detach().cpu().numpy()
+                else:
+                    # Create dummy volatility if not available
+                    vols_ = np.ones_like(output[:, -1, :].detach().cpu().numpy()) * 0.2
 
                 val_preds.append(preds_)
                 val_returns.append(returns_)
@@ -427,34 +428,39 @@ class MLPModelService(ModelService):
             for batch_data in test_loader:
                 
                 for i in range(len(batch_data)):
-                    for k in batch_data[i].keys():
-                        batch_data[i][k] = batch_data[i][k].to(device)
+                    batch_data[i] = batch_data[i].to(device)
 
                 if model_type != 'tft':
-                    batch_x, batch_y, batch_vol = batch_data
+                    # Handle case where batch_data only contains 2 tensors: features and targets
+                    if len(batch_data) == 2:
+                        batch_x, batch_y = batch_data
+                        batch_vol = None
+                    else:
+                        # Handle case with 3+ values (includes volatility)
+                        batch_x, batch_y, batch_vol = batch_data
                 else:
                     batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real, batch_x_dec_cat, \
                     batch_enc_len, batch_dec_len, batch_y, batch_vol = batch_data
-                
-                preds_, returns_, vols_ = [], [], []
 
-                for key in batch_y.keys():
-                    if model_type != 'tft':
-                        input_data = [batch_x[key]]
-                    else:                                     
-                        input_data = [batch_x_enc_real[key], batch_x_enc_cat[key], batch_x_dec_real[key],
-                                      batch_x_dec_cat[key], batch_enc_len[key], batch_dec_len[key]]
+                if model_type != 'tft':
+                    input_data = batch_x
+                else:                                     
+                    input_data = [batch_x_enc_real, batch_x_enc_cat, batch_x_dec_real,
+                                  batch_x_dec_cat, batch_enc_len, batch_dec_len]
 
-                    output = model(*input_data)
+                output = model(input_data) if model_type != 'tft' else model(*input_data)
                 
-                    returns_.append(batch_y[key][:, -1, :].detach().cpu().numpy())
-                    preds_.append(output[:, -1, :].detach().cpu().numpy())
-                    vols_.append(batch_vol[key][:, -1, :].detach().cpu().numpy())
-
+                preds_.append(output[:, -1, :].detach().cpu().numpy())
+                returns_.append(batch_y[:, -1, :].detach().cpu().numpy())
+                if batch_vol is not None:
+                    vols_.append(batch_vol[:, -1, :].detach().cpu().numpy())
+                else:
+                    # Create dummy volatility if not available
+                    vols_.append(np.ones_like(output[:, -1, :].detach().cpu().numpy()) * 0.2)
                 
-                preds_ = np.concatenate(preds_, axis=-1)
-                returns_ = np.concatenate(returns_, axis=-1)
-                vols_ = np.concatenate(vols_, axis=-1)
+                preds_ = np.concatenate(preds_, axis=-1) if len(preds_) > 1 else preds_[0]
+                returns_ = np.concatenate(returns_, axis=-1) if len(returns_) > 1 else returns_[0]
+                vols_ = np.concatenate(vols_, axis=-1) if len(vols_) > 1 else vols_[0]
 
                 test_preds.append(preds_)
                 test_returns.append(returns_)
