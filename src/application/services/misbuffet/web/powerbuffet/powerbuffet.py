@@ -920,3 +920,322 @@ class PowerBuffetService:
         except Exception as e:
             logger.error(f"Error calculating multi-column stats: {e}")
             return {'error': str(e)}
+    
+    def execute_sql_query(self, query: str, database_path: str = None) -> Dict[str, Any]:
+        """
+        Execute SQL query with safety measures and return results
+        
+        Args:
+            query: SQL query string (SELECT statements only)
+            database_path: Optional specific database path
+        
+        Returns:
+            Dict containing query results, column info, and metadata
+        """
+        try:
+            # Basic SQL injection protection - only allow SELECT statements
+            query_stripped = query.strip().upper()
+            if not query_stripped.startswith('SELECT'):
+                return {
+                    "success": False,
+                    "error": "Only SELECT queries are allowed for security reasons"
+                }
+            
+            # Block potentially dangerous SQL keywords (but allow UNION for legitimate queries)
+            dangerous_keywords = [
+                'DROP', 'DELETE', 'INSERT', 'UPDATE', 'CREATE', 'ALTER',
+                'EXEC', 'EXECUTE', 'INTO', 'OUTFILE', 'DUMPFILE'
+            ]
+            
+            for keyword in dangerous_keywords:
+                if keyword in query_stripped:
+                    return {
+                        "success": False,
+                        "error": f"Query contains potentially dangerous keyword: {keyword}"
+                    }
+            
+            # If specific database provided, use it; otherwise, try to determine from query
+            if database_path and database_path.endswith(('.db', '.sqlite')):
+                result = self._execute_sqlite_query(query, database_path)
+            elif database_path and ("stock_data" in database_path or "fx_data" in database_path):
+                result = self._execute_csv_query(query, database_path)
+            else:
+                # Try to auto-detect data source from table names in query
+                result = self._execute_auto_detected_query(query)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error executing SQL query: {e}")
+            return {
+                "success": False,
+                "error": f"Query execution error: {str(e)}"
+            }
+    
+    def _execute_sqlite_query(self, query: str, database_path: str) -> Dict[str, Any]:
+        """Execute query against SQLite database"""
+        try:
+            conn = sqlite3.connect(database_path)
+            
+            # Execute query with pandas for better handling
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            # Clean data for JSON serialization
+            df_cleaned = df.fillna(None)
+            
+            return {
+                "success": True,
+                "data": df_cleaned.to_dict('records'),
+                "columns": [{"name": col, "type": str(df[col].dtype)} for col in df.columns],
+                "column_names": list(df.columns),
+                "row_count": len(df),
+                "query": query,
+                "source_type": "SQLite",
+                "source_path": database_path
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"SQLite query error: {str(e)}"
+            }
+    
+    def _execute_csv_query(self, query: str, database_path: str) -> Dict[str, Any]:
+        """Execute query against CSV files using SQLite in-memory database"""
+        try:
+            # Create in-memory SQLite database
+            conn = sqlite3.connect(':memory:')
+            
+            # Load CSV files into the in-memory database
+            data_dir = Path(database_path)
+            csv_files = list(data_dir.glob("*.csv"))
+            
+            table_info = {}
+            for csv_file in csv_files:
+                try:
+                    df = pd.read_csv(csv_file)
+                    table_name = csv_file.stem.lower()  # Use lowercase table name
+                    df.to_sql(table_name, conn, if_exists='replace', index=False)
+                    table_info[table_name] = {
+                        'original_file': str(csv_file),
+                        'row_count': len(df),
+                        'columns': list(df.columns)
+                    }
+                except Exception as file_error:
+                    logger.warning(f"Could not load CSV file {csv_file}: {file_error}")
+            
+            # Execute the query
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            # Clean data for JSON serialization
+            df_cleaned = df.fillna(None)
+            
+            return {
+                "success": True,
+                "data": df_cleaned.to_dict('records'),
+                "columns": [{"name": col, "type": str(df[col].dtype)} for col in df.columns],
+                "column_names": list(df.columns),
+                "row_count": len(df),
+                "query": query,
+                "source_type": "CSV",
+                "source_path": database_path,
+                "loaded_tables": table_info
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"CSV query error: {str(e)}"
+            }
+    
+    def _execute_auto_detected_query(self, query: str) -> Dict[str, Any]:
+        """Auto-detect data source based on table names in query"""
+        try:
+            # Get available databases
+            databases = self.get_available_databases()
+            
+            # Extract table names from query (simple regex approach)
+            import re
+            table_pattern = r'\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)|JOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)'
+            matches = re.findall(table_pattern, query.upper())
+            table_names = [match[0] or match[1] for match in matches if match[0] or match[1]]
+            
+            if not table_names:
+                return {
+                    "success": False,
+                    "error": "Could not extract table names from query"
+                }
+            
+            # Try to find a database containing these tables
+            for db in databases:
+                if db['type'] == 'SQLite':
+                    try:
+                        conn = sqlite3.connect(db['path'])
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        available_tables = [row[0].lower() for row in cursor.fetchall()]
+                        conn.close()
+                        
+                        # Check if all required tables exist
+                        if all(table.lower() in available_tables for table in table_names):
+                            return self._execute_sqlite_query(query, db['path'])
+                    except:
+                        continue
+                
+                elif db['type'] in ['CSV_Stock_Data', 'CSV_FX_Data']:
+                    try:
+                        data_dir = Path(db['path'])
+                        csv_files = [f.stem.lower() for f in data_dir.glob("*.csv")]
+                        
+                        # Check if all required tables exist as CSV files
+                        if all(table.lower() in csv_files for table in table_names):
+                            return self._execute_csv_query(query, db['path'])
+                    except:
+                        continue
+            
+            return {
+                "success": False,
+                "error": f"Could not find database containing tables: {', '.join(table_names)}"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Auto-detection error: {str(e)}"
+            }
+    
+    def get_sample_queries(self) -> List[Dict[str, Any]]:
+        """Get a list of sample SQL queries for common use cases"""
+        return [
+            {
+                "id": "stock_price_comparison",
+                "title": "📈 Stock Price Comparison",
+                "description": "Compare closing prices of different stocks over time",
+                "query": """SELECT Date, Close as AAPL_Price 
+FROM aapl 
+WHERE Date >= '2022-01-01' 
+ORDER BY Date DESC 
+LIMIT 100""",
+                "category": "Stock Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "AAPL_Price"],
+                "chart_suggestions": ["line", "scatter"]
+            },
+            {
+                "id": "volume_analysis",
+                "title": "📊 Trading Volume Analysis",
+                "description": "Analyze trading volumes across multiple stocks",
+                "query": """SELECT 'AAPL' as Stock, AVG(Volume) as Avg_Volume, MAX(Volume) as Max_Volume 
+FROM aapl 
+WHERE Date >= '2023-01-01'
+UNION ALL
+SELECT 'MSFT' as Stock, AVG(Volume) as Avg_Volume, MAX(Volume) as Max_Volume 
+FROM msft 
+WHERE Date >= '2023-01-01'""",
+                "category": "Volume Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Stock", "Avg_Volume", "Max_Volume"],
+                "chart_suggestions": ["bar", "scatter"]
+            },
+            {
+                "id": "price_volatility",
+                "title": "📉 Price Volatility Analysis",
+                "description": "Calculate daily price changes and volatility",
+                "query": """SELECT Date, 
+       Close, 
+       (High - Low) as Daily_Range,
+       ((Close - Open) / Open) * 100 as Daily_Return_Pct
+FROM aapl 
+WHERE Date >= '2023-01-01' 
+ORDER BY Date DESC 
+LIMIT 252""",
+                "category": "Risk Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Close", "Daily_Range", "Daily_Return_Pct"],
+                "chart_suggestions": ["line", "scatter", "histogram"]
+            },
+            {
+                "id": "monthly_performance",
+                "title": "📅 Monthly Performance Summary",
+                "description": "Aggregate monthly stock performance data",
+                "query": """SELECT 
+    strftime('%Y-%m', Date) as Month,
+    MIN(Low) as Monthly_Low,
+    MAX(High) as Monthly_High,
+    AVG(Close) as Avg_Close,
+    SUM(Volume) as Total_Volume
+FROM googl
+WHERE Date >= '2022-01-01'
+GROUP BY strftime('%Y-%m', Date)
+ORDER BY Month DESC""",
+                "category": "Time Series",
+                "data_source": "CSV Stock Data", 
+                "expected_columns": ["Month", "Monthly_Low", "Monthly_High", "Avg_Close", "Total_Volume"],
+                "chart_suggestions": ["line", "bar"]
+            },
+            {
+                "id": "multi_stock_comparison",
+                "title": "🔄 Multi-Stock Price Comparison",
+                "description": "Compare normalized prices of multiple stocks",
+                "query": """WITH stock_data AS (
+    SELECT 'AAPL' as Symbol, Date, Close as Price FROM aapl WHERE Date >= '2023-06-01'
+    UNION ALL 
+    SELECT 'MSFT' as Symbol, Date, Close as Price FROM msft WHERE Date >= '2023-06-01'
+    UNION ALL
+    SELECT 'GOOGL' as Symbol, Date, Close as Price FROM googl WHERE Date >= '2023-06-01'
+)
+SELECT Symbol, Date, Price,
+       LAG(Price, 1) OVER (PARTITION BY Symbol ORDER BY Date) as Prev_Price
+FROM stock_data
+ORDER BY Date DESC, Symbol
+LIMIT 300""",
+                "category": "Comparative Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Symbol", "Date", "Price", "Prev_Price"],
+                "chart_suggestions": ["line", "scatter"]
+            },
+            {
+                "id": "high_volume_days",
+                "title": "⚡ High Volume Trading Days",
+                "description": "Find days with unusually high trading volume",
+                "query": """SELECT Date, Close, Volume,
+       (Volume - AVG(Volume) OVER (ORDER BY Date ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING)) / 
+       AVG(Volume) OVER (ORDER BY Date ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) * 100 as Volume_Change_Pct
+FROM amzn 
+WHERE Date >= '2023-01-01'
+ORDER BY Volume DESC
+LIMIT 50""",
+                "category": "Anomaly Detection",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Date", "Close", "Volume", "Volume_Change_Pct"],
+                "chart_suggestions": ["scatter", "bar"]
+            },
+            {
+                "id": "weekly_performance",
+                "title": "📊 Weekly Performance Trends", 
+                "description": "Analyze weekly trading patterns and performance",
+                "query": """SELECT 
+    CASE strftime('%w', Date)
+        WHEN '0' THEN 'Sunday'
+        WHEN '1' THEN 'Monday' 
+        WHEN '2' THEN 'Tuesday'
+        WHEN '3' THEN 'Wednesday'
+        WHEN '4' THEN 'Thursday'
+        WHEN '5' THEN 'Friday'
+        WHEN '6' THEN 'Saturday'
+    END as Day_of_Week,
+    AVG((Close - Open) / Open * 100) as Avg_Daily_Return,
+    AVG(Volume) as Avg_Volume,
+    COUNT(*) as Trading_Days
+FROM spy
+WHERE Date >= '2022-01-01'
+GROUP BY strftime('%w', Date)
+ORDER BY strftime('%w', Date)""",
+                "category": "Pattern Analysis",
+                "data_source": "CSV Stock Data",
+                "expected_columns": ["Day_of_Week", "Avg_Daily_Return", "Avg_Volume", "Trading_Days"],
+                "chart_suggestions": ["bar", "line"]
+            }
+        ]

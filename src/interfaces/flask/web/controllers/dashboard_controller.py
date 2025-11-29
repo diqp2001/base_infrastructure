@@ -612,6 +612,84 @@ def api_execute_live_trading():
         logger.error(f"API: Error executing live trading: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@web_bp.route("/api/powerbuffet/sql/execute", methods=["POST"])
+def execute_sql_query():
+    """API endpoint to execute SQL queries"""
+    try:
+        data = request.json
+        query = data.get('query', '').strip()
+        database_path = data.get('database_path')
+        
+        if not query:
+            return jsonify({
+                "success": False,
+                "error": "Query is required"
+            }), 400
+        
+        service = PowerBuffetService()
+        result = service.execute_sql_query(query, database_path)
+        
+        # Clean result for JSON serialization
+        cleaned_result = clean_for_json(result)
+        return jsonify(cleaned_result)
+        
+    except Exception as e:
+        logger.error(f"Error executing SQL query: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/sql/samples", methods=["GET"])
+def get_sample_queries():
+    """API endpoint to get sample SQL queries"""
+    try:
+        service = PowerBuffetService()
+        samples = service.get_sample_queries()
+        return jsonify({"success": True, "queries": samples})
+        
+    except Exception as e:
+        logger.error(f"Error getting sample queries: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@web_bp.route("/api/powerbuffet/sql/schema", methods=["GET"])
+def get_database_schema():
+    """API endpoint to get database schema information"""
+    try:
+        database_path = request.args.get('database_path')
+        
+        service = PowerBuffetService()
+        if database_path:
+            # Get schema for specific database
+            tables = service.get_database_tables(database_path)
+            schema_info = {
+                "database_path": database_path,
+                "tables": tables
+            }
+        else:
+            # Get schema for all databases
+            databases = service.get_available_databases()
+            schema_info = {
+                "databases": []
+            }
+            
+            for db in databases:
+                try:
+                    tables = service.get_database_tables(db['path'])
+                    schema_info["databases"].append({
+                        "name": db['name'],
+                        "type": db['type'],
+                        "path": db['path'],
+                        "tables": tables
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not get schema for database {db['name']}: {e}")
+        
+        # Clean data for JSON serialization
+        cleaned_schema = clean_for_json(schema_info)
+        return jsonify({"success": True, "schema": cleaned_schema})
+        
+    except Exception as e:
+        logger.error(f"Error getting database schema: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @web_bp.route("/api/system/shutdown", methods=["POST"])
 def shutdown_system():
     """API endpoint to shutdown the system gracefully"""

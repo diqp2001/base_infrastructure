@@ -6,6 +6,8 @@
     <title>PowerBuffet - Data Visualization & Database Explorer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Fix for moment.js dependency -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <style>
         .powerbuffet-container {
             background-color: #f8f9fa;
@@ -237,11 +239,99 @@
                 </div>
             </div>
 
-            <!-- Enhanced Control Panel with Drag & Drop -->
+            <!-- Enhanced Control Panel with SQL Query Interface and Drag & Drop -->
             <div class="row">
                 <div class="col-12">
                     <div class="control-panel">
-                        <h4 class="mb-3">Multi-Database Column Selection & Visualization</h4>
+                        <!-- Mode Toggle -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h4 class="mb-3">PowerBuffet Data Analysis Interface</h4>
+                                <div class="btn-group" role="group" aria-label="Interface Mode">
+                                    <input type="radio" class="btn-check" name="interface-mode" id="sql-mode" value="sql" checked>
+                                    <label class="btn btn-outline-primary" for="sql-mode">
+                                        🔍 SQL Query Mode
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="interface-mode" id="drag-mode" value="drag">
+                                    <label class="btn btn-outline-primary" for="drag-mode">
+                                        🎯 Drag & Drop Mode
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- SQL Query Interface -->
+                        <div id="sqlInterface" class="interface-panel">
+                            <div class="row">
+                                <!-- Query Editor -->
+                                <div class="col-md-8">
+                                    <h5 class="mb-3">📝 SQL Query Editor</h5>
+                                    <div class="mb-3">
+                                        <label for="sqlQuery" class="form-label">Write your SQL query (SELECT statements only):</label>
+                                        <textarea class="form-control" id="sqlQuery" rows="8" placeholder="SELECT * FROM aapl WHERE Date >= '2023-01-01' ORDER BY Date DESC LIMIT 100">SELECT Date, Close, Volume 
+FROM aapl 
+WHERE Date >= '2023-01-01' 
+ORDER BY Date DESC 
+LIMIT 100</textarea>
+                                    </div>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="dataSource" class="form-label">Data Source (Optional):</label>
+                                            <select class="form-select" id="dataSource">
+                                                <option value="">Auto-detect from query</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 d-flex align-items-end">
+                                            <button class="btn btn-success me-2" id="executeQuery" onclick="executeSQLQuery()">
+                                                ▶️ Execute Query
+                                            </button>
+                                            <button class="btn btn-outline-secondary me-2" onclick="clearQuery()">
+                                                🗑️ Clear
+                                            </button>
+                                            <button class="btn btn-outline-info" onclick="exportQueryResults()">
+                                                📤 Export
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Query Results Table -->
+                                    <div id="queryResultsContainer" style="display: none;">
+                                        <h6 class="mb-2">Query Results</h6>
+                                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped table-hover" id="queryResultsTable">
+                                                <thead id="queryResultsHeader" class="table-dark"></thead>
+                                                <tbody id="queryResultsBody"></tbody>
+                                            </table>
+                                        </div>
+                                        <div id="queryResultsInfo" class="mt-2"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Sample Queries -->
+                                <div class="col-md-4">
+                                    <h5 class="mb-3">📋 Sample Queries</h5>
+                                    <div class="mb-3">
+                                        <input type="text" id="sampleQuerySearch" class="form-control form-control-sm" 
+                                               placeholder="🔍 Search sample queries..." oninput="filterSampleQueries()">
+                                    </div>
+                                    <div class="preset-charts-container" id="sampleQueriesContainer" style="max-height: 400px;">
+                                        <div class="text-muted text-center p-3">Loading sample queries...</div>
+                                    </div>
+                                    
+                                    <!-- Database Schema -->
+                                    <h6 class="mb-2 mt-4">🗄️ Database Schema</h6>
+                                    <div class="accordion" id="schemaAccordion">
+                                        <!-- Schema will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Drag & Drop Interface (existing) -->
+                        <div id="dragDropInterface" class="interface-panel" style="display: none;">
+                            <h4 class="mb-3">Multi-Database Column Selection & Visualization</h4>
                         
                         <!-- Available Databases and Columns -->
                         <div class="row mb-4">
@@ -343,6 +433,59 @@
                                 <button class="btn btn-outline-success btn-sm" onclick="saveConfiguration()">Save Configuration</button>
                             </div>
                         </div>
+                        </div> <!-- End dragDropInterface -->
+                        
+                        <!-- Query Results Drag & Drop Area (shown when query has results) -->
+                        <div id="queryResultsDragArea" class="interface-panel" style="display: none;">
+                            <h5 class="mb-3">📊 Drag Columns from Query Results to Chart</h5>
+                            <div class="row">
+                                <!-- X-Axis Selection -->
+                                <div class="col-md-6">
+                                    <div class="axis-section">
+                                        <h6 class="mb-2">📊 X-Axis Columns</h6>
+                                        <p class="text-muted small mb-2">Drag query result columns here for X-axis data</p>
+                                        <div class="drag-drop-area" id="queryXAxisDropZone" ondrop="dropQueryColumn(event, 'x')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                            <div id="queryXAxisColumns" class="selected-columns">
+                                                <span class="text-muted">Drop query columns here for X-axis</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Y-Axis Selection -->
+                                <div class="col-md-6">
+                                    <div class="axis-section">
+                                        <h6 class="mb-2">📈 Y-Axis Columns</h6>
+                                        <p class="text-muted small mb-2">Drag query result columns here for Y-axis data</p>
+                                        <div class="drag-drop-area" id="queryYAxisDropZone" ondrop="dropQueryColumn(event, 'y')" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                            <div id="queryYAxisColumns" class="selected-columns">
+                                                <span class="text-muted">Drop query columns here for Y-axis</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Chart Generation for Query Results -->
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <label for="queryChartType" class="form-label">Chart Type</label>
+                                    <select class="form-select" id="queryChartType">
+                                        <option value="scatter">Scatter Plot</option>
+                                        <option value="line">Line Chart</option>
+                                        <option value="bar">Bar Chart</option>
+                                        <option value="histogram">Histogram</option>
+                                        <option value="correlation">Correlation Heatmap</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button class="btn btn-primary w-100" id="generateQueryChartBtn" onclick="generateQueryResultChart()" disabled>
+                                        🎨 Generate Chart from Query Results
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
                     </div>
                 </div>
             </div>
@@ -1207,15 +1350,448 @@
             showMessage(`Export functionality for ${tableName} coming soon!`, 'info');
         }
 
+        // SQL Interface Functions
+        let currentQueryResults = null;
+        let querySelectedColumns = { x: [], y: [] };
+        let sampleQueries = [];
+        
+        function toggleInterface() {
+            const sqlMode = document.getElementById('sql-mode').checked;
+            const dragMode = document.getElementById('drag-mode').checked;
+            
+            const sqlInterface = document.getElementById('sqlInterface');
+            const dragDropInterface = document.getElementById('dragDropInterface');
+            
+            if (sqlMode) {
+                sqlInterface.style.display = 'block';
+                dragDropInterface.style.display = 'none';
+                loadSQLInterface();
+            } else {
+                sqlInterface.style.display = 'none';
+                dragDropInterface.style.display = 'block';
+                loadAllDatabasesAndColumns();
+            }
+        }
+        
+        function loadSQLInterface() {
+            loadDataSources();
+            loadSampleQueries();
+            loadDatabaseSchema();
+        }
+        
+        function loadDataSources() {
+            fetch('/api/powerbuffet/databases')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const dataSourceSelect = document.getElementById('dataSource');
+                        dataSourceSelect.innerHTML = '<option value="">Auto-detect from query</option>';
+                        
+                        data.databases.forEach(db => {
+                            const option = document.createElement('option');
+                            option.value = db.path;
+                            option.textContent = `${db.name} (${db.type})`;
+                            dataSourceSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    showMessage(`Error loading data sources: ${error.message}`, 'error');
+                });
+        }
+        
+        function loadSampleQueries() {
+            fetch('/api/powerbuffet/sql/samples')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        sampleQueries = data.queries;
+                        displaySampleQueries(sampleQueries);
+                    } else {
+                        showMessage(`Error loading sample queries: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage(`Error loading sample queries: ${error.message}`, 'error');
+                });
+        }
+        
+        function displaySampleQueries(queries) {
+            const container = document.getElementById('sampleQueriesContainer');
+            if (queries.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center p-3">No sample queries found</div>';
+                return;
+            }
+            
+            let html = '';
+            queries.forEach(query => {
+                html += `
+                    <div class="preset-chart-card" onclick="loadSampleQuery('${query.id}')">
+                        <div class="preset-chart-title">${query.title}</div>
+                        <div class="preset-chart-desc">${query.description}</div>
+                        <div class="preset-chart-tags">
+                            <span class="preset-tag">${query.category}</span>
+                            <span class="preset-tag">${query.data_source}</span>
+                            ${query.chart_suggestions.map(chart => `<span class="preset-tag">${chart}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        function filterSampleQueries() {
+            const searchTerm = document.getElementById('sampleQuerySearch').value.toLowerCase();
+            let filteredQueries = sampleQueries;
+            
+            if (searchTerm) {
+                filteredQueries = filteredQueries.filter(query =>
+                    query.title.toLowerCase().includes(searchTerm) ||
+                    query.description.toLowerCase().includes(searchTerm) ||
+                    query.category.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            displaySampleQueries(filteredQueries);
+        }
+        
+        function loadSampleQuery(queryId) {
+            const query = sampleQueries.find(q => q.id === queryId);
+            if (!query) return;
+            
+            document.getElementById('sqlQuery').value = query.query;
+            showMessage(`Sample query loaded: ${query.title}`, 'success');
+        }
+        
+        function loadDatabaseSchema() {
+            fetch('/api/powerbuffet/sql/schema')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayDatabaseSchema(data.schema);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading schema:', error);
+                });
+        }
+        
+        function displayDatabaseSchema(schema) {
+            const container = document.getElementById('schemaAccordion');
+            let html = '';
+            
+            if (schema.databases) {
+                schema.databases.forEach((db, index) => {
+                    html += `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#schema${index}" aria-expanded="false">
+                                    ${db.name} (${db.tables.length} tables)
+                                </button>
+                            </h2>
+                            <div id="schema${index}" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                    `;
+                    
+                    db.tables.forEach(table => {
+                        html += `
+                            <div class="mb-2">
+                                <strong>${table.name}</strong> (${table.row_count} rows)
+                                <br><small class="text-muted">
+                                    ${table.columns.map(col => `${col.name}(${col.type})`).join(', ')}
+                                </small>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function clearQuery() {
+            document.getElementById('sqlQuery').value = '';
+            hideQueryResults();
+            showMessage('Query cleared', 'success');
+        }
+        
+        function executeSQLQuery() {
+            const query = document.getElementById('sqlQuery').value.trim();
+            const databasePath = document.getElementById('dataSource').value;
+            
+            if (!query) {
+                showMessage('Please enter a SQL query', 'error');
+                return;
+            }
+            
+            // Show loading
+            const executeBtn = document.getElementById('executeQuery');
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '⏳ Executing...';
+            hideMessages();
+            
+            const requestData = {
+                query: query,
+                database_path: databasePath || undefined
+            };
+            
+            fetch('/api/powerbuffet/sql/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '▶️ Execute Query';
+                
+                if (data.success) {
+                    currentQueryResults = data;
+                    displayQueryResults(data);
+                    showMessage(`Query executed successfully! ${data.row_count} rows returned.`, 'success');
+                } else {
+                    showMessage(`Query Error: ${data.error}`, 'error');
+                    hideQueryResults();
+                }
+            })
+            .catch(error => {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '▶️ Execute Query';
+                showMessage(`Error executing query: ${error.message}`, 'error');
+                hideQueryResults();
+            });
+        }
+        
+        function displayQueryResults(queryData) {
+            const container = document.getElementById('queryResultsContainer');
+            const header = document.getElementById('queryResultsHeader');
+            const body = document.getElementById('queryResultsBody');
+            const info = document.getElementById('queryResultsInfo');
+            
+            // Display table headers
+            let headerHtml = '<tr>';
+            queryData.column_names.forEach(column => {
+                headerHtml += `<th draggable="true" ondragstart="startDragQueryColumn(event, '${column}')" 
+                                  style="cursor: grab;" title="Drag to chart axes">${column}</th>`;
+            });
+            headerHtml += '</tr>';
+            header.innerHTML = headerHtml;
+            
+            // Display table rows (limit to first 100 for performance)
+            const displayData = queryData.data.slice(0, 100);
+            let bodyHtml = '';
+            displayData.forEach(row => {
+                bodyHtml += '<tr>';
+                queryData.column_names.forEach(column => {
+                    const value = row[column] !== null && row[column] !== undefined ? row[column] : '';
+                    bodyHtml += `<td title="${value}">${value}</td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+            body.innerHTML = bodyHtml;
+            
+            // Display query info
+            info.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3"><span class="badge bg-primary">Rows: ${queryData.row_count}</span></div>
+                    <div class="col-md-3"><span class="badge bg-secondary">Columns: ${queryData.column_names.length}</span></div>
+                    <div class="col-md-3"><span class="badge bg-info">Source: ${queryData.source_type}</span></div>
+                    <div class="col-md-3"><span class="badge bg-success">Showing: ${Math.min(100, queryData.row_count)}</span></div>
+                </div>
+            `;
+            
+            container.style.display = 'block';
+            
+            // Show drag & drop area for query results
+            document.getElementById('queryResultsDragArea').style.display = 'block';
+        }
+        
+        function hideQueryResults() {
+            document.getElementById('queryResultsContainer').style.display = 'none';
+            document.getElementById('queryResultsDragArea').style.display = 'none';
+            currentQueryResults = null;
+            querySelectedColumns = { x: [], y: [] };
+        }
+        
+        function exportQueryResults() {
+            if (!currentQueryResults) {
+                showMessage('No query results to export', 'error');
+                return;
+            }
+            
+            // Convert to CSV
+            const headers = currentQueryResults.column_names.join(',');
+            const rows = currentQueryResults.data.map(row => 
+                currentQueryResults.column_names.map(col => 
+                    row[col] !== null && row[col] !== undefined ? row[col] : ''
+                ).join(',')
+            ).join('\\n');
+            
+            const csvContent = headers + '\\n' + rows;
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `query_results_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+            a.click();
+            
+            window.URL.revokeObjectURL(url);
+            showMessage('Query results exported to CSV', 'success');
+        }
+        
+        // Query Results Drag & Drop Functions
+        function startDragQueryColumn(event, columnName) {
+            event.dataTransfer.setData('text/plain', columnName);
+            event.dataTransfer.setData('query-column', 'true');
+        }
+        
+        function dropQueryColumn(event, axis) {
+            event.preventDefault();
+            const dropZone = event.target.closest('.drag-drop-area');
+            dropZone.classList.remove('drag-over');
+            
+            const columnName = event.dataTransfer.getData('text/plain');
+            const isQueryColumn = event.dataTransfer.getData('query-column');
+            
+            if (isQueryColumn && columnName) {
+                addQueryColumnToAxis(columnName, axis);
+            }
+        }
+        
+        function addQueryColumnToAxis(columnName, axis) {
+            // Check if column already selected
+            const existingIndex = querySelectedColumns[axis].findIndex(col => col.name === columnName);
+            if (existingIndex >= 0) {
+                showMessage(`Column ${columnName} is already selected for ${axis.toUpperCase()}-axis`, 'error');
+                return;
+            }
+            
+            // Add to selected columns
+            querySelectedColumns[axis].push({
+                name: columnName,
+                type: 'query_result',
+                data: currentQueryResults.data,
+                source: 'Query Results'
+            });
+            
+            updateQueryAxisDisplay(axis);
+            updateGenerateQueryChartButton();
+        }
+        
+        function updateQueryAxisDisplay(axis) {
+            const container = document.getElementById(`query${axis.toUpperCase()}AxisColumns`);
+            const columns = querySelectedColumns[axis];
+            
+            if (columns.length === 0) {
+                container.innerHTML = `<span class="text-muted">Drop query columns here for ${axis.toUpperCase()}-axis</span>`;
+                return;
+            }
+            
+            let html = '';
+            columns.forEach((col, index) => {
+                html += `<div class="column-item in-use">
+                            ${col.name}
+                            <button class="remove-column" onclick="removeQueryColumnFromAxis('${axis}', ${index})">×</button>
+                         </div>`;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function removeQueryColumnFromAxis(axis, index) {
+            querySelectedColumns[axis].splice(index, 1);
+            updateQueryAxisDisplay(axis);
+            updateGenerateQueryChartButton();
+        }
+        
+        function updateGenerateQueryChartButton() {
+            const button = document.getElementById('generateQueryChartBtn');
+            const hasSelections = querySelectedColumns.x.length > 0 || querySelectedColumns.y.length > 0;
+            button.disabled = !hasSelections || !currentQueryResults;
+        }
+        
+        function generateQueryResultChart() {
+            if (!currentQueryResults || (querySelectedColumns.x.length === 0 && querySelectedColumns.y.length === 0)) {
+                showMessage('Please select columns for X or Y axis', 'error');
+                return;
+            }
+            
+            // Show loading
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const plotContainer = document.getElementById('plotContainer');
+            const statsContainer = document.getElementById('statsContainer');
+            const chartType = document.getElementById('queryChartType').value;
+            
+            welcomeMessage.style.display = 'none';
+            loadingSpinner.style.display = 'block';
+            plotContainer.innerHTML = '';
+            statsContainer.style.display = 'none';
+            hideMessages();
+            
+            // Prepare data for visualization using custom visualization API
+            const requestData = {
+                chart_type: chartType,
+                query_results: currentQueryResults,
+                x_columns: querySelectedColumns.x.map(col => col.name),
+                y_columns: querySelectedColumns.y.map(col => col.name)
+            };
+            
+            // For now, create a simple chart using the existing custom visualization
+            const mockXColumns = querySelectedColumns.x.map((col, i) => ({
+                dbPath: 'query_results',
+                dbName: 'Query Results',
+                table: 'query_results',
+                column: col.name,
+                dataType: 'REAL',
+                displayName: col.name,
+                fullDisplayName: `Query > ${col.name}`
+            }));
+            
+            const mockYColumns = querySelectedColumns.y.map((col, i) => ({
+                dbPath: 'query_results',
+                dbName: 'Query Results', 
+                table: 'query_results',
+                column: col.name,
+                dataType: 'REAL',
+                displayName: col.name,
+                fullDisplayName: `Query > ${col.name}`
+            }));
+            
+            // This is a simplified version - in production you'd want to create a new API endpoint
+            // that can handle query result data directly
+            showMessage(`Query chart generation with ${chartType} (feature in progress)`, 'info');
+            loadingSpinner.style.display = 'none';
+        }
+
         // Initialize the enhanced interface
         document.addEventListener('DOMContentLoaded', function() {
-            loadAllDatabasesAndColumns();
-            loadChartPresets();
+            // Add mode toggle event listeners
+            document.querySelectorAll('input[name="interface-mode"]').forEach(radio => {
+                radio.addEventListener('change', toggleInterface);
+            });
+            
+            // Initialize SQL interface by default
+            toggleInterface();
         });
         
         // Add event listeners
-        document.getElementById('visualizationSelect').addEventListener('change', updateGenerateButton);
-        document.getElementById('chartTypeSelect').addEventListener('change', updateGenerateCustomButton);
+        if (document.getElementById('visualizationSelect')) {
+            document.getElementById('visualizationSelect').addEventListener('change', updateGenerateButton);
+        }
+        if (document.getElementById('chartTypeSelect')) {
+            document.getElementById('chartTypeSelect').addEventListener('change', updateGenerateCustomButton);
+        }
     </script>
 </body>
 </html>
