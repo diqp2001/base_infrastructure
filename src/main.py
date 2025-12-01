@@ -4,7 +4,7 @@ from cProfile import Profile
 from pstats import SortKey, Stats
 
 
-from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+from application.managers.project_managers.test_base_project_single.test_base_project_manager import TestBaseProjectManager
 
 
 
