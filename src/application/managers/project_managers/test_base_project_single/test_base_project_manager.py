@@ -1,14 +1,13 @@
 """
-Test Base Project Manager - Main orchestrator class.
+Test Base Project Single Manager - Simple 200-day moving average strategy.
 
-Combines spatiotemporal momentum modeling, factor creation, and backtesting
-into a unified trading system pipeline following the exact structure of
-TestProjectBacktestManager.
+Implements a straightforward trading system based on 200-day moving averages:
+- Long when price > 200-day average
+- Short when price < 200-day average
+- Factor creation remains the same as other test projects
+- Backtesting uses Misbuffet framework
 
-This manager integrates the best aspects of:
-- spatiotemporal_momentum_manager (ML models and feature engineering)
-- test_project_factor_creation (factor system and data management)  
-- test_project_backtest (backtesting engine and web interface)
+This manager provides a clean baseline for comparing more complex strategies.
 """
 
 import os
@@ -39,14 +38,14 @@ from .data.data_loader import SpatiotemporalDataLoader
 from .data.feature_engineer import SpatiotemporalFeatureEngineer
 from .data.factor_manager import FactorEnginedDataManager
 
-# Model components  
+# Model components (kept for compatibility but simplified)
 from .models.spatiotemporal_model import HybridSpatiotemporalModel
 from .models.model_trainer import SpatiotemporalModelTrainer
 
 # Strategy components
-from .strategy.momentum_strategy import SpatiotemporalMomentumStrategy
+from .strategy.momentum_strategy import SimpleMomentumStrategy
 from .strategy.portfolio_optimizer import HybridPortfolioOptimizer
-from .strategy.signal_generator import MLSignalGenerator
+from .strategy.signal_generator import SimpleSignalGenerator
 
 # Configuration
 from .config import DEFAULT_CONFIG, get_config
@@ -62,12 +61,11 @@ logger = logging.getLogger(__name__)
 
 class TestBaseProjectManager(ProjectManager):
     """
-    Enhanced Project Manager for backtesting operations.
-    Implements a complete backtesting pipeline using the hybrid spatiotemporal
-    momentum system with Misbuffet framework integration.
+    Simple Project Manager for 200-day moving average backtesting.
+    Implements a straightforward backtesting pipeline using 200-day moving averages
+    with factor creation system and Misbuffet framework integration.
     
-    Follows the exact structure of TestProjectBacktestManager but integrates
-    all the advanced features from the test_base_project ecosystem.
+    Provides a clean baseline for comparing more complex trading strategies.
     """
     
     def __init__(self):
@@ -83,8 +81,12 @@ class TestBaseProjectManager(ProjectManager):
         self.data_loader = SpatiotemporalDataLoader(self.database_service)
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         self.factor_manager = FactorEnginedDataManager(self.database_service)
-        self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
+        self.model_trainer = SpatiotemporalModelTrainer(self.database_service)  # Kept for compatibility
         self.portfolio_optimizer = HybridPortfolioOptimizer(get_config('test'))
+        
+        # Simple strategy components
+        self.simple_strategy = SimpleMomentumStrategy(moving_average_window=200)
+        self.signal_generator = SimpleSignalGenerator(moving_average_window=200)
         
         # Backtesting components
         self.backtest_runner = BacktestRunner(self.database_service)
@@ -101,20 +103,20 @@ class TestBaseProjectManager(ProjectManager):
             self.web_interface = None
         
         # Runtime state
-        self.trained_model = None
-        self.strategy = None
-        self.signal_generator = None
+        self.trained_model = None  # Kept for compatibility
+        self.strategy = self.simple_strategy  # Use simple strategy
+        self.current_signals = {}  # Store current 200-day MA signals
         self.pipeline_results = {}
         
         # Interactive Brokers broker
         self.ib_broker: Optional[InteractiveBrokersBroker] = None
         
         # MLflow tracking setup
-        self.mlflow_experiment_name = "test_base_project_manager"
+        self.mlflow_experiment_name = "test_base_project_single_manager"
         self.mlflow_run = None
         self._setup_mlflow_tracking()
         
-        self.logger.info("🚀 TestBaseProjectManager initialized with Misbuffet integration and MLflow tracking")
+        self.logger.info("🚀 TestBaseProjectManager (Simple 200-day MA) initialized with Misbuffet integration")
 
     def _setup_mlflow_tracking(self):
         """
@@ -339,7 +341,7 @@ class TestBaseProjectManager(ProjectManager):
                 self.web_interface.progress_queue.put({
                     'timestamp': datetime.now().isoformat(),
                     'level': 'INFO',
-                    'message': f'Setting up factor system for {len(tickers)} tickers with ML integration...'
+                    'message': f'Setting up factor system for {len(tickers)} tickers with 200-day MA strategy...'
                 })
             
             # Run the comprehensive backtest using our BacktestRunner
@@ -357,13 +359,13 @@ class TestBaseProjectManager(ProjectManager):
                     self.web_interface.progress_queue.put({
                         'timestamp': datetime.now().isoformat(),
                         'level': 'SUCCESS',
-                        'message': f'Enhanced backtest completed successfully! Execution time: {result.get("execution_time", 0):.2f}s'
+                        'message': f'Simple MA backtest completed successfully! Execution time: {result.get("execution_time", 0):.2f}s'
                     })
                 else:
                     self.web_interface.progress_queue.put({
                         'timestamp': datetime.now().isoformat(),
                         'level': 'ERROR',
-                        'message': f'Enhanced backtest failed: {result.get("error", "Unknown error")}'
+                        'message': f'Simple MA backtest failed: {result.get("error", "Unknown error")}'
                     })
             
             self.results = result
@@ -376,7 +378,7 @@ class TestBaseProjectManager(ProjectManager):
                 self.web_interface.progress_queue.put({
                     'timestamp': datetime.now().isoformat(),
                     'level': 'ERROR',
-                    'message': f'Enhanced backtest failed: {str(e)}'
+                    'message': f'Simple MA backtest failed: {str(e)}'
                 })
             
             return {
@@ -390,17 +392,17 @@ class TestBaseProjectManager(ProjectManager):
                               end_date: Optional[datetime] = None,
                               universe: Optional[List[str]] = None,
                               initial_capital: float = 100_000.0,
-                              model_type: str = 'both',
+                              strategy_type: str = '200_day_ma',
                               launch_web_interface: bool = False) -> Dict[str, Any]:
         """
-        Run Misbuffet backtest with our enhanced spatiotemporal momentum system.
+        Run Misbuffet backtest with simple 200-day moving average strategy.
         
         Args:
             start_date: Backtest start date
             end_date: Backtest end date
             universe: List of tickers to trade
             initial_capital: Starting capital
-            model_type: 'tft', 'mlp', or 'both'
+            strategy_type: Strategy type (default: '200_day_ma')
             launch_web_interface: Whether to launch web interface
             
         Returns:
@@ -411,7 +413,7 @@ class TestBaseProjectManager(ProjectManager):
             start_date=start_date,
             end_date=end_date,
             initial_capital=initial_capital,
-            model_type=model_type,
+            model_type=strategy_type,
             launch_web_interface=launch_web_interface
         )
 
@@ -430,7 +432,7 @@ class TestBaseProjectManager(ProjectManager):
         Returns:
             Summary of factor system setup
         """
-        self.logger.info("🏗️ Setting up enhanced factor system...")
+        self.logger.info("🏗️ Setting up factor system for 200-day MA strategy...")
         start_time = time.time()
         
         if tickers is None:
@@ -463,11 +465,11 @@ class TestBaseProjectManager(ProjectManager):
                 }
                 self._log_mlflow_metrics(factor_metrics)
             
-            self.logger.info(f"✅ Enhanced factor system setup complete in {elapsed:.2f}s")
+            self.logger.info(f"✅ Factor system setup complete in {elapsed:.2f}s")
             return setup_results
             
         except Exception as e:
-            self.logger.error(f"❌ Enhanced factor system setup failed: {str(e)}")
+            self.logger.error(f"❌ Factor system setup failed: {str(e)}")
             
             # Log error metrics
             if self.mlflow_run:
@@ -483,79 +485,104 @@ class TestBaseProjectManager(ProjectManager):
                 'total_setup_time': time.time() - start_time
             }
     
-    def train_spatiotemporal_models(self, 
-                                  tickers: Optional[List[str]] = None,
-                                  model_type: str = 'both',
-                                  seeds: List[int] = [42, 123]) -> Dict[str, Any]:
+    def calculate_moving_average_signals(self, 
+                                       tickers: Optional[List[str]] = None,
+                                       moving_average_window: int = 200) -> Dict[str, Any]:
         """
-        Train spatiotemporal models using the complete pipeline.
+        Calculate 200-day moving average signals for tickers.
         
         Args:
-            tickers: List of tickers to train on
-            model_type: 'tft', 'mlp', or 'both'
-            seeds: Random seeds for ensemble training
+            tickers: List of tickers to calculate signals for
+            moving_average_window: Window for moving average (default 200)
             
         Returns:
-            Complete training results
+            Signal calculation results
         """
-        self.logger.info("🧠 Training enhanced spatiotemporal models...")
+        self.logger.info(f"📊 Calculating {moving_average_window}-day moving average signals...")
         start_time = time.time()
         
         if tickers is None:
             tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
-        # Log model training parameters
-        training_params = {
-            'training_tickers': ','.join(tickers),
-            'model_type': model_type,
-            'training_seeds': ','.join(map(str, seeds)),
-            'num_seeds': len(seeds)
+        # Log signal calculation parameters
+        signal_params = {
+            'signal_tickers': ','.join(tickers),
+            'moving_average_window': moving_average_window,
+            'num_tickers': len(tickers)
         }
         if self.mlflow_run:
-            self._log_mlflow_params(training_params)
+            self._log_mlflow_params(signal_params)
         
         try:
-            # Use the BacktestRunner's model training
-            training_results = self.backtest_runner.train_models(tickers, model_type, seeds)
+            # Initialize simple strategy if not already done
+            if not hasattr(self, 'simple_strategy') or self.simple_strategy is None:
+                self.simple_strategy = SimpleMomentumStrategy(
+                    moving_average_window=moving_average_window
+                )
+            
+            # Get historical data for signal calculation
+            signals = {}
+            success_count = 0
+            
+            for ticker in tickers:
+                try:
+                    # Get factor data for this ticker
+                    if hasattr(self, 'factor_manager') and self.factor_manager:
+                        factor_data = self.factor_manager.get_factor_data_for_training(
+                            tickers=[ticker],
+                            factor_groups=['price'],
+                            lookback_days=moving_average_window + 50
+                        )
+                        if factor_data is not None and not factor_data.empty:
+                            signal = self.simple_strategy._calculate_200_day_signal(factor_data, ticker)
+                            if signal is not None:
+                                signals[ticker] = signal
+                                success_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Could not calculate signal for {ticker}: {str(e)}")
             
             end_time = time.time()
-            training_time = end_time - start_time
-            training_results['training_time'] = training_time
+            calculation_time = end_time - start_time
             
-            if not training_results.get('error'):
-                self.trained_model = self.model_trainer.get_trained_model()
-                self.logger.info("✅ Enhanced model training completed successfully")
+            results = {
+                'signals': signals,
+                'calculation_time': calculation_time,
+                'success_count': success_count,
+                'total_tickers': len(tickers),
+                'success': success_count > 0
+            }
+            
+            if success_count > 0:
+                self.logger.info(f"✅ Signal calculation completed: {success_count}/{len(tickers)} tickers")
                 
-                # Log training metrics
+                # Log calculation metrics
                 if self.mlflow_run:
-                    training_metrics = {
-                        'training_time_seconds': training_time,
-                        'training_success': 1,
-                        'final_train_loss': training_results.get('final_train_loss', 0),
-                        'final_val_loss': training_results.get('final_val_loss', 0),
-                        'best_sharpe_score': training_results.get('best_sharpe_score', 0)
+                    signal_metrics = {
+                        'signal_calculation_time_seconds': calculation_time,
+                        'signals_calculated': success_count,
+                        'signal_calculation_success': 1
                     }
-                    self._log_mlflow_metrics(training_metrics)
+                    self._log_mlflow_metrics(signal_metrics)
             else:
-                self.logger.error(f"❌ Enhanced model training failed: {training_results['error']}")
+                self.logger.error("❌ No signals could be calculated")
                 
                 # Log failure metrics
                 if self.mlflow_run:
                     self._log_mlflow_metrics({
-                        'training_time_seconds': training_time,
-                        'training_success': 0
+                        'signal_calculation_time_seconds': calculation_time,
+                        'signal_calculation_success': 0
                     })
             
-            return training_results
+            return results
             
         except Exception as e:
-            self.logger.error(f"❌ Enhanced model training error: {str(e)}")
+            self.logger.error(f"❌ Signal calculation error: {str(e)}")
             
             # Log error metrics
             if self.mlflow_run:
                 self._log_mlflow_metrics({
-                    'training_time_seconds': time.time() - start_time,
-                    'training_success': 0
+                    'signal_calculation_time_seconds': time.time() - start_time,
+                    'signal_calculation_success': 0
                 })
             
             return {
@@ -565,10 +592,10 @@ class TestBaseProjectManager(ProjectManager):
 
     def get_comprehensive_results(self) -> Dict[str, Any]:
         """
-        Get comprehensive results from all pipeline stages.
+        Get comprehensive results from 200-day MA strategy.
         
         Returns:
-            Complete results dictionary with factor system, models, and backtest results
+            Complete results dictionary with factor system, signals, and backtest results
         """
         performance_metrics = {}
         if self.backtest_runner:
@@ -578,53 +605,59 @@ class TestBaseProjectManager(ProjectManager):
             'pipeline_results': self.pipeline_results,
             'backtest_results': self.results,
             'performance_metrics': performance_metrics,
-            'model_summary': self.trained_model.get_model_summary() if self.trained_model else None,
-            'strategy_performance': self.strategy.get_signal_history() if self.strategy else [],
+            'moving_averages': self.simple_strategy.get_moving_averages() if self.simple_strategy else {},
+            'current_signals': self.simple_strategy.get_current_signals() if self.simple_strategy else {},
+            'last_prices': self.simple_strategy.get_last_prices() if self.simple_strategy else {},
+            'signal_history': self.strategy.get_signal_history() if self.strategy else [],
+            'strategy_type': '200_day_moving_average',
             'system_config': get_config('test'),
             'timestamp': datetime.now().isoformat()
         }
 
     def run_complete_pipeline(self,
                             tickers: Optional[List[str]] = None,
-                            model_type: str = 'both',
-                            seeds: List[int] = [42, 123],
+                            strategy_type: str = '200_day_ma',
+                            moving_average_window: int = 200,
                             run_backtest: bool = True,
                             launch_web_interface: bool = True) -> Dict[str, Any]:
         """
-        Run the complete end-to-end pipeline with web interface option.
+        Run the complete simple MA pipeline with web interface option.
         
         Args:
             tickers: List of tickers to process
-            model_type: Type of models to train
-            seeds: Random seeds for training
-            run_backtest: Whether to run backtest after training
+            strategy_type: Strategy type (default: '200_day_ma')
+            moving_average_window: Moving average window (default: 200)
+            run_backtest: Whether to run backtest after setup
             launch_web_interface: Whether to launch web interface
             
         Returns:
             Complete pipeline results
         """
-        self.logger.info("🚀 Starting complete enhanced Test Base Project pipeline...")
+        self.logger.info("🚀 Starting complete simple 200-day MA pipeline...")
         if tickers is None:
                 tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
         if not run_backtest:
-            # Just setup and training, no backtest
-            
+            # Just setup and signal calculation, no backtest
             
             # Setup factor system
             factor_results = self.setup_factor_system(tickers, overwrite=False)
             
+            # Calculate moving average signals
+            signal_results = self.calculate_moving_average_signals(tickers, moving_average_window)
             
             return {
                 'factor_system': factor_results,
+                'signals': signal_results,
                 'backtest': None,
+                'strategy_type': strategy_type,
                 'timestamp': datetime.now().isoformat()
             }
         else:
             # Run complete pipeline with backtest
             return self.run(
                 tickers=tickers,
-                model_type=model_type,
+                model_type=strategy_type,
                 launch_web_interface=launch_web_interface
             )
 

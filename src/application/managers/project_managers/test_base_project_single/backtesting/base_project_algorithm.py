@@ -1,8 +1,11 @@
 """
-BaseProjectAlgorithm - Main trading algorithm for test_base_project.
+BaseProjectAlgorithm - Simple 200-day moving average trading algorithm.
 
-This algorithm matches the exact structure of MyAlgorithm from test_project_backtest
-but integrates with the spatiotemporal momentum system, factor creation, and ML models.
+Implements a straightforward 200-day moving average strategy:
+- Long position when current price > 200-day average
+- Short position when current price < 200-day average
+
+Factor creation remains the same, backtesting uses Misbuffet framework.
 """
 
 import logging
@@ -34,14 +37,13 @@ from ..config import get_config
 
 class BaseProjectAlgorithm(QCAlgorithm):
     """
-    Hybrid trading algorithm combining:
-    - Spatiotemporal momentum modeling (TFT/MLP ensemble)
-    - Factor-based data system
-    - Black-Litterman portfolio optimization
-    - Traditional technical indicators
+    Simple 200-day moving average trading algorithm:
+    - Compare current price to 200-day moving average
+    - Long when price > 200-day average
+    - Short when price < 200-day average
     
-    This follows the exact structure of MyAlgorithm but integrates
-    with the complete test_base_project ecosystem.
+    Uses factor creation system for data storage and
+    Misbuffet framework for backtesting.
     """
     
     def initialize(self):
@@ -69,15 +71,16 @@ class BaseProjectAlgorithm(QCAlgorithm):
                 self.log(f"Error adding security {ticker}: {str(e)}")
 
         # Algorithm parameters
-        self.lookback_window = 20   # volatility window
-        self.train_window = 252     # ~1 year
-        self.retrain_interval = timedelta(days=7)
+        self.moving_average_window = 200  # 200-day moving average
+        self.lookback_window = 20         # volatility window (kept for compatibility)
+        self.train_window = 252           # data history window
+        self.retrain_interval = timedelta(days=1)  # Daily signal updates
         self.last_train_time = None
 
-        # Model storage - both ML models and traditional models
-        self.models = {}  # Traditional RandomForest models per ticker
-        self.spatiotemporal_model = None  # Our TFT/MLP ensemble model
-        self.ml_signal_generator = None
+        # Signal storage - simple 200-day average signals
+        self.moving_averages = {}  # 200-day moving averages per ticker
+        self.signals = {}          # Binary signals: 1 (long) or -1 (short)
+        self.last_prices = {}      # Store last prices for comparison
         
         # Data tracking for flexible data format handling
         self._current_data_frame = None
@@ -236,79 +239,69 @@ class BaseProjectAlgorithm(QCAlgorithm):
             return pd.DataFrame()
 
     # ---------------------------
-    # Train one model (Enhanced with ML integration)
+    # Calculate 200-day moving averages
     # ---------------------------
-    def _train_model_for_ticker(self, ticker: str, current_time: datetime):
+    def _calculate_moving_average_for_ticker(self, ticker: str, current_time: datetime):
         """
-        Train model for a specific ticker.
+        Calculate 200-day moving average for a specific ticker.
         
-        Matches MyAlgorithm pattern but integrates with spatiotemporal training.
+        Simple price-based moving average calculation.
         """
         try:
             history = self.history(
                 [ticker],
-                self.train_window,
+                self.moving_average_window + 20,  # Extra buffer for data
                 Resolution.DAILY,
                 end_time=current_time
             )
 
             df = self._setup_factor_data_for_ticker(ticker, current_time)
-            if df.empty:
+            if df.empty or len(df) < self.moving_average_window:
+                self.log(f"Insufficient data for {ticker}: need {self.moving_average_window} days, got {len(df)}")
                 return None
 
-            # Traditional model training (matching MyAlgorithm)
-            X = df[["return_lag1", "return_lag2", "volatility"]]
-            y = (df["return_fwd1"] > 0).astype(int)
-
-            model = RandomForestClassifier(
-                n_estimators=100,
-                random_state=42
-            )
-            model.fit(X, y)
-            
-            return model
+            # Calculate 200-day simple moving average
+            if 'close' in df.columns:
+                moving_avg = df['close'].rolling(window=self.moving_average_window).mean().iloc[-1]
+                current_price = df['close'].iloc[-1]
+                
+                self.log(f"{ticker}: Current price ${current_price:.2f}, 200-day MA ${moving_avg:.2f}")
+                return {
+                    'moving_average': moving_avg,
+                    'current_price': current_price,
+                    'signal': 1 if current_price > moving_avg else -1
+                }
+            else:
+                self.log(f"No price data available for {ticker}")
+                return None
             
         except Exception as e:
-            self.log(f"Error training model for {ticker}: {str(e)}")
+            self.log(f"Error calculating moving average for {ticker}: {str(e)}")
             return None
 
     # ---------------------------
-    # Train all models (Enhanced with spatiotemporal training)
+    # Calculate moving averages for all tickers
     # ---------------------------
-    def _train_models(self, current_time: datetime):
+    def _calculate_signals(self, current_time: datetime):
         """
-        Train all models including traditional and spatiotemporal models.
+        Calculate 200-day moving average signals for all tickers.
         
-        Matches MyAlgorithm structure but adds our ML ensemble.
+        Simple binary signal generation based on price vs moving average.
         """
-        # Train traditional models per ticker (matching MyAlgorithm)
+        self.log(f"Calculating 200-day moving average signals at {current_time.date()}")
+        
         for ticker in self.universe:
-            model = self._train_model_for_ticker(ticker, current_time)
-            if model:
-                self.models[ticker] = model
-
-        # Train spatiotemporal ensemble model
-        try:
-            if hasattr(self, 'spatiotemporal_trainer') and self.spatiotemporal_trainer:
-                self.log("Training spatiotemporal ensemble model...")
+            ma_data = self._calculate_moving_average_for_ticker(ticker, current_time)
+            if ma_data:
+                self.moving_averages[ticker] = ma_data['moving_average']
+                self.last_prices[ticker] = ma_data['current_price']
+                self.signals[ticker] = ma_data['signal']
                 
-                # Train the TFT/MLP ensemble
-                training_results = self.spatiotemporal_trainer.train_complete_pipeline(
-                    tickers=self.universe,
-                    model_type='both',  # Train both TFT and MLP
-                    seeds=[42, 123]  # Ensemble with multiple seeds
-                )
-                
-                if training_results and not training_results.get('error'):
-                    self.spatiotemporal_model = self.spatiotemporal_trainer.get_trained_model()
-                    self.log("Spatiotemporal model training completed successfully")
-                else:
-                    self.log(f"Spatiotemporal model training failed: {training_results.get('error', 'Unknown error')}")
-        except Exception as e:
-            self.log(f"Error training spatiotemporal models: {str(e)}")
+                signal_text = "LONG" if ma_data['signal'] == 1 else "SHORT"
+                self.log(f"{ticker} Signal: {signal_text} (Price: ${ma_data['current_price']:.2f}, MA: ${ma_data['moving_average']:.2f})")
 
         self.last_train_time = current_time
-        self.log(f"Models retrained at {current_time.date()}")
+        self.log(f"Signals updated at {current_time.date()}")
 
     # ---------------------------
     # On each new data point (Enhanced with ML signals)
@@ -347,22 +340,21 @@ class BaseProjectAlgorithm(QCAlgorithm):
             self.log(f"ERROR: on_data received unknown data type: {type(data)}")
             return
             
-        # Retrain weekly
+        # Update signals daily
         if (
             self.last_train_time is None
             or self.time - self.last_train_time >= self.retrain_interval
         ):
-            self._train_models(self.time)
+            self._calculate_signals(self.time)
 
-        if not self.models:
+        if not self.signals:
             return
 
-        # Step 1: Collect signals (Enhanced with ML)
-        signals = {}
-        ml_signals = {}
+        # Step 1: Use simple 200-day moving average signals
+        trading_signals = {}
         
-        for ticker, model in self.models.items():
-            # Check if ticker exists in securities and the security object is not None
+        for ticker in self.universe:
+            # Check if ticker exists in securities and has valid signal
             if ticker not in self.my_securities:
                 self.log(f"Warning: {ticker} not found in my_securities dictionary")
                 continue
@@ -372,56 +364,22 @@ class BaseProjectAlgorithm(QCAlgorithm):
             elif not self._has_price_data(ticker, self.my_securities[ticker].symbol):
                 self.log(f"Warning: {ticker} price data not available in current data")
                 continue
-
-            # Get traditional signals using factor system
-            df = self._setup_factor_data_for_ticker(ticker, self.time)
-            if df.empty:
+            elif ticker not in self.signals:
+                self.log(f"Warning: {ticker} signal not available")
                 continue
 
-            # Traditional RandomForest signal (matching MyAlgorithm)
-            X_live = df[["return_lag1", "return_lag2", "volatility"]].iloc[-1:]
-            pred = model.predict(X_live)[0]  # 1 = long, 0 = short
-            signals[ticker] = pred
+            # Use the calculated 200-day MA signal
+            signal = self.signals[ticker]  # 1 = long, -1 = short
+            trading_signals[ticker] = 1 if signal == 1 else 0  # Convert to 1/0 format for compatibility
 
-            # Enhanced ML signals from spatiotemporal model
-            try:
-                if (self.spatiotemporal_model is not None and 
-                    hasattr(self, 'momentum_strategy') and 
-                    self.momentum_strategy is not None and
-                    hasattr(self.momentum_strategy, 'trained_model') and
-                    self.momentum_strategy.trained_model is not None):
-                    # Get ML signal from our ensemble model
-                    ml_signal = self.momentum_strategy.generate_strategy_signals(
-                        df, df, self.time
-                    ).get(ticker, 0.0)
-                    ml_signals[ticker] = ml_signal
-                    
-                    # Combine traditional and ML signals (weighted average)
-                    combined_signal = 0.6 * pred + 0.4 * (1 if ml_signal > 0 else 0)
-                    signals[ticker] = int(combined_signal > 0.5)
-                else:
-                    self.log(f"ML model not available for {ticker}, using traditional signal only")
-                    
-            except Exception as e:
-                self.log(f"Error getting ML signal for {ticker}: {str(e)}")
-                # Fall back to traditional signal only
-                pass
-
-        if not signals:
+        if not trading_signals:
             return
 
-        # Step 2: Build Black-Litterman optimizer (matching MyAlgorithm exactly)
-        # Convert signals into views: +5% for bullish, -5% for bearish
-        views = {t: (0.05 if sig == 1 else -0.05) for t, sig in signals.items()}
+        # Step 2: Simple position sizing (equal weight or binary)
+        # Convert signals into views: +3% for bullish, -3% for bearish (more conservative)
+        views = {t: (0.03 if sig == 1 else -0.03) for t, sig in trading_signals.items()}
         
-        # Enhance views with ML confidence if available
-        if ml_signals:
-            for ticker, ml_signal in ml_signals.items():
-                if ticker in views:
-                    # Adjust view strength based on ML signal confidence
-                    ml_confidence = abs(ml_signal)
-                    if ml_confidence > 0.1:  # High confidence
-                        views[ticker] *= (1 + ml_confidence)
+        self.log(f"Generated views for {len(views)} tickers: {views}")
 
         # Compute historical mean & covariance of returns
         hist = self.history(self.universe, self.train_window, Resolution.DAILY)
@@ -458,7 +416,20 @@ class BaseProjectAlgorithm(QCAlgorithm):
 
         bl = BlackLittermanOptimizer(mu, cov)
         bl.add_views(views)
-        weights = bl.solve()
+        try:
+            weights = bl.solve()
+            self.log(f"Black-Litterman optimization successful, weights: {weights}")
+        except Exception as e:
+            self.log(f"Black-Litterman optimization failed: {str(e)}")
+            # Fall back to simple equal weighting
+            num_signals = len([s for s in trading_signals.values() if s == 1])
+            if num_signals > 0:
+                equal_weight = 1.0 / len(self.universe)
+                weights = {t: equal_weight if trading_signals.get(t, 0) == 1 else 0.0 for t in self.universe}
+                self.log(f"Using equal weighting fallback: {weights}")
+            else:
+                self.log("No bullish signals, skipping trades")
+                return
 
         # Step 3: Execute trades based on BL weights (matching MyAlgorithm exactly)
         # Use cash balance when portfolio holdings are empty (initial state)

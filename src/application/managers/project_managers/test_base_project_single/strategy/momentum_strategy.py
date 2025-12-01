@@ -1,8 +1,8 @@
 """
-Spatiotemporal momentum strategy combining ML signals with traditional momentum.
+Simple 200-day moving average momentum strategy.
 
-Integrates trained TFT/MLP models with momentum-based trading 
-and factor-driven signal generation.
+Implements basic trend-following using 200-day moving averages
+for clean, interpretable trading signals.
 """
 
 import pandas as pd
@@ -10,44 +10,41 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 
-from ..models.spatiotemporal_model import HybridSpatiotemporalModel
 from ..config import DEFAULT_CONFIG
 
 
-class SpatiotemporalMomentumStrategy:
+class SimpleMomentumStrategy:
     """
-    Advanced momentum strategy that combines spatiotemporal model predictions
-    with traditional momentum signals and factor-based risk management.
+    Simple momentum strategy based on 200-day moving averages.
+    Provides clear trend-following signals without complex ML components.
     """
     
     def __init__(self, 
-                 trained_model: HybridSpatiotemporalModel,
+                 moving_average_window: int = 200,
                  config: Optional[Dict[str, Any]] = None):
         """
-        Initialize spatiotemporal momentum strategy.
+        Initialize simple momentum strategy.
         
         Args:
-            trained_model: Pre-trained hybrid spatiotemporal model
+            moving_average_window: Window for moving average calculation (default 200)
             config: Strategy configuration (uses default if None)
         """
-        self.trained_model = trained_model
+        self.moving_average_window = moving_average_window
         self.config = config or DEFAULT_CONFIG
-        self.backtest_config = self.config['BACKTEST']
-        self.portfolio_config = self.config['PORTFOLIO']
         
         # Strategy parameters
-        self.lookback_window = 252  # 1 year lookback
-        self.rebalance_frequency = self.backtest_config['REBALANCE_FREQUENCY']
-        self.max_position_size = self.backtest_config['MAX_POSITION_SIZE']
-        self.min_position_size = self.backtest_config['MIN_POSITION_SIZE']
+        self.lookback_window = moving_average_window + 50  # Buffer for MA calculation
+        self.rebalance_frequency = 'daily'  # Daily rebalancing for simple strategy
+        self.max_position_size = 0.25  # Max 25% per position
+        self.min_position_size = 0.01  # Min 1% per position
         
-        # Signal thresholds
-        self.ml_signal_threshold = 0.6
-        self.momentum_signal_threshold = 0.5
-        self.combined_signal_threshold = 0.7
+        # Simple binary signals - no complex thresholds needed
+        self.signal_threshold = 0.0  # Simple above/below MA
         
-        # Risk management parameters
-        self.max_volatility = self.portfolio_config['RISK_MANAGEMENT']['max_volatility']
+        # Storage for calculated moving averages and signals
+        self.moving_averages = {}
+        self.current_signals = {}
+        self.last_prices = {}
         self.max_drawdown = self.portfolio_config['RISK_MANAGEMENT']['max_drawdown']
         self.position_concentration = self.portfolio_config['RISK_MANAGEMENT']['position_concentration']
         
@@ -56,99 +53,137 @@ class SpatiotemporalMomentumStrategy:
         self.signal_history = []
         self.performance_metrics = {}
     
+    def get_signal_history(self) -> List[Dict]:
+        """Get historical signals for analysis."""
+        return self.signal_history
+    
+    def get_current_signals(self) -> Dict[str, float]:
+        """Get current signal values."""
+        return self.current_signals.copy()
+    
+    def get_moving_averages(self) -> Dict[str, float]:
+        """Get current moving averages."""
+        return self.moving_averages.copy()
+    
+    def get_last_prices(self) -> Dict[str, float]:
+        """Get last observed prices."""
+        return self.last_prices.copy()
+    
     def generate_strategy_signals(self, 
                                 market_data: pd.DataFrame,
                                 factor_data: pd.DataFrame,
                                 current_date: datetime) -> Dict[str, float]:
         """
-        Generate trading signals combining ML predictions with momentum analysis.
+        Generate simple trading signals based on 200-day moving averages.
         
         Args:
             market_data: Current market price data
-            factor_data: Factor data for signal generation
+            factor_data: Factor data with price information
             current_date: Current trading date
             
         Returns:
-            Dictionary of signals by ticker (-1 to 1, where 1 is max long)
+            Dictionary of signals by ticker (1.0 for long, -1.0 for short)
         """
-        print(f"📊 Generating strategy signals for {current_date.strftime('%Y-%m-%d')}")
+        print(f"📊 Generating 200-day MA signals for {current_date.strftime('%Y-%m-%d')}")
         
-        # Step 1: Get ML model signals
-        ml_signals = self.trained_model.generate_signals_from_factors(
-            factor_data, 
-            model_type='ensemble',
-            confidence_threshold=self.ml_signal_threshold
-        )
+        signals = {}
         
-        # Step 2: Calculate traditional momentum signals
-        momentum_signals = self._calculate_momentum_signals(market_data, current_date)
+        # Use factor_data if available, otherwise market_data
+        data_source = factor_data if not factor_data.empty else market_data
         
-        # Step 3: Combine ML and momentum signals
-        combined_signals = self._combine_signals(ml_signals, momentum_signals)
+        if data_source.empty:
+            print("  ⚠️  No data available for signal generation")
+            return signals
         
-        # Step 4: Apply risk management filters
-        final_signals = self._apply_risk_filters(combined_signals, market_data, current_date)
+        # Extract tickers and calculate signals
+        tickers = self._extract_tickers_from_data(data_source)
         
-        # Step 5: Normalize signal strengths
-        normalized_signals = self._normalize_signal_strengths(final_signals)
+        for ticker in tickers:
+            try:
+                signal = self._calculate_200_day_signal(data_source, ticker)
+                if signal is not None:
+                    signals[ticker] = signal
+                    self.current_signals[ticker] = signal
+                    
+                    signal_text = "LONG" if signal > 0 else "SHORT"
+                    print(f"  {ticker}: {signal_text} (signal: {signal})")
+            except Exception as e:
+                print(f"  ❌ Error calculating signal for {ticker}: {str(e)}")
         
         # Store signal history for analysis
         self.signal_history.append({
             'date': current_date,
-            'ml_signals': ml_signals.to_dict() if hasattr(ml_signals, 'to_dict') else ml_signals,
-            'momentum_signals': momentum_signals,
-            'combined_signals': combined_signals,
-            'final_signals': normalized_signals
+            'signals': signals.copy()
         })
         
-        print(f"  ✅ Generated signals for {len(normalized_signals)} assets")
-        return normalized_signals
+        print(f"  ✅ Generated signals for {len(signals)} assets")
+        return signals
     
-    def _calculate_momentum_signals(self, 
-                                  market_data: pd.DataFrame, 
-                                  current_date: datetime) -> Dict[str, float]:
-        """Calculate traditional momentum signals."""
-        momentum_signals = {}
-        
-        # Get data up to current date
-        historical_data = market_data[market_data.index <= current_date].copy()
-        
-        if len(historical_data) < self.lookback_window:
-            print(f"  ⚠️  Insufficient historical data: {len(historical_data)} < {self.lookback_window}")
-            return {}
-        
-        # Extract tickers from column names
+    def _extract_tickers_from_data(self, data: pd.DataFrame) -> List[str]:
+        """Extract ticker symbols from DataFrame columns."""
         tickers = set()
-        for col in historical_data.columns:
+        
+        for col in data.columns:
+            # Handle different column naming conventions
             if '_close_price' in col:
                 ticker = col.replace('_close_price', '')
                 tickers.add(ticker)
+            elif 'close' in col.lower() and col.lower() != 'close':
+                # Handle ticker_close format
+                ticker = col.replace('_close', '').replace('_Close', '')
+                tickers.add(ticker)
         
-        for ticker in tickers:
-            try:
-                price_col = f'{ticker}_close_price'
-                if price_col not in historical_data.columns:
-                    continue
-                
-                prices = historical_data[price_col].dropna()
-                if len(prices) < self.lookback_window:
-                    continue
-                
-                # Calculate multiple momentum signals
-                signals = {}
-                
-                # 1. Price momentum (various periods)
-                for period in [21, 63, 126, 252]:  # 1m, 3m, 6m, 1y
-                    if len(prices) >= period:
-                        momentum = (prices.iloc[-1] / prices.iloc[-period]) - 1
-                        signals[f'momentum_{period}d'] = momentum
-                
-                # 2. Moving average signals
-                for ma_period in [20, 50, 200]:
-                    if len(prices) >= ma_period:
-                        ma = prices.rolling(window=ma_period).mean().iloc[-1]
-                        ma_signal = (prices.iloc[-1] / ma) - 1
-                        signals[f'ma_signal_{ma_period}d'] = ma_signal
+        # If no ticker-specific columns, assume single ticker data
+        if not tickers and 'close' in data.columns:
+            tickers.add('DEFAULT')
+        
+        return list(tickers)
+    
+    def _calculate_200_day_signal(self, data: pd.DataFrame, ticker: str) -> Optional[float]:
+        """Calculate 200-day moving average signal for a ticker."""
+        try:
+            # Find price column for this ticker
+            price_col = None
+            possible_cols = [
+                f'{ticker}_close_price',
+                f'{ticker}_close',
+                f'{ticker}_Close',
+                'close',  # For single ticker data
+                'Close'
+            ]
+            
+            for col in possible_cols:
+                if col in data.columns:
+                    price_col = col
+                    break
+            
+            if price_col is None:
+                print(f"    No price column found for {ticker}")
+                return None
+            
+            prices = data[price_col].dropna()
+            
+            if len(prices) < self.moving_average_window:
+                print(f"    Insufficient data for {ticker}: {len(prices)} < {self.moving_average_window}")
+                return None
+            
+            # Calculate 200-day moving average
+            moving_avg = prices.rolling(window=self.moving_average_window).mean().iloc[-1]
+            current_price = prices.iloc[-1]
+            
+            # Store for reference
+            self.moving_averages[ticker] = moving_avg
+            self.last_prices[ticker] = current_price
+            
+            # Generate binary signal
+            signal = 1.0 if current_price > moving_avg else -1.0
+            
+            print(f"    {ticker}: Price ${current_price:.2f}, MA ${moving_avg:.2f}, Signal: {signal}")
+            return signal
+            
+        except Exception as e:
+            print(f"    Error calculating 200-day signal for {ticker}: {str(e)}")
+            return None
                 
                 # 3. Trend strength (linear regression slope)
                 if len(prices) >= 63:
