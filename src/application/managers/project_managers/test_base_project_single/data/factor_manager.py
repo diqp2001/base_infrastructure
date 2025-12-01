@@ -53,15 +53,8 @@ class FactorEnginedDataManager:
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         
-        # Data paths - find project root by looking for data/stock_data directory
-        current_path = Path(__file__).resolve()
-        self.project_root = current_path
-        
-        # Walk up the directory tree to find the project root
-        while not (self.project_root / 'data' / 'stock_data').exists() and self.project_root.parent != self.project_root:
-            self.project_root = self.project_root.parent
-            
-        self.stock_data_path = self.project_root / "data" / "stock_data"
+        # Note: All data now comes from the database via factor services
+        # No more CSV file dependencies
     
 
     def populate_price_factors(self, 
@@ -399,26 +392,20 @@ class FactorEnginedDataManager:
         }
     
     def _calculate_price_factor_values(self, tickers: List[str], overwrite: bool) -> Dict[str, Any]:
-        """Calculate and store Price factor values."""
-        print("  📊 Calculating Price factor values...")
+        """Calculate and store Price factor values using database data."""
+        print("  📊 Calculating Price factor values from database...")
         
         total_values = 0
         
         for ticker in tickers:
-            # Load historical data
-            csv_file = self.stock_data_path / f"{ticker}.csv"
-            if not csv_file.exists():
-                continue
-                
             try:
-                # Load and process data
-                df = pd.read_csv(csv_file)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df.set_index('Date', inplace=True)
+                # Load price data from database using factor data service
+                df = self._load_ticker_price_data(ticker)
+                if df is None or df.empty:
+                    print(f"    ⚠️  No price data found in database for {ticker}")
+                    continue
                 
-                
-                
-                # Store the momentum features as factors
+                # Store the price features as factors
                 values_stored = self._store_price_features(
                     df, ticker, overwrite
                 )
@@ -548,7 +535,7 @@ class FactorEnginedDataManager:
         return values_stored
     
     def _store_price_features(self, data: pd.DataFrame, ticker: str, overwrite: bool) -> int:
-        """Store price features as factor values."""
+        """Store price features as factor values from database data."""
         share = self.factor_data_service.get_company_share_by_ticker(ticker)
         if not share:
             return 0
@@ -556,27 +543,28 @@ class FactorEnginedDataManager:
         values_stored = 0
         price_columns = self.config['FACTORS']['PRICE_FACTORS']
         
-        # Create mapping between factor names and actual CSV column names
+        # Create mapping between factor names and database column names
         factor_to_column_mapping = {
-            'Open': 'Open',
-            'High': 'High', 
-            'Low': 'Low',
-            'Close': 'Close',
-            'Adj Close': 'Adj Close',
-            'Volume': 'Volume'
+            'Open': 'open_price',
+            'High': 'high_price', 
+            'Low': 'low_price',
+            'Close': 'close_price',
+            'Adj Close': 'adj_close_price',
+            'Volume': 'volume'
         }
         
         for column in price_columns:
             factor = self.factor_data_service.get_factor_by_name(column['name'])
             if factor:
-                # Map factor name to actual CSV column name
-                csv_column_name = factor_to_column_mapping.get(column['name'], column['name'])
-                if csv_column_name in data.columns:
+                # Map factor name to database column name
+                db_column_name = factor_to_column_mapping.get(column['name'], column['name'].lower() + '_price')
+                if db_column_name in data.columns:
                     values_stored += self.factor_data_service.store_factor_values(
-                        factor, share, data, csv_column_name, overwrite
+                        factor, share, data, db_column_name, overwrite
                     )
                 else:
-                    print(f"      ⚠️  Column '{csv_column_name}' not found for factor '{column['name']}'")
+                    print(f"      ⚠️  Column '{db_column_name}' not found for factor '{column['name']}'")
+                    print(f"      📊 Available columns: {list(data.columns)}")
         
         return values_stored
     

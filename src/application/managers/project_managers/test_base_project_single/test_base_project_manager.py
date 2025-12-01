@@ -448,8 +448,40 @@ class TestBaseProjectManager(ProjectManager):
             self._log_mlflow_params(setup_params)
         
         try:
-            # Use the BacktestRunner's factor system setup
-            setup_results = self.backtest_runner.setup_factor_system(tickers, overwrite)
+            # Initialize database and create tables
+            self.database_service.db.initialize_database_and_create_all_tables()
+            
+            # Use proper factor service pattern like test_base_project
+            setup_results = {}
+            
+            # Setup price factors from database
+            price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
+            setup_results['price_factors'] = price_summary
+            
+            # Setup momentum factors (for 200-day MA calculation)
+            momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
+            setup_results['momentum_factors'] = momentum_summary
+            
+            # Setup technical indicators 
+            technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
+            setup_results['technical_factors'] = technical_summary
+            
+            # Calculate totals
+            entities_created = price_summary.get('tickers_processed', 0)
+            factors_added = (price_summary.get('factors_created', 0) + 
+                           momentum_summary.get('factors_created', 0) + 
+                           technical_summary.get('factors_created', 0))
+            values_populated = (price_summary.get('values_calculated', 0) + 
+                              momentum_summary.get('values_calculated', 0) + 
+                              technical_summary.get('values_calculated', 0))
+            
+            setup_results.update({
+                'tickers': tickers,
+                'entities_created': entities_created,
+                'factors_added': factors_added,
+                'values_populated': values_populated,
+                'system_ready': True
+            })
             
             end_time = time.time()
             elapsed = end_time - start_time
