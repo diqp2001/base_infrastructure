@@ -31,6 +31,7 @@ class SimpleMomentumStrategy:
         """
         self.moving_average_window = moving_average_window
         self.config = config or DEFAULT_CONFIG
+        self.portfolio_config = self.config['PORTFOLIO']
         
         # Strategy parameters
         self.lookback_window = moving_average_window + 50  # Buffer for MA calculation
@@ -185,48 +186,7 @@ class SimpleMomentumStrategy:
             print(f"    Error calculating 200-day signal for {ticker}: {str(e)}")
             return None
                 
-                # 3. Trend strength (linear regression slope)
-                if len(prices) >= 63:
-                    recent_prices = prices.tail(63)
-                    x = np.arange(len(recent_prices))
-                    slope, _ = np.polyfit(x, recent_prices.values, 1)
-                    normalized_slope = slope / recent_prices.mean()
-                    signals['trend_strength'] = normalized_slope
                 
-                # 4. Volatility-adjusted momentum
-                if len(prices) >= 126:
-                    returns = prices.pct_change().dropna()
-                    if len(returns) >= 63:
-                        momentum_126 = (prices.iloc[-1] / prices.iloc[-126]) - 1
-                        volatility = returns.tail(63).std() * np.sqrt(252)
-                        vol_adj_momentum = momentum_126 / max(volatility, 0.01)
-                        signals['vol_adj_momentum'] = vol_adj_momentum
-                
-                # Combine momentum signals with weights
-                signal_weights = {
-                    'momentum_63d': 0.3,
-                    'momentum_126d': 0.25,
-                    'ma_signal_50d': 0.2,
-                    'trend_strength': 0.15,
-                    'vol_adj_momentum': 0.1
-                }
-                
-                combined_momentum = 0.0
-                total_weight = 0.0
-                
-                for signal_name, weight in signal_weights.items():
-                    if signal_name in signals:
-                        combined_momentum += signals[signal_name] * weight
-                        total_weight += weight
-                
-                if total_weight > 0:
-                    momentum_signals[ticker] = combined_momentum / total_weight
-                
-            except Exception as e:
-                print(f"  ⚠️  Error calculating momentum for {ticker}: {str(e)}")
-                continue
-        
-        return momentum_signals
     
     def _combine_signals(self, 
                         ml_signals: pd.DataFrame, 

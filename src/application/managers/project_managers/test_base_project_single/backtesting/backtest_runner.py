@@ -28,8 +28,6 @@ from application.services.misbuffet.results import (
 # Test base project imports
 from .base_project_algorithm import BaseProjectAlgorithm
 from ..data.factor_manager import FactorEnginedDataManager
-from ..models.model_trainer import SpatiotemporalModelTrainer
-from ..strategy.momentum_strategy import SpatiotemporalMomentumStrategy
 
 # Database and infrastructure
 from application.services.database_service.database_service import DatabaseService
@@ -77,13 +75,7 @@ class BacktestRunner:
         try:
             self.logger.info("Setting up test_base_project components...")
             
-            # Initialize model trainer
-            self.model_trainer = SpatiotemporalModelTrainer(self.database_service)
-            self.logger.info("✅ Model trainer initialized")
             
-            # Initialize momentum strategy
-            self.momentum_strategy = SpatiotemporalMomentumStrategy(None, config)
-            self.logger.info("✅ Momentum strategy initialized")
             
             return True
             
