@@ -115,7 +115,7 @@ FACTOR_CONFIG = {
 # Backtesting Configuration
 BACKTEST_CONFIG = {
     'START_DATE': '2018-01-01',
-    'END_DATE': '2023-12-31',
+    'END_DATE': '2019-01-01',
     'INITIAL_CAPITAL': 100000.0,
     'BENCHMARK_TICKER': 'SPY',
     'COMMISSION_MODEL': 'equity_commission',

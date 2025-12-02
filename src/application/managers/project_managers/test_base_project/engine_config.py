@@ -14,8 +14,8 @@ MISBUFFET_ENGINE_CONFIG = {
     "execution_mode": "synchronous",
     
     # Backtest parameters - optimized for ML system
-    "start_date": datetime(2020, 1, 1),  # Recent data for ML training
-    "end_date": datetime(2023, 1, 1),
+    "start_date": datetime(2018, 1, 1),  # Recent data for ML training
+    "end_date": datetime(2019, 1, 1),
     "initial_capital": 100_000.0,
     "benchmark": "SPY",
     
