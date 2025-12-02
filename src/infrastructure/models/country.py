@@ -9,9 +9,9 @@ class Country(Base):
     __tablename__ = 'countries'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String(255), nullable=False, unique=True)
     iso_code = Column(String(3), nullable=False, unique=True)  # e.g., 'USA', 'CAN'
-    region = Column(String, nullable=True)  # Optional region classification (e.g., 'North America')
+    region = Column(String(255), nullable=True)  # Optional region classification (e.g., 'North America')
     continent_id = Column(Integer, ForeignKey("continents.id"), nullable=True)
     
     # Relationships

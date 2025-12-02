@@ -6,8 +6,8 @@ class Industry(Base):
     __tablename__ = 'industries'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
-    description = Column(String, nullable=True)  # Optional description for the industry
+    name = Column(String(255), nullable=False, unique=True)
+    description = Column(String(1000), nullable=True)  # Optional description for the industry
     sector_id = Column(Integer, ForeignKey('sectors.id'), nullable=False)  # Foreign key for related Sector
     
     # Relationships
