@@ -16,7 +16,9 @@ DATA_PATH = BASE_PROJECT_ROOT / "data"
 
 # Database Configuration
 CONFIG_TEST = {
-    'DB_TYPE': 'sqlite',
+    #'DB_TYPE': 'sqlite',
+    'DB_TYPE': 'sql_server',
+    
     'DB_PATH': BASE_PROJECT_ROOT / 'base_infrastructure.db',
     'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db'
 }

@@ -5,8 +5,9 @@ class Sector(Base):
     __tablename__ = 'sectors'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
-    description = Column(String, nullable=True)  
+    name = Column(String(255), unique=True, nullable=False)
+    description = Column(String(1000))
+
     
     # Relationships
     industries = relationship("Industry", back_populates="sectors")
