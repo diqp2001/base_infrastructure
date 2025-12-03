@@ -204,6 +204,9 @@ class EntityExistenceService:
         """
         Ensure related entities (Country, Sector, Industry) exist.
         
+        IMPORTANT: Creates entities in the correct dependency order to avoid foreign key errors.
+        Order: Countries (no deps) → Sectors (no deps) → Industries (depends on sectors)
+        
         Args:
             ticker: Stock ticker symbol
             
@@ -213,16 +216,18 @@ class EntityExistenceService:
         results = {}
         
         try:
-            # Ensure Country exists (default to USA for most stocks)
+            # Step 1: Ensure Country exists (no dependencies)
             country_result = self._ensure_country_exists("United States", "US")
             results['country'] = country_result
             
-            # Ensure Sector exists (default to Technology)
+            # Step 2: Ensure Sector exists (no dependencies)
             sector_result = self._ensure_sector_exists("Technology")
             results['sector'] = sector_result
             
-            # Industry can be None for now
-            results['industry'] = {'status': 'skipped'}
+            # Step 3: Ensure Industry exists (depends on sector_id)
+            # Create industry AFTER sector to avoid foreign key constraint error
+            industry_result = self._ensure_industry_exists("Technology", "Technology sector")
+            results['industry'] = industry_result
             
         except Exception as e:
             print(f"    ❌ Error ensuring related entities for {ticker}: {str(e)}")
@@ -259,6 +264,23 @@ class EntityExistenceService:
                 
         except Exception as e:
             print(f"Error creating sector {name}: {str(e)}")
+            return {'status': 'failed', 'error': str(e)}
+    
+    def _ensure_industry_exists(self, name: str, description: str = "") -> Dict[str, Any]:
+        """Ensure Industry entity exists using IndustryRepository."""
+        try:
+            industry = self.industry_repository._create_or_get_industry(
+                name=name,
+                description=description
+            )
+            
+            if industry:
+                return {'status': 'verified'}
+            else:
+                return {'status': 'failed'}
+                
+        except Exception as e:
+            print(f"Error creating industry {name}: {str(e)}")
             return {'status': 'failed', 'error': str(e)}
     
     def _update_results(self, target_results: Dict[str, int], operation_result: Dict[str, Any]):
