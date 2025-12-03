@@ -17,6 +17,8 @@ from application.services.database_service.database_service import DatabaseServi
 from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+from infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+
 from infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
 from infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
@@ -47,6 +49,7 @@ class EntityExistenceService:
         self.country_repository = CountryRepository(self.session)
         self.sector_repository = SectorRepository(self.session)
         self.industry_repository = IndustryRepository(self.session)
+        self.exchange_repository = ExchangeRepository(self.session)
     
     def ensure_entities_exist(self, tickers: List[str]) -> Dict[str, Any]:
         """
@@ -228,6 +231,12 @@ class EntityExistenceService:
             # Create industry AFTER sector to avoid foreign key constraint error
             industry_result = self._ensure_industry_exists("Technology", "Technology sector")
             results['industry'] = industry_result
+
+            
+            # Step 4: Ensure Exchange exists 
+            # Create Exchange AFTER sector to avoid foreign key constraint error
+            exchange_result = self._ensure_exchange_exists()
+            results['exchange'] = exchange_result
             
         except Exception as e:
             print(f"    ❌ Error ensuring related entities for {ticker}: {str(e)}")
