@@ -2,7 +2,7 @@
 from typing import List
 
 class Exchange:
-    def __init__(self, id:int, name: str, country_id: int):
+    def __init__(self, id: int, name: str, legal_name: str, country_id: int, start_date, end_date=None):
         """
         Initialize an Exchange object with its name, location, and the assets it trades.
         
@@ -12,7 +12,10 @@ class Exchange:
         """
         self.id = id
         self.name = name
+        self.legal_name = legal_name
         self.country_id = country_id
+        self.start_date = start_date
+        self.end_date = end_date
 
     
 

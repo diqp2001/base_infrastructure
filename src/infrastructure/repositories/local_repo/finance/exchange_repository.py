@@ -165,10 +165,10 @@ class ExchangeRepository(BaseRepository):
             exchange = ExchangeEntity(
                 id=next_id,
                 name=name,
-                legal_name=legal_name or name,
+                legal_name=legal_name or "",
                 country_id=country_id,
-                start_date=start_date or date.today(),
-                end_date=end_date
+                start_date=start_date or "",
+                end_date=end_date or ""
             )
 
             return self.add(exchange)

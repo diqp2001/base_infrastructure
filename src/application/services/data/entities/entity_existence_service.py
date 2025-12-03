@@ -74,6 +74,7 @@ class EntityExistenceService:
             'countries': {'verified': 0, 'existing': 0, 'created': 0},
             'sectors': {'verified': 0, 'existing': 0, 'created': 0},
             'industries': {'verified': 0, 'existing': 0, 'created': 0},
+            'exchanges': {'verified': 0, 'existing': 0, 'created': 0},
             'errors': []
         }
         
@@ -84,6 +85,7 @@ class EntityExistenceService:
                 self._update_results(results['countries'], related_results.get('country', {}))
                 self._update_results(results['sectors'], related_results.get('sector', {}))
                 self._update_results(results['industries'], related_results.get('industry', {}))
+                self._update_results(results['exchanges'], related_results.get('exchange', {}))
                 
                 # Step 2: Ensure Company exists (create company first to get company_id)
                 company_result = self._ensure_company_exists(ticker)
@@ -235,7 +237,7 @@ class EntityExistenceService:
             
             # Step 4: Ensure Exchange exists 
             # Create Exchange AFTER sector to avoid foreign key constraint error
-            exchange_result = self._ensure_exchange_exists()
+            exchange_result = self._ensure_exchange_exists("NYSE")
             results['exchange'] = exchange_result
             
         except Exception as e:
@@ -290,6 +292,22 @@ class EntityExistenceService:
                 
         except Exception as e:
             print(f"Error creating industry {name}: {str(e)}")
+            return {'status': 'failed', 'error': str(e)}
+        
+    def _ensure_exchange_exists(self, name: str) -> Dict[str, Any]:
+        """Ensure Industry entity exists using exchangeRepository."""
+        try:
+            exchange = self.exchange_repository._create_or_get_exchange(
+                name=name
+            )
+            
+            if exchange:
+                return {'status': 'verified'}
+            else:
+                return {'status': 'failed'}
+                
+        except Exception as e:
+            print(f"Error creating exchange {name}: {str(e)}")
             return {'status': 'failed', 'error': str(e)}
     
     def _update_results(self, target_results: Dict[str, int], operation_result: Dict[str, Any]):
