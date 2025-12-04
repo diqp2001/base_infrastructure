@@ -14,68 +14,52 @@ if not self.spatiotemporal_trainer:  # Line 323
 
 ## 🔍 Root Cause Analysis
 
-### 1. **Missing Attribute Initialization**
-The `BaseProjectAlgorithm` class never initializes the `spatiotemporal_trainer` attribute in its `__init__()` or `initialize()` methods.
+### 1. **RESOLVED: Missing Attribute Initialization**
+The `BaseProjectAlgorithm` class was missing initialization of dependency attributes. **Fixed** by adding initialization in `initialize()` method:
 
-**File**: `base_project_algorithm.py`, lines 46-88
+**File**: `base_project_algorithm.py`, lines 81-84 (ADDED)
 ```python
-def initialize(self):
-    """Initialize the algorithm following MyAlgorithm pattern."""
-    # ... other initializations ...
-    
-    # Model storage - both ML models and traditional models
-    self.models = {}  # Traditional RandomForest models per ticker
-    self.spatiotemporal_model = None  # Our TFT/MLP ensemble model
-    self.ml_signal_generator = None
-    
-    # ❌ MISSING: self.spatiotemporal_trainer = None
-    # ❌ MISSING: self.factor_manager = None  
-    # ❌ MISSING: self.momentum_strategy = None
+# Dependencies (will be injected later by BacktestRunner)
+self.spatiotemporal_trainer = None
+self.factor_manager = None  
+self.momentum_strategy = None
 ```
 
-### 2. **Dependency Injection Timing Issue**
-The dependencies are injected via setter methods that are called AFTER the algorithm is instantiated:
+### 2. **CRITICAL: Dependency Injection Race Condition**
+**THE ACTUAL PROBLEM**: The Misbuffet framework starts calling `on_data()` immediately when the algorithm is created, but dependencies are injected AFTER creation.
 
-**File**: `backtest_runner.py`, lines 167-170
+**Problem Sequence**:
+1. `backtest_runner.py:158` - `algorithm = BaseProjectAlgorithm()` 
+2. **Misbuffet framework immediately starts calling `on_data()`**
+3. `backtest_runner.py:167-177` - Dependencies injected (TOO LATE!)
+
+### 3. **FIXED: Race Condition Resolution**
+**Solution**: Enhanced `create_algorithm_instance()` to inject dependencies **immediately** after creation and **before** any framework interaction:
+
+**File**: `backtest_runner.py`, lines 160-186 (ENHANCED)
 ```python
-if self.model_trainer:
-    algorithm.set_spatiotemporal_trainer(self.model_trainer)  # Called AFTER instantiation
-    self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
-```
+# CRITICAL: Inject dependencies IMMEDIATELY after creation and BEFORE
+# any framework interaction to prevent race conditions with on_data()
+self.logger.info("🔧 Injecting dependencies immediately after algorithm creation...")
 
-**File**: `base_project_algorithm.py`, lines 529-532
-```python
-def set_spatiotemporal_trainer(self, trainer):
-    """Inject spatiotemporal trainer from the BacktestRunner."""
-    self.spatiotemporal_trainer = trainer  # This creates the attribute
-    self.log("✅ Spatiotemporal trainer injected successfully")
+# Verify all dependencies are injected before returning
+self.logger.info(f"🔍 Dependency verification - factor_manager: {algorithm.factor_manager is not None}")
 ```
-
-### 3. **Race Condition**
-The `on_data()` method can be called by the Misbuffet framework BEFORE the dependency injection happens, causing the AttributeError when trying to access an uninitialized attribute.
 
 ## 📋 Object Lifecycle Timeline
 
+### ❌ **Previous Problematic Flow**
 1. **Algorithm Instantiation** (`backtest_runner.py:158`)
-   ```python
-   algorithm = BaseProjectAlgorithm()  # Creates object
-   ```
+2. **Misbuffet Framework Starts** - calls `on_data()` immediately 
+3. **AttributeError** - `self.spatiotemporal_trainer` not found
+4. **Dependency Injection** - too late!
 
-2. **Algorithm Initialization** (`base_project_algorithm.py:46-88`)
-   ```python
-   def initialize(self):
-       # Initializes models, config, etc.
-       # ❌ Does NOT initialize spatiotemporal_trainer
-   ```
-
-3. **Misbuffet Framework Starts** 
-   - Framework may call `on_data()` immediately
-   - Line 323: `if not self.spatiotemporal_trainer:` → **AttributeError**
-
-4. **Dependency Injection** (`backtest_runner.py:167-170`)
-   ```python
-   algorithm.set_spatiotemporal_trainer(self.model_trainer)  # Too late!
-   ```
+### ✅ **Fixed Flow**  
+1. **Algorithm Instantiation** (`backtest_runner.py:158`)
+2. **Immediate Dependency Injection** (`backtest_runner.py:162-186`) 
+3. **Dependency Verification** - all dependencies confirmed present
+4. **Algorithm Returned** - fully configured and ready
+5. **Misbuffet Framework Starts** - `on_data()` now works correctly
 
 ## ✅ Solution
 

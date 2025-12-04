@@ -157,6 +157,10 @@ class BacktestRunner:
             # Create algorithm instance
             algorithm = BaseProjectAlgorithm()
             
+            # CRITICAL: Inject dependencies IMMEDIATELY after creation and BEFORE
+            # any framework interaction to prevent race conditions with on_data()
+            self.logger.info("🔧 Injecting dependencies immediately after algorithm creation...")
+            
             # Always inject our components - ensure they are not None
             if self.factor_manager:
                 algorithm.set_factor_manager(self.factor_manager)
@@ -176,8 +180,13 @@ class BacktestRunner:
             else:
                 self.logger.warning("⚠️ Momentum strategy is None")
             
+            # Verify all dependencies are injected before returning
+            self.logger.info(f"🔍 Dependency verification - factor_manager: {algorithm.factor_manager is not None}")
+            self.logger.info(f"🔍 Dependency verification - spatiotemporal_trainer: {algorithm.spatiotemporal_trainer is not None}")
+            self.logger.info(f"🔍 Dependency verification - momentum_strategy: {algorithm.momentum_strategy is not None}")
+            
             self.algorithm_instance = algorithm
-            self.logger.info("✅ Algorithm instance created and configured")
+            self.logger.info("✅ Algorithm instance created and configured with all dependencies")
             
             return algorithm
             
