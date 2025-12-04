@@ -78,10 +78,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
         self.spatiotemporal_model = None  # Our TFT/MLP ensemble model
         self.ml_signal_generator = None
         
-        # Dependencies (will be injected later by BacktestRunner)
-        self.spatiotemporal_trainer = None
-        self.factor_manager = None  
-        self.momentum_strategy = None
+        
         
         # Data tracking for flexible data format handling
         self._current_data_frame = None

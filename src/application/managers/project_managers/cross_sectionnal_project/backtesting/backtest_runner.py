@@ -58,9 +58,7 @@ class BacktestRunner:
         config = get_config('test')
         self.setup_components(config)
 
-        self.model_trainer = None
-        self.momentum_strategy = None
-        self.algorithm_instance = None
+        
         
         # Results storage
         self.results = None
