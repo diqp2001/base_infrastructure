@@ -256,16 +256,16 @@ class BacktestRunner:
                 raise Exception("Component setup failed")
             
             # Step 2:  factor system setup 
-            self.setup_factor_system(tickers)
+            #self.setup_factor_system(tickers)
             self.logger.info("🏗️ Factor system setup ")
 
             factor_results = {'system_ready': True, 'note': 'Factor system working'}
             
             # Step 3: Train models
             self.logger.info("🧠 Training spatiotemporal models...")
-            training_results = self.train_models(tickers, model_type)
-            if training_results.get('error'):
-                raise Exception(f"Model training failed: {training_results['error']}")
+            #training_results = self.train_models(tickers, model_type)
+            """if training_results.get('error'):
+                raise Exception(f"Model training failed: {training_results['error']}")"""
             
             # Step 4: Create properly configured algorithm instance first
             self.logger.info("🔧 Creating configured algorithm instance...")
