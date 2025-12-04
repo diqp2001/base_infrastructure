@@ -232,42 +232,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
             self.log(f"Error converting factor data for {ticker}: {str(e)}")
             return pd.DataFrame()
 
-    # ---------------------------
-    # Train one model (Enhanced with ML integration)
-    # ---------------------------
-    def _train_model_for_ticker(self, ticker: str, current_time: datetime):
-        """
-        Train model for a specific ticker.
-        
-        Matches MyAlgorithm pattern but integrates with spatiotemporal training.
-        """
-        try:
-            history = self.history(
-                [ticker],
-                self.train_window,
-                Resolution.DAILY,
-                end_time=current_time
-            )
-
-            df = self._setup_factor_data_for_ticker(ticker, current_time)
-            if df.empty:
-                return None
-
-            # Traditional model training (matching MyAlgorithm)
-            X = df[["return_lag1", "return_lag2", "volatility"]]
-            y = (df["return_fwd1"] > 0).astype(int)
-
-            model = RandomForestClassifier(
-                n_estimators=100,
-                random_state=42
-            )
-            model.fit(X, y)
-            
-            return model
-            
-        except Exception as e:
-            self.log(f"Error training model for {ticker}: {str(e)}")
-            return None
+    
 
     # ---------------------------
     # Train all models (Enhanced with spatiotemporal training)
@@ -278,11 +243,7 @@ class BaseProjectAlgorithm(QCAlgorithm):
         
         Matches MyAlgorithm structure but adds our ML ensemble.
         """
-        # Train traditional models per ticker (matching MyAlgorithm)
-        for ticker in self.universe:
-            model = self._train_model_for_ticker(ticker, current_time)
-            if model:
-                self.models[ticker] = model
+        
 
         # Train spatiotemporal ensemble model
         try:
