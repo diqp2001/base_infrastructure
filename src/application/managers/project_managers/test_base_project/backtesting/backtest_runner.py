@@ -135,17 +135,17 @@ class BacktestRunner:
     
     def train_models(self, tickers: List[str], model_type: str = 'both', seeds: List[int] = [42, 123]) -> Dict[str, Any]:
         """
-        Train the spatiotemporal models.
+        Train the gbm models.
         
         Args:
             tickers: List of tickers to train on
-            model_type: 'tft', 'mlp', or 'both'
+            model_type: 'gbm'
             seeds: Random seeds for ensemble training
             
         Returns:
             Training results
         """
-        self.logger.info(f"Training spatiotemporal models ({model_type}) for {len(tickers)} tickers...")
+        self.logger.info(f"Training gbm models ({model_type}) for {len(tickers)} tickers...")
         
         try:
             # Execute complete training pipeline
