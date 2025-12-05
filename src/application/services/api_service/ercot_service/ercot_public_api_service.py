@@ -18,10 +18,14 @@ Data Coverage:
 """
 
 import datetime
+import os
 import time
 from typing import Dict, Any, List, Optional, Union
 import requests
 from dataclasses import dataclass
+
+from application.services.api_service.ercot_service.ercot_authenticated_api_service import ERCOTCredentials, ErcotAuthenticatedApiService
+
 
 
 @dataclass
@@ -72,9 +76,12 @@ class ErcotPublicApiService:
             timeout: Request timeout in seconds (default: 30)
             rate_limit: Rate limiting configuration (uses default if None)
         """
-        self.timeout = timeout
+        # Load credentials from file (will be outside repository)
+        credentials = ERCOTCredentials.from_file('ercot_credentials.json')
+        self.auth_service = ErcotAuthenticatedApiService(credentials)
+        self.timeout = self.auth_service.timeout 
         self.rate_limit = rate_limit or ERCOTRateLimit()
-        self.session = requests.Session()
+        self.session = self.auth_service.session
         
         # Set default headers
         self.session.headers.update({
@@ -84,6 +91,11 @@ class ErcotPublicApiService:
         })
         
         self.last_request_time = 0.0
+
+    
+        
+
+        
 
     def _respect_rate_limit(self):
         """Ensure rate limiting is respected between API calls"""

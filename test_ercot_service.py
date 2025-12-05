@@ -10,7 +10,7 @@ import datetime
 # Add src to path to import modules
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.application.services.ercot_service import ErcotPublicApiService
+from src.application.services.api_service.ercot_service import ErcotPublicApiService
 
 def test_ercot_service():
     print("=== ERCOT Public API Service Test ===\n")

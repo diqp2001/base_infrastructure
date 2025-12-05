@@ -26,6 +26,7 @@ import time
 from typing import Dict, Any, List, Optional, Union
 import requests
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -38,6 +39,7 @@ class ERCOTCredentials:
     @classmethod
     def from_file(cls, filepath: str) -> 'ERCOTCredentials':
         """Load credentials from JSON file"""
+        filepath = Path.cwd().parent / filepath
         with open(filepath, 'r') as f:
             data = json.load(f)
         return cls(
