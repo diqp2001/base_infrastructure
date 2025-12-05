@@ -1,10 +1,13 @@
-# ERCOT Public API Service
+# ERCOT API Services
 
 ## 📋 Overview
 
-This service provides access to ERCOT's (Electric Reliability Council of Texas) public API for energy market data. Unlike the private ERCOT API, **no authentication is required** - all endpoints are publicly accessible.
+This package provides access to ERCOT's (Electric Reliability Council of Texas) API for energy market data. Two service implementations are available:
 
-The service focuses on two primary data types:
+1. **Public API Service** (`ercot_public_api_service.py`) - No authentication required
+2. **Authenticated API Service** (`ercot_authenticated_api_service.py`) - Enhanced access with credentials
+
+Both services focus on the same primary data types:
 - **Day-Ahead Market (DAM)** settlement point prices
 - **Real-Time Market (RTM)** settlement point prices (physical prices)
 
@@ -14,25 +17,34 @@ The service focuses on two primary data types:
 
 ### Service Structure
 ```
-src/application/services/ercot_service/
-├── __init__.py                     # Package initialization
-├── ercot_public_api_service.py    # Main service implementation
-└── CLAUDE.md                      # This documentation
+src/application/services/api_service/ercot_service/
+├── __init__.py                           # Package initialization
+├── ercot_public_api_service.py          # Public API (no auth)
+├── ercot_authenticated_api_service.py   # Authenticated API
+├── ercot_credentials_template.json      # Credentials template
+└── CLAUDE.md                            # This documentation
 ```
 
 ### Key Components
-- **ErcotPublicApiService**: Main service class for API interactions
+
+#### Public API Service
+- **ErcotPublicApiService**: Service class for public API (90-day limit)
 - **ERCOTRateLimit**: Configuration class for rate limiting
 - **Settlement Points**: Predefined major hubs and load zones
+
+#### Authenticated API Service  
+- **ErcotAuthenticatedApiService**: Service class for authenticated API
+- **ERCOTCredentials**: Credentials management and loading
+- **ID Token Authentication**: OAuth 2.0 flow with automatic refresh
+- **Enhanced Data Access**: Beyond 90-day public limitation
 
 ---
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Public API Usage (No Authentication)
 ```python
-from src.application.services.ercot_service import ErcotPublicApiService
-import datetime
+from src.application.services.api_service.ercot_service.ercot_public_api_service import ErcotPublicApiService
 
 # Initialize service (no authentication required)
 service = ErcotPublicApiService()
@@ -57,6 +69,76 @@ rtm_prices = service.get_physical_prices(
 health = service.check_api_health()
 print(f"API Status: {health['status']}")
 ```
+
+### Authenticated API Usage (Enhanced Access)
+```python
+from src.application.services.api_service.ercot_service.ercot_authenticated_api_service import (
+    ErcotAuthenticatedApiService, ERCOTCredentials
+)
+
+# Load credentials from file (recommended)
+credentials = ERCOTCredentials.from_file('/path/to/your/ercot_credentials.json')
+
+# Or load from environment variables
+# credentials = ERCOTCredentials.from_env()
+
+# Initialize authenticated service
+service = ErcotAuthenticatedApiService(credentials)
+
+# Same API methods as public service, but with enhanced data access
+dam_prices = service.get_day_ahead_prices(
+    start_date='2023-01-01',  # Can access historical data beyond 90 days
+    end_date='2023-12-31',
+    settlement_point='HB_HOUSTON'
+)
+
+# Check authentication status
+auth_info = service.get_authentication_info()
+print(f"Authenticated: {auth_info['authenticated']}")
+print(f"Token Valid: {auth_info['token_valid']}")
+```
+
+## 🔐 Credentials Setup (Authenticated API)
+
+### Step 1: Copy Template
+```bash
+# Copy the template file outside your repository
+cp src/application/services/api_service/ercot_service/ercot_credentials_template.json ../ercot_credentials.json
+```
+
+### Step 2: Fill in Credentials
+Edit the copied file with your ERCOT credentials:
+```json
+{
+  "username": "your_actual_username",
+  "password": "your_actual_password", 
+  "subscription_key": "your_subscription_key"
+}
+```
+
+### Step 3: Load Credentials
+```python
+# Use absolute path to credentials file outside repository
+credentials = ERCOTCredentials.from_file('/path/to/ercot_credentials.json')
+service = ErcotAuthenticatedApiService(credentials)
+```
+
+### Environment Variables Alternative
+```bash
+export ERCOT_USERNAME="your_username"
+export ERCOT_PASSWORD="your_password"
+export ERCOT_SUBSCRIPTION_KEY="your_key"
+```
+
+```python
+# Load from environment
+credentials = ERCOTCredentials.from_env()
+service = ErcotAuthenticatedApiService(credentials)
+```
+
+**Security Note**: Never commit actual credentials to version control. The template file is provided for reference only.
+
+---
 
 ### Advanced Usage - Fetch All Data with Pagination
 ```python
@@ -330,13 +412,30 @@ Get recommended date ranges based on API limitations.
 ## 🚨 Important Notes
 
 ### Authentication
-- **No authentication required** for public API endpoints
-- **No API keys needed** - different from private ERCOT API
-- **No OAuth tokens** - direct HTTP requests
+
+#### Public API Service
+- **No authentication required** for public endpoints
+- **No API keys needed** - direct HTTP requests
+- **90-day data limitation** enforced by ERCOT
+
+#### Authenticated API Service
+- **ID token authentication** using ERCOT B2C OAuth flow
+- **Username/password credentials** required
+- **Subscription key** may be required for some endpoints
+- **Enhanced data access** beyond 90-day limitation
+- **Automatic token refresh** with expiry handling
 
 ### Data Limitations
+
+#### Public API
 - **90-day rolling window** for historical data
 - **Real-time data delayed** by 1-2 hours
+- **15-minute intervals** for all pricing data
+- **Central Time zone** for all timestamps
+
+#### Authenticated API
+- **Extended historical access** beyond 90-day limit
+- **Same real-time delay** (1-2 hours)
 - **15-minute intervals** for all pricing data
 - **Central Time zone** for all timestamps
 
