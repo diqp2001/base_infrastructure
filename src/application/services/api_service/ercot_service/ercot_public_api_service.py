@@ -6,7 +6,7 @@ No authentication required - uses public endpoints for market price data.
 
 Key Features:
 - Day-ahead market (DAM) settlement point prices
-- Real-time market (RTM) settlement point prices  
+- 2-Day Aggregate Energy Demand Curves data
 - Automatic pagination handling for large datasets
 - Rate limiting respect (100 requests/minute)
 - Settlement point filtering and validation
@@ -40,8 +40,8 @@ class ErcotPublicApiService:
     """
     Service for accessing ERCOT public API endpoints for energy market data.
     
-    This service provides access to day-ahead and real-time market pricing data
-    from ERCOT's public API without requiring authentication.
+    This service provides access to day-ahead market prices and 2-Day Aggregate 
+    Energy Demand Curves data from ERCOT's public API without requiring authentication.
     
     All timestamps are in Central Time (CT/CDT).
     Data is provided in 15-minute intervals.
@@ -195,7 +195,7 @@ class ErcotPublicApiService:
         page_size: int = 5000
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch real-time market (RTM) settlement point prices (physical prices).
+        Fetch 2-Day Aggregate Energy Demand Curves data.
         
         Args:
             start_date: Start date for data retrieval (YYYY-MM-DD)
@@ -205,13 +205,13 @@ class ErcotPublicApiService:
             page_size: Records per page (max: 5000, default: 5000)
             
         Returns:
-            Dictionary containing price data and pagination info, or None if failed
+            Dictionary containing demand curve data and pagination info, or None if failed
             
         Example:
             >>> service = ErcotPublicApiService()
             >>> prices = service.get_physical_prices('2024-12-01', '2024-12-05', 'HB_HOUSTON')
             >>> for record in prices['data'][:5]:
-            ...     print(f"RTM Price: ${record['settlementPointPrice']} at {record['deliveryDate']}")
+            ...     print(f"Demand Curve Data at {record['deliveryDate']}")
         """
         # Convert dates to strings if needed
         if isinstance(start_date, datetime.date):
@@ -233,8 +233,8 @@ class ErcotPublicApiService:
         if settlement_point:
             params["settlementPoint"] = settlement_point
         
-        # RTM Settlement Point Prices endpoint
-        endpoint = "/np6-788-cd/rtm_stlmnt_pnt_prices"
+        # 2-Day Aggregate Energy Demand Curves endpoint
+        endpoint = "/np3-907-ex/2d_agg_edc"
         return self._make_request(endpoint, params)
 
     def get_day_ahead_prices_all(
@@ -295,7 +295,7 @@ class ErcotPublicApiService:
         max_pages: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch all physical prices using automatic pagination.
+        Fetch all 2-Day Aggregate Energy Demand Curves data using automatic pagination.
         
         Args:
             start_date: Start date for data retrieval
@@ -304,12 +304,12 @@ class ErcotPublicApiService:
             max_pages: Maximum pages to fetch (None for all)
             
         Returns:
-            List of all price records across all pages
+            List of all demand curve records across all pages
             
         Example:
             >>> service = ErcotPublicApiService()
-            >>> all_prices = service.get_physical_prices_all('2024-12-01', '2024-12-31', 'LZ_HOUSTON')
-            >>> print(f"Retrieved {len(all_prices)} RTM price records")
+            >>> all_data = service.get_physical_prices_all('2024-12-01', '2024-12-31', 'LZ_HOUSTON')
+            >>> print(f"Retrieved {len(all_data)} demand curve records")
         """
         all_records = []
         page = 1
