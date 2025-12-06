@@ -20,4 +20,7 @@ if __name__ == '__main__':
     #CrossSectionnal().run()
 
     service = ErcotPublicApiService()
+    prices = service.get_physical_prices('2024-12-01', '2024-12-05', 'HB_HOUSTON')
+    for record in prices['data'][:5]:
+            print(f"RTM Price: ${record['settlementPointPrice']} at {record['deliveryDate']}")
     
