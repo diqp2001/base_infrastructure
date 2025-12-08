@@ -139,17 +139,19 @@ class ErcotAuthenticatedApiService:
         Returns:
             True if authentication successful, False otherwise
         """
-        auth_params = {
-            "username": self.credentials.username,
-            "password": self.credentials.password,
-            "grant_type": "password",
-            "scope": "openid fec253ea-0d06-4272-a5e6-b478baeecd70 offline_access",
-            "client_id": "fec253ea-0d06-4272-a5e6-b478baeecd70",
-            "response_type": "id_token"
-        }
+        # Build URL with parameters exactly like working Postman request
+        auth_url_with_params = (
+            f"{self.AUTH_URL}?"
+            f"username={self.credentials.username}&"
+            f"password={self.credentials.password}&"
+            f"grant_type=password&"
+            f"scope=openid+fec253ea-0d06-4272-a5e6-b478baeecd70+offline_access&"
+            f"client_id=fec253ea-0d06-4272-a5e6-b478baeecd70&"
+            f"response_type=id_token"
+        )
         
         try:
-            response = requests.post(self.AUTH_URL, params=auth_params, timeout=self.timeout)
+            response = requests.post(auth_url_with_params, timeout=self.timeout)
             response.raise_for_status()
             
             auth_data = response.json()
