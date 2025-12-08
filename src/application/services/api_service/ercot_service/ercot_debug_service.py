@@ -7,6 +7,7 @@ to help identify differences between working Postman calls and Python implementa
 Created to debug authentication and API call issues.
 """
 
+from pathlib import Path
 import requests
 import json
 import datetime
@@ -24,6 +25,7 @@ class ERCOTDebugCredentials:
     @classmethod
     def from_file(cls, filepath: str) -> 'ERCOTDebugCredentials':
         """Load credentials from JSON file"""
+        filepath = Path.cwd().parent / filepath
         with open(filepath, 'r') as f:
             data = json.load(f)
         return cls(
