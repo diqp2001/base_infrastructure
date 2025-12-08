@@ -328,7 +328,7 @@ class IBTWSClient(EWrapper, EClient):
         contract = Contract()
         contract.symbol = symbol
         contract.secType = "STK"
-        contract.exchange = exchange
+        contract.exchange = "SMART"
         contract.currency = "USD"
         # For ETFs like SPY, add primary exchange for better resolution
         if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs
@@ -386,6 +386,7 @@ class IBTWSClient(EWrapper, EClient):
         
         # Request market data with snapshot for immediate response
         # For paper trading, we often need to use snapshots
+        
         self.reqMktData(req_id, contract, "", snapshot, False, [])
         self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
     

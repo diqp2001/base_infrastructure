@@ -178,7 +178,7 @@ class CrossSectionnal(ProjectManager):
 
     def run(self, 
             launch_web_interface: bool = True,
-            setup_ib_connection: bool = True,
+            setup_ib_connection: bool = False,
             ib_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main run method that launches web interface and executes backtest.
@@ -217,7 +217,7 @@ class CrossSectionnal(ProjectManager):
                 # Get account information and balance after connection
                 #self._get_ib_account_info_and_balance()
                 # Extract S&P 500 data for the day
-                self._extract_sp500_daily_data()
+                self._extract_AAPL_daily_data()
             
             """# Start web interface if requested
             if launch_web_interface and self.web_interface:
@@ -342,7 +342,7 @@ class CrossSectionnal(ProjectManager):
                     'host': '127.0.0.1',
                     'port': 7497,  # Paper trading port by default
                     'client_id': 1,
-                    'paper_trading': True,
+                    'paper_trading': False,
                     'timeout': 60,
                     'account_id': 'DEFAULT',
                     'enable_logging': True,
@@ -493,7 +493,7 @@ class CrossSectionnal(ProjectManager):
                 })
             return {'error': str(e)}
     
-    def _extract_sp500_daily_data(self) -> Dict[str, Any]:
+    def _extract_AAPL_daily_data(self) -> Dict[str, Any]:
         """
         Extract S&P 500 data for the day (open and close prices).
         
@@ -508,7 +508,7 @@ class CrossSectionnal(ProjectManager):
             self.logger.info("📈 Retrieving S&P 500 data for today...")
             
             # Use SPY as S&P 500 proxy (most liquid ETF)
-            sp500_symbol = 'SPY'
+            sp500_symbol = 'AAPL'
             
             # Get market data for SPY
             market_data = self.ib_broker.get_market_data(sp500_symbol)
