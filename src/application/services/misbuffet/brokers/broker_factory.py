@@ -9,6 +9,8 @@ import logging
 from typing import Dict, Any, Optional, Type
 from enum import Enum
 
+from application.services.misbuffet.launcher.interfaces import LauncherConfiguration
+
 from .base_broker import BaseBroker
 from .interactive_brokers_broker import InteractiveBrokersBroker
 
@@ -171,7 +173,7 @@ class BrokerFactory:
         return cls.create_broker(SupportedBrokers.INTERACTIVE_BROKERS.value, config)
     
     @classmethod
-    def create_from_launcher_config(cls, launcher_config: 'LauncherConfiguration') -> Optional[BaseBroker]:
+    def create_from_launcher_config(cls, launcher_config: LauncherConfiguration) -> Optional[BaseBroker]:
         """
         Create broker from launcher configuration.
         

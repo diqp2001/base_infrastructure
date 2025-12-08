@@ -277,38 +277,4 @@ class ErcotDebugService:
             'timestamp': datetime.datetime.now().isoformat()
         }
         
-    def compare_with_existing_service(self) -> Dict[str, Any]:
-        """
-        Compare debug results with existing authenticated service
-        
-        Returns:
-            Comparison results
-        """
-        print("🔍 Comparing debug service with existing implementation...")
-        
-        # Import existing service
-        from .ercot_authenticated_api_service import ErcotAuthenticatedApiService, ERCOTCredentials
-        
-        # Create existing service instance
-        existing_creds = ERCOTCredentials(
-            username=self.credentials.username,
-            password=self.credentials.password,
-            subscription_key=self.credentials.subscription_key
-        )
-        existing_service = ErcotAuthenticatedApiService(existing_creds)
-        
-        # Test both
-        debug_result = self.get_token_postman_style()
-        existing_result = existing_service._get_auth_token()
-        
-        return {
-            'debug_service': {
-                'success': debug_result.get('success', False),
-                'has_token': self.access_token is not None
-            },
-            'existing_service': {
-                'success': existing_result,
-                'has_token': existing_service._access_token is not None
-            },
-            'timestamp': datetime.datetime.now().isoformat()
-        }
+    

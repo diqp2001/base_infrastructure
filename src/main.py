@@ -20,9 +20,9 @@ from application.services.api_service.ercot_service.ercot_public_api_service imp
 if __name__ == '__main__':
     #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
     #TestBaseProjectManager().run()
-    #CrossSectionnal().run()
+    CrossSectionnal().run()
 
    
-    service = ErcotPublicApiService()
-    prices = service.main_pipeline()
+    """service = ErcotPublicApiService()
+    prices = service.main_pipeline()"""
     

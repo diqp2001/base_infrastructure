@@ -24,13 +24,14 @@ web results power bi
 
 
 
+put it to the test:
 
-create exe
-
-and fx bonds commo data
-
+create mutiple data source for multiple (ercot, interactive broker, FMP)(prioritize interactive broker)
 
 
 
+create an equity project and another electricity project
 
+create proper tests
+deploy docker when trading ready with interactive broker
 """

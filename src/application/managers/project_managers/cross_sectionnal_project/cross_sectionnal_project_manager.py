@@ -178,7 +178,7 @@ class CrossSectionnal(ProjectManager):
 
     def run(self, 
             launch_web_interface: bool = True,
-            setup_ib_connection: bool = False,
+            setup_ib_connection: bool = True,
             ib_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main run method that launches web interface and executes backtest.
@@ -215,7 +215,7 @@ class CrossSectionnal(ProjectManager):
             if setup_ib_connection:
                 self._setup_interactive_brokers_connection(ib_config)
                 # Get account information and balance after connection
-                self._get_ib_account_info_and_balance()
+                #self._get_ib_account_info_and_balance()
                 # Extract S&P 500 data for the day
                 self._extract_sp500_daily_data()
             
