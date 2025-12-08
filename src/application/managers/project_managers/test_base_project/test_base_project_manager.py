@@ -826,22 +826,22 @@ class TestBaseProjectManager(ProjectManager):
                 # Extract tick data (IB uses specific tick types)
                 tick_data = market_data['data']
                 
-                # Map common tick types for stocks/ETFs
-                # Tick Type 1 = Bid Price, Tick Type 2 = Ask Price
-                # Tick Type 4 = Last Price, Tick Type 6 = High, Tick Type 7 = Low
-                # Tick Type 9 = Close Price, Tick Type 14 = Open Price
+                # Extract market data from the new format
+                tick_data = market_data['data']
                 
                 sp500_data = {
                     'symbol': sp500_symbol,
                     'date': datetime.now().strftime('%Y-%m-%d'),
-                    'open': tick_data.get('tickType_14', 'N/A'),
-                    'close': tick_data.get('tickType_9', 'N/A'),
-                    'high': tick_data.get('tickType_6', 'N/A'),
-                    'low': tick_data.get('tickType_7', 'N/A'),
-                    'last': tick_data.get('tickType_4', 'N/A'),
-                    'bid': tick_data.get('tickType_1', 'N/A'),
-                    'ask': tick_data.get('tickType_2', 'N/A'),
-                    'timestamp': market_data.get('timestamp', datetime.now().isoformat())
+                    'open': tick_data.get('open', 'N/A'),
+                    'close': tick_data.get('close', 'N/A'),
+                    'high': tick_data.get('high', 'N/A'),
+                    'low': tick_data.get('low', 'N/A'),
+                    'last': tick_data.get('last', 'N/A'),
+                    'bid': tick_data.get('bid', 'N/A'),
+                    'ask': tick_data.get('ask', 'N/A'),
+                    'volume': tick_data.get('volume', 'N/A'),
+                    'timestamp': market_data.get('timestamp', datetime.now().isoformat()),
+                    'req_id': market_data.get('req_id', 'N/A')
                 }
                 
                 self.logger.info(f"📊 S&P 500 (SPY) Data for {sp500_data['date']}:")
@@ -850,13 +850,16 @@ class TestBaseProjectManager(ProjectManager):
                 self.logger.info(f"   High: {sp500_data['high']}")
                 self.logger.info(f"   Low: {sp500_data['low']}")
                 self.logger.info(f"   Last: {sp500_data['last']}")
+                self.logger.info(f"   Bid: {sp500_data['bid']} / Ask: {sp500_data['ask']}")
+                self.logger.info(f"   Volume: {sp500_data['volume']}")
+                self.logger.info(f"   Request ID: {sp500_data['req_id']}")
                 
                 # Update web interface with S&P 500 data
                 if self.web_interface:
                     self.web_interface.progress_queue.put({
                         'timestamp': datetime.now().isoformat(),
                         'level': 'INFO',
-                        'message': f'S&P 500 Data - Open: {sp500_data["open"]}, Close: {sp500_data["close"]}, Last: {sp500_data["last"]}'
+                        'message': f'S&P 500 Data - Last: {sp500_data["last"]}, Bid: {sp500_data["bid"]}, Ask: {sp500_data["ask"]}, Vol: {sp500_data["volume"]}'
                     })
                 
                 # Store S&P 500 data for later use

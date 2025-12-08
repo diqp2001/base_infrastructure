@@ -162,8 +162,88 @@ class IBTWSClient(EWrapper, EClient):
     def tickPrice(self, reqId: TickerId, tickType: int, price: float, attrib):
         """Tick price callback for market data."""
         if reqId not in self.market_data:
-            self.market_data[reqId] = {}
-        self.market_data[reqId][f'tickType_{tickType}'] = price
+            self.market_data[reqId] = {
+                'prices': {},
+                'sizes': {},
+                'generic': {},
+                'strings': {},
+                'last_update': None
+            }
+        
+        self.market_data[reqId]['prices'][tickType] = price
+        self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        
+        # Log significant tick types for debugging
+        tick_type_names = {
+            1: 'BID', 2: 'ASK', 4: 'LAST', 6: 'HIGH', 7: 'LOW', 
+            9: 'CLOSE', 14: 'OPEN', 15: 'LOW_13_WEEK', 16: 'HIGH_13_WEEK',
+            17: 'LOW_26_WEEK', 18: 'HIGH_26_WEEK', 19: 'LOW_52_WEEK', 20: 'HIGH_52_WEEK'
+        }
+        
+        if tickType in tick_type_names:
+            self.logger.debug(f"Market data update - Req {reqId}: {tick_type_names[tickType]} = {price}")
+    
+    def tickSize(self, reqId: TickerId, tickType: int, size: int):
+        """Tick size callback for market data."""
+        if reqId not in self.market_data:
+            self.market_data[reqId] = {
+                'prices': {},
+                'sizes': {},
+                'generic': {},
+                'strings': {},
+                'last_update': None
+            }
+        
+        self.market_data[reqId]['sizes'][tickType] = size
+        self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        
+        # Log significant size tick types
+        size_tick_names = {
+            0: 'BID_SIZE', 3: 'ASK_SIZE', 5: 'LAST_SIZE', 8: 'VOLUME'
+        }
+        
+        if tickType in size_tick_names:
+            self.logger.debug(f"Market data update - Req {reqId}: {size_tick_names[tickType]} = {size}")
+    
+    def tickGeneric(self, reqId: TickerId, tickType: int, value: float):
+        """Tick generic callback for market data."""
+        if reqId not in self.market_data:
+            self.market_data[reqId] = {
+                'prices': {},
+                'sizes': {},
+                'generic': {},
+                'strings': {},
+                'last_update': None
+            }
+        
+        self.market_data[reqId]['generic'][tickType] = value
+        self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        
+        self.logger.debug(f"Generic tick update - Req {reqId}: Type {tickType} = {value}")
+    
+    def tickString(self, reqId: TickerId, tickType: int, value: str):
+        """Tick string callback for market data."""
+        if reqId not in self.market_data:
+            self.market_data[reqId] = {
+                'prices': {},
+                'sizes': {},
+                'generic': {},
+                'strings': {},
+                'last_update': None
+            }
+        
+        self.market_data[reqId]['strings'][tickType] = value
+        self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        
+        self.logger.debug(f"String tick update - Req {reqId}: Type {tickType} = {value}")
+    
+    def marketDataType(self, reqId: TickerId, marketDataType: int):
+        """Market data type callback."""
+        data_types = {
+            1: 'Real-time', 2: 'Frozen', 3: 'Delayed', 4: 'Delayed-Frozen'
+        }
+        data_type_name = data_types.get(marketDataType, f'Unknown({marketDataType})')
+        self.logger.info(f"Market data type for req {reqId}: {data_type_name}")
     
     # Custom methods
     
@@ -264,12 +344,18 @@ class IBTWSClient(EWrapper, EClient):
         
         self.reqPositions()
     
-    def request_market_data(self, req_id: int, contract: Contract) -> None:
+    def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = True) -> None:
         """Request market data for a contract."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
         
-        self.reqMktData(req_id, contract, "", False, False, [])
+        # Clear any existing market data for this request
+        self.market_data.pop(req_id, None)
+        
+        # Request market data with snapshot for immediate response
+        # For paper trading, we often need to use snapshots
+        self.reqMktData(req_id, contract, "", snapshot, False, [])
+        self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
     
     def create_limit_order(self, action: str, quantity: int, limit_price: float) -> IBOrder:
         """Create a limit order."""
@@ -744,39 +830,93 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.error(f"Error getting positions summary: {e}")
             return []
     
-    def get_market_data(self, symbol: str) -> Dict[str, Any]:
+    def get_market_data(self, symbol: str, use_snapshot: bool = True, timeout: int = 10) -> Dict[str, Any]:
         """Get real-time market data for a symbol."""
         if not self.ib_connection or not self.ib_connection.is_connected():
             return {}
         
         try:
-            # Create contract
+            # Create contract with better definition for ETFs
             contract = self.ib_connection.create_stock_contract(symbol)
             
-            # Request market data
-            req_id = hash(symbol) % 10000
-            self.ib_connection.request_market_data(req_id, contract)
+            # Use a more predictable req_id
+            req_id = abs(hash(f"{symbol}_{datetime.now().timestamp()}")) % 10000
             
-            # Wait for data (longer timeout for market data)
-            time.sleep(5)
+            self.logger.info(f"Requesting market data for {symbol} (req_id: {req_id})")
             
-            # Get market data from client
-            market_data = self.ib_connection.market_data.get(req_id, {})
+            # Request market data (try snapshot first for paper trading)
+            self.ib_connection.request_market_data(req_id, contract, snapshot=use_snapshot)
             
-            # If no data received, try to cancel the subscription and log
-            if not market_data:
-                self.logger.warning(f"No market data received for {symbol} (req_id: {req_id})")
-                try:
-                    self.ib_connection.cancelMktData(req_id)
-                except:
-                    pass
+            # Wait for data with progressive checks
+            max_wait_time = timeout
+            wait_interval = 0.5
+            total_waited = 0
             
-            return {
-                'symbol': symbol,
-                'data': market_data,
-                'timestamp': datetime.now().isoformat()
-            }
+            while total_waited < max_wait_time:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if we have received any market data
+                market_data = self.ib_connection.market_data.get(req_id, {})
+                if market_data and ('prices' in market_data or 'sizes' in market_data):
+                    self.logger.info(f"Received market data for {symbol} after {total_waited:.1f}s")
+                    break
+                    
+                self.logger.debug(f"Waiting for market data... {total_waited:.1f}s elapsed")
+            
+            # Get final market data
+            final_market_data = self.ib_connection.market_data.get(req_id, {})
+            
+            # Cancel the subscription
+            try:
+                self.ib_connection.cancelMktData(req_id)
+            except Exception:
+                pass
+            
+            # If still no data and using snapshot, try streaming
+            if not final_market_data and use_snapshot:
+                self.logger.info(f"No snapshot data for {symbol}, trying streaming...")
+                return self.get_market_data(symbol, use_snapshot=False, timeout=5)
+            
+            # Format the response
+            if final_market_data:
+                # Extract meaningful price data
+                prices = final_market_data.get('prices', {})
+                sizes = final_market_data.get('sizes', {})
+                
+                formatted_data = {
+                    'bid': prices.get(1, 'N/A'),
+                    'ask': prices.get(2, 'N/A'),
+                    'last': prices.get(4, 'N/A'),
+                    'high': prices.get(6, 'N/A'),
+                    'low': prices.get(7, 'N/A'),
+                    'close': prices.get(9, 'N/A'),
+                    'open': prices.get(14, 'N/A'),
+                    'bid_size': sizes.get(0, 'N/A'),
+                    'ask_size': sizes.get(3, 'N/A'),
+                    'volume': sizes.get(8, 'N/A'),
+                    'last_update': final_market_data.get('last_update')
+                }
+                
+                self.logger.info(f"Market data for {symbol}: Last={formatted_data['last']}, Bid={formatted_data['bid']}, Ask={formatted_data['ask']}")
+                
+                return {
+                    'symbol': symbol,
+                    'data': formatted_data,
+                    'raw_data': final_market_data,
+                    'timestamp': datetime.now().isoformat(),
+                    'req_id': req_id
+                }
+            else:
+                self.logger.warning(f"No market data received for {symbol} after {timeout}s")
+                return {
+                    'symbol': symbol,
+                    'data': {},
+                    'error': 'No market data available',
+                    'timestamp': datetime.now().isoformat(),
+                    'req_id': req_id
+                }
             
         except Exception as e:
             self.logger.error(f"Error getting market data for {symbol}: {e}")
-            return {}
+            return {'symbol': symbol, 'error': str(e), 'timestamp': datetime.now().isoformat()}
