@@ -58,6 +58,9 @@ class IBTWSClient(EWrapper, EClient):
         # Market data
         self.market_data = {}
         
+        # Historical data
+        self.historical_data = {}
+        
         # Threading for message processing
         self.msg_queue_lock = threading.Lock()
         self.connection_event = threading.Event()
@@ -245,6 +248,35 @@ class IBTWSClient(EWrapper, EClient):
         data_type_name = data_types.get(marketDataType, f'Unknown({marketDataType})')
         self.logger.info(f"Market data type for req {reqId}: {data_type_name}")
     
+    def historicalData(self, reqId: int, bar):
+        """Historical data callback."""
+        if reqId not in self.historical_data:
+            self.historical_data[reqId] = []
+        
+        # Convert bar to dictionary for easier access
+        bar_data = {
+            'date': bar.date,
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume,
+            'wap': bar.wap,
+            'barCount': bar.barCount
+        }
+        
+        self.historical_data[reqId].append(bar_data)
+        self.logger.debug(f"Historical data received - Req {reqId}: {bar.date} OHLC: {bar.open}/{bar.high}/{bar.low}/{bar.close}")
+    
+    def historicalDataEnd(self, reqId: int, start: str, end: str):
+        """Historical data end callback."""
+        data_count = len(self.historical_data.get(reqId, []))
+        self.logger.info(f"Historical data complete for req {reqId}: {data_count} bars from {start} to {end}")
+    
+    def headTimestamp(self, reqId: int, headTimestamp: str):
+        """Head timestamp callback for historical data."""
+        self.logger.info(f"Head timestamp for req {reqId}: {headTimestamp}")
+    
     # Custom methods
     
     def connect_to_tws(self) -> bool:
@@ -356,6 +388,24 @@ class IBTWSClient(EWrapper, EClient):
         # For paper trading, we often need to use snapshots
         self.reqMktData(req_id, contract, "", snapshot, False, [])
         self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
+    
+    def request_historical_data(self, req_id: int, contract: Contract, end_date_time: str = "",
+                               duration_str: str = "1 W", bar_size_setting: str = "1 day",
+                               what_to_show: str = "TRADES", use_rth: bool = True,
+                               format_date: int = 1) -> None:
+        """Request historical data for a contract."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        
+        # Clear any existing historical data for this request
+        self.historical_data.pop(req_id, None)
+        
+        # Request historical data
+        self.reqHistoricalData(req_id, contract, end_date_time, duration_str,
+                              bar_size_setting, what_to_show, use_rth, format_date, False, [])
+        
+        self.logger.info(f"Requested historical data for {contract.symbol} "
+                        f"(req_id: {req_id}, duration: {duration_str}, bars: {bar_size_setting})")
     
     def create_limit_order(self, action: str, quantity: int, limit_price: float) -> IBOrder:
         """Create a limit order."""
@@ -920,3 +970,211 @@ class InteractiveBrokersBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Error getting market data for {symbol}: {e}")
             return {'symbol': symbol, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+    
+    def get_market_data_snapshot(self, contract: Contract, generic_tick_list: str = "", 
+                                snapshot: bool = True, timeout: int = None) -> Dict[str, Any]:
+        """
+        Get market data snapshot using Interactive Brokers API.
+        
+        Args:
+            contract: Contract object for the security
+            generic_tick_list: Comma-separated tick types for additional data  
+            snapshot: Whether to get snapshot or streaming data
+            timeout: Request timeout (uses default if None)
+            
+        Returns:
+            Dictionary with tick data formatted as {TickType: value}
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return {'error': 'Not connected to TWS'}
+        
+        if timeout is None:
+            timeout = self.timeout
+        
+        try:
+            # Generate unique request ID
+            req_id = abs(hash(f"{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            self.logger.info(f"Requesting market data snapshot for {contract.symbol}")
+            
+            # Clear any existing data
+            self.ib_connection.market_data.pop(req_id, None)
+            
+            # Request market data with specified tick types
+            self.ib_connection.reqMktData(req_id, contract, generic_tick_list, snapshot, False, [])
+            
+            # Wait for data with progressive checks
+            wait_interval = 0.1
+            total_waited = 0
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if we have received market data
+                market_data = self.ib_connection.market_data.get(req_id, {})
+                if market_data and any([market_data.get('prices'), market_data.get('sizes'), 
+                                      market_data.get('generic'), market_data.get('strings')]):
+                    break
+                    
+            # Cancel subscription
+            try:
+                self.ib_connection.cancelMktData(req_id)
+            except Exception:
+                pass
+            
+            # Format response according to API specification
+            final_data = self.ib_connection.market_data.get(req_id, {})
+            
+            if not final_data:
+                return {'error': f'No market data received for {contract.symbol}'}
+            
+            # Map tick types to readable names and format response
+            result = {}
+            
+            # Price ticks
+            prices = final_data.get('prices', {})
+            tick_price_map = {
+                1: 'BID',
+                2: 'ASK', 
+                4: 'LAST',
+                6: 'HIGH',
+                7: 'LOW',
+                9: 'CLOSE',
+                14: 'OPEN'
+            }
+            
+            for tick_type, name in tick_price_map.items():
+                if tick_type in prices:
+                    result[name] = prices[tick_type]
+            
+            # Size ticks  
+            sizes = final_data.get('sizes', {})
+            tick_size_map = {
+                0: 'BID_SIZE',
+                3: 'ASK_SIZE',
+                5: 'LAST_SIZE', 
+                8: 'VOLUME'
+            }
+            
+            for tick_type, name in tick_size_map.items():
+                if tick_type in sizes:
+                    result[name] = Decimal(str(sizes[tick_type]))
+            
+            # String ticks
+            strings = final_data.get('strings', {})
+            tick_string_map = {
+                45: 'LAST_TIMESTAMP'
+            }
+            
+            for tick_type, name in tick_string_map.items():
+                if tick_type in strings:
+                    result[name] = strings[tick_type]
+            
+            # Generic ticks (if requested)
+            generics = final_data.get('generic', {})
+            for tick_type, value in generics.items():
+                result[f'GENERIC_{tick_type}'] = value
+            
+            self.logger.info(f"Market data snapshot complete for {contract.symbol}: {len(result)} fields")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error getting market data snapshot for {contract.symbol}: {e}")
+            return {'error': str(e)}
+    
+    def get_historical_data(self, contract: Contract, end_date_time: str = "",
+                           duration_str: str = "1 W", bar_size_setting: str = "1 day",
+                           what_to_show: str = "TRADES", use_rth: bool = True,
+                           format_date: int = 1, timeout: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get historical data using Interactive Brokers API.
+        
+        Args:
+            contract: Contract object for the security
+            end_date_time: End date/time in format "YYYYMMDD HH:mm:ss TMZ" or empty for now
+            duration_str: Time span covered (e.g., "1 W", "1 M", "1 Y")
+            bar_size_setting: Bar size (e.g., "1 day", "1 hour", "5 mins")
+            what_to_show: Data type ("TRADES", "MIDPOINT", "BID", "ASK", etc.)
+            use_rth: Whether to use regular trading hours only
+            format_date: 1 for datetime string, 2 for Unix timestamp
+            timeout: Request timeout in seconds
+            
+        Returns:
+            List of bar objects with OHLCV data
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return []
+        
+        try:
+            # Generate unique request ID
+            req_id = abs(hash(f"hist_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            self.logger.info(f"Requesting historical data for {contract.symbol} "
+                           f"({duration_str}, {bar_size_setting})")
+            
+            # Request historical data
+            self.ib_connection.request_historical_data(
+                req_id=req_id,
+                contract=contract,
+                end_date_time=end_date_time,
+                duration_str=duration_str,
+                bar_size_setting=bar_size_setting,
+                what_to_show=what_to_show,
+                use_rth=use_rth,
+                format_date=format_date
+            )
+            
+            # Wait for data completion
+            wait_interval = 0.5
+            total_waited = 0
+            data_complete = False
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if historical data is complete
+                # Data is complete when we have bars and haven't received new ones recently
+                hist_data = self.ib_connection.historical_data.get(req_id, [])
+                
+                if hist_data:
+                    # If we have data, wait a bit more to ensure completion
+                    if total_waited > 2:  # Give at least 2 seconds for completion
+                        data_complete = True
+                        break
+                        
+                self.logger.debug(f"Waiting for historical data... {total_waited:.1f}s")
+            
+            # Get final historical data
+            historical_bars = self.ib_connection.historical_data.get(req_id, [])
+            
+            if not historical_bars:
+                self.logger.warning(f"No historical data received for {contract.symbol}")
+                return []
+            
+            # Format bars according to IB Bar format
+            formatted_bars = []
+            for bar in historical_bars:
+                formatted_bar = {
+                    'date': bar['date'],
+                    'open': bar['open'],
+                    'high': bar['high'], 
+                    'low': bar['low'],
+                    'close': bar['close'],
+                    'volume': bar['volume'],
+                    'wap': bar['wap'],  # Weighted average price
+                    'barCount': bar['barCount']
+                }
+                formatted_bars.append(formatted_bar)
+            
+            self.logger.info(f"Historical data complete for {contract.symbol}: {len(formatted_bars)} bars")
+            
+            # Clean up stored data
+            self.ib_connection.historical_data.pop(req_id, None)
+            
+            return formatted_bars
+            
+        except Exception as e:
+            self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
+            return []
