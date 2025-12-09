@@ -326,10 +326,9 @@ class IBTWSClient(EWrapper, EClient):
     def create_stock_contract(self, symbol: str, exchange: str = "SMART") -> Contract:
         """Create a stock contract."""
         contract = Contract()
-        contract.symbol = symbol
-        contract.secType = "STK"
-        contract.exchange = "SMART"
-        contract.currency = "USD"
+        contract.symbol = "ES"
+        contract.secType = "FUT"
+        contract.exchange = "CME"
         # For ETFs like SPY, add primary exchange for better resolution
         if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs
             contract.primaryExchange = "ARCA"  # NYSE Arca is primary for many ETFs
@@ -363,7 +362,7 @@ class IBTWSClient(EWrapper, EClient):
         
         # Use the actual managed account if available, otherwise use provided account
         if hasattr(self, 'selected_account_id') and self.selected_account_id and account == "DEFAULT":
-            account = self.selected_account_id
+            account = "Account:"+self.selected_account_id
             self.logger.info(f"Using managed account ID: {account}")
         
         tags = "TotalCashValue,NetLiquidation,BuyingPower,DayTradesRemaining"
@@ -376,7 +375,7 @@ class IBTWSClient(EWrapper, EClient):
         
         self.reqPositions()
     
-    def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = True) -> None:
+    def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = False) -> None:
         """Request market data for a contract."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
@@ -389,6 +388,32 @@ class IBTWSClient(EWrapper, EClient):
         
         self.reqMktData(req_id, contract, "", snapshot, False, [])
         self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
+
+    def request_contract_details(self, req_id: int, contract: Contract) -> None:
+        """
+        Request full contract details for a given contract.
+
+        This will populate:
+        - self.contract_details[req_id]  (list[ContractDetails])
+        - finish via contractDetailsEnd()
+        """
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+
+        """# Clear any previous results for this request id
+        self.contract_details.pop(req_id, None)
+
+        # Initialize empty list (IB may return multiple matches)
+        self.contract_details[req_id] = []"""
+
+        # Send request
+        self.reqContractDetails(req_id, contract)
+
+        self.logger.info(
+            f"Requested contract details for {contract.symbol} "
+            f"(req_id: {req_id}, type={contract.secType}, exch={contract.exchange})"
+        )
+    
     
     def request_historical_data(self, req_id: int, contract: Contract, end_date_time: str = "",
                                duration_str: str = "1 W", bar_size_setting: str = "1 day",
@@ -881,7 +906,7 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.error(f"Error getting positions summary: {e}")
             return []
     
-    def get_market_data(self, symbol: str, use_snapshot: bool = True, timeout: int = 10) -> Dict[str, Any]:
+    def get_market_data(self, symbol: str, use_snapshot: bool = False, timeout: int = 10) -> Dict[str, Any]:
         """Get real-time market data for a symbol."""
         if not self.ib_connection or not self.ib_connection.is_connected():
             return {}
@@ -896,8 +921,8 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.info(f"Requesting market data for {symbol} (req_id: {req_id})")
             
             # Request market data (try snapshot first for paper trading)
-            self.ib_connection.request_market_data(req_id, contract, snapshot=use_snapshot)
-            
+            #self.ib_connection.request_market_data(req_id, contract, snapshot=use_snapshot)
+            self.ib_connection.request_contract_details(req_id=req_id,contract=contract)
             # Wait for data with progressive checks
             max_wait_time = timeout
             wait_interval = 0.5

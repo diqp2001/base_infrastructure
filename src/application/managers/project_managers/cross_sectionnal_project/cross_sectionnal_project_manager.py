@@ -178,7 +178,7 @@ class CrossSectionnal(ProjectManager):
 
     def run(self, 
             launch_web_interface: bool = True,
-            setup_ib_connection: bool = False,
+            setup_ib_connection: bool = True,
             ib_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main run method that launches web interface and executes backtest.
