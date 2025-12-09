@@ -543,3 +543,300 @@ class FinancialModelingPrepApiService(ApiService):
             List of major index symbols
         """
         return self.MAJOR_INDICES.copy()
+
+    # ====================
+    # FREE TIER ENDPOINTS
+    # ====================
+    # The following methods access FMP's free/stable endpoints
+    # Available with free API key (250 calls/day limit)
+    
+    def search_symbol(self, query: str, limit: int = 10) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for companies by ticker symbol or query string.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            query: Search query (ticker symbol or partial symbol)
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of matching companies with symbol, name, and exchange info
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> results = service.search_symbol('AAPL')
+            >>> print(f"Found {len(results)} matches")
+        """
+        endpoint = "/v3/search"
+        params = {
+            'query': query,
+            'limit': limit
+        }
+        return self._make_request(endpoint, params)
+    
+    def search_company_name(self, query: str, limit: int = 10) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for companies by company name or partial name.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            query: Company name or partial name to search for
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of matching companies with detailed information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> results = service.search_company_name('Apple')
+            >>> for company in results:
+            ...     print(f"{company['symbol']}: {company['name']}")
+        """
+        endpoint = "/v3/search-name"
+        params = {
+            'query': query,
+            'limit': limit
+        }
+        return self._make_request(endpoint, params)
+    
+    def get_financial_statement_symbol_list(self) -> Optional[List[str]]:
+        """
+        Get list of symbols for which financial statement data is available.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of stock symbols with available financial statements
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> symbols = service.get_financial_statement_symbol_list()
+            >>> print(f"Financial data available for {len(symbols)} companies")
+        """
+        endpoint = "/v3/financial-statement-symbol-lists"
+        return self._make_request(endpoint)
+    
+    def get_cik_list(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get list of companies with their CIK (Central Index Key) identifiers.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of companies with CIK, symbol, and name information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> cik_list = service.get_cik_list()
+            >>> for company in cik_list[:5]:
+            ...     print(f"{company['symbol']}: CIK {company['cik']}")
+        """
+        endpoint = "/v3/cik_list"
+        return self._make_request(endpoint)
+    
+    def search_cik(self, cik: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for companies by CIK (Central Index Key) identifier.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            cik: CIK identifier to search for
+            
+        Returns:
+            Company information matching the CIK
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> result = service.search_cik('0000320193')  # Apple's CIK
+            >>> print(f"Company: {result[0]['name']}")
+        """
+        endpoint = f"/v3/cik-search/{cik}"
+        return self._make_request(endpoint)
+    
+    def get_available_exchanges(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get list of all supported stock exchanges.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of exchanges with codes, names, and country information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> exchanges = service.get_available_exchanges()
+            >>> for exchange in exchanges:
+            ...     print(f"{exchange['exchangeShortName']}: {exchange['name']}")
+        """
+        endpoint = "/v3/stock/list"
+        return self._make_request(endpoint)
+    
+    def get_available_sectors(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get list of all available sectors in the FMP database.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of sectors with sector information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> sectors = service.get_available_sectors()
+            >>> print(f"Available sectors: {[s['sector'] for s in sectors]}")
+        """
+        endpoint = "/v3/sector_performance"
+        return self._make_request(endpoint)
+    
+    def get_available_countries(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get list of countries for which stock data is supported.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of countries with stock market coverage
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> countries = service.get_available_countries()
+            >>> for country in countries:
+            ...     print(f"{country['country']}: {country['totalCompanies']} companies")
+        """
+        endpoint = "/v3/get-all-countries"
+        return self._make_request(endpoint)
+    
+    def get_historical_price_eod(self, symbol: str, from_date: Optional[str] = None, 
+                               to_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Get historical end-of-day price data for a stock symbol.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            symbol: Stock ticker symbol
+            from_date: Start date (YYYY-MM-DD format, optional)
+            to_date: End date (YYYY-MM-DD format, optional)
+            
+        Returns:
+            Historical price data with OHLCV information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> prices = service.get_historical_price_eod('AAPL', '2024-01-01')
+            >>> for price in prices['historical'][-5:]:  # Last 5 days
+            ...     print(f"{price['date']}: ${price['close']:.2f}")
+            
+        Note:
+            This is the same as get_historical_prices but explicitly marked as free tier
+        """
+        return self.get_historical_prices(symbol, from_date, to_date)
+    
+    def get_historical_financial_statements_free(self, symbol: str, period: str = "annual", 
+                                                limit: int = 5) -> Optional[Dict[str, Any]]:
+        """
+        Get historical financial statements (income, balance sheet, cash flow) for free tier.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            symbol: Stock ticker symbol
+            period: 'annual' or 'quarter'
+            limit: Number of periods (limited to 5 for free tier)
+            
+        Returns:
+            Dictionary containing all three financial statements
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> statements = service.get_historical_financial_statements_free('AAPL')
+            >>> income = statements['income_statement']
+            >>> balance = statements['balance_sheet']
+            >>> cashflow = statements['cash_flow']
+        """
+        # Limit to 5 periods for free tier
+        limit = min(limit, 5)
+        
+        income_statement = self.get_income_statement(symbol, period, limit)
+        balance_sheet = self.get_balance_sheet(symbol, period, limit)
+        cash_flow = self.get_cash_flow_statement(symbol, period, limit)
+        
+        return {
+            'symbol': symbol.upper(),
+            'period': period,
+            'limit': limit,
+            'income_statement': income_statement,
+            'balance_sheet': balance_sheet,
+            'cash_flow_statement': cash_flow
+        }
+    
+    def get_available_indexes(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get list of available market indexes/indices.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Returns:
+            List of available market indices with symbols and names
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> indexes = service.get_available_indexes()
+            >>> for index in indexes:
+            ...     print(f"{index['symbol']}: {index['name']}")
+        """
+        # Use the existing major indices functionality for free tier
+        indices_data = []
+        for symbol in self.MAJOR_INDICES:
+            quote_data = self.get_quote(symbol)
+            if quote_data:
+                indices_data.append({
+                    'symbol': symbol,
+                    'name': quote_data.get('name', f'Index {symbol}'),
+                    'price': quote_data.get('price'),
+                    'change': quote_data.get('change'),
+                    'changesPercentage': quote_data.get('changesPercentage')
+                })
+        
+        return indices_data if indices_data else None
+    
+    def get_free_tier_summary(self) -> Dict[str, Any]:
+        """
+        Get a summary of available free tier endpoints and their usage.
+        **INFORMATIONAL** - No API call made
+        
+        Returns:
+            Dictionary summarizing free tier capabilities and limits
+        """
+        return {
+            'free_tier_info': {
+                'daily_limit': '250 API calls per day',
+                'rate_limit': 'No specific rate limit mentioned',
+                'plan_type': 'Basic/Stable tier'
+            },
+            'available_endpoints': {
+                'search': [
+                    'search_symbol - Search companies by ticker symbol',
+                    'search_company_name - Search companies by name',
+                    'get_financial_statement_symbol_list - List symbols with financial data',
+                    'get_cik_list - Get CIK identifiers',
+                    'search_cik - Search by CIK identifier'
+                ],
+                'metadata': [
+                    'get_available_exchanges - List supported exchanges',
+                    'get_available_sectors - List available sectors',
+                    'get_available_countries - List supported countries'
+                ],
+                'historical_data': [
+                    'get_historical_price_eod - End-of-day historical prices',
+                    'get_historical_financial_statements_free - Financial statements (limited)'
+                ],
+                'market_data': [
+                    'get_available_indexes - List of market indices'
+                ]
+            },
+            'limitations': {
+                'financial_statements': 'Limited to 5 periods for free tier',
+                'historical_data': 'EOD data only, no intraday',
+                'real_time': 'Limited real-time data access'
+            },
+            'upgrade_benefits': [
+                'Increased daily API limits',
+                'Access to real-time data',
+                'Intraday historical data',
+                'Advanced endpoints',
+                'Faster rate limits'
+            ]
+        }
