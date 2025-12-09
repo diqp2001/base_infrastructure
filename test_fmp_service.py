@@ -11,7 +11,7 @@ import os
 # Add src to Python path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from application.services.api_service.financial_modeling_prep_api_service import (
+from application.services.api_service.fmp_service.financial_modeling_prep_api_service import (
     FinancialModelingPrepApiService, 
     FMPCredentials,
     FMPRateLimit

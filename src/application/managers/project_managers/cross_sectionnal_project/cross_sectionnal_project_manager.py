@@ -84,7 +84,7 @@ class CrossSectionnal(ProjectManager):
         self.ib_broker: Optional[InteractiveBrokersBroker] = None
         
         # MLflow tracking setup
-        self.mlflow_experiment_name = "test_base_project_manager"
+        self.mlflow_experiment_name = "Cross_project_manager"
         self.mlflow_run = None
         self._setup_mlflow_tracking()
         
