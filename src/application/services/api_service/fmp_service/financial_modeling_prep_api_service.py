@@ -77,6 +77,7 @@ class FinancialModelingPrepApiService(ApiService):
     """
     
     BASE_URL = "https://financialmodelingprep.com/api"
+    STABLE_BASE_URL = "https://financialmodelingprep.com/stable"
     
     # Major stock exchanges
     MAJOR_EXCHANGES = [
@@ -135,13 +136,14 @@ class FinancialModelingPrepApiService(ApiService):
         
         self.last_request_time = time.time()
 
-    def _make_request(self, endpoint: str, params: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
+    def _make_request(self, endpoint: str, params: Dict[str, Any] = None, use_stable: bool = False) -> Optional[Dict[str, Any]]:
         """
         Make a request to the FMP API with rate limiting and API key authentication.
         
         Args:
             endpoint: API endpoint path
             params: Query parameters
+            use_stable: If True, use stable URL base instead of v3
             
         Returns:
             API response data or None if failed
@@ -153,12 +155,19 @@ class FinancialModelingPrepApiService(ApiService):
             params = {}
         params['apikey'] = self.credentials.api_key
         
+        # Construct full URL based on endpoint type
+        if use_stable:
+            full_url = f"{self.STABLE_BASE_URL}{endpoint}"
+        else:
+            full_url = f"{self.BASE_URL}{endpoint}"
+        
         try:
-            response = self.fetch_data(endpoint, params=params)
-            return response
+            response = requests.get(full_url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
             
         except Exception as e:
-            print(f"FMP API request failed: {e}")
+            print(f"Error fetching data from {endpoint}: {e}")
             return None
 
     def get_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
@@ -567,12 +576,11 @@ class FinancialModelingPrepApiService(ApiService):
             >>> results = service.search_symbol('AAPL')
             >>> print(f"Found {len(results)} matches")
         """
-        endpoint = "/v3/search"
-        params = {
-            'query': query,
-            'limit': limit
-        }
-        return self._make_request(endpoint, params)
+        endpoint = "/search-symbol"
+        params = {'query': query}
+        if limit != 10:
+            params['limit'] = limit
+        return self._make_request(endpoint, params, use_stable=True)
     
     def search_company_name(self, query: str, limit: int = 10) -> Optional[List[Dict[str, Any]]]:
         """
@@ -592,12 +600,11 @@ class FinancialModelingPrepApiService(ApiService):
             >>> for company in results:
             ...     print(f"{company['symbol']}: {company['name']}")
         """
-        endpoint = "/v3/search-name"
-        params = {
-            'query': query,
-            'limit': limit
-        }
-        return self._make_request(endpoint, params)
+        endpoint = "/search-name"
+        params = {'query': query}
+        if limit != 10:
+            params['limit'] = limit
+        return self._make_request(endpoint, params, use_stable=True)
     
     def get_financial_statement_symbol_list(self) -> Optional[List[str]]:
         """
@@ -629,8 +636,8 @@ class FinancialModelingPrepApiService(ApiService):
             >>> for company in cik_list[:5]:
             ...     print(f"{company['symbol']}: CIK {company['cik']}")
         """
-        endpoint = "/v3/cik_list"
-        return self._make_request(endpoint)
+        endpoint = "/cik-list"
+        return self._make_request(endpoint, use_stable=True)
     
     def search_cik(self, cik: str) -> Optional[List[Dict[str, Any]]]:
         """
@@ -648,8 +655,9 @@ class FinancialModelingPrepApiService(ApiService):
             >>> result = service.search_cik('0000320193')  # Apple's CIK
             >>> print(f"Company: {result[0]['name']}")
         """
-        endpoint = f"/v3/cik-search/{cik}"
-        return self._make_request(endpoint)
+        endpoint = "/search-cik"
+        params = {'cik': cik}
+        return self._make_request(endpoint, params, use_stable=True)
     
     def get_available_exchanges(self) -> Optional[List[Dict[str, Any]]]:
         """
@@ -665,8 +673,8 @@ class FinancialModelingPrepApiService(ApiService):
             >>> for exchange in exchanges:
             ...     print(f"{exchange['exchangeShortName']}: {exchange['name']}")
         """
-        endpoint = "/v3/stock/list"
-        return self._make_request(endpoint)
+        endpoint = "/available-exchanges"
+        return self._make_request(endpoint, use_stable=True)
     
     def get_available_sectors(self) -> Optional[List[Dict[str, Any]]]:
         """
@@ -681,8 +689,8 @@ class FinancialModelingPrepApiService(ApiService):
             >>> sectors = service.get_available_sectors()
             >>> print(f"Available sectors: {[s['sector'] for s in sectors]}")
         """
-        endpoint = "/v3/sector_performance"
-        return self._make_request(endpoint)
+        endpoint = "/available-sectors"
+        return self._make_request(endpoint, use_stable=True)
     
     def get_available_countries(self) -> Optional[List[Dict[str, Any]]]:
         """
@@ -698,8 +706,92 @@ class FinancialModelingPrepApiService(ApiService):
             >>> for country in countries:
             ...     print(f"{country['country']}: {country['totalCompanies']} companies")
         """
-        endpoint = "/v3/get-all-countries"
-        return self._make_request(endpoint)
+        endpoint = "/available-countries"
+        return self._make_request(endpoint, use_stable=True)
+
+    def search_cusip(self, cusip: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for companies by CUSIP (Committee on Uniform Securities Identification Procedures) identifier.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            cusip: CUSIP identifier to search for
+            
+        Returns:
+            Company information matching the CUSIP
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> result = service.search_cusip('037833100')  # Apple's CUSIP
+            >>> print(f"Company: {result[0]['name']}")
+        """
+        endpoint = "/search-cusip"
+        params = {'cusip': cusip}
+        return self._make_request(endpoint, params, use_stable=True)
+    
+    def search_isin(self, isin: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for companies by ISIN (International Securities Identification Number) identifier.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            isin: ISIN identifier to search for
+            
+        Returns:
+            Company information matching the ISIN
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> result = service.search_isin('US0378331005')  # Apple's ISIN
+            >>> print(f"Company: {result[0]['name']}")
+        """
+        endpoint = "/search-isin"
+        params = {'isin': isin}
+        return self._make_request(endpoint, params, use_stable=True)
+
+    def company_screener(self, limit: int = 100) -> Optional[List[Dict[str, Any]]]:
+        """
+        Basic company screener to get list of companies with basic information.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of companies with basic screening information
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> companies = service.company_screener(50)
+            >>> for company in companies[:10]:
+            ...     print(f"{company['symbol']}: {company['companyName']}")
+        """
+        endpoint = "/company-screener"
+        params = {}
+        if limit != 100:
+            params['limit'] = limit
+        return self._make_request(endpoint, params, use_stable=True)
+
+    def search_exchange_variants(self, symbol: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Search for exchange variants of a symbol across different exchanges.
+        **FREE ENDPOINT** - Available on free tier (250 calls/day)
+        
+        Args:
+            symbol: Stock ticker symbol to search variants for
+            
+        Returns:
+            List of exchange variants for the symbol
+            
+        Example:
+            >>> service = FinancialModelingPrepApiService(credentials)
+            >>> variants = service.search_exchange_variants('AAPL')
+            >>> for variant in variants:
+            ...     print(f"{variant['symbol']} on {variant['exchange']}")
+        """
+        endpoint = "/search-exchange-variants"
+        params = {'symbol': symbol.upper()}
+        return self._make_request(endpoint, params, use_stable=True)
     
     def get_historical_price_eod(self, symbol: str, from_date: Optional[str] = None, 
                                to_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -812,7 +904,11 @@ class FinancialModelingPrepApiService(ApiService):
                     'search_company_name - Search companies by name',
                     'get_financial_statement_symbol_list - List symbols with financial data',
                     'get_cik_list - Get CIK identifiers',
-                    'search_cik - Search by CIK identifier'
+                    'search_cik - Search by CIK identifier',
+                    'search_cusip - Search by CUSIP identifier',
+                    'search_isin - Search by ISIN identifier',
+                    'company_screener - Basic company screening',
+                    'search_exchange_variants - Find symbol variants across exchanges'
                 ],
                 'metadata': [
                     'get_available_exchanges - List supported exchanges',
