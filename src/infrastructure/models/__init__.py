@@ -47,3 +47,4 @@ from src.infrastructure.models.finance.security_holdings import SecurityHoldings
 from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel
 from src.infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
+from src.infrastructure.models.finance.fmp_equity_data import FmpEquityDataModel
