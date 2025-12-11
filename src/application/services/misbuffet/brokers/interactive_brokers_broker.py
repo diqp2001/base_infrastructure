@@ -323,14 +323,11 @@ class IBTWSClient(EWrapper, EClient):
         """Get the currently selected account ID."""
         return getattr(self, 'selected_account_id', 'DEFAULT')
     
-    def create_stock_contract(self, symbol: str, exchange: str = "SMART") -> Contract:
+    def create_stock_contract(self, symbol: str, secType: str = "FUT", exchange: str = "CME") -> Contract:
         """Create a stock contract."""
         contract = Contract()
-        """contract.symbol = "ES"
-        contract.secType = "FUT"
-        contract.exchange = "CME"""
         contract.symbol = symbol
-        contract.secType = exchange
+        contract.secType = secType
         contract.exchange = exchange
         # For ETFs like SPY, add primary exchange for better resolution
         if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs

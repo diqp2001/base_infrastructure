@@ -1,0 +1,42 @@
+"""
+Interactive Brokers Service Module
+
+This module provides comprehensive access to Interactive Brokers API services,
+including futures data, market data, and trading capabilities.
+"""
+
+# Import main service classes
+from .interactive_brokers_api_service import InteractiveBrokersApiService
+from .get_futures_data_service import (
+    IBKRFuturesDataService,
+    IBKRFuturesServiceResult,
+    FuturesMarketData,
+    create_ibkr_futures_service
+)
+from .config_futures_service import (
+    IBKRFuturesServiceConfig,
+    get_major_indices_config,
+    get_treasury_futures_config,
+    get_commodities_config,
+    get_volatility_config,
+    get_minimal_config
+)
+
+__all__ = [
+    # Core API service
+    'InteractiveBrokersApiService',
+    
+    # Futures service
+    'IBKRFuturesDataService',
+    'IBKRFuturesServiceResult',
+    'FuturesMarketData',
+    'create_ibkr_futures_service',
+    
+    # Configuration
+    'IBKRFuturesServiceConfig',
+    'get_major_indices_config',
+    'get_treasury_futures_config',
+    'get_commodities_config',
+    'get_volatility_config',
+    'get_minimal_config'
+]
