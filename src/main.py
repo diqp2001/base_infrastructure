@@ -21,11 +21,11 @@ from application.services.api_service.fmp_service.financial_modeling_prep_api_se
 if __name__ == '__main__':
     #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
     #TestBaseProjectManager().run()
-    CrossSectionnal().run()
+    #CrossSectionnal().run()
 
     
-    """service = FinancialModelingPrepApiService()
-    service.search_symbol(query="AAPL")"""
+    service = FinancialModelingPrepApiService()
+    service.search_symbol(query="AAPL")
     """service = ErcotPublicApiService()
     prices = service.main_pipeline()"""
     

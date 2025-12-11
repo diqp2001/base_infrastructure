@@ -326,9 +326,12 @@ class IBTWSClient(EWrapper, EClient):
     def create_stock_contract(self, symbol: str, exchange: str = "SMART") -> Contract:
         """Create a stock contract."""
         contract = Contract()
-        contract.symbol = "ES"
+        """contract.symbol = "ES"
         contract.secType = "FUT"
-        contract.exchange = "CME"
+        contract.exchange = "CME"""
+        contract.symbol = symbol
+        contract.secType = exchange
+        contract.exchange = exchange
         # For ETFs like SPY, add primary exchange for better resolution
         if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs
             contract.primaryExchange = "ARCA"  # NYSE Arca is primary for many ETFs

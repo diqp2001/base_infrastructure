@@ -287,6 +287,28 @@ class FinancialModelingPrepApiService(ApiService):
             'limit': limit
         }
         return self._make_request(endpoint, params)
+    
+    def get_treasury_rates(
+        self,
+        from_date: str,
+        to_date: str
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get US Treasury rates for a specified date range.
+        
+        Args:
+            from_date: Start date in YYYY-MM-DD format (e.g., '2025-09-09')
+            to_date: End date in YYYY-MM-DD format (e.g., '2025-12-09')
+            
+        Returns:
+            List of dictionaries containing treasury rates data or None if failed
+        """
+        endpoint = "/v3/treasury-rates"
+        params = {
+            'from': from_date,
+            'to': to_date
+        }
+        return self._make_request(endpoint, params)
 
     def get_balance_sheet(
         self, 
