@@ -34,10 +34,3 @@ class SecurityFactor(FinancialAssetFactor):
 
         )
 
-    def has_international_identifier(self) -> bool:
-        """Check if this security has international identification."""
-        return self.isin is not None
-
-    def has_us_identifier(self) -> bool:
-        """Check if this security has US identification."""
-        return self.cusip is not None

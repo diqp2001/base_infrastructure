@@ -1,16 +1,11 @@
-"""
-src/domain/entities/factor/share_factor.py
-
-ShareFactor domain entity - follows unified factor pattern.
-"""
-
 from __future__ import annotations
 from typing import Optional
-from ..equity_factor import EquityFactor
+
+from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
-class ShareFactor(EquityFactor):
-    """Domain entity representing a share-specific factor."""
+class CompanyShareOptionFactor(OptionFactor):
+    """Factor for options whose underlying is a company share."""
 
     def __init__(
         self,
@@ -21,9 +16,7 @@ class ShareFactor(EquityFactor):
         source: Optional[str] = None,
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
-
-
-        
+        **kwargs,
     ):
         super().__init__(
             name=name,
@@ -33,7 +26,5 @@ class ShareFactor(EquityFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
-
+            **kwargs,
         )
-      
-   

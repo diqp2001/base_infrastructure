@@ -22,8 +22,7 @@ class FinancialAssetFactor(Factor):
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
         
-        currency: Optional[str] = None,
-        market: Optional[str] = None,
+        
     ):
         super().__init__(
             name=name,
@@ -34,13 +33,6 @@ class FinancialAssetFactor(Factor):
             definition=definition,
             factor_id=factor_id,
         )
-        self.currency = currency  # e.g., "USD", "EUR", "GBP"
-        self.market = market  # e.g., "NYSE", "NASDAQ", "LSE"
+       
 
-    def is_tradable(self) -> bool:
-        """Check if this financial asset is tradable (has market info)."""
-        return self.market is not None
-
-    def is_currency_denominated(self, target_currency: str) -> bool:
-        """Check if this asset is denominated in the target currency."""
-        return self.currency == target_currency
+ 
