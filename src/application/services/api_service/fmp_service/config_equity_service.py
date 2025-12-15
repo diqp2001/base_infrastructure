@@ -5,108 +5,39 @@ This module defines the configuration structure for the FMP equity data service,
 including which symbols to track, update intervals, and other operational parameters.
 """
 
-from dataclasses import dataclass
+
 from typing import List, Optional, Dict, Any
 import json
 from pathlib import Path
 
 
-@dataclass
+
 class FmpEquityServiceConfig:
     """Configuration for FMP Equity Service operations"""
-    
-    # Symbols to track
-    symbols: List[str]
-    
-    # Update intervals (in seconds)
-    update_interval: int = 300  # 5 minutes
-    batch_size: int = 10  # Number of symbols to fetch at once
-    
-    # Data retention
-    max_days_to_keep: int = 365  # Keep data for 1 year
-    cleanup_interval: int = 86400  # Daily cleanup (24 hours)
-    
-    # FMP API settings
-    use_free_tier: bool = True
-    max_daily_calls: int = 250  # Free tier limit
-    
-    # Service behavior
-    auto_create_missing_entities: bool = True
-    enable_factor_creation: bool = True
-    log_level: str = "INFO"
-    
-    # Default configuration with major stocks
-    @classmethod
-    def get_default_config(cls) -> 'FmpEquityServiceConfig':
-        """
-        Get default configuration tracking major US stocks.
+    def __init__(self):
+
+        # Symbols to track
+        self.symbols: List[str] = ["AAPL"]
         
-        Returns:
-            FmpEquityServiceConfig with sensible defaults
-        """
-        return cls(
-            symbols=[
-                "AAPL",  # Apple Inc.
-                "MSFT",  # Microsoft Corporation
-                "GOOGL", # Alphabet Inc.
-                "AMZN",  # Amazon.com Inc.
-                "TSLA",  # Tesla Inc.
-                "NVDA",  # NVIDIA Corporation
-                "META",  # Meta Platforms Inc.
-                "BRK.B", # Berkshire Hathaway Inc.
-                "V",     # Visa Inc.
-                "JNJ",   # Johnson & Johnson
-            ],
-            update_interval=300,  # 5 minutes
-            batch_size=5,  # Conservative for free tier
-            max_days_to_keep=365,
-            cleanup_interval=86400,
-            use_free_tier=True,
-            max_daily_calls=250,
-            auto_create_missing_entities=True,
-            enable_factor_creation=True,
-            log_level="INFO"
-        )
-    
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> 'FmpEquityServiceConfig':
-        """
-        Create config from dictionary.
+        # Update intervals (in seconds)
+        self.update_interval: int = 300  # 5 minutes
+        self.batch_size: int = 10  # Number of symbols to fetch at once
         
-        Args:
-            config_dict: Configuration dictionary
-            
-        Returns:
-            FmpEquityServiceConfig instance
-        """
-        return cls(
-            symbols=config_dict.get('symbols', []),
-            update_interval=config_dict.get('update_interval', 300),
-            batch_size=config_dict.get('batch_size', 10),
-            max_days_to_keep=config_dict.get('max_days_to_keep', 365),
-            cleanup_interval=config_dict.get('cleanup_interval', 86400),
-            use_free_tier=config_dict.get('use_free_tier', True),
-            max_daily_calls=config_dict.get('max_daily_calls', 250),
-            auto_create_missing_entities=config_dict.get('auto_create_missing_entities', True),
-            enable_factor_creation=config_dict.get('enable_factor_creation', True),
-            log_level=config_dict.get('log_level', "INFO")
-        )
-    
-    @classmethod
-    def from_file(cls, filepath: str) -> 'FmpEquityServiceConfig':
-        """
-        Load configuration from JSON file.
+        # Data retention
+        self.max_days_to_keep: int = 365  # Keep data for 1 year
+        self.cleanup_interval: int = 86400  # Daily cleanup (24 hours)
         
-        Args:
-            filepath: Path to configuration file
-            
-        Returns:
-            FmpEquityServiceConfig instance
-        """
-        filepath = Path(filepath)
-        with open(filepath, 'r') as f:
-            config_data = json.load(f)
-        return cls.from_dict(config_data)
+        # FMP API settings
+        self.use_free_tier: bool = True
+        self.max_daily_calls: int = 250  # Free tier limit
+        
+        # Service behavior
+        self.auto_create_missing_entities: bool = True
+        self.enable_factor_creation: bool = True
+        self.log_level: str = "INFO"
+        self.DB_TYPE= 'sql_server'
+    
+    
     
     def to_dict(self) -> Dict[str, Any]:
         """

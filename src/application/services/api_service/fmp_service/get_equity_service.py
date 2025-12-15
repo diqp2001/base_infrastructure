@@ -20,9 +20,10 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.fmp_service.financial_modeling_prep_api_service import FinancialModelingPrepApiService
 from src.application.services.api_service.fmp_service.config_equity_service import FmpEquityServiceConfig
-from src.infrastructure.repositories.fmp_repository import FmpRepository, FmpDataTranslation
+from infrastructure.repositories.fmp_repo.fmp_repository import FmpRepository, FmpDataTranslation
 from src.domain.entities.finance.financial_assets.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
@@ -52,7 +53,7 @@ class FmpEquityDataService:
     4. Provides monitoring and error handling
     """
     
-    def __init__(self, session: Session, config: Optional[FmpEquityServiceConfig] = None):
+    def __init__(self,  config: Optional[FmpEquityServiceConfig] = None):
         """
         Initialize FMP equity data service.
         
@@ -60,14 +61,17 @@ class FmpEquityDataService:
             session: SQLAlchemy database session
             config: Service configuration (uses default if None)
         """
-        self.session = session
-        self.config = config or FmpEquityServiceConfig.get_default_config()
+        
+        self.config = config or FmpEquityServiceConfig()
+        self.database_service = DatabaseService(self.config.DB_TYPE)
+        self.database_service.set_ext_db()
+        self.session = self.database_service.session
         
         # Initialize FMP API service
         self.fmp_api_service = FinancialModelingPrepApiService()
         
         # Initialize FMP repository for translation
-        self.fmp_repository = FmpRepository(session)
+        self.fmp_repository = FmpRepository(self.session)
         
         # Setup logging
         logging.basicConfig(level=getattr(logging, self.config.log_level))
@@ -200,7 +204,7 @@ class FmpEquityDataService:
             for symbol in symbols:
                 try:
                     # Fetch company profile
-                    profile_data = self.fmp_api_service.get_company_profile(symbol)
+                    profile_data = self.fmp_api_service.search_symbol(symbol)
                     self.stats['total_api_calls'] += 1
                     
                     if not profile_data:
@@ -279,11 +283,11 @@ class FmpEquityDataService:
         total_share_factors = 0
         
         try:
-            # Fetch quotes
+            """# Fetch quotes
             quotes_result = self.fetch_and_store_quotes()
             total_company_shares += quotes_result.company_shares_created
             total_share_factors += quotes_result.share_factors_created
-            all_errors.extend(quotes_result.errors)
+            all_errors.extend(quotes_result.errors)"""
             
             # Fetch profiles for additional company information
             profiles_result = self.fetch_and_store_company_profiles()
@@ -430,7 +434,7 @@ class FmpEquityDataService:
             return False
 
 
-def create_fmp_equity_service(session: Session, config_path: Optional[str] = None) -> FmpEquityDataService:
+def create_fmp_equity_service( session: Session, config_path: Optional[str] = None):
     """
     Factory function to create FMP equity service with optional configuration file.
     
@@ -455,36 +459,36 @@ def create_fmp_equity_service(session: Session, config_path: Optional[str] = Non
     return FmpEquityDataService(session, config)
 
 
-# Example usage functions
-def example_basic_usage():
-    """Example of basic service usage"""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    
-    # Setup database session (example)
-    engine = create_engine('sqlite:///example.db')
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-    
-    try:
-        # Create service with default config
-        service = create_fmp_equity_service(session)
+    # Example usage functions
+    def example_basic_usage(self):
+        """Example of basic service usage"""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
         
-        # Run update cycle
-        result = service.run_update_cycle()
-        print(f"Update result: {result.message}")
+        # Setup database session (example)
+        engine = create_engine('sqlite:///example.db')
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
         
-        # Get service status
-        status = service.get_service_status()
-        print(f"Service status: {status['service_status']}")
-        
-        # Get latest data for a symbol
-        aapl_data = service.get_latest_data('AAPL')
-        if aapl_data:
-            print(f"AAPL data: {aapl_data}")
-        
-    finally:
-        session.close()
+        try:
+            # Create service with default config
+            service = self.create_fmp_equity_service(session)
+            
+            # Run update cycle
+            result = service.run_update_cycle()
+            print(f"Update result: {result.message}")
+            
+            # Get service status
+            status = service.get_service_status()
+            print(f"Service status: {status['service_status']}")
+            
+            # Get latest data for a symbol
+            aapl_data = service.get_latest_data('AAPL')
+            if aapl_data:
+                print(f"AAPL data: {aapl_data}")
+            
+        finally:
+            session.close()
 
 
 def example_custom_config():
@@ -518,9 +522,3 @@ def example_custom_config():
         session.close()
 
 
-if __name__ == "__main__":
-    # Run example
-    print("Running FMP Equity Service examples...")
-    example_basic_usage()
-    print("\nRunning custom config example...")
-    example_custom_config()

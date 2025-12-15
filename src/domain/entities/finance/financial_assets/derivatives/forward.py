@@ -4,7 +4,7 @@ from domain.entities.finance.financial_assets.derivatives.derivative import Deri
 from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
-class Future(Derivative):
+class Forward(Derivative):
     """
     Futures contract with exchange link.
     """

@@ -35,6 +35,14 @@ class InteractiveBrokersApiService(EWrapper, EClient, ApiService):
         self.data = []
         self.order_id = None
         self.connected = False
+    def complete_pipeline(self,symbol: str ="ES", exchange: str = "SMART", 
+                         currency: str = "USD", duration: int = 2):
+        self.connect_api()
+
+        df = self.fetch_market_data(symbol, exchange, currency, duration)
+
+        self.disconnect_api()
+    
 
     def connect_api(self):
         """
@@ -70,7 +78,7 @@ class InteractiveBrokersApiService(EWrapper, EClient, ApiService):
         """
         return self.connected
 
-    def fetch_market_data(self, symbol: str, exchange: str = "SMART", 
+    def fetch_market_data(self, symbol: str, exchange: str = "CME", 
                          currency: str = "USD", duration: int = 2) -> pd.DataFrame:
         """
         Fetch real-time market data for a specific instrument.
@@ -89,7 +97,7 @@ class InteractiveBrokersApiService(EWrapper, EClient, ApiService):
             
         contract = Contract()
         contract.symbol = symbol
-        contract.secType = "STK"
+        contract.secType = "FUT"
         contract.exchange = exchange
         contract.currency = currency
 
