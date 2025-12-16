@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import Column, Integer, Date, String, ForeignKey
 from sqlalchemy.orm import relationship
 
-from src.infrastructure.models.base import Base
+from src.infrastructure.models import ModelBase as Base
 
 
 class PortfolioCompanyShareOptionModel(Base):
