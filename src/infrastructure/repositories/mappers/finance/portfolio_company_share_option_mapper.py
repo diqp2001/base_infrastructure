@@ -31,11 +31,8 @@ class PortfolioCompanyShareOptionMapper:
         return PortfolioCompanyShareOption(
             id=model.id,
             underlying=underlying,
-            company_id=model.company_id,
             expiration_date=model.expiration_date,
             option_type=option_type,
-            exercise_style=model.exercise_style,
-            strike_id=model.strike_id,
             start_date=model.start_date,
             end_date=model.end_date
         )
@@ -45,11 +42,11 @@ class PortfolioCompanyShareOptionMapper:
         return PortfolioCompanyShareOptionModel(
             id=entity.id,
             underlying_id=entity.underlying.id,
-            company_id=entity.company_id,
+            company_id=1,  # Default - not tracked at entity level
             expiration_date=entity.expiration_date,
             option_type=entity.option_type.value,  # Convert enum to string
-            exercise_style=entity.exercise_style,
-            strike_id=entity.strike_id,
+            exercise_style='American',  # Default - not tracked at entity level
+            strike_id=None,  # Default - not tracked at entity level
             start_date=entity.start_date,
             end_date=entity.end_date
         )

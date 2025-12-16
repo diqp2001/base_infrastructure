@@ -28,10 +28,13 @@ class HoldingMapper:
         # Create a placeholder FinancialAsset - in real implementation you'd load from repository
         asset = FinancialAsset(id=model.asset_id, start_date=model.start_date.date(), end_date=model.end_date.date() if model.end_date else None)
 
+        # Create a placeholder container object - in real implementation you'd load from repository
+        container = type('Container', (), {'id': model.container_id})()
+
         return Holding(
             id=model.id,
             asset=asset,
-            container_id=model.container_id,
+            container=container,
             start_date=model.start_date,
             end_date=model.end_date
         )
@@ -41,7 +44,7 @@ class HoldingMapper:
         return HoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
-            container_id=entity.container_id,
+            container_id=entity.container.id,
             start_date=entity.start_date,
             end_date=entity.end_date
         )
@@ -56,10 +59,19 @@ class HoldingMapper:
         if not base_holding:
             return None
 
+        # Create a placeholder portfolio - in real implementation you'd load from repository
+        from src.domain.entities.finance.portfolio.portfolio import Portfolio
+        portfolio = Portfolio(
+            id=model.portfolio_id,
+            name=f"Portfolio_{model.portfolio_id}",
+            start_date=model.start_date.date(),
+            end_date=model.end_date.date() if model.end_date else None
+        )
+
         return PortfolioHolding(
             id=base_holding.id,
+            portfolio=portfolio,
             asset=base_holding.asset,
-            container_id=base_holding.container_id,
             start_date=base_holding.start_date,
             end_date=base_holding.end_date
         )
@@ -69,8 +81,8 @@ class HoldingMapper:
         return PortfolioHoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
-            container_id=entity.container_id,
-            portfolio_id=entity.container_id,  # Assuming container_id is portfolio_id
+            container_id=entity.portfolio.id,
+            portfolio_id=entity.portfolio.id,
             start_date=entity.start_date,
             end_date=entity.end_date
         )
@@ -109,7 +121,7 @@ class HoldingMapper:
         return PortfolioCompanyShareHoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
-            container_id=entity.container_id,
+            container_id=entity.portfolio.id,
             portfolio_id=entity.portfolio.id,
             company_share_id=entity.asset.id,
             portfolio_company_share_id=entity.portfolio.id,
