@@ -13,7 +13,7 @@ from decimal import Decimal
 @dataclass
 class DatabaseConfig:
     """Database configuration for market making data storage."""
-    database_url: str = "sqlite:///market_making.db"
+    database_url: str = "sql_server"
     echo_queries: bool = False
     pool_size: int = 10
     max_overflow: int = 20

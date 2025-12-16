@@ -9,7 +9,7 @@ from .enums import SecurityType, Resolution, DataNormalizationMode, LogLevel
 from .data_handlers import BaseData, TradeBar, QuoteBar, Tick
 
 # Import domain entities for proper inheritance
-from domain.entities.finance.portfolio import SecurityHoldings as DomainSecurityHoldings
+from domain.entities.finance.portfolio.portfolio import SecurityHoldings as DomainSecurityHoldings
 from domain.entities.finance.financial_assets.security import Security as DomainSecurity
 from decimal import Decimal
 

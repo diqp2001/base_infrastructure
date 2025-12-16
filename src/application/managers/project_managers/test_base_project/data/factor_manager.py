@@ -24,7 +24,7 @@ from domain.entities.factor.finance.financial_assets.share_factor.share_momentum
 from domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
 from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
-from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
 from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 # ShareFactorValueMapper removed - using FactorValueMapper instead
 from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper

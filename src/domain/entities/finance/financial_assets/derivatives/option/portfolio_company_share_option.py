@@ -2,18 +2,18 @@ from datetime import date
 from optparse import Option
 from typing import Optional
 
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
+from domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
 
 
-class CompanyShareOption(Option):
+class PortfolioCompanyShareOption(Option):
     """
     Option written on a company share.
     """
 
     def __init__(self,
                  id: int,
-                 underlying_share: CompanyShare,
+                 underlying: PortfolioCompanyShare,
                  company_id: int,
                  expiration_date: date,
                  option_type: OptionType,
@@ -26,7 +26,7 @@ class CompanyShareOption(Option):
 
         super().__init__(
             id=id,
-            underlying_asset=underlying_share,
+            underlying_asset=underlying,
             expiration_date=expiration_date,
             option_type=option_type,
             exercise_style=exercise_style,

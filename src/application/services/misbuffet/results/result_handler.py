@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
-from domain.entities.finance.portfolio import PortfolioStatistics, Portfolio
+from domain.entities.finance.portfolio.portfolio import PortfolioStatistics, Portfolio
 
 
 

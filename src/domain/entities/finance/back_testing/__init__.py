@@ -9,7 +9,7 @@ from .enums import SecurityType
 from .back_testing_data_types import *
 from .orders import *
 from .back_testing_security import *
-from ..portfolio import Portfolio, PortfolioHoldings, PortfolioStatistics, SecurityHoldings
+from ..portfolio.portfolio import Portfolio, PortfolioHoldings, PortfolioStatistics, SecurityHoldings
 from ..financial_assets.security import Security, MarketData
 
 __all__ = [

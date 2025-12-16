@@ -8,7 +8,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 
-from src.domain.entities.finance.financial_assets.company_share import CompanyShare as DomainCompanyShare
+from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
 from src.domain.entities.finance.financial_assets.security import  MarketData
 

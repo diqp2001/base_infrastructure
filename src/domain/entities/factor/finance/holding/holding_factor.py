@@ -1,0 +1,31 @@
+from __future__ import annotations
+from typing import Optional
+
+from domain.entities.factor.factor import Factor
+
+
+class HoldingFactor(Factor):
+    """
+    Domain entity representing a factor for any asset held inside a container
+    (portfolio, book, strategy, account).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        group: str,
+        subgroup: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+        definition: Optional[str] = None,
+        factor_id: Optional[int] = None,
+    ):
+        super().__init__(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition,
+            factor_id=factor_id,
+        )

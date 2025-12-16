@@ -11,16 +11,16 @@ from sqlalchemy.orm import sessionmaker
 
 from src.domain.entities.finance.company import Company
 from src.domain.entities.finance.exchange import Exchange
-from src.domain.entities.finance.financial_assets.company_share import CompanyShare
+from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.currency import Currency
 from src.domain.entities.finance.financial_assets.crypto import Crypto
 from src.domain.entities.finance.financial_assets.commodity import Commodity
 from src.domain.entities.finance.financial_assets.cash import Cash
 from src.domain.entities.finance.financial_assets.bond import Bond
 from src.domain.entities.finance.financial_assets.index import Index
-from src.domain.entities.finance.financial_assets.etf_share import ETFShare
+from domain.entities.finance.financial_assets.share.etf_share import ETFShare
 from src.domain.entities.finance.financial_assets.security import Security
-from src.domain.entities.finance.financial_assets.share import Share
+from domain.entities.finance.financial_assets.share.share import Share
 from domain.entities.finance.financial_assets.derivatives.future.future import Future
 from domain.entities.finance.financial_assets.derivatives.option.option import Option
 from src.domain.entities.finance.financial_assets.stock import Stock

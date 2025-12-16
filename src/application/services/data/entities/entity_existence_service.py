@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 from application.services.database_service.database_service import DatabaseService
-from domain.entities.finance.financial_assets.company_share import CompanyShare as CompanyShareEntity
+from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
 from domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
