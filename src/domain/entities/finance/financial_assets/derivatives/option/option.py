@@ -28,8 +28,6 @@ class Option(Derivative):
                  underlying_asset: FinancialAsset,
                  expiration_date: date,
                  option_type: OptionType,
-                 exercise_style: str,
-                 strike_id: Optional[int],
                  start_date: date,
                  end_date: Optional[date] = None):
         
@@ -37,5 +35,3 @@ class Option(Derivative):
 
         self.expiration_date = expiration_date
         self.option_type = option_type
-        self.exercise_style = exercise_style
-        self.strike_id = strike_id  # <- ties to factor system

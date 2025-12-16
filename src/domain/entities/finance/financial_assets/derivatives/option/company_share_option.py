@@ -1,7 +1,7 @@
 from datetime import date
-from optparse import Option
 from typing import Optional
 
+from domain.entities.finance.financial_assets.derivatives.option.option import Option
 from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 
@@ -14,23 +14,17 @@ class CompanyShareOption(Option):
     def __init__(self,
                  id: int,
                  underlying_share: CompanyShare,
-                 company_id: int,
                  expiration_date: date,
                  option_type: OptionType,
-                 exercise_style: str,
-                 strike_id: Optional[int],
                  start_date: date,
                  end_date: Optional[date] = None):
 
-        self.company_id = company_id
 
         super().__init__(
             id=id,
             underlying_asset=underlying_share,
             expiration_date=expiration_date,
             option_type=option_type,
-            exercise_style=exercise_style,
-            strike_id=strike_id,
             start_date=start_date,
             end_date=end_date
         )

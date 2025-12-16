@@ -18,13 +18,13 @@ class Holding:
         self,
         id: int,
         asset: FinancialAsset,
-        container_id: int,
+        container: object,
         start_date: datetime,
         end_date: Optional[datetime] = None,
     ):
         self.id = id
         self.asset = asset
-        self.container_id = container_id
+        self.container = container
         self.start_date = start_date
         self.end_date = end_date
 

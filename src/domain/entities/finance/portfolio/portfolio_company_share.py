@@ -19,14 +19,12 @@ class PortfolioCompanyShare(Portfolio):
         self,
         id: int,
         name: str,
-        underlying_assets: List[CompanyShare],
         start_date: date,
         end_date: Optional[date] = None,
     ):
         super().__init__(
             id=id,
             name=name,
-            underlying_assets=underlying_assets,
             start_date=start_date,
             end_date=end_date,
         )

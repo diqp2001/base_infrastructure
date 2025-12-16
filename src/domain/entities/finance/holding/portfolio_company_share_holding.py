@@ -24,9 +24,8 @@ class PortfolioCompanyShareHolding(PortfolioHolding):
         super().__init__(
             id=id,
             asset=asset,
-            container_id=portfolio.id,
+            container=portfolio,
             start_date=start_date,
             end_date=end_date,
         )
 
-        self.portfolio = portfolio

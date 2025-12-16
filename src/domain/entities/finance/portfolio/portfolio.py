@@ -19,13 +19,11 @@ class Portfolio():
         self,
         id: int,
         name: str,
-        underlying_assets: List[FinancialAsset],
         start_date: date,
         end_date: Optional[date] = None,
     ):
         
         self.id = id
         self.name = name
-        self.underlying_assets = underlying_assets
         self.start_date = start_date
         self.end_date = end_date
