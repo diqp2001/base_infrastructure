@@ -1,7 +1,9 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, List
+from decimal import Decimal
 
 from .portfolio_factor import PortfolioFactor
+from domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 
 
 class PortfolioCompanyShareValueFactor(PortfolioFactor):
@@ -34,3 +36,37 @@ class PortfolioCompanyShareValueFactor(PortfolioFactor):
             definition=definition,
             factor_id=factor_id,
         )
+
+    def calculate_portfolio_value(self, holdings: List[PortfolioCompanyShareHolding], quantities: List[Decimal]) -> Decimal:
+        """
+        Calculate the total portfolio value from a list of holdings and their corresponding quantities.
+        
+        Args:
+            holdings: List of portfolio company share holdings
+            quantities: List of corresponding quantities for each holding (must be same length as holdings)
+            
+        Returns:
+            Total portfolio value (sum of all holding values)
+            
+        Raises:
+            ValueError: If holdings and quantities lists have different lengths
+                       or if any holding has no price information
+        """
+        if len(holdings) != len(quantities):
+            raise ValueError("Holdings and quantities lists must have the same length")
+            
+        total_value = Decimal('0')
+        
+        for holding, quantity in zip(holdings, quantities):
+            if holding.asset.price is None:
+                raise ValueError(f"Holding {holding.id} has no price information")
+                
+            if quantity < 0:
+                raise ValueError(f"Quantity for holding {holding.id} cannot be negative")
+                
+            # Convert price to Decimal for precise calculation
+            price = Decimal(str(holding.asset.price))
+            holding_value = quantity * price
+            total_value += holding_value
+            
+        return total_value
