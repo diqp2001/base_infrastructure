@@ -11,4 +11,23 @@ class PortfolioCompanyShareHoldingFactor(PortfolioHoldingFactor):
     Identification-only. Metrics like weight, price, contribution, etc.,
     are handled as FactorValues.
     """
-    pass
+
+    def __init__(
+        self,
+        name: str,
+        group: str = "holding",
+        subgroup: Optional[str] = "company_share",
+        data_type: Optional[str] = "identifier",
+        source: Optional[str] = "portfolio_management",
+        definition: Optional[str] = "Company share holding within portfolio",
+        factor_id: Optional[int] = None,
+    ):
+        super().__init__(
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition,
+            factor_id=factor_id,
+        )
