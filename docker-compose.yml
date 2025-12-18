@@ -1,0 +1,104 @@
+# Docker Compose for Base Infrastructure Trading Platform
+version: '3.8'
+
+services:
+  # Main trading application
+  trading-platform:
+    build: .
+    container_name: base-infrastructure-trading
+    ports:
+      - "5000:5000"    # Flask application
+      - "8080:8080"    # VS Code server
+      - "5901:5901"    # VNC server
+      - "80:80"        # Nginx reverse proxy
+    environment:
+      # Application settings
+      - PYTHONPATH=/home/trader/app/src
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      
+      # Database settings (customize as needed)
+      - DB_HOST=localhost
+      - DB_PORT=1433
+      - DB_NAME=trading_db
+      - DB_USER=sa
+      - DB_PASSWORD=YourStrongPassword123!
+      
+      # IBKR TWS settings
+      - TWS_HOST=localhost
+      - TWS_PORT=7497
+      - TWS_CLIENT_ID=1
+      
+      # VNC settings
+      - VNC_PASSWORD=trader123
+      - VNC_RESOLUTION=1920x1080
+      - VNC_DEPTH=24
+      
+      # VS Code settings
+      - CODE_SERVER_PASSWORD=trader123
+    
+    volumes:
+      # Persist application data
+      - ./data:/home/trader/app/data
+      - ./reports:/home/trader/app/reports
+      - ./results:/home/trader/app/results
+      - ./mlruns:/home/trader/app/mlruns
+      
+      # Persist VS Code settings
+      - vscode-config:/home/trader/.config/code-server
+      - vscode-extensions:/home/trader/.local/share/code-server/extensions
+      
+      # Persist logs
+      - app-logs:/home/trader/logs
+    
+    networks:
+      - trading-network
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/entities/summary"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # SQL Server (alternative to SSMS)
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: trading-sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrongPassword123!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - trading-network
+    restart: unless-stopped
+
+  # Web-based SQL client (alternative to SSMS)
+  adminer:
+    image: adminer:latest
+    container_name: trading-adminer
+    ports:
+      - "8081:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=sqlserver
+    networks:
+      - trading-network
+    restart: unless-stopped
+    depends_on:
+      - sqlserver
+
+volumes:
+  vscode-config:
+  vscode-extensions:
+  app-logs:
+  sqlserver-data:
+
+networks:
+  trading-network:
+    driver: bridge
