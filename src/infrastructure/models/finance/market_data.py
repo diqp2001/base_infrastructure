@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class MarketDataModel(Base):
+class MarketData(Base):
     """
     SQLAlchemy ORM model for MarketData.
     Stores comprehensive market data with OHLCV information.

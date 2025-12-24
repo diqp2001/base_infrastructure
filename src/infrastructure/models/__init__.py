@@ -42,18 +42,15 @@ from src.infrastructure.models.continent import Continent
 
 # New finance entity imports
 from src.infrastructure.models.finance.portfolio import Portfolio
-from src.infrastructure.models.finance.position import Position
-from src.infrastructure.models.finance.security_holdings import SecurityHoldingsModel
-from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel
-from src.infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
-from src.infrastructure.models.finance.market_data import MarketDataModel
+from infrastructure.models.finance.security_holding import SecurityHolding
+from src.infrastructure.models.finance.market_data import MarketData
 
 # Holding models
-from src.infrastructure.models.finance.holding import (
-    HoldingModel, 
-    PortfolioHoldingModel, 
-    PortfolioCompanyShareHoldingModel
-)
+from infrastructure.models.finance.holding.holding import Holding
 
 # Portfolio company share option model
-from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
+
+
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHolding
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding

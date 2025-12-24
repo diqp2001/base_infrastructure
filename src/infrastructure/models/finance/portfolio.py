@@ -109,9 +109,8 @@ class Portfolio(Base):
 
     # Relationships
     positions = relationship("Position", back_populates="portfolios")
-    portfolio_holdings = relationship("PortfolioHoldingsModel", back_populates="portfolios", cascade="all, delete-orphan")
-    security_holdings = relationship("SecurityHoldingsModel", back_populates="portfolios", cascade="all, delete-orphan")
-    portfolio_statistics = relationship("PortfolioStatisticsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    portfolio_holdings = relationship("PortfolioHoldings", back_populates="portfolios", cascade="all, delete-orphan")
+    portfolio_statistics = relationship("PortfolioStatistics", back_populates="portfolios", cascade="all, delete-orphan")
     securities = relationship("Security", back_populates="portfolios", cascade="all, delete-orphan")
 
     def __repr__(self):

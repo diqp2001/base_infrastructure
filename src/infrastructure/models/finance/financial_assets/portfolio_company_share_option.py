@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class PortfolioCompanyShareOptionModel(Base):
+class PortfolioCompanyShareOption(Base):
     """
     SQLAlchemy model for portfolio company share options.
     Maps to domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option.PortfolioCompanyShareOption

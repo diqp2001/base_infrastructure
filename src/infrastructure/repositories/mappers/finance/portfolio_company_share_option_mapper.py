@@ -4,14 +4,14 @@ Mapper for converting between portfolio company share option domain entities and
 from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
-from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
 from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 
 
 class PortfolioCompanyShareOptionMapper:
     """Mapper for converting between option entities and models"""
 
-    def to_entity(self, model: Optional[PortfolioCompanyShareOptionModel]) -> Optional[PortfolioCompanyShareOption]:
+    def to_entity(self, model: Optional[PortfolioCompanyShareOption]) -> Optional[PortfolioCompanyShareOption]:
         """Convert PortfolioCompanyShareOptionModel to PortfolioCompanyShareOption entity"""
         if not model:
             return None
@@ -37,9 +37,9 @@ class PortfolioCompanyShareOptionMapper:
             end_date=model.end_date
         )
 
-    def to_model(self, entity: PortfolioCompanyShareOption) -> PortfolioCompanyShareOptionModel:
+    def to_model(self, entity: PortfolioCompanyShareOption) -> PortfolioCompanyShareOption:
         """Convert PortfolioCompanyShareOption entity to PortfolioCompanyShareOptionModel"""
-        return PortfolioCompanyShareOptionModel(
+        return PortfolioCompanyShareOption(
             id=entity.id,
             underlying_id=entity.underlying.id,
             company_id=1,  # Default - not tracked at entity level

@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class SecurityHoldingsModel(Base):
+class SecurityHolding(Base):
     """
     SQLAlchemy ORM model for individual SecurityHoldings.
     Represents holdings for a specific security.

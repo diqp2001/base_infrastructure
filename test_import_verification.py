@@ -18,7 +18,7 @@ def test_domain_entities_import():
         from src.infrastructure.models.finance import (
             Portfolio as PortfolioModel,
             PortfolioHoldingsModel,
-            SecurityHoldingsModel, 
+            SecurityHoldingModel, 
             PortfolioStatisticsModel,
             MarketDataModel
         )

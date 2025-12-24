@@ -9,13 +9,12 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
+from infrastructure.models.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.financial_assets.security import Security
-from domain.entities.finance.portfolio.portfolio import Portfolio, PortfolioStatistics
-from src.infrastructure.models.finance.market_data import MarketDataModel
+from domain.entities.finance.portfolio.portfolio import Portfolio
+from src.infrastructure.models.finance.market_data import MarketData
 from src.infrastructure.models.finance.portfolio import Portfolio as PortfolioModel
-from src.infrastructure.models.finance.security_holdings import SecurityHoldingsModel
-from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel
-from src.infrastructure.models.finance.portfolio_statistics import PortfolioStatisticsModel
+from infrastructure.models.finance.security_holding import SecurityHolding
 
 #from domain.entities.finance.portfolio import Portfolio
 
@@ -67,10 +66,10 @@ class ResultStorage:
         portfolio_model: PortfolioModel, 
         portfolio: Portfolio, 
         snapshot_date: datetime
-    ) -> PortfolioHoldingsModel:
+    ) -> PortfolioHolding:
         """Create portfolio snapshot for a specific point in time."""
         
-        snapshot = PortfolioHoldingsModel(
+        snapshot = PortfolioHolding(
             portfolio_id=portfolio_model.id,
             cash_balance=float(portfolio.cash_balance),
             total_value=float(portfolio.current_value),
@@ -89,11 +88,11 @@ class ResultStorage:
         security: Security, 
         timestamp: datetime, 
         price_data: Dict
-    ) -> MarketDataModel:
+    ) -> MarketData:
         """Save security price snapshot."""
         
         # Create market data model
-        market_data = MarketDataModel(
+        market_data = MarketData(
             symbol_ticker=security.symbol.ticker,
             symbol_exchange=security.symbol.exchange,
             security_type=security.symbol.security_type.value,
@@ -124,19 +123,19 @@ class ResultStorage:
         portfolio_id: int,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
-    ) -> List[PortfolioHoldingsModel]:
+    ) -> List[PortfolioHolding]:
         """Get portfolio snapshots within date range."""
         
-        query = self.db_session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        query = self.db_session.query(PortfolioHolding).filter(
+            PortfolioHolding.portfolio_id == portfolio_id
         )
         
         if start_date:
-            query = query.filter(PortfolioHoldingsModel.snapshot_date >= start_date)
+            query = query.filter(PortfolioHolding.snapshot_date >= start_date)
         if end_date:
-            query = query.filter(PortfolioHoldingsModel.snapshot_date <= end_date)
+            query = query.filter(PortfolioHolding.snapshot_date <= end_date)
         
-        return query.order_by(PortfolioHoldingsModel.snapshot_date).all()
+        return query.order_by(PortfolioHolding.snapshot_date).all()
     
     def get_security_price_history(
         self,
@@ -144,20 +143,20 @@ class ResultStorage:
         symbol_exchange: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
-    ) -> List[MarketDataModel]:
+    ) -> List[MarketData]:
         """Get security price history within date range."""
         
-        query = self.db_session.query(MarketDataModel).filter(
-            MarketDataModel.symbol_ticker == symbol_ticker,
-            MarketDataModel.symbol_exchange == symbol_exchange
+        query = self.db_session.query(MarketData).filter(
+            MarketData.symbol_ticker == symbol_ticker,
+            MarketData.symbol_exchange == symbol_exchange
         )
         
         if start_date:
-            query = query.filter(MarketDataModel.timestamp >= start_date)
+            query = query.filter(MarketData.timestamp >= start_date)
         if end_date:
-            query = query.filter(MarketDataModel.timestamp <= end_date)
+            query = query.filter(MarketData.timestamp <= end_date)
         
-        return query.order_by(MarketDataModel.timestamp).all()
+        return query.order_by(MarketData.timestamp).all()
     
     def get_recent_backtests(self, limit: int = 10) -> List[PortfolioModel]:
         """Get recent backtest results."""
@@ -177,19 +176,16 @@ class ResultStorage:
         # Note: MarketDataModel doesn't have direct FK to portfolio, so skip
         
         # Delete portfolio holdings snapshots
-        self.db_session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        self.db_session.query(PortfolioHolding).filter(
+            PortfolioHolding.portfolio_id == portfolio_id
         ).delete()
         
         # Delete security holdings
-        self.db_session.query(SecurityHoldingsModel).filter(
-            SecurityHoldingsModel.portfolio_id == portfolio_id
+        self.db_session.query(SecurityHolding).filter(
+            SecurityHolding.portfolio_id == portfolio_id
         ).delete()
         
-        # Delete portfolio statistics
-        self.db_session.query(PortfolioStatisticsModel).filter(
-            PortfolioStatisticsModel.portfolio_id == portfolio_id
-        ).delete()
+        
         
         # Delete portfolio itself
         self.db_session.delete(portfolio)
@@ -242,38 +238,13 @@ class ResultStorage:
             last_valuation_date=portfolio.last_valuation_date
         )
     
-    def _save_portfolio_statistics(self, portfolio_id: int, statistics: PortfolioStatistics) -> PortfolioStatisticsModel:
-        """Save portfolio statistics to database."""
-        
-        stats_model = PortfolioStatisticsModel(
-            portfolio_id=portfolio_id,
-            total_return=float(statistics.total_return),
-            total_return_percent=float(statistics.total_return_percent),
-            max_drawdown=float(statistics.max_drawdown),
-            high_water_mark=float(statistics.high_water_mark),
-            volatility=float(statistics.volatility) if statistics.volatility else None,
-            sharpe_ratio=float(statistics.sharpe_ratio) if statistics.sharpe_ratio else None,
-            beta=float(statistics.beta) if statistics.beta else None,
-            alpha=float(statistics.alpha) if statistics.alpha else None,
-            var_95=float(statistics.var_95) if statistics.var_95 else None,
-            tracking_error=float(statistics.tracking_error) if statistics.tracking_error else None,
-            win_rate=float(statistics.win_rate),
-            total_trades=statistics.total_trades,
-            winning_trades=statistics.winning_trades,
-            losing_trades=statistics.losing_trades,
-            calculation_date=datetime.utcnow(),
-            created_at=datetime.utcnow()
-        )
-        
-        self.db_session.add(stats_model)
-        self.db_session.commit()
-        return stats_model
+   
     
     def _save_portfolio_holdings(self, portfolio_id: int, portfolio: Portfolio):
         """Save individual security holdings to database."""
         
         for symbol, holding in portfolio.holdings.holdings.items():
-            holding_model = SecurityHoldingsModel(
+            holding_model = SecurityHolding(
                 portfolio_id=portfolio_id,
                 symbol_ticker=symbol.ticker,
                 symbol_exchange=symbol.exchange,
@@ -309,10 +280,10 @@ class ResultStorage:
         self, 
         portfolio_model: PortfolioModel, 
         portfolio: Portfolio
-    ) -> PortfolioHoldingsModel:
+    ) -> PortfolioHolding:
         """Create holdings snapshot model."""
         
-        return PortfolioHoldingsModel(
+        return PortfolioHolding(
             portfolio_id=portfolio_model.id,
             cash_balance=float(portfolio.cash_balance),
             total_value=float(portfolio.current_value),
