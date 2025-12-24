@@ -4,7 +4,7 @@ Contains pure domain models for algorithmic trading and back testing.
 """
 
 
-from .symbol import Symbol
+from .financial_assets.symbol import Symbol
 from .enums import SecurityType
 from .back_testing_data_types import *
 from .orders import *

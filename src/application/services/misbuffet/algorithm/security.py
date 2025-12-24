@@ -9,13 +9,13 @@ from .enums import SecurityType, Resolution, DataNormalizationMode, LogLevel
 from .data_handlers import BaseData, TradeBar, QuoteBar, Tick
 
 # Import domain entities for proper inheritance
-from domain.entities.finance.back_testing import SecurityHolding as DomainSecurityHoldings
+from domain.entities.finance.holding.holding import Holding 
 from domain.entities.finance.financial_assets.security import Security as DomainSecurity
 from decimal import Decimal
 
 
 @dataclass
-class SecurityHolding(DomainSecurityHoldings):
+class SecurityHolding(Holding):
     """
     Algorithm framework holding extending domain SecurityHoldings.
     Provides QuantConnect-style API with float convenience methods while maintaining domain precision.
@@ -30,16 +30,22 @@ class SecurityHolding(DomainSecurityHoldings):
         # Convert to Decimal for domain layer
         quantity_decimal = Decimal(str(quantity))
         average_cost_decimal = Decimal(str(average_price))
+        symbol=symbol
+        quantity=quantity_decimal
+        average_cost=average_cost_decimal
+        market_value=Decimal("0")
+        unrealized_pnl=Decimal("0")
+        realized_pnl=Decimal("0")
+        holdings_value=Decimal("0")
 
         # Initialize domain SecurityHoldings (uses Decimal fields)
         super().__init__(
-            symbol=symbol,
-            quantity=quantity_decimal,
-            average_cost=average_cost_decimal,
-            market_value=Decimal("0"),
-            unrealized_pnl=Decimal("0"),
-            realized_pnl=Decimal("0"),
-            holdings_value=Decimal("0"),
+            id=id,
+            asset=asset,
+            container=Portfolio(),
+            start_date=start_date,
+            end_date=end_date
+            
         )
 
         # Set algorithm-specific fields

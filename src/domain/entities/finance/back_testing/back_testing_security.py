@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any
 from domain.entities.finance.financial_assets import security
 
 from .back_testing_data_types import BackTestingBaseData
-from .symbol import Symbol, SymbolProperties
+from .financial_assets.symbol import Symbol, SymbolProperties
 from .enums import SecurityType
 from ..financial_assets.security import Security
 

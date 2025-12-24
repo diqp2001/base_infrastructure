@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from uuid import uuid4
 
 from .enums import OrderType, OrderStatus, OrderDirection
-from .symbol import Symbol
+from .financial_assets.symbol import Symbol
 
 
 @dataclass

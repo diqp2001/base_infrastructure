@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from infrastructure.models.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.financial_assets.security import Security
+from domain.entities.finance.financial_assets.security import Security
 from domain.entities.finance.portfolio.portfolio import Portfolio
 from src.infrastructure.models.finance.market_data import MarketData
 from src.infrastructure.models.finance.portfolio import Portfolio as PortfolioModel

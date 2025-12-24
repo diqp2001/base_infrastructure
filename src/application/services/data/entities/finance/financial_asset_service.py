@@ -19,7 +19,7 @@ from src.domain.entities.finance.financial_assets.cash import Cash
 from src.domain.entities.finance.financial_assets.bond import Bond
 from src.domain.entities.finance.financial_assets.index import Index
 from domain.entities.finance.financial_assets.share.etf_share import ETFShare
-from src.domain.entities.finance.financial_assets.security import Security
+from domain.entities.finance.financial_assets.security import Security
 from domain.entities.finance.financial_assets.share.share import Share
 from domain.entities.finance.financial_assets.derivatives.future.future import Future
 from domain.entities.finance.financial_assets.derivatives.option.option import Option

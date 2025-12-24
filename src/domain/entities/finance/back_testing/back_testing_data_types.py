@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any, Union
 from .enums import TickType, DataType
-from .symbol import Symbol
+from .financial_assets.symbol import Symbol
 
 
 @dataclass

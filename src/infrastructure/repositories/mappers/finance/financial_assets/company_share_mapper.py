@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 
 from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
-from src.domain.entities.finance.financial_assets.security import  MarketData
+from domain.entities.finance.financial_assets.security import  MarketData
 
 
 class CompanyShareMapper:

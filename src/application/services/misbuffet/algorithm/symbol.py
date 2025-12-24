@@ -4,8 +4,8 @@ from datetime import datetime
 from .enums import SecurityType, OptionRight, OptionStyle
 
 # Import domain entities for proper inheritance
-from domain.entities.finance.back_testing.symbol import Symbol as DomainSymbol
-from domain.entities.finance.back_testing.symbol import SymbolProperties as DomainSymbolProperties
+from domain.entities.finance.back_testing.financial_assets.symbol import Symbol as DomainSymbol
+from domain.entities.finance.back_testing.financial_assets.symbol import SymbolProperties as DomainSymbolProperties
 from domain.entities.finance.back_testing.enums import SecurityType as DomainSecurityType, Market
 
 
