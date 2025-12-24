@@ -6,6 +6,7 @@ including futures data, market data, and trading capabilities.
 """
 
 # Import main service classes
+# Note: InteractiveBrokersApiService is deprecated - use misbuffet broker instead
 from .interactive_brokers_api_service import InteractiveBrokersApiService
 from .get_futures_data_service import (
     IBKRFuturesDataService,
@@ -22,9 +23,15 @@ from .config_futures_service import (
     get_minimal_config
 )
 
+# Import recommended misbuffet broker
+from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+
 __all__ = [
-    # Core API service
+    # Core API service (deprecated - use InteractiveBrokersBroker instead)
     'InteractiveBrokersApiService',
+    
+    # Recommended misbuffet broker
+    'InteractiveBrokersBroker',
     
     # Futures service
     'IBKRFuturesDataService',
