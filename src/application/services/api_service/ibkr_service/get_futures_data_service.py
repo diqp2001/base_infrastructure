@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from ibapi.contract import Contract
 
 from src.application.services.api_service.ibkr_service.config_futures_service import IBKRFuturesServiceConfig
-from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
 from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
 from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
@@ -83,7 +82,7 @@ class IBKRFuturesDataService:
         self.session = session
         self.config = config or IBKRFuturesServiceConfig.get_default_config()
         
-        # Initialize IBKR broker
+        # Initialize IBKR broker directly using misbuffet service
         self.ib_broker: Optional[InteractiveBrokersBroker] = None
         self.connected = False
         
@@ -110,16 +109,16 @@ class IBKRFuturesDataService:
         try:
             logger.info(f"Connecting to IBKR at {self.config.host}:{self.config.port}")
             
-            # Create broker instance with configuration
+            # Create broker instance with configuration using misbuffet broker directly
             connection_config = self.config.get_connection_config()
-            self.ib_broker = create_interactive_brokers_broker(**connection_config)
+            self.ib_broker = InteractiveBrokersBroker(connection_config)
             
             # Attempt connection
             self.connected = self.ib_broker.connect()
             self.stats['total_connections'] += 1
             
             if self.connected:
-                logger.info("✅ Successfully connected to IBKR")
+                logger.info("✅ Successfully connected to IBKR via misbuffet broker")
                 return True
             else:
                 logger.error("❌ Failed to connect to IBKR")
@@ -143,7 +142,7 @@ class IBKRFuturesDataService:
     
     def create_futures_contract(self, symbol: str, secType: str = "FUT", exchange: str = "CME") -> Contract:
         """
-        Create a futures contract following the updated pattern.
+        Create a futures contract using the misbuffet broker's create_stock_contract method.
         
         Args:
             symbol: Futures symbol (e.g., 'ES', 'NQ')
@@ -153,16 +152,18 @@ class IBKRFuturesDataService:
         Returns:
             IBKR Contract object
         """
-        contract = Contract()
-        contract.symbol = symbol
-        contract.secType = secType
-        contract.exchange = exchange
-        contract.currency = self.config.currency
-        
-        # Set expiry for nearest contract (this could be enhanced to specify exact month)
-        # For now, leave empty to get the front month contract
-        
-        return contract
+        # Use the misbuffet broker's create_stock_contract method which has been updated
+        # to support futures contracts with the new signature
+        if self.ib_broker and hasattr(self.ib_broker, 'ib_connection'):
+            return self.ib_broker.ib_connection.create_stock_contract(symbol, secType, exchange)
+        else:
+            # Fallback contract creation if broker not available
+            contract = Contract()
+            contract.symbol = symbol
+            contract.secType = secType
+            contract.exchange = exchange
+            contract.currency = self.config.currency
+            return contract
     
     def fetch_futures_market_data(self, symbols: Optional[List[str]] = None) -> IBKRFuturesServiceResult:
         """
