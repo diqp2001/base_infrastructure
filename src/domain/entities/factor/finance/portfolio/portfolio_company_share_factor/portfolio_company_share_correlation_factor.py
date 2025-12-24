@@ -3,11 +3,11 @@ from typing import Optional, List
 from decimal import Decimal
 import math
 
-from .portfolio_factor import PortfolioFactor
+from domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import PortfolioCompanyShareFactor
 from domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 
 
-class PortfolioCompanyShareCorrelationFactor(PortfolioFactor):
+class PortfolioCompanyShareCorrelationFactor(PortfolioCompanyShareFactor):
     """
     Factor representing the average pairwise correlation of company share returns
     within a portfolio.
