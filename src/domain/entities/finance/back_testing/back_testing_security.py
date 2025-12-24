@@ -76,7 +76,7 @@ class SecurityHolding:
         return realized_pnl
 
 
-class BackTestingSecurity(Security):
+class SecurityBackTesting(Security):
     """Main security class representing a tradeable instrument."""
     
     def __init__(self, symbol: Symbol, symbol_properties: SymbolProperties = None,

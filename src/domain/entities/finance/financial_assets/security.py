@@ -11,12 +11,6 @@ from domain.entities.finance.financial_assets.financial_asset import FinancialAs
 
 
 
-
-
-
-
-
-
 class Security(FinancialAsset):
     """
     Base class for all tradeable securities following QuantConnect architecture.
