@@ -10,9 +10,9 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, date
 
-from application.services.data_service.data_service import DataService
-from application.services.data_service.ratio_data_service import RatioDataService
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.data_service.data_service import DataService
+from src.application.services.data_service.ratio_data_service import RatioDataService
+from src.application.services.database_service.database_service import DatabaseService
 from ..config import DEFAULT_CONFIG
 
 

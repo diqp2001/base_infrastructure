@@ -24,7 +24,7 @@ from ibapi.contract import Contract
 
 from src.application.services.api_service.ibkr_service.config_futures_service import IBKRFuturesServiceConfig
 from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 logger = logging.getLogger(__name__)

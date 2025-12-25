@@ -5,9 +5,9 @@ from decimal import Decimal
 from sqlalchemy import MetaData
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
-from src.infrastructure.models import CompanyShare as CompanyShareModel
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
+from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
+from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as CompanyShareModel
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
 from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
 
 

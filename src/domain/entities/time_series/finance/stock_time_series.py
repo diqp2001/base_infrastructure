@@ -1,5 +1,5 @@
-from domain.entities.finance.financial_assets.stock import Stock
-from domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
+from src.domain.entities.finance.financial_assets.stock import Stock
+from src.domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
 
 
 class StockTimeSeries(FinancialAssetTimeSeries):

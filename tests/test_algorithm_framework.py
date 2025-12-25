@@ -12,24 +12,24 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from application.services.misbuffet.algorithm.base import QCAlgorithm
-from application.services.misbuffet.algorithm.symbol import Symbol, SymbolProperties
-from application.services.misbuffet.algorithm.enums import (
+from src.application.services.misbuffet.algorithm.base import QCAlgorithm
+from src.application.services.misbuffet.algorithm.symbol import Symbol, SymbolProperties
+from src.application.services.misbuffet.algorithm.enums import (
     SecurityType, Resolution, OrderType, OrderStatus, OrderDirection
 )
-from application.services.misbuffet.algorithm.data_handlers import (
+from src.application.services.misbuffet.algorithm.data_handlers import (
     BaseData, TradeBar, QuoteBar, Tick, Slice, TradeBars, QuoteBars
 )
-from application.services.misbuffet.algorithm.order import (
+from src.application.services.misbuffet.algorithm.order import (
     Order, OrderTicket, MarketOrder, LimitOrder, OrderBuilder, create_order
 )
-from application.services.misbuffet.algorithm.security import (
+from src.application.services.misbuffet.algorithm.security import (
     Security, Securities, SecurityHolding, SecurityPortfolioManager
 )
-from application.services.misbuffet.algorithm.scheduling import (
+from src.application.services.misbuffet.algorithm.scheduling import (
     ScheduleManager, DateRules, TimeRules, DayOfWeek
 )
-from application.services.misbuffet.algorithm.utils import AlgorithmUtilities
+from src.application.services.misbuffet.algorithm.utils import AlgorithmUtilities
 
 
 class TestSymbol(unittest.TestCase):

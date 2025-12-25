@@ -23,12 +23,12 @@ import mlflow.sklearn
 import mlflow.pytorch
 
 # Base classes
-from application.services.database_service.database_service import DatabaseService
-from application.managers.project_managers.project_manager import ProjectManager
+from src.application.services.database_service.database_service import DatabaseService
+from src.application.managers.project_managers.project_manager import ProjectManager
 
 # Interactive Brokers integration
-from application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
-from application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+from src.application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
+from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
 
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner
@@ -94,7 +94,7 @@ class TestBaseProjectManager(ProjectManager):
         
         # Web interface manager
         try:
-            from application.services.misbuffet.web.web_interface import WebInterfaceManager
+            from src.application.services.misbuffet.web.web_interface import WebInterfaceManager
             self.web_interface = WebInterfaceManager()
         except ImportError:
             self.logger.warning("Web interface not available")

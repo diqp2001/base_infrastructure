@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 from typing import Dict, Tuple
-from application.services.misbuffet.common.enums import Resolution
+from src.application.services.misbuffet.common.enums import Resolution
 
 
 class Time:

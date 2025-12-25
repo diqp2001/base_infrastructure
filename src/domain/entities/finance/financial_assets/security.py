@@ -6,7 +6,7 @@ Provides template method pattern and common functionality for all tradeable secu
 
 from datetime import date
 from typing import Optional
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 

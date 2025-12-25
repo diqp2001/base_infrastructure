@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
-from domain.entities.finance.financial_assets.derivatives.derivative import Derivative
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.derivatives.derivative import Derivative
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 class Forward(Derivative):

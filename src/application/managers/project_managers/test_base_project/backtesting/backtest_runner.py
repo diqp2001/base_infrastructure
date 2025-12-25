@@ -10,18 +10,18 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
 # Misbuffet framework imports
-from application.services.misbuffet import Misbuffet
-from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
-from application.services.misbuffet.common.interfaces import IAlgorithm
-from application.services.misbuffet.common.enums import Resolution
-from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+from src.application.services.misbuffet import Misbuffet
+from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
+from src.application.services.misbuffet.common.interfaces import IAlgorithm
+from src.application.services.misbuffet.common.enums import Resolution
+from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 
 # Import config files
 from ..launch_config import MISBUFFET_LAUNCH_CONFIG
 from ..engine_config import MISBUFFET_ENGINE_CONFIG
 
 # Import result handling
-from application.services.misbuffet.results import (
+from src.application.services.misbuffet.results import (
     BacktestResultHandler, BacktestResult, PerformanceAnalyzer
 )
 
@@ -32,7 +32,7 @@ from ..models.model_trainer import SpatiotemporalModelTrainer
 from ..strategy.momentum_strategy import SpatiotemporalMomentumStrategy
 
 # Database and infrastructure
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class BacktestRunner:

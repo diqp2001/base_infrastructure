@@ -12,12 +12,12 @@ from decimal import Decimal
 
 # Misbuffet framework imports
 try:
-    from application.services.misbuffet import Misbuffet
-    from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
-    from application.services.misbuffet.common.interfaces import IAlgorithm
-    from application.services.misbuffet.common.enums import Resolution
-    from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
-    from application.services.misbuffet.results import BacktestResultHandler, BacktestResult
+    from src.application.services.misbuffet import Misbuffet
+    from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
+    from src.application.services.misbuffet.common.interfaces import IAlgorithm
+    from src.application.services.misbuffet.common.enums import Resolution
+    from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+    from src.application.services.misbuffet.results import BacktestResultHandler, BacktestResult
 except ImportError as e:
     logging.warning(f"Misbuffet imports not available: {e}")
 
@@ -32,7 +32,7 @@ from ..models.pricing_engine import DerivativesPricingEngine
 from ..strategy.market_making_strategy import MarketMakingStrategy
 
 # Database and infrastructure
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class MarketMakingBacktestRunner:

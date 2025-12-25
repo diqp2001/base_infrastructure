@@ -1,5 +1,5 @@
 from typing import List
-from infrastructure.repositories.base_repository import BaseRepository, EntityType, ModelType
+from src.infrastructure.repositories.base_repository import BaseRepository, EntityType, ModelType
 from sqlalchemy.orm import Session
 
 class TimeSeriesRepository(BaseRepository[EntityType, ModelType]):

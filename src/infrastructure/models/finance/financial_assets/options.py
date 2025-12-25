@@ -1,5 +1,5 @@
 """
-ORM model for Options - separate from domain entity to avoid metaclass conflicts.
+ORM model for Options - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime
@@ -17,7 +17,7 @@ class OptionType(enum.Enum):
 class Options(Base):
     """
     SQLAlchemy ORM model for Options.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'options'
 

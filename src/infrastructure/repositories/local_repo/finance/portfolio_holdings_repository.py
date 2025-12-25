@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 import json
 
-from src.infrastructure.models.finance.portfolio_holdings import PortfolioHoldingsModel
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
 from src.infrastructure.repositories.base_repository import BaseRepository
 
 
@@ -24,9 +24,9 @@ class PortfolioHoldingsRepository(BaseRepository):
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for PortfolioHoldings."""
-        return PortfolioHoldingsModel
+        return PortfolioHoldings
     
-    def _to_entity(self, model: PortfolioHoldingsModel) -> dict:
+    def _to_entity(self, model: PortfolioHoldings) -> dict:
         """Convert infrastructure model to entity-like dict."""
         if not model:
             return None
@@ -42,12 +42,12 @@ class PortfolioHoldingsRepository(BaseRepository):
             'updated_at': model.updated_at
         }
     
-    def _to_model(self, entity_data: dict) -> PortfolioHoldingsModel:
+    def _to_model(self, entity_data: dict) -> PortfolioHoldings:
         """Convert entity-like dict to infrastructure model."""
         if not entity_data:
             return None
         
-        return PortfolioHoldingsModel(
+        return PortfolioHoldings(
             portfolio_id=entity_data.get('portfolio_id'),
             cash_balance=float(entity_data.get('cash_balance', 0)),
             total_value=float(entity_data.get('total_value', 0)),
@@ -59,34 +59,34 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def get_all(self) -> List[dict]:
         """Retrieve all PortfolioHoldings records."""
-        models = self.session.query(PortfolioHoldingsModel).all()
+        models = self.session.query(PortfolioHoldings).all()
         return [self._to_entity(model) for model in models]
     
     def get_by_id(self, holdings_id: int) -> Optional[dict]:
         """Retrieve PortfolioHoldings by its ID."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.id == holdings_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.id == holdings_id
         ).first()
         return self._to_entity(model)
     
     def get_by_portfolio_id(self, portfolio_id: int) -> Optional[dict]:
         """Retrieve holdings for a specific portfolio."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         ).first()
         return self._to_entity(model)
     
     def get_latest_by_portfolio_id(self, portfolio_id: int) -> Optional[dict]:
         """Retrieve the latest holdings for a specific portfolio."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
-        ).order_by(PortfolioHoldingsModel.updated_at.desc()).first()
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
+        ).order_by(PortfolioHoldings.updated_at.desc()).first()
         return self._to_entity(model)
     
     def exists_by_portfolio_id(self, portfolio_id: int) -> bool:
         """Check if holdings exist for a portfolio."""
-        return self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        return self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         ).first() is not None
     
     def add(self, entity_data: dict) -> dict:
@@ -104,8 +104,8 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def update(self, holdings_id: int, **kwargs) -> Optional[dict]:
         """Update an existing PortfolioHoldings record."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.id == holdings_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.id == holdings_id
         ).first()
         
         if not model:
@@ -121,8 +121,8 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def update_by_portfolio_id(self, portfolio_id: int, **kwargs) -> Optional[dict]:
         """Update holdings by portfolio ID."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         ).first()
         
         if not model:
@@ -159,8 +159,8 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def delete(self, holdings_id: int) -> bool:
         """Delete a PortfolioHoldings record by ID."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.id == holdings_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.id == holdings_id
         ).first()
         
         if not model:
@@ -172,8 +172,8 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def delete_by_portfolio_id(self, portfolio_id: int) -> bool:
         """Delete holdings by portfolio ID."""
-        model = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.portfolio_id == portfolio_id
+        model = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         ).first()
         
         if not model:
@@ -222,9 +222,9 @@ class PortfolioHoldingsRepository(BaseRepository):
     
     def get_portfolios_by_value_range(self, min_value: float, max_value: float) -> List[dict]:
         """Get holdings where total value is within a range."""
-        models = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.total_value >= min_value,
-            PortfolioHoldingsModel.total_value <= max_value
+        models = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.total_value >= min_value,
+            PortfolioHoldings.total_value <= max_value
         ).all()
         
         return [self._to_entity(model) for model in models]
@@ -232,8 +232,8 @@ class PortfolioHoldingsRepository(BaseRepository):
     def get_cash_heavy_portfolios(self, min_cash_percentage: float = 50.0) -> List[dict]:
         """Get portfolios where cash represents a high percentage of total value."""
         # This would need to be calculated based on cash_balance / total_value
-        models = self.session.query(PortfolioHoldingsModel).filter(
-            PortfolioHoldingsModel.total_value > 0
+        models = self.session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.total_value > 0
         ).all()
         
         cash_heavy = []

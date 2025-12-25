@@ -1,5 +1,5 @@
 
-from infrastructure.database.model_registry import ModelRegistry
+from src.infrastructure.database.model_registry import ModelRegistry
 
 class Database:
     """

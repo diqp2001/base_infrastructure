@@ -49,7 +49,7 @@ This directory contains **SQLAlchemy ORM models** that handle data persistence a
    - No database session handling
 
 3. **Domain Entity Conversion**
-   - No direct mapping to/from domain entities
+   - No direct mapping to/from src.domain entities
    - No business object transformation
    - No domain-specific method implementations
    - No entity behavior definition

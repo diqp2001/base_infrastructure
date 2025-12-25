@@ -111,7 +111,7 @@ def test_interval_calculation():
     print("=" * 40)
     
     try:
-        from application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine, MisbuffetEngineConfig
+        from src.application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine, MisbuffetEngineConfig
         
         # Create engine with default configuration
         engine_config = MisbuffetEngineConfig()

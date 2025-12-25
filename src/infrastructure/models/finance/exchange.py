@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
+from src.infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
 
 class Exchange(Base):
     __tablename__ = 'exchanges'

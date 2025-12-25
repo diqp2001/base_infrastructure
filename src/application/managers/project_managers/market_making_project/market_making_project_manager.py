@@ -16,8 +16,8 @@ from decimal import Decimal
 import pandas as pd
 
 # Base classes and services
-from application.services.database_service.database_service import DatabaseService
-from application.managers.project_managers.project_manager import ProjectManager
+from src.application.services.database_service.database_service import DatabaseService
+from src.application.managers.project_managers.project_manager import ProjectManager
 
 # Configuration
 from .config import MarketMakingConfig, get_default_config

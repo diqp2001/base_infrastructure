@@ -119,7 +119,7 @@ CompanyShare (company_shares table)
 
 ### Creating Linked Entities via EntityExistenceService
 ```python
-from application.services.data.entities.entity_existence_service import EntityExistenceService
+from src.application.services.data.entities.entity_existence_service import EntityExistenceService
 
 # Initialize service
 service = EntityExistenceService(database_service)
@@ -134,7 +134,7 @@ print(results['company_shares']['created'])  # Shares created with company_id
 
 ### Direct Repository Usage
 ```python
-from infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 
 # Initialize repository
 repo = CompanyRepository(session)

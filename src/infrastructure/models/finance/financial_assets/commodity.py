@@ -1,5 +1,5 @@
 """
-ORM model for Commodity - separate from domain entity to avoid metaclass conflicts.
+ORM model for Commodity - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date
@@ -10,7 +10,7 @@ from src.infrastructure.models import ModelBase as Base
 class Commodity(Base):
     """
     SQLAlchemy ORM model for Commodity.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'commodities'
 

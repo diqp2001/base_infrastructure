@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from domain.entities.time_series.finance.stock_time_series import StockTimeSeries
+from src.domain.entities.time_series.finance.stock_time_series import StockTimeSeries
 
 class StockTimeSeriesRepository:
     def __init__(self, db_session: Session, stock_repository):

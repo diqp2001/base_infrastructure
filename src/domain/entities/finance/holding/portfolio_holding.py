@@ -2,9 +2,9 @@
 
 
 from datetime import datetime
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-from domain.entities.finance.portfolio.portfolio import Portfolio
-from domain.entities.finance.holding.holding import Holding
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
+from src.domain.entities.finance.holding.holding import Holding
 
 
 class PortfolioHolding(Holding):

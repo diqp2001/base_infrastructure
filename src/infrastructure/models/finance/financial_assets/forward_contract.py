@@ -1,5 +1,5 @@
 """
-ORM model for Forward Contract - separate from domain entity to avoid metaclass conflicts.
+ORM model for Forward Contract - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date, Text
@@ -11,7 +11,7 @@ from src.infrastructure.models import ModelBase as Base
 class ForwardContract(Base):
     """
     SQLAlchemy ORM model for Forward Contract.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'forward_contracts'
 

@@ -4,8 +4,8 @@ Mapper for converting between FactorValue domain entities and ORM models.
 
 from abc import abstractmethod
 from typing import Optional
-from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
-from infrastructure.models.factor.factor_model import FactorValue as FactorValueModel
+from src.domain.entities.factor.factor_value import FactorValue as FactorValueEntity
+from src.infrastructure.models.factor.factor_model import FactorValue as FactorValueModel
 
 
 class FactorValueMapper:

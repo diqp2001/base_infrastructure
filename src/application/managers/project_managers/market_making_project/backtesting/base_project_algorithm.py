@@ -12,10 +12,10 @@ from decimal import Decimal
 
 try:
     # Misbuffet/QuantConnect framework imports
-    from application.services.misbuffet.common.interfaces import IAlgorithm
-    from application.services.misbuffet.common.enums import Resolution
-    from application.services.misbuffet.backtesting.algorithm import QCAlgorithm
-    from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+    from src.application.services.misbuffet.common.interfaces import IAlgorithm
+    from src.application.services.misbuffet.common.enums import Resolution
+    from src.application.services.misbuffet.backtesting.algorithm import QCAlgorithm
+    from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 except ImportError as e:
     logging.warning(f"Misbuffet framework imports not available: {e}")
     # Define placeholder base class

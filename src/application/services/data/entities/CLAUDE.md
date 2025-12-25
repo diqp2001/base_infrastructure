@@ -476,7 +476,7 @@ The Entity Data Services layer provides a robust, scalable foundation for managi
 
 ### Usage Example
 ```python
-from application.services.data.entities.entity_existence_service import EntityExistenceService
+from src.application.services.data.entities.entity_existence_service import EntityExistenceService
 
 # Initialize service
 entity_service = EntityExistenceService(database_service)

@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any
 import torch
 from torch import nn, optim
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class SLPModelService(ModelService):
     """Single Layer Perceptron (SLP) Model Service - simple neural network service for linear transformations."""

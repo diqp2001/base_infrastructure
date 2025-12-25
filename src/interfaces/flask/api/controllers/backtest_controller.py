@@ -2,10 +2,10 @@ from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
 
-from application.services.misbuffet import Misbuffet
-from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
-from application.services.database_service.database_service import DatabaseService
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+from src.application.services.misbuffet import Misbuffet
+from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+from src.application.services.database_service.database_service import DatabaseService
+from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 import threading
 import uuid
 import time

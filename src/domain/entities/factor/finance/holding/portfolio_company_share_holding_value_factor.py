@@ -3,7 +3,7 @@ from typing import Optional
 from decimal import Decimal
 
 from .portfolio_company_share_holding_factor import PortfolioCompanyShareHoldingFactor
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 
 class PortfolioCompanyShareHoldingValueFactor(PortfolioCompanyShareHoldingFactor):

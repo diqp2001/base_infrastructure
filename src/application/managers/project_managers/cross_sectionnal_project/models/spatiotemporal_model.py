@@ -12,9 +12,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
-from application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
-from application.services.model_service.tft_model_service import TFTModelService
-from application.services.model_service.mlp_model_service import MLPModelService
+from src.application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
+from src.application.services.model_service.tft_model_service import TFTModelService
+from src.application.services.model_service.mlp_model_service import MLPModelService
 
 from ..config import DEFAULT_CONFIG
 from ..utils.loss_functions import SpatiotemporalLossFunctions

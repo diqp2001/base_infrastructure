@@ -18,12 +18,12 @@ def test_import_statements():
     print("🧪 Testing import statements...")
     
     try:
-        from domain.entities.finance.financial_assets.security import Security, Symbol, SecurityType, MarketData, Holdings
-        from domain.entities.finance.financial_assets.stock import Stock, Dividend, StockSplit
-        from domain.entities.finance.financial_assets.company_stock import CompanyStock
+        from src.domain.entities.finance.financial_assets.security import Security, Symbol, SecurityType, MarketData, Holdings
+        from src.domain.entities.finance.financial_assets.stock import Stock, Dividend, StockSplit
+        from src.domain.entities.finance.financial_assets.company_stock import CompanyStock
         print("✅ All Security/Equity domain imports successful")
         
-        from application.managers.project_managers.test_project.test_project_manager import TestProjectManager
+        from src.application.managers.project_managers.test_project.test_project_manager import TestProjectManager
         print("✅ TestProjectManager import successful")
         
         return True
@@ -38,9 +38,9 @@ def test_security_architecture():
     print("\n🏗️ Testing Security/Equity architecture...")
     
     try:
-        from domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData
-        from domain.entities.finance.financial_assets.stock import Stock, Dividend
-        from domain.entities.finance.financial_assets.company_stock import CompanyStock
+        from src.domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData
+        from src.domain.entities.finance.financial_assets.stock import Stock, Dividend
+        from src.domain.entities.finance.financial_assets.company_stock import CompanyStock
         
         # Test Symbol value object
         symbol = Symbol("AAPL", "NASDAQ", SecurityType.EQUITY)
@@ -99,7 +99,7 @@ def test_bulk_operations():
         # Note: This would require database setup in real environment
         # For now, just test that the manager can be instantiated and methods exist
         
-        from application.managers.project_managers.test_project.test_project_manager import TestProjectManager
+        from src.application.managers.project_managers.test_project.test_project_manager import TestProjectManager
         
         print("✅ TestProjectManager instantiation test passed")
         
@@ -136,8 +136,8 @@ def test_value_objects():
     print("\n💎 Testing value objects...")
     
     try:
-        from domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData, Holdings
-        from domain.entities.finance.financial_assets.stock import Dividend, StockSplit
+        from src.domain.entities.finance.financial_assets.security import Symbol, SecurityType, MarketData, Holdings
+        from src.domain.entities.finance.financial_assets.stock import Dividend, StockSplit
         from decimal import Decimal
         
         # Test Symbol
@@ -188,8 +188,8 @@ def test_template_method_pattern():
     print("\n🏗️ Testing template method pattern...")
     
     try:
-        from domain.entities.finance.financial_assets.company_stock import CompanyStock
-        from domain.entities.finance.financial_assets.security import MarketData
+        from src.domain.entities.finance.financial_assets.company_stock import CompanyStock
+        from src.domain.entities.finance.financial_assets.security import MarketData
         from decimal import Decimal
         from datetime import datetime
         

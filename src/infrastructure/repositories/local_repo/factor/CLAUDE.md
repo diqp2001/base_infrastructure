@@ -376,7 +376,7 @@ def migrate_legacy_factors(self):
 
 ### **4. Future-Proof Design**
 - ❌ **Before**: Manual factor type management
-- ✅ **After**: Automatic discriminator derivation from domain classes
+- ✅ **After**: Automatic discriminator derivation from src.domain classes
 
 ### **5. Clean Architecture**
 - ❌ **Before**: Repository directly called by managers

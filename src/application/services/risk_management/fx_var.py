@@ -1,7 +1,7 @@
 # application/services/cash_flow_service.py
 import math
-from domain.entities.financial_statements.financial_statement_items.cash_flow import CashFlow
-from domain.entities.financial_assets.currency import Currency
+from src.domain.entities.financial_statements.financial_statement_items.cash_flow import CashFlow
+from src.domain.entities.financial_assets.currency import Currency
 
 class CashFlowService:
     @staticmethod

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.ensemble import RandomForestRegressor
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class RandomForestModelService(ModelService):
     """Random Forest Model Service - ensemble learning service for robust predictions using multiple decision trees."""

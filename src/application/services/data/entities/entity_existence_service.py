@@ -13,16 +13,16 @@ import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from application.services.database_service.database_service import DatabaseService
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
-from domain.entities.finance.company import Company as CompanyEntity
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
-from infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+from src.application.services.database_service.database_service import DatabaseService
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
+from src.domain.entities.finance.company import Company as CompanyEntity
+from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
 
-from infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-from infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
-from infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
-from infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
+from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
+from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
 
 
 class EntityExistenceService:

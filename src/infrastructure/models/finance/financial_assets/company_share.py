@@ -1,5 +1,5 @@
 """
-ORM model for CompanyShare - separate from domain entity to avoid metaclass conflicts.
+ORM model for CompanyShare - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime
@@ -11,7 +11,7 @@ from src.infrastructure.models import ModelBase as Base
 class CompanyShare(Base):
     """
     SQLAlchemy ORM model for CompanyShare.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'company_shares'
 

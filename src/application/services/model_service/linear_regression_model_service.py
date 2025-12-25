@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.linear_model import LinearRegression
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class LinearRegressionModelService(ModelService):
     """Linear Regression Model Service - specialized statistical model service."""

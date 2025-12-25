@@ -31,7 +31,7 @@ try:
     from src.application.services.api_service.fmp_service.financial_modeling_prep_api_service import (
         FinancialModelingPrepApiService
     )
-    from infrastructure.repositories.fmp_repo.fmp_repository import FmpRepository
+    from src.infrastructure.repositories.fmp_repo.fmp_repository import FmpRepository
     
     print("✅ All imports successful")
     

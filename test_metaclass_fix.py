@@ -9,8 +9,8 @@ def test_imports():
     
     try:
         # Test domain entities import
-        from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
-        from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyStock as DomainCompanyStock
+        from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
+        from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyStock as DomainCompanyStock
         print("✅ Domain entities import successfully")
         
         # Test ORM models import
@@ -45,7 +45,7 @@ def test_mapper_conversion():
     
     try:
         from datetime import datetime
-        from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
+        from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as DomainCompanyShare
         from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as ORMCompanyShare
         from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
         

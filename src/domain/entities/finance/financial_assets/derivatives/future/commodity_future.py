@@ -1,4 +1,4 @@
-from domain.entities.finance.financial_assets.derivatives.future.future import Future
+from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
 
 
 class CommodityFuture(Future):

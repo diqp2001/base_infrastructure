@@ -13,12 +13,11 @@ from decimal import Decimal
 import numpy as np
 
 # Database imports
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 # Domain imports for entities
 try:
-    from domain.entities.company_share import CompanyShare
-    from infrastructure.models.company_share import CompanyShareModel
+    from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as CompanyShareModel
 except ImportError as e:
     logging.warning(f"Domain/infrastructure imports not available: {e}")
 

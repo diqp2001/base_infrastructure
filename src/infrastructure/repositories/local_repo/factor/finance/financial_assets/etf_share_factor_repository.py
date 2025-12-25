@@ -2,8 +2,8 @@
 Repository class for ETF Share factor entities.
 """
 
-from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
-from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 
 

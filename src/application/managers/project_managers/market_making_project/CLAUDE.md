@@ -39,7 +39,7 @@ It does **not** implement pricing models, execution logic, or persistence detail
   * Options
   * Futures
   * Swaps / fixed-income derivatives
-* Aggregate pricing outputs from domain pricing services.
+* Aggregate pricing outputs from src.domain pricing services.
 * Ensure pricing inputs (curves, vols, forwards, carry, roll yield) are up to date.
 
 > ⚠️ Pricing models themselves live in **domain services** — this manager only coordinates.

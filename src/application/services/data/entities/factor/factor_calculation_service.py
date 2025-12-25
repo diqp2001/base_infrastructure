@@ -1,13 +1,13 @@
 """
 Factor Calculation Service - handles computation and storage of factor values.
-Provides a service layer for calculating and storing factor calculations from domain entities.
+Provides a service layer for calculating and storing factor calculations from src.domain entities.
 """
 
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 import pandas as pd
 
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_serie import FactorSerie
 from src.domain.entities.factor.factor_value import FactorValue

@@ -1,9 +1,9 @@
 
 from sqlalchemy.orm import Session
 
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.infrastructure.models.finance.financial_assets.share import Share as ShareModel
-from domain.entities.finance.financial_assets.share.share import Share as ShareEntity
+from src.domain.entities.finance.financial_assets.share.share import Share as ShareEntity
 
 
 class ShareRepository(FinancialAssetBaseRepository[ShareEntity, ShareModel]):

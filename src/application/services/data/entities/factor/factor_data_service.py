@@ -8,11 +8,11 @@ import pandas as pd
 from datetime import date, datetime
 
 from src.domain.entities.factor.factor import Factor
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class FactorDataService:

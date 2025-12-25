@@ -5,10 +5,10 @@ import pandas as pd
 import dask.dataframe as dd
 from sqlalchemy.orm import Session,sessionmaker
 from sqlalchemy import Tuple, create_engine, text
-from application.services.database_service.config.config_data_source_service import get_query
-from application.services.database_service.config.config_data_source_queries_service import QUERIES
-from domain.database import Database
-from infrastructure.database.settings import get_database_url
+from src.application.services.database_service.config.config_data_source_service import get_query
+from src.application.services.database_service.config.config_data_source_queries_service import QUERIES
+from src.domain.database import Database
+from src.infrastructure.database.settings import get_database_url
 
 
 

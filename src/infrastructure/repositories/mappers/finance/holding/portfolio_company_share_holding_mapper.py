@@ -1,11 +1,11 @@
 from typing import Optional
 
-from domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
 from src.domain.entities.finance.holding.portfolio_company_share_holding import (
     PortfolioCompanyShareHolding
 )
 
-from infrastructure.models.finance.holding.portfolio_company_share_holding import (
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import (
     PortfolioCompanyShareHolding
 )
 

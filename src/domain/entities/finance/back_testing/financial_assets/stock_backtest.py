@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from domain.entities.finance.back_testing.enums import SecurityType
-from domain.entities.finance.back_testing.financial_assets.security_backtest import MarketData, SecurityBackTest
-from domain.entities.finance.back_testing.financial_assets.symbol import Symbol
+from src.domain.entities.finance.back_testing.enums import SecurityType
+from src.domain.entities.finance.back_testing.financial_assets.security_backtest import MarketData, SecurityBackTest
+from src.domain.entities.finance.back_testing.financial_assets.symbol import Symbol
 
 
 @dataclass

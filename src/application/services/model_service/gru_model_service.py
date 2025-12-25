@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any
 import torch
 from torch import nn, optim
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class GRUModelService(ModelService):
     """Gated Recurrent Unit (GRU) Model Service - recurrent neural network service for sequential data."""

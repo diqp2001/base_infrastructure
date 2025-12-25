@@ -6,8 +6,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from decimal import Decimal
-from domain.entities.finance.portfolio.portfolio import Portfolio, SecurityHoldings
-from domain.entities.finance.financial_assets.security import Symbol, SecurityType
+from src.domain.entities.finance.portfolio.portfolio import Portfolio, SecurityHoldings
+from src.domain.entities.finance.financial_assets.security import Symbol, SecurityType
 
 def test_portfolio_subscriptable():
     """Test that Portfolio supports subscript access."""

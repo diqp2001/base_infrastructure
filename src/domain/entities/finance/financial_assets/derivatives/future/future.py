@@ -5,8 +5,8 @@ from datetime import date
 from decimal import Decimal
 
 from ..derivative import Derivative, UnderlyingAsset
-from ...security import Symbol
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 class Future(Derivative):
@@ -25,7 +25,6 @@ class Future(Derivative):
         contract_size: Decimal = Decimal("1"),
         tick_size: Decimal = Decimal("0.01"),
         tick_value: Decimal = Decimal("1"),
-        symbol: Optional[Symbol] = None,
     ):
         super().__init__(id, underlying_asset, start_date, end_date)
 
@@ -34,14 +33,6 @@ class Future(Derivative):
         self.tick_size = tick_size
         self.tick_value = tick_value
 
-        # Symbol can be provided or auto-generated based on underlying
-        if symbol is None:
-            self.symbol = Symbol(
-                ticker=f"{underlying_asset.symbol}_{expiration_date.strftime('%Y%m%d')}",
-                exchange="FUTURES",
-                security_type="FUTURE"
-            )
-        else:
-            self.symbol = symbol
+        
 
      

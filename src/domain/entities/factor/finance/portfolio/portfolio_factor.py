@@ -7,7 +7,7 @@ PortfolioFactor domain entity - follows unified factor pattern.
 from __future__ import annotations
 from typing import Optional
 
-from domain.entities.factor.factor import Factor
+from src.domain.entities.factor.factor import Factor
 
 # OR import the correct parent below, depending on your hierarchy
 

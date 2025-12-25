@@ -21,7 +21,7 @@ from src.domain.entities.time_series.ml.ml_time_series import MlTimeSeries
 from src.infrastructure.repositories.local_repo.time_series.time_series_repository import TimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.stock_time_series_repository import StockTimeSeriesRepository
 from src.infrastructure.repositories.local_repo.time_series.financial_asset_time_series_repository import FinancialAssetTimeSeriesRepository
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class TimeSeriesService:

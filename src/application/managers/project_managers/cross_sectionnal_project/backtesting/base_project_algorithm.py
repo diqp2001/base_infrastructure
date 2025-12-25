@@ -14,12 +14,12 @@ from decimal import Decimal
 from sklearn.ensemble import RandomForestClassifier
 
 # Misbuffet framework imports
-from application.services.misbuffet.common import (
+from src.application.services.misbuffet.common import (
     IAlgorithm, BaseData, TradeBar, Slice, Resolution, 
     OrderType, OrderDirection, Securities, OrderTicket, TradeBars
 )
-from application.services.misbuffet.algorithm.base import QCAlgorithm
-from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+from src.application.services.misbuffet.algorithm.base import QCAlgorithm
+from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 
 # Test base project imports
 from ..data.data_loader import DataLoader

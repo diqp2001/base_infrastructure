@@ -9,7 +9,7 @@ from decimal import Decimal
 from dataclasses import dataclass
 from enum import Enum
 
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from .derivative import Derivative, UnderlyingAsset
 from ..security import Symbol, SecurityType
 

@@ -11,18 +11,18 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from ...base_repository import BaseRepository
-from domain.entities.factor.factor import Factor as FactorEntity
-from domain.entities.factor.factor_value import FactorValue as FactorValueEntity
+from src.domain.entities.factor.factor import Factor as FactorEntity
+from src.domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 
-from infrastructure.models.factor.factor_model import (
+from src.infrastructure.models.factor.factor_model import (
     FactorModel as FactorModel,
     FactorValue as FactorValueModel,
 )
 
-from infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
-from infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
@@ -584,7 +584,7 @@ class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
         Returns:
             Created factor entity or None if failed
         """
-        from domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
+        from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
         
         # Create ShareFactor for price factors (most common case)
         # This ensures proper entity_type mapping in FactorMapper

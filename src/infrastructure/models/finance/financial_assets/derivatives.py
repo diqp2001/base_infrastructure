@@ -1,5 +1,5 @@
 """
-ORM model for Derivatives - separate from domain entity to avoid metaclass conflicts.
+ORM model for Derivatives - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date, Text

@@ -7,7 +7,7 @@ import numpy as np
 from typing import Dict, Any
 import torch
 from torch import nn, optim
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class MLPModelService(ModelService):
     """Multi-Layer Perceptron (MLP) Model Service - advanced neural network service with financial trading capabilities."""

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from ....base_repository import BaseRepository, EntityType, ModelType
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 class FinancialAssetBaseRepository(BaseRepository[EntityType, ModelType], ABC):

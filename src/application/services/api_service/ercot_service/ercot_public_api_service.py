@@ -24,8 +24,8 @@ from typing import Dict, Any, List, Optional, Union
 import requests
 from dataclasses import dataclass
 
-from application.services.api_service.ercot_service.ercot_authenticated_api_service import ERCOTCredentials, ErcotAuthenticatedApiService
-from application.services.api_service.ercot_service.ercot_debug_service import ERCOTDebugCredentials, ErcotDebugService
+from src.application.services.api_service.ercot_service.ercot_authenticated_api_service import ERCOTCredentials, ErcotAuthenticatedApiService
+from src.application.services.api_service.ercot_service.ercot_debug_service import ERCOTDebugCredentials, ErcotDebugService
 
 
 

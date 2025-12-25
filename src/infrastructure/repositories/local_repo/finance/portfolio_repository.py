@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from src.infrastructure.models.finance.portfolio import Portfolio as PortfolioModel
-from domain.entities.finance.portfolio.portfolio import (
+from src.domain.entities.finance.portfolio.portfolio import (
     Portfolio as PortfolioEntity, 
     PortfolioType, 
     RiskTolerance,

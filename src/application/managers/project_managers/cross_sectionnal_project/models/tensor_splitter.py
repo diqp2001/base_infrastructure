@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Any
 
-from application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
+from src.application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
 
 from ..config import DEFAULT_CONFIG
 

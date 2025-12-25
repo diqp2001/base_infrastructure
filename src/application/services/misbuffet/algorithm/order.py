@@ -9,7 +9,7 @@ from .symbol import Symbol
 from .enums import OrderType, OrderStatus, OrderDirection, FillType
 
 # Import domain entities for proper inheritance
-from domain.entities.finance.back_testing.orders import (
+from src.domain.entities.finance.back_testing.orders import (
     Order as DomainOrder,
     MarketOrder as DomainMarketOrder,
     LimitOrder as DomainLimitOrder,
@@ -21,7 +21,7 @@ from domain.entities.finance.back_testing.orders import (
     OrderFill as DomainOrderFill,
     OrderEvent as DomainOrderEvent,
 )
-from domain.entities.finance.back_testing.enums import OrderDirection as DomainOrderDirection
+from src.domain.entities.finance.back_testing.enums import OrderDirection as DomainOrderDirection
 
 
 class OrderTicket(DomainOrderTicket):

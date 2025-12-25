@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from sklearn.ensemble import GradientBoostingRegressor
-from application.services.model_service.model_service import ModelService
+from src.application.services.model_service.model_service import ModelService
 
 class GradientBoostingModelService(ModelService):
     """Gradient Boosting Model Service - advanced ensemble learning service using sequential weak learners."""

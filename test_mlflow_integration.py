@@ -17,7 +17,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
-    from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+    from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
     
     def test_mlflow_integration():
         """Test basic MLflow integration functionality."""

@@ -3,9 +3,9 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
-from infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
-from infrastructure.repositories.mappers.finance.holding.portfolio_company_share_holding_mapper import PortfolioCompanyShareHoldingMapper
+from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.infrastructure.repositories.mappers.finance.holding.portfolio_company_share_holding_mapper import PortfolioCompanyShareHoldingMapper
 
 
 class PortfolioCompanyShareHoldingRepository:

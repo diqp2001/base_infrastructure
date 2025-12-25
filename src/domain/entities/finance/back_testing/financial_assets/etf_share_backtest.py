@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict
-from domain.entities.finance.back_testing.financial_assets.share_backtest import ShareBackTest
-from domain.entities.finance.back_testing.financial_assets.symbol import Symbol
-from domain.entities.finance.back_testing.enums import SecurityType
+from src.domain.entities.finance.back_testing.financial_assets.share_backtest import ShareBackTest
+from src.domain.entities.finance.back_testing.financial_assets.symbol import Symbol
+from src.domain.entities.finance.back_testing.enums import SecurityType
 
 
 @dataclass

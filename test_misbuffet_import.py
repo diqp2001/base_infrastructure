@@ -13,7 +13,7 @@ try:
     print("Testing Misbuffet imports...")
     
     # Test the main import
-    from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
+    from src.application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
     print('✓ Successfully imported TestProjectBacktestManager')
     
     # Test creating an instance
@@ -21,11 +21,11 @@ try:
     print('✓ Successfully created TestProjectBacktestManager instance')
     
     # Test misbuffet import
-    from application.services.misbuffet import Misbuffet
+    from src.application.services.misbuffet import Misbuffet
     print('✓ Successfully imported Misbuffet main class')
     
     # Test BlackLittermanOptimizer import
-    from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+    from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
     print('✓ Successfully imported BlackLittermanOptimizer')
     
     print('\n✓ All imports working correctly!')

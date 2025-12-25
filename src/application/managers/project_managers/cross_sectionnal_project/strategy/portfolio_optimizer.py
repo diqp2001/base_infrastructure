@@ -7,7 +7,7 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
-from application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
+from src.application.services.misbuffet.tools.optimization.portfolio.blacklitterman import BlackLittermanOptimizer
 from ..config import DEFAULT_CONFIG
 
 

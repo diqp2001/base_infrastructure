@@ -21,9 +21,9 @@ except ImportError:
 
 from decimal import Decimal
 # Import service layer instead of direct repository access
-from application.services.data.entities.factor.factor_data_service import FactorDataService
-from application.services.data.entities.finance.financial_asset_service import FinancialAssetService
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.data.entities.factor.factor_data_service import FactorDataService
+from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from src.application.services.database_service.database_service import DatabaseService
 
 # Import algorithm framework components instead of domain entities
 from ..algorithm.security import SecurityPortfolioManager
@@ -316,7 +316,7 @@ class MisbuffetEngine(BaseEngine):
                     # Try to create database_service from database_manager if needed
                     try:
                         if not self.database_service and hasattr(config.database_manager, 'session'):
-                            from application.services.database_service.database_service import DatabaseService
+                            from src.application.services.database_service.database_service import DatabaseService
                             self.database_service = DatabaseService()
                             self.database_service.session = config.database_manager.session
                             self.factor_data_service = FactorDataService(self.database_service)

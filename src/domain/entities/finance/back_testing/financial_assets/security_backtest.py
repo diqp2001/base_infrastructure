@@ -4,9 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from domain.entities.finance.back_testing.financial_assets.symbol import Symbol
-from domain.entities.finance.financial_assets.security import Security
-from domain.entities.finance.holding.holding import Holding
+from src.domain.entities.finance.back_testing.financial_assets.symbol import Symbol
+from src.domain.entities.finance.financial_assets.security import Security
+from src.domain.entities.finance.holding.holding import Holding
 
 class SecurityType(Enum):
     """Types of financial securities."""

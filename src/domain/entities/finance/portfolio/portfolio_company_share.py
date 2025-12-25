@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import List, Optional
 
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from .portfolio import Portfolio
 
 

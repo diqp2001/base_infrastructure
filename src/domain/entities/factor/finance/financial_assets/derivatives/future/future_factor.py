@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import timedelta
 import math
 
-from domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor
 
 
 class FutureFactor(DerivativeFactor):

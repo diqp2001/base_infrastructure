@@ -15,7 +15,7 @@ def test_portfolio_fix():
     print("Testing Portfolio total_portfolio_value fix...")
     
     try:
-        from domain.entities.finance.portfolio.portfolio import Portfolio
+        from src.domain.entities.finance.portfolio.portfolio import Portfolio
         print("✅ Portfolio imported successfully")
         
         # Create a portfolio instance

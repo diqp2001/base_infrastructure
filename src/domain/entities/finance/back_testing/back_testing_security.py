@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
-from domain.entities.finance.financial_assets import security
+from src.domain.entities.finance.financial_assets import security
 
 from .back_testing_data_types import BackTestingBaseData
 from .financial_assets.symbol import Symbol, SymbolProperties
@@ -194,6 +194,31 @@ class Securities:
     def __contains__(self, symbol: Symbol) -> bool:
         return symbol in self._securities
 
+@dataclass
+class SecurityHoldings:
+    """Holdings for a specific security in a portfolio."""
+    symbol: Symbol
+    quantity: Decimal
+    average_cost: Decimal
+    market_value: Decimal = field(default_factory=lambda: Decimal('0'))
+    unrealized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
+    realized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
+    holdings_value: Decimal = field(default_factory=lambda: Decimal('0'))
+    
+    def __post_init__(self):
+        """Ensure decimal precision."""
+        self.quantity = Decimal(str(self.quantity))
+        self.average_cost = Decimal(str(self.average_cost))
+        self.market_value = Decimal(str(self.market_value))
+        self.unrealized_pnl = Decimal(str(self.unrealized_pnl))
+        self.realized_pnl = Decimal(str(self.realized_pnl))
+        self.holdings_value = Decimal(str(self.holdings_value))
+    
+    def update_market_value(self, current_price: Decimal) -> None:
+        """Update market value and unrealized P&L based on current price."""
+        current_price = Decimal(str(current_price))
+        self.market_value = self.quantity * current_price
+        self.unrealized_pnl = (current_price - self.average_cost) * self.quantity
 
 @dataclass
 class SecurityPortfolioManager:
@@ -265,7 +290,98 @@ class SecurityPortfolioManager:
         """Get all holdings."""
         return list(self.holdings.values())
 
-
+@dataclass
+class PortfolioStatistics:
+    """Performance and risk statistics for a portfolio."""
+    total_return: Decimal = field(default_factory=lambda: Decimal('0'))
+    total_return_percent: Decimal = field(default_factory=lambda: Decimal('0'))
+    max_drawdown: Decimal = field(default_factory=lambda: Decimal('0'))
+    high_water_mark: Decimal = field(default_factory=lambda: Decimal('0'))
+    volatility: Decimal = field(default_factory=lambda: Decimal('0'))
+    sharpe_ratio: Decimal = field(default_factory=lambda: Decimal('0'))
+    beta: Decimal = field(default_factory=lambda: Decimal('0'))
+    alpha: Decimal = field(default_factory=lambda: Decimal('0'))
+    var_95: Decimal = field(default_factory=lambda: Decimal('0'))
+    tracking_error: Decimal = field(default_factory=lambda: Decimal('0'))
+    win_rate: Decimal = field(default_factory=lambda: Decimal('0'))
+    total_trades: int = 0
+    winning_trades: int = 0
+    losing_trades: int = 0
+    
+    def __post_init__(self):
+        """Ensure decimal precision."""
+        self.total_return = Decimal(str(self.total_return))
+        self.total_return_percent = Decimal(str(self.total_return_percent))
+        self.max_drawdown = Decimal(str(self.max_drawdown))
+        self.high_water_mark = Decimal(str(self.high_water_mark))
+        self.volatility = Decimal(str(self.volatility))
+        self.sharpe_ratio = Decimal(str(self.sharpe_ratio))
+        self.beta = Decimal(str(self.beta))
+        self.alpha = Decimal(str(self.alpha))
+        self.var_95 = Decimal(str(self.var_95))
+        self.tracking_error = Decimal(str(self.tracking_error))
+        self.win_rate = Decimal(str(self.win_rate))
+    
+    def update_trade_statistics(self, is_winning: bool) -> None:
+        """Update trade statistics."""
+        self.total_trades += 1
+        if is_winning:
+            self.winning_trades += 1
+        else:
+            self.losing_trades += 1
+        
+        # Recalculate win rate
+        if self.total_trades > 0:
+            self.win_rate = Decimal(self.winning_trades) / Decimal(self.total_trades) * 100
+@dataclass
+class PortfolioHoldings:
+    """Complete holdings snapshot for a portfolio."""
+    holdings: Dict[Symbol, SecurityHoldings] = field(default_factory=dict)
+    cash_balance: Decimal = field(default_factory=lambda: Decimal('0'))
+    total_value: Decimal = field(default_factory=lambda: Decimal('0'))
+    
+    def __post_init__(self):
+        """Ensure decimal precision."""
+        self.cash_balance = Decimal(str(self.cash_balance))
+        self.total_value = Decimal(str(self.total_value))
+    
+    def add_holding(self, holding: SecurityHoldings) -> None:
+        """Add or update a security holding."""
+        self.holdings[holding.symbol] = holding
+        self._recalculate_total_value()
+    
+    def remove_holding(self, symbol: Symbol) -> bool:
+        """Remove a security holding."""
+        if symbol in self.holdings:
+            del self.holdings[symbol]
+            self._recalculate_total_value()
+            return True
+        return False
+    
+    def get_holding(self, symbol: Symbol) -> Optional[SecurityHoldings]:
+        """Get holding for a specific symbol."""
+        return self.holdings.get(symbol)
+    
+    def _recalculate_total_value(self) -> None:
+        """Recalculate total portfolio value."""
+        holdings_value = sum(holding.market_value for holding in self.holdings.values())
+        self.total_value = self.cash_balance + holdings_value
+    
+    @property
+    def holdings_value(self) -> Decimal:
+        """Get total value of all holdings."""
+        return sum(holding.market_value for holding in self.holdings.values())
+    
+    @property
+    def total_unrealized_pnl(self) -> Decimal:
+        """Get total unrealized P&L."""
+        return sum(holding.unrealized_pnl for holding in self.holdings.values())
+    
+    @property
+    def total_realized_pnl(self) -> Decimal:
+        """Get total realized P&L."""
+        return sum(holding.realized_pnl for holding in self.holdings.values())
+           
 @dataclass
 class Portfolio:
     """High-level wrapper for portfolio management."""

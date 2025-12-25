@@ -11,7 +11,7 @@ import os
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from application.services.api_service.fmp_service.financial_modeling_prep_api_service import FinancialModelingPrepApiService
+from src.application.services.api_service.fmp_service.financial_modeling_prep_api_service import FinancialModelingPrepApiService
 
 def test_stable_endpoints():
     """Test all stable/free tier endpoints"""

@@ -9,8 +9,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from dataclasses import dataclass
 
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-from ..security import Security, Symbol, SecurityType, MarketData
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 @dataclass
@@ -41,7 +40,3 @@ class Derivative(FinancialAsset):
         self.underlying_asset = underlying_asset  # <— ANY child of FinancialAsset
 
     
-    def __repr__(self) -> str:
-        return (f"Derivative(symbol={self.symbol.ticker}, "
-                f"underlying={self.underlying_asset.symbol}, "
-                f"price=${self.price}, expiry={self.expiration_date})")

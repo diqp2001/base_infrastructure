@@ -1,5 +1,5 @@
 """
-ORM model for Continent - separate from domain entity to avoid metaclass conflicts.
+ORM model for Continent - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
@@ -10,7 +10,7 @@ from src.infrastructure.models import ModelBase as Base
 class Continent(Base):
     """
     SQLAlchemy ORM model for Continent.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'continents'
 

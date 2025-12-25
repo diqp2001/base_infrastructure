@@ -76,7 +76,7 @@ def execute_backtest():
             return jsonify({"success": False, "error": "Missing algorithm parameter"}), 400
         
         # Call business logic
-        from application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
+        from src.application.managers.project_managers.test_project_backtest.test_project_backtest_manager import TestProjectBacktestManager
         manager = TestProjectBacktestManager()
         result = manager.run_with_config(data)
         

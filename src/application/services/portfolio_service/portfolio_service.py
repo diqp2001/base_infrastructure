@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Any
 from decimal import Decimal
 from datetime import date, datetime
 import pandas as pd
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class PortfolioService:

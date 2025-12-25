@@ -9,7 +9,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 
 class ModelService:

@@ -1,6 +1,6 @@
 import math
 from typing import Optional
-from domain.entities.factor.finance.financial_assets.bond_factor.bond_factor import BondFactor
+from src.domain.entities.factor.finance.financial_assets.bond_factor.bond_factor import BondFactor
 
 
 class BondInterestRateFactor(BondFactor):

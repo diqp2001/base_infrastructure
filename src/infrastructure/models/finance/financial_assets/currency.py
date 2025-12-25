@@ -1,5 +1,5 @@
 """
-ORM model for Currency - separate from domain entity to avoid metaclass conflicts.
+ORM model for Currency - separate from src.domain entity to avoid metaclass conflicts.
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, ForeignKey
@@ -10,7 +10,7 @@ from src.infrastructure.models import ModelBase as Base
 class Currency(Base):
     """
     SQLAlchemy ORM model for Currency.
-    Completely separate from domain entity to avoid metaclass conflicts.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     Enhanced with country relationship and exchange rate management.
     """
     __tablename__ = 'currencies'

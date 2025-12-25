@@ -17,36 +17,36 @@ def test_imports():
     try:
         # Test main module import
         print("Testing back_testing module import...")
-        from application.services.misbuffet import common
+        from src.application.services.misbuffet import common
         print("✅ Common module imported successfully")
         
-        from application.services.misbuffet import data
+        from src.application.services.misbuffet import data
         print("✅ Data module imported successfully")
         
-        from application.services.misbuffet import engine
+        from src.application.services.misbuffet import engine
         print("✅ Engine module imported successfully")
         
-        from application.services.misbuffet import algorithm_factory
+        from src.application.services.misbuffet import algorithm_factory
         print("✅ Algorithm Factory module imported successfully")
         
-        from application.services.misbuffet import api
+        from src.application.services.misbuffet import api
         print("✅ API module imported successfully")
         
-        from application.services.misbuffet import launcher
+        from src.application.services.misbuffet import launcher
         print("✅ Launcher module imported successfully")
         
-        from application.services.misbuffet import optimizer
+        from src.application.services.misbuffet import optimizer
         print("✅ Optimizer module imported successfully")
         
-        from application.services.misbuffet import optimizer_launcher
+        from src.application.services.misbuffet import optimizer_launcher
         print("✅ Optimizer Launcher module imported successfully")
         
         # Test specific classes
         print("\nTesting specific class imports...")
-        from application.services.misbuffet.common import IAlgorithm, Symbol, Resolution
+        from src.application.services.misbuffet.common import IAlgorithm, Symbol, Resolution
         print("✅ Common classes imported successfully")
         
-        from application.services.misbuffet.engine import LeanEngine
+        from src.application.services.misbuffet.engine import LeanEngine
         print("✅ Engine classes imported successfully")
         
         print("\n🎉 All imports successful! Import fixes are working correctly.")

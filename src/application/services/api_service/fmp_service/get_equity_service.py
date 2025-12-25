@@ -20,11 +20,11 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.fmp_service.financial_modeling_prep_api_service import FinancialModelingPrepApiService
 from src.application.services.api_service.fmp_service.config_equity_service import FmpEquityServiceConfig
-from infrastructure.repositories.fmp_repo.fmp_repository import FmpRepository, FmpDataTranslation
-from domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.infrastructure.repositories.fmp_repo.fmp_repository import FmpRepository, FmpDataTranslation
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 logger = logging.getLogger(__name__)

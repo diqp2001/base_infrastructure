@@ -2,7 +2,7 @@
 from typing import Optional
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from application.services.database_service.database_service import DatabaseService
+from src.application.services.database_service.database_service import DatabaseService
 
 class DataService:
     """

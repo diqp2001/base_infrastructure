@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
-from infrastructure.database.settings import get_database_url
+from src.infrastructure.database.settings import get_database_url
 from src.infrastructure.models import ModelBase as Base
 
 

@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime, date
 
 from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
-from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 
 
 def create_factor_calculation_blueprint() -> Blueprint:
@@ -239,9 +239,9 @@ def create_factor_calculation_blueprint() -> Blueprint:
     
     def _process_input_data(factor, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process input data based on factor type."""
-        from domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
-        from domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
-        from domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
+        from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
+        from src.domain.entities.factor.finance.financial_assets.share_factor.share_technical_factor import ShareTechnicalFactor
+        from src.domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor
         
         try:
             if isinstance(factor, ShareMomentumFactor):

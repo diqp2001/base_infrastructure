@@ -18,8 +18,8 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
 
-from application.services.database_service.database_service import DatabaseService
-from infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
+from src.application.services.database_service.database_service import DatabaseService
+from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 
 
 class NormalizationMethod(Enum):

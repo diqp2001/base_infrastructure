@@ -9,14 +9,14 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
-from infrastructure.models.finance.holding.portfolio_holding import PortfolioHolding
-from domain.entities.finance.financial_assets.security import Security
-from domain.entities.finance.portfolio.portfolio import Portfolio
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
+from src.domain.entities.finance.financial_assets.security import Security
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.infrastructure.models.finance.market_data import MarketData
 from src.infrastructure.models.finance.portfolio import Portfolio as PortfolioModel
-from infrastructure.models.finance.security_holding import SecurityHolding
+from src.infrastructure.models.finance.security_holding import SecurityHolding
 
-#from domain.entities.finance.portfolio import Portfolio
+#from src.domain.entities.finance.portfolio import Portfolio
 
 from .result_handler import BacktestResult
 
@@ -45,7 +45,7 @@ class ResultStorage:
         Returns:
             Saved PortfolioModel instance
         """
-        # Create portfolio model from domain entity
+        # Create portfolio model from src.domain entity
         portfolio_model = self._create_portfolio_model(result, portfolio)
         
         # Save to database
@@ -66,10 +66,10 @@ class ResultStorage:
         portfolio_model: PortfolioModel, 
         portfolio: Portfolio, 
         snapshot_date: datetime
-    ) -> PortfolioHolding:
+    ) -> PortfolioHoldings:
         """Create portfolio snapshot for a specific point in time."""
         
-        snapshot = PortfolioHolding(
+        snapshot = PortfolioHoldings(
             portfolio_id=portfolio_model.id,
             cash_balance=float(portfolio.cash_balance),
             total_value=float(portfolio.current_value),
@@ -123,19 +123,19 @@ class ResultStorage:
         portfolio_id: int,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
-    ) -> List[PortfolioHolding]:
+    ) -> List[PortfolioHoldings]:
         """Get portfolio snapshots within date range."""
         
-        query = self.db_session.query(PortfolioHolding).filter(
-            PortfolioHolding.portfolio_id == portfolio_id
+        query = self.db_session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         )
         
         if start_date:
-            query = query.filter(PortfolioHolding.snapshot_date >= start_date)
+            query = query.filter(PortfolioHoldings.snapshot_date >= start_date)
         if end_date:
-            query = query.filter(PortfolioHolding.snapshot_date <= end_date)
+            query = query.filter(PortfolioHoldings.snapshot_date <= end_date)
         
-        return query.order_by(PortfolioHolding.snapshot_date).all()
+        return query.order_by(PortfolioHoldings.snapshot_date).all()
     
     def get_security_price_history(
         self,
@@ -176,8 +176,8 @@ class ResultStorage:
         # Note: MarketDataModel doesn't have direct FK to portfolio, so skip
         
         # Delete portfolio holdings snapshots
-        self.db_session.query(PortfolioHolding).filter(
-            PortfolioHolding.portfolio_id == portfolio_id
+        self.db_session.query(PortfolioHoldings).filter(
+            PortfolioHoldings.portfolio_id == portfolio_id
         ).delete()
         
         # Delete security holdings
@@ -196,7 +196,7 @@ class ResultStorage:
         result: BacktestResult, 
         portfolio: Portfolio
     ) -> PortfolioModel:
-        """Create PortfolioModel from domain entities."""
+        """Create PortfolioModel from src.domain entities."""
         
         # Extract dates from result or use defaults
         start_date = getattr(result, 'start_date', None)
@@ -280,10 +280,10 @@ class ResultStorage:
         self, 
         portfolio_model: PortfolioModel, 
         portfolio: Portfolio
-    ) -> PortfolioHolding:
+    ) -> PortfolioHoldings:
         """Create holdings snapshot model."""
         
-        return PortfolioHolding(
+        return PortfolioHoldings(
             portfolio_id=portfolio_model.id,
             cash_balance=float(portfolio.cash_balance),
             total_value=float(portfolio.current_value),

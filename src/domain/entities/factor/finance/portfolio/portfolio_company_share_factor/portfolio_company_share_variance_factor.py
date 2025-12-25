@@ -3,10 +3,10 @@ from typing import Optional, List
 from decimal import Decimal
 import math
 
-from domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import (
+from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import (
     PortfolioCompanyShareFactor
 )
-from domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 
 
 class PortfolioCompanyShareVarianceFactor(PortfolioCompanyShareFactor):

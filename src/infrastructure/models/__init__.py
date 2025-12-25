@@ -4,7 +4,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 class ModelBase(DeclarativeBase):
     pass
-
+"""
 # Existing imports
 from src.infrastructure.models.finance.financial_assets.share import Share
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare
@@ -31,10 +31,10 @@ from src.infrastructure.models.finance.financial_assets.derivatives import Deriv
 from src.infrastructure.models.finance.financial_assets.forward_contract import (
     ForwardContract, CommodityForward, CurrencyForward
 )
-from infrastructure.models.finance.financial_assets.swap.swap import Swap
-from infrastructure.models.finance.financial_assets.swap.currency_swap import CurrencySwap
-from infrastructure.models.finance.financial_assets.swap.interest_rate_swap import InterestRateSwap
-from infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLeg
+from src.infrastructure.models.finance.financial_assets.swap.swap import Swap
+from src.infrastructure.models.finance.financial_assets.swap.currency_swap import CurrencySwap
+from src.infrastructure.models.finance.financial_assets.swap.interest_rate_swap import InterestRateSwap
+from src.infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLeg
 
 
 # New general entity imports
@@ -42,15 +42,15 @@ from src.infrastructure.models.continent import Continent
 
 # New finance entity imports
 from src.infrastructure.models.finance.portfolio import Portfolio
-from infrastructure.models.finance.security_holding import SecurityHolding
+from src.infrastructure.models.finance.security_holding import SecurityHolding
 from src.infrastructure.models.finance.market_data import MarketData
 
 # Holding models
-from infrastructure.models.finance.holding.holding import Holding
+from src.infrastructure.models.finance.holding.holding import Holding
 
 # Portfolio company share option model
 from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
 
 
-from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHolding
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding"""

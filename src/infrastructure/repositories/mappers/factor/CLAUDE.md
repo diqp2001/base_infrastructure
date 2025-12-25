@@ -116,7 +116,7 @@ def to_orm(domain_entity: FactorEntity) -> FactorModel:
 
 **Key Features:**
 - ✅ **Uniform Output**: Always returns base FactorModel regardless of input type
-- ✅ **Automatic Discriminator**: entity_type derived automatically from domain class
+- ✅ **Automatic Discriminator**: entity_type derived automatically from src.domain class
 - ✅ **Simplified Logic**: No complex type-specific field handling
 - ✅ **Maintainable**: Easy to understand and modify
 

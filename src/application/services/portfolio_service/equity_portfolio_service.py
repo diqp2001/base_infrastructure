@@ -1,5 +1,5 @@
 # src/application/services/portfolio_service/equity_portfolio_service.py
-from application.services.portfolio_service.portfolio_service import PortfolioService
+from src.application.services.portfolio_service.portfolio_service import PortfolioService
 
 class EquityPortfolioService(PortfolioService):
     """Equity Portfolio Service - specialized service for managing equity-based investment portfolios."""

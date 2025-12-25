@@ -30,8 +30,8 @@ class CustomJSONProvider(DefaultJSONProvider):
             return obj.tolist()
         return super().default(obj)
 
-from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
-#from application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
+from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+#from src.application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from src.application.services.misbuffet.web.powerbuffet.powerbuffet import PowerBuffetService
 
 web_bp = Blueprint("web", __name__)
@@ -464,7 +464,7 @@ def run_custom_visualization():
 def connect_interactive_brokers():
     """API endpoint to connect to Interactive Brokers"""
     try:
-        from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+        from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
         
         data = request.json if request.json else {}
         ib_config = {
@@ -505,7 +505,7 @@ def connect_interactive_brokers():
 def setup_factor_system():
     """API endpoint to setup factor system"""
     try:
-        from application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
+        from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
         
         data = request.json if request.json else {}
         tickers = data.get('tickers', None)  # Use default if not provided
@@ -541,7 +541,7 @@ def import_data():
         
         # This could be expanded to handle different data sources
         if data_source == 'cboe':
-            from application.managers.api_managers.api_cboe.api_cboe_manager import download_and_consolidate_csv
+            from src.application.managers.api_managers.api_cboe.api_cboe_manager import download_and_consolidate_csv
             result = download_and_consolidate_csv()
             return jsonify({
                 "success": True,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 
-from domain.entities.factor.factor import Factor
+from src.domain.entities.factor.factor import Factor
 
 
 class HoldingFactor(Factor):
