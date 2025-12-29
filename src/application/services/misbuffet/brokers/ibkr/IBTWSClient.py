@@ -471,9 +471,8 @@ class IBTWSClient(EWrapper, EClient):
         contract.symbol = symbol
         contract.secType = secType
         contract.exchange = exchange
-        # For ETFs like SPY, add primary exchange for better resolution
-        if symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:  # Common ETFs
-            contract.primaryExchange = "ARCA"  # NYSE Arca is primary for many ETFs
+        contract.tradingClass = symbol
+
         return contract
 
     def place_order(self, contract: Contract, order: IBOrder) -> int:

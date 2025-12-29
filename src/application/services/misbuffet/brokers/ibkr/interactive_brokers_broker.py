@@ -1162,6 +1162,7 @@ class InteractiveBrokersBroker(BaseBroker):
             contract.secType = secType
             contract.exchange = exchange
             contract.currency = "USD"
+            contract.tradingClass = symbol
             return contract
     
     def get_active_market_data_subscriptions(self) -> List[int]:

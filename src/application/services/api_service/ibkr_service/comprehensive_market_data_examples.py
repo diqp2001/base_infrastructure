@@ -129,54 +129,140 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             logger.error(f"Error in live market data example: {e}")
     
+
+    def example_sp500_future_historical_data(self):
+        """
+        Example: S&P 500 (ES) Front-Month Futures Historical Data
+
+        Pulls:
+        - ES (S&P 500 E-mini)
+        - Front-month maturity (nearest active contract)
+        - 5-minute bars
+        - Last 6 months
+        """
+
+        logger.info("\n=== Example: S&P 500 Front-Month Futures Historical Data ===")
+
+        if not self.connected:
+            logger.error("Not connected to IB. Cannot fetch ES historical data.")
+            return
+
+        try:
+            # =========================================================
+            # Create ES futures contract (front month)
+            # =========================================================
+            es_contract = self.ib_broker.create_stock_contract(
+                symbol="ES",
+                secType="FUT",
+                exchange="CME"
+            )
+            es_contract.currency = "USD"
+            # IMPORTANT:
+            # No lastTradeDateOrContractMonth specified → IB returns front month
+
+            logger.info("📊 Fetching 5-minute ES futures data (last 6 months)...")
+
+            es_bars = self.ib_broker.get_historical_data(
+                contract=es_contract,
+                end_date_time="",          # now
+                duration_str="6 M",
+                bar_size_setting="5 mins",
+                what_to_show="TRADES",
+                use_rth=False              # Futures trade nearly 24h
+            )
+
+            if not es_bars:
+                logger.warning("No ES historical data returned.")
+                return
+
+            logger.info(
+                f"✅ Received {len(es_bars)} 5-minute bars for ES (front month)"
+            )
+
+            first_bar = es_bars[0]
+            last_bar = es_bars[-1]
+
+            logger.info(
+                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+            )
+
+            logger.info(
+                f"Latest bar | "
+                f"Open={last_bar['open']} "
+                f"High={last_bar['high']} "
+                f"Low={last_bar['low']} "
+                f"Close={last_bar['close']} "
+                f"Volume={last_bar['volume']}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching ES futures historical data: {e}")
+
+
     def example_historical_data(self):
         """
-        Example 2: Historical Market Data - OHLCV bars and various timeframes
-        
+        Example 2: Historical Market Data (Combined)
+
         Demonstrates:
-        - Historical data requests
-        - Different bar sizes and durations
-        - Various data types (TRADES, BID, ASK, MIDPOINT)
+        - Standard historical data usage (stocks + futures)
+        - Multiple bar sizes and durations
+        - OHLCV inspection and simple statistics
+        - Discovery of IBKR historical lookback limits for:
+            * Daily
+            * Hourly
+            * 10-minute
+            * 5-minute
+            * 1-minute
         """
-        logger.info("\\n=== Example 2: Historical Market Data ===")
-        
+
+        logger.info("\n=== Example 2: Historical Market Data ===")
+
         if not self.connected:
             logger.error("Not connected to IB. Cannot run historical data example.")
             return
-        
+
         try:
-            # Create contract for Apple stock
+            # =========================================================
+            # Base contract: AAPL
+            # =========================================================
             aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
             aapl_contract.primaryExchange = "NASDAQ"
-            
-            # Example 2a: Daily bars for 1 month
+
+            # =========================================================
+            # 2a — Daily bars (1 month)
+            # =========================================================
             logger.info("📊 Fetching daily historical data for AAPL (1 month)...")
-            
+
             daily_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
-                end_date_time="",  # Current time
+                end_date_time="",
                 duration_str="1 M",
                 bar_size_setting="1 day",
                 what_to_show="TRADES",
                 use_rth=True
             )
-            
+
             if daily_bars:
                 logger.info(f"Received {len(daily_bars)} daily bars for AAPL")
-                if len(daily_bars) > 0:
-                    latest = daily_bars[-1]
-                    logger.info(f"Latest bar: Date={latest['date']}, OHLC={latest['open']}/{latest['high']}/{latest['low']}/{latest['close']}, Volume={latest['volume']}")
-                    
-                    # Calculate some basic statistics
-                    closes = [float(bar['close']) for bar in daily_bars[-10:]]  # Last 10 days
-                    avg_close = sum(closes) / len(closes)
-                    logger.info(f"Average close (last 10 days): ${avg_close:.2f}")
+
+                latest = daily_bars[-1]
+                logger.info(
+                    f"Latest bar: Date={latest['date']}, "
+                    f"OHLC={latest['open']}/{latest['high']}/{latest['low']}/{latest['close']}, "
+                    f"Volume={latest['volume']}"
+                )
+
+                closes = [float(bar["close"]) for bar in daily_bars[-10:]]
+                avg_close = sum(closes) / len(closes)
+                logger.info(f"Average close (last 10 days): ${avg_close:.2f}")
             else:
                 logger.warning("No daily bars received for AAPL")
-            
-            # Example 2b: Intraday 5-minute bars
+
+            # =========================================================
+            # 2b — Intraday 5-minute bars (1 day)
+            # =========================================================
             logger.info("📊 Fetching 5-minute historical data for AAPL (1 day)...")
-            
+
             minute_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
                 duration_str="1 D",
@@ -184,30 +270,80 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 what_to_show="TRADES",
                 use_rth=True
             )
-            
+
             if minute_bars:
                 logger.info(f"Received {len(minute_bars)} 5-minute bars for AAPL")
-                if len(minute_bars) > 0:
-                    latest = minute_bars[-1]
-                    logger.info(f"Latest 5-min bar: {latest['date']}, Close=${latest['close']}, Volume={latest['volume']}")
-            
-            # Example 2c: Futures historical data
-            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
-            
+                latest = minute_bars[-1]
+                logger.info(
+                    f"Latest 5-min bar: {latest['date']}, "
+                    f"Close=${latest['close']}, Volume={latest['volume']}"
+                )
+            else:
+                logger.warning("No 5-minute bars received for AAPL")
+
+            # =========================================================
+            # 2c — Futures historical data (ES weekly)
+            # =========================================================
             logger.info("📊 Fetching weekly historical data for ES futures...")
-            
+
+            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
+
             weekly_bars = self.ib_broker.get_historical_data(
                 contract=es_contract,
-                duration_str="3 M",  # 3 months
+                duration_str="3 M",
                 bar_size_setting="1 week",
                 what_to_show="TRADES"
             )
-            
+
             if weekly_bars:
                 logger.info(f"Received {len(weekly_bars)} weekly bars for ES")
-                
+            else:
+                logger.warning("No weekly bars received for ES")
+
+            # =========================================================
+            # Lookback discovery helper
+            # =========================================================
+            def probe_lookback(bar_size: str, duration: str, label: str):
+                logger.info(f"🔎 Probing {label} lookback "
+                            f"(bar={bar_size}, duration={duration})")
+
+                bars = self.ib_broker.get_historical_data(
+                    contract=aapl_contract,
+                    end_date_time="",
+                    duration_str=duration,
+                    bar_size_setting=bar_size,
+                    what_to_show="TRADES",
+                    use_rth=True
+                )
+
+                if not bars:
+                    logger.warning(f"No data returned for {label}")
+                    return
+
+                first_bar = bars[0]["date"]
+                last_bar = bars[-1]["date"]
+
+                logger.info(
+                    f"✅ {label}: {len(bars)} bars | "
+                    f"From {first_bar} → {last_bar}"
+                )
+
+            # =========================================================
+            # Lookback discovery (AAPL)
+            # =========================================================
+            logger.info("\n📐 Discovering IB historical lookback limits...")
+
+            probe_lookback("1 day", "20 Y", "Daily bars")
+            """probe_lookback("1 hour", "2 Y", "Hourly bars")
+            probe_lookback("10 mins", "6 M", "10-minute bars")
+            probe_lookback("5 mins", "6 M", "5-minute bars")
+            probe_lookback("1 min", "2 M", "1-minute bars")"""
+
+            logger.info("📊 Historical lookback discovery complete")
+
         except Exception as e:
             logger.error(f"Error in historical data example: {e}")
+
     
     def example_market_depth(self):
         """
@@ -455,25 +591,21 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         try:
             # Run all examples
+            self.example_sp500_future_historical_data()
+            time.sleep(2)
+
             self.example_live_market_data()
             time.sleep(2)  # Brief pause between examples
             
             self.example_historical_data()
             time.sleep(2)
             
-            #self.example_market_depth()
-            #time.sleep(2)
-            
             self.example_contract_details()
             time.sleep(2)
-            
-            #self.example_market_scanner()
-            #time.sleep(2)
             
             self.example_delayed_market_data()
             time.sleep(2)
             
-            #self.example_news_data()
             
             logger.info("\\n✅ All examples completed successfully!")
             

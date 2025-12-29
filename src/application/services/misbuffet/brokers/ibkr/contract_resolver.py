@@ -89,161 +89,155 @@ class ContractResolver:
     
     def resolve_front_future(self, symbol: str, exchange: str = "CME") -> Optional[Contract]:
         """
-        Resolve the front month futures contract.
-        
-        This is the MANDATORY fix for Issues #3 and #5.
-        Futures cannot be requested generically - you MUST resolve 
-        a concrete contract first.
-        
-        Args:
-            symbol: Futures symbol (e.g., "ES", "NQ", "YM") 
-            exchange: Futures exchange (e.g., "CME", "CBOT", "NYMEX")
-            
-        Returns:
-            Resolved front month Contract object or None if resolution failed
+        Resolve the front month futures contract (IBKR-safe).
         """
+
         cache_key = f"FUT_{symbol}_{exchange}_front"
-        
-        # Check cache first
+
         if self._is_cached(cache_key):
             return self._contract_cache[cache_key]
-        
+
         try:
-            # Create base contract for contract details lookup
             base_contract = Contract()
             base_contract.symbol = symbol
             base_contract.secType = "FUT"
             base_contract.exchange = exchange
             base_contract.currency = "USD"
-            
+
             self.logger.info(f"Resolving front month future for {symbol} on {exchange}")
-            
-            # Get all available contract months
+
             req_id = abs(hash(f"cd_{symbol}_{time.time()}")) % 10000
-            
-            # Clear any previous results
             self.ib.contract_details.pop(req_id, None)
-            
-            # Request contract details
+
             self.ib.request_contract_details(req_id, base_contract)
-            
-            # Wait for contract details with timeout
+
             timeout = 10
-            wait_interval = 0.2
-            total_waited = 0
-            
-            while total_waited < timeout:
-                time.sleep(wait_interval)
-                total_waited += wait_interval
-                
-                if req_id in self.ib.contract_details:
-                    contracts = self.ib.contract_details[req_id]
-                    if contracts:  # We have contract details
-                        break
-            
-            # Get the resolved contracts
-            contract_details_list = self.ib.contract_details.get(req_id, [])
-            
-            if not contract_details_list:
-                self.logger.error(f"No contract details found for futures {symbol}")
+            waited = 0.0
+
+            while waited < timeout:
+                time.sleep(0.2)
+                waited += 0.2
+                if req_id in self.ib.contract_details and self.ib.contract_details[req_id]:
+                    break
+
+            details_list = self.ib.contract_details.get(req_id, [])
+
+            if not details_list:
+                self.logger.error(f"No contract details found for {symbol}")
                 return None
-            
-            # Fix Issue #2: Simple front-month resolution logic
-            # Extract valid contracts with proper expiry dates
+
             valid_contracts = []
-            
-            for details in contract_details_list:
-                # IB returns ContractDetails objects with .contract attribute
-                contract = details.contract if hasattr(details, 'contract') else details
-                expiry = contract.lastTradeDateOrContractMonth
-                local_symbol = getattr(contract, 'localSymbol', '')
-                
-                # Include all contracts that have an expiry (no filtering by date)
-                if expiry:
-                    valid_contracts.append((expiry, contract))
-                    self.logger.debug(f"Found contract: {local_symbol} expiry {expiry}")
-            
+
+            for d in details_list:
+                local_symbol = d.get("local_symbol")
+                expiry = self.parse_expiry_from_local_symbol(local_symbol)
+                if not expiry:
+                    continue
+                valid_contracts.append((expiry, d))
+                self.logger.debug(f"Found contract: {local_symbol} expiry {expiry}")
+
             if not valid_contracts:
-                self.logger.error(f"No futures contracts with expiry found for {symbol}")
+                self.logger.error(f"No valid expiries found for {symbol}")
                 return None
-            
-            self.logger.info(f"Found {len(valid_contracts)} valid contracts for {symbol}")
-            
-            # Sort by expiry and get the front month (earliest expiry)
-            valid_contracts.sort(key=lambda x: x[0])
-            front_month_expiry, front_contract_data = valid_contracts[0]
-            
-            # Create the resolved contract with critical futures fields
-            resolved_contract = Contract()
-            resolved_contract.symbol = symbol
-            resolved_contract.secType = "FUT"
-            resolved_contract.exchange = exchange
-            resolved_contract.currency = "USD"
-            
-            # Set the critical fields that make futures requests work
-            resolved_contract.lastTradeDateOrContractMonth = front_month_expiry
-            resolved_contract.localSymbol = getattr(front_contract_data, 'localSymbol', '')
-            
-            # Copy other important attributes from the resolved contract
-            if hasattr(front_contract_data, 'multiplier'):
-                resolved_contract.multiplier = front_contract_data.multiplier
-            if hasattr(front_contract_data, 'tradingClass'):
-                resolved_contract.tradingClass = front_contract_data.tradingClass
-            
-            # Cache and return the resolved contract
-            self._cache_contract(cache_key, resolved_contract)
-            self.logger.info(f"Resolved front month future: {symbol} -> {resolved_contract.localSymbol} (exp: {front_month_expiry})")
-            self.logger.debug(f"Contract details: exchange={resolved_contract.exchange}, multiplier={getattr(resolved_contract, 'multiplier', 'N/A')}")
-            
+
+            # Front month = earliest expiry
+            front_contract_tuple = min(valid_contracts, key=lambda x: x[0])
+            front_expiry, front_contract_dict = front_contract_tuple
+
+            # Build the resolved Contract from dict
+            front_contract = Contract()
+            front_contract.symbol = front_contract_dict.get("symbol")
+            front_contract.secType = "FUT"
+            front_contract.exchange = front_contract_dict.get("exchange", "CME")
+            front_contract.currency = front_contract_dict.get("currency", "USD")
+            front_contract.localSymbol = front_contract_dict.get("local_symbol")
+            front_contract.tradingClass = front_contract_dict.get("trading_class")
+            front_contract.lastTradeDateOrContractMonth = front_expiry
+
+            # Map contract_id to conId
+            front_contract.conId = front_contract_dict.get("contract_id")
+
+            # Optional: multiplier
+            if "multiplier" in front_contract_dict:
+                front_contract.multiplier = front_contract_dict["multiplier"]
+
+            # Validate conId
+            if not front_contract.conId:
+                self.logger.error("Resolved front contract has no conId (invalid)")
+                return None
+
+            # Cache and log
+            self._cache_contract(cache_key, front_contract)
+            self.logger.info(
+                f"Resolved front month future: {symbol} -> "
+                f"{front_contract.localSymbol} "
+                f"(exp={front_contract.lastTradeDateOrContractMonth}, conId={front_contract.conId})"
+            )
+
             # Cleanup
             self.ib.contract_details.pop(req_id, None)
-            
-            return resolved_contract
-            
+            return front_contract
+
         except Exception as e:
             self.logger.error(f"Error resolving front month future for {symbol}: {e}")
             return None
+        
+    def parse_expiry_from_local_symbol(self,local_symbol: str) -> str:
+        month_codes = {
+            "F": "01","G": "02","H": "03","J": "04","K": "05","M": "06",
+            "N": "07","Q": "08","U": "09","V": "10","X": "11","Z": "12"
+        }
+        import re
+        match = re.match(r"^[A-Z]+([A-Z])(\d)$", local_symbol)
+        if not match:
+            return None
+        month_code, year_digit = match.groups()
+        month = month_codes.get(month_code)
+        year = f"202{year_digit}"  # Adjust if year > 2030
+        return f"{year}{month}"
     
-    def resolve_future_by_expiry(self, symbol: str, expiry_yyyymm: str, exchange: str = "CME") -> Optional[Contract]:
-        """
-        Resolve a specific futures contract by expiry month.
-        
-        Args:
-            symbol: Futures symbol (e.g., "ES")
-            expiry_yyyymm: Expiry in YYYYMM format (e.g., "202412")
-            exchange: Futures exchange
-            
-        Returns:
-            Resolved Contract object or None if resolution failed
-        """
+    def resolve_future_by_expiry(
+        self,
+        symbol: str,
+        expiry_yyyymm: str,
+        exchange: str = "GLOBEX") -> Optional[Contract]:
+
         cache_key = f"FUT_{symbol}_{exchange}_{expiry_yyyymm}"
-        
-        # Check cache first
+
         if self._is_cached(cache_key):
             return self._contract_cache[cache_key]
-        
+
         try:
-            # Use same approach as front month but filter for specific expiry
             base_contract = Contract()
             base_contract.symbol = symbol
             base_contract.secType = "FUT"
             base_contract.exchange = exchange
-            base_contract.lastTradeDateOrContractMonth = expiry_yyyymm
             base_contract.currency = "USD"
-            
-            # Validate the specific contract
-            resolved_contract = self._validate_contract(base_contract)
-            if resolved_contract:
-                self._cache_contract(cache_key, resolved_contract)
-                self.logger.info(f"Resolved future by expiry: {symbol} {expiry_yyyymm}")
-                return resolved_contract
-            else:
-                self.logger.error(f"Failed to resolve future: {symbol} {expiry_yyyymm}")
+            base_contract.lastTradeDateOrContractMonth = expiry_yyyymm
+
+            resolved = self._validate_contract(base_contract)
+
+            if not resolved or not resolved.conId:
+                self.logger.error(
+                    f"Failed to resolve future {symbol} {expiry_yyyymm}"
+                )
                 return None
-                
+
+            self._cache_contract(cache_key, resolved)
+
+            self.logger.info(
+                f"Resolved future by expiry: {symbol} "
+                f"{expiry_yyyymm} (conId={resolved.conId})"
+            )
+
+            return resolved
+
         except Exception as e:
-            self.logger.error(f"Error resolving future by expiry {symbol} {expiry_yyyymm}: {e}")
+            self.logger.error(
+                f"Error resolving future by expiry {symbol} {expiry_yyyymm}: {e}"
+            )
             return None
+
     
     def _validate_contract(self, contract: Contract) -> Optional[Contract]:
         """
