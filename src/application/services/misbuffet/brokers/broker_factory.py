@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Any, Optional, Type
 from enum import Enum
 
-from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration
+from ..launcher.interfaces import LauncherConfiguration
 
 from .base_broker import BaseBroker
 from .ibkr.interactive_brokers_broker import InteractiveBrokersBroker

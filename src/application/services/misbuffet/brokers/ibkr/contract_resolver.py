@@ -1,4 +1,4 @@
-from application.services.misbuffet.brokers.ibkr import IBTWSClient
+from . import IBTWSClient
 from ibapi.contract import Contract
 import time
 import threading
