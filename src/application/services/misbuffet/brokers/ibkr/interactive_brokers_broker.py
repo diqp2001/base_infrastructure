@@ -468,11 +468,25 @@ class InteractiveBrokersBroker(BaseBroker):
             req_id = abs(hash(f"{symbol}_{datetime.now().timestamp()}")) % 10000
             
             self.logger.info(f"Requesting market data for {symbol} (req_id: {req_id})")
-            self.contract_resolver = ContractResolver(self.ib_connection)
-            # Request market data (try snapshot first for paper trading)
-            front = self.contract_resolver.resolve_front_month(contract)
             
-            self.ib_connection.reqMktData(req_id, front, "", False, False, [])
+            # Fix Issues #3 and #5: Use contract resolver for proper futures handling
+            self.contract_resolver = ContractResolver(self.ib_connection)
+            
+            # Determine contract type and resolve appropriately  
+            if contract.secType == "FUT":
+                # For futures, MUST resolve front month contract first
+                resolved_contract = self.contract_resolver.resolve_front_future(symbol, contract.exchange)
+                if not resolved_contract:
+                    self.logger.error(f"Failed to resolve futures contract for {symbol}")
+                    return {'symbol': symbol, 'error': 'Failed to resolve futures contract', 'timestamp': datetime.now().isoformat()}
+            else:
+                # For stocks/ETFs, resolve with proper exchange info
+                resolved_contract = self.contract_resolver.resolve_stock(symbol, contract.exchange, contract.primaryExchange)
+                if not resolved_contract:
+                    self.logger.warning(f"Failed to resolve stock contract for {symbol}, using fallback")
+                    resolved_contract = contract  # Use original as fallback
+            
+            self.ib_connection.reqMktData(req_id, resolved_contract, "", use_snapshot, False, [])
             #self.ib_connection.request_contract_details(req_id=req_id,contract=contract)
             # Wait for data with progressive checks
             max_wait_time = timeout
@@ -575,11 +589,32 @@ class InteractiveBrokersBroker(BaseBroker):
             
             self.logger.info(f"Requesting market data snapshot for {contract.symbol}")
             
+            # Fix Issues #3 and #5: Use contract resolver for proper contract resolution
+            if not hasattr(self, 'contract_resolver'):
+                self.contract_resolver = ContractResolver(self.ib_connection)
+            
+            # Resolve contract appropriately based on type
+            if contract.secType == "FUT":
+                resolved_contract = self.contract_resolver.resolve_front_future(contract.symbol, contract.exchange)
+                if not resolved_contract:
+                    return {'error': f'Failed to resolve futures contract for {contract.symbol}'}
+            else:
+                resolved_contract = self.contract_resolver.resolve_stock(contract.symbol, contract.exchange, 
+                                                                        getattr(contract, 'primaryExchange', ''))
+                if not resolved_contract:
+                    resolved_contract = contract  # Use original as fallback
+            
             # Clear any existing data
             self.ib_connection.market_data.pop(req_id, None)
             
+            # Fix Issue #2: Ensure snapshot + generic ticks compatibility  
+            final_generic_tick_list = generic_tick_list
+            if snapshot and generic_tick_list:
+                self.logger.warning("Snapshot mode cannot use generic ticks, switching to streaming mode")
+                snapshot = False
+            
             # Request market data with specified tick types
-            self.ib_connection.reqMktData(req_id, contract, generic_tick_list, snapshot, False, [])
+            self.ib_connection.reqMktData(req_id, resolved_contract, final_generic_tick_list, snapshot, False, [])
             
             # Wait for data with progressive checks
             wait_interval = 0.1
@@ -691,10 +726,27 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.info(f"Requesting historical data for {contract.symbol} "
                            f"({duration_str}, {bar_size_setting})")
             
-            # Request historical data
+            # Fix Issues #3 and #5: Use contract resolver for proper contract resolution
+            if not hasattr(self, 'contract_resolver'):
+                self.contract_resolver = ContractResolver(self.ib_connection)
+            
+            # Resolve contract appropriately based on type
+            if contract.secType == "FUT":
+                resolved_contract = self.contract_resolver.resolve_front_future(contract.symbol, contract.exchange)
+                if not resolved_contract:
+                    self.logger.error(f"Failed to resolve futures contract for historical data: {contract.symbol}")
+                    return []
+            else:
+                resolved_contract = self.contract_resolver.resolve_stock(contract.symbol, contract.exchange, 
+                                                                        getattr(contract, 'primaryExchange', ''))
+                if not resolved_contract:
+                    self.logger.warning(f"Failed to resolve contract for historical data: {contract.symbol}, using fallback")
+                    resolved_contract = contract  # Use original as fallback
+            
+            # Request historical data with resolved contract
             self.ib_connection.request_historical_data(
                 req_id=req_id,
-                contract=contract,
+                contract=resolved_contract,
                 end_date_time=end_date_time,
                 duration_str=duration_str,
                 bar_size_setting=bar_size_setting,
