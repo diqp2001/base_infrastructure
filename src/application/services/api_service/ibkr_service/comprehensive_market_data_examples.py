@@ -161,6 +161,8 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # No lastTradeDateOrContractMonth specified → IB returns front month
 
             logger.info("📊 Fetching 5-minute ES futures data (last 6 months)...")
+            logger.info(f"Contract details: symbol={es_contract.symbol}, secType={es_contract.secType}, "
+                       f"exchange={es_contract.exchange}, currency={es_contract.currency}")
 
             es_bars = self.ib_broker.get_historical_data(
                 contract=es_contract,
@@ -168,7 +170,8 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 duration_str="6 M",
                 bar_size_setting="5 mins",
                 what_to_show="TRADES",
-                use_rth=False              # Futures trade nearly 24h
+                use_rth=False,             # Futures trade nearly 24h
+                timeout=20                 # Increased timeout for debugging
             )
 
             if not es_bars:

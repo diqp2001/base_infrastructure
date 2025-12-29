@@ -90,6 +90,8 @@ class ContractResolver:
     def resolve_front_future(self, symbol: str, exchange: str = "CME") -> Optional[Contract]:
         """
         Resolve the front month futures contract (IBKR-safe).
+        
+        Tries multiple exchange variations if the first attempt fails.
         """
 
         cache_key = f"FUT_{symbol}_{exchange}_front"
@@ -97,104 +99,179 @@ class ContractResolver:
         if self._is_cached(cache_key):
             return self._contract_cache[cache_key]
 
-        try:
-            base_contract = Contract()
-            base_contract.symbol = symbol
-            base_contract.secType = "FUT"
-            base_contract.exchange = exchange
-            base_contract.currency = "USD"
+        # Try multiple exchange variations for ES futures
+        exchange_alternatives = [exchange]
+        if symbol == "ES" and exchange == "CME":
+            exchange_alternatives = ["CME", "GLOBEX", "ECBOT"]
+        elif exchange == "CME":
+            exchange_alternatives = ["CME", "GLOBEX"]
 
-            self.logger.info(f"Resolving front month future for {symbol} on {exchange}")
+        for try_exchange in exchange_alternatives:
+            try:
+                self.logger.info(f"Resolving front month future for {symbol} on {try_exchange}")
+                
+                base_contract = Contract()
+                base_contract.symbol = symbol
+                base_contract.secType = "FUT"
+                base_contract.exchange = try_exchange
+                base_contract.currency = "USD"
 
-            req_id = abs(hash(f"cd_{symbol}_{time.time()}")) % 10000
-            self.ib.contract_details.pop(req_id, None)
+                req_id = abs(hash(f"cd_{symbol}_{try_exchange}_{time.time()}")) % 10000
+                self.ib.contract_details.pop(req_id, None)
 
-            self.ib.request_contract_details(req_id, base_contract)
+                self.ib.request_contract_details(req_id, base_contract)
 
-            timeout = 10
-            waited = 0.0
+                timeout = 15  # Increased timeout
+                waited = 0.0
+                wait_increment = 0.2
 
-            while waited < timeout:
-                time.sleep(0.2)
-                waited += 0.2
-                if req_id in self.ib.contract_details and self.ib.contract_details[req_id]:
-                    break
+                while waited < timeout:
+                    time.sleep(wait_increment)
+                    waited += wait_increment
+                    
+                    # Check if we received data
+                    if req_id in self.ib.contract_details:
+                        details_list = self.ib.contract_details[req_id]
+                        if details_list:  # Non-empty list means success
+                            break
+                    
+                    # Log progress every 2 seconds
+                    if int(waited * 10) % 20 == 0:
+                        self.logger.debug(f"Waiting for contract details... {waited:.1f}s")
 
-            details_list = self.ib.contract_details.get(req_id, [])
+                details_list = self.ib.contract_details.get(req_id, [])
 
-            if not details_list:
-                self.logger.error(f"No contract details found for {symbol}")
-                return None
+                if not details_list:
+                    self.logger.warning(f"No contract details found for {symbol} on {try_exchange}")
+                    self.ib.contract_details.pop(req_id, None)
+                    continue  # Try next exchange
 
-            valid_contracts = []
+                self.logger.info(f"Received {len(details_list)} contract details for {symbol} on {try_exchange}")
 
-            for d in details_list:
-                local_symbol = d.get("local_symbol")
-                expiry = self.parse_expiry_from_local_symbol(local_symbol)
-                if not expiry:
-                    continue
-                valid_contracts.append((expiry, d))
-                self.logger.debug(f"Found contract: {local_symbol} expiry {expiry}")
+                valid_contracts = []
 
-            if not valid_contracts:
-                self.logger.error(f"No valid expiries found for {symbol}")
-                return None
+                for i, d in enumerate(details_list):
+                    local_symbol = d.get("local_symbol", "N/A")
+                    self.logger.debug(f"Processing contract {i+1}: {local_symbol}")
+                    
+                    expiry = self.parse_expiry_from_local_symbol(local_symbol)
+                    if expiry:
+                        valid_contracts.append((expiry, d))
+                        self.logger.debug(f"✅ Valid contract: {local_symbol} -> expiry {expiry}")
+                    else:
+                        self.logger.warning(f"⚠️  Failed to parse expiry from: {local_symbol}")
 
-            # Front month = earliest expiry
-            front_contract_tuple = min(valid_contracts, key=lambda x: x[0])
-            front_expiry, front_contract_dict = front_contract_tuple
+                if not valid_contracts:
+                    self.logger.warning(f"No valid expiries found for {symbol} on {try_exchange}")
+                    self.ib.contract_details.pop(req_id, None)
+                    continue  # Try next exchange
 
-            # Build the resolved Contract from dict
-            front_contract = Contract()
-            front_contract.symbol = front_contract_dict.get("symbol")
-            front_contract.secType = "FUT"
-            front_contract.exchange = front_contract_dict.get("exchange", "CME")
-            front_contract.currency = front_contract_dict.get("currency", "USD")
-            front_contract.localSymbol = front_contract_dict.get("local_symbol")
-            front_contract.tradingClass = front_contract_dict.get("trading_class")
-            front_contract.lastTradeDateOrContractMonth = front_expiry
+                self.logger.info(f"Found {len(valid_contracts)} valid contracts")
 
-            # Map contract_id to conId
-            front_contract.conId = front_contract_dict.get("contract_id")
+                # Front month = earliest expiry
+                front_contract_tuple = min(valid_contracts, key=lambda x: x[0])
+                front_expiry, front_contract_dict = front_contract_tuple
 
-            # Optional: multiplier
-            if "multiplier" in front_contract_dict:
-                front_contract.multiplier = front_contract_dict["multiplier"]
+                # Build the resolved Contract from dict
+                front_contract = Contract()
+                front_contract.symbol = front_contract_dict.get("symbol", symbol)
+                front_contract.secType = "FUT"
+                front_contract.exchange = front_contract_dict.get("exchange", try_exchange)
+                front_contract.currency = front_contract_dict.get("currency", "USD")
+                front_contract.localSymbol = front_contract_dict.get("local_symbol")
+                front_contract.tradingClass = front_contract_dict.get("trading_class")
+                front_contract.lastTradeDateOrContractMonth = front_expiry
 
-            # Validate conId
-            if not front_contract.conId:
-                self.logger.error("Resolved front contract has no conId (invalid)")
-                return None
+                # Map contract_id to conId
+                front_contract.conId = front_contract_dict.get("contract_id")
 
-            # Cache and log
-            self._cache_contract(cache_key, front_contract)
-            self.logger.info(
-                f"Resolved front month future: {symbol} -> "
-                f"{front_contract.localSymbol} "
-                f"(exp={front_contract.lastTradeDateOrContractMonth}, conId={front_contract.conId})"
-            )
+                # Optional fields
+                if "multiplier" in front_contract_dict:
+                    front_contract.multiplier = front_contract_dict["multiplier"]
 
-            # Cleanup
-            self.ib.contract_details.pop(req_id, None)
-            return front_contract
+                # Validate conId
+                if not front_contract.conId:
+                    self.logger.error(f"Resolved front contract has no conId (invalid): {front_contract_dict}")
+                    self.ib.contract_details.pop(req_id, None)
+                    continue  # Try next exchange
 
-        except Exception as e:
-            self.logger.error(f"Error resolving front month future for {symbol}: {e}")
-            return None
+                # Cache with successful exchange
+                successful_cache_key = f"FUT_{symbol}_{try_exchange}_front"
+                self._cache_contract(successful_cache_key, front_contract)
+                
+                self.logger.info(
+                    f"✅ Resolved front month future: {symbol} -> "
+                    f"{front_contract.localSymbol} on {try_exchange} "
+                    f"(exp={front_contract.lastTradeDateOrContractMonth}, conId={front_contract.conId})"
+                )
+
+                # Cleanup
+                self.ib.contract_details.pop(req_id, None)
+                return front_contract
+
+            except Exception as e:
+                self.logger.error(f"Error resolving front month future for {symbol} on {try_exchange}: {e}")
+                continue  # Try next exchange
+
+        # If all exchanges failed
+        self.logger.error(f"❌ Failed to resolve front month future for {symbol} on all exchanges: {exchange_alternatives}")
+        return None
         
-    def parse_expiry_from_local_symbol(self,local_symbol: str) -> str:
+    def parse_expiry_from_local_symbol(self, local_symbol: str) -> str:
+        """
+        Parse expiry from futures local symbol with support for multiple formats.
+        
+        Supports:
+        - ESZ4 (1-digit year) -> 202512
+        - ESZ24 (2-digit year) -> 202412  
+        - ESH5 -> 202503
+        - NQU24 -> 202409
+        """
         month_codes = {
             "F": "01","G": "02","H": "03","J": "04","K": "05","M": "06",
             "N": "07","Q": "08","U": "09","V": "10","X": "11","Z": "12"
         }
+        
         import re
-        match = re.match(r"^[A-Z]+([A-Z])(\d)$", local_symbol)
-        if not match:
-            return None
-        month_code, year_digit = match.groups()
-        month = month_codes.get(month_code)
-        year = f"202{year_digit}"  # Adjust if year > 2030
-        return f"{year}{month}"
+        
+        # Try multiple patterns to support different futures naming conventions
+        patterns = [
+            # Pattern 1: ESZ24 (2-digit year) - most common for current contracts
+            r"^[A-Z]+([A-Z])(\d{2})$",
+            # Pattern 2: ESZ4 (1-digit year) - legacy format
+            r"^[A-Z]+([A-Z])(\d)$",
+            # Pattern 3: More flexible pattern with optional numbers in symbol
+            r"^[A-Z0-9]*([A-Z])(\d{1,2})$"
+        ]
+        
+        for pattern in patterns:
+            match = re.match(pattern, local_symbol)
+            if match:
+                month_code, year_str = match.groups()
+                
+                # Get month number
+                month = month_codes.get(month_code)
+                if not month:
+                    continue  # Try next pattern
+                
+                # Handle year conversion
+                if len(year_str) == 1:
+                    # 1-digit year: assume 202X
+                    year = f"202{year_str}"
+                elif len(year_str) == 2:
+                    # 2-digit year: convert to full year
+                    year_int = int(year_str)
+                    if year_int >= 70:  # 70-99 -> 1970-1999 (shouldn't happen for futures)
+                        year = f"19{year_str}"
+                    else:  # 00-69 -> 2000-2069
+                        year = f"20{year_str}"
+                
+                expiry = f"{year}{month}"
+                self.logger.debug(f"Parsed local symbol {local_symbol} -> expiry {expiry} (pattern: {pattern})")
+                return expiry
+        
+        self.logger.error(f"Failed to parse expiry from local symbol: {local_symbol}")
+        return None
     
     def resolve_future_by_expiry(
         self,
