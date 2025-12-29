@@ -202,6 +202,78 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             logger.error(f"Error fetching ES futures historical data: {e}")
 
 
+    def example_TR_10_YR_future_historical_data(self):
+        """
+        Example: US Treasury 10-Year (ZN) Front-Month Futures Historical Data
+
+        Pulls:
+        - ZN (10-Year U.S. Treasury Note futures)
+        - Front-month maturity (nearest active contract)
+        - 5-minute bars
+        - Last 6 months
+        """
+
+        logger.info("\n=== Example: US Treasury 10-Year Front-Month Futures Historical Data ===")
+
+        if not self.connected:
+            logger.error("Not connected to IB. Cannot fetch ZN historical data.")
+            return
+
+        try:
+            # =========================================================
+            # Create ZN futures contract (front month)
+            # =========================================================
+            zn_contract = self.ib_broker.create_stock_contract(
+                symbol="ZN",
+                secType="FUT",
+                exchange="CBOT"
+            )
+            zn_contract.currency = "USD"
+            # IMPORTANT:
+            # No lastTradeDateOrContractMonth specified → IB returns front month
+
+            logger.info("📊 Fetching 5-minute ZN futures data (last 6 months)...")
+            logger.info(f"Contract details: symbol={zn_contract.symbol}, secType={zn_contract.secType}, "
+                       f"exchange={zn_contract.exchange}, currency={zn_contract.currency}")
+
+            zn_bars = self.ib_broker.get_historical_data(
+                contract=zn_contract,
+                end_date_time="",          # now
+                duration_str="6 M",
+                bar_size_setting="5 mins",
+                what_to_show="TRADES",
+                use_rth=False,             # Treasury futures trade nearly 24h
+                timeout=30                 # Increased timeout for debugging
+            )
+
+            if not zn_bars:
+                logger.warning("No ZN historical data returned.")
+                return
+
+            logger.info(
+                f"✅ Received {len(zn_bars)} 5-minute bars for ZN (front month)"
+            )
+
+            first_bar = zn_bars[0]
+            last_bar = zn_bars[-1]
+
+            logger.info(
+                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+            )
+
+            logger.info(
+                f"Latest bar | "
+                f"Open={last_bar['open']} "
+                f"High={last_bar['high']} "
+                f"Low={last_bar['low']} "
+                f"Close={last_bar['close']} "
+                f"Volume={last_bar['volume']}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching ZN futures historical data: {e}")
+
+
     def example_historical_data(self):
         """
         Example 2: Historical Market Data (Combined)
@@ -595,6 +667,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         try:
             # Run all examples
             self.example_sp500_future_historical_data()
+            time.sleep(2)
+
+            self.example_TR_10_YR_future_historical_data()
             time.sleep(2)
 
             self.example_live_market_data()
