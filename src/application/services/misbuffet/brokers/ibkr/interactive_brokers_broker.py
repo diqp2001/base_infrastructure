@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Any, Callable
 
 from ibapi.contract import Contract
 
-from application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
-from application.services.misbuffet.brokers.ibkr.contract_resolver import ContractResolver
+from .IBTWSClient import IBTWSClient
+from .contract_resolver import ContractResolver
 
 from ..base_broker import BaseBroker, BrokerStatus, BrokerConnectionState
 from ...common import Symbol, Order, OrderEvent
