@@ -208,12 +208,22 @@ class IBKRFuturesDataService:
                         # Create futures contract
                         contract = self.create_futures_contract(symbol, "FUT", self.config.exchange)
                         
-                        # Fetch market data snapshot
+                        # Fetch comprehensive market data using enhanced methods
                         market_data = self.ib_broker.get_market_data_snapshot(
                             contract=contract, 
+                            generic_tick_list="225,232,236",  # Bid/Ask size, Auction data, Shortable
                             snapshot=True,
                             timeout=self.config.data_timeout
                         )
+                        
+                        # Also get contract details for the first time
+                        if symbol not in getattr(self, '_contract_details_cache', set()):
+                            contract_details = self.ib_broker.get_contract_details(contract, timeout=5)
+                            if contract_details:
+                                logger.debug(f"Cached contract details for {symbol}: {len(contract_details)} contracts")
+                                if not hasattr(self, '_contract_details_cache'):
+                                    self._contract_details_cache = set()
+                                self._contract_details_cache.add(symbol)
                         
                         if market_data and isinstance(market_data, dict):
                             # Process and store the market data
@@ -287,7 +297,8 @@ class IBKRFuturesDataService:
             )
     
     def fetch_futures_historical_data(self, symbol: str, duration_str: str = "1 W", 
-                                     bar_size_setting: str = "1 day") -> Optional[List[Dict[str, Any]]]:
+                                     bar_size_setting: str = "1 day", 
+                                     what_to_show: str = "TRADES") -> Optional[List[Dict[str, Any]]]:
         """
         Fetch historical data for a futures contract.
         
@@ -307,14 +318,15 @@ class IBKRFuturesDataService:
             # Create futures contract
             contract = self.create_futures_contract(symbol, "FUT", self.config.exchange)
             
-            # Fetch historical data
+            # Fetch historical data using enhanced method
             historical_data = self.ib_broker.get_historical_data(
                 contract=contract,
                 end_date_time="",  # Current time
                 duration_str=duration_str,
                 bar_size_setting=bar_size_setting,
-                what_to_show="TRADES",
-                use_rth=True
+                what_to_show=what_to_show,
+                use_rth=True,
+                timeout=30  # Extended timeout for historical data
             )
             
             logger.info(f"Fetched {len(historical_data) if historical_data else 0} historical bars for {symbol}")
@@ -399,6 +411,152 @@ class IBKRFuturesDataService:
                 timestamp=datetime.now()
             )
     
+    def fetch_futures_market_depth(self, symbol: str, num_rows: int = 5) -> Optional[Dict[str, Any]]:
+        """
+        Fetch market depth (Level 2) data for a futures contract.
+        
+        Args:
+            symbol: Futures symbol
+            num_rows: Number of depth rows to retrieve
+            
+        Returns:
+            Market depth data or None if failed
+        """
+        if not self.connected:
+            logger.error("Cannot fetch market depth - not connected to IBKR")
+            return None
+        
+        try:
+            # Create futures contract
+            contract = self.create_futures_contract(symbol, "FUT", self.config.exchange)
+            
+            # Fetch market depth using enhanced method
+            depth_data = self.ib_broker.get_market_depth(contract, num_rows=num_rows, timeout=10)
+            
+            if depth_data and not depth_data.get('error'):
+                logger.info(f"Market depth for {symbol}: {len(depth_data.get('bids', []))} bids, {len(depth_data.get('asks', []))} asks")
+                return depth_data
+            else:
+                logger.warning(f"No market depth received for {symbol}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error fetching market depth for {symbol}: {str(e)}")
+            return None
+    
+    def fetch_futures_contract_details(self, symbol: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetch detailed contract information for a futures symbol.
+        
+        Args:
+            symbol: Futures symbol
+            
+        Returns:
+            List of contract details or None if failed
+        """
+        if not self.connected:
+            logger.error("Cannot fetch contract details - not connected to IBKR")
+            return None
+        
+        try:
+            # Create futures contract
+            contract = self.create_futures_contract(symbol, "FUT", self.config.exchange)
+            
+            # Fetch contract details using enhanced method
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
+            
+            if contract_details:
+                logger.info(f"Contract details for {symbol}: {len(contract_details)} contracts found")
+                return contract_details
+            else:
+                logger.warning(f"No contract details received for {symbol}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error fetching contract details for {symbol}: {str(e)}")
+            return None
+    
+    def subscribe_to_streaming_data(self, symbols: Optional[List[str]] = None) -> Dict[str, int]:
+        """
+        Subscribe to streaming market data for futures contracts.
+        
+        Args:
+            symbols: List of futures symbols to subscribe to
+            
+        Returns:
+            Dictionary mapping symbols to subscription IDs
+        """
+        if not self.connected:
+            logger.error("Cannot subscribe to streaming data - not connected to IBKR")
+            return {}
+        
+        symbols = symbols or self.config.futures_symbols
+        subscriptions = {}
+        
+        try:
+            logger.info(f"Subscribing to streaming data for {len(symbols)} futures contracts...")
+            
+            for symbol in symbols:
+                contract = self.create_futures_contract(symbol, "FUT", self.config.exchange)
+                
+                # Subscribe with additional tick types
+                subscription_id = self.ib_broker.subscribe_market_data(
+                    contract, 
+                    generic_tick_list="225,232,236,258"  # Size, Auction, Shortable, Fundamentals
+                )
+                
+                if subscription_id > 0:
+                    subscriptions[symbol] = subscription_id
+                    logger.debug(f"Subscribed to {symbol} streaming data (ID: {subscription_id})")
+                else:
+                    logger.warning(f"Failed to subscribe to {symbol} streaming data")
+                
+                # Rate limiting
+                time.sleep(0.1)
+            
+            logger.info(f"Successfully subscribed to {len(subscriptions)} futures contracts")
+            return subscriptions
+            
+        except Exception as e:
+            logger.error(f"Error subscribing to streaming data: {str(e)}")
+            return {}
+    
+    def unsubscribe_from_streaming_data(self, subscriptions: Dict[str, int]) -> bool:
+        """
+        Unsubscribe from streaming market data.
+        
+        Args:
+            subscriptions: Dictionary mapping symbols to subscription IDs
+            
+        Returns:
+            True if all unsubscriptions were successful
+        """
+        if not self.connected or not subscriptions:
+            return True
+        
+        try:
+            logger.info(f"Unsubscribing from {len(subscriptions)} streaming data subscriptions...")
+            
+            success_count = 0
+            for symbol, sub_id in subscriptions.items():
+                if self.ib_broker.unsubscribe_market_data(sub_id):
+                    success_count += 1
+                    logger.debug(f"Unsubscribed from {symbol} (ID: {sub_id})")
+                else:
+                    logger.warning(f"Failed to unsubscribe from {symbol} (ID: {sub_id})")
+            
+            success = success_count == len(subscriptions)
+            if success:
+                logger.info("All streaming data unsubscribed successfully")
+            else:
+                logger.warning(f"Only {success_count}/{len(subscriptions)} unsubscriptions successful")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error unsubscribing from streaming data: {str(e)}")
+            return False
+    
     def get_service_status(self) -> Dict[str, Any]:
         """
         Get comprehensive service status and statistics.
@@ -411,8 +569,10 @@ class IBKRFuturesDataService:
             connection_status = "connected" if self.connected else "disconnected"
             
             broker_status = {}
+            active_subscriptions = []
             if self.ib_broker:
                 broker_status = self.ib_broker.get_broker_specific_info()
+                active_subscriptions = self.ib_broker.get_active_market_data_subscriptions()
             
             return {
                 'service_status': 'operational' if self.connected else 'disconnected',
@@ -428,6 +588,17 @@ class IBKRFuturesDataService:
                 'statistics': self.stats,
                 'connection_status': connection_status,
                 'broker_info': broker_status,
+                'active_subscriptions': {
+                    'count': len(active_subscriptions),
+                    'subscription_ids': active_subscriptions
+                },
+                'enhanced_features': {
+                    'market_depth': True,
+                    'contract_details': True,
+                    'streaming_data': True,
+                    'historical_data': True,
+                    'news_data': True
+                },
                 'last_check': datetime.now().isoformat()
             }
         except Exception as e:
@@ -568,9 +739,27 @@ def example_custom_config():
         service = IBKRFuturesDataService(session, custom_config)
         
         if service.connect_to_ibkr():
-            # Fetch market data only
+            # Fetch market data
             result = service.fetch_futures_market_data()
             print(f"Market data result: {result.message}")
+            
+            # Test enhanced features
+            print("\nTesting enhanced features...")
+            
+            # Market depth
+            depth = service.fetch_futures_market_depth('ES', num_rows=5)
+            if depth:
+                print(f"ES market depth: {len(depth.get('bids', []))} bids, {len(depth.get('asks', []))} asks")
+            
+            # Contract details
+            details = service.fetch_futures_contract_details('ES')
+            if details:
+                print(f"ES contract details: {len(details)} contracts")
+            
+            # Historical data with different parameters
+            historical = service.fetch_futures_historical_data('ES', '1 W', '1 hour', 'TRADES')
+            if historical:
+                print(f"ES historical data: {len(historical)} hourly bars")
         else:
             print("Failed to connect to IBKR")
         
@@ -578,9 +767,60 @@ def example_custom_config():
         session.close()
 
 
+def example_streaming_data():
+    """Example of streaming market data usage"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    
+    # Setup for streaming example
+    config = IBKRFuturesServiceConfig(
+        futures_symbols=["ES", "NQ"],
+        host="127.0.0.1",
+        port=7497,
+        log_level="INFO"
+    )
+    
+    engine = create_engine('sqlite:///example.db')
+    SessionLocal = sessionmaker(bind=engine)
+    session = SessionLocal()
+    
+    try:
+        service = IBKRFuturesDataService(session, config)
+        
+        if service.connect_to_ibkr():
+            print("Connected to IBKR - Starting streaming data example...")
+            
+            # Subscribe to streaming data
+            subscriptions = service.subscribe_to_streaming_data(["ES", "NQ"])
+            print(f"Active subscriptions: {subscriptions}")
+            
+            # Monitor streaming data for 60 seconds
+            start_time = time.time()
+            while time.time() - start_time < 60:
+                time.sleep(5)
+                
+                # Get current streaming data (would be accessed via callbacks in real implementation)
+                if hasattr(service.ib_broker, 'ib_connection'):
+                    for symbol, sub_id in subscriptions.items():
+                        if sub_id in service.ib_broker.ib_connection.market_data:
+                            data = service.ib_broker.ib_connection.market_data[sub_id]
+                            prices = data.get('prices', {})
+                            if prices:
+                                print(f"{symbol} - Last: {prices.get(4, 'N/A')}, Bid: {prices.get(1, 'N/A')}, Ask: {prices.get(2, 'N/A')}")
+            
+            # Unsubscribe from streaming data
+            service.unsubscribe_from_streaming_data(subscriptions)
+            print("Unsubscribed from streaming data")
+        
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
-    # Run example
+    # Run examples
     print("Running IBKR Futures Service examples...")
     example_basic_usage()
     print("\nRunning custom config example...")
     example_custom_config()
+    print("\nRunning streaming data example...")
+    example_streaming_data()
