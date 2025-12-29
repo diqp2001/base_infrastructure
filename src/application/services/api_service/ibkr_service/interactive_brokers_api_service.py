@@ -38,12 +38,7 @@ class InteractiveBrokersApiService():
             port: TWS/Gateway port (default: 7497 for paper trading, 7496 for live trading)
             client_id: Unique client ID for the session (default: 1)
         """
-        warnings.warn(
-            "InteractiveBrokersApiService is deprecated. Use "
-            "InteractiveBrokersBroker from misbuffet.brokers instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
+        
         
         
         

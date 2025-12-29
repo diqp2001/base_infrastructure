@@ -45,7 +45,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-class ComprehensiveIBMarketDataExamples:
+class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
     """
     Comprehensive examples demonstrating all Interactive Brokers market data capabilities.
     """
@@ -59,59 +59,9 @@ class ComprehensiveIBMarketDataExamples:
             port: IB Gateway/TWS port (7497 for paper, 7496 for live)
             client_id: Unique client ID
         """
-        self.config = {
-            'host': host,
-            'port': port,
-            'client_id': client_id,
-            'paper_trading': True,
-            'timeout': 60,
-            'account_id': 'DEFAULT'
-        }
-        
-        self.ib_api_service: Optional[InteractiveBrokersApiService] = None
-        self.broker: Optional[InteractiveBrokersBroker] = None
-        self.connected = False
+        super().__init__(host=host,port=port,client_id=client_id)
     
-    def connect_to_ib(self) -> bool:
-        """
-        Establish connection to Interactive Brokers using the API service.
-        
-        Returns:
-            True if connection successful
-        """
-        try:
-            logger.info("Connecting to Interactive Brokers...")
-            
-            # Create API service instance
-            self.ib_api_service = InteractiveBrokersApiService(
-                host=self.config['host'],
-                port=self.config['port'],
-                client_id=self.config['client_id']
-            )
-            
-            # Get the underlying broker from the API service
-            self.broker = self.ib_api_service.ib_broker
-            self.connected = self.broker.connect()
-            
-            if self.connected:
-                logger.info("✅ Successfully connected to Interactive Brokers")
-                return True
-            else:
-                logger.error("❌ Failed to connect to Interactive Brokers")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ Error connecting to IB: {e}")
-            return False
     
-    def disconnect_from_ib(self):
-        """Disconnect from Interactive Brokers."""
-        if self.broker and self.connected:
-            self.broker.disconnect()
-            self.connected = False
-            self.ib_api_service = None
-            self.broker = None
-            logger.info("Disconnected from Interactive Brokers")
     
     def example_live_market_data(self):
         """
@@ -130,15 +80,15 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Create contracts for different asset types
-            spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
             spy_contract.primaryExchange = "ARCA"
             
-            es_contract = self.broker.create_stock_contract("ES", "FUT", "CME")
+            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
             
             # Example 1a: Market Data Snapshots
             logger.info("📊 Getting market data snapshots...")
             
-            spy_snapshot = self.broker.get_market_data_snapshot(
+            spy_snapshot = self.ib_broker.get_market_data_snapshot(
                 contract=spy_contract,
                 generic_tick_list="225,232",  # Bid/Ask size, Auction data
                 snapshot=True,
@@ -154,7 +104,7 @@ class ComprehensiveIBMarketDataExamples:
             # Example 1b: Streaming Market Data
             logger.info("📈 Subscribing to streaming market data...")
             
-            subscription_id = self.broker.subscribe_market_data(es_contract, "225,232,236")
+            subscription_id = self.ib_broker.subscribe_market_data(es_contract, "225,232,236")
             
             if subscription_id > 0:
                 logger.info(f"Subscribed to ES futures streaming data (ID: {subscription_id})")
@@ -165,15 +115,16 @@ class ComprehensiveIBMarketDataExamples:
                     time.sleep(5)
                     
                     # Check for updated market data
-                    if hasattr(self.broker.ib_connection, 'market_data') and subscription_id in self.broker.ib_connection.market_data:
-                        data = self.broker.ib_connection.market_data[subscription_id]
+                    if hasattr(self.ib_broker.ib_connection, 'market_data') and subscription_id in self.ib_broker.ib_connection.market_data:
+                        data = self.ib_broker.ib_connection.market_data[subscription_id]
                         prices = data.get('prices', {})
                         if prices:
                             logger.info(f"ES Streaming - Last: {prices.get(4, 'N/A')}, Bid: {prices.get(1, 'N/A')}, Ask: {prices.get(2, 'N/A')}")
                 
                 # Unsubscribe
-                self.broker.unsubscribe_market_data(subscription_id)
+                self.ib_broker.unsubscribe_market_data(subscription_id)
                 logger.info("Unsubscribed from streaming data")
+            
             
         except Exception as e:
             logger.error(f"Error in live market data example: {e}")
@@ -195,13 +146,13 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Create contract for Apple stock
-            aapl_contract = self.broker.create_stock_contract("AAPL", "STK", "SMART")
+            aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
             aapl_contract.primaryExchange = "NASDAQ"
             
             # Example 2a: Daily bars for 1 month
             logger.info("📊 Fetching daily historical data for AAPL (1 month)...")
             
-            daily_bars = self.broker.get_historical_data(
+            daily_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
                 end_date_time="",  # Current time
                 duration_str="1 M",
@@ -226,7 +177,7 @@ class ComprehensiveIBMarketDataExamples:
             # Example 2b: Intraday 5-minute bars
             logger.info("📊 Fetching 5-minute historical data for AAPL (1 day)...")
             
-            minute_bars = self.broker.get_historical_data(
+            minute_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
                 duration_str="1 D",
                 bar_size_setting="5 mins",
@@ -241,11 +192,11 @@ class ComprehensiveIBMarketDataExamples:
                     logger.info(f"Latest 5-min bar: {latest['date']}, Close=${latest['close']}, Volume={latest['volume']}")
             
             # Example 2c: Futures historical data
-            es_contract = self.broker.create_stock_contract("ES", "FUT", "CME")
+            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
             
             logger.info("📊 Fetching weekly historical data for ES futures...")
             
-            weekly_bars = self.broker.get_historical_data(
+            weekly_bars = self.ib_broker.get_historical_data(
                 contract=es_contract,
                 duration_str="3 M",  # 3 months
                 bar_size_setting="1 week",
@@ -275,13 +226,13 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Create contract for a liquid stock
-            spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
             spy_contract.primaryExchange = "ARCA"
             
             # Get market depth data
             logger.info("📊 Fetching market depth for SPY...")
             
-            depth_data = self.broker.get_market_depth(spy_contract, num_rows=10, timeout=15)
+            depth_data = self.ib_broker.get_market_depth(spy_contract, num_rows=10, timeout=15)
             
             if depth_data and not depth_data.get('error'):
                 logger.info(f"Market depth for {depth_data['symbol']}:")
@@ -332,11 +283,11 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Example 4a: Stock contract details
-            aapl_contract = self.broker.create_stock_contract("AAPL", "STK", "SMART")
+            aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
             
             logger.info("📊 Fetching contract details for AAPL...")
             
-            aapl_details = self.broker.get_contract_details(aapl_contract, timeout=15)
+            aapl_details = self.ib_broker.get_contract_details(aapl_contract, timeout=15)
             
             if aapl_details:
                 logger.info(f"Found {len(aapl_details)} contract matches for AAPL")
@@ -352,11 +303,11 @@ class ComprehensiveIBMarketDataExamples:
                 logger.warning("No contract details received for AAPL")
             
             # Example 4b: Futures contract details
-            es_contract = self.broker.create_stock_contract("ES", "FUT", "CME")
+            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
             
             logger.info("📊 Fetching contract details for ES futures...")
             
-            es_details = self.broker.get_contract_details(es_contract, timeout=15)
+            es_details = self.ib_broker.get_contract_details(es_contract, timeout=15)
             
             if es_details:
                 logger.info(f"Found {len(es_details)} ES futures contracts")
@@ -396,7 +347,7 @@ class ComprehensiveIBMarketDataExamples:
             
             logger.info("📊 Running market scanner for top volume stocks...")
             
-            scanner_results = self.broker.get_market_scanner_results(scanner_sub, timeout=30)
+            scanner_results = self.ib_broker.get_market_scanner_results(scanner_sub, timeout=30)
             
             if scanner_results:
                 logger.info(f"Scanner found {len(scanner_results)} results:")
@@ -428,13 +379,13 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Create contract for delayed data test
-            msft_contract = self.broker.create_stock_contract("MSFT", "STK", "SMART")
+            msft_contract = self.ib_broker.create_stock_contract("MSFT", "STK", "SMART")
             msft_contract.primaryExchange = "NASDAQ"
             
             # Request delayed market data (15-minute delay)
             logger.info("📊 Requesting delayed market data for MSFT...")
             
-            success = self.broker.request_delayed_market_data(msft_contract, delay_type=3)
+            success = self.ib_broker.request_delayed_market_data(msft_contract, delay_type=3)
             
             if success:
                 logger.info("Delayed market data request sent successfully")
@@ -469,12 +420,12 @@ class ComprehensiveIBMarketDataExamples:
         
         try:
             # Create contract for news data
-            tsla_contract = self.broker.create_stock_contract("TSLA", "STK", "SMART")
+            tsla_contract = self.ib_broker.create_stock_contract("TSLA", "STK", "SMART")
             tsla_contract.primaryExchange = "NASDAQ"
             
             logger.info("📊 Requesting news data for TSLA...")
             
-            news_items = self.broker.get_news_data(tsla_contract, timeout=15)
+            news_items = self.ib_broker.get_news_data(tsla_contract, timeout=15)
             
             if news_items:
                 logger.info(f"Received {len(news_items)} news items for TSLA:")
@@ -498,7 +449,7 @@ class ComprehensiveIBMarketDataExamples:
         logger.info("=" * 60)
         
         # Connect to IB
-        if not self.connect_to_ib():
+        if not self.ib_broker.connect():
             logger.error("Cannot run examples - failed to connect to Interactive Brokers")
             return
         
@@ -532,7 +483,7 @@ class ComprehensiveIBMarketDataExamples:
             logger.error(f"Error running examples: {e}")
         finally:
             # Cleanup
-            self.disconnect_from_ib()
+            self.ib_broker._disconnect_impl()
             logger.info("\\n🏁 Examples session finished")
     
     def test_access_level_pipeline(self):
@@ -547,7 +498,7 @@ class ComprehensiveIBMarketDataExamples:
         logger.info("=" * 60)
         
         # Connect to IB
-        if not self.connect_to_ib():
+        if not self.ib_broker.connect():
             logger.error("❌ Cannot run access level tests - failed to connect to Interactive Brokers")
             return
         
@@ -570,7 +521,7 @@ class ComprehensiveIBMarketDataExamples:
             logger.info("\\n🔍 Test 1: Account Information Access")
             try:
                 if hasattr(self.broker, 'get_broker_specific_info'):
-                    account_info = self.broker.get_broker_specific_info()
+                    account_info = self.ib_broker.get_broker_specific_info()
                     if account_info and not account_info.get('error'):
                         test_results['account_info'] = {
                             'status': 'success', 
@@ -590,10 +541,10 @@ class ComprehensiveIBMarketDataExamples:
             # Test 2: Live Market Data Snapshots
             logger.info("\\n🔍 Test 2: Live Market Data Snapshots")
             try:
-                spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
+                spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
                 
-                snapshot = self.broker.get_market_data_snapshot(spy_contract, timeout=5)
+                snapshot = self.ib_broker.get_market_data_snapshot(spy_contract, timeout=5)
                 
                 if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
                     test_results['live_market_data'] = {
@@ -617,10 +568,10 @@ class ComprehensiveIBMarketDataExamples:
             # Test 3: Historical Data
             logger.info("\\n🔍 Test 3: Historical Data Access")
             try:
-                aapl_contract = self.broker.create_stock_contract("AAPL", "STK", "SMART")
+                aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
                 aapl_contract.primaryExchange = "NASDAQ"
                 
-                historical = self.broker.get_historical_data(
+                historical = self.ib_broker.get_historical_data(
                     contract=aapl_contract,
                     duration_str="5 D",
                     bar_size_setting="1 day",
@@ -644,10 +595,10 @@ class ComprehensiveIBMarketDataExamples:
             # Test 4: Market Depth (Level 2)
             logger.info("\\n🔍 Test 4: Market Depth (Level 2) Access")
             try:
-                spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
+                spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
                 
-                depth = self.broker.get_market_depth(spy_contract, num_rows=5, timeout=10)
+                depth = self.ib_broker.get_market_depth(spy_contract, num_rows=5, timeout=10)
                 
                 if depth and not depth.get('error') and (depth.get('bids') or depth.get('asks')):
                     bid_count = len(depth.get('bids', []))
@@ -668,8 +619,8 @@ class ComprehensiveIBMarketDataExamples:
             # Test 5: Contract Details
             logger.info("\\n🔍 Test 5: Contract Details Access")
             try:
-                spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
-                details = self.broker.get_contract_details(spy_contract, timeout=10)
+                spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
+                details = self.ib_broker.get_contract_details(spy_contract, timeout=10)
                 
                 if details and len(details) > 0:
                     test_results['contract_details'] = {
@@ -693,7 +644,7 @@ class ComprehensiveIBMarketDataExamples:
                 scanner_sub.scanCode = "TOP_VOLUME"
                 scanner_sub.numberOfRows = 10
                 
-                scanner_results = self.broker.get_market_scanner_results(scanner_sub, timeout=15)
+                scanner_results = self.ib_broker.get_market_scanner_results(scanner_sub, timeout=15)
                 
                 if scanner_results and len(scanner_results) > 0:
                     test_results['market_scanner'] = {
@@ -711,9 +662,9 @@ class ComprehensiveIBMarketDataExamples:
             # Test 7: Futures Data
             logger.info("\\n🔍 Test 7: Futures Data Access")
             try:
-                es_contract = self.broker.create_stock_contract("ES", "FUT", "CME")
+                es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
                 
-                futures_snapshot = self.broker.get_market_data_snapshot(es_contract, timeout=5)
+                futures_snapshot = self.ib_broker.get_market_data_snapshot(es_contract, timeout=5)
                 
                 if futures_snapshot and not futures_snapshot.get('error') and futures_snapshot.get('LAST'):
                     test_results['futures_data'] = {
@@ -732,10 +683,10 @@ class ComprehensiveIBMarketDataExamples:
             # Test 8: Streaming Data Subscriptions
             logger.info("\\n🔍 Test 8: Streaming Data Subscriptions")
             try:
-                spy_contract = self.broker.create_stock_contract("SPY", "STK", "SMART")
+                spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
                 
-                subscription_id = self.broker.subscribe_market_data(spy_contract, "")
+                subscription_id = self.ib_broker.subscribe_market_data(spy_contract, "")
                 
                 if subscription_id and subscription_id > 0:
                     # Brief wait to see if data flows
@@ -743,14 +694,14 @@ class ComprehensiveIBMarketDataExamples:
                     
                     # Check for streaming data
                     has_streaming_data = False
-                    if hasattr(self.broker, 'ib_connection') and hasattr(self.broker.ib_connection, 'market_data'):
-                        if subscription_id in self.broker.ib_connection.market_data:
-                            data = self.broker.ib_connection.market_data[subscription_id]
+                    if hasattr(self.broker, 'ib_connection') and hasattr(self.ib_broker.ib_connection, 'market_data'):
+                        if subscription_id in self.ib_broker.ib_connection.market_data:
+                            data = self.ib_broker.ib_connection.market_data[subscription_id]
                             if data and data.get('prices'):
                                 has_streaming_data = True
                     
                     # Unsubscribe
-                    self.broker.unsubscribe_market_data(subscription_id)
+                    self.ib_broker.unsubscribe_market_data(subscription_id)
                     
                     if has_streaming_data:
                         test_results['streaming_data'] = {
@@ -774,10 +725,10 @@ class ComprehensiveIBMarketDataExamples:
             # Test 9: News Data
             logger.info("\\n🔍 Test 9: News Data Access")
             try:
-                aapl_contract = self.broker.create_stock_contract("AAPL", "STK", "SMART")
+                aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
                 aapl_contract.primaryExchange = "NASDAQ"
                 
-                news_data = self.broker.get_news_data(aapl_contract, timeout=10)
+                news_data = self.ib_broker.get_news_data(aapl_contract, timeout=10)
                 
                 if news_data and len(news_data) > 0:
                     test_results['news_data'] = {
@@ -892,131 +843,11 @@ class ComprehensiveIBMarketDataExamples:
         logger.info("=" * 60)
 
 
-def main():
-    """
-    Main function to run the examples.
-    
-    Modify the connection parameters below to match your IB Gateway/TWS setup.
-    """
-    # Configuration - modify as needed
-    HOST = "127.0.0.1"      # IB Gateway/TWS host
-    PORT = 7497             # 7497 for paper trading, 7496 for live
-    CLIENT_ID = 1           # Unique client ID
-    
-    # Create examples instance
-    examples = ComprehensiveIBMarketDataExamples(
-        host=HOST,
-        port=PORT,
-        client_id=CLIENT_ID
-    )
-    
-    # Run all examples
-    examples.run_all_examples()
 
 
-def run_access_level_test():
-    """
-    Run only the access level test pipeline to determine what functionality is available.
-    This is useful for debugging and understanding current IB account capabilities.
-    """
-    # Configuration - modify as needed
-    HOST = "127.0.0.1"      # IB Gateway/TWS host  
-    PORT = 7497             # 7497 for paper trading, 7496 for live
-    CLIENT_ID = 1           # Unique client ID
-    
-    # Create examples instance
-    examples = ComprehensiveIBMarketDataExamples(
-        host=HOST,
-        port=PORT,
-        client_id=CLIENT_ID
-    )
-    
-    # Run access level test pipeline
-    examples.test_access_level_pipeline()
 
 
-if __name__ == "__main__":
-    import sys
-    
-    # Check command line arguments for test mode
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        run_access_level_test()
-    else:
-        main()
 
 
-# Additional utility functions for testing specific features
-
-def test_single_feature():
-    """
-    Function to test a single feature quickly.
-    Useful for development and debugging.
-    """
-    examples = ComprehensiveIBMarketDataExamples()
-    
-    if examples.connect_to_ib():
-        try:
-            # Test a specific feature here
-            # examples.example_live_market_data()
-            # examples.example_historical_data()
-            # examples.example_market_depth()
-            examples.example_contract_details()
-            
-        finally:
-            examples.disconnect_from_ib()
 
 
-def performance_test():
-    """
-    Performance test for market data retrieval.
-    Tests speed and reliability of various data requests.
-    """
-    examples = ComprehensiveIBMarketDataExamples()
-    
-    if examples.connect_to_ib():
-        try:
-            symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
-            start_time = time.time()
-            
-            logger.info(f"Performance test: fetching data for {len(symbols)} symbols...")
-            
-            for symbol in symbols:
-                contract = examples.broker.create_stock_contract(symbol, "STK", "SMART")
-                contract.primaryExchange = "NASDAQ"
-                
-                # Test snapshot speed
-                snapshot = examples.broker.get_market_data_snapshot(contract, timeout=5)
-                if snapshot and not snapshot.get('error'):
-                    logger.info(f"{symbol}: Last={snapshot.get('LAST', 'N/A')}")
-                
-                time.sleep(0.5)  # Rate limiting
-            
-            elapsed = time.time() - start_time
-            logger.info(f"Performance test completed in {elapsed:.2f} seconds")
-            
-        finally:
-            examples.disconnect_from_ib()
-
-
-# Example configurations for different use cases
-
-TRADING_CONFIG = {
-    'host': '127.0.0.1',
-    'port': 7496,  # Live trading port
-    'client_id': 1,
-    'paper_trading': False
-}
-
-PAPER_TRADING_CONFIG = {
-    'host': '127.0.0.1', 
-    'port': 7497,  # Paper trading port
-    'client_id': 1,
-    'paper_trading': True
-}
-
-DEVELOPMENT_CONFIG = {
-    'host': '127.0.0.1',
-    'port': 7497,
-    'client_id': 999,  # High client ID for development
-    'paper_trading': True
-}

@@ -12,7 +12,12 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Callable
 import logging
 
-from ..common import Symbol, Order, OrderEvent
+from application.services.misbuffet.algorithm.order import Order, OrderEvent
+from application.services.misbuffet.algorithm.symbol import Symbol
+#from application.services.misbuffet.common.symbol import Symbol
+from domain.entities.finance.holding.holding import Holding
+
+
 from ..engine.interfaces import IBrokerage
 
 
