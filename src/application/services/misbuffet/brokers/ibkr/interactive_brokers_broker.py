@@ -741,7 +741,6 @@ class InteractiveBrokersBroker(BaseBroker):
                     'low': bar['low'],
                     'close': bar['close'],
                     'volume': bar['volume'],
-                    'wap': bar['wap'],  # Weighted average price
                     'barCount': bar['barCount']
                 }
                 formatted_bars.append(formatted_bar)

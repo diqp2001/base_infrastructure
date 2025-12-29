@@ -264,7 +264,6 @@ class IBTWSClient(EWrapper, EClient):
             'low': bar.low,
             'close': bar.close,
             'volume': bar.volume,
-            'wap': bar.wap,
             'barCount': bar.barCount
         }
 

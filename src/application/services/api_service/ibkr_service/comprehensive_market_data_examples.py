@@ -447,11 +447,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         """
         logger.info("🚀 Starting Comprehensive IB Market Data Examples")
         logger.info("=" * 60)
+        if not self.connected:
+            self.ib_broker.connect()
+            self.connected = True
+
         
-        # Connect to IB
-        if not self.ib_broker.connect():
-            logger.error("Cannot run examples - failed to connect to Interactive Brokers")
-            return
         
         try:
             # Run all examples
@@ -461,19 +461,19 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             self.example_historical_data()
             time.sleep(2)
             
-            self.example_market_depth()
-            time.sleep(2)
+            #self.example_market_depth()
+            #time.sleep(2)
             
             self.example_contract_details()
             time.sleep(2)
             
-            self.example_market_scanner()
-            time.sleep(2)
+            #self.example_market_scanner()
+            #time.sleep(2)
             
             self.example_delayed_market_data()
             time.sleep(2)
             
-            self.example_news_data()
+            #self.example_news_data()
             
             logger.info("\\n✅ All examples completed successfully!")
             
