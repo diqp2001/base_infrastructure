@@ -45,6 +45,21 @@ class IBTWSClient(EWrapper, EClient):
 
         # Market data
         self.market_data = {}
+        
+        # Market depth data (Level 2)
+        self.market_depth = {}
+        
+        # Contract details storage
+        self.contract_details = {}
+        
+        # Market scanner results
+        self.scanner_results = {}
+        
+        # Market data subscriptions tracking
+        self.market_data_subscriptions = set()
+        
+        # News data storage
+        self.news_data = {}
 
         # Historical data
         self.historical_data = {}
@@ -264,6 +279,146 @@ class IBTWSClient(EWrapper, EClient):
     def headTimestamp(self, reqId: int, headTimestamp: str):
         """Head timestamp callback for historical data."""
         self.logger.info(f"Head timestamp for req {reqId}: {headTimestamp}")
+    
+    def updateMktDepth(self, reqId: TickerId, position: int, operation: int, side: int,
+                       price: float, size: int):
+        """Market depth (Level 2) callback."""
+        if reqId not in self.market_depth:
+            self.market_depth[reqId] = {
+                'bids': {},  # position -> {price, size}
+                'asks': {},
+                'last_update': None
+            }
+        
+        side_name = 'asks' if side == 0 else 'bids'  # 0=ask, 1=bid
+        
+        if operation == 0:  # Insert
+            self.market_depth[reqId][side_name][position] = {'price': price, 'size': size}
+        elif operation == 1:  # Update
+            if position in self.market_depth[reqId][side_name]:
+                self.market_depth[reqId][side_name][position]['size'] = size
+        elif operation == 2:  # Delete
+            self.market_depth[reqId][side_name].pop(position, None)
+        
+        self.market_depth[reqId]['last_update'] = datetime.now().isoformat()
+        self.logger.debug(f"Market depth update - Req {reqId}: {side_name} pos {position}, price {price}, size {size}")
+    
+    def updateMktDepthL2(self, reqId: TickerId, position: int, marketMaker: str, operation: int,
+                         side: int, price: float, size: int, isSmartDepth: bool):
+        """Market depth L2 callback with market maker information."""
+        if reqId not in self.market_depth:
+            self.market_depth[reqId] = {
+                'bids': {},
+                'asks': {},
+                'last_update': None
+            }
+        
+        side_name = 'asks' if side == 0 else 'bids'
+        
+        if operation == 0:  # Insert
+            self.market_depth[reqId][side_name][position] = {
+                'price': price, 'size': size, 'market_maker': marketMaker
+            }
+        elif operation == 1:  # Update
+            if position in self.market_depth[reqId][side_name]:
+                self.market_depth[reqId][side_name][position].update({
+                    'size': size, 'market_maker': marketMaker
+                })
+        elif operation == 2:  # Delete
+            self.market_depth[reqId][side_name].pop(position, None)
+        
+        self.market_depth[reqId]['last_update'] = datetime.now().isoformat()
+        self.logger.debug(f"L2 depth update - Req {reqId}: {side_name} pos {position}, MM {marketMaker}")
+    
+    def contractDetails(self, reqId: int, contractDetails):
+        """Contract details callback."""
+        if reqId not in self.contract_details:
+            self.contract_details[reqId] = []
+        
+        # Store contract details with key information
+        contract_info = {
+            'contract_id': contractDetails.contract.conId,
+            'symbol': contractDetails.contract.symbol,
+            'sec_type': contractDetails.contract.secType,
+            'exchange': contractDetails.contract.exchange,
+            'primary_exchange': contractDetails.contract.primaryExchange,
+            'currency': contractDetails.contract.currency,
+            'local_symbol': contractDetails.contract.localSymbol,
+            'trading_class': contractDetails.contract.tradingClass,
+            'market_name': contractDetails.marketName,
+            'min_tick': contractDetails.minTick,
+            'price_magnifier': contractDetails.priceMagnifier,
+            'order_types': contractDetails.orderTypes,
+            'valid_exchanges': contractDetails.validExchanges,
+            'time_zone_id': contractDetails.timeZoneId,
+            'trading_hours': contractDetails.tradingHours,
+            'liquid_hours': contractDetails.liquidHours
+        }
+        
+        self.contract_details[reqId].append(contract_info)
+        self.logger.info(f"Contract details received - Req {reqId}: {contractDetails.contract.symbol} ({contractDetails.contract.conId})")
+    
+    def contractDetailsEnd(self, reqId: int):
+        """Contract details end callback."""
+        details_count = len(self.contract_details.get(reqId, []))
+        self.logger.info(f"Contract details complete for req {reqId}: {details_count} contracts")
+    
+    def scannerData(self, reqId: int, rank: int, contractDetails, distance: str, 
+                    benchmark: str, projection: str, legsStr: str):
+        """Scanner data callback."""
+        if reqId not in self.scanner_results:
+            self.scanner_results[reqId] = []
+        
+        scanner_result = {
+            'rank': rank,
+            'contract': {
+                'symbol': contractDetails.contract.symbol,
+                'sec_type': contractDetails.contract.secType,
+                'exchange': contractDetails.contract.exchange,
+                'currency': contractDetails.contract.currency,
+                'local_symbol': contractDetails.contract.localSymbol
+            },
+            'distance': distance,
+            'benchmark': benchmark,
+            'projection': projection,
+            'legs': legsStr
+        }
+        
+        self.scanner_results[reqId].append(scanner_result)
+        self.logger.debug(f"Scanner result - Req {reqId}: Rank {rank}, {contractDetails.contract.symbol}")
+    
+    def scannerDataEnd(self, reqId: int):
+        """Scanner data end callback."""
+        results_count = len(self.scanner_results.get(reqId, []))
+        self.logger.info(f"Scanner data complete for req {reqId}: {results_count} results")
+    
+    def tickNews(self, tickerId: int, timeStamp: int, providerCode: str, articleId: str,
+                 headline: str, extraData: str):
+        """Tick news callback."""
+        if tickerId not in self.news_data:
+            self.news_data[tickerId] = []
+        
+        news_item = {
+            'timestamp': timeStamp,
+            'provider_code': providerCode,
+            'article_id': articleId,
+            'headline': headline,
+            'extra_data': extraData,
+            'received_at': datetime.now().isoformat()
+        }
+        
+        self.news_data[tickerId].append(news_item)
+        self.logger.debug(f"News received - Ticker {tickerId}: {headline[:50]}...")
+    
+    def tickReqParams(self, tickerId: int, minTick: float, bboExchange: str, snapshotPermissions: int):
+        """Tick request parameters callback."""
+        self.logger.debug(f"Tick params - Ticker {tickerId}: MinTick {minTick}, BBO Exchange {bboExchange}")
+    
+    def mktDepthExchanges(self, depthMktDataDescriptions):
+        """Market depth exchanges callback."""
+        self.logger.info(f"Market depth exchanges: {len(depthMktDataDescriptions)} available")
+        for desc in depthMktDataDescriptions:
+            self.logger.debug(f"Depth exchange: {desc.exchange} - {desc.secType} (Max depth: {desc.maxDepth})")
 
     # Custom methods
 
@@ -375,6 +530,11 @@ class IBTWSClient(EWrapper, EClient):
         # For paper trading, we often need to use snapshots
 
         self.reqMktData(req_id, contract, "", snapshot, False, [])
+        
+        # Track subscription if not snapshot
+        if not snapshot:
+            self.market_data_subscriptions.add(req_id)
+            
         self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
 
     def request_contract_details(self, req_id: int, contract: Contract) -> None:
@@ -388,11 +548,8 @@ class IBTWSClient(EWrapper, EClient):
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
 
-        """# Clear any previous results for this request id
+        # Clear any previous results for this request id
         self.contract_details.pop(req_id, None)
-
-        # Initialize empty list (IB may return multiple matches)
-        self.contract_details[req_id] = []"""
 
         # Send request
         self.reqContractDetails(req_id, contract)
@@ -401,6 +558,120 @@ class IBTWSClient(EWrapper, EClient):
             f"Requested contract details for {contract.symbol} "
             f"(req_id: {req_id}, type={contract.secType}, exch={contract.exchange})"
         )
+    
+    def request_market_depth(self, req_id: int, contract: Contract, num_rows: int = 5, 
+                            is_smart_depth: bool = False) -> None:
+        """
+        Request market depth (Level 2) data for a contract.
+        
+        Args:
+            req_id: Request identifier
+            contract: Contract to get depth for
+            num_rows: Number of depth rows to request (max 20)
+            is_smart_depth: Whether to use smart depth routing
+        """
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        
+        # Clear any existing depth data for this request
+        self.market_depth.pop(req_id, None)
+        
+        # Request market depth
+        self.reqMktDepth(req_id, contract, num_rows, is_smart_depth, [])
+        self.logger.info(f"Requested market depth for {contract.symbol} (req_id: {req_id}, rows: {num_rows})")
+    
+    def cancel_market_depth(self, req_id: int, is_smart_depth: bool = False) -> None:
+        """
+        Cancel market depth subscription.
+        
+        Args:
+            req_id: Request identifier to cancel
+            is_smart_depth: Whether this was smart depth
+        """
+        if not self.is_connected():
+            return
+        
+        self.cancelMktDepth(req_id, is_smart_depth)
+        self.market_depth.pop(req_id, None)
+        self.logger.info(f"Cancelled market depth subscription {req_id}")
+    
+    def request_scanner_subscription(self, req_id: int, scanner_subscription, scanner_subscription_options=None,
+                                   scanner_subscription_filter_options=None) -> None:
+        """
+        Request market scanner subscription.
+        
+        Args:
+            req_id: Request identifier
+            scanner_subscription: Scanner subscription parameters
+            scanner_subscription_options: Optional scanner options
+            scanner_subscription_filter_options: Optional filter options
+        """
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        
+        # Clear any existing scanner results
+        self.scanner_results.pop(req_id, None)
+        
+        # Request scanner data
+        opts = scanner_subscription_options or []
+        filter_opts = scanner_subscription_filter_options or []
+        
+        self.reqScannerSubscription(req_id, scanner_subscription, opts, filter_opts)
+        self.logger.info(f"Requested scanner subscription (req_id: {req_id})")
+    
+    def cancel_scanner_subscription(self, req_id: int) -> None:
+        """
+        Cancel market scanner subscription.
+        
+        Args:
+            req_id: Request identifier to cancel
+        """
+        if not self.is_connected():
+            return
+        
+        self.cancelScannerSubscription(req_id)
+        self.scanner_results.pop(req_id, None)
+        self.logger.info(f"Cancelled scanner subscription {req_id}")
+    
+    def request_scanner_parameters(self) -> None:
+        """
+        Request available scanner parameters.
+        This will trigger scannerParameters() callback with XML data.
+        """
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        
+        self.reqScannerParameters()
+        self.logger.info("Requested scanner parameters")
+    
+    def request_market_data_type(self, market_data_type: int) -> None:
+        """
+        Request market data type.
+        
+        Args:
+            market_data_type: 1=Live, 2=Frozen, 3=Delayed, 4=Delayed-Frozen
+        """
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        
+        self.reqMarketDataType(market_data_type)
+        data_types = {1: 'Live', 2: 'Frozen', 3: 'Delayed', 4: 'Delayed-Frozen'}
+        self.logger.info(f"Requested market data type: {data_types.get(market_data_type, market_data_type)}")
+    
+    def cancel_market_data(self, req_id: int) -> None:
+        """
+        Cancel market data subscription.
+        
+        Args:
+            req_id: Request identifier to cancel
+        """
+        if not self.is_connected():
+            return
+        
+        self.cancelMktData(req_id)
+        self.market_data.pop(req_id, None)
+        self.market_data_subscriptions.discard(req_id)
+        self.logger.info(f"Cancelled market data subscription {req_id}")
 
 
     def request_historical_data(self, req_id: int, contract: Contract, end_date_time: str = "",

@@ -404,34 +404,10 @@ class InteractiveBrokersBroker(BaseBroker):
         return market_open <= now <= market_close
     
     def get_order_book(self, symbol: str, depth: int = 5) -> Dict[str, Any]:
-        """Get order book (Level 2) data for a symbol."""
-        if not self.ib_connection or not self.ib_connection.is_connected():
-            self.logger.error("Cannot get order book - not connected to TWS")
-            return {}
-        
-        try:
-            # Create contract for the symbol
-            contract = self.ib_connection.create_contract(symbol)
-            
-            # Request Level 2 market data
-            req_id = hash(symbol) % 10000  # Simple req_id generation
-            self.ib_connection.reqMktDepth(req_id, contract, depth, False, [])
-            
-            # Wait for data (in real implementation, this would be callback-based)
-            time.sleep(2)
-            
-            # TODO: Implement proper order book data structure
-            # For now, return placeholder structure
-            return {
-                'symbol': symbol,
-                'bids': [],  # List of [price, size] pairs
-                'asks': [],  # List of [price, size] pairs
-                'timestamp': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting order book for {symbol}: {e}")
-            return {}
+        """Get order book (Level 2) data for a symbol (legacy method)."""
+        # Create contract and use the new get_market_depth method
+        contract = self.create_stock_contract(symbol)
+        return self.get_market_depth(contract, depth)
     
     def get_account_summary(self) -> Dict[str, Any]:
         """Get comprehensive account summary."""
@@ -780,3 +756,369 @@ class InteractiveBrokersBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
             return []
+    
+    def get_contract_details(self, contract: Contract, timeout: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get detailed contract information using Interactive Brokers API.
+        
+        Args:
+            contract: Contract object to get details for
+            timeout: Request timeout in seconds
+            
+        Returns:
+            List of contract details dictionaries
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return []
+        
+        try:
+            # Generate unique request ID
+            req_id = abs(hash(f"details_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            self.logger.info(f"Requesting contract details for {contract.symbol}")
+            
+            # Request contract details
+            self.ib_connection.request_contract_details(req_id, contract)
+            
+            # Wait for data completion
+            wait_interval = 0.5
+            total_waited = 0
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if contract details are available
+                contract_details = self.ib_connection.contract_details.get(req_id, [])
+                
+                if contract_details:
+                    # Wait a bit more to ensure completion
+                    if total_waited > 2:
+                        break
+                        
+                self.logger.debug(f"Waiting for contract details... {total_waited:.1f}s")
+            
+            # Get final contract details
+            final_details = self.ib_connection.contract_details.get(req_id, [])
+            
+            if not final_details:
+                self.logger.warning(f"No contract details received for {contract.symbol}")
+                return []
+            
+            self.logger.info(f"Contract details complete for {contract.symbol}: {len(final_details)} contracts")
+            
+            # Clean up stored data
+            self.ib_connection.contract_details.pop(req_id, None)
+            
+            return final_details
+            
+        except Exception as e:
+            self.logger.error(f"Error getting contract details for {contract.symbol}: {e}")
+            return []
+    
+    def get_market_depth(self, contract: Contract, num_rows: int = 5, timeout: int = 10) -> Dict[str, Any]:
+        """
+        Get market depth (Level 2) data for a contract.
+        
+        Args:
+            contract: Contract object to get depth for
+            num_rows: Number of depth rows (max 20)
+            timeout: Request timeout in seconds
+            
+        Returns:
+            Dictionary with bid/ask depth data
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return {}
+        
+        try:
+            # Generate unique request ID
+            req_id = abs(hash(f"depth_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            self.logger.info(f"Requesting market depth for {contract.symbol} ({num_rows} rows)")
+            
+            # Request market depth
+            self.ib_connection.request_market_depth(req_id, contract, num_rows, False)
+            
+            # Wait for data
+            wait_interval = 0.2
+            total_waited = 0
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if depth data is available
+                depth_data = self.ib_connection.market_depth.get(req_id, {})
+                
+                if depth_data and (depth_data.get('bids') or depth_data.get('asks')):
+                    break
+                    
+                self.logger.debug(f"Waiting for market depth... {total_waited:.1f}s")
+            
+            # Get final depth data
+            final_depth = self.ib_connection.market_depth.get(req_id, {})
+            
+            # Cancel subscription and cleanup
+            self.ib_connection.cancel_market_depth(req_id, False)
+            
+            if not final_depth:
+                self.logger.warning(f"No market depth data received for {contract.symbol}")
+                return {}
+            
+            # Format depth data for easier consumption
+            formatted_depth = {
+                'symbol': contract.symbol,
+                'bids': [],  # List of {price, size, position} sorted by price desc
+                'asks': [],  # List of {price, size, position} sorted by price asc
+                'last_update': final_depth.get('last_update'),
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Process bids (sorted by price descending)
+            bids = final_depth.get('bids', {})
+            for position, bid_data in sorted(bids.items(), key=lambda x: bid_data.get('price', 0), reverse=True):
+                formatted_depth['bids'].append({
+                    'position': position,
+                    'price': bid_data.get('price'),
+                    'size': bid_data.get('size'),
+                    'market_maker': bid_data.get('market_maker', '')
+                })
+            
+            # Process asks (sorted by price ascending)
+            asks = final_depth.get('asks', {})
+            for position, ask_data in sorted(asks.items(), key=lambda x: ask_data.get('price', float('inf'))):
+                formatted_depth['asks'].append({
+                    'position': position,
+                    'price': ask_data.get('price'),
+                    'size': ask_data.get('size'),
+                    'market_maker': ask_data.get('market_maker', '')
+                })
+            
+            self.logger.info(f"Market depth complete for {contract.symbol}: {len(formatted_depth['bids'])} bids, {len(formatted_depth['asks'])} asks")
+            return formatted_depth
+            
+        except Exception as e:
+            self.logger.error(f"Error getting market depth for {contract.symbol}: {e}")
+            return {}
+    
+    def get_market_scanner_results(self, scanner_subscription, timeout: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get market scanner results using Interactive Brokers API.
+        
+        Args:
+            scanner_subscription: Scanner subscription object with criteria
+            timeout: Request timeout in seconds
+            
+        Returns:
+            List of scanner result dictionaries
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return []
+        
+        try:
+            # Generate unique request ID
+            req_id = abs(hash(f"scanner_{datetime.now().timestamp()}")) % 10000
+            
+            self.logger.info("Requesting market scanner data")
+            
+            # Request scanner subscription
+            self.ib_connection.request_scanner_subscription(req_id, scanner_subscription)
+            
+            # Wait for data completion
+            wait_interval = 1.0
+            total_waited = 0
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if scanner results are available
+                scanner_results = self.ib_connection.scanner_results.get(req_id, [])
+                
+                if scanner_results:
+                    # Wait a bit more for potential additional results
+                    if total_waited > 5:  # Give at least 5 seconds for completion
+                        break
+                        
+                self.logger.debug(f"Waiting for scanner results... {total_waited:.1f}s")
+            
+            # Get final scanner results
+            final_results = self.ib_connection.scanner_results.get(req_id, [])
+            
+            # Cancel subscription and cleanup
+            self.ib_connection.cancel_scanner_subscription(req_id)
+            
+            if not final_results:
+                self.logger.warning("No scanner results received")
+                return []
+            
+            self.logger.info(f"Market scanner complete: {len(final_results)} results")
+            return final_results
+            
+        except Exception as e:
+            self.logger.error(f"Error getting scanner results: {e}")
+            return []
+    
+    def request_delayed_market_data(self, contract: Contract, delay_type: int = 3) -> bool:
+        """
+        Request delayed market data for a contract.
+        
+        Args:
+            contract: Contract to get delayed data for
+            delay_type: 3=Delayed, 4=Delayed-Frozen
+            
+        Returns:
+            True if request was successful
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return False
+        
+        try:
+            # Set market data type to delayed
+            self.ib_connection.request_market_data_type(delay_type)
+            
+            # Generate request ID and request market data
+            req_id = abs(hash(f"delayed_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            self.ib_connection.request_market_data(req_id, contract, snapshot=False)
+            
+            self.logger.info(f"Requested delayed market data for {contract.symbol} (type: {delay_type})")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error requesting delayed market data for {contract.symbol}: {e}")
+            return False
+    
+    def get_news_data(self, contract: Contract, timeout: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get news data for a contract (requires news subscription).
+        
+        Args:
+            contract: Contract to get news for
+            timeout: Request timeout in seconds
+            
+        Returns:
+            List of news items
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return []
+        
+        try:
+            # Generate request ID and request market data with news
+            req_id = abs(hash(f"news_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            # Request market data with news tick type (292)
+            self.ib_connection.reqMktData(req_id, contract, "292", False, False, [])
+            
+            self.logger.info(f"Requesting news data for {contract.symbol}")
+            
+            # Wait for news data
+            wait_interval = 0.5
+            total_waited = 0
+            
+            while total_waited < timeout:
+                time.sleep(wait_interval)
+                total_waited += wait_interval
+                
+                # Check if news data is available
+                news_data = self.ib_connection.news_data.get(req_id, [])
+                
+                if news_data:
+                    break
+                    
+                self.logger.debug(f"Waiting for news data... {total_waited:.1f}s")
+            
+            # Get final news data and cleanup
+            final_news = self.ib_connection.news_data.get(req_id, [])
+            self.ib_connection.cancelMktData(req_id)
+            
+            self.logger.info(f"News data complete for {contract.symbol}: {len(final_news)} items")
+            return final_news
+            
+        except Exception as e:
+            self.logger.error(f"Error getting news data for {contract.symbol}: {e}")
+            return []
+    
+    def subscribe_market_data(self, contract: Contract, generic_tick_list: str = "") -> int:
+        """
+        Subscribe to streaming market data for a contract.
+        
+        Args:
+            contract: Contract to subscribe to
+            generic_tick_list: Comma-separated tick types for additional data
+            
+        Returns:
+            Request ID for the subscription (use to cancel later)
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return -1
+        
+        try:
+            # Generate request ID
+            req_id = abs(hash(f"stream_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            
+            # Subscribe to streaming market data
+            self.ib_connection.reqMktData(req_id, contract, generic_tick_list, False, False, [])
+            
+            self.logger.info(f"Subscribed to market data for {contract.symbol} (req_id: {req_id})")
+            return req_id
+            
+        except Exception as e:
+            self.logger.error(f"Error subscribing to market data for {contract.symbol}: {e}")
+            return -1
+    
+    def unsubscribe_market_data(self, req_id: int) -> bool:
+        """
+        Cancel a market data subscription.
+        
+        Args:
+            req_id: Request ID returned from subscribe_market_data
+            
+        Returns:
+            True if cancellation was successful
+        """
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return False
+        
+        try:
+            self.ib_connection.cancel_market_data(req_id)
+            self.logger.info(f"Unsubscribed from market data (req_id: {req_id})")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error unsubscribing from market data (req_id: {req_id}): {e}")
+            return False
+    
+    def create_stock_contract(self, symbol: str, secType: str = "FUT", exchange: str = "CME") -> Contract:
+        """
+        Create a contract using the IBTWSClient method.
+        
+        Args:
+            symbol: Security symbol
+            secType: Security type (STK, FUT, OPT, etc.)
+            exchange: Exchange
+            
+        Returns:
+            Contract object
+        """
+        if self.ib_connection:
+            return self.ib_connection.create_contract(symbol, secType, exchange)
+        else:
+            # Fallback contract creation
+            contract = Contract()
+            contract.symbol = symbol
+            contract.secType = secType
+            contract.exchange = exchange
+            contract.currency = "USD"
+            return contract
+    
+    def get_active_market_data_subscriptions(self) -> List[int]:
+        """
+        Get list of active market data subscription IDs.
+        
+        Returns:
+            List of active subscription request IDs
+        """
+        if self.ib_connection:
+            return list(self.ib_connection.market_data_subscriptions)
+        return []
