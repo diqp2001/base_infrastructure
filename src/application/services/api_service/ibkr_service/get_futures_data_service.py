@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from ibapi.contract import Contract
 
 from src.application.services.api_service.ibkr_service.config_futures_service import IBKRFuturesServiceConfig
-from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
@@ -155,7 +155,7 @@ class IBKRFuturesDataService:
         # Use the misbuffet broker's create_stock_contract method which has been updated
         # to support futures contracts with the new signature
         if self.ib_broker and hasattr(self.ib_broker, 'ib_connection'):
-            return self.ib_broker.ib_connection.create_stock_contract(symbol, secType, exchange)
+            return self.ib_broker.ib_connection.create_contract(symbol, secType, exchange)
         else:
             # Fallback contract creation if broker not available
             contract = Contract()

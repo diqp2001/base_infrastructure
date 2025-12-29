@@ -6,7 +6,7 @@ allowing for multiple broker integrations with a consistent interface.
 """
 
 from .base_broker import BaseBroker, BrokerStatus, BrokerConnectionState
-from .interactive_brokers_broker import InteractiveBrokersBroker
+from .ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 __all__ = [
     'BaseBroker',

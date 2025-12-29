@@ -24,7 +24,7 @@ from .config_futures_service import (
 )
 
 # Import recommended misbuffet broker
-from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 __all__ = [
     # Core API service (deprecated - use InteractiveBrokersBroker instead)

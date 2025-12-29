@@ -22,7 +22,7 @@ class IBKRFuturesServiceConfig:
     host: str = "127.0.0.1"
     port: int = 7497  # Paper trading port
     client_id: int = 1
-    paper_trading: bool = True
+    paper_trading: bool = False
     
     # Update intervals (in seconds)
     update_interval: int = 300  # 5 minutes

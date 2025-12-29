@@ -12,7 +12,7 @@ from enum import Enum
 from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration
 
 from .base_broker import BaseBroker
-from .interactive_brokers_broker import InteractiveBrokersBroker
+from .ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 
 class SupportedBrokers(Enum):

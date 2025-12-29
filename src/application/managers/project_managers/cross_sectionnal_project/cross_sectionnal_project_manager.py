@@ -26,7 +26,7 @@ from src.application.managers.project_managers.project_manager import ProjectMan
 
 # Interactive Brokers integration
 from src.application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
-from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner

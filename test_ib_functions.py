@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from ibapi.contract import Contract
-from src.application.services.misbuffet.brokers.interactive_brokers_broker import InteractiveBrokersBroker
+from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 def create_test_contract(symbol: str = "AAPL") -> Contract:
     """Create a test contract."""
