@@ -486,6 +486,10 @@ class InteractiveBrokersBroker(BaseBroker):
                     self.logger.warning(f"Failed to resolve stock contract for {symbol}, using fallback")
                     resolved_contract = contract  # Use original as fallback
             
+            # Track the subscription for proper lifecycle management
+            if not use_snapshot:
+                self.ib_connection.market_data_subscriptions.add(req_id)
+                
             self.ib_connection.reqMktData(req_id, resolved_contract, "", use_snapshot, False, [])
             #self.ib_connection.request_contract_details(req_id=req_id,contract=contract)
             # Wait for data with progressive checks
@@ -509,11 +513,8 @@ class InteractiveBrokersBroker(BaseBroker):
             # Get final market data
             final_market_data = self.ib_connection.market_data.get(req_id, {})
             
-            # Cancel the subscription
-            try:
-                self.ib_connection.cancelMktData(req_id)
-            except Exception:
-                pass
+            # Cancel the subscription using proper lifecycle management
+            self.ib_connection.cancel_market_data(req_id)
             
             # If still no data and using snapshot, try streaming
             if not final_market_data and use_snapshot:
@@ -613,7 +614,10 @@ class InteractiveBrokersBroker(BaseBroker):
                 self.logger.warning("Snapshot mode cannot use generic ticks, switching to streaming mode")
                 snapshot = False
             
-            # Request market data with specified tick types
+            # Track subscription and request market data with specified tick types
+            if not snapshot:
+                self.ib_connection.market_data_subscriptions.add(req_id)
+                
             self.ib_connection.reqMktData(req_id, resolved_contract, final_generic_tick_list, snapshot, False, [])
             
             # Wait for data with progressive checks
@@ -630,11 +634,8 @@ class InteractiveBrokersBroker(BaseBroker):
                                       market_data.get('generic'), market_data.get('strings')]):
                     break
                     
-            # Cancel subscription
-            try:
-                self.ib_connection.cancelMktData(req_id)
-            except Exception:
-                pass
+            # Cancel subscription using proper lifecycle management
+            self.ib_connection.cancel_market_data(req_id)
             
             # Format response according to API specification
             final_data = self.ib_connection.market_data.get(req_id, {})
