@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, Iterator, List, Optional, Any, Type, Union
 
-from src.application.services.misbuffet.common.enums import Resolution
+from .enums import Resolution
 from .data_types import Slice, BaseData
 from .orders import OrderEvent, OrderTicket
 from .symbol import Symbol
