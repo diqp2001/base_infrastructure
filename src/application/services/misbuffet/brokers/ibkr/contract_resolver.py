@@ -148,35 +148,32 @@ class ContractResolver:
                 self.logger.error(f"No contract details found for futures {symbol}")
                 return None
             
-            # Find the front month contract (earliest expiry that hasn't expired)
-            today = datetime.now().strftime("%Y%m%d")
-            
-            # Extract contract objects and filter active contracts
+            # Fix Issue #2: Simple front-month resolution logic
+            # Extract valid contracts with proper expiry dates
             valid_contracts = []
+            
             for details in contract_details_list:
-                # Access the contract from details (contract_details contains metadata)
-                if hasattr(details, 'contract'):
-                    contract = details['contract'] if isinstance(details, dict) else details
-                    # Handle both dict and object formats
-                    if isinstance(contract, dict):
-                        expiry = contract.get('lastTradeDateOrContractMonth', '')
-                        local_symbol = contract.get('local_symbol', '')
-                    else:
-                        expiry = getattr(contract, 'lastTradeDateOrContractMonth', '')
-                        local_symbol = getattr(contract, 'local_symbol', '')
-                    
-                    if expiry >= today:  # Contract hasn't expired
-                        valid_contracts.append((expiry, contract))
+                # IB returns ContractDetails objects with .contract attribute
+                contract = details.contract if hasattr(details, 'contract') else details
+                expiry = contract.lastTradeDateOrContractMonth
+                local_symbol = getattr(contract, 'localSymbol', '')
+                
+                # Include all contracts that have an expiry (no filtering by date)
+                if expiry:
+                    valid_contracts.append((expiry, contract))
+                    self.logger.debug(f"Found contract: {local_symbol} expiry {expiry}")
             
             if not valid_contracts:
-                self.logger.error(f"No active futures contracts found for {symbol}")
+                self.logger.error(f"No futures contracts with expiry found for {symbol}")
                 return None
             
-            # Sort by expiry and get the front month
+            self.logger.info(f"Found {len(valid_contracts)} valid contracts for {symbol}")
+            
+            # Sort by expiry and get the front month (earliest expiry)
             valid_contracts.sort(key=lambda x: x[0])
             front_month_expiry, front_contract_data = valid_contracts[0]
             
-            # Create the resolved contract
+            # Create the resolved contract with critical futures fields
             resolved_contract = Contract()
             resolved_contract.symbol = symbol
             resolved_contract.secType = "FUT"
@@ -184,16 +181,19 @@ class ContractResolver:
             resolved_contract.currency = "USD"
             
             # Set the critical fields that make futures requests work
-            if isinstance(front_contract_data, dict):
-                resolved_contract.lastTradeDateOrContractMonth = front_contract_data.get('local_symbol', front_month_expiry)
-                resolved_contract.localSymbol = front_contract_data.get('local_symbol', '')
-            else:
-                resolved_contract.lastTradeDateOrContractMonth = front_month_expiry
-                resolved_contract.localSymbol = getattr(front_contract_data, 'local_symbol', '')
+            resolved_contract.lastTradeDateOrContractMonth = front_month_expiry
+            resolved_contract.localSymbol = getattr(front_contract_data, 'localSymbol', '')
+            
+            # Copy other important attributes from the resolved contract
+            if hasattr(front_contract_data, 'multiplier'):
+                resolved_contract.multiplier = front_contract_data.multiplier
+            if hasattr(front_contract_data, 'tradingClass'):
+                resolved_contract.tradingClass = front_contract_data.tradingClass
             
             # Cache and return the resolved contract
             self._cache_contract(cache_key, resolved_contract)
             self.logger.info(f"Resolved front month future: {symbol} -> {resolved_contract.localSymbol} (exp: {front_month_expiry})")
+            self.logger.debug(f"Contract details: exchange={resolved_contract.exchange}, multiplier={getattr(resolved_contract, 'multiplier', 'N/A')}")
             
             # Cleanup
             self.ib.contract_details.pop(req_id, None)
