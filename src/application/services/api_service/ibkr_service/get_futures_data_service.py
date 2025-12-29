@@ -23,7 +23,8 @@ from sqlalchemy.orm import Session
 from ibapi.contract import Contract
 
 from src.application.services.api_service.ibkr_service.config_futures_service import IBKRFuturesServiceConfig
-from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+from src.application.services.api_service.ibkr_service.interactive_brokers_api_service import InteractiveBrokersApiService
+from application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
@@ -82,8 +83,9 @@ class IBKRFuturesDataService:
         self.session = session
         self.config = config or IBKRFuturesServiceConfig.get_default_config()
         
-        # Initialize IBKR broker directly using misbuffet service
-        self.ib_broker: Optional[InteractiveBrokersBroker] = None
+        # Initialize IBKR broker using the API service wrapper
+        self.ib_api_service: Optional[InteractiveBrokersApiService] = None
+        self.ib_broker = None
         self.connected = False
         
         # Setup logging
@@ -101,7 +103,7 @@ class IBKRFuturesDataService:
     
     def connect_to_ibkr(self) -> bool:
         """
-        Establish connection to Interactive Brokers TWS/Gateway.
+        Establish connection to Interactive Brokers TWS/Gateway using the API service.
         
         Returns:
             True if connection successful, False otherwise
@@ -109,16 +111,22 @@ class IBKRFuturesDataService:
         try:
             logger.info(f"Connecting to IBKR at {self.config.host}:{self.config.port}")
             
-            # Create broker instance with configuration using misbuffet broker directly
-            connection_config = self.config.get_connection_config()
-            self.ib_broker = InteractiveBrokersBroker(connection_config)
+            # Create API service instance
+            self.ib_api_service = InteractiveBrokersApiService(
+                host=self.config.host,
+                port=self.config.port,
+                client_id=self.config.client_id
+            )
             
-            # Attempt connection
+            # Get the underlying misbuffet broker from the API service
+            self.ib_broker = self.ib_api_service.ib_broker
+            
+            # Attempt connection through the API service's broker
             self.connected = self.ib_broker.connect()
             self.stats['total_connections'] += 1
             
             if self.connected:
-                logger.info("✅ Successfully connected to IBKR via misbuffet broker")
+                logger.info("✅ Successfully connected to IBKR via API service")
                 return True
             else:
                 logger.error("❌ Failed to connect to IBKR")
@@ -136,13 +144,15 @@ class IBKRFuturesDataService:
                 logger.info("Disconnecting from IBKR...")
                 self.ib_broker.disconnect()
                 self.connected = False
+                self.ib_api_service = None
+                self.ib_broker = None
                 logger.info("✅ Disconnected from IBKR")
             except Exception as e:
                 logger.error(f"Error disconnecting from IBKR: {str(e)}")
     
     def create_futures_contract(self, symbol: str, secType: str = "FUT", exchange: str = "CME") -> Contract:
         """
-        Create a futures contract using the misbuffet broker's create_stock_contract method.
+        Create a futures contract using the API service broker's create_stock_contract method.
         
         Args:
             symbol: Futures symbol (e.g., 'ES', 'NQ')
@@ -152,10 +162,9 @@ class IBKRFuturesDataService:
         Returns:
             IBKR Contract object
         """
-        # Use the misbuffet broker's create_stock_contract method which has been updated
-        # to support futures contracts with the new signature
-        if self.ib_broker and hasattr(self.ib_broker, 'ib_connection'):
-            return self.ib_broker.ib_connection.create_contract(symbol, secType, exchange)
+        # Use the API service's underlying broker's create_stock_contract method
+        if self.ib_broker:
+            return self.ib_broker.create_stock_contract(symbol, secType, exchange)
         else:
             # Fallback contract creation if broker not available
             contract = Contract()
