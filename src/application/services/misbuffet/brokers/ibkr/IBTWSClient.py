@@ -502,13 +502,13 @@ class IBTWSClient(EWrapper, EClient):
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
 
-        # Use the actual managed account if available, otherwise use provided account
-        if hasattr(self, 'selected_account_id') and self.selected_account_id and account == "DEFAULT":
-            account = "Account:"+self.selected_account_id
-            self.logger.info(f"Using managed account ID: {account}")
-
+        # Fix Issue #1: IBKR does not accept account IDs in reqAccountSummary groupName
+        # Always use "All" as groupName instead of account-specific names
+        group_name = "All"
+        
         tags = "TotalCashValue,NetLiquidation,BuyingPower,DayTradesRemaining"
-        self.reqAccountSummary(1, account, tags)
+        self.reqAccountSummary(1, group_name, tags)
+        self.logger.info(f"Requesting account summary with groupName: {group_name}")
 
     def request_positions(self) -> None:
         """Request all positions."""
@@ -517,7 +517,7 @@ class IBTWSClient(EWrapper, EClient):
 
         self.reqPositions()
 
-    def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = False) -> None:
+    def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = False, generic_tick_list: str = "") -> None:
         """Request market data for a contract."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
@@ -525,16 +525,19 @@ class IBTWSClient(EWrapper, EClient):
         # Clear any existing market data for this request
         self.market_data.pop(req_id, None)
 
-        # Request market data with snapshot for immediate response
-        # For paper trading, we often need to use snapshots
+        # Fix Issue #2: snapshot=True cannot be used with genericTickList
+        # IBKR rule: Generic ticks require streaming mode
+        if snapshot and generic_tick_list:
+            self.logger.warning(f"Snapshot mode cannot use generic tick list '{generic_tick_list}'. Using snapshot with no ticks.")
+            generic_tick_list = ""
 
-        self.reqMktData(req_id, contract, "", snapshot, False, [])
+        self.reqMktData(req_id, contract, generic_tick_list, snapshot, False, [])
         
         # Track subscription if not snapshot
         if not snapshot:
             self.market_data_subscriptions.add(req_id)
             
-        self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot})")
+        self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot}, ticks: '{generic_tick_list}')")
 
     def request_contract_details(self, req_id: int, contract: Contract) -> None:
         """
@@ -667,10 +670,19 @@ class IBTWSClient(EWrapper, EClient):
         if not self.is_connected():
             return
         
-        self.cancelMktData(req_id)
+        # Fix Issue #4: Only cancel if subscription is active to avoid Error 300
+        if req_id in self.market_data_subscriptions or req_id in self.market_data:
+            try:
+                self.cancelMktData(req_id)
+                self.logger.info(f"Cancelled market data subscription {req_id}")
+            except Exception as e:
+                # Log but don't fail on cancellation errors (often harmless)
+                self.logger.debug(f"Cancellation warning for req_id {req_id}: {e}")
+        else:
+            self.logger.debug(f"No active subscription found for req_id {req_id}, skipping cancellation")
+        
         self.market_data.pop(req_id, None)
         self.market_data_subscriptions.discard(req_id)
-        self.logger.info(f"Cancelled market data subscription {req_id}")
 
 
     def request_historical_data(self, req_id: int, contract: Contract, end_date_time: str = "",
