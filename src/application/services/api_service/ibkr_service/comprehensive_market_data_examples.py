@@ -171,7 +171,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 bar_size_setting="5 mins",
                 what_to_show="TRADES",
                 use_rth=False,             # Futures trade nearly 24h
-                timeout=20                 # Increased timeout for debugging
+                timeout=30                 # Increased timeout for debugging
             )
 
             if not es_bars:
