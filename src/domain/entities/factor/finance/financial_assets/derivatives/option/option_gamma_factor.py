@@ -1,10 +1,12 @@
 import math
 from typing import Optional
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option_factor import CompanyShareOptionFactor
+
+from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
-class CompanyShareOptionVegaFactor(CompanyShareOptionFactor):
-    """Vega factor associated with a company share option."""
+
+class OptionGammaFactor(OptionFactor):
+    """Gamma factor associated with a company share option."""
 
     def __init__(
         self,
@@ -12,16 +14,16 @@ class CompanyShareOptionVegaFactor(CompanyShareOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Vega",
+            name="Option Gamma",
             group="Option Greek",
-            subgroup="Vega",
+            subgroup="Gamma",
             data_type="float",
             source="model",
-            definition="Sensitivity of option value to implied volatility.",
+            definition="Rate of change of Delta with respect to underlying price.",
             factor_id=factor_id,
             **kwargs,
         )
-    def calculate_vega(
+    def calculate_gamma(
             self,
             S: float,
             K: float,
@@ -35,5 +37,4 @@ class CompanyShareOptionVegaFactor(CompanyShareOptionFactor):
             if d1 is None:
                 return None
 
-            # Note: Vega is per % volatility change → multiply by 0.01 if needed
-            return S * self._norm_pdf(d1) * math.sqrt(T)
+            return self._norm_pdf(d1) / (S * sigma * math.sqrt(T))
