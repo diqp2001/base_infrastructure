@@ -666,10 +666,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         try:
             # Run all examples
-            self.example_sp500_future_historical_data()
-            time.sleep(2)
 
             self.example_TR_10_YR_future_historical_data()
+            time.sleep(2)
+            
+            self.example_sp500_future_historical_data()
             time.sleep(2)
 
             self.example_live_market_data()

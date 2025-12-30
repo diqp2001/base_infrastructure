@@ -2,23 +2,23 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from domain.entities.finance.financial_assets.derivatives.derivative import Derivative
 from domain.entities.finance.holding.position import Position
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from domain.entities.finance.portfolio.portfolio_derivative import PortfolioDerivative
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
 
 
 
-class PortfolioCompanyShareHolding(PortfolioHolding):
+class PortfolioDerivativeHolding(PortfolioHolding):
     """
-    CompanyShare held inside a PortfolioCompanyShare.
+    Derivative held inside a PortfolioDerivativeHolding.
     """
 
     def __init__(
         self,
         id: int,
-        asset: CompanyShare,
-        portfolio: PortfolioCompanyShare,
+        asset: Derivative,
+        portfolio: PortfolioDerivative,
         position: Position,
         start_date: datetime,
         end_date: Optional[datetime] = None,
