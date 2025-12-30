@@ -55,6 +55,47 @@ class BacktestRunner:
         # Misbuffet components (to be initialized when needed)
         self.misbuffet_engine = None
         self.algorithm = None
+
+    def train_models(self, tickers: List[str], model_type: str = 'both', seeds: List[int] = [42, 123]) -> Dict[str, Any]:
+        """
+        Train the gbm models.
+        
+        Args:
+            tickers: List of tickers to train on
+            model_type: 'gbm'
+            seeds: Random seeds for ensemble training
+            
+        Returns:
+            Training results
+        """
+        self.logger.info(f"Training gbm models ({model_type}) for {len(tickers)} tickers...")
+        
+        try:
+            # Execute complete training pipeline
+            training_results = self.model_trainer.train_complete_pipeline(
+                tickers=tickers,
+                model_type=model_type,
+                seeds=seeds
+            )
+            
+            if training_results and not training_results.get('error'):
+                self.logger.info("✅ Model training completed successfully")
+                return training_results
+            else:
+                error_msg = training_results.get('error', 'Unknown training error')
+                self.logger.error(f"❌ Model training failed: {error_msg}")
+                return {
+                    'error': error_msg,
+                    'success': False
+                }
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error during model training: {str(e)}")
+            return {
+                'error': str(e),
+                'success': False
+            }    
+        
     def setup_components(self, config: Dict[str, Any]) -> bool:
         """
         Set up all test_base_project components.

@@ -87,7 +87,6 @@ class Algorithm(QCAlgorithm):
 
         # Model storage - both ML models and traditional models
         self.models = {}  # Traditional RandomForest models per ticker
-        self.spatiotemporal_model = None  # Our TFT/MLP ensemble model
         self.ml_signal_generator = None
         
         # Data tracking for flexible data format handling
