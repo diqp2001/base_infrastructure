@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor
 
 
 

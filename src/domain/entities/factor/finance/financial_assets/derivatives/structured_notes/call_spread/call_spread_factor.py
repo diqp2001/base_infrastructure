@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.structured_notes.structured_note_factor import StructuredNoteFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.structured_notes.structured_note_factor import StructuredNoteFactor
 
 
 
