@@ -11,13 +11,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 
-from ..models.pricing_engine import CallSpreadPricingEngine
+from ..models.pricing_model import PricingModel
 from ..models.volatility_model import VolatilityModel
 
 logger = logging.getLogger(__name__)
 
 
-class CallSpreadMarketMakingStrategy:
+class Strategy:
     """
     Market making strategy for SPX call spreads.
     Implements systematic spread selection, pricing, and execution.
@@ -34,7 +34,7 @@ class CallSpreadMarketMakingStrategy:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize components
-        self.pricing_engine = CallSpreadPricingEngine()
+        self.pricing_engine = PricingModel()
         self.volatility_model = VolatilityModel()
         
         # Strategy state

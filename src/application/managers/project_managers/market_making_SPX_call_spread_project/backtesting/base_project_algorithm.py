@@ -9,15 +9,21 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
-from ..strategy.market_making_strategy import CallSpreadMarketMakingStrategy
+import pandas as pd
+
+from application.managers.project_managers.market_making_SPX_call_spread_project.config import get_config
+from application.services.misbuffet.algorithm.base import QCAlgorithm
+from application.services.misbuffet.algorithm.enums import Resolution
+
+from ..strategy.market_making_strategy import Strategy
 from ..strategy.risk_manager import RiskManager
-from ..models.pricing_engine import CallSpreadPricingEngine
+from ..models.pricing_model import PricingModel
 from ..models.volatility_model import VolatilityModel
 
 logger = logging.getLogger(__name__)
 
 
-class SPXCallSpreadAlgorithm:
+class Algorithm(QCAlgorithm):
     """
     SPX call spread market making algorithm.
     Implements systematic spread trading with risk management.
@@ -49,41 +55,106 @@ class SPXCallSpreadAlgorithm:
         self.total_trades = 0
         self.performance_history = []
     
-    def initialize(self, config: Dict[str, Any]):
-        """
-        Initialize the algorithm with configuration.
+    def initialize(self):
+        """Initialize the algorithm following MyAlgorithm pattern."""
+        # Call parent initialization first
+        super().initialize()
         
-        Args:
-            config: Algorithm configuration dictionary
+        # Load configuration
+        self.config = get_config()
+        
+        # Define universe and store Security objects
+        self.universe = ["SPX"]#self.config['DATA']['DEFAULT_UNIVERSE']
+        self.my_securities = {}  # Dictionary to store Security objects by ticker for easy lookup
+        
+        for ticker in self.universe:
+            try:
+                security = self.add_equity(ticker, Resolution.DAILY)
+                if security is not None:
+                    # Store in our custom dictionary for easy ticker-based lookup
+                    self.my_securities[ticker] = security
+                    self.log(f"Successfully added security: {ticker} -> {security.symbol}")
+                else:
+                    self.log(f"Warning: Failed to add security {ticker} - got None")
+            except Exception as e:
+                self.log(f"Error adding security {ticker}: {str(e)}")
+
+        # Algorithm parameters
+        self.lookback_window = 20   # volatility window
+        self.train_window = 252     # ~1 year
+        self.retrain_interval = timedelta(days=7)
+        self.last_train_time = None
+
+        # Model storage - both ML models and traditional models
+        self.models = {}  # Traditional RandomForest models per ticker
+        self.spatiotemporal_model = None  # Our TFT/MLP ensemble model
+        self.ml_signal_generator = None
+        
+        # Data tracking for flexible data format handling
+        self._current_data_frame = None
+        self._current_data_slice = None
+
+        
+        # Defer initial training until dependencies are injected
+        # This will be triggered by the first on_data() call or explicit training call
+        self._initial_training_completed = False
+
+    
+
+    # ---------------------------
+    # Features (Enhanced with factor system)
+    # ---------------------------
+
+
+   
+    def _setup_factor_data_for_ticker(self, ticker: str, current_time: datetime) -> pd.DataFrame:
+        """
+        Set up factor-based data for a specific ticker, similar to setup_factor_system.
+        
+        This replaces _prepare_features() and uses the comprehensive factor system
+        instead of basic technical analysis.
         """
         try:
-            self.logger.info("Initializing SPX call spread algorithm...")
+            self.log(f"Setting up factor data for {ticker}...")
             
-            # Store configuration
-            self.config = config
-            self.database_service = config.get('database_service')
+            # If we have a factor manager, use the comprehensive factor system
+            if hasattr(self, 'factor_manager') and self.factor_manager:
+                self.log(f"Using factor manager for {ticker} data...")
+                
+                # Ensure entity exists for this ticker
+                try:
+                    self.factor_manager._ensure_entities_exist([ticker])
+                except Exception as e:
+                    self.log(f"Warning: Could not ensure entities for {ticker}: {e}")
+                
+                # Get factor data for the training window
+                try:
+                    # Get comprehensive factor data including price, momentum, and technical factors
+                    factor_data = self.factor_manager.get_factor_data_for_training(
+                        tickers=[ticker],
+                        factor_groups=['price', 'momentum', 'technical'],
+                        lookback_days=self.train_window,
+                        end_date=current_time
+                    )
+                    
+                    if factor_data is not None and not factor_data.empty:
+                        self.log(f"Retrieved {len(factor_data)} factor data points for {ticker}")
+                        
+                        # Convert factor data to the format expected by the model
+                        df = self._convert_factor_data_to_training_format(factor_data, ticker)
+                        if not df.empty:
+                            return df
+                    else:
+                        self.log(f"No factor data available for {ticker}, falling back to basic features")
+                except Exception as e:
+                    self.log(f"Error getting factor data for {ticker}: {e}")
+                
             
-            # Initialize portfolio
-            self.portfolio_value = config.get('initial_capital', 100000)
-            self.cash = self.portfolio_value
-            
-            # Initialize components
-            self.strategy = CallSpreadMarketMakingStrategy(config)
-            self.risk_manager = RiskManager(config)
-            self.pricing_engine = CallSpreadPricingEngine()
-            self.volatility_model = VolatilityModel()
-            
-            # Algorithm parameters
-            self.max_positions = config.get('max_position_size', 10)
-            self.target_allocation = config.get('target_allocation', 0.8)  # 80% of capital
-            
-            self.initialized = True
-            self.logger.info("✅ SPX call spread algorithm initialized")
             
         except Exception as e:
-            self.logger.error(f"Error initializing algorithm: {e}")
-            self.initialized = False
-            raise
+            self.log(f"Error setting up factor data for {ticker}: {str(e)}")
+            # Return empty DataFrame to trigger fallback logic
+            return pd.DataFrame()
     
     def on_data(self, data: Dict[str, Any]):
         """
@@ -361,3 +432,22 @@ class SPXCallSpreadAlgorithm:
                 'error': str(e),
                 'initialized': self.initialized,
             }
+        
+        # Event handlers are inherited from QCAlgorithm base class
+    
+    def set_factor_manager(self, factor_manager):
+        """Inject factor manager from the BacktestRunner."""
+        self.factor_manager = factor_manager
+        self.log("✅ Factor manager injected successfully")
+        
+    
+    def set_trainer(self, trainer):
+        """Inject  trainer from the BacktestRunner."""
+        self.trainer = trainer
+        self.log("✅  trainer injected successfully")
+    
+    def set_strategy(self, strategy):
+        """Inject momentum strategy from the BacktestRunner."""
+        self.strategy = strategy
+        self.log("✅ Momentum strategy injected successfully")
+    

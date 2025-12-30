@@ -18,7 +18,7 @@ from src.infrastructure.models.finance.financial_assets.company_share import Com
 logger = logging.getLogger(__name__)
 
 
-class SPXDataLoader:
+class DataLoader:
     """
     Data loader for SPX index data and option chains.
     Handles both database queries and IBKR API calls.

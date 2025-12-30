@@ -13,6 +13,12 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
+from application.managers.project_managers.market_making_SPX_call_spread_project.backtesting.base_project_algorithm import Algorithm
+from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
+from application.managers.project_managers.market_making_SPX_call_spread_project.models.model_trainer import ModelTrainer
+from application.managers.project_managers.market_making_SPX_call_spread_project.strategy.market_making_strategy import Strategy
+from application.services.misbuffet import Misbuffet
+from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
 from src.application.services.database_service.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -34,6 +40,12 @@ class BacktestRunner:
         self.database_service = database_service
         self.logger = logging.getLogger(self.__class__.__name__)
         
+        # Initialize components
+        self.factor_manager = FactorManager(self.database_service)
+        self.model_trainer = None
+        self.momentum_strategy = None
+        self.algorithm_instance = None
+
         # Backtest state
         self.is_running = False
         self.backtest_thread = None
@@ -43,11 +55,35 @@ class BacktestRunner:
         # Misbuffet components (to be initialized when needed)
         self.misbuffet_engine = None
         self.algorithm = None
-    
+    def setup_components(self, config: Dict[str, Any]) -> bool:
+        """
+        Set up all test_base_project components.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            True if setup successful, False otherwise
+        """
+        try:
+            self.logger.info("Setting up test_base_project components...")
+            
+            # Initialize model trainer
+            self.model_trainer = ModelTrainer(self.database_service)
+            self.logger.info("✅ Model trainer initialized")
+            
+            # Initialize momentum strategy
+            self.strategy = Strategy( config)
+            self.logger.info("✅ Momentum strategy initialized")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error setting up components: {str(e)}")
+            return False
     def run_backtest(
         self,
-        config: Dict[str, Any],
-        algorithm_class: type
+        config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Run a backtest with the specified configuration and algorithm.
@@ -63,12 +99,16 @@ class BacktestRunner:
             self.logger.info("Starting SPX call spread backtest...")
             
             # Initialize backtest parameters
-            start_date = config.get('backtest_start', '2023-01-01')
-            end_date = config.get('backtest_end', '2024-12-31')
+            model_type = "pricing"
+            tickers = ["SPX"]
+            start_date = config.get('backtest_start', '2025-07-01')
+            end_date = config.get('backtest_end', '2025-12-31')
             initial_capital = config.get('initial_capital', 100000)
+
+            if not self.setup_components(config):
+                raise Exception("Component setup failed")
             
-            # Create algorithm instance
-            self.algorithm = algorithm_class()
+            
             
             # Configure algorithm
             algorithm_config = {
@@ -79,22 +119,86 @@ class BacktestRunner:
                 **config
             }
             
-            # Initialize algorithm
-            self.algorithm.initialize(algorithm_config)
+            
             
             # Run backtest simulation
             self.is_running = True
             self.progress = 0
             
-            results = self._execute_backtest_simulation(
-                start_date, end_date, initial_capital
+            self.logger.info("🔧 Creating configured algorithm instance...")
+            configured_algorithm = self.create_algorithm_instance()
+            
+            # Step 5: Configure Misbuffet launcher
+            self.logger.info("🔧 Configuring Misbuffet framework...")
+            
+            # Launch Misbuffet with config file path (not dictionary)
+            misbuffet = Misbuffet.launch(config_file="launch_config.py")
+            
+            # Configure engine with LauncherConfiguration
+            launcher_config = LauncherConfiguration(
+                mode=LauncherMode.BACKTESTING,
+                algorithm_type_name="Algorithm",
+                algorithm_location=__file__,
+                data_folder="",
+                environment="backtesting",
+                live_mode=False,
+                debugging=True
             )
             
-            self.results = results
+            # Override with custom config values
+            launcher_config.custom_config = {
+                'start_date': start_date,
+                'end_date': end_date,
+                'initial_capital': initial_capital,
+                'tickers': tickers,
+                'model_type': model_type
+            }
+            
+            # Pass the configured algorithm INSTANCE (not class) for Misbuffet to use
+            launcher_config.algorithm = configured_algorithm
+            
+            # Add database manager and other dependencies for real data access
+            launcher_config.database_service = self.database_service
+            launcher_config.factor_manager = self.factor_manager
+            launcher_config.model_trainer = self.model_trainer
+            launcher_config.momentum_strategy = self.momentum_strategy
+            
+            # Step 6: Start engine and run backtest
+            self.logger.info("🚀 Starting backtest engine...")
+            engine = misbuffet.start_engine(config_file="engine_config.py")
+            
+            self.logger.info("📊 Executing backtest algorithm...")
+            result = engine.run(launcher_config)
+            
+            # Step 7: Process results
+            end_time = datetime.now()
+            elapsed_time = (end_time - start_time).total_seconds()
+            
+            backtest_summary = {
+                'backtest_config': {
+                    'tickers': tickers,
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'initial_capital': initial_capital,
+                    'model_type': model_type
+                },
+                'factor_system': factor_results if setup_factors else None,
+                #'model_training': training_results,
+                'misbuffet_result': result.summary() if result else None,
+                'execution_time': elapsed_time,
+                'success': True,
+                'timestamp': end_time.isoformat()
+            }
+            
+            self.logger.info(f"✅ Backtest completed successfully in {elapsed_time:.2f} seconds")
+            if result:
+                self.logger.info(f"📈 Result summary: {result.summary()}")
+            
+            self.results = backtest_summary
             self.is_running = False
             
             self.logger.info("✅ SPX call spread backtest completed")
-            return results
+            return backtest_summary
             
         except Exception as e:
             self.logger.error(f"Error running backtest: {e}")
@@ -104,7 +208,44 @@ class BacktestRunner:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat(),
             }
-    
+    def create_algorithm_instance(self) -> Algorithm:
+        """
+        Create and configure the algorithm instance.
+        
+        Returns:
+            Configured BaseProjectAlgorithm instance
+        """
+        try:
+            # Create algorithm instance
+            algorithm = Algorithm()
+            
+            # Always inject our components - ensure they are not None
+            if self.factor_manager:
+                algorithm.set_factor_manager(self.factor_manager)
+                self.logger.info("✅ Factor manager injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Factor manager is None - algorithm will have limited functionality")
+            
+            if self.model_trainer:
+                algorithm.set_trainer(self.model_trainer)
+                self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Model trainer is None")
+            
+            if self.strategy:
+                algorithm.set_strategy(self.strategy)
+                self.logger.info("✅ strategy injected into algorithm")
+            else:
+                self.logger.warning("⚠️ Momentum strategy is None")
+            
+            self.algorithm_instance = algorithm
+            self.logger.info("✅ Algorithm instance created and configured")
+            
+            return algorithm
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error creating algorithm instance: {str(e)}")
+            raise
     def run_backtest_async(
         self,
         config: Dict[str, Any],

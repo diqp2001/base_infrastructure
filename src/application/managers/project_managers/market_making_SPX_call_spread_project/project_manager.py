@@ -10,6 +10,8 @@ import mlflow.sklearn
 import mlflow.pytorch
 
 # Base classes
+from application.managers.project_managers.market_making_SPX_call_spread_project.data.data_loader import DataLoader
+from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.managers.project_managers.project_manager import ProjectManager
 
@@ -19,11 +21,10 @@ from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker impo
 
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner
-from .backtesting.base_project_algorithm import BaseProjectAlgorithm
+
 
 # Data components
 
-from .data.factor_manager import FactorEnginedDataManager
 
 
 
@@ -52,12 +53,12 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
         Initialize the Test Base Project Manager following TestProjectBacktestManager pattern.
         """
         super().__init__()
-        
+        self.config=get_config()
         # Initialize required managers - use TEST config like test_project_backtest
         self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         self.database_service.set_ext_db()
         # Initialize core components
-        self.factor_manager = FactorEnginedDataManager(self.database_service)
+        self.factor_manager = FactorManager(self.database_service)
         # Backtesting components
         self.backtest_runner = BacktestRunner(self.database_service)
         self.algorithm = None
@@ -99,11 +100,8 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
     def run(
         self,
         initial_capital: float = 100000,
-        start_date: str = "2023-01-01",
-        end_date: str = "2024-12-31",
-        check_data: bool = True,
-        import_data: bool = True,
-        run_backtest: bool = True,
+        start_date: str = "2025-08-01",
+        end_date: str = "2025-12-31",
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -132,9 +130,6 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
                 'initial_capital': initial_capital,
                 'start_date': start_date,
                 'end_date': end_date,
-                'check_data': check_data,
-                'import_data': import_data,
-                'run_backtest': run_backtest,
                 **kwargs
             })
             
@@ -150,35 +145,35 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             }
             
             # Stage 1: Data Verification and Import
-            if check_data or import_data:
-                data_stage = self._run_data_stage(import_data)
-                pipeline_results['stages']['data_stage'] = data_stage
-                
-                if not data_stage.get('success', False) and not data_stage.get('data_available', False):
-                    raise Exception("Data stage failed and no data available")
+            
+            # data_stage = self._run_data_stage(import_data=None)
+            # pipeline_results['stages']['data_stage'] = data_stage
+            
+            # if not data_stage.get('success', False) and not data_stage.get('data_available', False):
+            #     raise Exception("Data stage failed and no data available")
             
             # Stage 2: Market Making Strategy Setup
-            strategy_stage = self._run_strategy_setup_stage()
-            pipeline_results['stages']['strategy_stage'] = strategy_stage
+            # strategy_stage = self._run_strategy_setup_stage()
+            # pipeline_results['stages']['strategy_stage'] = strategy_stage
             
-            # Stage 3: Backtesting (if requested)
-            if run_backtest:
-                backtest_stage = self._run_backtest_stage(initial_capital, start_date, end_date)
-                pipeline_results['stages']['backtest_stage'] = backtest_stage
+            
+            
+            backtest_stage = self._run_backtest_stage(initial_capital, start_date, end_date)
+            pipeline_results['stages']['backtest_stage'] = backtest_stage
+            
+            # Log backtest metrics
+            if backtest_stage.get('success', False):
+                results = backtest_stage.get('results', {})
+                performance = results.get('performance_metrics', {})
                 
-                # Log backtest metrics
-                if backtest_stage.get('success', False):
-                    results = backtest_stage.get('results', {})
-                    performance = results.get('performance_metrics', {})
-                    
-                    mlflow.log_metrics({
-                        'total_return': performance.get('total_return', 0),
-                        'sharpe_ratio': performance.get('sharpe_ratio', 0),
-                        'max_drawdown': performance.get('max_drawdown', 0),
-                        'win_rate': performance.get('win_rate', 0),
-                    })
+                mlflow.log_metrics({
+                    'total_return': performance.get('total_return', 0),
+                    'sharpe_ratio': performance.get('sharpe_ratio', 0),
+                    'max_drawdown': performance.get('max_drawdown', 0),
+                    'win_rate': performance.get('win_rate', 0),
+                })
             
-            # Stage 4: Results Compilation
+            
             results_stage = self._compile_final_results(pipeline_results)
             pipeline_results['stages']['results_stage'] = results_stage
             
@@ -211,9 +206,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
         try:
             self.logger.info("📊 Running Data Stage...")
             
-            from .data.data_loader import SPXDataLoader
-            
-            data_loader = SPXDataLoader(self.database_service)
+            data_loader = DataLoader(self.database_service)
             
             # Check data availability
             data_check = data_loader.check_spx_data_availability()
@@ -250,14 +243,14 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             self.logger.info("⚙️ Setting up Market Making Strategy...")
             
             # Initialize strategy components
-            from .strategy.market_making_strategy import CallSpreadMarketMakingStrategy
+            from .strategy.market_making_strategy import Strategy
             from .strategy.risk_manager import RiskManager
-            from .models.pricing_engine import CallSpreadPricingEngine
+            from .models.pricing_model import PricingModel
             from .models.volatility_model import VolatilityModel
             
-            strategy = CallSpreadMarketMakingStrategy(self.config)
+            strategy = Strategy(self.config)
             risk_manager = RiskManager(self.config)
-            pricing_engine = CallSpreadPricingEngine()
+            pricing_engine = PricingModel()
             volatility_model = VolatilityModel()
             
             # Store references
@@ -296,7 +289,6 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             self.logger.info("🎯 Running Backtest Stage...")
             
             from .backtesting.backtest_runner import BacktestRunner
-            from .backtesting.base_project_algorithm import SPXCallSpreadAlgorithm
             
             # Initialize backtest runner
             runner = BacktestRunner(self.database_service)
@@ -310,7 +302,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             }
             
             # Run backtest
-            backtest_results = runner.run_backtest(backtest_config, SPXCallSpreadAlgorithm)
+            backtest_results = runner.run_backtest(backtest_config)
             
             return {
                 'success': backtest_results.get('success', False),

@@ -4,6 +4,7 @@ from cProfile import Profile
 from pstats import SortKey, Stats
 
 
+from application.managers.project_managers.market_making_SPX_call_spread_project.project_manager import MarketMakingSPXCallSpreadProjectManager
 from application.services.api_service.ibkr_service.comprehensive_market_data_examples import ComprehensiveIBMarketDataExamples
 from src.application.managers.project_managers.cross_sectionnal_project.cross_sectionnal_project_manager import CrossSectionnal
 from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
@@ -25,8 +26,9 @@ if __name__ == '__main__':
     #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
     #TestBaseProjectManager().run()
     #CrossSectionnal().run()
-    ibkr_service = ComprehensiveIBMarketDataExamples()
-    ibkr_service.run_all_examples()
+    # ibkr_service = ComprehensiveIBMarketDataExamples()
+    # ibkr_service.run_all_examples()
+    MarketMakingSPXCallSpreadProjectManager().run()
 
    
     

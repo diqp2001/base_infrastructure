@@ -2,14 +2,18 @@
 Configuration settings for Market Making SPX Call Spread Project
 """
 
+from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
-
+# Base configuration
+BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
+DATA_PATH = BASE_PROJECT_ROOT / "data"
 # Database Configuration
 CONFIG_TEST = {
-    'DB_TYPE': 'test',
-    'DB_NAME': 'test_database.db',
-    'DB_PATH': 'data/test_database.db'
+    'DB_TYPE': 'sql_server',
+    
+    'DB_PATH': BASE_PROJECT_ROOT / 'base_infrastructure.db',
+    'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db'
 }
 
 # Default configuration for market making SPX call spread project

@@ -2,7 +2,7 @@
 Model components for Market Making SPX Call Spread Project
 """
 
-from .pricing_engine import CallSpreadPricingEngine
+from .pricing_model import PricingModel
 from .volatility_model import VolatilityModel
 
-__all__ = ['CallSpreadPricingEngine', 'VolatilityModel']
+__all__ = ['PricingModel', 'VolatilityModel']

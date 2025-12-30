@@ -16,7 +16,7 @@ from src.application.services.database_service.database_service import DatabaseS
 logger = logging.getLogger(__name__)
 
 
-class SPXFactorManager:
+class FactorManager:
     """
     Factor manager for SPX market making strategies.
     Handles creation, calculation, and storage of factors related to SPX trading.

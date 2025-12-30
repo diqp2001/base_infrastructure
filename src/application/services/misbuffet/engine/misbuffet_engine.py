@@ -413,7 +413,7 @@ class MisbuffetEngine(BaseEngine):
         data_points_processed = 0
         
         # Track universe of symbols the algorithm is interested in
-        universe = getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
+        universe = getattr(self.algorithm, 'universe')
         
         # Configurable simulation loop - process data at specified intervals
         while current_date <= end_date:
