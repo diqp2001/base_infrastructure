@@ -144,17 +144,8 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
                 'success': False,
             }
             
-            # Stage 1: Data Verification and Import
-            
-            # data_stage = self._run_data_stage(import_data=None)
-            # pipeline_results['stages']['data_stage'] = data_stage
-            
-            # if not data_stage.get('success', False) and not data_stage.get('data_available', False):
-            #     raise Exception("Data stage failed and no data available")
-            
-            # Stage 2: Market Making Strategy Setup
-            # strategy_stage = self._run_strategy_setup_stage()
-            # pipeline_results['stages']['strategy_stage'] = strategy_stage
+            # Data verification and strategy setup are now handled in Algorithm.on_data()
+            # This simplifies the pipeline and follows the requested architecture
             
             
             
@@ -201,41 +192,9 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             if self.mlflow_run:
                 mlflow.end_run()
     
-    def _run_data_stage(self, import_if_missing: bool = True) -> Dict[str, Any]:
-        """Run the data verification and import stage."""
-        try:
-            self.logger.info("📊 Running Data Stage...")
-            
-            data_loader = DataLoader(self.database_service)
-            
-            # Check data availability
-            data_check = data_loader.check_spx_data_availability()
-            has_data = data_check.get('has_spx_data', False)
-            
-            import_results = None
-            
-            # Import data if missing and requested
-            if not has_data and import_if_missing:
-                self.logger.info("💾 Importing SPX data...")
-                import_results = data_loader.import_spx_historical_data()
-                has_data = import_results.get('success', False)
-            
-            return {
-                'success': True,
-                'data_check': data_check,
-                'import_results': import_results,
-                'data_available': has_data,
-                'stage_timestamp': datetime.now().isoformat(),
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error in data stage: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'data_available': False,
-                'stage_timestamp': datetime.now().isoformat(),
-            }
+    # _run_data_stage method removed - functionality moved to Algorithm.on_data()
+    # This follows the requested architecture where data verification and import
+    # are handled within the algorithm's on_data method
     
     def _run_strategy_setup_stage(self) -> Dict[str, Any]:
         """Run the strategy setup stage."""

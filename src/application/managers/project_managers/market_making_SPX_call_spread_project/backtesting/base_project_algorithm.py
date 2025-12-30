@@ -158,26 +158,64 @@ class Algorithm(QCAlgorithm):
     def on_data(self, data: Dict[str, Any]):
         """
         Main algorithm logic called on each data update.
+        Enhanced to include data stage functionality and model training integration.
         
         Args:
-            data: Market data dictionary containing prices, volatility, etc.
+            data: Market data dictionary containing date/time and basic market info
         """
         try:
             if not self.initialized:
                 self.logger.warning("Algorithm not initialized")
                 return
             
+            # ============================
+            # DATA STAGE - Moved from ProjectManager
+            # ============================
+            # Step 1: Verify and ensure SPX data exists
+            if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_data_verified'):
+                self.logger.info("🔍 Verifying SPX data availability...")
+                data_verification_result = self._verify_and_import_spx_data()
+                
+                if not data_verification_result.get('success', False):
+                    self.logger.error("❌ Data verification failed - cannot proceed with trading")
+                    return
+                self._data_verified = True
+                self.logger.info("✅ SPX data verified and available")
+            
+            # Step 2: Execute model training pipeline for data creation and verification
+            if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_model_trained'):
+                self.logger.info("🚀 Running model training pipeline for data preparation...")
+                training_result = self.trainer.train_complete_pipeline(
+                    tickers=self.universe,
+                    model_type='pricing',  # Use pricing models for SPX options
+                    seeds=[42, 123]
+                )
+                
+                if training_result.get('error'):
+                    self.logger.error(f"❌ Model training failed: {training_result['error']}")
+                    return
+                
+                self._model_trained = True
+                self.logger.info("✅ Model training pipeline completed successfully")
+            
+            # ============================
+            # MARKET MAKING LOGIC
+            # ============================
             # Update portfolio tracking
             self._update_portfolio_value(data)
             
-            # Analyze market conditions
-            market_analysis = self.strategy.analyze_market_conditions(data)
+            # Analyze market conditions using available data
+            market_analysis = {}
+            if hasattr(self, 'strategy') and self.strategy:
+                market_analysis = self.strategy.analyze_market_conditions(data)
             
             # Manage existing positions
-            position_management = self.strategy.manage_existing_positions()
+            if hasattr(self, 'strategy') and self.strategy:
+                position_management = self.strategy.manage_existing_positions()
             
             # Generate new opportunities if we have capacity
-            if len(self.positions) < self.max_positions:
+            max_positions = getattr(self, 'max_positions', 10)
+            if len(self.positions) < max_positions:
                 opportunities = self._generate_new_opportunities(data, market_analysis)
                 self._evaluate_and_execute_opportunities(opportunities, data)
             
@@ -190,6 +228,44 @@ class Algorithm(QCAlgorithm):
             
         except Exception as e:
             self.logger.error(f"Error in on_data: {e}")
+    
+    def _verify_and_import_spx_data(self) -> Dict[str, Any]:
+        """
+        Verify SPX data exists and import if necessary.
+        Moved from ProjectManager._run_data_stage()
+        """
+        try:
+            # Use the data loader from trainer to check SPX data
+            from ..data.data_loader import DataLoader
+            
+            if hasattr(self, 'trainer') and hasattr(self.trainer, 'database_service'):
+                data_loader = DataLoader(self.trainer.database_service)
+                
+                # Check data availability
+                data_check = data_loader.check_spx_data_availability()
+                has_data = data_check.get('has_spx_data', False)
+                
+                import_results = None
+                
+                # Import data if missing
+                if not has_data:
+                    self.logger.info("💾 Importing SPX historical data via IBKR...")
+                    import_results = data_loader.import_spx_historical_data()
+                    has_data = import_results.get('success', False)
+                
+                return {
+                    'success': has_data,
+                    'data_check': data_check,
+                    'import_results': import_results,
+                    'data_available': has_data,
+                }
+            else:
+                self.logger.warning("⚠️ No database service available for data verification")
+                return {'success': False, 'error': 'No database service available'}
+                
+        except Exception as e:
+            self.logger.error(f"Error verifying SPX data: {e}")
+            return {'success': False, 'error': str(e)}
     
     def _update_portfolio_value(self, data: Dict[str, Any]):
         """Update portfolio value based on current market data."""

@@ -48,13 +48,14 @@ class ModelTrainer:
     
     def train_complete_pipeline(self,
                               tickers: Optional[List[str]] = None,
-                              model_type: str = 'both') -> Dict[str, Any]:
+                              model_type: str = 'both',
+                              seeds: Optional[List[int]] = None) -> Dict[str, Any]:
         """
         Execute the complete training pipeline.
         
         Args:
             tickers: List of tickers to train on
-            model_type: 'tft', 'mlp', or 'both'
+            model_type: 'tft', 'mlp', 'both', or 'pricing'
             seeds: Random seeds for ensemble training
             
         Returns:
@@ -64,6 +65,9 @@ class ModelTrainer:
         
         if tickers is None:
             tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
+        
+        if seeds is None:
+            seeds = [42, 123]
         
         # Step 1: Prepare factor data (store in database, don't create tensors)
         print("\n📊 Step 1: Preparing factor-enhanced data...")
