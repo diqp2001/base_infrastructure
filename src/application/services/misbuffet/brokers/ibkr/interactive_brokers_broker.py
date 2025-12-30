@@ -733,24 +733,49 @@ class InteractiveBrokersBroker(BaseBroker):
             
             # Resolve contract appropriately based on type
             if contract.secType == "FUT":
-                self.logger.info(f"🔍 Resolving futures contract for historical data: {contract.symbol} on {contract.exchange}")
-                resolved_contract = self.contract_resolver.resolve_front_future(contract.symbol, contract.exchange)
+                self.logger.info(
+                    f"🔍 Resolving futures contract for historical data: {contract.symbol} on {contract.exchange}"
+                )
+                resolved_contract = self.contract_resolver.resolve_front_future(
+                    contract.symbol, contract.exchange
+                )
                 if not resolved_contract:
-                    self.logger.error(f"❌ Failed to resolve futures contract for historical data: {contract.symbol}")
+                    self.logger.error(
+                        f"❌ Failed to resolve futures contract for historical data: {contract.symbol}"
+                    )
                     return []
                 else:
-                    self.logger.info(f"✅ Successfully resolved futures contract: {resolved_contract.localSymbol} "
-                                   f"(conId: {resolved_contract.conId}, exchange: {resolved_contract.exchange})")
+                    self.logger.info(
+                        f"✅ Successfully resolved futures contract: {resolved_contract.localSymbol} "
+                        f"(conId: {resolved_contract.conId}, exchange: {resolved_contract.exchange})"
+                    )
+
+            elif contract.secType == "IND":
+                # 🔴 CRITICAL: indices must NOT be resolved
+                self.logger.info(
+                    f"📌 Using index contract directly (no resolution): {contract.symbol}"
+                )
+                resolved_contract = contract
+
             else:
-                self.logger.info(f"🔍 Resolving stock contract for historical data: {contract.symbol}")
-                resolved_contract = self.contract_resolver.resolve_stock(contract.symbol, contract.exchange, 
-                                                                        getattr(contract, 'primaryExchange', ''))
+                self.logger.info(
+                    f"🔍 Resolving stock contract for historical data: {contract.symbol}"
+                )
+                resolved_contract = self.contract_resolver.resolve_stock(
+                    contract.symbol,
+                    contract.exchange,
+                    getattr(contract, 'primaryExchange', '')
+                )
                 if not resolved_contract:
-                    self.logger.warning(f"⚠️  Failed to resolve contract for historical data: {contract.symbol}, using fallback")
-                    resolved_contract = contract  # Use original as fallback
+                    self.logger.warning(
+                        f"⚠️  Failed to resolve contract for historical data: {contract.symbol}, using fallback"
+                    )
+                    resolved_contract = contract
                 else:
-                    self.logger.info(f"✅ Successfully resolved stock contract: {resolved_contract.symbol}")
-            
+                    self.logger.info(
+                        f"✅ Successfully resolved stock contract: {resolved_contract.symbol}"
+                    )
+
             # Request historical data with resolved contract
             self.ib_connection.request_historical_data(
                 req_id=req_id,
@@ -762,6 +787,7 @@ class InteractiveBrokersBroker(BaseBroker):
                 use_rth=use_rth,
                 format_date=format_date
             )
+
             
             # Wait for data completion
             wait_interval = 0.5
@@ -1171,6 +1197,38 @@ class InteractiveBrokersBroker(BaseBroker):
             contract.currency = "USD"
             contract.tradingClass = symbol
             return contract
+        from ibapi.contract import Contract
+
+
+    def create_index_contract(
+        self,
+        symbol: str,
+        exchange: str,
+        currency: str = "USD",
+        primary_exchange: str | None = None,
+    ) -> Contract:
+        """
+        Create an IB Index (IND) contract.
+
+        Examples:
+            SPX  -> exchange="CBOE"
+            NDX  -> exchange="NASDAQ"
+            RUT  -> exchange="CBOE"
+            VIX  -> exchange="CBOE"
+        """
+
+        contract = Contract()
+        contract.symbol = symbol
+        contract.secType = "IND"
+        contract.exchange = exchange
+        contract.currency = currency
+
+        # Some indices require primaryExchange
+        if primary_exchange:
+            contract.primaryExchange = primary_exchange
+
+        return contract
+
     
     def get_active_market_data_subscriptions(self) -> List[int]:
         """

@@ -49,7 +49,6 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
     """
     Comprehensive examples demonstrating all Interactive Brokers market data capabilities.
     """
-    
     def __init__(self, host: str = "127.0.0.1", port: int = 7497, client_id: int = 1):
         """
         Initialize the examples class.
@@ -60,8 +59,6 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             client_id: Unique client ID
         """
         super().__init__(host=host,port=port,client_id=client_id)
-    
-    
     
     def example_live_market_data(self):
         """
@@ -129,7 +126,6 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             logger.error(f"Error in live market data example: {e}")
     
-
     def example_sp500_future_historical_data(self):
         """
         Example: S&P 500 (ES) Front-Month Futures Historical Data
@@ -201,6 +197,75 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             logger.error(f"Error fetching ES futures historical data: {e}")
 
+    def example_sp500_index_historical_data(self):
+        """
+        Example: S&P 500 Index (SPX) Historical Data
+
+        Pulls:
+        - SPX Index (cash index, not futures)
+        - 5-minute bars
+        - Last 6 months
+        """
+
+        logger.info("\n=== Example: S&P 500 Index (SPX) Historical Data ===")
+
+        if not self.connected:
+            logger.error("Not connected to IB. Cannot fetch SPX historical data.")
+            return
+
+        try:
+            # =========================================================
+            # Create SPX index contract
+            # =========================================================
+            spx_contract = self.ib_broker.create_index_contract(
+                symbol="SPX",
+                exchange="CBOE",
+                currency="USD"
+            )
+
+            logger.info("📊 Fetching 5-minute SPX index data (last 6 months)...")
+            logger.info(
+                f"Contract details: symbol={spx_contract.symbol}, "
+                f"secType={spx_contract.secType}, "
+                f"exchange={spx_contract.exchange}, "
+                f"currency={spx_contract.currency}"
+            )
+
+            spx_bars = self.ib_broker.get_historical_data(
+                contract=spx_contract,
+                end_date_time="",          # now
+                duration_str="6 M",
+                bar_size_setting="5 mins",
+                what_to_show="TRADES",      # 🔴 REQUIRED for indices
+                use_rth=True,              # SPX only trades during RTH
+                timeout=30
+            )
+
+            if not spx_bars:
+                logger.warning("No SPX historical data returned.")
+                return
+
+            logger.info(
+                f"✅ Received {len(spx_bars)} 5-minute bars for SPX"
+            )
+
+            first_bar = spx_bars[0]
+            last_bar = spx_bars[-1]
+
+            logger.info(
+                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+            )
+
+            logger.info(
+                f"Latest bar | "
+                f"Open={last_bar['open']} "
+                f"High={last_bar['high']} "
+                f"Low={last_bar['low']} "
+                f"Close={last_bar['close']}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching SPX index historical data: {e}")
 
     def example_TR_10_YR_future_historical_data(self):
         """
@@ -272,7 +337,6 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
 
         except Exception as e:
             logger.error(f"Error fetching ZN futures historical data: {e}")
-
 
     def example_historical_data(self):
         """
@@ -419,7 +483,6 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             logger.error(f"Error in historical data example: {e}")
 
-    
     def example_market_depth(self):
         """
         Example 3: Market Depth (Level 2) - Order book data
@@ -667,9 +730,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         try:
             # Run all examples
 
-            self.example_TR_10_YR_future_historical_data()
+            """self.example_TR_10_YR_future_historical_data()
+            time.sleep(2)"""
+            self.example_sp500_index_historical_data()
             time.sleep(2)
-            
+
             self.example_sp500_future_historical_data()
             time.sleep(2)
 

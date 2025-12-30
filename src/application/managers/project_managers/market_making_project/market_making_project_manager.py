@@ -289,9 +289,7 @@ class MarketMakingProjectManager(ProjectManager):
             if hasattr(self, 'backtest_runner'):
                 # Use existing backtest framework
                 result = self.backtest_runner.run_backtest(backtest_config)
-            else:
-                # Create simple backtest simulation
-                result = self._run_simple_backtest(backtest_config)
+            
             
             # Process and return results
             backtest_result.update(result)
@@ -327,7 +325,8 @@ class MarketMakingProjectManager(ProjectManager):
     def _get_default_instrument_universe(self) -> List[str]:
         """Get default instrument universe for market making."""
         # This would typically come from configuration or database
-        return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'SPY']
+        #E-mini S&P 500 Futures
+        return ['ES']
 
     def _check_market_data_availability(self, instrument: str) -> bool:
         """Check if market data is available for an instrument."""
@@ -404,15 +403,4 @@ class MarketMakingProjectManager(ProjectManager):
             'strategy_parameters': parameters
         }
 
-    def _run_simple_backtest(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Run a simple backtest simulation."""
-        # Mock backtest results
-        return {
-            'total_return': Decimal('0.15'),
-            'sharpe_ratio': Decimal('1.2'),
-            'max_drawdown': Decimal('0.05'),
-            'volatility': Decimal('0.12'),
-            'trades_count': 150,
-            'win_rate': Decimal('0.65'),
-            'final_portfolio_value': config['initial_capital'] * Decimal('1.15')
-        }
+   
