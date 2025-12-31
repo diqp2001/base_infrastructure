@@ -34,6 +34,13 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.currenc
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.application.services.database_service.database_service import DatabaseService
 
+# Import infrastructure models for Index and Future
+from src.infrastructure.models.finance.financial_assets.index import Index as IndexModel
+from src.infrastructure.models.finance.financial_assets.futures import Futures as FutureModel
+
+# Import MarketData for entity information
+from src.application.services.api_service.ibkr_service.market_data import MarketData
+
 
 class FinancialAssetService:
     """Service for creating and managing financial asset domain entities."""
@@ -452,6 +459,12 @@ class FinancialAssetService:
         self.currency_repository = CurrencyRepository(session) if hasattr(CurrencyRepository, '__init__') else None
         self.bond_repository = BondRepository(session) if hasattr(BondRepository, '__init__') else None
         
+        # Initialize MarketData service for entity information
+        self.market_data = MarketData()
+        
+        # Note: Index and Future repositories would be added here when available
+        # For now, we'll work directly with the models via session
+        
     # Persistence Methods for CompanyShare
     def persist_company_share(self, company_share: CompanyShare) -> Optional[CompanyShare]:
         """
@@ -628,14 +641,6 @@ class FinancialAssetService:
             print(f"Error persisting ETF share: {str(e)}")
             return None
     
-    def persist_future(self, future: Future) -> Optional[Future]:
-        """Persist a future entity to the database."""
-        try:
-            print(f"Warning: Future persistence not yet implemented for {future.symbol if hasattr(future, 'symbol') else 'unknown'}")
-            return future
-        except Exception as e:
-            print(f"Error persisting future: {str(e)}")
-            return None
     
     def persist_option(self, option: Option) -> Optional[Option]:
         """Persist an option entity to the database."""
@@ -644,4 +649,405 @@ class FinancialAssetService:
             return option
         except Exception as e:
             print(f"Error persisting option: {str(e)}")
+            return None
+    
+    # Enhanced methods following company_share_repository patterns
+    def get_index_by_symbol(self, symbol: str) -> Optional[Index]:
+        """
+        Get index by symbol from database, following get_by_ticker pattern.
+        
+        Args:
+            symbol: Index symbol (e.g., 'SPX', 'NASDAQ')
+            
+        Returns:
+            Index entity or None if not found
+        """
+        try:
+            index_model = self.database_service.session.query(IndexModel).filter(
+                IndexModel.symbol == symbol
+            ).first()
+            
+            if index_model:
+                # Convert ORM model to domain entity
+                return self.create_index(
+                    symbol=index_model.symbol,
+                    name=index_model.name,
+                    currency=index_model.currency,
+                    base_value=index_model.base_value,
+                    base_date=index_model.base_date
+                )
+            return None
+        except Exception as e:
+            print(f"Error getting index by symbol {symbol}: {str(e)}")
+            return None
+    
+    def get_future_by_symbol(self, symbol: str) -> Optional[Future]:
+        """
+        Get future by symbol from database, following get_by_ticker pattern.
+        
+        Args:
+            symbol: Future symbol (e.g., 'ESZ5', 'ESM6')
+            
+        Returns:
+            Future entity or None if not found
+        """
+        try:
+            future_model = self.database_service.session.query(FutureModel).filter(
+                FutureModel.symbol == symbol
+            ).first()
+            
+            if future_model:
+                # Convert ORM model to domain entity
+                return self.create_future(
+                    symbol=future_model.symbol,
+                    underlying_asset=future_model.underlying_asset,
+                    expiry_date=future_model.expiration_date,
+                    contract_size=str(future_model.contract_size),
+                    exchange=future_model.exchange or 'CME',
+                    currency=future_model.currency
+                )
+            return None
+        except Exception as e:
+            print(f"Error getting future by symbol {symbol}: {str(e)}")
+            return None
+    
+    def _create_or_get_index(self, symbol: str, exchange: str = "CBOE", 
+                            currency: str = "USD", name: Optional[str] = None,
+                            **kwargs) -> Optional[Index]:
+        """
+        Create index entity if it doesn't exist, otherwise return existing.
+        Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
+        
+        Args:
+            symbol: Index symbol (unique identifier)
+            exchange: Exchange where index is listed
+            currency: Index currency
+            name: Index name for entity setup
+            **kwargs: Additional index parameters
+            
+        Returns:
+            Index entity: Created or existing entity
+        """
+        try:
+            # Check if entity already exists by symbol
+            existing_index = self.get_index_by_symbol(symbol)
+            if existing_index:
+                return existing_index
+            
+            # Get index information from MarketData if available
+            index_info = self._get_index_info_from_market_data(symbol, exchange, currency)
+            
+            # Create new index entity with gathered information
+            index_data = {
+                'symbol': symbol,
+                'name': name or index_info.get('name', f"{symbol} Index"),
+                'currency': currency,
+                'base_value': kwargs.get('base_value', index_info.get('base_value')),
+                'base_date': kwargs.get('base_date', index_info.get('base_date')),
+                'methodology': kwargs.get('methodology'),
+                'provider': kwargs.get('provider'),
+                'constituents_count': kwargs.get('constituents_count')
+            }
+            
+            new_index = self.create_index(**index_data)
+            
+            # Persist to database
+            index_model = IndexModel(
+                symbol=new_index.symbol,
+                name=new_index.name,
+                currency=new_index.currency,
+                base_value=new_index.base_value,
+                base_date=new_index.base_date,
+                index_type='Equity',  # Default type
+                is_active=True
+            )
+            
+            self.database_service.session.add(index_model)
+            self.database_service.session.commit()
+            
+            return new_index
+            
+        except Exception as e:
+            print(f"Error creating/getting index for {symbol}: {str(e)}")
+            return None
+    
+    def _create_or_get_future(self, symbol: str, underlying_asset: str, 
+                             expiry_date, exchange: str = "CME",
+                             currency: str = "USD", contract_size: str = "50",
+                             **kwargs) -> Optional[Future]:
+        """
+        Create future entity if it doesn't exist, otherwise return existing.
+        Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
+        
+        Args:
+            symbol: Future symbol (unique identifier)
+            underlying_asset: Underlying asset name
+            expiry_date: Future expiration date
+            exchange: Exchange where future is traded
+            currency: Future currency
+            contract_size: Contract size
+            **kwargs: Additional future parameters
+            
+        Returns:
+            Future entity: Created or existing entity
+        """
+        try:
+            # Check if entity already exists by symbol
+            existing_future = self.get_future_by_symbol(symbol)
+            if existing_future:
+                return existing_future
+            
+            # Get future information from MarketData if available
+            future_info = self._get_future_info_from_market_data(symbol, exchange, currency)
+            
+            # Create new future entity with gathered information
+            future_data = {
+                'symbol': symbol,
+                'underlying_asset': underlying_asset,
+                'expiry_date': expiry_date,
+                'contract_size': contract_size,
+                'exchange': exchange,
+                'currency': currency,
+                'tick_size': kwargs.get('tick_size', future_info.get('tick_size')),
+                'margin_requirement': kwargs.get('margin_requirement', future_info.get('margin_requirement'))
+            }
+            
+            new_future = self.create_future(**future_data)
+            
+            # Persist to database
+            future_model = FutureModel(
+                symbol=new_future.symbol,
+                contract_name=f"{underlying_asset} Future",
+                future_type=FutureModel.FutureType.INDEX if 'SPX' in symbol or 'ES' in symbol else FutureModel.FutureType.COMMODITY,
+                underlying_asset=new_future.underlying_asset,
+                contract_size=float(new_future.contract_size),
+                contract_unit='Index Points' if 'SPX' in symbol else 'Units',
+                expiration_date=new_future.expiry_date,
+                delivery_month=new_future.expiry_date.strftime('%b%y').upper(),
+                exchange=new_future.exchange,
+                currency=new_future.currency,
+                is_active=True
+            )
+            
+            self.database_service.session.add(future_model)
+            self.database_service.session.commit()
+            
+            return new_future
+            
+        except Exception as e:
+            print(f"Error creating/getting future for {symbol}: {str(e)}")
+            return None
+    
+    def _ensure_index_exists(self, symbol: str, **kwargs) -> Optional[Index]:
+        """
+        Ensure index exists in database, creating it if necessary.
+        Uses MarketData service to gather entity information.
+        
+        Args:
+            symbol: Index symbol (e.g., 'SPX')
+            **kwargs: Additional index parameters
+            
+        Returns:
+            Index entity if successful, None otherwise
+        """
+        try:
+            # Default parameters for SPX
+            defaults = {
+                'exchange': 'CBOE',
+                'currency': 'USD',
+                'name': f"{symbol} Index"
+            }
+            defaults.update(kwargs)
+            
+            return self._create_or_get_index(symbol, **defaults)
+            
+        except Exception as e:
+            print(f"Error ensuring index exists for {symbol}: {str(e)}")
+            return None
+    
+    def _ensure_index_future_exists(self, symbol: str, underlying_symbol: str = None, **kwargs) -> Optional[Future]:
+        """
+        Ensure index future exists in database, creating it if necessary.
+        Uses MarketData service to gather entity information.
+        
+        Args:
+            symbol: Future symbol (e.g., 'ESZ5')
+            underlying_symbol: Underlying index symbol (e.g., 'SPX')
+            **kwargs: Additional future parameters
+            
+        Returns:
+            Future entity if successful, None otherwise
+        """
+        try:
+            # Default parameters for SPX futures
+            from datetime import datetime, date
+            
+            # Parse expiry from symbol if not provided
+            expiry_date = kwargs.get('expiry_date')
+            if not expiry_date and len(symbol) >= 3:
+                # Simple parsing for ES contracts (ESZ5 = Dec 2025)
+                month_code = symbol[-2] if len(symbol) > 3 else 'Z'
+                year_code = symbol[-1]
+                
+                month_map = {
+                    'F': 1, 'G': 2, 'H': 3, 'J': 4, 'K': 5, 'M': 6,
+                    'N': 7, 'Q': 8, 'U': 9, 'V': 10, 'X': 11, 'Z': 12
+                }
+                
+                month = month_map.get(month_code, 12)
+                year = 2020 + int(year_code)  # Assumes year codes 0-9 for 2020-2029
+                expiry_date = date(year, month, 15)  # Default to mid-month
+            
+            defaults = {
+                'underlying_asset': underlying_symbol or 'SPX',
+                'expiry_date': expiry_date or date(2025, 12, 15),
+                'exchange': 'CME',
+                'currency': 'USD',
+                'contract_size': '50'  # SPX futures contract size
+            }
+            defaults.update(kwargs)
+            
+            return self._create_or_get_future(symbol, **defaults)
+            
+        except Exception as e:
+            print(f"Error ensuring index future exists for {symbol}: {str(e)}")
+            return None
+    
+    def _get_index_info_from_market_data(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
+        """
+        Get index information from MarketData service.
+        
+        Args:
+            symbol: Index symbol
+            exchange: Exchange
+            currency: Currency
+            
+        Returns:
+            Dict with index information from MarketData
+        """
+        try:
+            # Attempt to get historical data to verify existence
+            if hasattr(self.market_data, 'get_index_historical_data'):
+                data = self.market_data.get_index_historical_data(
+                    symbol=symbol,
+                    exchange=exchange,
+                    currency=currency,
+                    duration_str="1 D",
+                    bar_size_setting="1 day"
+                )
+                
+                if data and len(data) > 0:
+                    return {
+                        'name': f"{symbol} Index",
+                        'base_value': 100.0,  # Default base value
+                        'base_date': None,
+                        'provider': exchange
+                    }
+            
+            # Return default information if MarketData fails
+            return {
+                'name': f"{symbol} Index",
+                'base_value': 100.0,
+                'base_date': None,
+                'provider': exchange
+            }
+            
+        except Exception as e:
+            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}")
+            return {
+                'name': f"{symbol} Index",
+                'base_value': 100.0,
+                'base_date': None,
+                'provider': exchange
+            }
+    
+    def _get_future_info_from_market_data(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
+        """
+        Get future information from MarketData service.
+        
+        Args:
+            symbol: Future symbol
+            exchange: Exchange
+            currency: Currency
+            
+        Returns:
+            Dict with future information from MarketData
+        """
+        try:
+            # Attempt to get historical data to verify existence
+            if hasattr(self.market_data, 'get_future_historical_data'):
+                data = self.market_data.get_future_historical_data(
+                    symbol=symbol.replace('Z5', '').replace('M6', ''),  # Remove month codes
+                    exchange=exchange,
+                    currency=currency,
+                    duration_str="1 D",
+                    bar_size_setting="1 day"
+                )
+                
+                if data and len(data) > 0:
+                    return {
+                        'tick_size': 0.25,  # Default tick size for index futures
+                        'margin_requirement': 10000.0,  # Default margin
+                        'contract_multiplier': 50
+                    }
+            
+            # Return default information if MarketData fails
+            return {
+                'tick_size': 0.25,
+                'margin_requirement': 10000.0,
+                'contract_multiplier': 50
+            }
+            
+        except Exception as e:
+            print(f"Warning: Could not get future info from MarketData for {symbol}: {str(e)}")
+            return {
+                'tick_size': 0.25,
+                'margin_requirement': 10000.0,
+                'contract_multiplier': 50
+            }
+    
+    def persist_index(self, index: Index) -> Optional[Index]:
+        """Persist an index entity to the database."""
+        try:
+            index_model = IndexModel(
+                symbol=index.symbol,
+                name=index.name,
+                currency=getattr(index, 'currency', 'USD'),
+                base_value=getattr(index, 'base_value', 100.0),
+                base_date=getattr(index, 'base_date', None),
+                index_type='Equity',
+                is_active=True
+            )
+            
+            self.database_service.session.add(index_model)
+            self.database_service.session.commit()
+            
+            return index
+        except Exception as e:
+            print(f"Error persisting index {getattr(index, 'symbol', 'unknown')}: {str(e)}")
+            return None
+    
+    def persist_future(self, future: Future) -> Optional[Future]:
+        """Persist a future entity to the database."""
+        try:
+            future_model = FutureModel(
+                symbol=future.symbol,
+                contract_name=f"{future.underlying_asset} Future",
+                future_type=FutureModel.FutureType.INDEX,
+                underlying_asset=future.underlying_asset,
+                contract_size=float(future.contract_size),
+                contract_unit='Index Points',
+                expiration_date=future.expiry_date,
+                delivery_month=future.expiry_date.strftime('%b%y').upper(),
+                exchange=future.exchange,
+                currency=getattr(future, 'currency', 'USD'),
+                is_active=True
+            )
+            
+            self.database_service.session.add(future_model)
+            self.database_service.session.commit()
+            
+            return future
+        except Exception as e:
+            print(f"Error persisting future {getattr(future, 'symbol', 'unknown')}: {str(e)}")
             return None
