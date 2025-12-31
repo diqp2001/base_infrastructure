@@ -21,7 +21,7 @@ class Future(Derivative):
         self,
         id: int,
         underlying_asset: FinancialAsset,
-        exchange :Exchange,
+        exchange_id :int,
         expiration_date: date,
         start_date: date,
         end_date: Optional[date] = None,
@@ -30,7 +30,7 @@ class Future(Derivative):
         super().__init__(id, underlying_asset, start_date, end_date)
 
         self.expiration_date = expiration_date
-        self.exchange =exchange
+        self.exchange_id = exchange_id
         
 
         

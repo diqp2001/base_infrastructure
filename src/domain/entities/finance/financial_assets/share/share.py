@@ -7,9 +7,9 @@ from src.domain.entities.finance.financial_assets.security import Security
 class Share(Security):
     def __init__(self,
                  id: int,
-                 exchange :Exchange,
+                 exchange_id :int,
                  start_date: date,
                  end_date: Optional[date]):
         
         super().__init__(id, start_date, end_date)
-        self.exchange = exchange
+        self.exchange_id = exchange_id

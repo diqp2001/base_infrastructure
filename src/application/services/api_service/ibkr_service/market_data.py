@@ -37,8 +37,7 @@ from ibapi.contract import Contract
 from ibapi.scanner import ScannerSubscription
 
 from src.application.services.api_service.ibkr_service.interactive_brokers_api_service import InteractiveBrokersApiService
-from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
-from application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

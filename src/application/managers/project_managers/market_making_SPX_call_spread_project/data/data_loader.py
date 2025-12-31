@@ -67,7 +67,7 @@ class DataLoader:
             spx_tickers = ['SPX']  # SPX index
             
             # Ensure SPX entities exist (index and future)
-            entity_results = self.entity_existence_service.ensure_entities_exist(spx_tickers)
+            entity_results = self.financial_asset_service.ensure_entities_exist(spx_tickers)
             
             # Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'

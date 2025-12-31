@@ -3,15 +3,23 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
+
+
 from ....base_repository import BaseRepository, EntityType, ModelType
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-
+from sqlalchemy.orm import Session
 
 class FinancialAssetBaseRepository(BaseRepository[EntityType, ModelType], ABC):
     """
     Base repository for all financial asset types (shares, bonds, currencies, etc.).
     Extends BaseRepository with financial asset specific functionality.
     """
+    def __init__(self, session: Session):
+        """Initialize IndexRepository with database session."""
+
+        super().__init__(session)
+        from application.services.api_service.ibkr_service.market_data import MarketData
+        self.market_data = MarketData()
 
     # --- Financial Asset Specific Methods ---
 
@@ -117,3 +125,5 @@ class FinancialAssetBaseRepository(BaseRepository[EntityType, ModelType], ABC):
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by date range: {e}")
             return []
+        
+    
