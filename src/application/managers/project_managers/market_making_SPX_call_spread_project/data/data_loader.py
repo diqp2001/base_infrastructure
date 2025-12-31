@@ -66,37 +66,60 @@ class DataLoader:
             # Check for both SPX index and future entities
             spx_tickers = ['SPX']  # SPX index
             
-            # Ensure SPX entities exist (index and future)
-            entity_results = self.financial_asset_service.ensure_entities_exist(spx_tickers)
+            # Ensure SPX entities exist (index and future) using EntityExistenceService
+            entity_results = self.entity_existence_service.ensure_entities_exist(spx_tickers)
             
             # Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
             if self.factor_manager and hasattr(self.factor_manager, '_ensure_entities_exist'):
                 # Use factor_manager's entity verification if available
                 self.logger.info("Using factor_manager for entity verification...")
-                factor_entities = self.factor_manager._ensure_entities_exist(spx_tickers)
-            
-            # Verify SPX future entity creation
-            spx_future_entity = self._verify_spx_future_entity()
+                try:
+                    factor_entities = self.factor_manager._ensure_entities_exist(spx_tickers)
+                    self.logger.info(f"Factor manager verification: {factor_entities}")
+                except Exception as e:
+                    self.logger.warning(f"Factor manager verification failed: {e}")
             
             # Check actual data availability using enhanced verification
             spx_data_count = self._count_spx_data_records()
             
+            # Extract verification results
+            index_verified = entity_results.get('index', {}).get('verified', 0) 
+            index_created = entity_results.get('index', {}).get('created', 0)
+            index_future_verified = entity_results.get('index_future', {}).get('verified', 0)
+            index_future_created = entity_results.get('index_future', {}).get('created', 0)
+            
             result = {
                 'spx_index_records': spx_data_count,
                 'has_spx_data': spx_data_count > 0,
-                'entities_verified': entity_results.get('company_shares', {}).get('verified', 0),
-                'entities_created': entity_results.get('company_shares', {}).get('created', 0),
-                'spx_future_entity': spx_future_entity['status'],
+                'spx_index_entities_verified': index_verified,
+                'spx_index_entities_created': index_created,
+                'spx_future_entities_verified': index_future_verified,
+                'spx_future_entities_created': index_future_created,
+                'total_entities_verified': index_verified + index_future_verified,
+                'total_entities_created': index_created + index_future_created,
                 'factor_manager_status': factor_manager_status,
                 'entity_verification_errors': entity_results.get('errors', []),
                 'last_checked': datetime.now().isoformat(),
+                'entity_verification_details': {
+                    'spx_index': entity_results.get('index', {}),
+                    'spx_future': entity_results.get('index_future', {}),
+                    'company_shares': entity_results.get('company_shares', {}),
+                    'companies': entity_results.get('companies', {}),
+                }
             }
             
             if spx_data_count > 0:
-                self.logger.info(f"✅ Found {spx_data_count} SPX records with {result['entities_verified']} entities verified")
+                self.logger.info(
+                    f"✅ Found {spx_data_count} SPX records with "
+                    f"{result['total_entities_verified']} entities verified "
+                    f"({index_verified} index, {index_future_verified} future)"
+                )
             else:
-                self.logger.warning(f"❌ No SPX data found, but {result['entities_verified']} entities verified")
+                self.logger.warning(
+                    f"❌ No SPX data found, but {result['total_entities_verified']} entities verified "
+                    f"({index_verified} index, {index_future_verified} future)"
+                )
                 
             return result
             
@@ -105,9 +128,12 @@ class DataLoader:
             return {
                 'spx_index_records': 0,
                 'has_spx_data': False,
-                'entities_verified': 0,
-                'entities_created': 0,
-                'spx_future_entity': 'error',
+                'spx_index_entities_verified': 0,
+                'spx_index_entities_created': 0,
+                'spx_future_entities_verified': 0,
+                'spx_future_entities_created': 0,
+                'total_entities_verified': 0,
+                'total_entities_created': 0,
                 'factor_manager_status': 'error',
                 'error': str(e),
                 'last_checked': datetime.now().isoformat(),

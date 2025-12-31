@@ -75,6 +75,8 @@ class EntityExistenceService:
             'sectors': {'verified': 0, 'existing': 0, 'created': 0},
             'industries': {'verified': 0, 'existing': 0, 'created': 0},
             'exchanges': {'verified': 0, 'existing': 0, 'created': 0},
+            'index': {'verified': 0, 'existing': 0, 'created': 0},
+            'index_future': {'verified': 0, 'existing': 0, 'created': 0},
             'errors': []
         }
         
@@ -323,6 +325,88 @@ class EntityExistenceService:
             target_results['verified'] += 1
         # Errors and failures don't increment counters
     
+    def _ensure_index_exists(self, symbol: str) -> Dict[str, Any]:
+        """
+        Ensure Index entity exists for the given symbol (e.g., SPX).
+        
+        Args:
+            symbol: Index symbol (e.g., 'SPX')
+            
+        Returns:
+            Dict with creation/verification result
+        """
+        try:
+            from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+            
+            # Initialize FinancialAssetService with our database service
+            financial_service = FinancialAssetService(self.database_service)
+            
+            # Use FinancialAssetService's _ensure_index_exists method
+            index_entity = financial_service._ensure_index_exists(
+                symbol=symbol,
+                exchange="CBOE" if symbol == "SPX" else "UNKNOWN",
+                currency="USD",
+                name=f"{symbol} Index"
+            )
+            
+            if index_entity:
+                print(f"    ✅ Index entity verified/created for {symbol}")
+                return {'status': 'verified', 'entity': index_entity}
+            else:
+                print(f"    ❌ Failed to create/verify Index entity for {symbol}")
+                return {'status': 'failed'}
+                
+        except Exception as e:
+            print(f"    ❌ Error ensuring Index exists for {symbol}: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def _ensure_index_future_exists(self, symbol: str) -> Dict[str, Any]:
+        """
+        Ensure Index Future entity exists for the given symbol (e.g., ES for SPX).
+        
+        Args:
+            symbol: Underlying index symbol (e.g., 'SPX')
+            
+        Returns:
+            Dict with creation/verification result
+        """
+        try:
+            from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+            from datetime import date
+            
+            # Initialize FinancialAssetService with our database service
+            financial_service = FinancialAssetService(self.database_service)
+            
+            # Map index symbols to their futures
+            future_mapping = {
+                'SPX': 'ES',  # E-mini S&P 500 futures
+                'NASDAQ': 'NQ',  # E-mini NASDAQ futures
+                'DOW': 'YM',  # E-mini Dow futures
+            }
+            
+            future_symbol = future_mapping.get(symbol, f"{symbol}_FUT")
+            
+            # Use FinancialAssetService's _ensure_index_future_exists method
+            future_entity = financial_service._ensure_index_future_exists(
+                symbol=future_symbol,
+                underlying_symbol=symbol,
+                exchange="CME" if symbol == "SPX" else "UNKNOWN",
+                currency="USD",
+                expiry_date=date(2025, 12, 31),  # Default expiry
+                contract_size="$50" if symbol == "SPX" else "$1000"
+            )
+            
+            if future_entity:
+                print(f"    ✅ Index Future entity verified/created for {symbol} -> {future_symbol}")
+                return {'status': 'verified', 'entity': future_entity}
+            else:
+                print(f"    ❌ Failed to create/verify Index Future entity for {symbol}")
+                return {'status': 'failed'}
+                
+        except Exception as e:
+            print(f"    ❌ Error ensuring Index Future exists for {symbol}: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+
     def _print_summary(self, results: Dict[str, Any], tickers: List[str]):
         """Print a summary of entity verification results."""
         print(f"\n  📊 Entity verification complete for {len(tickers)} tickers:")
@@ -342,6 +426,16 @@ class EntityExistenceService:
         # Sectors
         s = results['sectors']
         print(f"    • Sectors: {s['verified']} verified ({s['existing']} existing, {s['created']} created)")
+        
+        # Index entities
+        if 'index' in results:
+            idx = results['index']
+            print(f"    • Index: {idx['verified']} verified ({idx['existing']} existing, {idx['created']} created)")
+        
+        # Index Future entities
+        if 'index_future' in results:
+            idf = results['index_future']
+            print(f"    • Index Futures: {idf['verified']} verified ({idf['existing']} existing, {idf['created']} created)")
         
         # Errors
         if results['errors']:

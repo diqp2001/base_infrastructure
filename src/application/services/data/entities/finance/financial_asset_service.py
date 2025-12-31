@@ -185,5 +185,104 @@ class FinancialAssetService:
         except Exception as e:
             print(f"Error creating/getting index for {entity_cls.symbol}: {str(e)}")
             return None
+
+    def _ensure_index_exists(self, symbol: str, exchange: str = "CBOE", currency: str = "USD", name: str = None, **kwargs) -> Optional[Index]:
+        """
+        Ensure Index entity exists, create if it doesn't exist.
+        Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
+        
+        Args:
+            symbol: Index symbol (e.g., 'SPX')
+            exchange: Exchange where index is listed  
+            currency: Index currency
+            name: Index name for entity setup
+            **kwargs: Additional index parameters
+            
+        Returns:
+            Index entity: Created or existing entity
+        """
+        try:
+            # Check if index already exists by symbol
+            existing_index = self.get_by_symbol(Index, symbol)
+            if existing_index:
+                return existing_index
+            
+            # Create new index entity using domain entity
+            index_entity = Index(
+                symbol=symbol,
+                name=name or f"{symbol} Index",
+                exchange=exchange,
+                currency=currency,
+                **kwargs
+            )
+            
+            # Persist the index entity
+            persisted_index = self.persist_entity(index_entity)
+            
+            if persisted_index:
+                print(f"✅ Created Index entity for {symbol}")
+                return persisted_index
+            else:
+                print(f"❌ Failed to persist Index entity for {symbol}")
+                return None
+                
+        except Exception as e:
+            print(f"Error ensuring Index exists for {symbol}: {str(e)}")
+            return None
+
+    def _ensure_index_future_exists(self, symbol: str, underlying_symbol: str, exchange: str = "CME", 
+                                    currency: str = "USD", expiry_date=None, contract_size: str = "$50", **kwargs) -> Optional[Future]:
+        """
+        Ensure Index Future entity exists, create if it doesn't exist.
+        Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
+        
+        Args:
+            symbol: Future symbol (e.g., 'ES')
+            underlying_symbol: Underlying index symbol (e.g., 'SPX')
+            exchange: Exchange where future is listed
+            currency: Future currency
+            expiry_date: Future expiry date
+            contract_size: Contract size specification
+            **kwargs: Additional future parameters
+            
+        Returns:
+            Future entity: Created or existing entity
+        """
+        try:
+            from datetime import date
+            
+            # Check if future already exists by symbol
+            existing_future = self.get_by_symbol(Future, symbol)
+            if existing_future:
+                return existing_future
+            
+            # Default expiry date if not provided
+            if not expiry_date:
+                expiry_date = date(2025, 12, 31)
+            
+            # Create new future entity using domain entity
+            future_entity = Future(
+                symbol=symbol,
+                underlying_asset=underlying_symbol,
+                expiry_date=expiry_date,
+                contract_size=contract_size,
+                exchange=exchange,
+                currency=currency,
+                **kwargs
+            )
+            
+            # Persist the future entity
+            persisted_future = self.persist_entity(future_entity)
+            
+            if persisted_future:
+                print(f"✅ Created Future entity for {symbol} (underlying: {underlying_symbol})")
+                return persisted_future
+            else:
+                print(f"❌ Failed to persist Future entity for {symbol}")
+                return None
+                
+        except Exception as e:
+            print(f"Error ensuring Future exists for {symbol}: {str(e)}")
+            return None
     
     
