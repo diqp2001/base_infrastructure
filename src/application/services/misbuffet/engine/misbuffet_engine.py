@@ -455,53 +455,94 @@ class MisbuffetEngine(BaseEngine):
         }
     
     def _create_data_slice(self, current_date, universe):
-        """Create a data slice for the given date and universe of symbols."""
+        """
+        Create a data slice for the given date focusing on time/date validation.
+        
+        This method now focuses on providing valid trading dates/times using market calendar,
+        rather than loading financial data. The financial data loading is handled by the
+        Algorithm.on_data() method through the model training pipeline.
+        """
         from ..common.data_types import Slice, TradeBars, TradeBar
         from ..common.symbol import Symbol
+        
+        # Validate if current_date is a trading day using basic rules
+        # This replaces the complex financial data loading with simple time validation
+        if not self._is_valid_trading_day(current_date):
+            self.logger.debug(f"Skipping non-trading day: {current_date}")
+            # Return empty slice for non-trading days
+            return Slice(time=current_date)
         
         # Create the slice for this time point
         slice_data = Slice(time=current_date)
         
-        # Get data for each symbol in the universe
+        # Instead of loading actual financial data, create minimal time-based data slices
+        # The actual financial data will be handled by Algorithm.on_data() method
         for ticker in universe:
             try:
-                # Get historical data for just this one day
-                hist_data = self._get_single_day_data(ticker, current_date)
+                # Create Symbol object
+                symbol = Symbol.create_equity(ticker)
                 
-                if hist_data is not None and not hist_data.empty:
-                    # Create Symbol object
-                    symbol = Symbol.create_equity(ticker)
-                    
-                    # Use the most recent data point (should be just one for this date)
-                    latest_data = hist_data.iloc[-1]
-                    
-                    # Create TradeBar from the data
-                    trade_bar = TradeBar(
-                        symbol=symbol,
-                        time=current_date,
-                        end_time=current_date,
-                        open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
-                        high=float(latest_data.get('High', latest_data.get('high', 0.0))),
-                        low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
-                        close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
-                        volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
-                    )
-                    
-                    # Add to slice - both to bars and data for proper has_data() check
-                    slice_data.bars[symbol] = trade_bar
-                    # Also add to the data dictionary so has_data() returns True
-                    if symbol not in slice_data._data:
-                        slice_data._data[symbol] = []
-                    slice_data._data[symbol].append(trade_bar)
+                # Create minimal TradeBar with time information only
+                # Financial data will be retrieved by the Algorithm through model_trainer
+                trade_bar = TradeBar(
+                    symbol=symbol,
+                    time=current_date,
+                    end_time=current_date,
+                    open=0.0,  # Placeholder - real data loaded in Algorithm.on_data()
+                    high=0.0,  # Placeholder - real data loaded in Algorithm.on_data()
+                    low=0.0,   # Placeholder - real data loaded in Algorithm.on_data()
+                    close=0.0, # Placeholder - real data loaded in Algorithm.on_data()
+                    volume=0   # Placeholder - real data loaded in Algorithm.on_data()
+                )
+                
+                # Add to slice - focus on time/date structure rather than financial data
+                slice_data.bars[symbol] = trade_bar
+                # Also add to the data dictionary so has_data() returns True for valid trading days
+                if symbol not in slice_data._data:
+                    slice_data._data[symbol] = []
+                slice_data._data[symbol].append(trade_bar)
                     
             except Exception as e:
-                self.logger.debug(f"No data available for {ticker} on {current_date}: {e}")
+                self.logger.debug(f"Error creating time slice for {ticker} on {current_date}: {e}")
                 continue
         
-        # Add debug logging to help diagnose issues
-        self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} bars, has_data: {slice_data.has_data}")
+        # Add debug logging focused on time/date validation
+        self.logger.debug(f"Created time-based data slice for {current_date} (trading day: {self._is_valid_trading_day(current_date)}) with {len(slice_data.bars)} symbols")
         
         return slice_data
+    
+    def _is_valid_trading_day(self, date):
+        """
+        Check if a given date is a valid trading day.
+        
+        Uses basic market calendar rules (weekdays, excluding major holidays).
+        This could be enhanced with pandas_market_calendars if available.
+        """
+        # Basic trading day validation - exclude weekends
+        if date.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            return False
+        
+        # Basic US market holiday exclusions (simplified)
+        major_holidays = [
+            (1, 1),   # New Year's Day
+            (7, 4),   # Independence Day  
+            (12, 25), # Christmas
+        ]
+        
+        date_tuple = (date.month, date.day)
+        if date_tuple in major_holidays:
+            return False
+            
+        # TODO: Could be enhanced with pandas_market_calendars for complete accuracy:
+        # try:
+        #     import pandas_market_calendars as mcal
+        #     nyse = mcal.get_calendar('NYSE')
+        #     return nyse.valid_days(date, date).size > 0
+        # except ImportError:
+        #     # Fall back to basic weekday check
+        #     pass
+            
+        return True
     
     def _get_current_market_price(self, symbol):
         """Get current market price for a symbol."""
