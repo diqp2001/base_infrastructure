@@ -46,7 +46,7 @@ class DataLoader:
         
         try:
             # Check for SPX index data
-            with self.database_service.get_session() as session:
+            with self.database_service.session as session:
                 spx_shares = session.query(CompanyShare).filter(
                     CompanyShare.ticker == 'SPX'
                 ).all()

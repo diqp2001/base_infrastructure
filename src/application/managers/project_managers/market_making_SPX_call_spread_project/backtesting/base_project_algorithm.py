@@ -168,21 +168,9 @@ class Algorithm(QCAlgorithm):
                 self.logger.warning("Algorithm not initialized")
                 return
             
-            # ============================
-            # DATA STAGE - Moved from ProjectManager
-            # ============================
-            # Step 1: Verify and ensure SPX data exists
-            if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_data_verified'):
-                self.logger.info("🔍 Verifying SPX data availability...")
-                data_verification_result = self._verify_and_import_spx_data()
-                
-                if not data_verification_result.get('success', False):
-                    self.logger.error("❌ Data verification failed - cannot proceed with trading")
-                    return
-                self._data_verified = True
-                self.logger.info("✅ SPX data verified and available")
             
-            # Step 2: Execute model training pipeline for data creation and verification
+            
+            # Step 1: Execute model training pipeline for data creation and verification
             if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_model_trained'):
                 self.logger.info("🚀 Running model training pipeline for data preparation...")
                 training_result = self.trainer.train_complete_pipeline(
@@ -229,17 +217,16 @@ class Algorithm(QCAlgorithm):
         except Exception as e:
             self.logger.error(f"Error in on_data: {e}")
     
-    def _verify_and_import_spx_data(self) -> Dict[str, Any]:
+    def _verify_and_import_data(self) -> Dict[str, Any]:
         """
         Verify SPX data exists and import if necessary.
         Moved from ProjectManager._run_data_stage()
         """
         try:
-            # Use the data loader from trainer to check SPX data
-            from ..data.data_loader import DataLoader
+            
             
             if hasattr(self, 'trainer') and hasattr(self.trainer, 'database_service'):
-                data_loader = DataLoader(self.trainer.database_service)
+                data_loader = self.trainer.data_loader
                 
                 # Check data availability
                 data_check = data_loader.check_spx_data_availability()

@@ -36,6 +36,14 @@ class IAlgorithm(ABC):
             data: Slice containing all available market data for the current time
         """
         pass
+    @abstractmethod
+    def _verify_and_import_data(self) -> Dict[str, Any]:
+        """
+        Called when   market data needs to be updated.
+        
+        
+        """
+        pass
     
     @abstractmethod
     def on_order_event(self, order_event: OrderEvent) -> None:

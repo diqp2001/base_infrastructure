@@ -6,11 +6,15 @@ for backtesting and live trading operations.
 """
 
 import logging
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date as date_type, date
+
 from typing import Optional, List, Dict, Any
 import pandas as pd
+import pandas_market_calendars as mcal
 import os
 import json
+from ..common.data_types import Slice, TradeBars, TradeBar
+from ..common.symbol import Symbol
 
 try:
     from dateutil.relativedelta import relativedelta
@@ -138,18 +142,27 @@ class MisbuffetEngine(BaseEngine):
         """
         Add the time interval to the current date.
         Handles both timedelta and relativedelta objects.
-        
-        Args:
-            current_date: datetime object
-            interval_dict: dict with 'type' and 'value' keys
-            
-        Returns:
-            datetime: New datetime after adding the interval
+        Accepts str, date, datetime, or pandas Timestamp.
         """
-        if interval_dict['type'] == 'relativedelta':
-            return current_date + interval_dict['value']
-        else:
-            return current_date + interval_dict['value']
+
+        # -----------------------------
+        # Normalize current_date
+        # -----------------------------
+        if isinstance(current_date, str):
+            current_date = datetime.strptime(current_date, "%Y-%m-%d")
+        elif isinstance(current_date, pd.Timestamp):
+            current_date = current_date.to_pydatetime()
+        elif isinstance(current_date, date) and not isinstance(current_date, datetime):
+            current_date = datetime.combine(current_date, datetime.min.time())
+        elif not isinstance(current_date, datetime):
+            raise TypeError(f"Unsupported current_date type: {type(current_date)}")
+
+        # -----------------------------
+        # Add interval
+        # -----------------------------
+        interval = interval_dict["value"]
+
+        return current_date + interval
 
     def setup(self, data_feed=None, transaction_handler=None, result_handler=None, setup_handler=None):
         """Setup the engine with handlers."""
@@ -391,8 +404,8 @@ class MisbuffetEngine(BaseEngine):
         """Run the actual simulation loop."""
         # Get date range from engine config
         engine_config = getattr(config, 'custom_config', {})
-        start_date = engine_config.get('start_date', datetime(2021, 1, 1))
-        end_date = engine_config.get('end_date', datetime(2022, 1, 1))
+        start_date = datetime.strptime(engine_config.get('start_date', datetime(2021, 1, 1)), "%Y-%m-%d")
+        end_date = datetime.strptime(engine_config.get('end_date', datetime(2022, 1, 1)), "%Y-%m-%d")
         
         # Get configurable time interval
         time_interval = self._get_time_interval(engine_config)
@@ -420,6 +433,18 @@ class MisbuffetEngine(BaseEngine):
             # Create data slice with real stock data for this date
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
                 try:
+
+                    # Step 1: Verify and ensure data exists
+                    if hasattr(self.algorithm, 'trainer') and self.algorithm.trainer and not hasattr(self.algorithm, '_data_verified'):
+                        self.logger.info("🔍 Verifying  data availability...")
+                        data_verification_result = self.algorithm._verify_and_import_data()
+                        
+                        if not data_verification_result.get('success', False):
+                            self.logger.error("❌ Data verification failed - cannot proceed with trading")
+                            return
+                        self._data_verified = True
+                        self.logger.info("✅ SPX data verified and available")
+
                     data_slice = self._create_data_slice(current_date, universe)
                     
                     # Only call on_data if we have data for this date
@@ -444,7 +469,7 @@ class MisbuffetEngine(BaseEngine):
                 self.logger.info(f"Reached configured end date: {end_date.date()}. Stopping simulation.")
                 break
         
-        self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
+            self.logger.info(f"Simulation complete. Processed {data_points_processed} data points.")
         
         # Return performance data
         return {
@@ -462,8 +487,7 @@ class MisbuffetEngine(BaseEngine):
         rather than loading financial data. The financial data loading is handled by the
         Algorithm.on_data() method through the model training pipeline.
         """
-        from ..common.data_types import Slice, TradeBars, TradeBar
-        from ..common.symbol import Symbol
+        
         
         # Validate if current_date is a trading day using basic rules
         # This replaces the complex financial data loading with simple time validation
@@ -479,29 +503,34 @@ class MisbuffetEngine(BaseEngine):
         # The actual financial data will be handled by Algorithm.on_data() method
         for ticker in universe:
             try:
-                # Create Symbol object
-                symbol = Symbol.create_equity(ticker)
+                #point_in_time_data is data that we will trade on or simulate trading on 
+                point_in_time_data = self._get_point_in_time_data(ticker, current_date)
+                if point_in_time_data is not None and not point_in_time_data.empty:
+                    # Create Symbol object
+                    symbol = Symbol.create_equity(ticker)
+                    # Use the most recent data point (should be just one for this date)
+                    latest_data = point_in_time_data.iloc[-1]
                 
-                # Create minimal TradeBar with time information only
-                # Financial data will be retrieved by the Algorithm through model_trainer
-                trade_bar = TradeBar(
-                    symbol=symbol,
-                    time=current_date,
-                    end_time=current_date,
-                    open=0.0,  # Placeholder - real data loaded in Algorithm.on_data()
-                    high=0.0,  # Placeholder - real data loaded in Algorithm.on_data()
-                    low=0.0,   # Placeholder - real data loaded in Algorithm.on_data()
-                    close=0.0, # Placeholder - real data loaded in Algorithm.on_data()
-                    volume=0   # Placeholder - real data loaded in Algorithm.on_data()
-                )
-                
-                # Add to slice - focus on time/date structure rather than financial data
-                slice_data.bars[symbol] = trade_bar
-                # Also add to the data dictionary so has_data() returns True for valid trading days
-                if symbol not in slice_data._data:
-                    slice_data._data[symbol] = []
-                slice_data._data[symbol].append(trade_bar)
+                    # Create minimal TradeBar with time information only
+                    # Financial data will be retrieved by the Algorithm through model_trainer
+                    trade_bar = TradeBar(
+                            symbol=symbol,
+                            time=current_date,
+                            end_time=current_date,
+                            open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
+                            high=float(latest_data.get('High', latest_data.get('high', 0.0))),
+                            low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
+                            close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
+                            volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+                        )
                     
+                    # Add to slice - focus on time/date structure rather than financial data
+                    slice_data.bars[symbol] = trade_bar
+                    # Also add to the data dictionary so has_data() returns True for valid trading days
+                    if symbol not in slice_data._data:
+                        slice_data._data[symbol] = []
+                    slice_data._data[symbol].append(trade_bar)
+                        
             except Exception as e:
                 self.logger.debug(f"Error creating time slice for {ticker} on {current_date}: {e}")
                 continue
@@ -511,38 +540,57 @@ class MisbuffetEngine(BaseEngine):
         
         return slice_data
     
+    
+
+
     def _is_valid_trading_day(self, date):
         """
         Check if a given date is a valid trading day.
-        
-        Uses basic market calendar rules (weekdays, excluding major holidays).
-        This could be enhanced with pandas_market_calendars if available.
+
+        Priority:
+        1. pandas_market_calendars (NYSE) if installed
+        2. Fallback to basic weekday + major US holidays
         """
-        # Basic trading day validation - exclude weekends
+        
+        # Normalize to date (strip time)
+        if isinstance(date, datetime):
+            date = date.date()
+
+        if not isinstance(date, date_type):
+            raise TypeError(f"Expected date or datetime, got {type(date)}")
+
+        
+        try:
+            exchange = mcal.get_calendar("NYSE")
+            valid_days = exchange.valid_days(
+                start_date=date,
+                end_date=date
+            )
+
+            return len(valid_days) > 0
+
+        
+
+        except Exception as e:
+            self.logger.warning(
+                f"Market calendar check failed ({e}), falling back to basic rules"
+            )
+
+        # --- 2️⃣ Fallback: weekday + major holidays ---
         if date.weekday() >= 5:  # Saturday = 5, Sunday = 6
             return False
-        
-        # Basic US market holiday exclusions (simplified)
-        major_holidays = [
-            (1, 1),   # New Year's Day
-            (7, 4),   # Independence Day  
-            (12, 25), # Christmas
-        ]
-        
-        date_tuple = (date.month, date.day)
-        if date_tuple in major_holidays:
+
+        major_holidays = {
+            (1, 1),    # New Year's Day
+            (7, 4),    # Independence Day
+            (12, 25),  # Christmas
+        }
+
+        if (date.month, date.day) in major_holidays:
             return False
-            
-        # TODO: Could be enhanced with pandas_market_calendars for complete accuracy:
-        # try:
-        #     import pandas_market_calendars as mcal
-        #     nyse = mcal.get_calendar('NYSE')
-        #     return nyse.valid_days(date, date).size > 0
-        # except ImportError:
-        #     # Fall back to basic weekday check
-        #     pass
-            
+
         return True
+
     
     def _get_current_market_price(self, symbol):
         """Get current market price for a symbol."""
@@ -586,7 +634,7 @@ class MisbuffetEngine(BaseEngine):
             self.logger.debug(f"Error getting market price for {symbol}: {e}")
             return 100.0
     
-    def _get_single_day_data(self, ticker, target_date):
+    def _get_point_in_time_data(self, ticker, point_in_time):
         """Get data for a single day using FactorDataService (entity-agnostic)."""
         if not self.factor_data_service:
             return None
@@ -609,8 +657,8 @@ class MisbuffetEngine(BaseEngine):
                     factor_values = self.factor_data_service.get_factor_values(
                         factor_id=int(factor.id),
                         entity_id=entity.id,
-                        start_date=target_date.strftime('%Y-%m-%d'),
-                        end_date=target_date.strftime('%Y-%m-%d')
+                        start_date=point_in_time.strftime('%Y-%m-%d'),
+                        end_date=point_in_time.strftime('%Y-%m-%d')
                     )
                     
                     if factor_values:
@@ -620,18 +668,18 @@ class MisbuffetEngine(BaseEngine):
             # Create DataFrame if we have data
             if factor_data:
                 # Add Date column for compatibility
-                factor_data['Date'] = target_date
+                factor_data['Date'] = point_in_time
                 
                 # Create single-row DataFrame
                 df = pd.DataFrame([factor_data])
                 
-                self.logger.debug(f"Using factor data for {ticker} on {target_date} (factors: {list(factor_data.keys())})")
+                self.logger.debug(f"Using factor data for {ticker} on {point_in_time} (factors: {list(factor_data.keys())})")
                 return df
             
             return None
             
         except Exception as e:
-            self.logger.debug(f"Error getting single day data for {ticker} on {target_date}: {e}")
+            self.logger.debug(f"Error getting single day data for {ticker} on {point_in_time}: {e}")
             return None
     
     def _get_entity_by_identifier(self, identifier: str):
