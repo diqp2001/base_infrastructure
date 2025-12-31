@@ -4,6 +4,8 @@ from typing import Optional
 from datetime import date
 from decimal import Decimal
 
+from domain.entities.finance.exchange import Exchange
+
 from ..derivative import Derivative, UnderlyingAsset
 
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
@@ -19,19 +21,17 @@ class Future(Derivative):
         self,
         id: int,
         underlying_asset: FinancialAsset,
+        exchange :Exchange,
         expiration_date: date,
         start_date: date,
         end_date: Optional[date] = None,
-        contract_size: Decimal = Decimal("1"),
-        tick_size: Decimal = Decimal("0.01"),
-        tick_value: Decimal = Decimal("1"),
+        
     ):
         super().__init__(id, underlying_asset, start_date, end_date)
 
         self.expiration_date = expiration_date
-        self.contract_size = contract_size
-        self.tick_size = tick_size
-        self.tick_value = tick_value
+        self.exchange =exchange
+        
 
         
 

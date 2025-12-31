@@ -3,6 +3,5 @@ from src.domain.entities.finance.financial_assets.derivatives.future.future impo
 
 class IndexFuture(Future):
     """Future contract for a generic index."""
-    def __init__(self, index_id: int, **kwargs):
+    def __init__(self,  **kwargs):
         super().__init__(**kwargs)
-        self.index_id = index_id  # link to index entity

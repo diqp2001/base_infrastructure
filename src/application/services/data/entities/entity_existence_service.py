@@ -80,7 +80,8 @@ class EntityExistenceService:
         
         for ticker in tickers:
             try:
-                # Step 1: Ensure related entities exist first
+                #the following is not necessary knowing that with the model structure with non nullable foreign key a missing related_entities would be impossible
+                """# Step 1: Ensure related entities exist first
                 related_results = self._ensure_related_entities_exist(ticker)
                 self._update_results(results['countries'], related_results.get('country', {}))
                 self._update_results(results['sectors'], related_results.get('sector', {}))
@@ -89,14 +90,14 @@ class EntityExistenceService:
                 
                 # Step 2: Ensure Company exists (create company first to get company_id)
                 company_result = self._ensure_company_exists(ticker)
-                self._update_results(results['companies'], company_result)
+                self._update_results(results['companies'], company_result)"""
                 
-                # Step 3: Ensure CompanyShare exists with proper company_id
-                if company_result.get('entity'):
-                    share_result = self._ensure_company_share_exists(ticker, company_result['entity'])
-                    self._update_results(results['company_shares'], share_result)
-                else:
-                    break
+                # Ensure CompanyShare exists with proper company_id
+                index_result = self._ensure_index_exists(ticker)
+                self._update_results(results['index'], index_result)
+                index_future = self._ensure_index_future_exists(ticker)
+                self._update_results(results['index_future'], index_future)
+                
                 
             except Exception as e:
                 error_msg = f"Error ensuring entities exist for {ticker}: {str(e)}"
