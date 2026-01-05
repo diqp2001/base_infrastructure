@@ -87,6 +87,75 @@ class IndexRepository(FinancialAssetBaseRepository):
             print(f"Error adding index: {e}")
             return None
         
+    def _get_next_available_index_id(self) -> int:
+        """
+        Get the next available ID for index creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            max_id_result = self.session.query(Index_Model.id).order_by(Index_Model.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available index ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
+    def _create_or_get(self, symbol: str, name: str = None, 
+                       index_type: str = 'Stock', currency: str = 'USD',
+                       exchange: str = 'CBOE', **kwargs) -> Index_Entity:
+        """
+        Create index entity if it doesn't exist, otherwise return existing.
+        Follows the same pattern as CompanyShareRepository._create_or_get().
+        
+        Args:
+            symbol: Index symbol (unique identifier, e.g., 'SPX')
+            name: Index name (defaults to '{symbol} Index')
+            index_type: Type of index (Stock, Bond, Commodity, etc.)
+            currency: Index currency (defaults to 'USD')
+            exchange: Exchange name (defaults to 'CBOE')
+            **kwargs: Additional index parameters
+            
+        Returns:
+            Index_Entity: Created or existing index entity
+        """
+        # Check if entity already exists by symbol (unique identifier)
+        existing_index = self.get_by_symbol(symbol)
+        if existing_index:
+            return existing_index
+        
+        try:
+            # Generate next available ID
+            next_id = self._get_next_available_index_id()
+            
+            # Create new index entity
+            new_index = Index_Entity(
+                id=next_id,
+                symbol=symbol,
+                name=name or f"{symbol} Index",
+                index_type=index_type,
+                currency=currency,
+                base_value=kwargs.get('base_value', 100.0),
+                base_date=kwargs.get('base_date'),
+                weighting_method=kwargs.get('weighting_method', 'Market Cap'),
+                total_constituents=kwargs.get('total_constituents'),
+                is_tradeable=kwargs.get('is_tradeable', False),
+                is_active=kwargs.get('is_active', True)
+            )
+            
+            # Add to database
+            return self.add(new_index)
+            
+        except Exception as e:
+            print(f"Error creating index for {symbol}: {str(e)}")
+            return None
+
     def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
         """
         Get index information from MarketData service.
@@ -124,7 +193,7 @@ class IndexRepository(FinancialAssetBaseRepository):
                 'base_value': 100.0,
                 'base_date': None,
                 'provider': exchange
-            }, self.create(**data)
+            }
             
         except Exception as e:
             print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}")
