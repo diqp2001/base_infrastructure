@@ -7,9 +7,11 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.future_
 from src.domain.entities.finance.financial_assets.derivatives.future.future import (
     Future as Future_Entity
 )
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.ports.financial_assets.index_future_port import IndexFuturePort
 
 
-class IndexFutureRepository(FutureRepository):
+class IndexFutureRepository(FutureRepository, IndexFuturePort):
     """
     Repository for INDEX Future instruments (e.g., ES, NQ, RTY).
     Specialization of FutureRepository.
@@ -38,6 +40,39 @@ class IndexFutureRepository(FutureRepository):
     # Factory helpers
     # ------------------------------------------------------------------
 
+    def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
+        """
+        Get or create an index future by symbol.
+        Implementation of IndexFuturePort interface.
+        
+        Args:
+            symbol: The future symbol (e.g., 'ESZ25', 'NQH25')
+            
+        Returns:
+            IndexFuture entity or None if creation/retrieval failed
+        """
+        try:
+            # First try to get existing
+            existing = self.get_by_symbol(symbol)
+            if existing and existing.future_type == "INDEX":
+                # Convert Future to IndexFuture entity
+                return self._future_to_index_future(existing)
+            
+            # Create new index future with minimal parameters
+            future_entity = self._create_or_get(
+                symbol=symbol,
+                contract_name=f"{symbol} Index Future",
+                future_type="INDEX",
+                underlying_asset="INDEX",  # Default for index futures
+                exchange="CME",  # Default exchange
+                currency="USD",  # Default currency
+            )
+            
+            return self._future_to_index_future(future_entity) if future_entity else None
+        except Exception as e:
+            print(f"Error in get_or_create for symbol {symbol}: {e}")
+            return None
+
     def create_or_get_index_future(
         self,
         symbol: str,
@@ -48,7 +83,7 @@ class IndexFutureRepository(FutureRepository):
         **kwargs
     ) -> Future_Entity:
         """
-        Create or retrieve an INDEX future.
+        Create or retrieve an INDEX future (legacy method).
 
         Args:
             symbol: Future symbol (e.g., 'ESZ5')
@@ -70,3 +105,33 @@ class IndexFutureRepository(FutureRepository):
             currency=currency,
             **kwargs,
         )
+    
+    def _future_to_index_future(self, future_entity: Future_Entity) -> Optional[IndexFuture]:
+        """
+        Convert Future entity to IndexFuture entity.
+        
+        Args:
+            future_entity: Future entity to convert
+            
+        Returns:
+            IndexFuture entity or None if conversion failed
+        """
+        try:
+            # Create IndexFuture from Future entity attributes
+            # Note: This is a simplified conversion. In a real implementation,
+            # you might need more sophisticated mapping logic
+            return IndexFuture(
+                symbol=future_entity.symbol,
+                name=future_entity.name,
+                exchange=future_entity.exchange,
+                currency=future_entity.currency,
+                underlying_index=future_entity.underlying_asset,
+                contract_size=getattr(future_entity, 'contract_size', 1),
+                tick_size=getattr(future_entity, 'tick_size', 0.01),
+                expiry_date=getattr(future_entity, 'expiry_date', None),
+                market_sector=getattr(future_entity, 'market_sector', 'INDEX'),
+                asset_class=getattr(future_entity, 'asset_class', 'DERIVATIVE')
+            )
+        except Exception as e:
+            print(f"Error converting Future to IndexFuture: {e}")
+            return None

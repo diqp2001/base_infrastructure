@@ -1,13 +1,266 @@
-from ibapi.contract import Contract
+"""
+IBKR Index Future Repository - Interactive Brokers implementation for Index Futures.
 
-class IBKRIndexFutureRepository():
+This repository handles data acquisition and normalization from the IBKR API,
+applying IBKR-specific business rules before delegating persistence to the local repository.
+"""
 
-    def __init__(self, ibkr_client, local_repo: IndexFutureRepository):
+from typing import Optional, List
+from datetime import date, datetime
+from decimal import Decimal
+
+from ibapi.contract import Contract, ContractDetails
+from ibapi.common import TickerId
+
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.ports.financial_assets.index_future_port import IndexFuturePort
+
+
+class IBKRIndexFutureRepository(IndexFuturePort):
+    """
+    IBKR implementation of IndexFuturePort.
+    Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
+    """
+
+    def __init__(self, ibkr_client, local_repo: IndexFuturePort):
+        """
+        Initialize IBKR Index Future Repository.
+        
+        Args:
+            ibkr_client: Interactive Brokers API client
+            local_repo: Local repository implementing IndexFuturePort for persistence
+        """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
 
-    def get_or_create(self, symbol: str) -> IndexFuture:
-        contract = self._fetch_contract(symbol)
-        entity = self._contract_to_domain(contract)
+    def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
+        """
+        Get or create an index future by symbol using IBKR API.
+        
+        Args:
+            symbol: The future symbol (e.g., 'ESZ25', 'NQH25')
+            
+        Returns:
+            IndexFuture entity or None if creation/retrieval failed
+        """
+        try:
+            # 1. Check local repository first
+            existing = self.local_repo.get_by_symbol(symbol)
+            if existing:
+                return existing
+            
+            # 2. Fetch from IBKR API
+            contract = self._fetch_contract(symbol)
+            if not contract:
+                return None
+                
+            # 3. Get contract details from IBKR
+            contract_details = self._fetch_contract_details(contract)
+            if not contract_details:
+                return None
+                
+            # 4. Apply IBKR-specific rules and convert to domain entity
+            entity = self._contract_to_domain(contract, contract_details)
+            if not entity:
+                return None
+                
+            # 5. Delegate persistence to local repository
+            return self.local_repo.add(entity)
+            
+        except Exception as e:
+            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}")
+            return None
 
-        return self.local_repo.get_or_create(entity.symbol)
+    def get_by_symbol(self, symbol: str) -> Optional[IndexFuture]:
+        """Get index future by symbol (delegates to local repository)."""
+        return self.local_repo.get_by_symbol(symbol)
+
+    def get_by_id(self, entity_id: int) -> Optional[IndexFuture]:
+        """Get index future by ID (delegates to local repository)."""
+        return self.local_repo.get_by_id(entity_id)
+
+    def get_all(self) -> List[IndexFuture]:
+        """Get all index futures (delegates to local repository)."""
+        return self.local_repo.get_all()
+
+    def add(self, entity: IndexFuture) -> Optional[IndexFuture]:
+        """Add index future entity (delegates to local repository)."""
+        return self.local_repo.add(entity)
+
+    def update(self, entity: IndexFuture) -> Optional[IndexFuture]:
+        """Update index future entity (delegates to local repository)."""
+        return self.local_repo.update(entity)
+
+    def delete(self, entity_id: int) -> bool:
+        """Delete index future entity (delegates to local repository)."""
+        return self.local_repo.delete(entity_id)
+
+    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
+        """
+        Fetch contract from IBKR API.
+        
+        Args:
+            symbol: Future symbol
+            
+        Returns:
+            IBKR Contract object or None if not found
+        """
+        try:
+            contract = Contract()
+            contract.symbol = self._extract_underlying_symbol(symbol)
+            contract.secType = "FUT"
+            contract.exchange = "CME"  # Default for index futures
+            contract.currency = "USD"
+            contract.lastTradeDateOrContractMonth = self._extract_expiry_from_symbol(symbol)
+            
+            # Additional IBKR-specific contract setup
+            contract = self._apply_ibkr_symbol_rules(contract, symbol)
+            
+            return contract
+        except Exception as e:
+            print(f"Error fetching IBKR contract for {symbol}: {e}")
+            return None
+
+    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+        """
+        Fetch contract details from IBKR API.
+        
+        Args:
+            contract: IBKR Contract object
+            
+        Returns:
+            ContractDetails object or None if not found
+        """
+        try:
+            # This would involve an actual IBKR API call
+            # For now, return a mock object to demonstrate the pattern
+            # In real implementation, use self.ibkr.reqContractDetails()
+            
+            contract_details = ContractDetails()
+            contract_details.contract = contract
+            # Set additional details that come from IBKR
+            contract_details.marketName = "Index Futures"
+            contract_details.minTick = 0.25  # Example for ES
+            contract_details.priceMagnifier = 1
+            contract_details.orderTypes = "LMT,MKT,STP"
+            
+            return contract_details
+        except Exception as e:
+            print(f"Error fetching IBKR contract details: {e}")
+            return None
+
+    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[IndexFuture]:
+        """
+        Convert IBKR contract and details directly to domain entity.
+        
+        Args:
+            contract: IBKR Contract object
+            contract_details: IBKR ContractDetails object
+            
+        Returns:
+            IndexFuture domain entity or None if conversion failed
+        """
+        try:
+            # Apply IBKR-specific business rules and create domain entity
+            underlying_index = self._resolve_underlying_index(contract.symbol)
+            contract_size = self._resolve_contract_size(contract.symbol)
+            tick_size = contract_details.minTick if contract_details.minTick else 0.25
+            
+            return IndexFuture(
+                symbol=self._normalize_symbol(contract),
+                name=f"{contract.symbol} Index Future",
+                exchange=contract.exchange,
+                currency=contract.currency,
+                underlying_index=underlying_index,
+                contract_size=contract_size,
+                tick_size=Decimal(str(tick_size)),
+                expiry_date=self._parse_expiry_date(contract.lastTradeDateOrContractMonth),
+                market_sector="INDEX",
+                asset_class="DERIVATIVE",
+                # Additional IBKR-specific fields
+                ibkr_contract_id=getattr(contract, 'conId', None),
+                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
+                ibkr_trading_class=getattr(contract, 'tradingClass', '')
+            )
+        except Exception as e:
+            print(f"Error converting IBKR contract to domain entity: {e}")
+            return None
+
+    def _extract_underlying_symbol(self, symbol: str) -> str:
+        """Extract underlying symbol from future symbol (e.g., 'ESZ25' -> 'ES')."""
+        # Remove month/year suffix
+        return ''.join(c for c in symbol if c.isalpha())[:2]
+
+    def _extract_expiry_from_symbol(self, symbol: str) -> str:
+        """Extract expiry from symbol (e.g., 'ESZ25' -> '202512')."""
+        # This is simplified - real implementation would handle month codes and years
+        month_code = ''.join(c for c in symbol if c.isalpha())[-1:]
+        year = ''.join(c for c in symbol if c.isdigit())
+        
+        # Convert month code to number (simplified)
+        month_map = {'H': '03', 'M': '06', 'U': '09', 'Z': '12'}
+        month = month_map.get(month_code, '12')
+        
+        return f"20{year}{month}"
+
+    def _apply_ibkr_symbol_rules(self, contract: Contract, original_symbol: str) -> Contract:
+        """Apply IBKR-specific symbol resolution and exchange rules."""
+        # Example: Map ES to its IBKR equivalent
+        ibkr_symbol_map = {
+            'ES': 'ES',  # E-mini S&P 500
+            'NQ': 'NQ',  # E-mini NASDAQ
+            'RTY': 'RTY',  # E-mini Russell 2000
+            'YM': 'YM'   # E-mini Dow
+        }
+        
+        underlying = self._extract_underlying_symbol(original_symbol)
+        contract.symbol = ibkr_symbol_map.get(underlying, underlying)
+        
+        # Set appropriate exchange
+        if underlying in ['ES', 'NQ']:
+            contract.exchange = 'GLOBEX'
+        else:
+            contract.exchange = 'CME'
+            
+        return contract
+
+    def _resolve_underlying_index(self, symbol: str) -> str:
+        """Resolve underlying index from IBKR symbol."""
+        index_map = {
+            'ES': 'SPX',      # S&P 500
+            'NQ': 'NDX',      # NASDAQ 100
+            'RTY': 'RUT',     # Russell 2000
+            'YM': 'DJI'       # Dow Jones
+        }
+        return index_map.get(symbol, symbol)
+
+    def _resolve_contract_size(self, symbol: str) -> int:
+        """Resolve contract size from IBKR symbol."""
+        size_map = {
+            'ES': 50,     # $50 per point
+            'NQ': 20,     # $20 per point
+            'RTY': 50,    # $50 per point
+            'YM': 5       # $5 per point
+        }
+        return size_map.get(symbol, 1)
+
+    def _normalize_symbol(self, contract: Contract) -> str:
+        """Create normalized symbol from IBKR contract."""
+        return f"{contract.symbol}{contract.lastTradeDateOrContractMonth[-3:]}"
+
+    def _parse_expiry_date(self, expiry_str: str) -> Optional[date]:
+        """Parse expiry date string to date object."""
+        try:
+            # Handle various IBKR date formats
+            if len(expiry_str) == 6:  # YYYYMM
+                year = int(expiry_str[:4])
+                month = int(expiry_str[4:6])
+                return date(year, month, 1)  # Use first day of month
+            elif len(expiry_str) == 8:  # YYYYMMDD
+                year = int(expiry_str[:4])
+                month = int(expiry_str[4:6])
+                day = int(expiry_str[6:8])
+                return date(year, month, day)
+            return None
+        except (ValueError, TypeError):
+            return None
