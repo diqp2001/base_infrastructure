@@ -18,7 +18,6 @@ from src.application.services.data.entities.factor.factor_calculation_service im
 from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
 from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
-from src.application.services.data.entities.entity_existence_service import EntityExistenceService
 from src.application.services.database_service.database_service import DatabaseService
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor

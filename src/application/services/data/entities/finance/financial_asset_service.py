@@ -10,7 +10,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 
-from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.index_future_repository import IndexFutureRepository
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.company import Company
 from src.domain.entities.finance.exchange import Exchange
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -34,6 +35,7 @@ from src.domain.entities.finance.financial_assets.derivatives.forward import For
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.application.services.database_service.database_service import DatabaseService
 
 # Import infrastructure models for Index and Future
@@ -65,6 +67,7 @@ class FinancialAssetService:
         Currency: CurrencyRepository,
         Bond: BondRepository,
         Index: IndexRepository,
+        IndexFuture: IndexFutureRepository,
         }
         
     def get_repository(self, entity_type):

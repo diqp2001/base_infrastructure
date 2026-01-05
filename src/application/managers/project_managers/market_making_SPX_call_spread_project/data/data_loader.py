@@ -11,9 +11,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
+
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.ibkr_service.market_data import MarketData
-from src.application.services.data.entities.entity_existence_service import EntityExistenceService
 from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
 from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
@@ -42,7 +44,6 @@ class DataLoader:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize enhanced services for comprehensive data management
-        self.entity_existence_service = EntityExistenceService(database_service)
         self.financial_asset_service = FinancialAssetService(database_service)
         self.factor_data_service = FactorDataService(database_service)
         self.factor_creation_service = FactorCreationService(database_service)
@@ -68,8 +69,8 @@ class DataLoader:
             spx_tickers_futures = ['ES']  # SPX index
             
             # Ensure SPX entities exist (index and future)
-            entity_results_spx_tickers = self.financial_asset_service.ensure_entities_exist(spx_tickers)
-            entity_results_spx_tickers_futures = self.financial_asset_service.ensure_entities_exist(spx_tickers_futures)
+            entity_results_spx_tickers = self.financial_asset_service._create_or_get(Index ,spx_tickers)
+            entity_results_spx_tickers_futures = self.financial_asset_service._create_or_get(IndexFuture,spx_tickers_futures)
             
             # Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
@@ -237,7 +238,7 @@ class DataLoader:
         
         try:
             # Ensure SPX entities exist first
-            entity_results = self.entity_existence_service.ensure_entities_exist(['SPX'])
+            entity_results = self.financial_asset_service._create_or_get(['SPX'])
             
             # Get or create SPX company share entity
             spx_share = self.factor_data_service.get_company_share_by_ticker('SPX')
@@ -395,7 +396,7 @@ class DataLoader:
             year='26'
             months = ['H','M','U','Z']
             month = months[0]
-            spx_future = self.financial_asset_service.create_future(
+            spx_future = self.financial_asset_service._create_or_get(
                 symbol=f'ES{month}{year}',
                 underlying_asset='SPX',
                 expiry_date=date(2025, 12, 31),  # Default expiry
