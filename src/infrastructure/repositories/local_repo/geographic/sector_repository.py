@@ -65,7 +65,7 @@ class SectorRepository(GeographicRepository):
             print(f"Warning: Could not determine next available sector ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
-    def _create_or_get_sector(self, name: str, classification_system: Optional[str] = None,
+    def _create_or_get(self, name: str, classification_system: Optional[str] = None,
                              description: Optional[str] = None) -> Optional[Sector]:
         """
         Create sector entity if it doesn't exist, otherwise return existing.

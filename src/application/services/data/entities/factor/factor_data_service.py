@@ -55,7 +55,7 @@ class FactorDataService:
                             data_type: str, source: str, definition: str) -> Optional[Factor]:
         """Create or get factor using the standardized repository pattern."""
         try:
-            return self.base_factor_repository._create_or_get_factor(
+            return self.base_factor_repository._create_or_get(
                 name=name,
                 group=group,
                 subgroup=subgroup,

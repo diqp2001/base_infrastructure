@@ -142,7 +142,7 @@ class ExchangeRepository(BaseRepository):
             print(f"Warning: Could not determine next available exchange ID: {e}")
             return 1
 
-    def _create_or_get_exchange(
+    def _create_or_get(
         self,
         name: str,
         legal_name: Optional[str] = None,

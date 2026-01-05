@@ -65,16 +65,19 @@ class DataLoader:
             # Use EntityExistenceService to verify existence of SPX entities
             # Check for both SPX index and future entities
             spx_tickers = ['SPX']  # SPX index
+            spx_tickers_futures = ['ES']  # SPX index
             
             # Ensure SPX entities exist (index and future)
-            entity_results = self.financial_asset_service.ensure_entities_exist(spx_tickers)
+            entity_results_spx_tickers = self.financial_asset_service.ensure_entities_exist(spx_tickers)
+            entity_results_spx_tickers_futures = self.financial_asset_service.ensure_entities_exist(spx_tickers_futures)
             
             # Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
             if self.factor_manager and hasattr(self.factor_manager, '_ensure_entities_exist'):
                 # Use factor_manager's entity verification if available
                 self.logger.info("Using factor_manager for entity verification...")
-                factor_entities = self.factor_manager._ensure_entities_exist(spx_tickers)
+                factor_entities_spx_tickers = self.factor_manager._ensure_entities_exist(spx_tickers)
+                factor_entities_spx_tickers_futures = self.factor_manager._ensure_entities_exist(spx_tickers)
             
             # Verify SPX future entity creation
             spx_future_entity = self._verify_spx_future_entity()
@@ -85,11 +88,11 @@ class DataLoader:
             result = {
                 'spx_index_records': spx_data_count,
                 'has_spx_data': spx_data_count > 0,
-                'entities_verified': entity_results.get('company_shares', {}).get('verified', 0),
-                'entities_created': entity_results.get('company_shares', {}).get('created', 0),
+                'entities_verified': entity_results_spx_tickers_futures.get('future_index', {}).get('verified', 0),
+                'entities_created': entity_results_spx_tickers_futures.get('future_index', {}).get('created', 0),
                 'spx_future_entity': spx_future_entity['status'],
                 'factor_manager_status': factor_manager_status,
-                'entity_verification_errors': entity_results.get('errors', []),
+                'entity_verification_errors': entity_results_spx_tickers_futures.get('errors', []),
                 'last_checked': datetime.now().isoformat(),
             }
             
@@ -389,9 +392,11 @@ class DataLoader:
         try:
             # Create SPX future entity using FinancialAssetService
             from datetime import date
-            
+            year='26'
+            months = ['H','M','U','Z']
+            month = months[0]
             spx_future = self.financial_asset_service.create_future(
-                symbol='SPX_FUT',
+                symbol=f'ES{month}{year}',
                 underlying_asset='SPX',
                 expiry_date=date(2025, 12, 31),  # Default expiry
                 contract_size='$250 × Index',

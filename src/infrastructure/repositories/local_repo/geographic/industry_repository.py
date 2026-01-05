@@ -74,7 +74,7 @@ class IndustryRepository(GeographicRepository):
             print(f"Warning: Could not determine next available industry ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
-    def _create_or_get_industry(self, name: str, sector_name: Optional[str] = None,
+    def _create_or_get(self, name: str, sector_name: Optional[str] = None,
                                classification_system: Optional[str] = None,
                                description: Optional[str] = None) -> Optional[Industry]:
         """

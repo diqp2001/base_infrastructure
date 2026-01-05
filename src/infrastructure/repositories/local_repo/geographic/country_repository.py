@@ -76,7 +76,7 @@ class CountryRepository(GeographicRepository):
             print(f"Warning: Could not determine next available country ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
-    def _create_or_get_country(self, name: str, iso_code: Optional[str] = None,
+    def _create_or_get(self, name: str, iso_code: Optional[str] = None,
                               continent: Optional[str] = None, currency: Optional[str] = None) -> Optional[Country]:
         """
         Create country entity if it doesn't exist, otherwise return existing.

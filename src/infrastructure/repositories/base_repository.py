@@ -119,3 +119,9 @@ class BaseRepository(ABC, Generic[EntityType, ModelType]):
         Must be implemented in child repositories.
         """
         pass
+    @abstractmethod
+    def _create_or_get(self):
+        """
+        Create entity if it doesn't exist with related entities, otherwise return existing based on name AND discriminator.
+        """
+        pass

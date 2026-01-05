@@ -141,7 +141,7 @@ class CompanyRepository(BaseRepository):
             print(f"Warning: Could not determine next available company ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
-    def _create_or_get_company(self, name: str, legal_name: Optional[str] = None,
+    def _create_or_get(self, name: str, legal_name: Optional[str] = None,
                               country_id: int = 1, industry_id: int = 1,
                               start_date: Optional[date] = None) -> CompanyEntity:
         """

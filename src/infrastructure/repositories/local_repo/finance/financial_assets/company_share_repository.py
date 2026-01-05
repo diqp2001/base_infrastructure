@@ -432,7 +432,7 @@ class CompanyShareRepository(ShareRepository):
             print(f"Warning: Could not determine next available company share ID: {str(e)}")
             return 1  # Default to 1 if query fails
 
-    def _create_or_get_company_share(self, ticker: str, exchange_id: int, 
+    def _create_or_get(self, ticker: str, exchange_id: int, 
                                     company_id: Optional[int] , 
                                     start_date, end_date=None,
                                     company_name: Optional[str] = None,

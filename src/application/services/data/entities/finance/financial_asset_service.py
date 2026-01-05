@@ -78,13 +78,6 @@ class FinancialAssetService:
         return repo
     
     
-    
-    
-    
-    
-        
-   
-        
     def persist_entity(self, entity) :
         """
         Persist a bond entity to the database.
@@ -121,6 +114,7 @@ class FinancialAssetService:
             )
             return None
         
+
     def pull_all(self,entity_cls) -> List:
         """Pull all company shares from database."""
         try:
@@ -129,7 +123,6 @@ class FinancialAssetService:
         except Exception as e:
             print(f"Error pulling all : {str(e)}")
             return []
-    
     
     
     # Enhanced methods following company_share_repository patterns
@@ -152,7 +145,18 @@ class FinancialAssetService:
             self.logger.error(
                 f"Error pulling {entity_cls.__name__} with symbol {symbol}: {e}"
             )
-    
+
+    def _create_or_get(self, entity_cls ,name: str) :
+        try:
+            repository = self.get_repository(entity_cls)
+            return repository._create_or_get(entity_cls,name)
+        
+            
+        except Exception as e:
+            self.logger.error(
+                f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
+            )
+
     def _create_ibkr_or_get(self, entity_cls, entity_id: int,
                             **kwargs) -> Optional[Index]:
         """
