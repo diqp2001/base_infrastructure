@@ -1,7 +1,7 @@
 from typing import Any, Dict
 from sqlalchemy.orm import Session
 
-from infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import (
     FinancialAssetBaseRepository
 )
@@ -57,6 +57,19 @@ class FutureRepository(FinancialAssetBaseRepository):
             print(f"Error retrieving future by ID {id}: {e}")
             return None
 
+    def get_by_symbol(self, symbol: str) -> Future_Entity:
+        """Fetch a Future by its symbol."""
+        try:
+            future = (
+                self.session.query(Future_Model)
+                .filter(Future_Model.symbol == symbol)
+                .first()
+            )
+            return self._to_domain(future)
+        except Exception as e:
+            print(f"Error retrieving future by symbol {symbol}: {e}")
+            return None
+
     def get_by_symbol_and_expiry(self, symbol: str, expiration_date) -> Future_Entity:
         """Fetch a Future by symbol and expiration date."""
         try:
@@ -90,6 +103,75 @@ class FutureRepository(FinancialAssetBaseRepository):
         except Exception as e:
             self.session.rollback()
             print(f"Error adding future: {e}")
+            return None
+
+    def _get_next_available_future_id(self) -> int:
+        """
+        Get the next available ID for future creation.
+        Returns the next sequential ID based on existing database records.
+        
+        Returns:
+            int: Next available ID (defaults to 1 if no records exist)
+        """
+        try:
+            max_id_result = self.session.query(Future_Model.id).order_by(Future_Model.id.desc()).first()
+            
+            if max_id_result:
+                return max_id_result[0] + 1
+            else:
+                return 1  # Start from 1 if no records exist
+                
+        except Exception as e:
+            print(f"Warning: Could not determine next available future ID: {str(e)}")
+            return 1  # Default to 1 if query fails
+
+    def _create_or_get(self, symbol: str, contract_name: str = None,
+                       future_type: str = 'INDEX', underlying_asset: str = None,
+                       exchange: str = 'CME', currency: str = 'USD',
+                       **kwargs) -> Future_Entity:
+        """
+        Create future entity if it doesn't exist, otherwise return existing.
+        Follows the same pattern as CompanyShareRepository._create_or_get().
+        
+        Args:
+            symbol: Future symbol (unique identifier, e.g., 'ESZ5')
+            contract_name: Future contract name (defaults to '{symbol} Future')
+            future_type: Type of future (INDEX, COMMODITY, BOND, CURRENCY)
+            underlying_asset: Underlying asset symbol (e.g., 'SPX' for ES futures)
+            exchange: Exchange name (defaults to 'CME')
+            currency: Contract currency (defaults to 'USD')
+            **kwargs: Additional future parameters
+            
+        Returns:
+            Future_Entity: Created or existing future entity
+        """
+        # Check if entity already exists by symbol (unique identifier)
+        existing_future = self.get_by_symbol(symbol)
+        if existing_future:
+            return existing_future
+        
+        try:
+            # Generate next available ID
+            next_id = self._get_next_available_future_id()
+            
+            # Create new future entity
+            new_future = Future_Entity(
+                id=next_id,
+                symbol=symbol,
+                contract_name=contract_name or f"{symbol} Future",
+                future_type=future_type,
+                underlying_asset=underlying_asset or symbol,
+                exchange=exchange,
+                currency=currency,
+                is_tradeable=kwargs.get('is_tradeable', True),
+                is_active=kwargs.get('is_active', True)
+            )
+            
+            # Add to database
+            return self.add(new_future)
+            
+        except Exception as e:
+            print(f"Error creating future for {symbol}: {str(e)}")
             return None
         
     def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:

@@ -432,25 +432,32 @@ class CompanyShareRepository(ShareRepository):
             print(f"Warning: Could not determine next available company share ID: {str(e)}")
             return 1  # Default to 1 if query fails
 
-    def _create_or_get(self, ticker: str, exchange_id: int, 
-                                    company_id: Optional[int] , 
-                                    start_date, end_date=None,
+    def _create_or_get(self, ticker: str, exchange_id: int = None, 
+                                    company_id: Optional[int] = None, 
+                                    start_date=None, end_date=None,
                                     company_name: Optional[str] = None,
                                     sector: Optional[str] = None, 
-                                    industry: Optional[str] = None) -> CompanyShareEntity:
+                                    industry: Optional[str] = None,
+                                    exchange_name: Optional[str] = None,
+                                    country_name: Optional[str] = None,
+                                    industry_name: Optional[str] = None) -> CompanyShareEntity:
         """
         Create company share entity if it doesn't exist, otherwise return existing.
         Follows the same pattern as BaseFactorRepository._create_or_get_factor().
+        Now supports automatic foreign key dependency resolution.
         
         Args:
             ticker: Stock ticker symbol (unique identifier)
-            exchange_id: Exchange ID (defaults to 1)
-            company_id: Company ID (optional)
+            exchange_id: Exchange ID (will be auto-resolved if not provided)
+            company_id: Company ID (will be auto-resolved if not provided)
             start_date: Start date for the share
             end_date: End date for the share
             company_name: Company name for entity setup
             sector: Sector for entity setup
             industry: Industry for entity setup
+            exchange_name: Exchange name for dependency resolution
+            country_name: Country name for dependency resolution
+            industry_name: Industry name for dependency resolution
             
         Returns:
             CompanyShareEntity: Created or existing entity
@@ -460,6 +467,13 @@ class CompanyShareRepository(ShareRepository):
         if existing_share:
             return existing_share[0] if isinstance(existing_share, list) else existing_share
         
+        # Resolve dependencies if not provided
+        if exchange_id is None:
+            exchange_id = self._resolve_exchange_dependency(ticker, exchange_name)
+        
+        if company_id is None:
+            company_id = self._resolve_company_dependency(ticker, company_name, industry_name, country_name)
+        
         try:
             # Generate next available ID if not provided
             next_id = self._get_next_available_company_share_id()
@@ -468,8 +482,8 @@ class CompanyShareRepository(ShareRepository):
             new_share = CompanyShareEntity(
                 id=next_id,
                 ticker=ticker,
-                exchange_id=exchange_id,
-                company_id=company_id,
+                exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
+                company_id=company_id or 1,   # Default to 1 if resolution fails
                 start_date=start_date,
                 end_date=end_date
             )
@@ -486,6 +500,59 @@ class CompanyShareRepository(ShareRepository):
         except Exception as e:
             print(f"Error creating company share for {ticker}: {str(e)}")
             return None
+    
+    def _resolve_exchange_dependency(self, ticker: str, exchange_name: Optional[str] = None) -> int:
+        """Resolve exchange dependency for the company share."""
+        try:
+            from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+            
+            exchange_repo = ExchangeRepository(self.session)
+            exchange_name = exchange_name or self._get_default_exchange_for_ticker(ticker)
+            
+            exchange = exchange_repo._create_or_get(
+                name=exchange_name,
+                legal_name=f"{exchange_name} Stock Exchange",
+                country_id=1  # Default to USA
+            )
+            
+            return exchange.id if exchange else 1
+            
+        except Exception as e:
+            print(f"Error resolving exchange dependency: {str(e)}")
+            return 1
+    
+    def _resolve_company_dependency(self, ticker: str, company_name: Optional[str] = None, 
+                                  industry_name: Optional[str] = None,
+                                  country_name: Optional[str] = None) -> int:
+        """Resolve company dependency for the company share."""
+        try:
+            from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+            
+            company_repo = CompanyRepository(self.session)
+            company_name = company_name or f"{ticker} Inc."
+            
+            company = company_repo._create_or_get(
+                name=company_name,
+                legal_name=company_name,
+                country_id=1,   # Default to USA
+                industry_id=1   # Default to Technology
+            )
+            
+            return company.id if company else 1
+            
+        except Exception as e:
+            print(f"Error resolving company dependency: {str(e)}")
+            return 1
+    
+    def _get_default_exchange_for_ticker(self, ticker: str) -> str:
+        """Get default exchange based on ticker patterns."""
+        # Simple heuristics for common exchanges
+        if ticker in ['SPX', 'VIX', 'RUT']:
+            return 'CBOE'
+        elif len(ticker) <= 4 and ticker.isalpha():
+            return 'NASDAQ'
+        else:
+            return 'NYSE'
 
     # ----------------------------- Standard CRUD Interface -----------------------------
     def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:
