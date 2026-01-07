@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 
 from src.infrastructure.models.finance.company import Company as CompanyModel
 from src.domain.entities.finance.company import Company as CompanyEntity
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class CompanyRepository(BaseRepository):
+class CompanyRepository(BaseLocalRepository):
     """Repository for managing Company entities."""
     
     def __init__(self, session: Session):

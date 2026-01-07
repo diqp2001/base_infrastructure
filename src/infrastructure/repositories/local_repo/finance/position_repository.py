@@ -12,10 +12,10 @@ from decimal import Decimal
 
 from src.infrastructure.models.finance.position import Position as PositionModel
 from src.domain.entities.finance.position import Position as PositionEntity
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class PositionRepository(BaseRepository):
+class PositionRepository(BaseLocalRepository):
     """Repository for managing Position entities."""
     
     def __init__(self, session: Session):

@@ -18,10 +18,10 @@ from src.domain.entities.finance.portfolio.portfolio import (
     PortfolioHoldings,
     PortfolioStatistics
 )
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class PortfolioRepository(BaseRepository):
+class PortfolioRepository(BaseLocalRepository):
     """Repository for managing Portfolio entities."""
     
     def __init__(self, session: Session):

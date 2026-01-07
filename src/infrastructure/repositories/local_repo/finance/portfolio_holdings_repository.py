@@ -12,10 +12,10 @@ from decimal import Decimal
 import json
 
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class PortfolioHoldingsRepository(BaseRepository):
+class PortfolioHoldingsRepository(BaseLocalRepository):
     """Repository for managing PortfolioHoldings entities."""
     
     def __init__(self, session: Session):

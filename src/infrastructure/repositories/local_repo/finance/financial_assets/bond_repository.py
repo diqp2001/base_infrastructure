@@ -1,10 +1,11 @@
+from domain.ports.financial_assets.bond_port import BondPort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.infrastructure.models.finance.financial_assets.bond import Bond as Bond_Model
 from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 from src.infrastructure.repositories.mappers.finance.financial_assets.bond_mapper import BondMapper
 from sqlalchemy.orm import Session
 
-class BondRepository(FinancialAssetBaseRepository):
+class BondRepository(FinancialAssetBaseRepository,BondPort):
     def __init__(self, session: Session):
         """Initialize BondRepository with database session."""
         super().__init__(session)

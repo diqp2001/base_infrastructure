@@ -10,7 +10,7 @@ from datetime import date
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from ...base_repository import BaseRepository
+from ..base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor import Factor as FactorEntity
 from src.domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 
@@ -25,7 +25,7 @@ from src.infrastructure.repositories.mappers.factor.factor_value_mapper import F
 from src.application.services.database_service.database_service import DatabaseService
 
 
-class BaseFactorRepository(BaseRepository[FactorEntity, FactorModel], ABC):
+class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
     """Repository managing Factor entities, their values."""
 
     def __init__(self,session: Session):

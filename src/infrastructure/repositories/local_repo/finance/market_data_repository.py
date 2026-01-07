@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from src.infrastructure.models.finance.market_data import MarketData
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class MarketDataRepository(BaseRepository):
+class MarketDataRepository(BaseLocalRepository):
     """Repository for managing MarketData entities."""
     
     def __init__(self, session: Session):

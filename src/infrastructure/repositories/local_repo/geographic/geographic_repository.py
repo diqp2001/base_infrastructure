@@ -7,10 +7,10 @@ from abc import abstractmethod
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
-from src.infrastructure.repositories.base_repository import BaseRepository
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class GeographicRepository(BaseRepository):
+class GeographicRepository(BaseLocalRepository):
     """Base repository class for geographic entities."""
     
     def __init__(self, session: Session):

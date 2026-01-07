@@ -5,11 +5,11 @@ from typing import List, Optional, Dict, Any
 from decimal import Decimal
 
 
-from ....base_repository import BaseRepository, EntityType, ModelType
+from ...base_repository import BaseLocalRepository, EntityType, ModelType
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from sqlalchemy.orm import Session
 
-class FinancialAssetBaseRepository(BaseRepository[EntityType, ModelType], ABC):
+class FinancialAssetBaseRepository(BaseLocalRepository[EntityType, ModelType], ABC):
     """
     Base repository for all financial asset types (shares, bonds, currencies, etc.).
     Extends BaseRepository with financial asset specific functionality.

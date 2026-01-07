@@ -11,6 +11,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from domain.ports.financial_assets.currency_port import CurrencyPort
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency
 from src.infrastructure.models.finance.financial_assets.currency import Currency as ORMCurrency, CurrencyRate as ORMCurrencyRate
 from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
@@ -18,11 +20,10 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.currency_m
 logger = logging.getLogger(__name__)
 
 
-class CurrencyRepository:
-    """
-    Repository for Currency domain entities using local SQLite database.
-    Follows patterns from CompanyShareRepository and other local repositories.
-    """
+class CurrencyRepository(FinancialAssetBaseRepository,CurrencyPort):
+    def __init__(self, session: Session):
+        """Initialize BondRepository with database session."""
+        super().__init__(session)
     
     def __init__(self, session: Session):
         """Initialize the repository with a database session."""

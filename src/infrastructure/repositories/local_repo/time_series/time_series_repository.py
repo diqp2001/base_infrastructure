@@ -1,8 +1,8 @@
 from typing import List
-from src.infrastructure.repositories.base_repository import BaseRepository, EntityType, ModelType
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository, EntityType, ModelType
 from sqlalchemy.orm import Session
 
-class TimeSeriesRepository(BaseRepository[EntityType, ModelType]):
+class TimeSeriesRepository(BaseLocalRepository[EntityType, ModelType]):
     def __init__(self, session: Session):
         super().__init__(session)
     
