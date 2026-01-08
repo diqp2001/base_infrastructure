@@ -1,0 +1,1 @@
+# Infrastructure models for factor domain entities

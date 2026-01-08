@@ -1,0 +1,1 @@
+# Infrastructure models for time series domain entities

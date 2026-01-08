@@ -1,0 +1,1 @@
+# Infrastructure models for financial time series domain entities
