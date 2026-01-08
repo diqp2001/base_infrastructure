@@ -1,0 +1,1 @@
+# Infrastructure models for financial statements domain entities
