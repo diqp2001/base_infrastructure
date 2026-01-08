@@ -3,7 +3,7 @@ from typing import List, Optional
 from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare
 
 
-class ETFSharePort(ABC):
+class EtfSharePort(ABC):
     """Port interface for ETFShare entity operations following repository pattern."""
     
     @abstractmethod
