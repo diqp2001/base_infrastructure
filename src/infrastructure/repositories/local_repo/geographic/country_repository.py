@@ -9,9 +9,10 @@ from src.domain.entities.country import Country
 from src.infrastructure.models.country import Country as CountryModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.country_mapper import CountryMapper
+from src.domain.ports.country_port import CountryPort
 
 
-class CountryRepository(GeographicRepository):
+class CountryRepository(GeographicRepository, CountryPort):
     """Repository for Country entities."""
     
     @property

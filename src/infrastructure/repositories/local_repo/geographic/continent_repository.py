@@ -9,9 +9,10 @@ from src.domain.entities.continent import Continent
 from src.infrastructure.models.continent import Continent as ContinentModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.continent_mapper import ContinentMapper
+from src.domain.ports.continent_port import ContinentPort
 
 
-class ContinentRepository(GeographicRepository):
+class ContinentRepository(GeographicRepository, ContinentPort):
     """Repository for Continent entities."""
     
     @property

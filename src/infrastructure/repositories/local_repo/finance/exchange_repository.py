@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 from src.infrastructure.models.finance.exchange import Exchange as ExchangeModel
 from src.domain.entities.finance.exchange import Exchange as ExchangeEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.domain.ports.finance.exchange_port import ExchangePort
 
 
-class ExchangeRepository(BaseLocalRepository):
+class ExchangeRepository(BaseLocalRepository, ExchangePort):
     """Repository for managing Exchange entities."""
 
     def __init__(self, session: Session):

@@ -9,9 +9,10 @@ from src.domain.entities.sector import Sector
 from src.infrastructure.models.sector import Sector as SectorModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.sector_mapper import SectorMapper
+from src.domain.ports.sector_port import SectorPort
 
 
-class SectorRepository(GeographicRepository):
+class SectorRepository(GeographicRepository, SectorPort):
     """Repository for Sector entities."""
     
     @property

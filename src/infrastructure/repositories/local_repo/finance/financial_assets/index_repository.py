@@ -8,9 +8,10 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.financi
 from src.infrastructure.models.finance.financial_assets.index import Index as Index_Model
 from src.domain.entities.finance.financial_assets.index.index import Index as Index_Entity
 from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapper import IndexMapper
+from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 
 
-class IndexRepository(FinancialAssetBaseRepository):
+class IndexRepository(FinancialAssetBaseRepository, IndexPort):
     """Repository for Index financial assets."""
     
     def __init__(self, session: Session):
