@@ -11,8 +11,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from domain.ports.financial_assets.currency_port import CurrencyPort
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from src.domain.ports.finance.financial_assets.currency_port import CurrencyPort
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency
 from src.infrastructure.models.finance.financial_assets.currency import Currency as ORMCurrency, CurrencyRate as ORMCurrencyRate
 from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
