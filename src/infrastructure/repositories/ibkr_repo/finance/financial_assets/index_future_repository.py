@@ -12,8 +12,8 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from domain.ports.financial_assets.index_future_port import IndexFuturePort
-from infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
+from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
+from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 
 
