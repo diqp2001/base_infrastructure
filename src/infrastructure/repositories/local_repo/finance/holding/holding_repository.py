@@ -13,11 +13,12 @@ from src.infrastructure.models.finance.holding.portfolio_company_share_holding i
 
 from src.infrastructure.repositories.mappers.finance.holding.holding_mapper import HoldingMapper
 from src.domain.entities.finance.holding.holding import Holding
-
 from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.domain.ports.finance.holding.holding_port import HoldingPort
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class HoldingRepository:
+class HoldingRepository(BaseLocalRepository, HoldingPort):
     """Repository for holding entities with basic CRUD operations"""
     
     def __init__(self, session: Session):
