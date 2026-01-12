@@ -12,11 +12,12 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from domain.ports.factor.factor_value_port import FactorValuePort
+from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.factor.factor_value import FactorValue
 
 
 class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
@@ -37,44 +38,52 @@ class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
         self.local_repo = local_repo
         self.local_factor_value_repo = local_factor_value_repo
 
-    def get_or_create_factor_value(self, symbol_or_name: str, factor_id: str, time) -> Optional[CompanyShare]:
+    def get_or_create_factor_value(self, symbol_or_name: str, factor_id: int, time: str) -> Optional[FactorValue]:
         """
-        Get or create a company by symbol or name using IBKR API.
+        Get or create a factor value for a company by symbol or name using IBKR API.
         
         Args:
             symbol_or_name: Stock symbol or company name
+            factor_id: The factor ID (integer)
+            time: Date string in 'YYYY-MM-DD' format
             
         Returns:
-            Company entity or None if creation/retrieval failed
+            FactorValue entity or None if creation/retrieval failed
         """
         try:
-            # 1. Check local repository first
-            entity = self.local_repo.get_by_name(symbol_or_name)
+            # 1. Get or create company share entity first
+            company_share = self.get_or_create(symbol_or_name)
+            if not company_share:
+                print(f"Could not find or create company share for {symbol_or_name}")
+                return None
             
-            list_of_value = self.local_factor_value_repo.get_all_dates_by_id_entity_id(factor_id,entity.id)
-            #if time selected is in list_of_value return the existing facor value
-            if existing:
+            # 2. Check if factor value already exists for this date
+            list_of_dates = self.local_factor_value_repo.get_all_dates_by_id_entity_id(factor_id, company_share.id)
+            if time in list_of_dates:
+                # Return existing factor value
+                existing = self.local_factor_value_repo.get_by_factor_entity_date(factor_id, company_share.id, time)
                 return existing
-            # 2. Fetch company info via stock contract from IBKR API
+            
+            # 3. Fetch company info via stock contract from IBKR API
             contract = self._fetch_stock_contract(symbol_or_name)
             if not contract:
                 return None
                 
-            # 3. Get contract details from IBKR
+            # 4. Get contract details from IBKR
             contract_details = self._fetch_contract_details(contract)
             if not contract_details:
                 return None
                 
-            # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_factor_value(contract, contract_details)
-            if not entity:
+            # 5. Apply IBKR-specific rules and convert to factor value
+            factor_value = self._contract_to_factor_value(contract, contract_details, factor_id, company_share.id, time)
+            if not factor_value:
                 return None
                 
-            # 5. Delegate persistence to local repository
-            return self.local_repo.add(entity)
+            # 6. Delegate persistence to local repository
+            return self.local_factor_value_repo.add(factor_value)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for company {symbol_or_name}: {e}")
+            print(f"Error in IBKR get_or_create_factor_value for company {symbol_or_name}: {e}")
             return None
         
     def _fetch_stock_contract(self, symbol_or_name: str) -> Optional[Contract]:
@@ -313,3 +322,82 @@ class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
         # In real implementation, you'd create/lookup the company based on
         # contract_details.longName, industry, etc.
         return 1
+    
+    def _contract_to_factor_value(self, contract: Contract, contract_details: ContractDetails, 
+                                  factor_id: int, entity_id: int, date_str: str) -> Optional[FactorValue]:
+        """
+        Convert IBKR contract and details to a FactorValue domain entity.
+        
+        Args:
+            contract: IBKR Contract object
+            contract_details: IBKR ContractDetails object
+            factor_id: The factor ID
+            entity_id: The entity (company share) ID
+            date_str: Date string in 'YYYY-MM-DD' format
+            
+        Returns:
+            FactorValue domain entity or None if conversion failed
+        """
+        try:
+            # Convert date string to date object
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Extract factor value from IBKR data
+            # This is where you'd apply IBKR-specific business rules to extract
+            # the relevant factor value from the contract details
+            factor_value_string = self._extract_factor_value_from_contract(contract, contract_details, factor_id)
+            
+            if factor_value_string is None:
+                print(f"Could not extract factor value for factor {factor_id} from IBKR data")
+                return None
+            
+            # Create FactorValue domain entity
+            return FactorValue(
+                id=None,  # Let database generate
+                factor_id=factor_id,
+                entity_id=entity_id,
+                date=date_obj,
+                value=factor_value_string
+            )
+        except Exception as e:
+            print(f"Error converting IBKR contract to factor value: {e}")
+            return None
+    
+    def _extract_factor_value_from_contract(self, contract: Contract, contract_details: ContractDetails, 
+                                           factor_id: int) -> Optional[str]:
+        """
+        Extract specific factor value from IBKR contract data based on factor ID.
+        
+        Args:
+            contract: IBKR Contract object
+            contract_details: IBKR ContractDetails object
+            factor_id: The factor ID to extract
+            
+        Returns:
+            Factor value as string or None if not available
+        """
+        try:
+            # Map factor IDs to IBKR contract fields
+            # This mapping would be based on your factor definitions
+            factor_mapping = {
+                1: contract.symbol,  # Company ticker symbol
+                2: getattr(contract_details, 'longName', ''),  # Company long name
+                3: getattr(contract_details, 'industry', ''),  # Industry
+                4: getattr(contract_details, 'category', ''),  # Category
+                5: str(getattr(contract_details, 'minTick', 0)),  # Minimum tick size
+                6: contract.currency,  # Currency
+                7: contract.exchange,  # Exchange
+                # Add more mappings as needed based on your factor definitions
+            }
+            
+            value = factor_mapping.get(factor_id)
+            if value is None or value == '':
+                # If no direct mapping, try to get from contract details attributes
+                # This allows for dynamic factor extraction
+                value = str(getattr(contract_details, f'factor_{factor_id}', ''))
+            
+            return value if value else None
+            
+        except Exception as e:
+            print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
+            return None
