@@ -67,7 +67,7 @@ class FinancialAssetService:
         
         self.session = self.database_service.session
     
-    @staticmethod
+    
     def create_local_repositories(self) -> dict:
         """
         Create local-only repository configuration.
@@ -96,7 +96,7 @@ class FinancialAssetService:
         }
         self.ib_broker = create_interactive_brokers_broker(**self.ib_config)
         self.ib_broker.connect()
-    @staticmethod
+    
     def create_ibkr_repositories(self,
         
         ibkr_client=None
@@ -138,6 +138,16 @@ class FinancialAssetService:
         repo = repo(self.session)
         return repo
     
+    def get_ibkr_repository(self, entity_type):
+        """
+        Return the repository associated with a domain entity type.
+        """
+        repo = self.ibkr_repositories.get(entity_type)
+        if repo is None:
+            raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
+        repo = repo(self.session)
+        return repo
+    
     
     def persist_entity(self, entity) :
         """
@@ -151,7 +161,7 @@ class FinancialAssetService:
         """
         try:
             entity_cls = type(entity)
-            repository = self.get_repository(entity_cls)
+            repository = self.get_local_repository(entity_cls)
             if repository:
                 return repository.add(entity)
             else:
@@ -167,7 +177,7 @@ class FinancialAssetService:
         Generic pull method for any entity by ID.
         """
         try:
-            repository = self.get_repository(entity_cls)
+            repository = self.get_local_repository(entity_cls)
             return repository.get_by_id(entity_id)
         except Exception as e:
             self.logger.error(
@@ -179,7 +189,7 @@ class FinancialAssetService:
     def pull_all(self,entity_cls) -> List:
         """Pull all company shares from database."""
         try:
-            repository = self.get_repository(entity_cls)
+            repository = self.get_local_repository(entity_cls)
             return repository.get_all()
         except Exception as e:
             print(f"Error pulling all : {str(e)}")
@@ -198,7 +208,7 @@ class FinancialAssetService:
             Index entity or None if not found
         """
         try:
-            repository = self.get_repository(entity_cls)
+            repository = self.get_local_repository(entity_cls)
             return repository.get_by_symbol(symbol)
         
             
@@ -209,7 +219,7 @@ class FinancialAssetService:
 
     def _create_or_get(self, entity_cls ,name: str) :
         try:
-            repository = self.get_repository(entity_cls)
+            repository = self.get_local_repository(entity_cls)
             return repository._create_or_get(entity_cls,name)
         
             
@@ -237,13 +247,11 @@ class FinancialAssetService:
         try:
             entity_cls.id
             # Check if entity already exists by symbol
-            repository = self.get_repository(entity_cls)
-            existing_entity = self.pull_by_id(entity_cls,entity_cls.id)
-            if existing_entity:
-                return existing_entity
+            ibkr_repository = self.get_ibkr_repository(entity_cls)
+            
             
             # Get index information from MarketData if available
-            info, entity = repository._get_info_from_market_data_ibkr(entity_cls.symbol, entity_cls.exchange, entity_cls.currency)
+            entity = ibkr_repository.get_or_create(entity_cls.symbol)
             
             return entity
             

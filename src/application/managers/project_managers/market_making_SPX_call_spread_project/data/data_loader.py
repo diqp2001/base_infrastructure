@@ -45,6 +45,7 @@ class DataLoader:
         
         # Initialize enhanced services for comprehensive data management
         self.financial_asset_service = FinancialAssetService(database_service)
+        self.financial_asset_service.create_ibkr_repositories()
         self.factor_data_service = FactorDataService(database_service)
         self.factor_creation_service = FactorCreationService(database_service)
         self.factor_calculation_service = FactorCalculationService(database_service)
