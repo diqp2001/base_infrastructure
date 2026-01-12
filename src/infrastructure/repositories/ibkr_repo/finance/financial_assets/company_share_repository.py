@@ -12,6 +12,7 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
+from domain.ports.factor.factor_value_port import FactorValuePort
 from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
@@ -24,7 +25,7 @@ class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: CompanySharePort):
+    def __init__(self, ibkr_client, local_repo: CompanySharePort, local_factor_value_repo: FactorValuePort):
         """
         Initialize IBKR Company Share Repository.
         
@@ -34,6 +35,77 @@ class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
+        self.local_factor_value_repo = local_factor_value_repo
+
+    def get_or_create_factor_value(self, symbol_or_name: str, factor_id: str, time) -> Optional[CompanyShare]:
+        """
+        Get or create a company by symbol or name using IBKR API.
+        
+        Args:
+            symbol_or_name: Stock symbol or company name
+            
+        Returns:
+            Company entity or None if creation/retrieval failed
+        """
+        try:
+            # 1. Check local repository first
+            entity = self.local_repo.get_by_name(symbol_or_name)
+            
+            list_of_value = self.local_factor_value_repo.get_all_dates_by_id_entity_id(factor_id,entity.id)
+            #if time selected is in list_of_value return the existing facor value
+            if existing:
+                return existing
+            # 2. Fetch company info via stock contract from IBKR API
+            contract = self._fetch_stock_contract(symbol_or_name)
+            if not contract:
+                return None
+                
+            # 3. Get contract details from IBKR
+            contract_details = self._fetch_contract_details(contract)
+            if not contract_details:
+                return None
+                
+            # 4. Apply IBKR-specific rules and convert to domain entity
+            entity = self._contract_to_factor_value(contract, contract_details)
+            if not entity:
+                return None
+                
+            # 5. Delegate persistence to local repository
+            return self.local_repo.add(entity)
+            
+        except Exception as e:
+            print(f"Error in IBKR get_or_create for company {symbol_or_name}: {e}")
+            return None
+        
+    def _fetch_stock_contract(self, symbol_or_name: str) -> Optional[Contract]:
+        """
+        Fetch stock contract to get company information.
+        
+        Args:
+            symbol_or_name: Stock symbol or company name
+            
+        Returns:
+            IBKR Contract object or None if not found
+        """
+        try:
+            contract = Contract()
+            # Try as symbol first
+            if len(symbol_or_name) <= 5 and symbol_or_name.isupper():
+                contract.symbol = symbol_or_name
+            else:
+                # If it looks like a company name, we'd need different approach
+                # For now, assume it's a symbol
+                contract.symbol = symbol_or_name.upper()
+            
+            contract.secType = "STK"
+            contract.exchange = "SMART"
+            contract.currency = "USD"
+            
+            return contract
+        except Exception as e:
+            print(f"Error fetching IBKR stock contract for {symbol_or_name}: {e}")
+            return None
+
 
     def get_or_create(self, symbol: str) -> Optional[CompanyShare]:
         """
