@@ -16,13 +16,13 @@ This package contains structured services organized by domain:
 from .data.entities.factor.factor_calculation_service import FactorCalculationService
 from .data.entities.factor.factor_creation_service import FactorCreationService
 from .data.entities.geographic.geographic_service import GeographicService
-from .data.entities.finance.financial_asset_service import FinancialAssetService
+from .data.entities.entity_service import EntityService
 from .data.entities.time_series.time_series_service import TimeSeriesService
 
 __all__ = [
     'FactorCalculationService',
     'FactorCreationService', 
     'GeographicService',
-    'FinancialAssetService',
+    'EntityService',
     'TimeSeriesService'
 ]

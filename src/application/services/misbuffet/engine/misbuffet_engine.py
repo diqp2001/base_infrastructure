@@ -26,7 +26,7 @@ except ImportError:
 from decimal import Decimal
 # Import service layer instead of direct repository access
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
-from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.data.entities.entity_service import EntityService
 from src.application.services.database_service.database_service import DatabaseService
 
 # Import algorithm framework components instead of domain entities
@@ -321,7 +321,7 @@ class MisbuffetEngine(BaseEngine):
                     # Initialize service layer (following DDD principles)
                     self.database_service = config.database_service
                     self.factor_data_service = FactorDataService(self.database_service)
-                    self.financial_asset_service = FinancialAssetService(self.database_service)
+                    self.financial_asset_service = EntityService(self.database_service)
                     self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")
                 elif hasattr(config, 'database_manager'):
                     # Backward compatibility: if database_manager is provided instead
@@ -333,7 +333,7 @@ class MisbuffetEngine(BaseEngine):
                             self.database_service = DatabaseService()
                             self.database_service.session = config.database_manager.session
                             self.factor_data_service = FactorDataService(self.database_service)
-                            self.financial_asset_service = FinancialAssetService(self.database_service)
+                            self.financial_asset_service = EntityService(self.database_service)
                             self.logger.info(f"Services initialized from database_manager for {self.engine_config.entity_type} data access")
                     except Exception as e:
                         self.logger.warning(f"Could not create services from database_manager: {e}")

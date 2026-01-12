@@ -17,7 +17,7 @@ from pathlib import Path
 from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
-from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.data.entities.entity_service import EntityService
 from src.application.services.database_service.database_service import DatabaseService
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor

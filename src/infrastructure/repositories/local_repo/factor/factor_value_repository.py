@@ -1,7 +1,11 @@
 # Factor Value Local Repository
 # Mirrors src/infrastructure/models/factor/factor_value.py
 
-class FactorValueRepository:
+from src.domain.ports.factor.factor_value_port import FactorValuePort
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+
+
+class FactorValueRepository(BaseLocalRepository,FactorValuePort):
     """Local repository for factor value model"""
     
     def __init__(self):

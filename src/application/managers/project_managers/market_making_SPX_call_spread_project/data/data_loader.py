@@ -16,7 +16,7 @@ from src.domain.entities.finance.financial_assets.derivatives.future.index_futur
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.ibkr_service.market_data import MarketData
-from src.application.services.data.entities.finance.financial_asset_service import FinancialAssetService
+from application.services.data.entities.entity_service import EntityService
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
 from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
@@ -44,7 +44,7 @@ class DataLoader:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize enhanced services for comprehensive data management
-        self.financial_asset_service = FinancialAssetService(database_service)
+        self.financial_asset_service = EntityService(database_service)
         self.financial_asset_service.create_ibkr_repositories()
         self.factor_data_service = FactorDataService(database_service)
         self.factor_creation_service = FactorCreationService(database_service)
@@ -73,7 +73,7 @@ class DataLoader:
             entity_results_spx_tickers = self.financial_asset_service._create_or_get(Index ,spx_tickers)
             entity_results_spx_tickers_futures = self.financial_asset_service._create_or_get(IndexFuture,spx_tickers_futures)
             
-            # Check if factor_manager is available for _ensure_entities_exist
+            #Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
             if self.factor_manager and hasattr(self.factor_manager, '_ensure_entities_exist'):
                 # Use factor_manager's entity verification if available
@@ -93,7 +93,6 @@ class DataLoader:
                 'entities_verified': entity_results_spx_tickers_futures.get('future_index', {}).get('verified', 0),
                 'entities_created': entity_results_spx_tickers_futures.get('future_index', {}).get('created', 0),
                 'spx_future_entity': spx_future_entity['status'],
-                'factor_manager_status': factor_manager_status,
                 'entity_verification_errors': entity_results_spx_tickers_futures.get('errors', []),
                 'last_checked': datetime.now().isoformat(),
             }
