@@ -9,8 +9,12 @@ from datetime import date, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from sqlalchemy.orm import Session
 
-from infrastructure.repositories.local_repo.finance.financial_assets.index_future_repository import IndexFutureRepository
+
+from application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_future_repository import IBKRIndexFutureRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.index_future_repository import IndexFutureRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.company import Company
 from src.domain.entities.finance.exchange import Exchange
@@ -62,19 +66,73 @@ class FinancialAssetService:
             self.database_service = DatabaseService(db_type)
         
         self.session = self.database_service.session
-        self._repositories = {
-        CompanyShare: CompanyShareRepository,
-        Currency: CurrencyRepository,
-        Bond: BondRepository,
-        Index: IndexRepository,
-        IndexFuture: IndexFutureRepository,
+    
+    @staticmethod
+    def create_local_repositories(self) -> dict:
+        """
+        Create local-only repository configuration.
+        
+        Args:
+            session: SQLAlchemy session for database operations
+            
+        Returns:
+            Dictionary with repository implementations
+        """
+        self.local_repositories = {
+            'index_future': IndexFutureRepository(self.session),
+            # Add other local repositories here as they're implemented
+            # 'company_share': CompanyShareRepository(session),
+            # 'currency': CurrencyRepository(session),
+            # 'bond': BondRepository(session),
+        }
+    def create_ibkr_client(self):
+        self.ib_config = {
+            'host': "127.0.0.1",
+            'port': 7497,
+            'client_id': 1,
+            'timeout': 60,
+            'account_id': 'DEFAULT',
+            'enable_logging': True
+        }
+        self.ib_broker = create_interactive_brokers_broker(**self.ib_config)
+        self.ib_broker.connect()
+    @staticmethod
+    def create_ibkr_repositories(self,
+        
+        ibkr_client=None
+    ) -> dict:
+        """
+        Create IBKR-backed repository configuration.
+        
+        Args:
+            session: SQLAlchemy session for local persistence
+            ibkr_client: Interactive Brokers API client
+            
+        Returns:
+            Dictionary with repository implementations
+        """
+        # Create local repositories first
+        self.create_local_repositories(self.session)
+        self.create_ibkr_client()
+        
+        # Wrap local repositories with IBKR implementations
+        self.ibkr_repositories = {
+            'index_future': IBKRIndexFutureRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['index_future']
+            ),
+            # Add other IBKR repositories here as they're implemented
+            # 'company_share': IBKRCompanyShareRepository(
+            #     ibkr_client=ibkr_client,
+            #     local_repo=local_repos['company_share']
+            # ),
         }
         
-    def get_repository(self, entity_type):
+    def get_local_repository(self, entity_type):
         """
         Return the repository associated with a domain entity type.
         """
-        repo = self._repositories.get(entity_type)
+        repo = self.local_repositories.get(entity_type)
         if repo is None:
             raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
         repo = repo(self.session)

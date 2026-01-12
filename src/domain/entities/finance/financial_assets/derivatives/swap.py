@@ -11,7 +11,6 @@ from enum import Enum
 
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from .derivative import Derivative, UnderlyingAsset
-from ..security import Symbol, SecurityType
 
 
 class Swap(Derivative):

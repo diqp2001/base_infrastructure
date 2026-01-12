@@ -1,4 +1,7 @@
-from src.domain.entities.finance.financial_assets.derivatives.future.future import IndexFuture
+
+
+
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 
 
 class EquityIndexFuture(IndexFuture):
