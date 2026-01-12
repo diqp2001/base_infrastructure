@@ -35,11 +35,31 @@ from src.domain.entities.finance.financial_assets.equity import Equity
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from src.domain.entities.finance.financial_assets.derivatives.forward import Forward
 
-# Import existing repositories
+# Import existing local repositories
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.crypto_repository import CryptoRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_repository import EquityRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository
+
+# Import IBKR repositories
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_share_repository import IBKRCompanyShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency_repository import IBKRCurrencyRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.bond_repository import IBKRBondRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.crypto_repository import IBKRCryptoRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.commodity_repository import IBKRCommodityRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.cash_repository import IBKRCashRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKREtfShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.application.services.database_service.database_service import DatabaseService
 
 # Import infrastructure models for Index and Future
@@ -80,11 +100,19 @@ class FinancialAssetService:
         """
         self.local_repositories = {
             'index_future': IndexFutureRepository(self.session),
-            # Add other local repositories here as they're implemented
-            # 'company_share': CompanyShareRepository(session),
-            # 'currency': CurrencyRepository(session),
-            # 'bond': BondRepository(session),
+            'company_share': CompanyShareRepository(self.session),
+            'currency': CurrencyRepository(self.session),
+            'bond': BondRepository(self.session),
+            'index': IndexRepository(self.session),
+            'crypto': CryptoRepository(self.session),
+            'commodity': CommodityRepository(),  # No session parameter
+            'cash': CashRepository(self.session),
+            'equity': EquityRepository(self.session),
+            'etf_share': ETFShareRepository(),  # No session parameter
+            'share': ShareRepository(self.session),
+            'security': SecurityRepository()  # No session parameter
         }
+        return self.local_repositories
     def create_ibkr_client(self):
         self.ib_config = {
             'host': "127.0.0.1",
@@ -112,7 +140,7 @@ class FinancialAssetService:
             Dictionary with repository implementations
         """
         # Create local repositories first
-        self.create_local_repositories(self.session)
+        self.create_local_repositories()
         self.create_ibkr_client()
         
         # Wrap local repositories with IBKR implementations
@@ -121,12 +149,52 @@ class FinancialAssetService:
                 ibkr_client=self.ib_broker,
                 local_repo=self.local_repositories['index_future']
             ),
-            # Add other IBKR repositories here as they're implemented
-            # 'company_share': IBKRCompanyShareRepository(
-            #     ibkr_client=ibkr_client,
-            #     local_repo=local_repos['company_share']
-            # ),
+            'company_share': IBKRCompanyShareRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['company_share']
+            ),
+            'currency': IBKRCurrencyRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['currency']
+            ),
+            'bond': IBKRBondRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['bond']
+            ),
+            'index': IBKRIndexRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['index']
+            ),
+            'crypto': IBKRCryptoRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['crypto']
+            ),
+            'commodity': IBKRCommodityRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['commodity']
+            ),
+            'cash': IBKRCashRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['cash']
+            ),
+            'equity': IBKREquityRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['equity']
+            ),
+            'etf_share': IBKREtfShareRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['etf_share']
+            ),
+            'share': IBKRShareRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['share']
+            ),
+            'security': IBKRSecurityRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['security']
+            )
         }
+        return self.ibkr_repositories
         
     def get_local_repository(self, entity_type):
         """
