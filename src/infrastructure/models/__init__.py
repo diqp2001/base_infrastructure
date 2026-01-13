@@ -51,6 +51,8 @@ from src.infrastructure.models.finance.holding.holding import Holding
 # Portfolio company share option model
 from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
 
+# Instrument model
+from src.infrastructure.models.finance.instrument import Instrument
 
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding"""

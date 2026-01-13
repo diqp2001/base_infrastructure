@@ -72,5 +72,8 @@ class FinancialAsset(Base):
     updated_at = Column(DateTime, nullable=True)
     last_price_update = Column(DateTime, nullable=True)
 
+    # Relationships
+    instruments = relationship("Instrument", back_populates="asset", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<FinancialAsset(id={self.id}, type={self.asset_type}, ticker={self.ticker}, price={self.current_price})>"
