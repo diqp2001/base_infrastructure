@@ -114,3 +114,32 @@ class FactorValuePort(ABC):
             True if deleted successfully, False otherwise
         """
         pass
+    
+    @abstractmethod
+    def get_all_dates_by_id_entity_id(self, factor_id: int, entity_id: int) -> List[str]:
+        """
+        Get all dates for a specific factor and entity combination.
+        
+        Args:
+            factor_id: The factor ID
+            entity_id: The entity ID
+            
+        Returns:
+            List of date strings for the factor-entity combination
+        """
+        pass
+    
+    @abstractmethod
+    def get_by_factor_entity_date(self, factor_id: int, entity_id: int, date_str: str) -> Optional[FactorValue]:
+        """
+        Get factor value by factor ID, entity ID, and date.
+        
+        Args:
+            factor_id: The factor ID
+            entity_id: The entity ID
+            date_str: The date string
+            
+        Returns:
+            FactorValue entity or None if not found
+        """
+        pass
