@@ -1,8 +1,8 @@
 from typing import Any, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import (
-    FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
+    FinancialAssetRepository
 )
 
 from src.infrastructure.models.finance.financial_assets.index import Index as Index_Model
@@ -11,7 +11,7 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapp
 from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 
 
-class IndexRepository(FinancialAssetBaseRepository, IndexPort):
+class IndexRepository(FinancialAssetRepository, IndexPort):
     """Repository for Index financial assets."""
     
     def __init__(self, session: Session):

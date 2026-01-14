@@ -1,10 +1,12 @@
 # Income Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/income_statement.py
-
-class IncomeStatementRepository:
-    """Local repository for income statement model"""
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from sqlalchemy.orm import Session
+class IncomeStatementRepository(BaseLocalRepository):
     
-    def __init__(self):
+    def __init__(self, session: Session):
+
+        super().__init__(session)
         self.data_store = []
     
     def save(self, income_statement):

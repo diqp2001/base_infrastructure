@@ -14,7 +14,9 @@ from src.domain.ports.industry_port import IndustryPort
 
 class IndustryRepository(GeographicRepository, IndustryPort):
     """Repository for Industry entities."""
-    
+    def __init__(self, session: Session):
+        self.session = session
+        self.data_store = []
     @property
     def model_class(self):
         """Return the Industry ORM model class."""

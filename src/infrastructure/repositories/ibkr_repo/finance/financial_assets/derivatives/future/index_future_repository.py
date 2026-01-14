@@ -13,12 +13,12 @@ from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 
 
 
-class IBKRIndexFutureRepository(BaseIBKRRepository,IndexFuturePort):
+class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     """
     IBKR implementation of IndexFuturePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

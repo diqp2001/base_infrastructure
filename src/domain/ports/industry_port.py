@@ -14,90 +14,90 @@ from src.domain.entities.industry import Industry
 class IndustryPort(ABC):
     """Port interface for Industry repositories"""
     
-    @abstractmethod
-    def get_by_id(self, entity_id: int) -> Optional[Industry]:
-        """
-        Get industry by ID.
+    # @abstractmethod
+    # def get_by_id(self, entity_id: int) -> Optional[Industry]:
+    #     """
+    #     Get industry by ID.
         
-        Args:
-            entity_id: The entity ID
+    #     Args:
+    #         entity_id: The entity ID
             
-        Returns:
-            Industry entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Industry entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_name(self, name: str) -> Optional[Industry]:
-        """
-        Get industry by name.
+    # @abstractmethod
+    # def get_by_name(self, name: str) -> Optional[Industry]:
+    #     """
+    #     Get industry by name.
         
-        Args:
-            name: The industry name
+    #     Args:
+    #         name: The industry name
             
-        Returns:
-            Industry entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Industry entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_sector_id(self, sector_id: int) -> List[Industry]:
-        """
-        Get industries by sector ID.
+    # @abstractmethod
+    # def get_by_sector_id(self, sector_id: int) -> List[Industry]:
+    #     """
+    #     Get industries by sector ID.
         
-        Args:
-            sector_id: The sector ID
+    #     Args:
+    #         sector_id: The sector ID
             
-        Returns:
-            List of Industry entities in the sector
-        """
-        pass
+    #     Returns:
+    #         List of Industry entities in the sector
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_all(self) -> List[Industry]:
-        """
-        Get all industries.
+    # @abstractmethod
+    # def get_all(self) -> List[Industry]:
+    #     """
+    #     Get all industries.
         
-        Returns:
-            List of Industry entities
-        """
-        pass
+    #     Returns:
+    #         List of Industry entities
+    #     """
+    #     pass
     
-    @abstractmethod
-    def add(self, entity: Industry) -> Optional[Industry]:
-        """
-        Add/persist an industry entity.
+    # @abstractmethod
+    # def add(self, entity: Industry) -> Optional[Industry]:
+    #     """
+    #     Add/persist an industry entity.
         
-        Args:
-            entity: The Industry entity to persist
+    #     Args:
+    #         entity: The Industry entity to persist
             
-        Returns:
-            Persisted Industry entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Persisted Industry entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def update(self, entity: Industry) -> Optional[Industry]:
-        """
-        Update an industry entity.
+    # @abstractmethod
+    # def update(self, entity: Industry) -> Optional[Industry]:
+    #     """
+    #     Update an industry entity.
         
-        Args:
-            entity: The Industry entity to update
+    #     Args:
+    #         entity: The Industry entity to update
             
-        Returns:
-            Updated Industry entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Updated Industry entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def delete(self, entity_id: int) -> bool:
-        """
-        Delete an industry entity.
+    # @abstractmethod
+    # def delete(self, entity_id: int) -> bool:
+    #     """
+    #     Delete an industry entity.
         
-        Args:
-            entity_id: The entity ID to delete
+    #     Args:
+    #         entity_id: The entity ID to delete
             
-        Returns:
-            True if deleted successfully, False otherwise
-        """
-        pass
+    #     Returns:
+    #         True if deleted successfully, False otherwise
+    #     """
+    #     pass

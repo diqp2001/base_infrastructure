@@ -1,10 +1,14 @@
 # Swap Local Repository
 # Mirrors src/infrastructure/models/finance/financial_assets/swap/swap.py
+from sqlalchemy.orm import Session
 
-class SwapRepository:
+from domain.ports.finance.financial_assets.derivatives.swap_port import SwapPort
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+class SwapRepository(FinancialAssetRepository, SwapPort):
     """Local repository for swap model"""
     
-    def __init__(self):
+    def __init__(self, session: Session):
+        super().__init__(session)
         self.data_store = []
     
     def save(self, swap):

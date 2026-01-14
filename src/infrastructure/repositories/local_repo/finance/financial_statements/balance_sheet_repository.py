@@ -1,10 +1,15 @@
 # Balance Sheet Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/balance_sheet.py
 
-class BalanceSheetRepository:
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from sqlalchemy.orm import Session
+
+class BalanceSheetRepository(BaseLocalRepository):
     """Local repository for balance sheet model"""
     
-    def __init__(self):
+    def __init__(self, session: Session):
+
+        super().__init__(session)
         self.data_store = []
     
     def save(self, balance_sheet):

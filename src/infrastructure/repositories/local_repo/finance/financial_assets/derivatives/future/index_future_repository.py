@@ -1,15 +1,15 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from src.infrastructure.repositories.local_repo.finance.financial_assets.future_repository import (
+
+from infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import (
     FutureRepository
 )
 from src.domain.entities.finance.financial_assets.derivatives.future.future import (
     Future as Future_Entity
 )
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
-from src.domain.ports.financial_assets.index_future_port import IndexFuturePort
-
+from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
 
 class IndexFutureRepository(FutureRepository, IndexFuturePort):
     """

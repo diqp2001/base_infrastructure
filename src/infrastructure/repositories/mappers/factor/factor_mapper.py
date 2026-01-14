@@ -4,11 +4,8 @@ Mapper for converting between Factor domain entities and ORM models.
 
 from abc import abstractmethod
 from typing import Optional
-from src.infrastructure.models.factor.factor_model import (
-    FactorModel, ContinentFactor, CountryFactor, FinancialAssetFactor,
-    SecurityFactor, EquityFactor, ShareFactor, ShareMomentumFactor,
-    ShareTechnicalFactor, ShareTargetFactor, ShareVolatilityFactor
-)
+
+from src.infrastructure.models.factor.factor import Factor as Factormodel
 from src.domain.entities.factor.factor import Factor as FactorEntity
 from src.domain.entities.factor.continent_factor import ContinentFactor as ContinentFactorEntity
 from src.domain.entities.factor.country_factor import CountryFactor as CountryFactorEntity
@@ -49,7 +46,7 @@ class FactorMapper:
     """Mapper for Factor domain entity and ORM model conversion."""
     @abstractmethod
     def get_factor_model(self):
-        return FactorModel
+        return Factormodel
     
     @abstractmethod
     def get_factor_entity(self):
@@ -57,7 +54,7 @@ class FactorMapper:
 
     
     @staticmethod
-    def to_domain(orm_model: Optional[FactorModel]) -> Optional[FactorEntity]:
+    def to_domain(orm_model: Optional[Factormodel]) -> Optional[FactorEntity]:
         """Convert ORM model to domain entity based on factor_type discriminator."""
         if not orm_model:
             return None
@@ -131,7 +128,7 @@ class FactorMapper:
             return GenericFactor(**base_args)
 
     @staticmethod
-    def to_orm(domain_entity: FactorEntity) -> FactorModel:
+    def to_orm(domain_entity: FactorEntity) -> Factormodel:
         """Convert domain entity to ORM model based on entity type."""
         base_data = {
             'id': domain_entity.id,
@@ -145,5 +142,5 @@ class FactorMapper:
         }
         
         
-        return FactorModel(**base_data)
+        return Factormodel(**base_data)
     

@@ -81,13 +81,13 @@ class BaseLocalRepository(ABC, Generic[EntityType, ModelType]):
 
     # --- Abstract Methods to Implement in Child Repositories ---
 
-    @property
-    @abstractmethod
+    
+    #@abstractmethod
     def model_class(self):
         """Return the SQLAlchemy model class used by this repository."""
         pass
 
-    @abstractmethod
+    #@abstractmethod
     def _to_entity(self, infra_obj: ModelType) -> EntityType:
         """
         Convert ORM model → Domain entity.
@@ -112,14 +112,14 @@ class BaseLocalRepository(ABC, Generic[EntityType, ModelType]):
         # Convert back to domain entity
         return self._to_entity(saved_model)
 
-    @abstractmethod
+    #@abstractmethod
     def _to_model(self, entity: EntityType) -> ModelType:
         """
         Convert Domain entity → ORM model.
         Must be implemented in child repositories.
         """
         pass
-    @abstractmethod
+    #@abstractmethod
     def _create_or_get(self):
         """
         Create entity if it doesn't exist with related entities, otherwise return existing based on name AND discriminator.

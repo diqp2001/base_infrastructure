@@ -14,77 +14,77 @@ from src.domain.entities.sector import Sector
 class SectorPort(ABC):
     """Port interface for Sector repositories"""
     
-    @abstractmethod
-    def get_by_id(self, entity_id: int) -> Optional[Sector]:
-        """
-        Get sector by ID.
+    # @abstractmethod
+    # def get_by_id(self, entity_id: int) -> Optional[Sector]:
+    #     """
+    #     Get sector by ID.
         
-        Args:
-            entity_id: The entity ID
+    #     Args:
+    #         entity_id: The entity ID
             
-        Returns:
-            Sector entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Sector entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_name(self, name: str) -> Optional[Sector]:
-        """
-        Get sector by name.
+    # @abstractmethod
+    # def get_by_name(self, name: str) -> Optional[Sector]:
+    #     """
+    #     Get sector by name.
         
-        Args:
-            name: The sector name
+    #     Args:
+    #         name: The sector name
             
-        Returns:
-            Sector entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Sector entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_all(self) -> List[Sector]:
-        """
-        Get all sectors.
+    # @abstractmethod
+    # def get_all(self) -> List[Sector]:
+    #     """
+    #     Get all sectors.
         
-        Returns:
-            List of Sector entities
-        """
-        pass
+    #     Returns:
+    #         List of Sector entities
+    #     """
+    #     pass
     
-    @abstractmethod
-    def add(self, entity: Sector) -> Optional[Sector]:
-        """
-        Add/persist a sector entity.
+    # @abstractmethod
+    # def add(self, entity: Sector) -> Optional[Sector]:
+    #     """
+    #     Add/persist a sector entity.
         
-        Args:
-            entity: The Sector entity to persist
+    #     Args:
+    #         entity: The Sector entity to persist
             
-        Returns:
-            Persisted Sector entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Persisted Sector entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def update(self, entity: Sector) -> Optional[Sector]:
-        """
-        Update a sector entity.
+    # @abstractmethod
+    # def update(self, entity: Sector) -> Optional[Sector]:
+    #     """
+    #     Update a sector entity.
         
-        Args:
-            entity: The Sector entity to update
+    #     Args:
+    #         entity: The Sector entity to update
             
-        Returns:
-            Updated Sector entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Updated Sector entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def delete(self, entity_id: int) -> bool:
-        """
-        Delete a sector entity.
+    # @abstractmethod
+    # def delete(self, entity_id: int) -> bool:
+    #     """
+    #     Delete a sector entity.
         
-        Args:
-            entity_id: The entity ID to delete
+    #     Args:
+    #         entity_id: The entity ID to delete
             
-        Returns:
-            True if deleted successfully, False otherwise
-        """
-        pass
+    #     Returns:
+    #         True if deleted successfully, False otherwise
+    #     """
+    #     pass

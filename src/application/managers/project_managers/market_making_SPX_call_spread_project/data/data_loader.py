@@ -70,8 +70,8 @@ class DataLoader:
             spx_tickers_futures = ['ES']  # SPX index
             
             # Ensure SPX entities exist (index and future)
-            entity_results_spx_tickers = self.financial_asset_service._create_or_get(Index ,spx_tickers)
-            entity_results_spx_tickers_futures = self.financial_asset_service._create_or_get(IndexFuture,spx_tickers_futures)
+            entity_results_spx_tickers = self.financial_asset_service._create_ibkr_or_get(Index ,spx_tickers)
+            entity_results_spx_tickers_futures = self.financial_asset_service._create_ibkr_or_get(IndexFuture,spx_tickers_futures)
             
             #Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'

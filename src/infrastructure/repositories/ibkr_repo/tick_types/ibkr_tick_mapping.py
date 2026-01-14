@@ -10,7 +10,7 @@ to a factor value for an instrument.
 """
 
 from enum import IntEnum
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 

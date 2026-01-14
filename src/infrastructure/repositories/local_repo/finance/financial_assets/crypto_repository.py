@@ -12,11 +12,11 @@ from decimal import Decimal
 
 from src.infrastructure.models.finance.financial_assets.crypto import Crypto as CryptoModel
 from src.domain.entities.finance.financial_assets.crypto import Crypto as CryptoEntity
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.ports.finance.financial_assets.crypto_port import CryptoPort
 
 
-class CryptoRepository(FinancialAssetBaseRepository, CryptoPort):
+class CryptoRepository(FinancialAssetRepository, CryptoPort):
     """Repository for managing Crypto entities."""
     
     def __init__(self, session: Session):

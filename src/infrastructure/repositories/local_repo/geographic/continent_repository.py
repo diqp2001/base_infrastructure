@@ -14,7 +14,9 @@ from src.domain.ports.continent_port import ContinentPort
 
 class ContinentRepository(GeographicRepository, ContinentPort):
     """Repository for Continent entities."""
-    
+    def __init__(self, session: Session):
+        self.session = session
+        self.data_store = []
     @property
     def model_class(self):
         """Return the Continent ORM model class."""

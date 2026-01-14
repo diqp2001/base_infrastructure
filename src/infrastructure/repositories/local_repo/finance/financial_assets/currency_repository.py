@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.domain.ports.finance.financial_assets.currency_port import CurrencyPort
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency
 from src.infrastructure.models.finance.financial_assets.currency import Currency as ORMCurrency, CurrencyRate as ORMCurrencyRate
 from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
@@ -20,7 +20,7 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.currency_m
 logger = logging.getLogger(__name__)
 
 
-class CurrencyRepository(FinancialAssetBaseRepository,CurrencyPort):
+class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
     def __init__(self, session: Session):
         """Initialize BondRepository with database session."""
         super().__init__(session)

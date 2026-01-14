@@ -1,10 +1,15 @@
 # Commodity Local Repository
 # Mirrors src/infrastructure/models/finance/financial_assets/commodity.py
 
-class CommodityRepository:
+from domain.ports.finance.financial_assets.commodity_port import CommodityPort
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from sqlalchemy.orm import Session
+
+class CommodityRepository(FinancialAssetRepository, CommodityPort):
     """Local repository for commodity model"""
     
-    def __init__(self):
+    def __init__(self, session: Session):
+        super().__init__(session)
         self.data_store = []
     
     def save(self, commodity):

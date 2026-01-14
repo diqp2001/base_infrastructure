@@ -11,13 +11,13 @@ This module contains IBKR repository implementations following the dual inherita
 from .company_share_repository import IBKRCompanyShareRepository
 from .bond_repository import IBKRBondRepository
 from .currency_repository import IBKRCurrencyRepository
-from .etf_share_repository import IBKREtfShareRepository
+from .etf_share_repository import IBKRETFShareRepository
 from .cash_repository import IBKRCashRepository
 from .commodity_repository import IBKRCommodityRepository
 from .crypto_repository import IBKRCryptoRepository
 from .equity_repository import IBKREquityRepository
 from .index_repository import IBKRIndexRepository
-from .index_future_repository import IBKRIndexFutureRepository
+from .derivatives.future.index_future_repository import IBKRIndexFutureRepository
 from .security_repository import IBKRSecurityRepository
 from .share_repository import IBKRShareRepository
 
@@ -25,7 +25,7 @@ __all__ = [
     'IBKRCompanyShareRepository',
     'IBKRBondRepository', 
     'IBKRCurrencyRepository',
-    'IBKREtfShareRepository',
+    'IBKRETFShareRepository',
     'IBKRCashRepository',
     'IBKRCommodityRepository',
     'IBKRCryptoRepository',

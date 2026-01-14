@@ -12,13 +12,12 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.ports.finance.financial_assets.share.share_port import SharePort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
 from src.domain.entities.finance.financial_assets.share.share import Share
 
 
-class IBKRShareRepository(FinancialAssetBaseRepository, SharePort):
+class IBKRShareRepository(IBKRFinancialAssetRepository, SharePort):
     """
     IBKR implementation of SharePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

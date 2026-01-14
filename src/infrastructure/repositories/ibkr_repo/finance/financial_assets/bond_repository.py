@@ -13,12 +13,11 @@ from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
 from src.domain.ports.finance.financial_assets.bond_port import BondPort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.bond import Bond
 
 
-class IBKRBondRepository(FinancialAssetBaseRepository, BondPort):
+class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
     """
     IBKR implementation of BondPort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

@@ -17,12 +17,10 @@ from .data.entities.factor.factor_calculation_service import FactorCalculationSe
 from .data.entities.factor.factor_creation_service import FactorCreationService
 from .data.entities.geographic.geographic_service import GeographicService
 from .data.entities.entity_service import EntityService
-from .data.entities.time_series.time_series_service import TimeSeriesService
 
 __all__ = [
     'FactorCalculationService',
     'FactorCreationService', 
     'GeographicService',
-    'EntityService',
-    'TimeSeriesService'
+    'EntityService'
 ]

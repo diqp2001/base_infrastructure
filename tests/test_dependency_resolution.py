@@ -9,7 +9,7 @@ from src.application.services.database_service.database_service import DatabaseS
 from src.infrastructure.repositories.dependency_registry import DependencyRegistry
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.future_repository import FutureRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import FutureRepository
 
 
 def test_dependency_resolution():

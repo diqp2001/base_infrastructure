@@ -15,8 +15,7 @@ from ibapi.common import TickerId
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.domain.ports.finance.instrument_port import InstrumentPort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.finance.instrument.ibkr_instrument import IBKRInstrument
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
     from ..instrument_repository import IBKRInstrumentRepository
 
 
-class IBKRCompanyShareRepository(ShareRepository, CompanySharePort):
+class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort):
     """
     IBKR implementation of CompanySharePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

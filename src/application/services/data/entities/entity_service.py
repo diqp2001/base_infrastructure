@@ -14,26 +14,6 @@ from sqlalchemy.orm import Session
 
 
 
-from src.domain.entities.finance.company import Company
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
-from src.domain.entities.finance.financial_assets.cash import Cash
-from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare
-from src.domain.entities.finance.financial_assets.security import Security
-from src.domain.entities.finance.financial_assets.share.share import Share
-from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
-from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
-from src.domain.entities.finance.financial_assets.stock import Stock
-from src.domain.entities.finance.financial_assets.equity import Equity
-from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-from src.domain.entities.finance.financial_assets.derivatives.forward import Forward
-
-# Import existing local repositories
-
-# Import IBKR repositories
-
-# Import infrastructure models for Index and Future
-from src.infrastructure.models.finance.financial_assets.index import Index as IndexModel
-from src.infrastructure.models.finance.financial_assets.future import Future as FutureModel
 
 
 # Import MarketData for entity information
@@ -52,8 +32,8 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.crypto_repository import IBKRCryptoRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency_repository import IBKRCurrencyRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKREtfShareRepository
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_future_repository import IBKRIndexFutureRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.index_future_repository import IBKRIndexFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
@@ -65,7 +45,7 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.crypto_
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_repository import EquityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.index_future_repository import IndexFutureRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.index_future_repository import IndexFutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
@@ -92,7 +72,7 @@ class EntityService:
 
         self.session = self.database_service.session
 
-
+    
     def create_local_repositories(self) -> dict:
         """
         Create local-only repository configuration.
@@ -104,7 +84,7 @@ class EntityService:
             Dictionary with repository implementations
         """
         self.local_repositories = {
-            'factor': FactorValueRepository(self.session),
+            'factor_value': FactorValueRepository(self.session),
             'factor': FactorRepository(self.session),
             'index_future': IndexFutureRepository(self.session),
             'company_share': CompanyShareRepository(self.session),
@@ -112,12 +92,12 @@ class EntityService:
             'bond': BondRepository(self.session),
             'index': IndexRepository(self.session),
             'crypto': CryptoRepository(self.session),
-            'commodity': CommodityRepository(),  # No session parameter
+            'commodity': CommodityRepository(self.session),  
             'cash': CashRepository(self.session),
             'equity': EquityRepository(self.session),
-            'etf_share': ETFShareRepository(),  # No session parameter
+            'etf_share': ETFShareRepository(self.session),  
             'share': ShareRepository(self.session),
-            'security': SecurityRepository()  # No session parameter
+            'security': SecurityRepository(self.session)  
         }
         return self.local_repositories
     def create_ibkr_client(self):
@@ -158,7 +138,8 @@ class EntityService:
             ),
             'company_share': IBKRCompanyShareRepository(
                 ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['company_share']
+                local_repo=self.local_repositories['company_share'],
+
             ),
             'currency': IBKRCurrencyRepository(
                 ibkr_client=self.ib_broker,
@@ -188,7 +169,7 @@ class EntityService:
                 ibkr_client=self.ib_broker,
                 local_repo=self.local_repositories['equity']
             ),
-            'etf_share': IBKREtfShareRepository(
+            'etf_share': IBKRETFShareRepository(
                 ibkr_client=self.ib_broker,
                 local_repo=self.local_repositories['etf_share']
             ),
@@ -303,8 +284,8 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
-    def _create_ibkr_or_get(self, entity_cls, entity_id: int,
-                            **kwargs) -> Optional[Index]:
+    def _create_ibkr_or_get(self, entity_cls: object, entity_symbol: str, entity_id: int = None,
+                            **kwargs) -> Optional[object]:
         """
         Create index entity if it doesn't exist, otherwise return existing.
         Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
@@ -326,7 +307,7 @@ class EntityService:
 
 
             # Get index information from MarketData if available
-            entity = ibkr_repository.get_or_create(entity_cls.symbol)
+            entity = ibkr_repository.get_or_create(entity_symbol)
 
             return entity
 

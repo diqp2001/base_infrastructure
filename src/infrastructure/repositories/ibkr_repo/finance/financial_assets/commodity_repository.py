@@ -13,12 +13,11 @@ from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
 from src.domain.ports.finance.financial_assets.commodity_port import CommodityPort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.commodity import Commodity
 
 
-class IBKRCommodityRepository(FinancialAssetBaseRepository, CommodityPort):
+class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
     """
     IBKR implementation of CommodityPort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

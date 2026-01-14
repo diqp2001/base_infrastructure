@@ -6,12 +6,14 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import PortfolioCompanyShareOptionPort
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
 from src.infrastructure.repositories.mappers.finance.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
 
 
-class PortfolioCompanyShareOptionRepository:
+class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioCompanyShareOptionPort):
     """Repository for portfolio company share option entities with basic CRUD operations"""
     
     def __init__(self, session: Session):

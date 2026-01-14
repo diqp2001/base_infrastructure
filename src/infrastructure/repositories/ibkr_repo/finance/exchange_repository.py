@@ -12,11 +12,10 @@ from ibapi.contract import Contract, ContractDetails
 
 from src.domain.ports.finance.exchange_port import ExchangePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.base_repository import BaseRepository
 from src.domain.entities.finance.exchange import Exchange
 
 
-class IBKRExchangeRepository(BaseRepository, ExchangePort):
+class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
     """
     IBKR implementation of ExchangePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

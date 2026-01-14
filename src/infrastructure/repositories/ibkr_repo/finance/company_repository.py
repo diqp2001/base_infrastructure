@@ -9,14 +9,13 @@ from typing import Optional, List
 
 from ibapi.contract import Contract, ContractDetails
 
-from domain.ports.factor.factor_value_port import FactorValuePort
+from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.domain.ports.finance.company_port import CompanyPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.base_repository import BaseRepository
 from src.domain.entities.finance.company import Company
 
 
-class IBKRCompanyRepository(BaseRepository, CompanyPort):
+class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
     """
     IBKR implementation of CompanyPort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

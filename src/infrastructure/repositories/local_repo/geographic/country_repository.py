@@ -14,7 +14,9 @@ from src.domain.ports.country_port import CountryPort
 
 class CountryRepository(GeographicRepository, CountryPort):
     """Repository for Country entities."""
-    
+    def __init__(self, session: Session):
+        self.session = session
+        self.data_store = []
     @property
     def model_class(self):
         """Return the Country ORM model class."""

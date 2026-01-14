@@ -1,13 +1,14 @@
 # Equity Local Repository
 # Mirrors src/infrastructure/models/finance/financial_assets/equity.py
 
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.ports.finance.financial_assets.equity_port import EquityPort
-
-class EquityRepository(FinancialAssetBaseRepository, EquityPort):
+from sqlalchemy.orm import Session
+class EquityRepository(FinancialAssetRepository, EquityPort):
     """Local repository for equity model"""
     
-    def __init__(self):
+    def __init__(self, session: Session):
+        super().__init__(session)
         self.data_store = []
     
     def save(self, equity):

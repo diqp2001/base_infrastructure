@@ -15,6 +15,12 @@
     
     "python.analysis.extraPaths": ["src"],
     "python.testing.cwd": "${workspaceFolder}",
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [
+        {
+            "path": "src/infrastructure/repositories/local_repo/finance/holding",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ]
     
 }

@@ -36,7 +36,7 @@ class DependencyRegistry:
         from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
         from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
         from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
-        from src.infrastructure.repositories.local_repo.finance.financial_assets.future_repository import FutureRepository
+        from infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import FutureRepository
         
         # Initialize all repositories
         self._repositories['country'] = CountryRepository(self.session)

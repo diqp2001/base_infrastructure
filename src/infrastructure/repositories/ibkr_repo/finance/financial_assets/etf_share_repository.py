@@ -12,19 +12,18 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from src.domain.ports.finance.financial_assets.share.etf_share_port import EtfSharePort
-from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
-from src.domain.entities.finance.financial_assets.share.etf_share import EtfShare
+from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare
+from src.domain.ports.finance.financial_assets.share.etf_share_port import ETFSharePort
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 
 
-class IBKREtfShareRepository(ShareRepository, EtfSharePort):
+class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
     """
     IBKR implementation of EtfSharePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: EtfSharePort):
+    def __init__(self, ibkr_client, local_repo: ETFSharePort):
         """
         Initialize IBKR ETF Share Repository.
         
@@ -35,7 +34,7 @@ class IBKREtfShareRepository(ShareRepository, EtfSharePort):
         self.ibkr = ibkr_client
         self.local_repo = local_repo
 
-    def get_or_create(self, symbol: str) -> Optional[EtfShare]:
+    def get_or_create(self, symbol: str) -> Optional[ETFShare]:
         """
         Get or create an ETF share by symbol using IBKR API.
         
@@ -73,23 +72,23 @@ class IBKREtfShareRepository(ShareRepository, EtfSharePort):
             print(f"Error in IBKR get_or_create for ETF symbol {symbol}: {e}")
             return None
 
-    def get_by_ticker(self, ticker: str) -> List[EtfShare]:
+    def get_by_ticker(self, ticker: str) -> List[ETFShare]:
         """Get ETF share by ticker (delegates to local repository)."""
         return self.local_repo.get_by_ticker(ticker)
 
-    def get_by_id(self, entity_id: int) -> Optional[EtfShare]:
+    def get_by_id(self, entity_id: int) -> Optional[ETFShare]:
         """Get ETF share by ID (delegates to local repository)."""
         return self.local_repo.get_by_id(entity_id)
 
-    def get_all(self) -> List[EtfShare]:
+    def get_all(self) -> List[ETFShare]:
         """Get all ETF shares (delegates to local repository)."""
         return self.local_repo.get_all()
 
-    def add(self, entity: EtfShare) -> Optional[EtfShare]:
+    def add(self, entity: ETFShare) -> Optional[ETFShare]:
         """Add ETF share entity (delegates to local repository)."""
         return self.local_repo.add(entity)
 
-    def update(self, entity_id: int, **kwargs) -> Optional[EtfShare]:
+    def update(self, entity_id: int, **kwargs) -> Optional[ETFShare]:
         """Update ETF share entity (delegates to local repository)."""
         return self.local_repo.update(entity_id, **kwargs)
 
@@ -157,7 +156,7 @@ class IBKREtfShareRepository(ShareRepository, EtfSharePort):
             print(f"Error fetching IBKR ETF contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[EtfShare]:
+    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[ETFShare]:
         """
         Convert IBKR contract and details directly to domain entity.
         
@@ -169,7 +168,7 @@ class IBKREtfShareRepository(ShareRepository, EtfSharePort):
             EtfShare domain entity or None if conversion failed
         """
         try:
-            return EtfShare(
+            return ETFShare(
                 id=None,  # Let database generate
                 ticker=contract.symbol,
                 exchange_id=self._resolve_exchange_id(contract.exchange),
@@ -267,7 +266,7 @@ class IBKREtfShareRepository(ShareRepository, EtfSharePort):
         }
         return expense_ratios.get(symbol)
 
-    def get_popular_etfs(self) -> List[EtfShare]:
+    def get_popular_etfs(self) -> List[ETFShare]:
         """Get popular ETFs from IBKR."""
         popular_symbols = [
             'SPY', 'VOO', 'IVV',  # S&P 500

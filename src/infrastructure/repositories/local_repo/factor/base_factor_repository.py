@@ -10,14 +10,13 @@ from datetime import date
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from src.infrastructure.models.factor.factor import Factor as FactorModel
+
 from ..base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor import Factor as FactorEntity
 from src.domain.entities.factor.factor_value import FactorValue as FactorValueEntity
 
-from src.infrastructure.models.factor.factor_model import (
-    FactorModel as FactorModel,
-    FactorValue as FactorValueModel,
-)
+
 
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper

@@ -8,8 +8,9 @@ from ibapi.contract import Contract
 
 # Domain Entity Type
 EntityType = TypeVar("EntityType")
+ModelType = TypeVar("ModelType")
 
-class BaseIBKRRepository(ABC, Generic[EntityType]):
+class BaseIBKRRepository(ABC, Generic[EntityType,ModelType]):
     """
     Base class for all IBKR repositories.
 
@@ -36,7 +37,7 @@ class BaseIBKRRepository(ABC, Generic[EntityType]):
     # IBKR REQUEST LAYER
     # ------------------------------------------------------------------
 
-    @abstractmethod
+    #@abstractmethod
     def _build_contract(self, identifier: str) -> Contract:
         """
         Build an IBKR Contract object from a business identifier

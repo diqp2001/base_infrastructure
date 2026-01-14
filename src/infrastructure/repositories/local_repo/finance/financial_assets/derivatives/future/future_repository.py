@@ -1,16 +1,17 @@
 from typing import Any, Dict
 from sqlalchemy.orm import Session
 
+from domain.ports.finance.financial_assets.derivatives.future.future_port import FuturePort
 from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
-from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_base_repository import (
-    FinancialAssetBaseRepository
+from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
+    FinancialAssetRepository
 )
 
 from src.infrastructure.models.finance.financial_assets.future import Future as Future_Model
 from src.domain.entities.finance.financial_assets.derivatives.future.future import Future as Future_Entity
 
 
-class FutureRepository(FinancialAssetBaseRepository):
+class FutureRepository(FinancialAssetRepository, FuturePort):
     """Repository for Future derivative instruments."""
 
     def __init__(self, session: Session):

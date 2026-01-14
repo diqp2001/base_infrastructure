@@ -15,103 +15,103 @@ from src.domain.entities.finance.financial_assets.currency import Currency
 class CurrencyPort(ABC):
     """Port interface for Currency repositories"""
     
-    @abstractmethod
-    def get_or_create(self, symbol: str) -> Optional[Currency]:
-        """
-        Get or create a currency by symbol.
+    # @abstractmethod
+    # def get_or_create(self, symbol: str) -> Optional[Currency]:
+    #     """
+    #     Get or create a currency by symbol.
         
-        Args:
-            symbol: The currency symbol (e.g., 'USD', 'EUR', 'GBP')
+    #     Args:
+    #         symbol: The currency symbol (e.g., 'USD', 'EUR', 'GBP')
             
-        Returns:
-            Currency entity or None if creation/retrieval failed
-        """
-        pass
+    #     Returns:
+    #         Currency entity or None if creation/retrieval failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_symbol(self, symbol: str) -> Optional[Currency]:
-        """
-        Get currency by symbol.
+    # @abstractmethod
+    # def get_by_symbol(self, symbol: str) -> Optional[Currency]:
+    #     """
+    #     Get currency by symbol.
         
-        Args:
-            symbol: The currency symbol
+    #     Args:
+    #         symbol: The currency symbol
             
-        Returns:
-            Currency entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Currency entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_iso_code(self, iso_code: str) -> Optional[Currency]:
-        """
-        Get currency by ISO code.
+    # @abstractmethod
+    # def get_by_iso_code(self, iso_code: str) -> Optional[Currency]:
+    #     """
+    #     Get currency by ISO code.
         
-        Args:
-            iso_code: The ISO currency code
+    #     Args:
+    #         iso_code: The ISO currency code
             
-        Returns:
-            Currency entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Currency entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_id(self, entity_id: int) -> Optional[Currency]:
-        """
-        Get currency by ID.
+    # @abstractmethod
+    # def get_by_id(self, entity_id: int) -> Optional[Currency]:
+    #     """
+    #     Get currency by ID.
         
-        Args:
-            entity_id: The entity ID
+    #     Args:
+    #         entity_id: The entity ID
             
-        Returns:
-            Currency entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         Currency entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_all(self) -> List[Currency]:
-        """
-        Get all currencies.
+    # @abstractmethod
+    # def get_all(self) -> List[Currency]:
+    #     """
+    #     Get all currencies.
         
-        Returns:
-            List of Currency entities
-        """
-        pass
+    #     Returns:
+    #         List of Currency entities
+    #     """
+    #     pass
     
-    @abstractmethod
-    def add(self, entity: Currency) -> Optional[Currency]:
-        """
-        Add/persist a currency entity.
+    # @abstractmethod
+    # def add(self, entity: Currency) -> Optional[Currency]:
+    #     """
+    #     Add/persist a currency entity.
         
-        Args:
-            entity: The Currency entity to persist
+    #     Args:
+    #         entity: The Currency entity to persist
             
-        Returns:
-            Persisted Currency entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Persisted Currency entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def update(self, entity: Currency) -> Optional[Currency]:
-        """
-        Update a currency entity.
+    # @abstractmethod
+    # def update(self, entity: Currency) -> Optional[Currency]:
+    #     """
+    #     Update a currency entity.
         
-        Args:
-            entity: The Currency entity to update
+    #     Args:
+    #         entity: The Currency entity to update
             
-        Returns:
-            Updated Currency entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Updated Currency entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def delete(self, entity_id: int) -> bool:
-        """
-        Delete a currency entity.
+    # @abstractmethod
+    # def delete(self, entity_id: int) -> bool:
+    #     """
+    #     Delete a currency entity.
         
-        Args:
-            entity_id: The entity ID to delete
+    #     Args:
+    #         entity_id: The entity ID to delete
             
-        Returns:
-            True if deleted successfully, False otherwise
-        """
-        pass
+    #     Returns:
+    #         True if deleted successfully, False otherwise
+    #     """
+    #     pass

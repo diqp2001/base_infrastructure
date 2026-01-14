@@ -1,10 +1,12 @@
 # Financial Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/financial_statement.py
-
-class FinancialStatementRepository:
-    """Local repository for financial statement model"""
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from sqlalchemy.orm import Session
+class FinancialStatementRepository(BaseLocalRepository):
     
-    def __init__(self):
+    def __init__(self, session: Session):
+
+        super().__init__(session)
         self.data_store = []
     
     def save(self, financial_statement):

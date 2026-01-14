@@ -1,10 +1,12 @@
 # Cash Flow Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/cash_flow_statement.py
-
-class CashFlowStatementRepository:
-    """Local repository for cash flow statement model"""
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from sqlalchemy.orm import Session
+class CashFlowStatementRepository(BaseLocalRepository):
     
-    def __init__(self):
+    def __init__(self, session: Session):
+
+        super().__init__(session)
         self.data_store = []
     
     def save(self, cash_flow_statement):

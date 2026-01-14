@@ -1,10 +1,13 @@
 # Security Holding Local Repository
 # Mirrors src/infrastructure/models/finance/security_holding.py
+from sqlalchemy.orm import Session
 
-class SecurityHoldingRepository:
+from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+class SecurityHoldingRepository(BaseLocalRepository):
     """Local repository for security holding model"""
     
-    def __init__(self):
+    def __init__(self, session: Session):
+        super().__init__(session)
         self.data_store = []
     
     def save(self, security_holding):
