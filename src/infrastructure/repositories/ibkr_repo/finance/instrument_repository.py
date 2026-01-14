@@ -12,14 +12,17 @@ from ibapi.contract import Contract, ContractDetails
 
 from src.domain.ports.finance.instrument_port import InstrumentPort
 from src.domain.ports.finance.financial_assets.financial_asset_port import FinancialAssetPort
-from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.domain.entities.finance.instrument.ibkr_instrument import IBKRInstrument
 from src.domain.entities.finance.instrument.instrument import Instrument
-from src.domain.entities.factor.factor_value import FactorValue
 
 from ..services.contract_instrument_mapper import IBKRContractInstrumentMapper
 from ..tick_types.ibkr_tick_mapping import IBKRTickType
+
+# Forward references for type hints
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 
 
 class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
@@ -37,8 +40,8 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         self, 
         ibkr_client,
         local_instrument_repo: InstrumentPort,
-        local_factor_value_repo: FactorValuePort,
-        financial_asset_repo: FinancialAssetPort
+        financial_asset_repo: FinancialAssetPort,
+        factor_repo: Optional['IBKRInstrumentFactorRepository'] = None
     ):
         """
         Initialize IBKR Instrument Repository.
@@ -46,13 +49,13 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         Args:
             ibkr_client: Interactive Brokers API client
             local_instrument_repo: Local repository for instrument persistence
-            local_factor_value_repo: Local repository for factor value persistence
             financial_asset_repo: Repository for financial asset lookups
+            factor_repo: IBKR instrument factor repository for factor operations (optional)
         """
         super().__init__(ibkr_client)
         self.local_instrument_repo = local_instrument_repo
-        self.local_factor_value_repo = local_factor_value_repo
         self.financial_asset_repo = financial_asset_repo
+        self.factor_repo = factor_repo
         self.contract_mapper = IBKRContractInstrumentMapper()
 
     def get_or_create_from_contract(
@@ -118,13 +121,13 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
                 instrument.id = persisted_instrument.id
             
             # 5. Create factor values from tick data if provided
-            if tick_data:
-                factor_values = self._create_factor_values_from_ticks(
+            if tick_data and self.factor_repo:
+                factor_values = self.factor_repo.create_factor_values_from_ticks(
                     instrument, tick_data, timestamp
                 )
                 
                 # 6. Map instrument factor values to financial asset factor values
-                self._map_to_financial_asset_factors(instrument, factor_values, asset)
+                self.factor_repo.map_to_financial_asset_factors(instrument, factor_values, asset)
             
             return instrument
             
@@ -137,27 +140,28 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         instrument: IBKRInstrument,
         tick_data: Dict[int, Any],
         timestamp: Optional[datetime] = None
-    ) -> List[FactorValue]:
+    ):
         """
         Create factor values from IBKR tick data for an existing instrument.
         
-        Args:
-            instrument: IBKRInstrument entity
-            tick_data: Dictionary of tick_type_id -> value
-            timestamp: When the tick data was captured
-            
-        Returns:
-            List of created FactorValue entities
+        This method is now delegated to IBKRInstrumentFactorRepository.
         """
-        return self._create_factor_values_from_ticks(instrument, tick_data, timestamp)
+        if not self.factor_repo:
+            print("Factor repository not available")
+            return []
+        return self.factor_repo.create_factor_values_from_ticks(instrument, tick_data, timestamp)
     
     def get_supported_tick_types(self) -> List[IBKRTickType]:
         """Get list of tick types supported for factor mapping."""
-        return self.contract_mapper.get_supported_tick_types()
+        if not self.factor_repo:
+            return []
+        return self.factor_repo.get_supported_tick_types()
     
     def is_tick_type_supported(self, tick_type: IBKRTickType) -> bool:
         """Check if a tick type is supported for factor mapping."""
-        return self.contract_mapper.is_tick_type_supported(tick_type)
+        if not self.factor_repo:
+            return False
+        return self.factor_repo.is_tick_type_supported(tick_type)
     
     # InstrumentPort interface implementation (delegate to local repository)
     
@@ -240,84 +244,7 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
             print(f"Error resolving financial asset: {e}")
             return None
     
-    def _create_factor_values_from_ticks(
-        self,
-        instrument: IBKRInstrument,
-        tick_data: Dict[int, Any],
-        timestamp: Optional[datetime] = None
-    ) -> List[FactorValue]:
-        """Create factor values from IBKR tick data."""
-        try:
-            timestamp = timestamp or datetime.now()
-            
-            # Convert tick data to factor values
-            factor_values = self.contract_mapper.tick_data_to_factor_values(
-                instrument, tick_data, timestamp
-            )
-            
-            # Persist factor values via local repository
-            persisted_values = []
-            for factor_value in factor_values:
-                # Check if factor value already exists for this date
-                existing = self.local_factor_value_repo.get_by_factor_entity_date(
-                    factor_value.factor_id, factor_value.entity_id, factor_value.date.strftime('%Y-%m-%d')
-                )
-                if existing:
-                    persisted_values.append(existing)
-                else:
-                    persisted = self.local_factor_value_repo.add(factor_value)
-                    if persisted:
-                        persisted_values.append(persisted)
-            
-            return persisted_values
-            
-        except Exception as e:
-            print(f"Error creating factor values from ticks: {e}")
-            return []
-    
-    def _map_to_financial_asset_factors(
-        self,
-        instrument: IBKRInstrument,
-        instrument_factor_values: List[FactorValue],
-        asset
-    ) -> None:
-        """
-        Map instrument factor values to financial asset factor values.
-        
-        This creates the link between instrument-level factors (from IBKR ticks)
-        and asset-level factors that can be used in analysis.
-        
-        Args:
-            instrument: The IBKRInstrument entity
-            instrument_factor_values: List of factor values from instrument
-            asset: The underlying financial asset
-        """
-        try:
-            for instrument_factor_value in instrument_factor_values:
-                # Create corresponding factor value for the financial asset
-                # This maps instrument factor data to asset factor data
-                
-                asset_factor_value = FactorValue(
-                    id=None,  # Will be set by repository
-                    factor_id=instrument_factor_value.factor_id,  # Same factor
-                    entity_id=asset.id,  # But linked to the asset, not instrument
-                    date=instrument_factor_value.date,
-                    value=instrument_factor_value.value
-                )
-                
-                # Check if asset factor value already exists
-                existing = self.local_factor_value_repo.get_by_factor_entity_date(
-                    asset_factor_value.factor_id, 
-                    asset_factor_value.entity_id,
-                    asset_factor_value.date.strftime('%Y-%m-%d')
-                )
-                
-                if not existing:
-                    # Persist the asset-level factor value
-                    self.local_factor_value_repo.add(asset_factor_value)
-                    
-        except Exception as e:
-            print(f"Error mapping instrument factors to asset factors: {e}")
+    # Factor-related methods removed - now handled by IBKRInstrumentFactorRepository
     
     def _convert_to_ibkr_instrument(self, instrument: Instrument) -> IBKRInstrument:
         """Convert a regular Instrument to IBKRInstrument if possible."""
