@@ -16,7 +16,7 @@ from src.domain.entities.finance.financial_assets.derivatives.future.index_futur
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.ibkr_service.market_data import MarketData
-from application.services.data.entities.entity_service import EntityService
+from src.application.services.data.entities.entity_service import EntityService
 from src.application.services.data.entities.factor.factor_data_service import FactorDataService
 from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
 from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
@@ -45,6 +45,7 @@ class DataLoader:
         
         # Initialize enhanced services for comprehensive data management
         self.financial_asset_service = EntityService(database_service)
+        self.financial_asset_service.create_local_repositories()
         self.financial_asset_service.create_ibkr_repositories()
         self.factor_data_service = FactorDataService(database_service)
         self.factor_creation_service = FactorCreationService(database_service)
@@ -64,36 +65,53 @@ class DataLoader:
         self.logger.info("Checking SPX data availability using EntityExistenceService...")
         
         try:
-            # Use EntityExistenceService to verify existence of SPX entities
+            # Use EntityService to verify existence of SPX entities
             # Check for both SPX index and future entities
-            spx_tickers = ['SPX']  # SPX index
-            spx_tickers_futures = ['ES']  # SPX index
+            spx_index_symbol = 'SPX'  # SPX index
+            spx_future_symbol = 'ES'  # SPX future
             
-            # Ensure SPX entities exist (index and future)
-            entity_results_spx_tickers = self.financial_asset_service._create_ibkr_or_get(Index ,spx_tickers)
-            entity_results_spx_tickers_futures = self.financial_asset_service._create_ibkr_or_get(IndexFuture,spx_tickers_futures)
+            # Ensure SPX entities exist using EntityService IBKR repositories
+            spx_index_entity = self.financial_asset_service._create_ibkr_or_get(Index, spx_index_symbol)
+            spx_future_entity = self.financial_asset_service._create_ibkr_or_get(IndexFuture, spx_future_symbol)
             
             #Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
             if self.factor_manager and hasattr(self.factor_manager, '_ensure_entities_exist'):
                 # Use factor_manager's entity verification if available
                 self.logger.info("Using factor_manager for entity verification...")
-                factor_entities_spx_tickers = self.factor_manager._ensure_entities_exist(spx_tickers)
-                factor_entities_spx_tickers_futures = self.factor_manager._ensure_entities_exist(spx_tickers)
-            
-            # Verify SPX future entity creation
-            spx_future_entity = self._verify_spx_future_entity()
+                factor_entities_spx_index = self.factor_manager._ensure_entities_exist([spx_index_symbol])
+                factor_entities_spx_future = self.factor_manager._ensure_entities_exist([spx_future_symbol])
             
             # Check actual data availability using enhanced verification
             spx_data_count = self._count_spx_data_records()
             
+            # Count successful entity creations
+            entities_created = 0
+            entities_verified = 0
+            entity_errors = []
+            
+            if spx_index_entity:
+                entities_verified += 1
+                self.logger.info(f"✅ SPX index entity verified: {spx_index_entity}")
+            else:
+                entity_errors.append("Failed to create/get SPX index entity")
+                
+            if spx_future_entity:
+                entities_verified += 1 
+                entities_created += 1  # New entities are considered created
+                self.logger.info(f"✅ SPX future entity verified: {spx_future_entity}")
+            else:
+                entity_errors.append("Failed to create/get SPX future entity")
+            
             result = {
                 'spx_index_records': spx_data_count,
                 'has_spx_data': spx_data_count > 0,
-                'entities_verified': entity_results_spx_tickers_futures.get('future_index', {}).get('verified', 0),
-                'entities_created': entity_results_spx_tickers_futures.get('future_index', {}).get('created', 0),
-                'spx_future_entity': spx_future_entity['status'],
-                'entity_verification_errors': entity_results_spx_tickers_futures.get('errors', []),
+                'entities_verified': entities_verified,
+                'entities_created': entities_created,
+                'spx_index_entity': 'verified' if spx_index_entity else 'failed',
+                'spx_future_entity': 'verified' if spx_future_entity else 'failed',
+                'factor_manager_status': factor_manager_status,
+                'entity_verification_errors': entity_errors,
                 'last_checked': datetime.now().isoformat(),
             }
             
@@ -237,8 +255,8 @@ class DataLoader:
         self.logger.info(f"Storing {len(df)} SPX records using factor system...")
         
         try:
-            # Ensure SPX entities exist first
-            entity_results = self.financial_asset_service._create_or_get(['SPX'])
+            # Ensure SPX entities exist first using EntityService IBKR repositories
+            spx_index_entity = self.financial_asset_service._create_ibkr_or_get(Index, 'SPX')
             
             # Get or create SPX company share entity
             spx_share = self.factor_data_service.get_company_share_by_ticker('SPX')
@@ -431,3 +449,121 @@ class DataLoader:
         except Exception as e:
             self.logger.error(f"Error counting SPX data records: {e}")
             return 0
+
+    def _create_or_get_factor_via_entity_service(self, name: str, group: str, subgroup: str, 
+                                                data_type: str, source: str, definition: str):
+        """
+        Create or get factor using EntityService IBKR factor repository.
+        Demonstrates how to use EntityService for factor and factor value creation.
+        
+        Args:
+            name: Factor name
+            group: Factor group
+            subgroup: Factor subgroup  
+            data_type: Data type
+            source: Data source
+            definition: Factor definition
+            
+        Returns:
+            Factor entity or None
+        """
+        try:
+            # Use EntityService IBKR factor repository for factor creation
+            factor_repo = self.financial_asset_service.ibkr_repositories.get('factor')
+            if factor_repo:
+                # Create factor entity using IBKR repository
+                from src.domain.entities.factor.factor import Factor
+                factor = Factor(
+                    name=name,
+                    group=group, 
+                    subgroup=subgroup,
+                    data_type=data_type,
+                    source=source,
+                    definition=definition
+                )
+                # Use IBKR repository to create or get the factor
+                result = factor_repo.get_or_create(factor)
+                self.logger.info(f"✅ Factor created/retrieved via EntityService: {name}")
+                return result
+            else:
+                # Fallback to factor_data_service if IBKR repo not available
+                self.logger.warning("IBKR factor repository not available, falling back to factor_data_service")
+                return self.factor_data_service.create_or_get_factor(
+                    name=name,
+                    group=group,
+                    subgroup=subgroup,
+                    data_type=data_type,
+                    source=source,
+                    definition=definition
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Error creating factor via EntityService: {e}")
+            # Fallback to factor_data_service
+            return self.factor_data_service.create_or_get_factor(
+                name=name,
+                group=group,
+                subgroup=subgroup,
+                data_type=data_type,
+                source=source,
+                definition=definition
+            )
+
+    def _store_factor_values_via_entity_service(self, factor, share, df, column_name):
+        """
+        Store factor values using EntityService IBKR factor value repository.
+        Demonstrates how to use EntityService for factor value storage.
+        
+        Args:
+            factor: Factor entity
+            share: Company share entity  
+            df: DataFrame with data
+            column_name: Column name in DataFrame
+            
+        Returns:
+            Number of values stored
+        """
+        try:
+            # Use EntityService IBKR factor value repository
+            factor_value_repo = self.financial_asset_service.ibkr_repositories.get('factor_value')
+            if factor_value_repo:
+                # Create and store factor values using IBKR repository
+                values_stored = 0
+                for index, row in df.iterrows():
+                    try:
+                        from src.domain.entities.factor.factor_value import FactorValue
+                        factor_value = FactorValue(
+                            factor_id=factor.id,
+                            asset_id=share.id,
+                            value=float(row[column_name]),
+                            date=pd.to_datetime(row.get('date', index)).date() if hasattr(row, 'get') else pd.to_datetime(index).date(),
+                            source='ibkr'
+                        )
+                        factor_value_repo.add(factor_value)
+                        values_stored += 1
+                    except Exception as row_error:
+                        self.logger.warning(f"Error storing individual factor value: {row_error}")
+                        
+                self.logger.info(f"✅ Factor values stored via EntityService: {values_stored}")
+                return values_stored
+            else:
+                # Fallback to factor_data_service
+                self.logger.warning("IBKR factor value repository not available, falling back to factor_data_service")
+                return self.factor_data_service.store_factor_values(
+                    factor=factor,
+                    share=share,
+                    data=df,
+                    column=column_name,
+                    overwrite=True
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Error storing factor values via EntityService: {e}")
+            # Fallback to factor_data_service
+            return self.factor_data_service.store_factor_values(
+                factor=factor,
+                share=share, 
+                data=df,
+                column=column_name,
+                overwrite=True
+            )
