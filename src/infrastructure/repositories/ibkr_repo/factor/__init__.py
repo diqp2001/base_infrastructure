@@ -12,7 +12,7 @@ Architecture:
 - Delegates persistence to local repositories
 """
 
-from .base_ibkr_factor_repository import BaseIBKRFactorRepository
+from ..base_ibkr_factor_repository import BaseIBKRFactorRepository
 from .ibkr_factor_repository import IBKRFactorRepository
 from .ibkr_factor_value_repository import IBKRFactorValueRepository
 from .ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository

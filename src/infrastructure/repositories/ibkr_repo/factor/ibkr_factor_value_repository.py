@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
 from src.domain.ports.factor.factor_value_port import FactorValuePort
-from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
+from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickType, IBKRTickFactorMapper
 

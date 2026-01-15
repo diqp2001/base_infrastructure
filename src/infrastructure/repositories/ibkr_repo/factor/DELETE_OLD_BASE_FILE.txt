@@ -1,0 +1,2 @@
+This file indicates that the old base_ibkr_factor_repository.py file from this directory should be deleted.
+The BaseIBKRFactorRepository has been moved to the parent folder as requested.
