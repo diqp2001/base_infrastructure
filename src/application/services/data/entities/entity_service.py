@@ -25,6 +25,8 @@ from src.domain.entities.finance.financial_assets.index.index import Index
 
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
+from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.bond_repository import IBKRBondRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.cash_repository import IBKRCashRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.commodity_repository import IBKRCommodityRepository
@@ -132,6 +134,14 @@ class EntityService:
 
         # Wrap local repositories with IBKR implementations
         self.ibkr_repositories = {
+            'factor': IBKRFactorRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['factor']
+            ),
+            'factor_value': IBKRFactorValueRepository(
+                ibkr_client=self.ib_broker,
+                local_repo=self.local_repositories['factor_value']
+            ),
             'index_future': IBKRIndexFutureRepository(
                 ibkr_client=self.ib_broker,
                 local_repo=self.local_repositories['index_future']
