@@ -25,6 +25,11 @@ class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel
     def model_class(self):
         """Return the SQLAlchemy model class for Instrument."""
         return InstrumentModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Instrument."""
+        return InstrumentEntity
 
     def _to_entity(self, model: InstrumentModel) -> InstrumentEntity:
         """Convert ORM model to domain entity using mapper."""

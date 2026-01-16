@@ -22,13 +22,19 @@ logger = logging.getLogger(__name__)
 
 class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
     def __init__(self, session: Session):
-        """Initialize BondRepository with database session."""
-        super().__init__(session)
-    
-    def __init__(self, session: Session):
         """Initialize the repository with a database session."""
-        self.session = session
+        super().__init__(session)
         self.mapper = CurrencyMapper()
+    
+    @property
+    def model_class(self):
+        """Return the SQLAlchemy model class for Currency."""
+        return ORMCurrency
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Currency."""
+        return DomainCurrency
     
     def add(self, currency: DomainCurrency) -> DomainCurrency:
         """

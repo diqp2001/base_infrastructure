@@ -46,6 +46,11 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         self.local_repo = local_repo
         self.factor_repo = factor_repo
 
+    @property
+    def entity_class(self):
+        """Return the domain entity class for CompanyShare."""
+        return CompanyShare
+
     # Factor-related methods (delegated to factor repository)
     
     def get_or_create_factor_value_with_ticks(

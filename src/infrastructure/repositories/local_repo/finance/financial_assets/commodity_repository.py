@@ -3,6 +3,8 @@
 
 from domain.ports.finance.financial_assets.commodity_port import CommodityPort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.models.finance.financial_assets.commodity import Commodity as CommodityModel
+from src.domain.entities.finance.financial_assets.commodity import Commodity as CommodityEntity
 from sqlalchemy.orm import Session
 
 class CommodityRepository(FinancialAssetRepository, CommodityPort):
@@ -11,6 +13,16 @@ class CommodityRepository(FinancialAssetRepository, CommodityPort):
     def __init__(self, session: Session):
         super().__init__(session)
         self.data_store = []
+    
+    @property
+    def model_class(self):
+        """Return the SQLAlchemy model class for Commodity."""
+        return CommodityModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Commodity."""
+        return CommodityEntity
     
     def save(self, commodity):
         """Save commodity to local storage"""

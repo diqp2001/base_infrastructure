@@ -26,6 +26,11 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
         """Return the SQLAlchemy model class for Company."""
         return CompanyModel
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Company."""
+        return CompanyEntity
+    
     def _to_entity(self, model: CompanyModel) -> CompanyEntity:
         """Convert infrastructure model to domain entity."""
         if not model:

@@ -16,6 +16,11 @@ class ShareRepository(FinancialAssetRepository,SharePort):
         """Return the SQLAlchemy model class used by this repository."""
         return ShareModel
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Share."""
+        return ShareEntity
+    
     def _to_entity(self, infra_obj: ShareModel) -> ShareEntity:
         """Convert ORM model to domain entity."""
         if not infra_obj:

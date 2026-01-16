@@ -22,6 +22,11 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
     def model_class(self):
         """Return the SQLAlchemy model class for CompanyShare."""
         return CompanyShareModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for CompanyShare."""
+        return CompanyShareEntity
 
     def _to_entity(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
         """Convert an infrastructure CompanyShare to a domain CompanyShare using mapper."""

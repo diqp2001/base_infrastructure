@@ -22,6 +22,11 @@ class FactorRepository(BaseFactorRepository, FactorPort):
     @property
     def model_class(self):
         return FactorModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Factor."""
+        return Factor
 
     def _to_entity(self, model: FactorModel) -> Optional[Factor]:
         if not model:
