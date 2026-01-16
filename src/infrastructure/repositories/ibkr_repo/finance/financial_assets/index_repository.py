@@ -28,10 +28,10 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         Initialize IBKR Index Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing IndexPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
@@ -59,12 +59,12 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -101,7 +101,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
 
     def _fetch_contract(self, symbol: str) -> Optional[Contract]:
         """
-        Fetch index contract from IBKR API.
+        Create index contract using IBKR broker helper method.
         
         Args:
             symbol: Index symbol
@@ -110,115 +110,68 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             IBKR Contract object or None if not found
         """
         try:
-            contract = Contract()
-            contract.symbol = symbol.upper()
-            contract.secType = "IND"  # Index security type
-            contract.currency = "USD"
-            
-            # Set appropriate exchange for the index
-            contract.exchange = self._get_index_exchange(symbol)
-            
+            # Use the broker's helper method to create index contract
+            exchange = self._get_index_exchange(symbol)
+            contract = self.ib_broker.create_index_contract(
+                symbol=symbol.upper(),
+                exchange=exchange,
+                currency="USD"
+            )
             return contract
         except Exception as e:
-            print(f"Error fetching IBKR index contract for {symbol}: {e}")
+            print(f"Error creating IBKR index contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch index contract details from IBKR API.
+        Fetch index contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            import time
-            import random
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            # Generate unique request ID
-            req_id = self._generate_request_id()
-            
-            # Clear any existing data for this request
-            if hasattr(self.ibkr, 'contract_details') and req_id in self.ibkr.contract_details:
-                del self.ibkr.contract_details[req_id]
-            
-            # Request contract details from IBKR API
-            if hasattr(self.ibkr, 'request_contract_details'):
-                self.ibkr.request_contract_details(req_id, contract)
+            if contract_details and len(contract_details) > 0:
+                return contract_details
             else:
-                # Fallback to direct method if available
-                self.ibkr.reqContractDetails(req_id, contract)
-            
-            # Wait for response (with timeout)
-            timeout = 10  # 10 seconds timeout
-            wait_interval = 0.1
-            elapsed = 0
-            
-            while elapsed < timeout:
-                if (hasattr(self.ibkr, 'contract_details') and 
-                    req_id in self.ibkr.contract_details and 
-                    len(self.ibkr.contract_details[req_id]) > 0):
-                    
-                    # Get the first contract details result
-                    contract_info = self.ibkr.contract_details[req_id][0]
-                    
-                    # Create ContractDetails object from response
-                    contract_details = ContractDetails()
-                    contract_details.contract = contract
-                    contract_details.marketName = contract_info.get('market_name', 'Index Market')
-                    contract_details.longName = contract_info.get('long_name', f"{contract.symbol} Index")
-                    contract_details.minTick = contract_info.get('min_tick', 0.01)
-                    contract_details.priceMagnifier = contract_info.get('price_magnifier', 1)
-                    contract_details.timeZoneId = contract_info.get('time_zone_id', 'EST')
-                    contract_details.tradingHours = contract_info.get('trading_hours', '')
-                    contract_details.liquidHours = contract_info.get('liquid_hours', '')
-                    contract_details.orderTypes = ""  # Indices are not tradeable directly
-                    
-                    # Store contract ID if available
-                    if 'contract_id' in contract_info:
-                        contract.conId = contract_info['contract_id']
-                    
-                    return contract_details
+                print(f"No contract details received for {contract.symbol}")
+                return None
                 
-                time.sleep(wait_interval)
-                elapsed += wait_interval
-            
-            print(f"Timeout waiting for IBKR contract details for {contract.symbol}")
-            return None
-            
         except Exception as e:
             print(f"Error fetching IBKR index contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Index]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Index]:
         """
         Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             Index domain entity or None if conversion failed
         """
         try:
-            # Use real data from IBKR API response
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
+            # Extract data from IBKR API response
             symbol = contract.symbol
-            name = getattr(contract_details, 'longName', f"{symbol} Index")
-            description = f"{name} - {getattr(contract_details, 'marketName', 'Index Market')}"
-            
-            
+            name = contract_details.get('long_name', f"{symbol} Index")
+            market_name = contract_details.get('market_name', 'Index Market')
+            description = f"{name} - {market_name}"
             
             return Index(
                 id=None,  # Let database generate
                 symbol=symbol,
                 name=name,
                 description=description,
-                
-                
-                
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
