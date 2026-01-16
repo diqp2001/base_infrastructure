@@ -24,17 +24,8 @@ class IndexMapper:
             id=orm_obj.id,
             symbol=orm_obj.symbol,
             name=orm_obj.name,
-            currency=orm_obj.currency or "USD",
             description=orm_obj.description,
-            base_value=Decimal(str(orm_obj.base_value)) if orm_obj.base_value is not None else None,
-            base_date=orm_obj.base_date,
-            index_type=orm_obj.index_type or "EQUITY",
-            weighting_method=orm_obj.weighting_method or "MARKET_CAP",
-            calculation_method=orm_obj.calculation_method or "CAPITALIZATION_WEIGHTED",
-            ibkr_contract_id=orm_obj.ibkr_contract_id,
-            ibkr_local_symbol=orm_obj.ibkr_local_symbol or "",
-            ibkr_exchange=orm_obj.ibkr_exchange or "",
-            ibkr_min_tick=Decimal(str(orm_obj.ibkr_min_tick)) if orm_obj.ibkr_min_tick is not None else None
+            
         )
 
         # Optional / derived values (kept out of constructor)
@@ -55,27 +46,7 @@ class IndexMapper:
         # Core identification
         orm_obj.symbol = domain_obj.symbol
         orm_obj.name = domain_obj.name
-        orm_obj.currency = domain_obj.currency or "USD"
         orm_obj.description = domain_obj.description
-
-        # Index properties
-        orm_obj.index_type = domain_obj.index_type or "EQUITY"
-        orm_obj.base_value = domain_obj.base_value
-        orm_obj.base_date = domain_obj.base_date or date.today()
-        orm_obj.weighting_method = domain_obj.weighting_method or "MARKET_CAP"
-        orm_obj.calculation_method = domain_obj.calculation_method or "CAPITALIZATION_WEIGHTED"
-
-        # IBKR-specific fields
-        orm_obj.ibkr_contract_id = domain_obj.ibkr_contract_id
-        orm_obj.ibkr_local_symbol = domain_obj.ibkr_local_symbol
-        orm_obj.ibkr_exchange = domain_obj.ibkr_exchange
-        orm_obj.ibkr_min_tick = domain_obj.ibkr_min_tick
-
-        # Market data (optional)
-        if hasattr(domain_obj, "_level") and domain_obj._level is not None:
-            orm_obj.current_level = domain_obj._level
-
-        orm_obj.last_update = datetime.now()
         orm_obj.is_tradeable = False  # Index itself is not tradable
 
         return orm_obj

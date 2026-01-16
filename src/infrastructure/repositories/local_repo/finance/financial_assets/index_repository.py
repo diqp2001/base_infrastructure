@@ -142,13 +142,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             new_index = Index_Entity(
                 id=next_id,
                 symbol=symbol,
-                name=name or f"{symbol} Index",
-                index_type=index_type,
-                currency=currency,
-                base_value=kwargs.get('base_value', 100.0),
-                base_date=kwargs.get('base_date'),
-                weighting_method=kwargs.get('weighting_method', 'Market Cap'),
-                total_constituents=kwargs.get('total_constituents'),
+                name=name or f"{symbol}_Index",
                 is_tradeable=kwargs.get('is_tradeable', False),
                 is_active=kwargs.get('is_active', True)
             )

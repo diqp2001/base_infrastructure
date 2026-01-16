@@ -209,29 +209,16 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             name = getattr(contract_details, 'longName', f"{symbol} Index")
             description = f"{name} - {getattr(contract_details, 'marketName', 'Index Market')}"
             
-            # Determine index properties intelligently based on symbol and API data
-            index_type = self._determine_index_type(symbol)
-            base_value = self._determine_base_value(symbol)
-            base_date = self._determine_base_date(symbol)
-            weighting_method = self._determine_weighting_method(symbol)
-            calculation_method = self._determine_calculation_method(symbol)
+            
             
             return Index(
                 id=None,  # Let database generate
                 symbol=symbol,
                 name=name,
                 description=description,
-                index_type=index_type,
-                base_value=base_value,
-                base_date=base_date,
-                currency=contract.currency,
-                weighting_method=weighting_method,
-                calculation_method=calculation_method,
-                # IBKR-specific fields from real API response
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                ibkr_exchange=contract.exchange,
-                ibkr_min_tick=Decimal(str(getattr(contract_details, 'minTick', 0.01)))
+                
+                
+                
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
