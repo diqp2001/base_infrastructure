@@ -12,14 +12,12 @@ from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
 
+from application.services.data.entities.factor.factor_service import FactorService
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.ibkr_service.market_data import MarketData
 from src.application.services.data.entities.entity_service import EntityService
-from src.application.services.data.entities.factor.factor_data_service import FactorDataService
-from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
-from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare
 
 logger = logging.getLogger(__name__)
@@ -40,16 +38,13 @@ class DataLoader:
             factor_manager: Factor manager from Algorithm for entity existence and factor operations
         """
         self.database_service = database_service
-        self.market_data_service = MarketData()
+        
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize enhanced services for comprehensive data management
         self.financial_asset_service = EntityService(database_service)
-        self.financial_asset_service.create_local_repositories()
         self.financial_asset_service.create_ibkr_repositories()
-        self.factor_data_service = FactorDataService(database_service)
-        self.factor_creation_service = FactorCreationService(database_service)
-        self.factor_calculation_service = FactorCalculationService(database_service)
+        self.factor_data_service = FactorService(database_service)
         
         # Store factor_manager reference for _ensure_entities_exist access
         self.factor_manager = factor_manager
@@ -135,64 +130,7 @@ class DataLoader:
                 'last_checked': datetime.now().isoformat(),
             }
     
-    def import_spx_historical_data(
-        self,
-        duration_str: str = "6 M",
-        bar_size_setting: str = "5 mins"
-    ) -> Dict[str, Any]:
-        """
-        Import SPX historical data using IBKR service.
-        
-        Args:
-            duration_str: Duration of historical data (e.g., "6 M")
-            bar_size_setting: Bar size (e.g., "5 mins")
-            
-        Returns:
-            Dict containing import results
-        """
-        self.logger.info(f"Importing SPX historical data: {duration_str}, {bar_size_setting}")
-        
-        try:
-            # Use the IBKR market data service to get SPX data
-            bars = self.market_data_service.get_index_historical_data(
-                symbol="SPX",
-                exchange="CBOE",
-                currency="USD",
-                duration_str=duration_str,
-                bar_size_setting=bar_size_setting
-            )
-            
-            if not bars:
-                raise Exception("No historical data returned from IBKR")
-                
-            # Convert bars to DataFrame
-            df = pd.DataFrame(bars)
-            
-            # Store in database (implement based on your factor system)
-            stored_count = self._store_spx_data_in_database(df)
-            
-            result = {
-                'success': True,
-                'bars_imported': len(bars),
-                'bars_stored': stored_count,
-                'date_range': {
-                    'start': bars[0]['date'] if bars else None,
-                    'end': bars[-1]['date'] if bars else None,
-                },
-                'import_timestamp': datetime.now().isoformat(),
-            }
-            
-            self.logger.info(f"✅ Successfully imported {len(bars)} SPX bars")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error importing SPX historical data: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'bars_imported': 0,
-                'import_timestamp': datetime.now().isoformat(),
-            }
+    
     
     def load_spx_data(
         self,
@@ -230,7 +168,7 @@ class DataLoader:
             # If no data found, attempt to import from IBKR
             if df.empty:
                 self.logger.info("No SPX data found, attempting IBKR import...")
-                import_result = self.import_spx_historical_data()
+                import_result = None
                 if import_result.get('success', False):
                     # Retry query after import
                     df = self._query_spx_data_from_database(start_date, end_date)

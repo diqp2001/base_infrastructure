@@ -4,13 +4,13 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
+from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.factor import Factor
 from src.infrastructure.models.factor.factor import Factor as FactorModel
 from src.domain.ports.factor.factor_port import FactorPort
-from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
-class FactorRepository(BaseLocalRepository[Factor, FactorModel], FactorPort):
+class FactorRepository(BaseFactorRepository, FactorPort):
 
     def __init__(self, session: Session):
         super().__init__(session)

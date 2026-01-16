@@ -14,10 +14,8 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 
-from src.application.services.data.entities.factor.factor_calculation_service import FactorCalculationService
-from src.application.services.data.entities.factor.factor_creation_service import FactorCreationService
-from src.application.services.data.entities.factor.factor_data_service import FactorDataService
-from application.services.data.entities.entity_service import EntityService
+from src.application.services.data.entities.factor.factor_service import FactorService
+from src.application.services.data.entities.entity_service import EntityService
 from src.application.services.database_service.database_service import DatabaseService
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor
@@ -45,10 +43,9 @@ class FactorEnginedDataManager:
         self.config = DEFAULT_CONFIG
         
         # Initialize services with clear separation of responsibilities
-        self.factor_creation_service = FactorCreationService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For factor definition creation/storage
-        self.factor_calculation_service = FactorCalculationService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For factor value calculation/storage
-        self.factor_data_service = FactorDataService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For all data operations
-        self.entity_existence_service = EntityExistenceService(self.database_service)
+     
+        self.factor_data_service = FactorService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For all data operations
+        
         
         
         

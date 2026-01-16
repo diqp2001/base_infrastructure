@@ -13,6 +13,8 @@ import pandas as pd
 import pandas_market_calendars as mcal
 import os
 import json
+
+from src.application.services.data.entities.factor.factor_service import FactorService
 from ..common.data_types import Slice, TradeBars, TradeBar
 from ..common.symbol import Symbol
 
@@ -25,16 +27,13 @@ except ImportError:
 
 from decimal import Decimal
 # Import service layer instead of direct repository access
-from src.application.services.data.entities.factor.factor_data_service import FactorDataService
-from application.services.data.entities.entity_service import EntityService
-from src.application.services.database_service.database_service import DatabaseService
+from src.application.services.data.entities.entity_service import EntityService
 
 # Import algorithm framework components instead of domain entities
 from ..algorithm.security import SecurityPortfolioManager
 
 # Import BaseEngine for proper inheritance
 from .base_engine import BaseEngine
-from .engine_node_packet import EngineNodePacket
 
 
 class MisbuffetEngineConfig:
@@ -320,7 +319,7 @@ class MisbuffetEngine(BaseEngine):
                 if hasattr(config, 'database_service') and config.database_service:
                     # Initialize service layer (following DDD principles)
                     self.database_service = config.database_service
-                    self.factor_data_service = FactorDataService(self.database_service)
+                    self.factor_data_service = FactorService(self.database_service)
                     self.financial_asset_service = EntityService(self.database_service)
                     self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")
                 elif hasattr(config, 'database_manager'):
@@ -332,7 +331,7 @@ class MisbuffetEngine(BaseEngine):
                             from src.application.services.database_service.database_service import DatabaseService
                             self.database_service = DatabaseService()
                             self.database_service.session = config.database_manager.session
-                            self.factor_data_service = FactorDataService(self.database_service)
+                            self.factor_data_service = FactorService(self.database_service)
                             self.financial_asset_service = EntityService(self.database_service)
                             self.logger.info(f"Services initialized from database_manager for {self.engine_config.entity_type} data access")
                     except Exception as e:
@@ -635,7 +634,6 @@ class MisbuffetEngine(BaseEngine):
             return 100.0
     
     def _get_point_in_time_data(self, ticker, point_in_time):
-        """Get data for a single day using FactorDataService (entity-agnostic)."""
         if not self.factor_data_service:
             return None
         

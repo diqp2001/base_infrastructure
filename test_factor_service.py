@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.application.services.data.entities.factor_service import FactorService
+from application.services.data.entities.factor.factor_service import FactorService
 from src.application.services.database_service.database_service import DatabaseService
 
 def test_factor_service():

@@ -21,7 +21,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: CompanyPort, local_factor_value_repo: FactorValuePort):
+    def __init__(self, ibkr_client, local_repo: CompanyPort):
         """
         Initialize IBKR Company Repository.
         
@@ -31,7 +31,6 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-        self.local_factor_value_repo = local_factor_value_repo
 
     def get_or_create(self, symbol_or_name: str) -> Optional[Company]:
         """

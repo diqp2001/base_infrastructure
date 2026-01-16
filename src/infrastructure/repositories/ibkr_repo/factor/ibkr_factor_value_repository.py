@@ -34,7 +34,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     def __init__(
         self, 
         ibkr_client, 
-        local_factor_value_repo: FactorValuePort,
+        local_repo: FactorValuePort,
         ibkr_instrument_repo: Optional['IBKRInstrumentRepository'] = None
     ):
         """
@@ -45,7 +45,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             local_factor_value_repo: Local repository implementing FactorValuePort for persistence
             ibkr_instrument_repo: IBKR instrument repository for contract→instrument flow
         """
-        super().__init__(ibkr_client, local_factor_value_repo)
+        super().__init__(ibkr_client, local_repo)
         self.ibkr_instrument_repo = ibkr_instrument_repo
         self.tick_mapper = IBKRTickFactorMapper()
 

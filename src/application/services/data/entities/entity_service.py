@@ -19,8 +19,10 @@ from sqlalchemy.orm import Session
 # Import MarketData for entity information
 
 
+from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from src.application.services.database_service.database_service import DatabaseService
-from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
+
 from src.domain.entities.finance.financial_assets.index.index import Index
 
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
@@ -73,6 +75,8 @@ class EntityService:
             self.database_service = DatabaseService(db_type)
 
         self.session = self.database_service.session
+        self.create_local_repositories()
+        
 
     
     def create_local_repositories(self) -> dict:
@@ -86,8 +90,11 @@ class EntityService:
             Dictionary with repository implementations
         """
         self.local_repositories = {
+
             'factor_value': FactorValueRepository(self.session),
             'factor': FactorRepository(self.session),
+            'base_factor': BaseFactorRepository(self.session),
+            'share_factor': ShareFactorRepository(self.session),
             'index_future': IndexFutureRepository(self.session),
             'company_share': CompanyShareRepository(self.session),
             'currency': CurrencyRepository(self.session),
@@ -103,6 +110,7 @@ class EntityService:
         }
         return self.local_repositories
     def create_ibkr_client(self):
+        from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
         self.ib_config = {
             'host': "127.0.0.1",
             'port': 7497,
@@ -129,7 +137,6 @@ class EntityService:
             Dictionary with repository implementations
         """
         # Create local repositories first
-        self.create_local_repositories()
         self.create_ibkr_client()
 
         # Wrap local repositories with IBKR implementations

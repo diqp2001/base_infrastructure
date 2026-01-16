@@ -656,7 +656,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         # Return the string value as-is
         return str_value
     
-    def _store_factor_values(self, factor, share, data: pd.DataFrame, column: str, overwrite: bool) -> int:
+    def _store_factor_values(self, factor, entity, data: pd.DataFrame, column: str, overwrite: bool) -> int:
         """Store factor values for a specific factor."""
         values_stored = 0
         
@@ -669,7 +669,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         existing_dates = set()
         if not overwrite:
             existing_dates = self.get_existing_value_dates(
-                factor.id, share.id
+                factor.id, entity.id
             )
         
         for date_index, row in data.iterrows():
@@ -687,7 +687,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             try:
                 self.add_factor_value(
                     factor_id=factor.id,
-                    entity_id=share.id,
+                    entity_id=entity.id,
                     date=trade_date,
                     value=sanitized_value
                 )
