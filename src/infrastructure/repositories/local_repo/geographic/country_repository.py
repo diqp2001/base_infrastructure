@@ -22,6 +22,11 @@ class CountryRepository(GeographicRepository, CountryPort):
         """Return the Country ORM model class."""
         return CountryModel
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Country."""
+        return Country
+    
     def _to_entity(self, model: CountryModel) -> Optional[Country]:
         """Convert ORM model to domain entity."""
         if not model:

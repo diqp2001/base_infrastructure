@@ -32,6 +32,11 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
         self.ibkr = ibkr_client
         self.local_repo = local_repo
 
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Exchange."""
+        return Exchange
+
     def get_or_create(self, exchange_code: str) -> Optional[Exchange]:
         """
         Get or create an exchange by code using IBKR API.
