@@ -29,9 +29,15 @@ class CompanyShare(Base):
     # Status fields
     is_tradeable = Column(Boolean, default=True)
 
-    # Relationships
-    companies = relationship("Company", back_populates="company_shares")
-    exchanges = relationship("Exchange", back_populates="company_shares") 
+    # Relationships - using string references to avoid circular imports
+    company = relationship("Company", back_populates="company_shares")
+    exchange = relationship("Exchange", back_populates="company_shares") 
 
     def __repr__(self):
         return f"<CompanyShare(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"
+
+
+# Import related models to ensure they are registered for relationship resolution
+# This is done after the class definition to avoid circular import issues
+from src.infrastructure.models.finance.company import Company
+from src.infrastructure.models.finance.exchange import Exchange
