@@ -34,6 +34,11 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
         self.ibkr = ibkr_client
         self.local_repo = local_repo
 
+    @property
+    def entity_class(self):
+        
+        return Bond
+
     def get_or_create(self, symbol: str) -> Optional[Bond]:
         """
         Get or create a bond by symbol using IBKR API.

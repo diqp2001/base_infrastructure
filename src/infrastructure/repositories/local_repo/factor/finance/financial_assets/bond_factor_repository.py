@@ -12,7 +12,7 @@ class BondFactorRepository(BaseFactorRepository):
     
     def __init__(self, db_type='sqlite'):
         super().__init__(db_type)
-
+    
     def get_factor_model(self):
         return FactorMapper().get_factor_model()
     

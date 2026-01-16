@@ -33,7 +33,10 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return Currency
     def get_or_create(self, pair_symbol: str) -> Optional[Currency]:
         """
         Get or create a currency pair by symbol using IBKR API.

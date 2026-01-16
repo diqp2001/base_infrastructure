@@ -32,7 +32,10 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return Security
     def get_or_create(self, symbol: str) -> Optional[Security]:
         """
         Get or create a security by symbol using IBKR API.

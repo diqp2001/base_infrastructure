@@ -57,7 +57,10 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         self.financial_asset_repo = financial_asset_repo
         self.factor_repo = factor_repo
         self.contract_mapper = IBKRContractInstrumentMapper()
-
+    @property
+    def entity_class(self):
+        
+        return IBKRInstrument
     def get_or_create_from_contract(
         self,
         contract: Contract,

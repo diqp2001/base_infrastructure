@@ -21,7 +21,10 @@ class SectorRepository(GeographicRepository, SectorPort):
     def model_class(self):
         """Return the Sector ORM model class."""
         return SectorModel
-    
+    @property
+    def entity_class(self):
+        
+        return Sector
     def _to_entity(self, model: SectorModel) -> Optional[Sector]:
         """Convert ORM model to domain entity."""
         if not model:

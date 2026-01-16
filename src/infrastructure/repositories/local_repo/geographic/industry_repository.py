@@ -21,7 +21,10 @@ class IndustryRepository(GeographicRepository, IndustryPort):
     def model_class(self):
         """Return the Industry ORM model class."""
         return IndustryModel
-    
+    @property
+    def entity_class(self):
+        
+        return Industry
     def _to_entity(self, model: IndustryModel) -> Optional[Industry]:
         """Convert ORM model to domain entity."""
         if not model:

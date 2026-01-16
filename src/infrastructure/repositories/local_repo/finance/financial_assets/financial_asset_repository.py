@@ -20,7 +20,10 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
         super().__init__(session)
         from application.services.api_service.ibkr_service.market_data import MarketData
         self.market_data = MarketData()
-
+    @property
+    def entity_class(self):
+        
+        return FinancialAsset
     # --- Financial Asset Specific Methods ---
 
     def get_by_ticker(self, ticker: str) -> Optional[EntityType]:

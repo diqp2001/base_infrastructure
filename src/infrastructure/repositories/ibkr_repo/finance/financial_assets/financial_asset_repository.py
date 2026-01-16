@@ -17,5 +17,8 @@ class IBKRFinancialAssetRepository(BaseIBKRRepository[EntityType, ModelType], AB
         """Initialize IndexRepository with database session."""
 
         super().__init__(ib_client)
-
+    @property
+    def entity_class(self):
+        
+        return FinancialAsset
     # --- Financial Asset Specific Methods ---

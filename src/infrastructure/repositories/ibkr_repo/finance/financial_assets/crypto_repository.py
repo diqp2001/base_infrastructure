@@ -33,7 +33,10 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return Crypto
     def get_or_create(self, symbol: str) -> Optional[Crypto]:
         """
         Get or create a cryptocurrency by symbol using IBKR API.

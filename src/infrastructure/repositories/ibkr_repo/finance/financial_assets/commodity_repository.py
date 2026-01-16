@@ -34,6 +34,11 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
         self.ibkr = ibkr_client
         self.local_repo = local_repo
 
+    @property
+    def entity_class(self):
+        
+        return Commodity
+
     def get_or_create(self, symbol: str) -> Optional[Commodity]:
         """
         Get or create a commodity by symbol using IBKR API.

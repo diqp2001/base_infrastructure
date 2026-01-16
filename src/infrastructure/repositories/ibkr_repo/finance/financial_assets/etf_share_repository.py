@@ -33,7 +33,10 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return ETFShare
     def get_or_create(self, symbol: str) -> Optional[ETFShare]:
         """
         Get or create an ETF share by symbol using IBKR API.

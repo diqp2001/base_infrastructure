@@ -33,6 +33,10 @@ class IBKRShareRepository(IBKRFinancialAssetRepository, SharePort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
+    @property
+    def entity_class(self):
+        
+        return Share
 
     def get_or_create(self, symbol: str) -> Optional[Share]:
         """

@@ -21,7 +21,10 @@ class ContinentRepository(GeographicRepository, ContinentPort):
     def model_class(self):
         """Return the Continent ORM model class."""
         return ContinentModel
-    
+    @property
+    def entity_class(self):
+        
+        return Continent
     def _to_entity(self, model: ContinentModel) -> Optional[Continent]:
         """Convert ORM model to domain entity."""
         if not model:

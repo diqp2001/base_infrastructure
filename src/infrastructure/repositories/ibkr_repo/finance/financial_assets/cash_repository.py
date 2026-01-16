@@ -33,6 +33,10 @@ class IBKRCashRepository(IBKRFinancialAssetRepository, CashPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
+    @property
+    def entity_class(self):
+        
+        return Cash
 
     def get_or_create(self, currency_code: str) -> Optional[Cash]:
         """

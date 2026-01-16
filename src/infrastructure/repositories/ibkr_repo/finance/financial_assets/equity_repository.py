@@ -33,7 +33,10 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return Equity
     def get_or_create(self, symbol: str) -> Optional[Equity]:
         """
         Get or create an equity by symbol using IBKR API.

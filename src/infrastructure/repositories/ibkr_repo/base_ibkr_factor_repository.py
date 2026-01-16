@@ -33,7 +33,10 @@ class BaseIBKRFactorRepository(BaseIBKRRepository):
         """
         super().__init__(ibkr_client)
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        
+        return FactorValue
     def _create_factor_value_from_ibkr_data(
         self,
         factor_id: int,
