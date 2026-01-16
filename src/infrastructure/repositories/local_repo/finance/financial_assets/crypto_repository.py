@@ -27,6 +27,11 @@ class CryptoRepository(FinancialAssetRepository, CryptoPort):
         """Return the SQLAlchemy model class for Crypto."""
         return CryptoModel
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Crypto."""
+        return CryptoEntity
+    
     def _to_entity(self, model: CryptoModel) -> CryptoEntity:
         """Convert infrastructure model to domain entity."""
         if not model:

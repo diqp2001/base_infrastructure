@@ -27,6 +27,11 @@ class CashRepository(FinancialAssetRepository, CashPort):
         """Return the SQLAlchemy model class for Cash."""
         return CashModel
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Cash."""
+        return CashEntity
+    
     def _to_entity(self, model: CashModel) -> CashEntity:
         """Convert infrastructure model to domain entity."""
         if not model:

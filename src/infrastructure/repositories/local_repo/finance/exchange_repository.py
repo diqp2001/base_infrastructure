@@ -22,6 +22,11 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
     def model_class(self):
         """Return the SQLAlchemy model class for Exchange."""
         return ExchangeModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Exchange."""
+        return ExchangeEntity
 
     # ------------------------------------------------------------------
     # CONVERSION METHODS

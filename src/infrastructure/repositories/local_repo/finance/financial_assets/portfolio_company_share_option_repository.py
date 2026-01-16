@@ -8,26 +8,36 @@ from sqlalchemy.orm import Session
 
 from domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import PortfolioCompanyShareOptionPort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption as PortfolioCompanyShareOptionModel
 from src.infrastructure.repositories.mappers.finance.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
-from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption as PortfolioCompanyShareOptionEntity
 
 
 class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioCompanyShareOptionPort):
     """Repository for portfolio company share option entities with basic CRUD operations"""
     
     def __init__(self, session: Session):
-        self.session = session
+        super().__init__(session)
         self.mapper = PortfolioCompanyShareOptionMapper()
+    
+    @property
+    def model_class(self):
+        """Return the SQLAlchemy model class for PortfolioCompanyShareOption."""
+        return PortfolioCompanyShareOptionModel
+    
+    @property
+    def entity_class(self):
+        """Return the domain entity class for PortfolioCompanyShareOption."""
+        return PortfolioCompanyShareOptionEntity
 
-    def get_by_id(self, option_id: int) -> Optional[PortfolioCompanyShareOption]:
+    def get_by_id(self, option_id: int) -> Optional[PortfolioCompanyShareOptionEntity]:
         """Get an option by ID"""
-        model = self.session.query(PortfolioCompanyShareOption).filter_by(id=option_id).first()
+        model = self.session.query(PortfolioCompanyShareOptionModel).filter_by(id=option_id).first()
         return self.mapper.to_entity(model) if model else None
 
-    def get_all(self) -> List[PortfolioCompanyShareOption]:
+    def get_all(self) -> List[PortfolioCompanyShareOptionEntity]:
         """Get all options"""
-        models = self.session.query(PortfolioCompanyShareOption).all()
+        models = self.session.query(PortfolioCompanyShareOptionModel).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def get_by_underlying_id(self, underlying_id: int) -> List[PortfolioCompanyShareOption]:

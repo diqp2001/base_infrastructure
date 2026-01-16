@@ -16,6 +16,11 @@ class BondRepository(FinancialAssetRepository,BondPort):
         """Return the SQLAlchemy model class for Bond."""
         return Bond_Model
     
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Bond."""
+        return Bond_Entity
+    
     def _to_entity(self, infra_bond: Bond_Model) -> Bond_Entity:
         """Convert an infrastructure Bond to a domain Bond using mapper."""
         if not infra_bond:
