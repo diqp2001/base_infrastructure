@@ -134,25 +134,67 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             ContractDetails object or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Index Market"
+            import time
+            import random
             
-            index_info = self._get_index_info(contract.symbol)
-            contract_details.longName = index_info['name']
-            contract_details.minTick = index_info['min_tick']
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = ""  # Indices are not tradeable directly
+            # Generate unique request ID
+            req_id = self._generate_request_id()
             
-            return contract_details
+            # Clear any existing data for this request
+            if hasattr(self.ibkr, 'contract_details') and req_id in self.ibkr.contract_details:
+                del self.ibkr.contract_details[req_id]
+            
+            # Request contract details from IBKR API
+            if hasattr(self.ibkr, 'request_contract_details'):
+                self.ibkr.request_contract_details(req_id, contract)
+            else:
+                # Fallback to direct method if available
+                self.ibkr.reqContractDetails(req_id, contract)
+            
+            # Wait for response (with timeout)
+            timeout = 10  # 10 seconds timeout
+            wait_interval = 0.1
+            elapsed = 0
+            
+            while elapsed < timeout:
+                if (hasattr(self.ibkr, 'contract_details') and 
+                    req_id in self.ibkr.contract_details and 
+                    len(self.ibkr.contract_details[req_id]) > 0):
+                    
+                    # Get the first contract details result
+                    contract_info = self.ibkr.contract_details[req_id][0]
+                    
+                    # Create ContractDetails object from response
+                    contract_details = ContractDetails()
+                    contract_details.contract = contract
+                    contract_details.marketName = contract_info.get('market_name', 'Index Market')
+                    contract_details.longName = contract_info.get('long_name', f"{contract.symbol} Index")
+                    contract_details.minTick = contract_info.get('min_tick', 0.01)
+                    contract_details.priceMagnifier = contract_info.get('price_magnifier', 1)
+                    contract_details.timeZoneId = contract_info.get('time_zone_id', 'EST')
+                    contract_details.tradingHours = contract_info.get('trading_hours', '')
+                    contract_details.liquidHours = contract_info.get('liquid_hours', '')
+                    contract_details.orderTypes = ""  # Indices are not tradeable directly
+                    
+                    # Store contract ID if available
+                    if 'contract_id' in contract_info:
+                        contract.conId = contract_info['contract_id']
+                    
+                    return contract_details
+                
+                time.sleep(wait_interval)
+                elapsed += wait_interval
+            
+            print(f"Timeout waiting for IBKR contract details for {contract.symbol}")
+            return None
+            
         except Exception as e:
             print(f"Error fetching IBKR index contract details: {e}")
             return None
 
     def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Index]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
@@ -162,24 +204,34 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             Index domain entity or None if conversion failed
         """
         try:
-            index_info = self._get_index_info(contract.symbol)
+            # Use real data from IBKR API response
+            symbol = contract.symbol
+            name = getattr(contract_details, 'longName', f"{symbol} Index")
+            description = f"{name} - {getattr(contract_details, 'marketName', 'Index Market')}"
+            
+            # Determine index properties intelligently based on symbol and API data
+            index_type = self._determine_index_type(symbol)
+            base_value = self._determine_base_value(symbol)
+            base_date = self._determine_base_date(symbol)
+            weighting_method = self._determine_weighting_method(symbol)
+            calculation_method = self._determine_calculation_method(symbol)
             
             return Index(
                 id=None,  # Let database generate
-                symbol=contract.symbol,
-                name=index_info['name'],
-                description=index_info['description'],
-                index_type=index_info['type'],
-                base_value=index_info['base_value'],
-                base_date=index_info['base_date'],
+                symbol=symbol,
+                name=name,
+                description=description,
+                index_type=index_type,
+                base_value=base_value,
+                base_date=base_date,
                 currency=contract.currency,
-                weighting_method=index_info['weighting_method'],
-                calculation_method=index_info['calculation_method'],
-                # IBKR-specific fields
+                weighting_method=weighting_method,
+                calculation_method=calculation_method,
+                # IBKR-specific fields from real API response
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
                 ibkr_exchange=contract.exchange,
-                ibkr_min_tick=Decimal(str(contract_details.minTick))
+                ibkr_min_tick=Decimal(str(getattr(contract_details, 'minTick', 0.01)))
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
@@ -199,101 +251,68 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         }
         return exchange_map.get(symbol.upper(), 'CBOE')
 
-    def _get_index_info(self, symbol: str) -> dict:
-        """Get index information for IBKR symbols."""
-        index_data = {
-            'SPX': {
-                'name': 'S&P 500 Index',
-                'description': 'Large-cap US equity index of 500 companies',
-                'type': 'EQUITY',
-                'base_value': Decimal('10.0'),
-                'base_date': date(1957, 3, 4),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'NDX': {
-                'name': 'NASDAQ-100 Index',
-                'description': 'Technology-heavy index of 100 largest NASDAQ companies',
-                'type': 'EQUITY',
-                'base_value': Decimal('125.0'),
-                'base_date': date(1985, 2, 1),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'RUT': {
-                'name': 'Russell 2000 Index',
-                'description': 'Small-cap US equity index',
-                'type': 'EQUITY',
-                'base_value': Decimal('135.0'),
-                'base_date': date(1986, 12, 31),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'DJI': {
-                'name': 'Dow Jones Industrial Average',
-                'description': 'Price-weighted index of 30 large US companies',
-                'type': 'EQUITY',
-                'base_value': Decimal('40.94'),
-                'base_date': date(1896, 5, 26),
-                'weighting_method': 'PRICE',
-                'calculation_method': 'PRICE_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'VIX': {
-                'name': 'CBOE Volatility Index',
-                'description': 'Volatility index based on S&P 500 options',
-                'type': 'VOLATILITY',
-                'base_value': None,
-                'base_date': date(1993, 1, 1),
-                'weighting_method': 'IMPLIED_VOLATILITY',
-                'calculation_method': 'OPTIONS_BASED',
-                'min_tick': 0.01
-            },
-            'OEX': {
-                'name': 'S&P 100 Index',
-                'description': 'Large-cap US equity index of 100 companies',
-                'type': 'EQUITY',
-                'base_value': Decimal('10.0'),
-                'base_date': date(1983, 1, 3),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'COMP': {
-                'name': 'NASDAQ Composite Index',
-                'description': 'All stocks listed on NASDAQ',
-                'type': 'EQUITY',
-                'base_value': Decimal('100.0'),
-                'base_date': date(1971, 2, 5),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            },
-            'NYA': {
-                'name': 'NYSE Composite Index',
-                'description': 'All common stocks listed on NYSE',
-                'type': 'EQUITY',
-                'base_value': Decimal('50.0'),
-                'base_date': date(1966, 1, 3),
-                'weighting_method': 'MARKET_CAP',
-                'calculation_method': 'CAPITALIZATION_WEIGHTED',
-                'min_tick': 0.01
-            }
-        }
+    def _generate_request_id(self) -> int:
+        """Generate unique request ID for IBKR API calls."""
+        import random
+        return random.randint(1000, 99999)
+
+    def _determine_index_type(self, symbol: str) -> str:
+        """Determine index type based on symbol pattern."""
+        volatility_symbols = {'VIX', 'VXN', 'RVX', 'VXD'}
+        if symbol.upper() in volatility_symbols:
+            return 'VOLATILITY'
         
-        return index_data.get(symbol, {
-            'name': f'{symbol} Index',
-            'description': 'Unknown index',
-            'type': 'EQUITY',
-            'base_value': Decimal('100.0'),
-            'base_date': date(2000, 1, 1),
-            'weighting_method': 'MARKET_CAP',
-            'calculation_method': 'CAPITALIZATION_WEIGHTED',
-            'min_tick': 0.01
-        })
+        commodity_symbols = {'GC', 'SI', 'CL', 'NG'}
+        if symbol.upper() in commodity_symbols:
+            return 'COMMODITY'
+            
+        return 'EQUITY'  # Default for most indices
+
+    def _determine_base_value(self, symbol: str) -> Optional[Decimal]:
+        """Determine base value for known indices, None for unknown."""
+        known_values = {
+            'SPX': Decimal('10.0'),
+            'OEX': Decimal('10.0'),
+            'NDX': Decimal('125.0'),
+            'RUT': Decimal('135.0'),
+            'DJI': Decimal('40.94'),
+            'COMP': Decimal('100.0'),
+            'NYA': Decimal('50.0'),
+            'VIX': None  # VIX doesn't have a traditional base value
+        }
+        return known_values.get(symbol.upper(), Decimal('100.0'))
+
+    def _determine_base_date(self, symbol: str) -> Optional[date]:
+        """Determine base date for known indices."""
+        known_dates = {
+            'SPX': date(1957, 3, 4),
+            'NDX': date(1985, 2, 1),
+            'RUT': date(1986, 12, 31),
+            'DJI': date(1896, 5, 26),
+            'VIX': date(1993, 1, 1),
+            'OEX': date(1983, 1, 3),
+            'COMP': date(1971, 2, 5),
+            'NYA': date(1966, 1, 3)
+        }
+        return known_dates.get(symbol.upper())
+
+    def _determine_weighting_method(self, symbol: str) -> str:
+        """Determine weighting method based on index characteristics."""
+        if symbol.upper() == 'DJI':
+            return 'PRICE'
+        elif symbol.upper() in {'VIX', 'VXN', 'RVX'}:
+            return 'IMPLIED_VOLATILITY'
+        else:
+            return 'MARKET_CAP'  # Default for most equity indices
+
+    def _determine_calculation_method(self, symbol: str) -> str:
+        """Determine calculation method based on index type."""
+        if symbol.upper() == 'DJI':
+            return 'PRICE_WEIGHTED'
+        elif symbol.upper() in {'VIX', 'VXN', 'RVX'}:
+            return 'OPTIONS_BASED'
+        else:
+            return 'CAPITALIZATION_WEIGHTED'  # Default for most equity indices
 
     def get_major_indices(self) -> List[Index]:
         """Get major market indices from IBKR."""
