@@ -34,7 +34,10 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         """
         self.ibkr = ibkr_client
         self.local_repo = local_repo
-
+    @property
+    def entity_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return IndexFuture
     def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
         """
         Get or create an index future by symbol using IBKR API.

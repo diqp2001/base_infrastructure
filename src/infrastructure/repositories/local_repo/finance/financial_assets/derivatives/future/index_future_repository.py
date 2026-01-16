@@ -19,7 +19,10 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
 
     def __init__(self, session: Session):
         super().__init__(session)
-
+    @property
+    def entity_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return IndexFuture
     # ------------------------------------------------------------------
     # Index-specific queries
     # ------------------------------------------------------------------

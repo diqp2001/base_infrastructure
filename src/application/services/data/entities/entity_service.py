@@ -201,27 +201,57 @@ class EntityService:
         }
         return self.ibkr_repositories
 
-    def get_local_repository(self, entity_type):
+    # def get_local_repository(self, entity_type):
+    #     """
+    #     Return the repository associated with a domain entity type.
+    #     """
+    #     repo = self.local_repositories.get(entity_type)
+    #     if repo is None:
+    #         raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
+    #     repo = repo(self.session)
+    #     return repo
+    def get_local_repository(self, entity_class: type):
         """
-        Return the repository associated with a domain entity type.
-        """
-        repo = self.local_repositories.get(entity_type)
-        if repo is None:
-            raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
-        repo = repo(self.session)
-        return repo
+        Return the repository associated with a given domain entity class.
 
-    def get_ibkr_repository(self, entity_type):
+        Args:
+            entity_class: Domain entity class (e.g. FactorValue)
+
+        Returns:
+            Repository instance managing that entity
         """
-        Return the repository associated with a domain entity type.
-        """
-        repo = self.ibkr_repositories.get(entity_type)
-        if repo is None:
-            raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
-        repo = repo(self.session)
-        return repo
+        for repo in self.local_repositories.values():
+            if repo.entity_class is entity_class:
+                return repo
+
+        raise ValueError(
+            f"No repository registered for entity class: {entity_class.__name__}"
+        )
 
 
+    # def get_ibkr_repository(self, entity_type):
+    #     """
+    #     Return the repository associated with a domain entity type.
+    #     """
+    #     repo = self.ibkr_repositories.get(entity_type)
+    #     if repo is None:
+    #         raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
+    #     repo = repo(self.session)
+    #     return repo
+
+    def get_ibkr_repository(self, entity_class: type):
+        """
+        Return the repository associated with a given domain entity class.
+
+        Args:
+            entity_class: Domain entity class (e.g. FactorValue)
+
+        Returns:
+            Repository instance managing that entity
+        """
+        for repo in self.ibkr_repositories.values():
+            if repo.entity_class is entity_class:
+                return repo
     def persist_entity(self, entity) :
         """
         Persist a bond entity to the database.
@@ -318,7 +348,7 @@ class EntityService:
             Index entity: Created or existing entity
         """
         try:
-            entity_cls.id
+            
             # Check if entity already exists by symbol
             ibkr_repository = self.get_ibkr_repository(entity_cls)
 

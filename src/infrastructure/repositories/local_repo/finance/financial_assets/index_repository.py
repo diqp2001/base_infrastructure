@@ -22,7 +22,10 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
     def model_class(self):
         """Return the SQLAlchemy model class for Index."""
         return Index_Model
-
+    @property
+    def entity_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return Index_Entity
     # ------------------------------------------------------------------
     # Mapping helpers
     # ------------------------------------------------------------------

@@ -42,10 +42,7 @@ class FactorEnginedDataManager:
         self.config = DEFAULT_CONFIG
         
         # Initialize services with clear separation of responsibilities
-        self.factor_creation_service = FactorCreationService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For factor definition creation/storage
-        self.factor_calculation_service = FactorCalculationService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For factor value calculation/storage
-        self.factor_data_service = FactorDataService(self.database_service, self.config['DATABASE']['DB_TYPE'])  # For all data operations
-        self.entity_existence_service = EntityExistenceService(self.database_service)
+        
         # Initialize feature engineer
         self.feature_engineer = SpatiotemporalFeatureEngineer(self.database_service)
         

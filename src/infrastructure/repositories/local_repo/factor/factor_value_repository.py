@@ -21,6 +21,10 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
     def model_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
         return FactorValueModel
+    @property
+    def entity_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return FactorValue
     
     def _to_entity(self, model: FactorValueModel) -> FactorValue:
         """Convert infrastructure model to domain entity."""

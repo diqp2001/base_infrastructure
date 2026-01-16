@@ -22,7 +22,10 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
     def model_class(self):
         """Return the SQLAlchemy model class for Future."""
         return Future_Model
-
+    @property
+    def entity_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return Future_Entity
     # ------------------------------------------------------------------
     # Mapping helpers
     # ------------------------------------------------------------------
