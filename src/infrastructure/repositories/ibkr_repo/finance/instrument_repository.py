@@ -61,6 +61,48 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
     def entity_class(self):
         
         return IBKRInstrument
+
+    def get_or_create(self, symbol: str) -> Optional[IBKRInstrument]:
+        """
+        Get or create an instrument by symbol using IBKR API.
+        
+        Args:
+            symbol: The instrument symbol (e.g., 'AAPL', 'SPX', 'ESZ3')
+            
+        Returns:
+            IBKRInstrument entity or None if creation/retrieval failed
+        """
+        try:
+            # 1. Check local repository first - look for existing instruments
+            # This is a simplified check; in practice you might want more sophisticated lookups
+            all_instruments = self.local_instrument_repo.get_by_source("IBKR")
+            for instrument in all_instruments:
+                if hasattr(instrument, 'symbol') and instrument.symbol == symbol:
+                    return instrument if isinstance(instrument, IBKRInstrument) else self._convert_to_ibkr_instrument(instrument)
+            
+            # 2. Fetch from IBKR API
+            contract = self._fetch_contract(symbol)
+            if not contract:
+                return None
+                
+            # 3. Get contract details from IBKR
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
+                return None
+                
+            # 4. Apply IBKR-specific rules and convert to domain entity
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else None
+            if not contract_details:
+                return None
+                
+            # 5. Delegate persistence to local repository
+            return self.get_or_create_from_contract(contract, contract_details)
+            
+        except Exception as e:
+            print(f"Error in IBKR get_or_create for instrument symbol {symbol}: {e}")
+            return None
+
     def get_or_create_from_contract(
         self,
         contract: Contract,
@@ -262,3 +304,65 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         except Exception as e:
             print(f"Error converting instrument to IBKRInstrument: {e}")
             return instrument
+
+    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
+        """
+        Create contract from symbol using IBKR broker.
+        
+        Args:
+            symbol: The instrument symbol
+            
+        Returns:
+            IBKR Contract object or None if not found
+        """
+        try:
+            # Create a generic contract - this is a simplified approach
+            # In practice, you might need more sophisticated symbol parsing
+            contract = Contract()
+            contract.symbol = symbol.upper()
+            
+            # Try to determine security type from symbol patterns
+            if symbol.upper() in ['SPX', 'NDX', 'RUT', 'VIX', 'DJI']:
+                contract.secType = "IND"  # Index
+                contract.exchange = "CBOE"
+            elif symbol.upper().endswith(('Z3', 'H4', 'M4', 'U4')):  # Future patterns
+                contract.secType = "FUT"
+                contract.exchange = "CME"
+            else:
+                contract.secType = "STK"  # Stock
+                contract.exchange = "SMART"
+            
+            contract.currency = "USD"
+            return contract
+            
+        except Exception as e:
+            print(f"Error creating IBKR contract for {symbol}: {e}")
+            return None
+
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[ContractDetails]]:
+        """
+        Fetch contract details from IBKR API using broker method.
+        
+        Args:
+            contract: IBKR Contract object
+            
+        Returns:
+            List of contract details or None if not found
+        """
+        try:
+            # Use the IBKR client's get_contract_details method
+            if hasattr(self.ib_client, 'get_contract_details'):
+                contract_details = self.ib_client.get_contract_details(contract, timeout=15)
+                
+                if contract_details and len(contract_details) > 0:
+                    return contract_details
+                else:
+                    print(f"No contract details received for {contract.symbol}")
+                    return None
+            else:
+                print("IBKR client does not have get_contract_details method")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching IBKR contract details: {e}")
+            return None
