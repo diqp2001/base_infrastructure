@@ -16,7 +16,7 @@ class PortfolioHoldingsModel(Base):
     portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
 
     # Relationships
-    portfolios = relationship("Portfolio", back_populates="portfolio_holdings")
-    financial_financial_assetsasset = relationship("FinancialAsset", back_populates="portfolio_holdings")
+    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="portfolio_holdings")
+    financial_asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", back_populates="portfolio_holdings")
 
 

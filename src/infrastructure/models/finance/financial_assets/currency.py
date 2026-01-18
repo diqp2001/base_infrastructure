@@ -36,7 +36,7 @@ class CurrencyModel(Base):
     is_tradeable = Column(Boolean, default=True)
     
     # Relationships
-    country = relationship("Country", back_populates="currencies")
+    country = relationship("src.infrastructure.models.country.CountryModel", back_populates="currencies")
 
     def __repr__(self):
         return f"<Currency(id={self.id}, iso_code={self.iso_code}, name={self.name}, country_id={self.country_id})>"
@@ -56,7 +56,7 @@ class CurrencyRate(Base):
     target_currency = Column(String(3), default="USD", nullable=False)  # Usually USD
     
     # Relationships
-    currency = relationship("Currency", backref="historical_rates")
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel", backref="historical_rates")
 
     def __repr__(self):
         return f"<CurrencyRate(id={self.id}, currency_id={self.currency_id}, rate={self.rate}, timestamp={self.timestamp}, target={self.target_currency})>"
