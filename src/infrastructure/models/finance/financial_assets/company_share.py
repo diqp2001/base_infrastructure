@@ -22,9 +22,6 @@ class CompanyShare(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     
-    # Market data fields
-    current_price = Column(Numeric(15, 4), default=0)
-    last_update = Column(DateTime, nullable=True)
     
     # Status fields
     is_tradeable = Column(Boolean, default=True)

@@ -21,12 +21,6 @@ class Share(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     
-    
-    
-    # Status fields
-    is_tradeable = Column(Boolean, default=True)
-    sectors = Column(String(100), nullable=True)
-    industries = Column(String(100), nullable=True)
     exchanges = relationship("Exchange", back_populates="shares") 
 
     def __repr__(self):

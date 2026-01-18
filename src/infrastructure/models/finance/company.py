@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.domain.entities.finance.company import Company as DomainCompany
-from src.infrastructure.database.base_factory import Base  # Import Base from the infrastructure layer
+from src.infrastructure.models import ModelBase as Base
 
 class Company(Base):
     __tablename__ = 'companies'
