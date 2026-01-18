@@ -83,8 +83,8 @@ class SecurityModel(Base):
     last_market_update = Column(DateTime, nullable=True)
 
     # Relationships
-    portfolios = relationship("Portfolio", back_populates="securities")
-    market_data_history = relationship("MarketDataModel", 
+    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="securities")
+    market_data_history = relationship("src.infrastructure.models.finance.market_data.MarketDataModel", 
                                      primaryjoin="and_(Security.ticker==MarketDataModel.symbol_ticker, "
                                                "Security.exchange==MarketDataModel.symbol_exchange)",
                                      foreign_keys="[MarketDataModel.symbol_ticker, MarketDataModel.symbol_exchange]",

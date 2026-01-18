@@ -73,7 +73,9 @@ class FinancialAssetModel(Base):
     last_price_update = Column(DateTime, nullable=True)
 
     # Relationships
-    instruments = relationship("Instrument", back_populates="asset", cascade="all, delete-orphan")
+    instruments = relationship("src.infrastructure.models.finance.instrument.InstrumentModel", back_populates="asset", cascade="all, delete-orphan")
+    holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel", back_populates="asset")
+    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="financial_asset")
 
     def __repr__(self):
         return f"<FinancialAsset(id={self.id}, type={self.asset_type}, ticker={self.ticker}, price={self.current_price})>"

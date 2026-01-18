@@ -29,7 +29,7 @@ class InstrumentModel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
-    asset = relationship("FinancialAsset", back_populates="instruments")
+    asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", back_populates="instruments")
     
     def __init__(self, asset_id: int, source: str, date: datetime):
         """

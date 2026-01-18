@@ -24,6 +24,6 @@ class HoldingModel(Base):
     end_date = Column(DateTime, nullable=True)
 
     # Relationships
-    asset = relationship("FinancialAsset", back_populates="holdings")
+    asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", back_populates="holdings")
 
 

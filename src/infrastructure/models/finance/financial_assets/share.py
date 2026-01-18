@@ -21,7 +21,7 @@ class ShareModel(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     
-    exchanges = relationship("Exchange", back_populates="shares") 
+    exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="shares") 
 
     def __repr__(self):
         return f"<Share(id={self.id}, ticker={self.ticker})>"

@@ -18,7 +18,7 @@ class FactorValueModel(Base):
     value = Column(String(255), nullable=False)
     
     # Relationships
-    factor = relationship("Factor")
+    factor = relationship("src.infrastructure.models.factor.factor.FactorModel")
     
     def __init__(self, factor_id: int, entity_id: int, date: date, value: str):
         self.factor_id = factor_id

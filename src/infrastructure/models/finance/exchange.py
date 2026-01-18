@@ -14,10 +14,10 @@ class ExchangeModel(Base):
     end_date = Column(Date, nullable=True)
 
     # Relationships
-    countries = relationship("Country", back_populates="exchanges")
-    shares = relationship("Share", back_populates="exchanges")
-    company_shares = relationship("CompanyShare", back_populates="exchanges")
-    etf_shares = relationship("ETFShare", back_populates="exchanges")
+    countries = relationship("src.infrastructure.models.country.CountryModel", back_populates="exchanges")
+    shares = relationship("src.infrastructure.models.finance.financial_assets.share.ShareModel", back_populates="exchanges")
+    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchanges")
+    etf_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share.ETFShareModel", back_populates="exchanges")
 
     def __init__(self, name, legal_name, country_id, start_date, end_date=None):
         self.name = name

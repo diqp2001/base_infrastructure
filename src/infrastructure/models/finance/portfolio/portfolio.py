@@ -28,10 +28,10 @@ class PortfolioModel(Base):
    
 
     # Relationships
-    positions = relationship("Position", back_populates="portfolios")
-    portfolio_holdings = relationship("PortfolioHoldings", back_populates="portfolios", cascade="all, delete-orphan")
-    portfolio_statistics = relationship("PortfolioStatistics", back_populates="portfolios", cascade="all, delete-orphan")
-    securities = relationship("Security", back_populates="portfolios", cascade="all, delete-orphan")
+    positions = relationship("src.infrastructure.models.finance.position.PositionModel", back_populates="portfolios")
+    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    portfolio_statistics = relationship("src.infrastructure.models.finance.portfolio.portfolio_statistics.PortfolioStatisticsModel", back_populates="portfolios", cascade="all, delete-orphan")
+    securities = relationship("src.infrastructure.models.finance.financial_assets.security.SecurityModel", back_populates="portfolios", cascade="all, delete-orphan")
 
     def __repr__(self):
         return (
