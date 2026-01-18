@@ -27,8 +27,8 @@ class CompanyShareModel(Base):
     is_tradeable = Column(Boolean, default=True)
 
     # Relationships
-    companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="company_shares")
-    exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_shares") 
+    company = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="company_shares")
+    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_shares") 
 
     def __repr__(self):
         return f"<CompanyShare(id={self.id}, ticker={self.ticker}, company_id={self.company_id})>"

@@ -15,9 +15,9 @@ class CompanyModel(Base):
     end_date = Column(Date, nullable=True)
 
     # Relationships
-    countries = relationship("src.infrastructure.models.country.CountryModel", back_populates="companies")
-    industries = relationship("src.infrastructure.models.industry.IndustryModel", back_populates="companies")
-    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="companies")
+    country = relationship("src.infrastructure.models.country.CountryModel", back_populates="companies")
+    industry = relationship("src.infrastructure.models.industry.IndustryModel", back_populates="companies")
+    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="company")
     
     def __init__(self, name, legal_name, country_id, industry_id, start_date, end_date=None):
         self.name = name

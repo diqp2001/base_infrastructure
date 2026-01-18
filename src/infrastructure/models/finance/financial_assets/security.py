@@ -83,7 +83,7 @@ class SecurityModel(Base):
     last_market_update = Column(DateTime, nullable=True)
 
     # Relationships
-    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="securities")
+    portfolio = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="securities")
     
 
     def __repr__(self):
