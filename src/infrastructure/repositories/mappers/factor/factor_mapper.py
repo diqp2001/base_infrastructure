@@ -5,7 +5,7 @@ Mapper for converting between Factor domain entities and ORM models.
 from abc import abstractmethod
 from typing import Optional
 
-from src.infrastructure.models.factor.factor import Factor as Factormodel
+from src.infrastructure.models.factor.factor import FactorModel as Factormodel
 from src.domain.entities.factor.factor import Factor as FactorEntity
 from src.domain.entities.factor.continent_factor import ContinentFactor as ContinentFactorEntity
 from src.domain.entities.factor.country_factor import CountryFactor as CountryFactorEntity

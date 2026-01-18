@@ -6,7 +6,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from src.domain.entities.industry import Industry
-from src.infrastructure.models.industry import Industry as IndustryModel
+from src.infrastructure.models.industry import IndustryModel as IndustryModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.industry_mapper import IndustryMapper
 from src.domain.ports.industry_port import IndustryPort

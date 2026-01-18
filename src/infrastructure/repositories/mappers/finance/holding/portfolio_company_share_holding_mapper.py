@@ -6,7 +6,7 @@ from src.domain.entities.finance.holding.portfolio_company_share_holding import 
 )
 
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import (
-    PortfolioCompanyShareHolding
+    PortfolioCompanyShareHoldingModel
 )
 
 
@@ -15,8 +15,8 @@ class PortfolioCompanyShareHoldingMapper:
 
     def to_entity(
         self,
-        model: Optional[PortfolioCompanyShareHolding],
-    ) -> Optional[PortfolioCompanyShareHolding]:
+        model: Optional[PortfolioCompanyShareHoldingModel],
+    ) -> Optional[PortfolioCompanyShareHoldingModel]:
         """Convert PortfolioCompanyShareHoldingModel to domain entity"""
         if not model:
             return None
@@ -35,7 +35,7 @@ class PortfolioCompanyShareHoldingMapper:
         # Placeholder portfolio container
         portfolio = type("Portfolio", (), {"id": model.portfolio_id})()
 
-        return PortfolioCompanyShareHolding(
+        return PortfolioCompanyShareHoldingModel(
             id=model.id,
             asset=asset,
             container=portfolio,
@@ -46,11 +46,11 @@ class PortfolioCompanyShareHoldingMapper:
 
     def to_model(
         self,
-        entity: PortfolioCompanyShareHolding,
-    ) -> PortfolioCompanyShareHolding:
+        entity: PortfolioCompanyShareHoldingModel,
+    ) -> PortfolioCompanyShareHoldingModel:
         """Convert PortfolioCompanyShareHolding entity to infrastructure model"""
 
-        return PortfolioCompanyShareHolding(
+        return PortfolioCompanyShareHoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
             portfolio_id=entity.container.id,

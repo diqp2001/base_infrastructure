@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Optional
 
 from src.domain.entities.finance.financial_assets.index.index import Index as DomainIndex
-from src.infrastructure.models.finance.financial_assets.index import Index as ORMIndex
+from src.infrastructure.models.finance.financial_assets.index import IndexModel as ORMIndex
 
 
 class IndexMapper:

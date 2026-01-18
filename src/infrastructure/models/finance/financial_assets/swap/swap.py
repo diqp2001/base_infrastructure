@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Swap(Base):
+class SwapModel(Base):
     """
     SQLAlchemy ORM model for Swap contracts.
     Completely separate from src.domain entity to avoid metaclass conflicts.

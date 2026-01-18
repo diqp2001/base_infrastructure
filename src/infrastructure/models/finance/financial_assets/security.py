@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Security(Base):
+class SecurityModel(Base):
     """
     SQLAlchemy ORM model for Security.
     Represents both live and mock/backtest securities with optional price snapshots.

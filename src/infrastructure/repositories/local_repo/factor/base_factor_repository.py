@@ -10,7 +10,7 @@ from datetime import date
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from src.infrastructure.models.factor.factor import Factor as FactorModel
+from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 
 from ..base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor import Factor as FactorEntity

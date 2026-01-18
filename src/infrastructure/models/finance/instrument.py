@@ -9,7 +9,7 @@ from datetime import datetime
 from src.infrastructure.models import ModelBase as Base
 
 
-class Instrument(Base):
+class InstrumentModel(Base):
     """SQLAlchemy model for Instrument entity."""
     
     __tablename__ = 'instruments'

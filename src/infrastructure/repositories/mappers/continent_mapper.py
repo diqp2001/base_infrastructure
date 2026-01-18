@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.continent import Continent as DomainContinent
-from src.infrastructure.models.continent import Continent as ORMContinent
+from src.infrastructure.models.continent import ContinentModel as ORMContinent
 
 
 class ContinentMapper:

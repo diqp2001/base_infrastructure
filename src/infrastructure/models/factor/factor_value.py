@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class FactorValue(Base):
+class FactorValueModel(Base):
     __tablename__ = 'factor_values'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

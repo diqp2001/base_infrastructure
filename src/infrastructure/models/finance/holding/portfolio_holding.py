@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 
 from src.infrastructure.models import ModelBase as Base
 
-class PortfolioHoldings(Base):
+class PortfolioHoldingsModel(Base):
     """
     SQLAlchemy model for portfolio holdings.
     Maps to domain.entities.finance.holding.portfolio_holding.PortfolioHolding

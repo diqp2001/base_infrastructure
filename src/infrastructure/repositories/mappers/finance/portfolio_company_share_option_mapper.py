@@ -4,14 +4,14 @@ Mapper for converting between portfolio company share option domain entities and
 from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
-from infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption
+from infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
 from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 
 
 class PortfolioCompanyShareOptionMapper:
     """Mapper for converting between option entities and models"""
 
-    def to_entity(self, model: Optional[PortfolioCompanyShareOption]) -> Optional[PortfolioCompanyShareOption]:
+    def to_entity(self, model: Optional[PortfolioCompanyShareOptionModel]) -> Optional[PortfolioCompanyShareOptionModel]:
         """Convert PortfolioCompanyShareOptionModel to PortfolioCompanyShareOption entity"""
         if not model:
             return None
@@ -28,7 +28,7 @@ class PortfolioCompanyShareOptionMapper:
         # Convert string to OptionType enum
         option_type = OptionType.CALL if model.option_type.upper() == 'CALL' else OptionType.PUT
 
-        return PortfolioCompanyShareOption(
+        return PortfolioCompanyShareOptionModel(
             id=model.id,
             underlying=underlying,
             expiration_date=model.expiration_date,
@@ -37,9 +37,9 @@ class PortfolioCompanyShareOptionMapper:
             end_date=model.end_date
         )
 
-    def to_model(self, entity: PortfolioCompanyShareOption) -> PortfolioCompanyShareOption:
+    def to_model(self, entity: PortfolioCompanyShareOptionModel) -> PortfolioCompanyShareOptionModel:
         """Convert PortfolioCompanyShareOption entity to PortfolioCompanyShareOptionModel"""
-        return PortfolioCompanyShareOption(
+        return PortfolioCompanyShareOptionModel(
             id=entity.id,
             underlying_id=entity.underlying.id,
             company_id=1,  # Default - not tracked at entity level

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.infrastructure.models.finance.exchange import Exchange as ExchangeModel
+from src.infrastructure.models.finance.exchange import ExchangeModel as ExchangeModel
 from src.domain.entities.finance.exchange import Exchange as ExchangeEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.exchange_port import ExchangePort

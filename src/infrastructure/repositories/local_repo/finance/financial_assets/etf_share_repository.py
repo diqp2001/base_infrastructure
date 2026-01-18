@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from domain.ports.finance.financial_assets.share.etf_share_port import ETFSharePort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.etf_share import ETFShare as ETFShareModel
+from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel as ETFShareModel
 from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare as ETFShareEntity
 class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
     """Local repository for ETF share model"""

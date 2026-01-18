@@ -18,7 +18,7 @@ from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.services.api_service.ibkr_service.market_data import MarketData
 from src.application.services.data.entities.entity_service import EntityService
-from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare
+from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
 
 logger = logging.getLogger(__name__)
 
@@ -380,8 +380,8 @@ class DataLoader:
         """
         try:
             with self.database_service.session as session:
-                spx_shares = session.query(CompanyShare).filter(
-                    CompanyShare.ticker == 'SPX'
+                spx_shares = session.query(CompanyShareModel).filter(
+                    CompanyShareModel.ticker == 'SPX'
                 ).all()
                 return len(spx_shares)
         except Exception as e:

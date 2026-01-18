@@ -8,7 +8,7 @@ from src.infrastructure.models import ModelBase as Base
 from datetime import datetime
 
 
-class TimeSeries(Base):
+class TimeSeriesModel(Base):
     __tablename__ = 'time_series'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

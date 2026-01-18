@@ -6,7 +6,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from src.domain.entities.continent import Continent
-from src.infrastructure.models.continent import Continent as ContinentModel
+from src.infrastructure.models.continent import ContinentModel as ContinentModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.continent_mapper import ContinentMapper
 from src.domain.ports.continent_port import ContinentPort

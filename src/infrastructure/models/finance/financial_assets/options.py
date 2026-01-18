@@ -14,7 +14,7 @@ class OptionType(enum.Enum):
     PUT = "put"
 
 
-class Options(Base):
+class OptionsModel(Base):
     """
     SQLAlchemy ORM model for Options.
     Completely separate from src.domain entity to avoid metaclass conflicts.

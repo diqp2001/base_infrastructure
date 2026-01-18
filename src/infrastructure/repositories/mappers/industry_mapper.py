@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.industry import Industry as DomainIndustry
-from src.infrastructure.models.industry import Industry as ORMIndustry
+from src.infrastructure.models.industry import IndustryModel as ORMIndustry
 
 
 class IndustryMapper:

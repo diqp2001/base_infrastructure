@@ -1,10 +1,9 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from src.domain.entities.finance.company import Company as DomainCompany
 from src.infrastructure.models import ModelBase as Base
 
-class Company(Base):
+class CompanyModel(Base):
     __tablename__ = 'companies'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

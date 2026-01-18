@@ -7,9 +7,9 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from src.infrastructure.models.finance.holding.holding import (
-    Holding
+    HoldingModel
 )
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
 
 from src.infrastructure.repositories.mappers.finance.holding.holding_mapper import HoldingMapper
 from src.domain.entities.finance.holding.holding import Holding
@@ -25,25 +25,25 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         self.session = session
         self.mapper = HoldingMapper()
 
-    def get_by_id(self, holding_id: int) -> Optional[Holding]:
+    def get_by_id(self, holding_id: int) -> Optional[HoldingModel]:
         """Get a holding by ID"""
-        model = self.session.query(Holding).filter_by(id=holding_id).first()
+        model = self.session.query(HoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
-    def get_all(self) -> List[Holding]:
+    def get_all(self) -> List[HoldingModel]:
         """Get all holdings"""
-        models = self.session.query(Holding).all()
+        models = self.session.query(HoldingModel).all()
         return [self.mapper.to_entity(model) for model in models]
 
-    def get_by_container_id(self, container_id: int) -> List[Holding]:
+    def get_by_container_id(self, container_id: int) -> List[HoldingModel]:
         """Get all holdings for a specific container"""
-        models = self.session.query(Holding).filter_by(container_id=container_id).all()
+        models = self.session.query(HoldingModel).filter_by(container_id=container_id).all()
         return [self.mapper.to_entity(model) for model in models]
 
-    def get_active_holdings(self, container_id: int = None) -> List[Holding]:
+    def get_active_holdings(self, container_id: int = None) -> List[HoldingModel]:
         """Get active holdings (no end_date or end_date in future)"""
-        query = self.session.query(Holding).filter(
-            (Holding.end_date.is_(None)) | (Holding.end_date > datetime.now())
+        query = self.session.query(HoldingModel).filter(
+            (HoldingModel.end_date.is_(None)) | (HoldingModel.end_date > datetime.now())
         )
         if container_id:
             query = query.filter_by(container_id=container_id)
@@ -51,7 +51,7 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         models = query.all()
         return [self.mapper.to_entity(model) for model in models]
 
-    def save(self, holding: Holding) -> Holding:
+    def save(self, holding: HoldingModel) -> HoldingModel:
         """Save or update a holding"""
         model = self.mapper.to_model(holding)
         self.session.merge(model)
@@ -61,7 +61,7 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
 
     def delete(self, holding_id: int) -> bool:
         """Delete a holding by ID"""
-        model = self.session.query(Holding).filter_by(id=holding_id).first()
+        model = self.session.query(HoldingModel).filter_by(id=holding_id).first()
         if model:
             self.session.delete(model)
             self.session.commit()

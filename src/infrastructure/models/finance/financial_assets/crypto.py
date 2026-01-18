@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Crypto(Base):
+class CryptoModel(Base):
     """
     SQLAlchemy ORM model for Crypto.
     Completely separate from src.domain entity to avoid metaclass conflicts.

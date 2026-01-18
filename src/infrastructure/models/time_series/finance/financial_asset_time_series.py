@@ -4,10 +4,10 @@ SQLAlchemy model for domain financial asset time series entity.
 """
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.models.time_series.time_series import TimeSeries
+from src.infrastructure.models.time_series.time_series import TimeSeriesModel
 
 
-class FinancialAssetTimeSeries(TimeSeries):
+class FinancialAssetTimeSeriesModel(TimeSeriesModel):
     __tablename__ = 'financial_asset_time_series'
     
     id = Column(Integer, ForeignKey("time_series.id"), primary_key=True)

@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class ETFShare(Base):
+class ETFShareModel(Base):
     """
     SQLAlchemy ORM model for ETFShare.
     Completely separate from src.domain entity to avoid metaclass conflicts.

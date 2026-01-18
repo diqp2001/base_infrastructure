@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.sector import Sector as DomainSector
-from src.infrastructure.models.sector import Sector as ORMSector
+from src.infrastructure.models.sector import SectorModel as ORMSector
 
 
 class SectorMapper:

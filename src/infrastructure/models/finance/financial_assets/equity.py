@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Equity(Base):
+class EquityModel(Base):
     """
     SQLAlchemy ORM model for Equity.
     Completely separate from src.domain entity to avoid metaclass conflicts.

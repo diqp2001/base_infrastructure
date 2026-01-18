@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any
 
 from src.domain.entities.finance.financial_assets.bond import Bond as DomainBond
-from src.infrastructure.models.finance.financial_assets.bond import Bond as ORMBond
+from src.infrastructure.models.finance.financial_assets.bond import BondModel as ORMBond
 
 
 class BondMapper:

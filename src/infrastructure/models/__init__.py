@@ -19,60 +19,60 @@ class ModelBase(DeclarativeBase):
 # =============================================================================
 
 # Core geographical and organizational models (no dependencies)
-from src.infrastructure.models.country import Country
-from src.infrastructure.models.industry import Industry
-from src.infrastructure.models.sector import Sector
+from src.infrastructure.models.country import CountryModel
+from src.infrastructure.models.industry import IndustryModel
+from src.infrastructure.models.sector import SectorModel
 
 # Financial infrastructure (depends on geographical models)
-from src.infrastructure.models.finance.exchange import Exchange
-from src.infrastructure.models.finance.company import Company
+from src.infrastructure.models.finance.exchange import ExchangeModel
+from src.infrastructure.models.finance.company import CompanyModel
 
 # Basic financial assets (depends on exchange/company)
-from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAsset
-from src.infrastructure.models.finance.financial_assets.currency import Currency
-from src.infrastructure.models.finance.financial_assets.cash import Cash
-from src.infrastructure.models.finance.financial_assets.commodity import Commodity
-from src.infrastructure.models.finance.financial_assets.security import Security
-from src.infrastructure.models.finance.financial_assets.equity import Equity
+from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
+from src.infrastructure.models.finance.financial_assets.cash import CashModel
+from src.infrastructure.models.finance.financial_assets.commodity import CommodityModel
+from src.infrastructure.models.finance.financial_assets.security import SecurityModel
+from src.infrastructure.models.finance.financial_assets.equity import EquityModel
 
 # Share-based assets (depends on exchange/company)
-from src.infrastructure.models.finance.financial_assets.share import Share
-from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare
-from src.infrastructure.models.finance.financial_assets.etf_share import ETFShare
+from src.infrastructure.models.finance.financial_assets.share import ShareModel
+from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel
 
 # Complex financial instruments
-from src.infrastructure.models.finance.financial_assets.bond import Bond
-from src.infrastructure.models.finance.financial_assets.options import Options
-from src.infrastructure.models.finance.financial_assets.derivatives import Derivative, UnderlyingAsset
+from src.infrastructure.models.finance.financial_assets.bond import BondModel
+from src.infrastructure.models.finance.financial_assets.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivatives import Derivative, UnderlyingAssetModel
 from src.infrastructure.models.finance.financial_assets.forward_contract import (
-    ForwardContract, CommodityForward, CurrencyForward
+    ForwardContractModel, CommodityForward, CurrencyForward
 )
 
 # Swap instruments
-from src.infrastructure.models.finance.financial_assets.swap.swap import Swap
-from src.infrastructure.models.finance.financial_assets.swap.currency_swap import CurrencySwap
-from src.infrastructure.models.finance.financial_assets.swap.interest_rate_swap import InterestRateSwap
-from src.infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLeg
+from src.infrastructure.models.finance.financial_assets.swap.swap import SwapModel
+from src.infrastructure.models.finance.financial_assets.swap.currency_swap import CurrencySwapModel
+from src.infrastructure.models.finance.financial_assets.swap.interest_rate_swap import InterestRateSwapModel
+from src.infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLegModel
 
 # Portfolio and holdings (depends on all asset types)
-from src.infrastructure.models.finance.portfolio.portfolio import Portfolio
-from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivative
-from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption
-from src.infrastructure.models.finance.security_holding import SecurityHolding
-from src.infrastructure.models.finance.market_data import MarketData
-from src.infrastructure.models.finance.instrument import Instrument
+from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
+from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivativeModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShareModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.security_holding import SecurityHoldingModel
+from src.infrastructure.models.finance.market_data import MarketDataModel
+from src.infrastructure.models.finance.instrument import InstrumentModel
 
 # Holding models
-from src.infrastructure.models.finance.holding.holding import Holding
-from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.infrastructure.models.finance.holding.holding import HoldingModel
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
 
 # Portfolio options
 
 
 # Geographic models
-from src.infrastructure.models.continent import Continent
+from src.infrastructure.models.continent import ContinentModel
 
 # =============================================================================
 # INTEGRATION WITH EXISTING REGISTRY SYSTEM
@@ -88,8 +88,8 @@ def ensure_models_registered():
     
     # Core models that must be registered for string relationships to work
     required_models = {
-        'Country', 'Industry', 'Sector', 'Exchange', 'Company', 
-        'Share', 'CompanyShare', 'ETFShare', 'Portfolio','PortfolioDerivative','PortfolioCompanyShare','PortfolioCompanyShareOption', 'Holding'
+        'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel', 
+        'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'HoldingModel'
     }
     
     missing = required_models - set(registered)
@@ -112,14 +112,14 @@ except RuntimeError as e:
 
 __all__ = [
     'ModelBase',
-    'Country', 'Industry', 'Sector', 'Continent',
-    'Exchange', 'Company',
-    'FinancialAsset', 'Currency', 'Cash', 'Commodity', 'Security', 'Equity',
-    'Share', 'CompanyShare', 'ETFShare',
-    'Bond', 'Options', 'Derivative', 'UnderlyingAsset',
-    'ForwardContract', 'CommodityForward', 'CurrencyForward',
-    'Swap', 'CurrencySwap', 'InterestRateSwap', 'SwapLeg',
-    'Portfolio','PortfolioDerivative','PortfolioCompanyShare','PortfolioCompanyShareOption', 'SecurityHolding', 'MarketData', 'Instrument',
-    'Holding', 'PortfolioHoldings', 'PortfolioCompanyShareHolding',
+    'CountryModel', 'IndustryModel', 'SectorModel', 'ContinentModel',
+    'ExchangeModel', 'CompanyModel',
+    'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
+    'ShareModel', 'CompanyShareModel', 'ETFShareModel',
+    'BondModel', 'OptionsModel', 'Derivative', 'UnderlyingAssetModel',
+    'ForwardContractModel', 'CommodityForward', 'CurrencyForward',
+    'SwapModel', 'CurrencySwapModel', 'InterestRateSwapModel', 'SwapLegModel',
+    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 'MarketDataModel', 'InstrumentModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel',
     'ensure_models_registered'
 ]

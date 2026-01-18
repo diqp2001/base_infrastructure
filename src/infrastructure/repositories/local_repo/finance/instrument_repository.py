@@ -9,7 +9,7 @@ from sqlalchemy import and_, desc
 
 from src.domain.ports.finance.instrument_port import InstrumentPort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
-from src.infrastructure.models.finance.instrument import Instrument as InstrumentModel
+from src.infrastructure.models.finance.instrument import InstrumentModel as InstrumentModel
 from src.domain.entities.finance.instrument.instrument import Instrument as InstrumentEntity
 from src.infrastructure.repositories.mappers.finance.instrument_mapper import InstrumentMapper
 

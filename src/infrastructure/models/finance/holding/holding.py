@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Holding(Base):
+class HoldingModel(Base):
     """
     Base SQLAlchemy model for holdings.
     Maps to domain.entities.finance.holding.holding.Holding

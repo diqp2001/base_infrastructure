@@ -4,10 +4,10 @@ SQLAlchemy model for domain balance sheet entity.
 """
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import DECIMAL
-from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatement
+from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatementModel
 
 
-class BalanceSheet(FinancialStatement):
+class BalanceSheetModel(FinancialStatementModel):
     __tablename__ = 'balance_sheets'
     
     id = Column(Integer, ForeignKey("financial_statements.id"), primary_key=True)

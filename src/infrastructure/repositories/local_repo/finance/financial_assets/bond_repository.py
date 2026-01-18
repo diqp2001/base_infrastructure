@@ -1,7 +1,7 @@
 
 from src.domain.ports.finance.financial_assets.bond_port import BondPort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.bond import Bond as Bond_Model
+from src.infrastructure.models.finance.financial_assets.bond import BondModel as Bond_Model
 from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 from src.infrastructure.repositories.mappers.finance.financial_assets.bond_mapper import BondMapper
 from sqlalchemy.orm import Session

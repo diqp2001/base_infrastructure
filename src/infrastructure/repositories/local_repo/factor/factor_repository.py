@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.factor import Factor
-from src.infrastructure.models.factor.factor import Factor as FactorModel
+from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 from src.domain.ports.factor.factor_port import FactorPort
 
 

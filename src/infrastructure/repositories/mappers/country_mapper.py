@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.country import Country as DomainCountry
-from src.infrastructure.models.country import Country as ORMCountry
+from src.infrastructure.models.country import CountryModel as ORMCountry
 
 
 class CountryMapper:

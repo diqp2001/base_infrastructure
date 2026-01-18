@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Commodity(Base):
+class CommodityModel(Base):
     """
     SQLAlchemy ORM model for Commodity.
     Completely separate from src.domain entity to avoid metaclass conflicts.

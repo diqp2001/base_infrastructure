@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.finance.instrument.instrument import Instrument as DomainInstrument
-from src.infrastructure.models.finance.instrument import Instrument as ORMInstrument
+from src.infrastructure.models.finance.instrument import InstrumentModel as ORMInstrument
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 

@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.finance.company import Company as DomainCompany
-from src.infrastructure.models.finance.company import Company as ORMCompany
+from src.infrastructure.models.finance.company import CompanyModel as ORMCompany
 
 
 class CompanyMapper:

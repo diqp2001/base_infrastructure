@@ -17,7 +17,7 @@ from src.application.services.database_service.database_service import DatabaseS
 
 # Domain imports for entities
 try:
-    from src.infrastructure.models.finance.financial_assets.company_share import CompanyShare as CompanyShareModel
+    from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel as CompanyShareModel
 except ImportError as e:
     logging.warning(f"Domain/infrastructure imports not available: {e}")
 

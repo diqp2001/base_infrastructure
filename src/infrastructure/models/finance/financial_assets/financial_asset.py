@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class FinancialAsset(Base):
+class FinancialAssetModel(Base):
     """
     SQLAlchemy ORM model for Financial Asset base class.
     Completely separate from src.domain entity to avoid metaclass conflicts.

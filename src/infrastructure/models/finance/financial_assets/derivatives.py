@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class UnderlyingAsset(Base):
+class UnderlyingAssetModel(Base):
     """
     SQLAlchemy ORM model for Underlying Asset.
     Represents the asset that a derivative is based on.

@@ -10,7 +10,7 @@ from datetime import datetime, date
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
-from src.infrastructure.models.finance.position import Position as PositionModel
+from src.infrastructure.models.finance.position import PositionModel as PositionModel
 from src.domain.entities.finance.position import Position as PositionEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.position_port import PositionPort

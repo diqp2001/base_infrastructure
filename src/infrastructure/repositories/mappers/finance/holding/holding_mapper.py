@@ -7,14 +7,14 @@ from src.domain.entities.finance.holding.holding import Holding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 from src.infrastructure.models.finance.holding.holding import (
-    Holding
+    HoldingModel
 )
 
 
 class HoldingMapper:
     """Mapper for converting between holding entities and models"""
 
-    def to_entity(self, model: Optional[Holding]) -> Optional[Holding]:
+    def to_entity(self, model: Optional[HoldingModel]) -> Optional[HoldingModel]:
         """Convert HoldingModel to Holding entity"""
         if not model:
             return None
@@ -29,7 +29,7 @@ class HoldingMapper:
         # Create a placeholder container object - in real implementation you'd load from repository
         container = type('Container', (), {'id': model.container_id})()
 
-        return Holding(
+        return HoldingModel(
             id=model.id,
             asset=asset,
             container=container,
@@ -37,9 +37,9 @@ class HoldingMapper:
             end_date=model.end_date
         )
 
-    def to_model(self, entity: Holding) -> Holding:
+    def to_model(self, entity: HoldingModel) -> HoldingModel:
         """Convert Holding entity to HoldingModel"""
-        return Holding(
+        return HoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
             container_id=entity.id,

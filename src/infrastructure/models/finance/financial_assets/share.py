@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Share(Base):
+class ShareModel(Base):
     """
     SQLAlchemy ORM model for Share.
     Completely separate from src.domain entity to avoid metaclass conflicts.

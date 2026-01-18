@@ -8,7 +8,7 @@ from src.infrastructure.models import ModelBase as Base
 
 
 
-class CurrencySwap(Base):
+class CurrencySwapModel(Base):
     """
     SQLAlchemy ORM model for Currency Swap.
     """

@@ -3,7 +3,7 @@
 
 from domain.ports.finance.financial_assets.security_port import SecurityPort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.security import Security as SecurityModel
+from src.infrastructure.models.finance.financial_assets.security import SecurityModel as SecurityModel
 from src.domain.entities.finance.financial_assets.security import Security as SecurityEntity
 from sqlalchemy.orm import Session
 

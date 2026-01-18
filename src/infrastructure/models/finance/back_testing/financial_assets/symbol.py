@@ -11,7 +11,7 @@ from src.infrastructure.models import ModelBase as Base
 from src.domain.entities.finance.back_testing.enums import SecurityType, Market
 
 
-class Symbol(Base):
+class SymbolModel(Base):
     __tablename__ = 'symbols'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

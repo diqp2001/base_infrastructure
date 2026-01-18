@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class Bar(Base):
+class BarModel(Base):
     __tablename__ = 'bars'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

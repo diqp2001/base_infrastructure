@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor_value import FactorValue
-from src.infrastructure.models.factor.factor_value import FactorValue as FactorValueModel
+from src.infrastructure.models.factor.factor_value import FactorValueModel as FactorValueModel
 
 
 class FactorValueRepository(BaseLocalRepository, FactorValuePort):

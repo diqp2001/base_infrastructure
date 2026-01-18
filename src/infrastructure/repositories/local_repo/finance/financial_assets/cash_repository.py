@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
-from src.infrastructure.models.finance.financial_assets.cash import Cash as CashModel
+from src.infrastructure.models.finance.financial_assets.cash import CashModel as CashModel
 from src.domain.entities.finance.financial_assets.cash import Cash as CashEntity
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.ports.finance.financial_assets.cash_port import CashPort

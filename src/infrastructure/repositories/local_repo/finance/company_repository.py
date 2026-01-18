@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.orm import Session
 
-from src.infrastructure.models.finance.company import Company as CompanyModel
+from src.infrastructure.models.finance.company import CompanyModel as CompanyModel
 from src.domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.company_port import CompanyPort

@@ -7,7 +7,7 @@ from src.infrastructure.models import ModelBase as Base
 from src.domain.entities.finance.holding.position import PositionType
 
 
-class Position(Base):
+class PositionModel(Base):
     __tablename__ = 'positions'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

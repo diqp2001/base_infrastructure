@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
-from src.domain.entities.industry import Industry as DomainIndustry
-class Industry(Base):
+class IndustryModel(Base):
     __tablename__ = 'industries'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -11,8 +10,8 @@ class Industry(Base):
     sector_id = Column(Integer, ForeignKey('sectors.id'), nullable=False)  # Foreign key for related Sector
     
     # Relationships
-    companies = relationship("Company", back_populates="industries")
-    sectors = relationship("Sector", back_populates="industries")
+    companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="industries")
+    sectors = relationship("src.infrastructure.models.sector.SectorModel", back_populates="industries")
     
     def __init__(self, name, sector_id, description=None):
         self.name = name

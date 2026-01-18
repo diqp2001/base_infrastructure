@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
-from src.infrastructure.models.finance.market_data import MarketData
+from src.infrastructure.models.finance.market_data import MarketDataModel
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
@@ -23,9 +23,9 @@ class MarketDataRepository(BaseLocalRepository):
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for MarketData."""
-        return MarketData
+        return MarketDataModel
     
-    def _to_entity(self, model: MarketData) -> dict:
+    def _to_entity(self, model: MarketDataModel) -> dict:
         """Convert infrastructure model to domain entity-like dict."""
         if not model:
             return None
@@ -53,12 +53,12 @@ class MarketDataRepository(BaseLocalRepository):
             'created_at': model.created_at
         }
     
-    def _to_model(self, entity_data: dict) -> MarketData:
+    def _to_model(self, entity_data: dict) -> MarketDataModel:
         """Convert domain entity-like dict to infrastructure model."""
         if not entity_data:
             return None
         
-        return MarketData(
+        return MarketDataModel(
             symbol_ticker=entity_data.get('symbol_ticker'),
             symbol_exchange=entity_data.get('symbol_exchange'),
             security_type=entity_data.get('security_type'),
@@ -82,53 +82,53 @@ class MarketDataRepository(BaseLocalRepository):
     
     def get_all(self) -> List[dict]:
         """Retrieve all MarketData records."""
-        models = self.session.query(MarketData).all()
+        models = self.session.query(MarketDataModel).all()
         return [self._to_entity(model) for model in models]
     
     def get_by_id(self, market_data_id: int) -> Optional[dict]:
         """Retrieve MarketData by its ID."""
-        model = self.session.query(MarketData).filter(
-            MarketData.id == market_data_id
+        model = self.session.query(MarketDataModel).filter(
+            MarketDataModel.id == market_data_id
         ).first()
         return self._to_entity(model)
     
     def get_by_symbol(self, symbol_ticker: str, symbol_exchange: str = None) -> List[dict]:
         """Retrieve market data by symbol."""
-        query = self.session.query(MarketData).filter(
-            MarketData.symbol_ticker == symbol_ticker
+        query = self.session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker
         )
         
         if symbol_exchange:
-            query = query.filter(MarketData.symbol_exchange == symbol_exchange)
+            query = query.filter(MarketDataModel.symbol_exchange == symbol_exchange)
         
-        models = query.order_by(MarketData.timestamp.desc()).all()
+        models = query.order_by(MarketDataModel.timestamp.desc()).all()
         return [self._to_entity(model) for model in models]
     
     def get_latest_by_symbol(self, symbol_ticker: str, symbol_exchange: str = None) -> Optional[dict]:
         """Retrieve the latest market data for a symbol."""
-        query = self.session.query(MarketData).filter(
-            MarketData.symbol_ticker == symbol_ticker
+        query = self.session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker
         )
         
         if symbol_exchange:
-            query = query.filter(MarketData.symbol_exchange == symbol_exchange)
+            query = query.filter(MarketDataModel.symbol_exchange == symbol_exchange)
         
-        model = query.order_by(MarketData.timestamp.desc()).first()
+        model = query.order_by(MarketDataModel.timestamp.desc()).first()
         return self._to_entity(model)
     
     def get_by_date_range(self, symbol_ticker: str, start_date: datetime, 
                          end_date: datetime, symbol_exchange: str = None) -> List[dict]:
         """Retrieve market data for a symbol within a date range."""
-        query = self.session.query(MarketData).filter(
-            MarketData.symbol_ticker == symbol_ticker,
-            MarketData.timestamp >= start_date,
-            MarketData.timestamp <= end_date
+        query = self.session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker,
+            MarketDataModel.timestamp >= start_date,
+            MarketDataModel.timestamp <= end_date
         )
         
         if symbol_exchange:
-            query = query.filter(MarketData.symbol_exchange == symbol_exchange)
+            query = query.filter(MarketDataModel.symbol_exchange == symbol_exchange)
         
-        models = query.order_by(MarketData.timestamp.asc()).all()
+        models = query.order_by(MarketDataModel.timestamp.asc()).all()
         return [self._to_entity(model) for model in models]
     
     def add(self, entity_data: dict) -> dict:
@@ -149,8 +149,8 @@ class MarketDataRepository(BaseLocalRepository):
     
     def update(self, market_data_id: int, **kwargs) -> Optional[dict]:
         """Update an existing MarketData record."""
-        model = self.session.query(MarketData).filter(
-            MarketData.id == market_data_id
+        model = self.session.query(MarketDataModel).filter(
+            MarketDataModel.id == market_data_id
         ).first()
         
         if not model:
@@ -165,8 +165,8 @@ class MarketDataRepository(BaseLocalRepository):
     
     def delete(self, market_data_id: int) -> bool:
         """Delete a MarketData record by ID."""
-        model = self.session.query(MarketData).filter(
-            MarketData.id == market_data_id
+        model = self.session.query(MarketDataModel).filter(
+            MarketDataModel.id == market_data_id
         ).first()
         
         if not model:
@@ -180,9 +180,9 @@ class MarketDataRepository(BaseLocalRepository):
         """Delete old market data for a symbol, keeping only recent data."""
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         
-        deleted_count = self.session.query(MarketData).filter(
-            MarketData.symbol_ticker == symbol_ticker,
-            MarketData.timestamp < cutoff_date
+        deleted_count = self.session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker,
+            MarketDataModel.timestamp < cutoff_date
         ).delete()
         
         self.session.commit()
@@ -209,10 +209,10 @@ class MarketDataRepository(BaseLocalRepository):
             dict: Created or existing market data
         """
         # Check if market data already exists for this symbol and timestamp
-        existing = self.session.query(MarketData).filter(
-            MarketData.symbol_ticker == symbol_ticker,
-            MarketData.timestamp == timestamp,
-            MarketData.symbol_exchange == symbol_exchange
+        existing = self.session.query(MarketDataModel).filter(
+            MarketDataModel.symbol_ticker == symbol_ticker,
+            MarketDataModel.timestamp == timestamp,
+            MarketDataModel.symbol_exchange == symbol_exchange
         ).first()
         
         if existing:

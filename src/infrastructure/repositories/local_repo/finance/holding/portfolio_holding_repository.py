@@ -2,14 +2,14 @@ from decimal import Decimal
 from domain.ports.finance.holding.portfolio_holding_port import PortfolioHoldingPort
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.infrastructure.repositories.mappers.finance.holding.holding_mapper import HoldingMapper
-from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 from src.infrastructure.repositories.mappers.finance.holding.portfolio_holding_mapper import PortfolioHoldingMapper
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldings
+from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
     """Repository for portfolio holding entities"""
     
@@ -19,9 +19,9 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for PortfolioHoldings."""
-        return PortfolioHoldings
+        return PortfolioHoldingsModel
     
-    def _to_entity(self, model: PortfolioHoldings) -> dict:
+    def _to_entity(self, model: PortfolioHoldingsModel) -> dict:
         """Convert infrastructure model to entity-like dict."""
         if not model:
             return None
@@ -37,12 +37,12 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
             'updated_at': model.updated_at
         }
     
-    def _to_model(self, entity_data: dict) -> PortfolioHoldings:
+    def _to_model(self, entity_data: dict) -> PortfolioHoldingsModel:
         """Convert entity-like dict to infrastructure model."""
         if not entity_data:
             return None
         
-        return PortfolioHoldings(
+        return PortfolioHoldingsModel(
             portfolio_id=entity_data.get('portfolio_id'),
             cash_balance=float(entity_data.get('cash_balance', 0)),
             total_value=float(entity_data.get('total_value', 0)),
@@ -51,17 +51,17 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
             created_at=entity_data.get('created_at', datetime.now()),
             updated_at=entity_data.get('updated_at', datetime.now())
         )
-    def get_by_id(self, holding_id: int) -> Optional[PortfolioHoldings]:
+    def get_by_id(self, holding_id: int) -> Optional[PortfolioHoldingsModel]:
         """Get a portfolio holding by ID"""
-        model = self.session.query(PortfolioHoldings).filter_by(id=holding_id).first()
+        model = self.session.query(PortfolioHoldingsModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
-    def get_by_portfolio_id(self, portfolio_id: int) -> List[PortfolioHoldings]:
+    def get_by_portfolio_id(self, portfolio_id: int) -> List[PortfolioHoldingsModel]:
         """Get all holdings for a specific portfolio"""
-        models = self.session.query(PortfolioHoldings).filter_by(portfolio_id=portfolio_id).all()
+        models = self.session.query(PortfolioHoldingsModel).filter_by(portfolio_id=portfolio_id).all()
         return [self.mapper.to_entity(model) for model in models]
 
-    def save(self, holding: PortfolioHoldings) -> PortfolioHoldings:
+    def save(self, holding: PortfolioHoldingsModel) -> PortfolioHoldingsModel:
         """Save or update a portfolio holding"""
         model = self.mapper.to_model(holding)
         self.session.merge(model)

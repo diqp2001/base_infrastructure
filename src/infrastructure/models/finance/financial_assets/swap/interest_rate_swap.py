@@ -3,7 +3,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
-class InterestRateSwap(Base):
+class InterestRateSwapModel(Base):
     """
     SQLAlchemy ORM model for Interest Rate Swap.
     """

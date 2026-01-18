@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class FinancialStatement(Base):
+class FinancialStatementModel(Base):
     __tablename__ = 'financial_statements'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

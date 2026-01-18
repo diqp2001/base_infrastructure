@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class PortfolioCompanyShareHolding(Base):
+class PortfolioCompanyShareHoldingModel(Base):
     """
     SQLAlchemy model for company share holdings within a portfolio.
     Maps to domain.entities.finance.holding.portfolio_company_share_holding.PortfolioCompanyShareHolding

@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, Text
 from src.infrastructure.models import ModelBase as Base
 
 
-class Factor(Base):
+class FactorModel(Base):
     __tablename__ = 'factors'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

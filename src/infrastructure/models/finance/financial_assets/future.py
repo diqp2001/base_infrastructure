@@ -16,7 +16,7 @@ class FutureType(enum.Enum):
     CURRENCY = "currency"
 
 
-class Future(Base):
+class FutureModel(Base):
     """
     SQLAlchemy ORM model for Futures.
     Completely separate from src.domain entity to avoid metaclass conflicts.

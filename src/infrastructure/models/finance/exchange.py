@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.infrastructure.models import ModelBase as Base
 
-class Exchange(Base):
+class ExchangeModel(Base):
     __tablename__ = 'exchanges'
     
     id = Column(Integer, primary_key=True)

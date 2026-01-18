@@ -4,10 +4,10 @@ SQLAlchemy model for domain cash flow statement entity.
 """
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import DECIMAL
-from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatement
+from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatementModel
 
 
-class CashFlowStatement(FinancialStatement):
+class CashFlowStatementModel(FinancialStatementModel):
     __tablename__ = 'cash_flow_statements'
     
     id = Column(Integer, ForeignKey("financial_statements.id"), primary_key=True)

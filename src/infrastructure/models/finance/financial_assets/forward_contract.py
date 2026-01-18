@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class ForwardContract(Base):
+class ForwardContractModel(Base):
     """
     SQLAlchemy ORM model for Forward Contract.
     Completely separate from src.domain entity to avoid metaclass conflicts.

@@ -6,7 +6,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from src.domain.entities.country import Country
-from src.infrastructure.models.country import Country as CountryModel
+from src.infrastructure.models.country import CountryModel as CountryModel
 from src.infrastructure.repositories.local_repo.geographic.geographic_repository import GeographicRepository
 from src.infrastructure.repositories.mappers.country_mapper import CountryMapper
 from src.domain.ports.country_port import CountryPort

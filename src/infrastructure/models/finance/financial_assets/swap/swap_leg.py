@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
-class SwapLeg(Base):
+class SwapLegModel(Base):
     """
     SQLAlchemy ORM model for Swap Leg.
     Represents one side of a swap transaction.

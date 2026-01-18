@@ -6,14 +6,14 @@ from src.domain.entities.finance.holding.portfolio_company_share_holding import 
 )
 
 from src.infrastructure.models.finance.holding.portfolio_holding import (
-    PortfolioHoldings
+    PortfolioHoldingsModel
 )
 
 
 class PortfolioHoldingMapper:
     """Mapper for converting between portfolio holding entities and models"""
 
-    def to_entity(self, model: Optional[PortfolioHoldings]) -> Optional[PortfolioHoldings]:
+    def to_entity(self, model: Optional[PortfolioHoldingsModel]) -> Optional[PortfolioHoldingsModel]:
         """Convert PortfolioHoldingModel to PortfolioHolding entity"""
         if not model:
             return None
@@ -43,7 +43,7 @@ class PortfolioHoldingMapper:
             )
 
         # --- Base PortfolioHolding -----------------------------------------
-        return PortfolioHoldings(
+        return PortfolioHoldingsModel(
             id=model.id,
             asset=asset,
             container=portfolio,
@@ -52,12 +52,12 @@ class PortfolioHoldingMapper:
             end_date=model.end_date,
         )
 
-    def to_model(self, entity: PortfolioHoldings) -> PortfolioHoldings:
+    def to_model(self, entity: PortfolioHoldingsModel) -> PortfolioHoldingsModel:
         """Convert PortfolioHolding entity to PortfolioHoldingModel"""
 
         holding_type = "company_share" if isinstance(entity, PortfolioCompanyShareHolding) else "generic"
 
-        return PortfolioHoldings(
+        return PortfolioHoldingsModel(
             id=entity.id,
             asset_id=entity.asset.id,
             portfolio_id=entity.container.id,

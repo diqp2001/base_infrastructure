@@ -70,7 +70,7 @@ def test_infrastructure_imports():
         from src.domain.ports.finance.instrument_port import InstrumentPort
         print("✓ InstrumentPort imported successfully")
         
-        from src.infrastructure.models.finance.instrument import Instrument as InstrumentModel
+        from src.infrastructure.models.finance.instrument import InstrumentModel as InstrumentModel
         print("✓ Instrument ORM model imported successfully")
         
         from src.infrastructure.repositories.mappers.finance.instrument_mapper import InstrumentMapper
@@ -95,7 +95,7 @@ def test_mapper_functionality():
     try:
         from src.domain.entities.finance.instrument.instrument import Instrument
         from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-        from src.infrastructure.models.finance.instrument import Instrument as InstrumentModel
+        from src.infrastructure.models.finance.instrument import InstrumentModel as InstrumentModel
         from src.infrastructure.repositories.mappers.finance.instrument_mapper import InstrumentMapper
         
         # Create a domain entity
