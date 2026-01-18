@@ -84,11 +84,7 @@ class SecurityModel(Base):
 
     # Relationships
     portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="securities")
-    market_data_history = relationship("src.infrastructure.models.finance.market_data.MarketDataModel", 
-                                     primaryjoin="and_(Security.ticker==MarketDataModel.symbol_ticker, "
-                                               "Security.exchange==MarketDataModel.symbol_exchange)",
-                                     foreign_keys="[MarketDataModel.symbol_ticker, MarketDataModel.symbol_exchange]",
-                                     viewonly=True)
+    
 
     def __repr__(self):
         return (

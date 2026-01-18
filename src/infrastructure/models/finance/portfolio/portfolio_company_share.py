@@ -14,4 +14,4 @@ class PortfolioCompanyShareModel(Base):
 
     # Portfolio identification
     name = Column(String(200), nullable=False, index=True)
-    
+    portfolio_company_share_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_company_share_holding.PortfolioCompanyShareHoldingModel", back_populates="portfolio_company_shares")

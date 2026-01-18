@@ -55,9 +55,8 @@ class SwapModel(Base):
     last_valuation_date = Column(DateTime, nullable=True)
 
     # Relationships
-    interest_rate_swaps = relationship("InterestRateSwap", back_populates="swaps", uselist=False)
-    currency_swaps = relationship("CurrencySwap", back_populates="swaps", uselist=False)
-    swap_legs = relationship("SwapLeg", back_populates="swaps", uselist=False)
+
+    swap_legs = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg.SwapLegModel", back_populates="swaps")
     def __repr__(self):
         return f"<Swap(id={self.id}, type={self.swap_type}, pv={self.present_value})>"
 

@@ -4,7 +4,7 @@ SQLAlchemy model for domain factor entity.
 """
 from sqlalchemy import Column, Integer, String, Text
 from src.infrastructure.models import ModelBase as Base
-
+from sqlalchemy.orm import relationship
 
 class FactorModel(Base):
     __tablename__ = 'factors'
@@ -17,7 +17,8 @@ class FactorModel(Base):
     source = Column(String(255), nullable=True)
     definition = Column(Text, nullable=True)
     factor_type = Column(String(100), nullable=False)  # Discriminator for inheritance
-    
+    # Relationships
+    factor_values = relationship("src.infrastructure.models.factor.factor_value.FactorValueModel",back_populates="factors")
     __mapper_args__ = {
         'polymorphic_identity': 'factor',
         'polymorphic_on': factor_type

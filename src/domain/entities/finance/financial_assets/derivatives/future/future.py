@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from domain.entities.finance.exchange import Exchange
 
-from ..derivative import Derivative, UnderlyingAsset
+from ..derivative import Derivative
 
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 

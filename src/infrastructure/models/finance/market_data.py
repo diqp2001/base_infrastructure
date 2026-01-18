@@ -52,7 +52,6 @@ class MarketDataModel(Base):
     
     # Timestamps
     created_at = Column(DateTime, nullable=True)
-    
     def __repr__(self):
         return (
             f"<MarketDataModel(symbol={self.symbol_ticker}, "

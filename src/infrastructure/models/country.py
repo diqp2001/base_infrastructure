@@ -18,7 +18,7 @@ class CountryModel(Base):
 
     companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="countries")
     exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="countries")
-    currencies = relationship("src.infrastructure.models.finance.financial_assets.CurrencyModel", back_populates="country")
+    currencies = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel", back_populates="countries")
     def __init__(self, name, iso_code, region=None):
         self.name = name
         self.iso_code = iso_code

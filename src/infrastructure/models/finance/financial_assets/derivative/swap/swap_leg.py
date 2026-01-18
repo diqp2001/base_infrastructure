@@ -36,7 +36,7 @@ class SwapLegModel(Base):
     next_payment_date = Column(Date, nullable=True)
     
     # Relationship
-    swaps = relationship("Swap", back_populates="swap_legs")
+    swaps = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap.SwapModel", back_populates="swap_legs")
 
     def __repr__(self):
         return f"<SwapLeg(id={self.id}, swap_id={self.swap_id}, type={self.leg_type}, rate={self.fixed_rate})>"

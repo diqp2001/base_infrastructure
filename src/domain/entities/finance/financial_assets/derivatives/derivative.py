@@ -12,16 +12,7 @@ from dataclasses import dataclass
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
-@dataclass
-class UnderlyingAsset:
-    """Value object representing the underlying asset."""
-    symbol: str
-    asset_type: str  # "STOCK", "INDEX", "COMMODITY", "BOND", "CRYPTO"
-    current_price: Optional[Decimal] = None
-    
-    def __post_init__(self):
-        if self.current_price is not None and self.current_price < 0:
-            raise ValueError("Current price cannot be negative")
+
 
 
 class Derivative(FinancialAsset):

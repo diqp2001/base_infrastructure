@@ -10,11 +10,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
 from src.domain.ports.finance.financial_assets.currency_port import CurrencyPort
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency
-from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel as ORMCurrency, CurrencyRate as ORMCurrencyRate
+from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel as ORMCurrency
 from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
 
 logger = logging.getLogger(__name__)
@@ -277,59 +276,8 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             logger.error(f"Error deleting currency {currency_id}: {e}")
             raise
 
-    def add_historical_rates(self, currency_id: int, rates_data: List[Dict[str, Any]]) -> int:
-        """
-        Add historical exchange rates for a currency.
-        
-        :param currency_id: Database ID of the currency
-        :param rates_data: List of rate data dicts with 'date', 'rate', 'target_currency'
-        :return: Number of rates added
-        """
-        try:
-            orm_rates = []
-            
-            for rate_data in rates_data:
-                orm_rate = ORMCurrencyRate(
-                    currency_id=currency_id,
-                    rate=Decimal(str(rate_data['rate'])),
-                    timestamp=rate_data['date'],
-                    target_currency=rate_data.get('target_currency', 'USD')
-                )
-                orm_rates.append(orm_rate)
-            
-            self.session.add_all(orm_rates)
-            self.session.commit()
-            
-            logger.info(f"Added {len(orm_rates)} historical rates for currency {currency_id}")
-            return len(orm_rates)
-            
-        except Exception as e:
-            self.session.rollback()
-            logger.error(f"Error adding historical rates for currency {currency_id}: {e}")
-            raise
-
-    def get_rate_at_date(self, currency_id: int, date: datetime, target_currency: str = "USD") -> Optional[Decimal]:
-        """
-        Get the exchange rate for a currency at a specific date.
-        
-        :param currency_id: Database ID of the currency
-        :param date: Date to find rate for
-        :param target_currency: Target currency (default USD)
-        :return: Exchange rate or None if not found
-        """
-        try:
-            orm_rate = self.session.query(ORMCurrencyRate).filter(
-                ORMCurrencyRate.currency_id == currency_id,
-                ORMCurrencyRate.target_currency == target_currency,
-                ORMCurrencyRate.timestamp <= date
-            ).order_by(ORMCurrencyRate.timestamp.desc()).first()
-            
-            return orm_rate.rate if orm_rate else None
-            
-        except Exception as e:
-            logger.error(f"Error getting rate for currency {currency_id} at {date}: {e}")
-            raise
-
+    
+   
     def count(self) -> int:
         """
         Count total number of currencies.
