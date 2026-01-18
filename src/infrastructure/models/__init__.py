@@ -55,7 +55,10 @@ from src.infrastructure.models.finance.financial_assets.swap.interest_rate_swap 
 from src.infrastructure.models.finance.financial_assets.swap.swap_leg import SwapLeg
 
 # Portfolio and holdings (depends on all asset types)
-from src.infrastructure.models.finance.portfolio import Portfolio
+from src.infrastructure.models.finance.portfolio.portfolio import Portfolio
+from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivative
+from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption
 from src.infrastructure.models.finance.security_holding import SecurityHolding
 from src.infrastructure.models.finance.market_data import MarketData
 from src.infrastructure.models.finance.instrument import Instrument
@@ -66,7 +69,7 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 
 # Portfolio options
-from src.infrastructure.models.finance.financial_assets.portfolio_company_share_option import PortfolioCompanyShareOption
+
 
 # Geographic models
 from src.infrastructure.models.continent import Continent
@@ -86,7 +89,7 @@ def ensure_models_registered():
     # Core models that must be registered for string relationships to work
     required_models = {
         'Country', 'Industry', 'Sector', 'Exchange', 'Company', 
-        'Share', 'CompanyShare', 'ETFShare', 'Portfolio', 'Holding'
+        'Share', 'CompanyShare', 'ETFShare', 'Portfolio','PortfolioDerivative','PortfolioCompanyShare','PortfolioCompanyShareOption', 'Holding'
     }
     
     missing = required_models - set(registered)
@@ -116,8 +119,7 @@ __all__ = [
     'Bond', 'Options', 'Derivative', 'UnderlyingAsset',
     'ForwardContract', 'CommodityForward', 'CurrencyForward',
     'Swap', 'CurrencySwap', 'InterestRateSwap', 'SwapLeg',
-    'Portfolio', 'SecurityHolding', 'MarketData', 'Instrument',
+    'Portfolio','PortfolioDerivative','PortfolioCompanyShare','PortfolioCompanyShareOption', 'SecurityHolding', 'MarketData', 'Instrument',
     'Holding', 'PortfolioHoldings', 'PortfolioCompanyShareHolding',
-    'PortfolioCompanyShareOption',
     'ensure_models_registered'
 ]

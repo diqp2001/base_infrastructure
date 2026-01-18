@@ -13,7 +13,7 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.domain.entities.finance.financial_assets.security import Security
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.infrastructure.models.finance.market_data import MarketData
-from src.infrastructure.models.finance.portfolio import Portfolio as PortfolioModel
+from infrastructure.models.finance.portfolio.portfolio import Portfolio as PortfolioModel
 from src.infrastructure.models.finance.security_holding import SecurityHolding
 
 #from src.domain.entities.finance.portfolio import Portfolio
