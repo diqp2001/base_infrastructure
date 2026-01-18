@@ -36,7 +36,7 @@ class CurrencyModel(Base):
     is_tradeable = Column(Boolean, default=True)
     
     # Relationships
-    countries = relationship("src.infrastructure.models.country.CountryModel", back_populates="currencies")
+    country = relationship("src.infrastructure.models.country.CountryModel", back_populates="currencies")
     
     def __repr__(self):
         return f"<Currency(id={self.id}, iso_code={self.iso_code}, name={self.name}, country_id={self.country_id})>"
