@@ -15,9 +15,9 @@ class ExchangeModel(Base):
 
     # Relationships
     country = relationship("src.infrastructure.models.country.CountryModel", back_populates="exchanges")
-    shares = relationship("src.infrastructure.models.finance.financial_assets.share.ShareModel", back_populates="exchanges")
-    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchanges")
-    etf_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share.ETFShareModel", back_populates="exchanges")
+    shares = relationship("src.infrastructure.models.finance.financial_assets.share.ShareModel", back_populates="exchange")
+    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchange")
+    etf_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share.ETFShareModel", back_populates="exchange")
 
     def __init__(self, name, legal_name, country_id, start_date, end_date=None):
         self.name = name

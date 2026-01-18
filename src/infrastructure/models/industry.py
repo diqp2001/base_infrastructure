@@ -10,7 +10,7 @@ class IndustryModel(Base):
     sector_id = Column(Integer, ForeignKey('sectors.id'), nullable=False)  # Foreign key for related Sector
     
     # Relationships
-    companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="industries")
+    companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="industry")
     sectors = relationship("src.infrastructure.models.sector.SectorModel", back_populates="industries")
     
     def __init__(self, name, sector_id, description=None):

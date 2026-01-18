@@ -12,15 +12,15 @@ class PositionModel(Base):
     __tablename__ = 'positions'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    #portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
+    portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
     quantity = Column(Integer, nullable=False)
     position_type = Column(SQLEnum(PositionType), nullable=False)
 
     # # MANY positions → ONE portfolio
-    # portfolios = relationship(
-    #     "src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel",
-    #     back_populates="positions"
-    # )
+    portfolios = relationship(
+        "src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel",
+        back_populates="positions"
+    )
 
     def __init__(self, quantity: int, position_type: PositionType):
         self.quantity = quantity

@@ -10,11 +10,11 @@ from datetime import datetime, date
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
-from infrastructure.models.finance.portfolio.portfolio import PortfolioModel as PortfolioModel
+from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel as PortfolioModel
 from src.domain.entities.finance.portfolio.portfolio import (
     Portfolio as PortfolioEntity
 )
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.portfolio.portfolio_port import PortfolioPort
 
 

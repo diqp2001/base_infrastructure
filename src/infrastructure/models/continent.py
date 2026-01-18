@@ -26,7 +26,7 @@ class ContinentModel(Base):
     updated_at = Column(DateTime, nullable=True)
     
     # Relationships (assuming countries belong to continents)
-    countries = relationship("src.infrastructure.models.country.CountryModel", back_populates="continents")
+    countries = relationship("src.infrastructure.models.country.CountryModel", back_populates="continent")
 
     def __repr__(self):
         return f"<Continent(id={self.id}, name={self.name}, abbreviation={self.abbreviation})>"
