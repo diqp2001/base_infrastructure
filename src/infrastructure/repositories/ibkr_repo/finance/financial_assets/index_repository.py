@@ -15,6 +15,7 @@ from ibapi.common import TickerId
 from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.currency import Currency
 
 
 class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
@@ -164,14 +165,19 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             # Extract data from IBKR API response
             symbol = contract.symbol
             name = contract_details.get('long_name', f"{symbol} Index")
-            market_name = contract_details.get('market_name', 'Index Market')
-            description = f"{name} - {market_name}"
+            
+            # Create USD currency for indices (most indices are USD-denominated)
+            usd_currency = Currency(
+                id=None,
+                name="US Dollar",
+                symbol="USD"
+            )
             
             return Index(
                 id=None,  # Let database generate
-                symbol=symbol,
                 name=name,
-                description=description,
+                symbol=symbol,
+                currency=usd_currency,
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
