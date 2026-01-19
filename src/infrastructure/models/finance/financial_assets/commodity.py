@@ -16,11 +16,16 @@ class CommodityModel(FinancialAssetModel):
     
     # Primary key is also foreign key to parent
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
-   
+    
+    # Currency relationship
+    currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=True, index=True)
 
     __mapper_args__ = {
         "polymorphic_identity": "commodity",
     }
+
+    # Relationships
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel", foreign_keys=[currency_id])
 
     def __repr__(self):
         return f"<Commodity(id={self.id}, ticker={self.ticker}, name={self.name}, price={self.current_price})>"

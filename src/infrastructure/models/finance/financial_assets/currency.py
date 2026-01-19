@@ -33,6 +33,10 @@ class CurrencyModel(FinancialAssetModel):
     country = relationship("src.infrastructure.models.country.CountryModel", back_populates="currency")
     indices = relationship("src.infrastructure.models.finance.financial_assets.index.IndexModel", foreign_keys="IndexModel.currency_id",back_populates="currency")
     derivatives = relationship("src.infrastructure.models.finance.financial_assets.derivative.derivatives.DerivativeModel",foreign_keys="DerivativeModel.currency_id", back_populates="currency")
+    bonds = relationship("src.infrastructure.models.finance.financial_assets.bond.BondModel", foreign_keys="BondModel.currency_id")
+    commodities = relationship("src.infrastructure.models.finance.financial_assets.commodity.CommodityModel", foreign_keys="CommodityModel.currency_id")
+    cryptos = relationship("src.infrastructure.models.finance.financial_assets.crypto.CryptoModel", foreign_keys="CryptoModel.currency_id")
+    cash_assets = relationship("src.infrastructure.models.finance.financial_assets.cash.CashModel", foreign_keys="CashModel.currency_id")
     def __repr__(self):
         return f"<Currency(id={self.id}, name={self.name}, country_id={self.country_id})>"
 
