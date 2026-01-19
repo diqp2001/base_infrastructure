@@ -2,19 +2,20 @@
 ORM model for Commodity - separate from src.domain entity to avoid metaclass conflicts.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date
+from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date, ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
 
-class CommodityModel(Base):
+class CommodityModel(FinancialAssetModel):
     """
     SQLAlchemy ORM model for Commodity.
     Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'commodities'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Primary key is also foreign key to parent
+    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     ticker = Column(String(20), nullable=False, unique=True, index=True)
     name = Column(String(100), nullable=False)
     market = Column(String(50), nullable=False)  # e.g., 'NYMEX', 'COMEX', 'CBOT'
@@ -51,6 +52,10 @@ class CommodityModel(Base):
     is_active = Column(Boolean, default=True)
     last_updated = Column(DateTime, nullable=True)
     listing_date = Column(Date, nullable=True)
+
+    __mapper_args__ = {
+        "polymorphic_identity": "commodity",
+    }
 
     def __repr__(self):
         return f"<Commodity(id={self.id}, ticker={self.ticker}, name={self.name}, price={self.current_price})>"

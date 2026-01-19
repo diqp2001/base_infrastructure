@@ -5,17 +5,18 @@ ORM model for ETFShare - separate from src.domain entity to avoid metaclass conf
 from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime, Text
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
 
-class ETFShareModel(Base):
+class ETFShareModel(FinancialAssetModel):
     """
     SQLAlchemy ORM model for ETFShare.
     Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'etf_shares'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Primary key is also foreign key to parent
+    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     ticker = Column(String(20), nullable=False, index=True)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     start_date = Column(Date, nullable=False)
@@ -43,6 +44,10 @@ class ETFShareModel(Base):
     is_tradeable = Column(Boolean, default=True)
     sector = Column(String(100), nullable=True)
     industry = Column(String(100), nullable=True)
+
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share",
+    }
 
     # Relationships
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="etf_shares")

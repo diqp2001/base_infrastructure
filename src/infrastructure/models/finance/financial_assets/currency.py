@@ -4,18 +4,19 @@ ORM model for Currency - separate from src.domain entity to avoid metaclass conf
 
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
 
-class CurrencyModel(Base):
+class CurrencyModel(FinancialAssetModel):
     """
     SQLAlchemy ORM model for Currency.
     Completely separate from src.domain entity to avoid metaclass conflicts.
     Enhanced with country relationship and exchange rate management.
     """
     __tablename__ = 'currencies'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Primary key is also foreign key to parent
+    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     name = Column(String(100), nullable=False)
     iso_code = Column(String(3), nullable=False, unique=True, index=True)  # ISO 4217 code
     
@@ -35,6 +36,10 @@ class CurrencyModel(Base):
     is_active = Column(Boolean, default=True)
     is_tradeable = Column(Boolean, default=True)
     
+    __mapper_args__ = {
+        "polymorphic_identity": "currency",
+    }
+
     # Relationships
     country = relationship("src.infrastructure.models.country.CountryModel", back_populates="currencies")
     
