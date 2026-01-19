@@ -22,16 +22,19 @@ class Option(Derivative):
     Pure identification Option.
     Greeks, IV, moneyness, etc. live elsewhere (factors).
     """
+    def __init__(
+            self,
+            id: Optional[int],
+            name: Optional[str],
+            symbol: Optional[str],
+            underlying_asset: FinancialAsset,
+            option_type: OptionType,
+            start_date: Optional[date] = None,
+            end_date: Optional[date] = None,
+            
+        ):
 
-    def __init__(self,
-                 id: int,
-                 underlying_asset: FinancialAsset,
-                 expiration_date: date,
-                 option_type: OptionType,
-                 start_date: date,
-                 end_date: Optional[date] = None):
-        
-        super().__init__(id, underlying_asset, start_date, end_date)
-
-        self.expiration_date = expiration_date
+        super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+    
+    
         self.option_type = option_type

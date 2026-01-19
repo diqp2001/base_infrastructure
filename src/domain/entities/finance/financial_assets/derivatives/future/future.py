@@ -18,26 +18,25 @@ class Future(Derivative):
     Margin, daily settlement, and other metrics live elsewhere (factors).
     """
 
+        
+        
+        
     def __init__(
-        self,
-        id: int,
-        symbol:str,
-        underlying_asset: FinancialAsset,
-        currency:Currency,
-        exchange :Exchange,
-        expiration_date: date,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-        
-    ):
-        super().__init__(id, underlying_asset, start_date, end_date)
+                self,
+                id: Optional[int],
+                name: Optional[str],
+                symbol: Optional[str],
+                underlying_asset: FinancialAsset,
+                currency:Currency,
+                exchange :Exchange,
+                start_date: Optional[date] = None,
+                end_date: Optional[date] = None,
+                
+            ):
 
-        self.expiration_date = expiration_date
-        self.exchange = exchange
-        self.currency =currency
-        self.symbol = symbol
-        
-
-        
+            super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+            self.exchange = exchange
+            self.currency =currency
+            
 
      

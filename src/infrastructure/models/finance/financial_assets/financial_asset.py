@@ -35,6 +35,6 @@ class FinancialAssetModel(Base):
     instruments = relationship("src.infrastructure.models.finance.instrument.InstrumentModel", back_populates="asset", cascade="all, delete-orphan")
     holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel", back_populates="asset")
     portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="financial_asset")
-
+    derivatives = relationship("src.infrastructure.models.finance.financial_assets.derivative.derivatives.DerivativeModel", foreign_keys="DerivativeModel.underlying_asset_id", back_populates="financial_assets")
     def __repr__(self):
-        return f"<FinancialAsset(id={self.id}, type={self.asset_type}, ticker={self.ticker}, price={self.current_price})>"
+        return f"<FinancialAsset(id={self.id}, type={self.asset_type},)>"

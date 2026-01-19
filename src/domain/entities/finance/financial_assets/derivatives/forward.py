@@ -9,14 +9,16 @@ class Forward(Derivative):
     Futures contract with exchange link.
     """
 
-    def __init__(self,
-                 id: int,
-                 underlying_asset: FinancialAsset,
-                 expiration_date: date,
-                 exchange_id: int,
-                 start_date: date,
-                 end_date: Optional[date] = None):
-        
-        super().__init__(id, underlying_asset, start_date, end_date)
-        self.expiration_date = expiration_date
-        self.exchange_id = exchange_id
+    def __init__(
+            self,
+            id: Optional[int],
+            name: Optional[str],
+            symbol: Optional[str],
+            underlying_asset: FinancialAsset,
+            start_date: Optional[date] = None,
+            end_date: Optional[date] = None,
+            
+        ):
+
+        super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+    

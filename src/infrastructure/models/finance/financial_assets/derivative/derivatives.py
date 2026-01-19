@@ -17,9 +17,14 @@ class DerivativeModel(FinancialAssetModel):
 
     
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
-    
+    currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
+    underlying_asset_id = Column(Integer, ForeignKey('financial_assets.id'), nullable=False)
+    financial_assets = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel",foreign_keys=[underlying_asset_id], back_populates="derivatives")
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="derivatives")
     __mapper_args__ = {
     "polymorphic_identity": "derivative",
+    "inherit_condition": id == FinancialAssetModel.id,  # 🔥 REQUIRED
 }
+
     def __repr__(self):
         return f"<Derivative(id={self.id})>"

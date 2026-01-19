@@ -18,16 +18,16 @@ class Swap(Derivative):
     Base Swap entity.
     No leg notionals or rates (these go to a factor table).
     """
+    def __init__(
+            self,
+            id: Optional[int],
+            name: Optional[str],
+            symbol: Optional[str],
+            underlying_asset: FinancialAsset,
+            start_date: Optional[date] = None,
+            end_date: Optional[date] = None,
+            
+        ):
 
-    def __init__(self,
-                 id: int,
-                 underlying_asset: FinancialAsset,
-                 effective_date: date,
-                 maturity_date: date,
-                 start_date: date,
-                 end_date: Optional[date] = None):
-        
-        super().__init__(id, underlying_asset, start_date, end_date)
-        
-        self.effective_date = effective_date
-        self.maturity_date = maturity_date
+        super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+    

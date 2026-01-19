@@ -18,6 +18,8 @@ class IndexModel(FinancialAssetModel):
 
     # Primary key is also foreign key to parent
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
+    currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="indices")
     
     __mapper_args__ = {
     "polymorphic_identity": "index",

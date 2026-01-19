@@ -18,13 +18,9 @@ class CompanyShare(Share):
         end_date: Optional[date] = None,
     ):
         super().__init__(
-            id=id,
-            name=name,
-            start_date=start_date,
-            end_date=end_date,
+            id, name, symbol, start_date, end_date
         )
 
-        self._symbol = symbol
         self._company_id = company_id
         self._exchange_id = exchange_id
 

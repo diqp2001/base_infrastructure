@@ -11,20 +11,22 @@ class PortfolioCompanyShareOption(Option):
     Option written on a company share.
     """
 
-    def __init__(self,
-                 id: int,
-                 underlying: PortfolioCompanyShare,
-                 expiration_date: date,
-                 option_type: OptionType,
-                 start_date: date,
-                 end_date: Optional[date] = None):
+    
 
+    def __init__(
+            self,
+            id: Optional[int],
+            name: Optional[str],
+            symbol: Optional[str],
+            underlying_asset: PortfolioCompanyShare,
+            option_type: OptionType,
+            start_date: Optional[date] = None,
+            end_date: Optional[date] = None,
+            
+        ):
 
-        super().__init__(
-            id=id,
-            underlying_asset=underlying,
-            expiration_date=expiration_date,
-            option_type=option_type,
-            start_date=start_date,
-            end_date=end_date
-        )
+        super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date,option_type = option_type)
+    
+    
+        self.option_type = option_type
+
