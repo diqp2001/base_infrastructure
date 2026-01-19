@@ -2,7 +2,7 @@
 ORM model for CompanyShare - separate from src.domain entity to avoid metaclass conflicts.
 """
 
-from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime, Text
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -17,15 +17,11 @@ class CompanyShareModel(FinancialAssetModel):
     
     # Primary key is also foreign key to parent
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
-    ticker = Column(String(20), nullable=False, index=True)
+    
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=True)
     
     
-    # Status fields
-    is_tradeable = Column(Boolean, default=True)
     __mapper_args__ = {
         "polymorphic_identity": "company_share",
     }

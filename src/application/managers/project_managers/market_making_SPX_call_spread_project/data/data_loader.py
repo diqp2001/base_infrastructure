@@ -66,8 +66,8 @@ class DataLoader:
             spx_future_symbol = 'ES'  # SPX future
             
             # Ensure SPX entities exist using EntityService IBKR repositories
-            spx_index_entity = self.financial_asset_service._create_ibkr_or_get(Index, spx_index_symbol)
-            spx_future_entity = self.financial_asset_service._create_ibkr_or_get(IndexFuture, spx_future_symbol)
+            spx_index_entity = self.financial_asset_service._create_or_get_ibkr(Index, spx_index_symbol)
+            spx_future_entity = self.financial_asset_service._create_or_get_ibkr(IndexFuture, spx_future_symbol)
             
             #Check if factor_manager is available for _ensure_entities_exist
             factor_manager_status = 'available' if self.factor_manager else 'not_available'
@@ -194,7 +194,7 @@ class DataLoader:
         
         try:
             # Ensure SPX entities exist first using EntityService IBKR repositories
-            spx_index_entity = self.financial_asset_service._create_ibkr_or_get(Index, 'SPX')
+            spx_index_entity = self.financial_asset_service._create_or_get_ibkr(Index, 'SPX')
             
             # Get or create SPX company share entity
             spx_share = self.factor_data_service.get_company_share_by_ticker('SPX')

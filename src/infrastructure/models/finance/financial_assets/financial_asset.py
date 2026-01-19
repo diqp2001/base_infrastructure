@@ -19,6 +19,7 @@ class FinancialAssetModel(Base):
     # Basic asset information
     asset_type = Column(String(50), nullable=False, index=True)  # Discriminator for asset type
     name = Column(String(200), nullable=True)
+    symbol = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     
     # Date information

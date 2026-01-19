@@ -229,15 +229,7 @@ class EntityService:
         )
 
 
-    # def get_ibkr_repository(self, entity_type):
-    #     """
-    #     Return the repository associated with a domain entity type.
-    #     """
-    #     repo = self.ibkr_repositories.get(entity_type)
-    #     if repo is None:
-    #         raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
-    #     repo = repo(self.session)
-    #     return repo
+    
 
     def get_ibkr_repository(self, entity_class: type):
         """
@@ -331,7 +323,7 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
-    def _create_ibkr_or_get(self, entity_cls: object, entity_symbol: str, entity_id: int = None,
+    def _create_or_get_ibkr(self, entity_cls: object, entity_symbol: str, entity_id: int = None,
                             **kwargs) -> Optional[object]:
         """
         Create index entity if it doesn't exist, otherwise return existing.

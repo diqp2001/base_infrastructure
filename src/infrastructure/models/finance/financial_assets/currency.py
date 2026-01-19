@@ -2,7 +2,7 @@
 ORM model for Currency - separate from src.domain entity to avoid metaclass conflicts.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Date, Integer, String, Numeric, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
@@ -15,26 +15,15 @@ class CurrencyModel(FinancialAssetModel):
     """
     __tablename__ = 'currencies'
     
-    # Primary key is also foreign key to parent
-    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
-    name = Column(String(100), nullable=False)
-    iso_code = Column(String(3), nullable=False, unique=True, index=True)  # ISO 4217 code
+   
     
     # Country relationship
     country_id = Column(Integer, ForeignKey('countries.id'), nullable=True, index=True)
     
     # Exchange rate data
-    exchange_rate_to_usd = Column(Numeric(15, 8), default=1.0, nullable=False)
-    last_rate_update = Column(DateTime, nullable=True)
+    # Primary key is also foreign key to parent
+    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     
-    # Currency properties
-    is_major_currency = Column(Boolean, default=False)  # Major currencies like USD, EUR, JPY
-    is_crypto_currency = Column(Boolean, default=False)
-    decimal_places = Column(Integer, default=2)  # Number of decimal places for the currency
-    
-    # Status fields
-    is_active = Column(Boolean, default=True)
-    is_tradeable = Column(Boolean, default=True)
     
     __mapper_args__ = {
         "polymorphic_identity": "currency",
