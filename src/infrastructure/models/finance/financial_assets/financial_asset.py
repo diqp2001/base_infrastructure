@@ -25,53 +25,11 @@ class FinancialAssetModel(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     
-    # Asset classification
-    category = Column(String(50), nullable=True)  # 'Equity', 'Fixed Income', 'Derivative', etc.
-    sub_category = Column(String(50), nullable=True)  # More specific classification
     
-    # Identification codes
-    isin = Column(String(12), nullable=True, unique=True)  # International Securities Identification Number
-    cusip = Column(String(9), nullable=True)  # Committee on Uniform Securities Identification Procedures
-    sedol = Column(String(7), nullable=True)  # Stock Exchange Daily Official List
-    ticker = Column(String(20), nullable=True, index=True)
-    
-    # Basic pricing
-    current_price = Column(Numeric(20, 8), nullable=True, default=0)
-    currency = Column(String(3), nullable=False, default='USD')
-    
-    # Market information
-    market = Column(String(100), nullable=True)
-    exchange = Column(String(100), nullable=True)
-    country_code = Column(String(3), nullable=True)
-    
-    # Status fields
-    is_active = Column(Boolean, default=True)
-    is_tradeable = Column(Boolean, default=True)
-    is_liquid = Column(Boolean, default=True)
-    
-    # Risk classification
-    risk_rating = Column(String(10), nullable=True)  # 'LOW', 'MEDIUM', 'HIGH'
-    credit_rating = Column(String(10), nullable=True)  # 'AAA', 'AA+', etc.
-    
-    # Regulatory information
-    regulatory_status = Column(String(50), nullable=True)
-    compliance_flags = Column(Text, nullable=True)  # JSON for various compliance flags
-    
-    # Performance metrics
-    ytd_return = Column(Numeric(10, 4), nullable=True)
-    one_year_return = Column(Numeric(10, 4), nullable=True)
-    volatility = Column(Numeric(10, 4), nullable=True)
-    sharpe_ratio = Column(Numeric(10, 4), nullable=True)
-    
-    # Additional metadata
-    financial_asset_metadata = Column(String(100), nullable=True)  # JSON for additional properties
-    tags = Column(String(500), nullable=True)  # Comma-separated tags
-    
-    # Timestamps
-    created_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, nullable=True)
-    last_price_update = Column(DateTime, nullable=True)
-
+    __mapper_args__ = {
+        "polymorphic_on": asset_type,
+        "polymorphic_identity": "financial_asset",
+    }
     # Relationships
     instruments = relationship("src.infrastructure.models.finance.instrument.InstrumentModel", back_populates="asset", cascade="all, delete-orphan")
     holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel", back_populates="asset")

@@ -1,6 +1,10 @@
 # src/domain/entities/exchange.py
 from typing import List
 
+from src.domain.entities.country import Country
+
+
+
 class Exchange:
     def __init__(self, id: int, name: str, legal_name: str, country_id: int, start_date, end_date=None):
         """

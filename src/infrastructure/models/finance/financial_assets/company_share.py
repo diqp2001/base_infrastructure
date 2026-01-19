@@ -14,8 +14,8 @@ class CompanyShareModel(Base):
     Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'company_shares'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True, autoincrement=True)
+    #id = Column(Integer, primary_key=True, autoincrement=True)
     ticker = Column(String(20), nullable=False, index=True)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
@@ -25,7 +25,9 @@ class CompanyShareModel(Base):
     
     # Status fields
     is_tradeable = Column(Boolean, default=True)
-
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share",
+    }
     # Relationships
     company = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="company_shares")
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_shares") 

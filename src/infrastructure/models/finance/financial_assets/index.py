@@ -24,6 +24,7 @@ class IndexModel(Base):
     is_active = Column(Boolean, default=True)
     is_tradeable = Column(Boolean, default=False)
     start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
 
     def __repr__(self):
         return f"<Index(id={self.id}, symbol={self.symbol}, name={self.name})>"

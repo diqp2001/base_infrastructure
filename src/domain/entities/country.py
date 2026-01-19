@@ -1,6 +1,8 @@
 # src/domain/entities/country.py
 from typing import List
 
+from src.domain.entities.continent import Continent
+
 class Country:
     def __init__(self, id: int,name: str,  continent_id: int):
         """

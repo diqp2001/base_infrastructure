@@ -1,8 +1,10 @@
 # src/domain/entities/industry.py
 from typing import List
 
+from src.domain.entities.sector import Sector
+
 class Industry:
-    def __init__(self, id: int, name: str, sector_id: int, description: str = "", key_metrics: List[str] = None):
+    def __init__(self, id: int, name: str, sector_id: int, description: str = ""):
         """
         Initialize an Industry object with essential details.
         
@@ -16,31 +18,13 @@ class Industry:
         self.name = name
         self.sector_id = sector_id
         self.description = description
-        self.key_metrics = key_metrics or []
         
 
     
 
-    def add_key_metric(self, metric: str):
-        """
-        Add a key metric for the industry.
-        
-        :param metric: Metric to add
-        """
-        if metric not in self.key_metrics:
-            self.key_metrics.append(metric)
+    
 
-    def get_industry_info(self):
-        """
-        Returns a summary of the industry.
-        """
-        return {
-            'id': self.id,
-            'name': self.name,
-            'sector_id': self.sector_id,
-            'description': self.description,
-            'key_metrics': self.key_metrics
-        }
+    
 
     def __repr__(self):
         return f"Industry(id={self.id}, name={self.name}, sector_id={self.sector_id}, description={self.description})"

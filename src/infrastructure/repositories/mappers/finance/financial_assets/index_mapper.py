@@ -28,12 +28,7 @@ class IndexMapper:
             
         )
 
-        # Optional / derived values (kept out of constructor)
-        if orm_obj.current_level is not None:
-            domain_entity._level = Decimal(str(orm_obj.current_level))
-
-        if orm_obj.last_update:
-            domain_entity._last_update = orm_obj.last_update
+        
 
         return domain_entity
 

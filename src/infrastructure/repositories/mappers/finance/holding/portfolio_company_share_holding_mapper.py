@@ -35,7 +35,7 @@ class PortfolioCompanyShareHoldingMapper:
         # Placeholder portfolio container
         portfolio = type("Portfolio", (), {"id": model.portfolio_id})()
 
-        return PortfolioCompanyShareHoldingModel(
+        return PortfolioCompanyShareHolding(
             id=model.id,
             asset=asset,
             container=portfolio,

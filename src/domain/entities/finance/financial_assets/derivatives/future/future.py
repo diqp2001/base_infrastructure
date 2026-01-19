@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from domain.entities.finance.exchange import Exchange
+from domain.entities.finance.financial_assets.currency import Currency
 
 from ..derivative import Derivative
 
@@ -20,17 +21,21 @@ class Future(Derivative):
     def __init__(
         self,
         id: int,
+        symbol:str,
         underlying_asset: FinancialAsset,
-        exchange_id :int,
+        currency:Currency,
+        exchange :Exchange,
         expiration_date: date,
-        start_date: date,
+        start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         
     ):
         super().__init__(id, underlying_asset, start_date, end_date)
 
         self.expiration_date = expiration_date
-        self.exchange_id = exchange_id
+        self.exchange = exchange
+        self.currency =currency
+        self.symbol = symbol
         
 
         
