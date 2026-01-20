@@ -112,3 +112,17 @@ class SectorRepository(GeographicRepository, SectorPort):
             self.session.rollback()
             print(f"Error creating sector {name}: {str(e)}")
             return None
+    
+    def get_or_create(self, name: str, classification_system: str = None, description: str = None) -> Optional[Sector]:
+        """
+        Get or create a sector by name with dependency resolution.
+        
+        Args:
+            name: Sector name (required)
+            classification_system: Classification system (e.g., 'GICS', 'ICB')
+            description: Sector description (optional)
+            
+        Returns:
+            Sector entity or None if creation failed
+        """
+        return self._create_or_get(name, classification_system, description)

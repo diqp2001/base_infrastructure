@@ -41,9 +41,72 @@ class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel
         """Convert domain entity to ORM model using mapper."""
         return InstrumentMapper.to_orm(entity)
 
-    def _create_or_get(self):
-        """Not implemented for Instrument - use specific methods instead."""
-        raise NotImplementedError("Use specific get/create methods for Instrument entities.")
+    def get_or_create(self, asset_id: int, source: str, date: Optional[datetime] = None, **kwargs) -> Optional[InstrumentEntity]:
+        """
+        Get or create an instrument with dependency resolution.
+        
+        Args:
+            asset_id: Financial asset ID (primary identifier component)
+            source: Data source name (primary identifier component)
+            date: Instrument date (optional, defaults to current datetime)
+            **kwargs: Additional fields for the instrument
+            
+        Returns:
+            Domain instrument entity or None if creation failed
+        """
+        try:
+            # Set default date if not provided
+            if not date:
+                date = datetime.now()
+            
+            # First try to get existing instrument by asset, source, and date
+            if self.exists_by_asset_and_source_and_date(asset_id, source, date):
+                models = self.session.query(InstrumentModel).filter(
+                    and_(
+                        InstrumentModel.asset_id == asset_id,
+                        InstrumentModel.source == source,
+                        InstrumentModel.date == date
+                    )
+                ).first()
+                if models:
+                    return self._to_entity(models)
+            
+            # Validate asset exists - get or create if needed
+            from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+            share_repo = CompanyShareRepository(self.session)
+            # Try to get existing asset by ID first
+            try:
+                asset_model = self.session.query(share_repo.model_class).filter(
+                    share_repo.model_class.id == asset_id
+                ).first()
+                if not asset_model:
+                    # Create default asset if it doesn't exist
+                    default_asset = share_repo.get_or_create(f"ASSET_{asset_id}", f"Asset {asset_id}")
+                    asset_id = default_asset.id if default_asset else asset_id
+            except:
+                # If asset lookup fails, proceed with provided asset_id
+                pass
+            
+            # Create new instrument entity
+            entity_data = {
+                'id': None,  # Will be assigned by add() method
+                'asset_id': asset_id,
+                'source': source,
+                'date': date
+            }
+            
+            # Add any additional kwargs
+            entity_data.update(kwargs)
+            
+            # Create entity using entity class constructor
+            new_instrument = InstrumentEntity(**entity_data)
+            
+            # Add to database
+            return self.add(new_instrument)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for instrument (asset_id: {asset_id}, source: {source}): {e}")
+            return None
 
     # Implementation of InstrumentPort interface
 

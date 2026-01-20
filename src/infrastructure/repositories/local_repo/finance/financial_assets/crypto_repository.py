@@ -249,6 +249,35 @@ class CryptoRepository(FinancialAssetRepository, CryptoPort):
         
         return [self._to_entity(model) for model in models]
     
+    def get_or_create(self, symbol: str, name: str = None, blockchain: str = None, **kwargs) -> Optional[CryptoEntity]:
+        """
+        Get or create a cryptocurrency by symbol with dependency resolution.
+        
+        Args:
+            symbol: Crypto symbol (e.g., 'BTC', 'ETH', 'ADA')
+            name: Crypto name (optional, will default if not provided)
+            blockchain: Blockchain network (optional)
+            **kwargs: Additional fields for the crypto model
+            
+        Returns:
+            Crypto entity or None if creation failed
+        """
+        try:
+            # First try to get existing crypto
+            existing = self.get_by_symbol(symbol)
+            if existing:
+                return existing
+            
+            # Create new crypto if it doesn't exist
+            if not name:
+                name = f"{symbol.upper()} Cryptocurrency"
+            
+            return self._create_or_get_crypto(symbol, name, blockchain, **kwargs)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for crypto {symbol}: {e}")
+            return None
+    
     # Standard CRUD interface
     def create(self, entity: CryptoEntity) -> CryptoEntity:
         """Create new crypto entity in database (standard CRUD interface)."""

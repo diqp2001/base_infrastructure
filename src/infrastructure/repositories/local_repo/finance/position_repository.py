@@ -289,6 +289,63 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         
         return sum(Decimal(str(pnl[0])) for pnl in total if pnl[0])
     
+    def get_or_create(self, portfolio_id: int, symbol: str, asset_type: Optional[str] = None, 
+                      asset_id: Optional[int] = None, quantity: Optional[float] = None, 
+                      average_cost: Optional[float] = None) -> Optional[PositionEntity]:
+        """
+        Get or create a position with dependency resolution.
+        
+        Args:
+            portfolio_id: Portfolio ID (primary identifier component)
+            symbol: Asset symbol (primary identifier component)
+            asset_type: Type of asset (optional, defaults to "EQUITY")
+            asset_id: Asset ID reference (optional)
+            quantity: Position quantity (optional, defaults to 0)
+            average_cost: Average cost per unit (optional, defaults to 0)
+            
+        Returns:
+            Domain position entity or None if creation failed
+        """
+        try:
+            # First try to get existing position by portfolio and symbol
+            existing = self.get_by_portfolio_and_symbol(portfolio_id, symbol)
+            if existing:
+                return existing
+            
+            # Resolve dependencies
+            # Validate portfolio exists - get or create if needed
+            if not portfolio_id:
+                from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+                portfolio_repo = PortfolioRepository(self.session)
+                default_portfolio = portfolio_repo.get_or_create("Default Portfolio")
+                portfolio_id = default_portfolio.id if default_portfolio else 1
+            
+            # Get or create asset dependency if not provided
+            if not asset_id:
+                from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+                share_repo = CompanyShareRepository(self.session)
+                asset = share_repo.get_or_create(symbol, symbol)
+                asset_id = asset.id if asset else 1
+            
+            # Set defaults
+            asset_type = asset_type or "EQUITY"
+            quantity = quantity or 0
+            average_cost = average_cost or 0
+            
+            # Create new position using the existing _create_or_get_position method
+            return self._create_or_get_position(
+                portfolio_id=portfolio_id,
+                symbol=symbol,
+                asset_type=asset_type,
+                quantity=quantity,
+                average_cost=average_cost,
+                asset_id=asset_id
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create for position (portfolio: {portfolio_id}, symbol: {symbol}): {e}")
+            return None
+
     # Standard CRUD interface
     def create(self, entity: PositionEntity) -> PositionEntity:
         """Create new position entity in database (standard CRUD interface)."""

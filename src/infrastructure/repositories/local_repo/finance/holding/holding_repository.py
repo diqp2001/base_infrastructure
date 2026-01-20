@@ -68,7 +68,58 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
             return True
         return False
 
-
+    def get_or_create(self, container_id: int, asset_id: Optional[int] = None, 
+                      quantity: Optional[float] = None, **kwargs) -> Optional[Holding]:
+        """
+        Get or create a holding with dependency resolution.
+        
+        Args:
+            container_id: Container ID (primary identifier component)
+            asset_id: Asset ID (optional)
+            quantity: Holding quantity (optional, defaults to 0)
+            **kwargs: Additional fields for the holding
+            
+        Returns:
+            Domain holding entity or None if creation failed
+        """
+        try:
+            # First try to get existing holding by container and asset
+            if asset_id:
+                model = self.session.query(HoldingModel).filter(
+                    HoldingModel.container_id == container_id,
+                    HoldingModel.asset_id == asset_id
+                ).first()
+                if model:
+                    return self.mapper.to_entity(model)
+            
+            # Get or create asset dependency if not provided
+            if not asset_id:
+                from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+                share_repo = CompanyShareRepository(self.session)
+                default_asset = share_repo.get_or_create("DEFAULT_HOLDING_ASSET", "Default Holding Asset")
+                asset_id = default_asset.id if default_asset else 1
+            
+            # Set defaults
+            quantity = quantity or 0
+            from datetime import datetime
+            
+            # Create new holding entity
+            new_holding = Holding(
+                id=None,  # Will be assigned by database
+                container_id=container_id,
+                asset_id=asset_id,
+                quantity=quantity,
+                start_date=datetime.now().date(),
+                end_date=None,
+                **kwargs
+            )
+            
+            # Save the holding
+            return self.save(new_holding)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for holding (container_id: {container_id}): {e}")
+            return None
 
 
 
