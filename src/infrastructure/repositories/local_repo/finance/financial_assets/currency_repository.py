@@ -290,9 +290,10 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             logger.error(f"Error counting currencies: {e}")
             raise
     
-    def get_or_create_by_code(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
+    def get_or_create(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
         """
-        Get or create a currency by ISO code.
+        Get or create a currency by ISO code with dependency resolution.
+        Integrates the functionality from to_orm_with_dependencies.
         
         Args:
             iso_code: ISO 4217 code (e.g., 'USD', 'EUR')

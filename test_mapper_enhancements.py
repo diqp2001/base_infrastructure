@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test script for mapper enhancements with get_or_create functionality.
-This script tests the new mapper methods without requiring the full test suite.
+Test script for repository get_or_create functionality.
+This script tests the new repository methods without requiring the full test suite.
 """
 
 import sys
@@ -10,27 +10,39 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-def test_imports():
-    """Test that all enhanced mappers can be imported successfully."""
+def test_repository_imports():
+    """Test that all repositories with get_or_create can be imported successfully."""
     try:
-        from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
-        print("✅ CurrencyMapper imported successfully")
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+        print("✅ CurrencyRepository imported successfully")
         
-        from src.infrastructure.repositories.mappers.finance.financial_assets.options_mapper import OptionsMapper  
-        print("✅ OptionsMapper imported successfully")
+        from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+        print("✅ CompanyRepository imported successfully")
         
-        from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
-        print("✅ CompanyShareMapper imported successfully")
+        from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository  
+        print("✅ ExchangeRepository imported successfully")
         
-        # Test that new methods exist
-        assert hasattr(CurrencyMapper, 'to_orm_with_dependencies'), "CurrencyMapper missing to_orm_with_dependencies method"
-        print("✅ CurrencyMapper.to_orm_with_dependencies method exists")
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
+        print("✅ CompanyShareRepository imported successfully")
         
-        assert hasattr(OptionsMapper, 'to_orm_with_dependencies'), "OptionsMapper missing to_orm_with_dependencies method"
-        print("✅ OptionsMapper.to_orm_with_dependencies method exists")
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.options_repository import OptionsRepository
+        print("✅ OptionsRepository imported successfully")
         
-        assert hasattr(CompanyShareMapper, 'to_orm_with_dependencies'), "CompanyShareMapper missing to_orm_with_dependencies method"
-        print("✅ CompanyShareMapper.to_orm_with_dependencies method exists")
+        # Test that get_or_create methods exist
+        assert hasattr(CurrencyRepository, 'get_or_create'), "CurrencyRepository missing get_or_create method"
+        print("✅ CurrencyRepository.get_or_create method exists")
+        
+        assert hasattr(CompanyRepository, 'get_or_create'), "CompanyRepository missing get_or_create method"
+        print("✅ CompanyRepository.get_or_create method exists")
+        
+        assert hasattr(ExchangeRepository, 'get_or_create'), "ExchangeRepository missing get_or_create method"
+        print("✅ ExchangeRepository.get_or_create method exists")
+        
+        assert hasattr(CompanyShareRepository, 'get_or_create'), "CompanyShareRepository missing get_or_create method"
+        print("✅ CompanyShareRepository.get_or_create method exists")
+        
+        assert hasattr(OptionsRepository, 'get_or_create'), "OptionsRepository missing get_or_create method"
+        print("✅ OptionsRepository.get_or_create method exists")
         
         return True
         
@@ -44,14 +56,22 @@ def test_imports():
         print(f"❌ Unexpected error: {e}")
         return False
 
-def test_currency_repository_enhancement():
-    """Test that currency repository has get_or_create functionality."""
+def test_mappers_no_longer_have_dependencies():
+    """Test that mappers no longer have to_orm_with_dependencies methods."""
     try:
-        from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+        from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
+        from src.infrastructure.repositories.mappers.finance.financial_assets.options_mapper import OptionsMapper
+        from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
         
-        # Test that new method exists
-        assert hasattr(CurrencyRepository, 'get_or_create_by_code'), "CurrencyRepository missing get_or_create_by_code method"
-        print("✅ CurrencyRepository.get_or_create_by_code method exists")
+        # Test that old methods are removed
+        assert not hasattr(CurrencyMapper, 'to_orm_with_dependencies'), "CurrencyMapper still has to_orm_with_dependencies method"
+        print("✅ CurrencyMapper.to_orm_with_dependencies method removed")
+        
+        assert not hasattr(OptionsMapper, 'to_orm_with_dependencies'), "OptionsMapper still has to_orm_with_dependencies method"
+        print("✅ OptionsMapper.to_orm_with_dependencies method removed")
+        
+        assert not hasattr(CompanyShareMapper, 'to_orm_with_dependencies'), "CompanyShareMapper still has to_orm_with_dependencies method"
+        print("✅ CompanyShareMapper.to_orm_with_dependencies method removed")
         
         return True
         
@@ -59,7 +79,7 @@ def test_currency_repository_enhancement():
         print(f"❌ Import error: {e}")
         return False
     except AssertionError as e:
-        print(f"❌ Method missing: {e}")
+        print(f"❌ Unexpected removal: {e}")
         return False
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
@@ -89,12 +109,12 @@ def test_documentation():
 
 def main():
     """Run all tests."""
-    print("🧪 Testing Mapper Enhancements")
+    print("🧪 Testing Repository Get-Or-Create Refactoring")
     print("=" * 50)
     
     tests = [
-        test_imports,
-        test_currency_repository_enhancement,
+        test_repository_imports,
+        test_mappers_no_longer_have_dependencies,
         test_documentation
     ]
     
@@ -118,7 +138,7 @@ def main():
     print(f"📊 Test Results: {passed} passed, {failed} failed")
     
     if failed == 0:
-        print("🎉 All tests passed! Mapper enhancements are working correctly.")
+        print("🎉 All tests passed! Repository get_or_create refactoring is working correctly.")
         return True
     else:
         print("⚠️  Some tests failed. Check the implementation.")
