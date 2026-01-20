@@ -23,16 +23,18 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: BondPort):
+    def __init__(self, ibkr_client, local_repo: BondPort, factory=None):
         """
         Initialize IBKR Bond Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing BondPort for persistence
+            factory: Repository factory for dependency injection (optional)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
+        self.factory = factory
 
     @property
     def entity_class(self):

@@ -32,6 +32,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         self, 
         ibkr_client, 
         local_repo: CompanySharePort,
+        factory=None,
         factor_repo: Optional['IBKRCompanyShareFactorRepository'] = None
     ):
         """
@@ -40,10 +41,12 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         Args:
             ibkr_client: Interactive Brokers API client
             local_repo: Local repository implementing CompanySharePort for persistence
+            factory: Repository factory for dependency injection (optional)
             factor_repo: IBKR factor repository for factor-related operations (optional)
         """
         super().__init__(ibkr_client)
         self.local_repo = local_repo
+        self.factory = factory
         self.factor_repo = factor_repo
 
     @property

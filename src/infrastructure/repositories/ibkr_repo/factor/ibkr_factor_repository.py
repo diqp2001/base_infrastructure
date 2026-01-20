@@ -20,15 +20,17 @@ class IBKRFactorRepository(BaseIBKRFactorRepository, FactorPort):
     Handles factor metadata acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: FactorPort):
+    def __init__(self, ibkr_client, local_repo: FactorPort, factory=None):
         """
         Initialize IBKR Factor Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client
-            local_factor_repo: Local repository implementing FactorPort for persistence
+            local_repo: Local repository implementing FactorPort for persistence
+            factory: Repository factory for dependency injection (optional)
         """
         super().__init__(ibkr_client, local_repo)
+        self.factory = factory
 
     # FactorPort interface implementation (delegate to local repository)
 
