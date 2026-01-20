@@ -26,10 +26,10 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
         Initialize IBKR Exchange Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing ExchangePort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
 
     @property

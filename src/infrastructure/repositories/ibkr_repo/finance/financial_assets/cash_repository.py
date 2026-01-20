@@ -28,14 +28,14 @@ class IBKRCashRepository(IBKRFinancialAssetRepository, CashPort):
         Initialize IBKR Cash Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CashPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Cash."""
         return Cash
 
     def get_or_create(self, currency_code: str) -> Optional[Cash]:

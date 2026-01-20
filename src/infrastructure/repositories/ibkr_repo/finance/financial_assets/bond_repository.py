@@ -28,15 +28,15 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
         Initialize IBKR Bond Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing BondPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
 
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Bond."""
         return Bond
 
     def get_or_create(self, symbol: str) -> Optional[Bond]:
@@ -61,12 +61,12 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -133,58 +133,57 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
             print(f"Error fetching IBKR bond contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch bond contract details from IBKR API.
+        Fetch bond contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Bond Market"
-            contract_details.minTick = 0.01  # Typical for bonds
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT"
-            contract_details.longName = "Government/Corporate Bond"
-            contract_details.maturity = "20261215"  # Example maturity
-            contract_details.coupon = 2.5  # Example coupon rate
-            contract_details.callable = False
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR bond contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Bond]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Bond]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             Bond domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             return Bond(
                 id=None,  # Let database generate
                 symbol=getattr(contract, 'symbol', '') or getattr(contract, 'secId', ''),
-                name=getattr(contract_details, 'longName', 'Unknown Bond'),
-                issuer=self._extract_issuer_from_name(contract_details.longName),
+                name=contract_details.get('long_name', 'Unknown Bond'),
+                issuer=self._extract_issuer_from_name(contract_details.get('long_name', '')),
                 face_value=Decimal('1000.00'),  # Typical bond face value
-                coupon_rate=Decimal(str(getattr(contract_details, 'coupon', 0))),
-                maturity_date=self._parse_maturity_date(getattr(contract_details, 'maturity', None)),
+                coupon_rate=Decimal(str(contract_details.get('coupon', 0))),
+                maturity_date=self._parse_maturity_date(contract_details.get('maturity', None)),
                 currency=contract.currency,
                 rating=None,  # Would need separate data source
                 bond_type=self._determine_bond_type(contract_details),
-                callable=getattr(contract_details, 'callable', False),
+                callable=contract_details.get('callable', False),
                 # IBKR-specific fields
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_cusip=getattr(contract, 'secId', '') if getattr(contract, 'secIdType', '') == 'CUSIP' else None,
@@ -201,9 +200,9 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
         # Simple extraction - in real implementation, use more sophisticated parsing
         return long_name.split()[0] if long_name else "Unknown Issuer"
 
-    def _determine_bond_type(self, contract_details: ContractDetails) -> str:
+    def _determine_bond_type(self, contract_details: dict) -> str:
         """Determine bond type from contract details."""
-        long_name = getattr(contract_details, 'longName', '').upper()
+        long_name = contract_details.get('long_name', '').upper()
         
         if 'TREASURY' in long_name or 'T-BILL' in long_name:
             return 'GOVERNMENT'

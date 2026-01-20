@@ -29,14 +29,14 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         Initialize IBKR Index Future Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing IndexFuturePort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        """Return the SQLAlchemy model class for FactorValue."""
+        """Return the domain entity class for IndexFuture."""
         return IndexFuture
     def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
         """
@@ -60,12 +60,12 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -126,50 +126,49 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             print(f"Error fetching IBKR contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch contract details from IBKR API.
+        Fetch contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # This would involve an actual IBKR API call
-            # For now, return a mock object to demonstrate the pattern
-            # In real implementation, use self.ibkr.reqContractDetails()
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            # Set additional details that come from IBKR
-            contract_details.marketName = "Index Futures"
-            contract_details.minTick = 0.25  # Example for ES
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT,STP"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[IndexFuture]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[IndexFuture]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             IndexFuture domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             # Apply IBKR-specific business rules and create domain entity
             underlying_index = self._resolve_underlying_index(contract.symbol)
             contract_size = self._resolve_contract_size(contract.symbol)
-            tick_size = contract_details.minTick if contract_details.minTick else 0.25
+            tick_size = contract_details.get('min_tick', 0.25)
             
             return IndexFuture(
                 symbol=self._normalize_symbol(contract),

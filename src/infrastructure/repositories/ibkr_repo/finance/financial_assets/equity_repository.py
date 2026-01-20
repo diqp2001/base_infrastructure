@@ -28,14 +28,14 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
         Initialize IBKR Equity Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing EquityPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Equity."""
         return Equity
     def get_or_create(self, symbol: str) -> Optional[Equity]:
         """
@@ -59,12 +59,12 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -124,60 +124,57 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
             print(f"Error fetching IBKR equity contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch equity contract details from IBKR API.
+        Fetch equity contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Stock Market"
-            contract_details.minTick = 0.01
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT,STP,TRAIL"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            # Get equity-specific info
-            equity_info = self._get_equity_info(contract.symbol)
-            contract_details.longName = equity_info['company_name']
-            contract_details.industry = equity_info['industry']
-            contract_details.category = equity_info['category']
-            
-            # Equity-specific details
-            contract_details.underlyingConId = None
-            contract_details.multiplier = "1"
-            contract_details.callable = False
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR equity contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Equity]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Equity]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             Equity domain entity or None if conversion failed
         """
         try:
-            equity_info = self._get_equity_info(contract.symbol)
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
+            # Extract data from IBKR API response
+            symbol = contract.symbol
+            company_name = contract_details.get('long_name', f"{symbol} Inc.")
+            
+            # Get additional equity info
+            equity_info = self._get_equity_info(symbol)
             
             return Equity(
                 id=None,  # Let database generate
-                symbol=contract.symbol,
-                name=equity_info['company_name'],
-                company_id=self._resolve_company_id(contract.symbol, contract_details),
+                symbol=symbol,
+                name=company_name,
+                company_id=self._resolve_company_id(symbol, contract_details),
                 exchange_id=self._resolve_exchange_id(contract.exchange),
                 share_class=equity_info.get('share_class', 'Common'),
                 shares_outstanding=equity_info.get('shares_outstanding'),
@@ -187,13 +184,13 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
                 dividend_yield=equity_info.get('dividend_yield'),
                 pe_ratio=equity_info.get('pe_ratio'),
                 # IBKR-specific fields
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                ibkr_trading_class=getattr(contract, 'tradingClass', ''),
-                ibkr_primary_exchange=getattr(contract, 'primaryExchange', ''),
-                ibkr_industry=getattr(contract_details, 'industry', ''),
-                ibkr_category=getattr(contract_details, 'category', ''),
-                ibkr_callable=getattr(contract_details, 'callable', False)
+                ibkr_contract_id=contract_details.get('contract_id'),
+                ibkr_local_symbol=contract_details.get('local_symbol', ''),
+                ibkr_trading_class=contract_details.get('trading_class', ''),
+                ibkr_primary_exchange=contract_details.get('primary_exchange', ''),
+                ibkr_industry=contract_details.get('industry', ''),
+                ibkr_category=contract_details.get('category', ''),
+                ibkr_callable=contract_details.get('callable', False)
             )
         except Exception as e:
             print(f"Error converting IBKR equity contract to domain entity: {e}")
@@ -246,7 +243,7 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
         }
         return exchange_map.get(ibkr_exchange, 1)
 
-    def _resolve_company_id(self, symbol: str, contract_details: ContractDetails) -> int:
+    def _resolve_company_id(self, symbol: str, contract_details: dict) -> int:
         """Resolve company ID from equity data."""
         # This would typically involve looking up or creating company entities
         # For now, return a default mapping

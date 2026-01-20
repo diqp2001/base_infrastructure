@@ -28,14 +28,14 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
         Initialize IBKR ETF Share Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing EtfSharePort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for ETFShare."""
         return ETFShare
     def get_or_create(self, symbol: str) -> Optional[ETFShare]:
         """
@@ -59,12 +59,12 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -128,49 +128,45 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
             print(f"Error fetching IBKR ETF contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch ETF contract details from IBKR API.
+        Fetch ETF contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "ETF Market"
-            contract_details.minTick = 0.01
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT,STP,TRAIL"
-            contract_details.longName = f"{contract.symbol} ETF"
-            contract_details.industry = "Exchange Traded Funds"
-            contract_details.category = "ETF"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            # ETF-specific details
-            contract_details.underlyingConId = None  # Would contain underlying index contract ID
-            contract_details.multiplier = "1"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR ETF contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[ETFShare]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[ETFShare]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             EtfShare domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             return ETFShare(
                 id=None,  # Let database generate
                 ticker=contract.symbol,
@@ -179,7 +175,7 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
                 start_date=None,
                 end_date=None,
                 # ETF-specific fields
-                fund_name=getattr(contract_details, 'longName', f"{contract.symbol} ETF"),
+                fund_name=contract_details.get('long_name', f"{contract.symbol} ETF"),
                 expense_ratio=self._estimate_expense_ratio(contract.symbol),
                 aum=None,  # Assets Under Management - would need separate data source
                 inception_date=None,  # Would need separate data source
@@ -188,7 +184,7 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
                 ibkr_trading_class=getattr(contract, 'tradingClass', ''),
-                ibkr_underlying_con_id=getattr(contract_details, 'underlyingConId', None)
+                ibkr_underlying_con_id=contract_details.get('underlying_con_id', None)
             )
         except Exception as e:
             print(f"Error converting IBKR ETF contract to domain entity: {e}")
