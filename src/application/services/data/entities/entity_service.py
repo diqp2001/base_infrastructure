@@ -41,6 +41,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivati
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
+from src.infrastructure.repositories.repository_factory import RepositoryFactory
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
@@ -61,13 +62,14 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.share_r
 class EntityService:
     """Service for creating and managing financial asset domain entities."""
 
-    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite'):
+    def __init__(self, database_service: Optional[DatabaseService] = None, db_type: str = 'sqlite', ibkr_client=None):
         """
         Initialize the service with a database service or create one if not provided.
 
         Args:
             database_service: Optional existing DatabaseService instance
             db_type: Database type to use when creating new DatabaseService (ignored if database_service provided)
+            ibkr_client: Optional IBKR client for creating IBKR repositories
         """
         if database_service is not None:
             self.database_service = database_service
@@ -75,131 +77,44 @@ class EntityService:
             self.database_service = DatabaseService(db_type)
 
         self.session = self.database_service.session
-        self.create_local_repositories()
+        
+        # Create factory with optional IBKR client
+        self.repository_factory = RepositoryFactory(self.session, ibkr_client)
+        
+        # Create repositories using factory
+        self.local_repositories = self.repository_factory.create_local_repositories()
+        self.ibkr_repositories = self.repository_factory.create_ibkr_repositories()
         
 
     
     def create_local_repositories(self) -> dict:
         """
-        Create local-only repository configuration.
-
-        Args:
-            session: SQLAlchemy session for database operations
+        Legacy method for backward compatibility.
+        Now delegates to repository factory.
 
         Returns:
-            Dictionary with repository implementations
+            Dictionary with local repository implementations
         """
-        self.local_repositories = {
-
-            'factor_value': FactorValueRepository(self.session),
-            'factor': FactorRepository(self.session),
-            'base_factor': BaseFactorRepository(self.session),
-            'share_factor': ShareFactorRepository(self.session),
-            'index_future': IndexFutureRepository(self.session),
-            'company_share': CompanyShareRepository(self.session),
-            'currency': CurrencyRepository(self.session),
-            'bond': BondRepository(self.session),
-            'index': IndexRepository(self.session),
-            'crypto': CryptoRepository(self.session),
-            'commodity': CommodityRepository(self.session),  
-            'cash': CashRepository(self.session),
-            'equity': EquityRepository(self.session),
-            'etf_share': ETFShareRepository(self.session),  
-            'share': ShareRepository(self.session),
-            'security': SecurityRepository(self.session)  
-        }
-        return self.local_repositories
+        return self.repository_factory.create_local_repositories()
     def create_ibkr_client(self):
-        from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
-        self.ib_config = {
-            'host': "127.0.0.1",
-            'port': 7497,
-            'client_id': 1,
-            'timeout': 60,
-            'account_id': 'DEFAULT',
-            'enable_logging': True
-        }
-        self.ib_broker = create_interactive_brokers_broker(**self.ib_config)
-        self.ib_broker.connect()
-
-    def create_ibkr_repositories(self,
-
-        ibkr_client=None
-    ) -> dict:
         """
-        Create IBKR-backed repository configuration.
+        Legacy method for backward compatibility.
+        Now delegates to repository factory.
+        """
+        return self.repository_factory.create_ibkr_client()
+
+    def create_ibkr_repositories(self, ibkr_client=None) -> Optional[dict]:
+        """
+        Legacy method for backward compatibility.
+        Now delegates to repository factory.
 
         Args:
-            session: SQLAlchemy session for local persistence
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Optional Interactive Brokers API client
 
         Returns:
-            Dictionary with repository implementations
+            Dictionary with IBKR repository implementations or None if no client
         """
-        # Create local repositories first
-        self.create_ibkr_client()
-
-        # Wrap local repositories with IBKR implementations
-        self.ibkr_repositories = {
-            'factor': IBKRFactorRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['factor']
-            ),
-            'factor_value': IBKRFactorValueRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['factor_value']
-            ),
-            'index_future': IBKRIndexFutureRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['index_future']
-            ),
-            'company_share': IBKRCompanyShareRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['company_share'],
-
-            ),
-            'currency': IBKRCurrencyRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['currency']
-            ),
-            'bond': IBKRBondRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['bond']
-            ),
-            'index': IBKRIndexRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['index']
-            ),
-            'crypto': IBKRCryptoRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['crypto']
-            ),
-            'commodity': IBKRCommodityRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['commodity']
-            ),
-            'cash': IBKRCashRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['cash']
-            ),
-            'equity': IBKREquityRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['equity']
-            ),
-            'etf_share': IBKRETFShareRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['etf_share']
-            ),
-            'share': IBKRShareRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['share']
-            ),
-            'security': IBKRSecurityRepository(
-                ibkr_client=self.ib_broker,
-                local_repo=self.local_repositories['security']
-            )
-        }
-        return self.ibkr_repositories
+        return self.repository_factory.create_ibkr_repositories(ibkr_client)
 
     # def get_local_repository(self, entity_type):
     #     """
@@ -213,6 +128,7 @@ class EntityService:
     def get_local_repository(self, entity_class: type):
         """
         Return the repository associated with a given domain entity class.
+        Now delegates to repository factory.
 
         Args:
             entity_class: Domain entity class (e.g. FactorValue)
@@ -220,13 +136,12 @@ class EntityService:
         Returns:
             Repository instance managing that entity
         """
-        for repo in self.local_repositories.values():
-            if repo.entity_class is entity_class:
-                return repo
-
-        raise ValueError(
-            f"No repository registered for entity class: {entity_class.__name__}"
-        )
+        repo = self.repository_factory.get_local_repository(entity_class)
+        if not repo:
+            raise ValueError(
+                f"No repository registered for entity class: {entity_class.__name__}"
+            )
+        return repo
 
 
     
@@ -234,16 +149,15 @@ class EntityService:
     def get_ibkr_repository(self, entity_class: type):
         """
         Return the repository associated with a given domain entity class.
+        Now delegates to repository factory.
 
         Args:
             entity_class: Domain entity class (e.g. FactorValue)
 
         Returns:
-            Repository instance managing that entity
+            Repository instance managing that entity or None if no IBKR client
         """
-        for repo in self.ibkr_repositories.values():
-            if repo.entity_class is entity_class:
-                return repo
+        return self.repository_factory.get_ibkr_repository(entity_class)
     def persist_entity(self, entity) :
         """
         Persist a bond entity to the database.
@@ -330,26 +244,27 @@ class EntityService:
         Follows the same pattern as CompanyShareRepository._create_or_get_company_share().
 
         Args:
-            symbol: Index symbol (unique identifier)
-            exchange: Exchange where index is listed
-            currency: Index currency
-            name: Index name for entity setup
-            **kwargs: Additional index parameters
+            entity_cls: Entity class to create/get
+            entity_symbol: Symbol (unique identifier)
+            entity_id: Optional entity ID
+            **kwargs: Additional parameters
 
         Returns:
-            Index entity: Created or existing entity
+            Entity: Created or existing entity or None if no IBKR client
         """
         try:
-            
             # Check if entity already exists by symbol
             ibkr_repository = self.get_ibkr_repository(entity_cls)
+            
+            if not ibkr_repository:
+                print(f"No IBKR repository available for {entity_cls.__name__}")
+                return None
 
-
-            # Get index information from MarketData if available
+            # Get entity information from IBKR API
             entity = ibkr_repository.get_or_create(entity_symbol)
 
             return entity
 
         except Exception as e:
-            print(f"Error creating/getting index for {entity_cls.symbol}: {str(e)}")
+            print(f"Error creating/getting {entity_cls.__name__} for symbol {entity_symbol}: {str(e)}")
             return None
