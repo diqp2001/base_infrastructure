@@ -24,16 +24,18 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: IndexPort):
+    def __init__(self, ibkr_client, local_repo: IndexPort, currency_repo=None):
         """
         Initialize IBKR Index Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing IndexPort for persistence
+            currency_repo: Currency repository for get-or-create currency functionality
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
+        self.currency_repo = currency_repo
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
@@ -166,12 +168,8 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             symbol = contract.symbol
             name = contract_details.get('long_name', f"{symbol} Index")
             
-            # Create USD currency for indices (most indices are USD-denominated)
-            usd_currency = Currency(
-                id=None,
-                name="US Dollar",
-                symbol="USD"
-            )
+            # Get or create USD currency for indices (most indices are USD-denominated)
+            usd_currency = self._get_or_create_currency("USD", "US Dollar")
             
             return Index(
                 id=None,  # Let database generate
@@ -182,6 +180,42 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
             return None
+
+    def _get_or_create_currency(self, iso_code: str, name: str) -> Currency:
+        """
+        Get or create a currency using the currency repository if available.
+        Falls back to direct currency creation if no currency repository is provided.
+        
+        Args:
+            iso_code: Currency ISO code (e.g., 'USD', 'EUR')
+            name: Currency name (e.g., 'US Dollar')
+            
+        Returns:
+            Currency domain entity
+        """
+        try:
+            # Use currency repository get_or_create if available
+            if self.currency_repo:
+                currency = self.currency_repo.get_or_create(iso_code, name)
+                if currency:
+                    return currency
+                    
+            # Fall back to direct currency creation if no repository or creation failed
+            print(f"Creating currency directly (currency_repo not available or failed): {iso_code}")
+            return Currency(
+                id=None,
+                name=name,
+                symbol=iso_code
+            )
+            
+        except Exception as e:
+            print(f"Error getting or creating currency {iso_code}: {e}")
+            # Final fallback - create currency directly
+            return Currency(
+                id=None,
+                name=name,
+                symbol=iso_code
+            )
 
     def _get_index_exchange(self, symbol: str) -> str:
         """Get appropriate exchange for index symbol."""
