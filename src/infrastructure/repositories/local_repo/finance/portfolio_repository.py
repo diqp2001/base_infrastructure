@@ -5,10 +5,13 @@ Follows the standardized repository pattern with _create_or_get_* methods
 consistent with other repositories in the codebase.
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.orm import Session
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel as PortfolioModel
 from src.domain.entities.finance.portfolio.portfolio import (
@@ -192,6 +195,24 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             print(f"Warning: Could not determine next available portfolio ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
+    def get_or_create(self, name: str, portfolio_type: str = "STANDARD",
+                     initial_cash: float = 100000.0, currency_code: str = "USD",
+                     owner_id: Optional[int] = None) -> Optional[PortfolioEntity]:
+        """
+        Get or create a portfolio with dependency resolution.
+        
+        Args:
+            name: Portfolio name (required)
+            portfolio_type: Type of portfolio (STANDARD, RETIREMENT, BACKTEST, etc.)
+            initial_cash: Initial cash amount (default: 100000.0)
+            currency_code: Currency ISO code (default: USD)
+            owner_id: Owner ID (optional)
+            
+        Returns:
+            Portfolio entity or None if creation failed
+        """
+        return self._create_or_get_portfolio(name, portfolio_type, initial_cash, currency_code, owner_id)
+
     def _create_or_get_portfolio(self, name: str, portfolio_type: str = "STANDARD",
                                 initial_cash: float = 100000.0, currency: str = "USD",
                                 owner_id: Optional[int] = None) -> PortfolioEntity:

@@ -84,8 +84,24 @@ class CountryRepository(GeographicRepository, CountryPort):
             print(f"Warning: Could not determine next available country ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
+    def get_or_create(self, name: str, iso_code: Optional[str] = None,
+                      continent_id: Optional[int] = None, currency: Optional[str] = None) -> Optional[Country]:
+        """
+        Get or create a country by name with dependency resolution.
+        
+        Args:
+            name: Country name (required)
+            iso_code: ISO country code (e.g., 'US', 'UK')
+            continent_id: ID of the continent (defaults to 1)
+            currency: Currency code (optional)
+            
+        Returns:
+            Country entity or None if creation failed
+        """
+        return self._create_or_get(name, iso_code, continent_id, currency)
+    
     def _create_or_get(self, name: str, iso_code: Optional[str] = None,
-                              continent: Optional[str] = None, currency: Optional[str] = None) -> Optional[Country]:
+                              continent_id: Optional[int] = None, currency: Optional[str] = None) -> Optional[Country]:
         """
         Create country entity if it doesn't exist, otherwise return existing.
         Follows the same pattern as BaseFactorRepository._create_or_get_factor().
@@ -93,7 +109,7 @@ class CountryRepository(GeographicRepository, CountryPort):
         Args:
             name: Country name (unique identifier)
             iso_code: ISO country code (e.g., 'US', 'UK')
-            continent: Continent name
+            continent_id: Continent ID (defaults to 1)
             currency: Currency code
             
         Returns:
@@ -118,7 +134,7 @@ class CountryRepository(GeographicRepository, CountryPort):
             new_country = Country(
                 id=next_id,
                 name=name,
-                continent_id=1  # Default continent ID
+                continent_id=continent_id or 1  # Use provided continent_id or default to 1
             )
             
             # Convert to ORM model and add to database
