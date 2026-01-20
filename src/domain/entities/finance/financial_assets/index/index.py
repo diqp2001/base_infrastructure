@@ -1,7 +1,6 @@
 from datetime import date
 from typing import Optional
 from decimal import Decimal
-from src.domain.entities.finance.financial_assets.currency import Currency
 from src.domain.entities.finance.financial_assets.security import Security
 
 
@@ -11,11 +10,11 @@ class Index(Security):
             id: Optional[int],
             name: Optional[str],
             symbol: Optional[str],
-            currency:Currency,
+            currency_id: Optional[int] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
         ):
 
         super().__init__(id, name, symbol, start_date, end_date)
-        self.currency =currency
+        self.currency_id = currency_id
             

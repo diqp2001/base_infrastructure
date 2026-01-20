@@ -1,12 +1,11 @@
 from datetime import date
 from typing import Optional
 from src.domain.entities.finance.financial_assets.derivatives.derivative import Derivative
-from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 class Forward(Derivative):
     """
-    Futures contract with exchange link.
+    Forward contract with currency and underlying asset references.
     """
 
     def __init__(
@@ -14,11 +13,13 @@ class Forward(Derivative):
             id: Optional[int],
             name: Optional[str],
             symbol: Optional[str],
-            underlying_asset: FinancialAsset,
+            currency_id: Optional[int] = None,
+            underlying_asset_id: Optional[int] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
             
         ):
 
-        super().__init__(id =id,underlying_asset = underlying_asset, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+        super().__init__(id=id, underlying_asset_id=underlying_asset_id, name=name, symbol=symbol, start_date=start_date, end_date=end_date)
+        self.currency_id = currency_id
     

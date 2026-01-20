@@ -25,13 +25,13 @@ class Derivative(FinancialAsset):
             id: Optional[int],
             name: Optional[str],
             symbol: Optional[str],
-            underlying_asset: FinancialAsset,
+            underlying_asset_id: Optional[int] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
         ):
 
         super().__init__(id, name, symbol, start_date, end_date)
     
-        self.underlying_asset = underlying_asset  # <— ANY child of FinancialAsset
+        self.underlying_asset_id = underlying_asset_id
 
     
