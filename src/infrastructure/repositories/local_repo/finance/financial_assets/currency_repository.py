@@ -289,3 +289,52 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
         except Exception as e:
             logger.error(f"Error counting currencies: {e}")
             raise
+    
+    def get_or_create_by_code(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
+        """
+        Get or create a currency by ISO code.
+        
+        Args:
+            iso_code: ISO 4217 code (e.g., 'USD', 'EUR')
+            name: Currency name (optional, will default if not provided)
+            country_id: Country ID (optional, will use default if not provided)
+            
+        Returns:
+            Domain currency entity or None if creation failed
+        """
+        try:
+            # First try to get existing currency
+            existing = self.get_by_iso_code(iso_code)
+            if existing:
+                logger.info(f"Found existing currency: {iso_code}")
+                return existing
+            
+            # Create new currency if it doesn't exist
+            logger.info(f"Creating new currency: {iso_code}")
+            
+            # Set default values
+            if not name:
+                name = f"Currency {iso_code.upper()}"
+            
+            if not country_id:
+                # Get or create a default country
+                from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+                country_repo = CountryRepository(self.session)
+                default_country = country_repo._create_or_get(name="Global", iso_code="GL")
+                country_id = default_country.id if default_country else 1
+            
+            new_currency = DomainCurrency(
+                name=name,
+                iso_code=iso_code.upper(),
+                country_id=country_id,
+                is_major_currency=iso_code.upper() in ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'],
+                decimal_places=2,
+                is_active=True,
+                is_tradeable=True
+            )
+            
+            return self.add(new_currency)
+            
+        except Exception as e:
+            logger.error(f"Error in get_or_create_by_code for {iso_code}: {e}")
+            return None
