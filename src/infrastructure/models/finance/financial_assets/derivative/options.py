@@ -7,13 +7,13 @@ from sqlalchemy import ForeignKey, Enum as SQLEnum
 from src.infrastructure.models import ModelBase as Base
 import enum
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
-
+from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
 class OptionType(enum.Enum):
     CALL = "call"
     PUT = "put"
 
 
-class OptionsModel(FinancialAssetModel):
+class OptionsModel(DerivativeModel):
     """
     SQLAlchemy ORM model for Options.
     Completely separate from src.domain entity to avoid metaclass conflicts.
