@@ -26,10 +26,10 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
         Initialize IBKR Company Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CompanyPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
 
     @property
@@ -59,12 +59,12 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_company_domain(contract, contract_details)
+            entity = self._contract_to_company_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -99,12 +99,12 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_company_domain(contract, contract_details)
+            entity = self._contract_to_company_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -173,48 +173,46 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             print(f"Error fetching IBKR stock contract for {symbol_or_name}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch contract details from IBKR API.
+        Fetch contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Stock Market"
-            contract_details.longName = f"{contract.symbol} Inc."
-            contract_details.industry = self._get_mock_industry(contract.symbol)
-            contract_details.category = "Common Stock"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            # Company-specific details that IBKR might provide
-            contract_details.timeZoneId = "EST"
-            contract_details.tradingHours = "20091201:0930-1600;20091202:0930-1600"
-            contract_details.liquidHours = "20091201:0930-1600;20091202:0930-1600"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR contract details: {e}")
             return None
 
-    def _contract_to_company_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Company]:
+    def _contract_to_company_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Company]:
         """
-        Convert IBKR contract and details directly to Company domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             Company domain entity or None if conversion failed
         """
         try:
-            company_name = getattr(contract_details, 'longName', f"{contract.symbol} Inc.")
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
+            company_name = contract_details.get('long_name', f"{contract.symbol} Inc.")
             industry_info = self._resolve_industry_info(contract_details)
             
             return Company(
@@ -232,11 +230,11 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
                 # IBKR-specific fields
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_primary_exchange=getattr(contract, 'primaryExchange', ''),
-                ibkr_industry=getattr(contract_details, 'industry', ''),
-                ibkr_category=getattr(contract_details, 'category', ''),
-                ibkr_time_zone=getattr(contract_details, 'timeZoneId', ''),
-                ibkr_trading_hours=getattr(contract_details, 'tradingHours', ''),
-                ibkr_liquid_hours=getattr(contract_details, 'liquidHours', '')
+                ibkr_industry=contract_details.get('industry', ''),
+                ibkr_category=contract_details.get('category', ''),
+                ibkr_time_zone=contract_details.get('time_zone_id', ''),
+                ibkr_trading_hours=contract_details.get('trading_hours', ''),
+                ibkr_liquid_hours=contract_details.get('liquid_hours', '')
             )
         except Exception as e:
             print(f"Error converting IBKR contract to company domain entity: {e}")
@@ -258,9 +256,9 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
         }
         return industry_map.get(symbol, 'Technology')
 
-    def _resolve_industry_info(self, contract_details: ContractDetails) -> dict:
+    def _resolve_industry_info(self, contract_details: dict) -> dict:
         """Resolve industry and sector IDs from IBKR data."""
-        industry = getattr(contract_details, 'industry', 'Technology')
+        industry = contract_details.get('industry', 'Technology')
         
         # Map IBKR industry to our internal IDs (simplified)
         industry_mapping = {

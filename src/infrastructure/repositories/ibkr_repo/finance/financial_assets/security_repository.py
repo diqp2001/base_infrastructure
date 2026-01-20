@@ -27,14 +27,14 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
         Initialize IBKR Security Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing SecurityPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Security."""
         return Security
     def get_or_create(self, symbol: str) -> Optional[Security]:
         """
@@ -58,12 +58,12 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -119,30 +119,47 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
             print(f"Error fetching IBKR security contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
-        """Fetch security contract details from IBKR API."""
-        try:
-            # Mock implementation
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Generic Security Market"
-            contract_details.longName = f"{contract.symbol} Security"
-            contract_details.minTick = 0.01
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT"
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
+        """Fetch security contract details from IBKR API using broker method.
+        
+        Args:
+            contract: IBKR Contract object
             
-            return contract_details
+        Returns:
+            List of contract details dictionaries or None if not found
+        """
+        try:
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
+            
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR security contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Security]:
-        """Convert IBKR contract to Security domain entity."""
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Security]:
+        """Convert IBKR contract and details to domain entity using real API data.
+        
+        Args:
+            contract: IBKR Contract object
+            contract_details_list: List of contract details dictionaries from IBKR API
+            
+        Returns:
+            Security domain entity or None if conversion failed
+        """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             return Security(
                 id=None,
                 symbol=contract.symbol,
-                name=contract_details.longName,
+                name=contract_details.get('long_name', f"{contract.symbol} Security"),
                 security_type=contract.secType,
                 exchange=contract.exchange,
                 currency=contract.currency,

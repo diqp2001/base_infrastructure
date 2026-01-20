@@ -28,15 +28,15 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
         Initialize IBKR Commodity Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CommodityPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
 
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Commodity."""
         return Commodity
 
     def get_or_create(self, symbol: str) -> Optional[Commodity]:
@@ -61,12 +61,12 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -133,45 +133,45 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
             print(f"Error fetching IBKR commodity contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch commodity contract details from IBKR API.
+        Fetch commodity contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Commodity Market"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            commodity_info = self._get_commodity_info(contract.symbol)
-            contract_details.longName = commodity_info['name']
-            contract_details.minTick = commodity_info['min_tick']
-            contract_details.priceMagnifier = commodity_info['multiplier']
-            contract_details.orderTypes = "LMT,MKT,STP"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR commodity contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[Commodity]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Commodity]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             
         Returns:
             Commodity domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             commodity_info = self._get_commodity_info(contract.symbol)
             
             return Commodity(
@@ -183,12 +183,12 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
                 exchange=contract.exchange,
                 currency=contract.currency,
                 contract_size=commodity_info['contract_size'],
-                tick_size=Decimal(str(contract_details.minTick)),
+                tick_size=Decimal(str(contract_details.get('min_tick', commodity_info['min_tick']))),
                 # IBKR-specific fields
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
                 ibkr_trading_class=getattr(contract, 'tradingClass', ''),
-                ibkr_multiplier=contract_details.priceMagnifier,
+                ibkr_multiplier=contract_details.get('price_magnifier', commodity_info['multiplier']),
                 ibkr_expiry_date=getattr(contract, 'lastTradeDateOrContractMonth', None)
             )
         except Exception as e:

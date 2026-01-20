@@ -28,14 +28,14 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         Initialize IBKR Currency Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CurrencyPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Currency."""
         return Currency
     def get_or_create(self, pair_symbol: str) -> Optional[Currency]:
         """
@@ -59,12 +59,12 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details, pair_symbol)
+            entity = self._contract_to_domain(contract, contract_details_list, pair_symbol)
             if not entity:
                 return None
                 
@@ -124,57 +124,63 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             print(f"Error fetching IBKR currency contract for {pair_symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch currency contract details from IBKR API.
+        Fetch currency contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Forex Market"
-            contract_details.minTick = 0.00001  # Typical forex pip
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT,STP,TRAIL"
-            contract_details.longName = f"{contract.symbol}/{contract.currency}"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR currency contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails, pair_symbol: str) -> Optional[Currency]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], pair_symbol: str) -> Optional[Currency]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             pair_symbol: Original pair symbol
             
         Returns:
             Currency domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             base_currency, quote_currency = self._parse_currency_pair(pair_symbol)
+            
+            # Extract data from IBKR API response
+            pip_size = contract_details.get('min_tick', 0.00001)
+            long_name = contract_details.get('long_name', f"{base_currency}/{quote_currency}")
             
             return Currency(
                 id=None,  # Let database generate
                 symbol=pair_symbol,
-                name=f"{base_currency}/{quote_currency}",
+                name=long_name,
                 base_currency=base_currency,
                 quote_currency=quote_currency,
-                pip_size=Decimal(str(contract_details.minTick)) if hasattr(contract_details, 'minTick') else Decimal('0.00001'),
-                # IBKR-specific fields
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                ibkr_trading_class=getattr(contract, 'tradingClass', ''),
+                pip_size=Decimal(str(pip_size)),
+                # IBKR-specific fields  
+                ibkr_contract_id=contract_details.get('contract_id'),
+                ibkr_local_symbol=contract_details.get('local_symbol', ''),
+                ibkr_trading_class=contract_details.get('trading_class', ''),
                 ibkr_exchange=contract.exchange
             )
         except Exception as e:

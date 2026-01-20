@@ -28,14 +28,14 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
         Initialize IBKR Crypto Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CryptoPort for persistence
         """
-        self.ibkr = ibkr_client
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
     @property
     def entity_class(self):
-        
+        """Return the domain entity class for Crypto."""
         return Crypto
     def get_or_create(self, symbol: str) -> Optional[Crypto]:
         """
@@ -59,12 +59,12 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
                 return None
                 
             # 3. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
+            contract_details_list = self._fetch_contract_details(contract)
+            if not contract_details_list:
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details, symbol)
+            entity = self._contract_to_domain(contract, contract_details_list, symbol)
             if not entity:
                 return None
                 
@@ -127,50 +127,46 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
             print(f"Error fetching IBKR crypto contract for {symbol}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch crypto contract details from IBKR API.
+        Fetch crypto contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Mock implementation - in real code use self.ibkr.reqContractDetails()
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Cryptocurrency Market"
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            crypto_info = self._get_crypto_info(contract.symbol)
-            contract_details.longName = crypto_info['name']
-            contract_details.minTick = crypto_info['min_tick']
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT"
-            
-            # Crypto-specific details
-            contract_details.underlyingSymbol = contract.symbol
-            contract_details.multiplier = "1"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
             print(f"Error fetching IBKR crypto contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails, original_symbol: str) -> Optional[Crypto]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], original_symbol: str) -> Optional[Crypto]:
         """
-        Convert IBKR contract and details directly to domain entity.
+        Convert IBKR contract and details to domain entity using real API data.
         
         Args:
             contract: IBKR Contract object
-            contract_details: IBKR ContractDetails object
+            contract_details_list: List of contract details dictionaries from IBKR API
             original_symbol: Original symbol provided
             
         Returns:
             Crypto domain entity or None if conversion failed
         """
         try:
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
             crypto_info = self._get_crypto_info(contract.symbol)
             
             return Crypto(
@@ -187,8 +183,8 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
                 ibkr_contract_id=getattr(contract, 'conId', None),
                 ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
                 ibkr_exchange=contract.exchange,
-                ibkr_min_tick=Decimal(str(contract_details.minTick)),
-                ibkr_underlying_symbol=getattr(contract_details, 'underlyingSymbol', '')
+                ibkr_min_tick=Decimal(str(contract_details.get('min_tick', 0.01))),
+                ibkr_underlying_symbol=contract_details.get('underlying_symbol', '')
             )
         except Exception as e:
             print(f"Error converting IBKR crypto contract to domain entity: {e}")
