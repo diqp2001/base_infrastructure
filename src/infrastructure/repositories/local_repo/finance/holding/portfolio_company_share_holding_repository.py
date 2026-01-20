@@ -36,3 +36,52 @@ class PortfolioCompanyShareHoldingRepository(BaseLocalRepository, PortfolioCompa
         self.session.commit()
         self.session.refresh(model)
         return self.mapper.to_entity(model)
+
+    def get_or_create(self, primary_key: str, **kwargs) -> Optional[PortfolioCompanyShareHolding]:
+        """
+        Get or create a portfolio company share holding with dependency resolution.
+        
+        Args:
+            primary_key: Combination of portfolio_company_share_id and holding_date
+            **kwargs: Additional parameters for entity creation
+            
+        Returns:
+            PortfolioCompanyShareHolding entity or None if creation failed
+        """
+        try:
+            # Parse primary key - expecting format "portfolio_id_date"
+            parts = primary_key.split('_', 1)
+            if len(parts) != 2:
+                print(f"Invalid primary key format: {primary_key}. Expected format: 'portfolio_id_date'")
+                return None
+                
+            portfolio_company_share_id = int(parts[0])
+            holding_date_str = parts[1]
+            
+            # Check if holding already exists
+            existing = self.session.query(PortfolioCompanyShareHoldingModel).filter_by(
+                portfolio_company_share_id=portfolio_company_share_id,
+                date=holding_date_str
+            ).first()
+            
+            if existing:
+                return self.mapper.to_entity(existing)
+            
+            # Create new portfolio company share holding with defaults
+            from datetime import datetime
+            holding_date = datetime.strptime(holding_date_str, '%Y-%m-%d').date()
+            
+            new_holding = PortfolioCompanyShareHolding(
+                portfolio_company_share_id=portfolio_company_share_id,
+                date=holding_date,
+                quantity=kwargs.get('quantity', 0),
+                average_price=kwargs.get('average_price', 0.0),
+                market_value=kwargs.get('market_value', 0.0),
+                unrealized_pnl=kwargs.get('unrealized_pnl', 0.0)
+            )
+            
+            return self.save(new_holding)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for portfolio company share holding {primary_key}: {e}")
+            return None

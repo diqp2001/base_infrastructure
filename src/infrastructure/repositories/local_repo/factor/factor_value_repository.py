@@ -187,3 +187,45 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         except Exception as e:
             print(f"Error creating factor value for factor {factor_id}, entity {entity_id}: {str(e)}")
             return None
+
+    def get_or_create(self, primary_key: str, **kwargs) -> Optional[FactorValue]:
+        """
+        Get or create a factor value with dependency resolution.
+        
+        Args:
+            primary_key: Composite key "factor_id_entity_id_date"
+            **kwargs: Additional parameters for factor value creation
+            
+        Returns:
+            FactorValue entity or None if creation failed
+        """
+        try:
+            # Parse composite primary key - expecting format "factor_id_entity_id_date"
+            parts = primary_key.split('_', 2)
+            if len(parts) != 3:
+                print(f"Invalid primary key format: {primary_key}. Expected format: 'factor_id_entity_id_date'")
+                return None
+                
+            factor_id = int(parts[0])
+            entity_id = int(parts[1])
+            date_str = parts[2]
+            
+            # Check existing by composite key
+            existing = self.get_by_factor_entity_date(factor_id, entity_id, date_str)
+            if existing:
+                return existing
+            
+            # Create new factor value using base _create_or_get method
+            from datetime import datetime
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            return self._create_or_get(
+                factor_id=factor_id,
+                entity_id=entity_id,
+                date=date_obj,
+                value=kwargs.get('value', '0.0')
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create for factor value {primary_key}: {e}")
+            return None

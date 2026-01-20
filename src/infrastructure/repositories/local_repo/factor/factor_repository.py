@@ -93,3 +93,31 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             FactorModel.subgroup == subgroup
         ).all()
         return [self._to_entity(m) for m in models]
+
+    def get_or_create(self, primary_key: str, **kwargs) -> Optional[Factor]:
+        """
+        Get or create a factor with dependency resolution.
+        
+        Args:
+            primary_key: Factor name identifier
+            **kwargs: Additional parameters for factor creation
+            
+        Returns:
+            Factor entity or None if creation failed
+        """
+        try:
+            # Check existing by primary identifier (factor name)
+            existing = self.get_by_name(primary_key)
+            if existing:
+                return existing
+            
+            # Create new factor using base _create_or_get method
+            return self._create_or_get(
+                name=primary_key,
+                group=kwargs.get('group', 'general'),
+                subgroup=kwargs.get('subgroup', 'default')
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create for factor {primary_key}: {e}")
+            return None

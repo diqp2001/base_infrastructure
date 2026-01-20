@@ -243,6 +243,44 @@ class MarketDataRepository(BaseLocalRepository):
             print(f"Error creating market data for {symbol_ticker}: {str(e)}")
             return None
     
+    def get_or_create(self, symbol_ticker: str, timestamp: Optional[datetime] = None, 
+                      price: Optional[float] = None, symbol_exchange: Optional[str] = None,
+                      security_type: Optional[str] = None, **kwargs) -> Optional[dict]:
+        """
+        Get or create market data with dependency resolution.
+        
+        Args:
+            symbol_ticker: Stock ticker symbol (primary identifier)
+            timestamp: Market data timestamp (optional, defaults to current datetime)
+            price: Current price (optional, defaults to 0)
+            symbol_exchange: Exchange name (optional, defaults to "USA")
+            security_type: Type of security (optional, defaults to "EQUITY")
+            **kwargs: Additional fields for market data (volume, bid, ask, etc.)
+            
+        Returns:
+            Domain market data entity (dict) or None if creation failed
+        """
+        try:
+            # Set defaults
+            timestamp = timestamp or datetime.now()
+            price = price or 0.0
+            symbol_exchange = symbol_exchange or "USA"
+            security_type = security_type or "EQUITY"
+            
+            # Use existing _create_or_get_market_data method
+            return self._create_or_get_market_data(
+                symbol_ticker=symbol_ticker,
+                timestamp=timestamp,
+                price=price,
+                symbol_exchange=symbol_exchange,
+                security_type=security_type,
+                **kwargs
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create for market data ({symbol_ticker}): {e}")
+            return None
+
     # Standard CRUD interface
     def create(self, entity_data: dict) -> dict:
         """Create new market data entity in database (standard CRUD interface)."""

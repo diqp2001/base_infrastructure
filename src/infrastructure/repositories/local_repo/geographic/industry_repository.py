@@ -125,3 +125,37 @@ class IndustryRepository(GeographicRepository, IndustryPort):
             self.session.rollback()
             print(f"Error creating industry {name}: {str(e)}")
             return None
+    
+    def get_or_create(self, name: str, sector_name: str = None, classification_system: str = None, 
+                      description: str = None, sector_id: int = None) -> Optional[Industry]:
+        """
+        Get or create an industry by name with dependency resolution.
+        
+        Args:
+            name: Industry name (required)
+            sector_name: Sector name this industry belongs to
+            classification_system: Classification system (e.g., 'GICS', 'ICB')
+            description: Industry description (optional)
+            sector_id: Sector ID (optional, will resolve dependencies if not provided)
+            
+        Returns:
+            Industry entity or None if creation failed
+        """
+        try:
+            # First try to get existing industry
+            existing = self.get_by_name(name)
+            if existing:
+                return existing
+            
+            # Resolve sector dependency if sector_name is provided but sector_id is not
+            if sector_name and not sector_id:
+                from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
+                sector_repo = SectorRepository(self.session)
+                sector = sector_repo.get_or_create(sector_name)
+                sector_id = sector.id if sector else 1
+            
+            return self._create_or_get(name, sector_name, classification_system, description)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for industry {name}: {e}")
+            return None

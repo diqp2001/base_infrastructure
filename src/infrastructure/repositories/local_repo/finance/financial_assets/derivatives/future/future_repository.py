@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from domain.ports.finance.financial_assets.derivatives.future.future_port import FuturePort
@@ -225,3 +225,37 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
                 'base_date': None,
                 'provider': exchange
             }
+    
+    def get_or_create(self, symbol: str, contract_name: str = None, future_type: str = 'INDEX',
+                      underlying_asset: str = None, exchange: str = 'CME', currency: str = 'USD', **kwargs) -> Optional[Future_Entity]:
+        """
+        Get or create a future by symbol with dependency resolution.
+        
+        Args:
+            symbol: Future symbol (e.g., 'ESZ5', 'CLZ5')
+            contract_name: Future contract name (optional, will default if not provided)
+            future_type: Type of future (INDEX, COMMODITY, BOND, CURRENCY)
+            underlying_asset: Underlying asset symbol (e.g., 'SPX' for ES futures)
+            exchange: Exchange name (defaults to 'CME')
+            currency: Contract currency (defaults to 'USD')
+            **kwargs: Additional future parameters
+            
+        Returns:
+            Future entity or None if creation failed
+        """
+        try:
+            # First try to get existing future
+            existing = self.get_by_symbol(symbol)
+            if existing:
+                return existing
+            
+            # Get or create currency dependency
+            from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+            currency_repo = CurrencyRepository(self.session)
+            currency_entity = currency_repo.get_or_create(iso_code=currency)
+            
+            return self._create_or_get(symbol, contract_name, future_type, underlying_asset, exchange, currency, **kwargs)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for future {symbol}: {e}")
+            return None

@@ -1,4 +1,5 @@
 
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from domain.ports.finance.financial_assets.share.share_port import SharePort
@@ -90,3 +91,75 @@ class ShareRepository(FinancialAssetRepository,SharePort):
                 enhanced_entities.append(share_entity)
         
         return enhanced_entities
+    
+    def get_by_ticker(self, ticker: str) -> Optional[ShareEntity]:
+        """Get share by ticker symbol."""
+        try:
+            model = self.session.query(self.model_class).filter(
+                self.model_class.ticker == ticker
+            ).first()
+            return self._to_entity(model) if model else None
+        except Exception as e:
+            print(f"Error retrieving share by ticker {ticker}: {e}")
+            return None
+    
+    def get_or_create(self, ticker: str, name: str = None, exchange_id: int = None, 
+                      company_id: int = None, **kwargs) -> Optional[ShareEntity]:
+        """
+        Get or create a share by ticker with dependency resolution.
+        
+        Args:
+            ticker: Share ticker symbol
+            name: Share name (optional, will default if not provided)
+            exchange_id: Exchange ID (optional, will use default if not provided)
+            company_id: Company ID (optional)
+            **kwargs: Additional fields for the share
+            
+        Returns:
+            Share entity or None if creation failed
+        """
+        try:
+            # First try to get existing share
+            existing = self.get_by_ticker(ticker)
+            if existing:
+                return existing
+            
+            # Create new share if it doesn't exist
+            print(f"Creating new share: {ticker}")
+            
+            # Set default values
+            if not name:
+                name = f"Share {ticker.upper()}"
+            
+            if not exchange_id:
+                # Get or create a default exchange
+                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                exchange_repo = ExchangeRepository(self.session)
+                default_exchange = exchange_repo.get_or_create("NASDAQ", name="NASDAQ")
+                exchange_id = default_exchange.id if default_exchange else 1
+            
+            new_share = ShareEntity(
+                id=None,
+                name=name,
+                symbol=ticker.upper(),
+                exchange_id=exchange_id
+            )
+            
+            return self.add(new_share)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for share {ticker}: {e}")
+            return None
+    
+    def add(self, share: ShareEntity) -> ShareEntity:
+        """Add a new share to the database."""
+        try:
+            model = self._to_model(share)
+            self.session.add(model)
+            self.session.commit()
+            self.session.refresh(model)
+            return self._to_entity(model)
+        except Exception as e:
+            self.session.rollback()
+            print(f"Error adding share: {e}")
+            return None

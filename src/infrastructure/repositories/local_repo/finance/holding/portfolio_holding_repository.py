@@ -68,3 +68,56 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
         self.session.commit()
         self.session.refresh(model)
         return self.mapper.to_entity(model)
+
+    def get_or_create(self, portfolio_id: int, cash_balance: Optional[float] = None, **kwargs) -> Optional[dict]:
+        """
+        Get or create a portfolio holding with dependency resolution.
+        
+        Args:
+            portfolio_id: Portfolio ID (primary identifier)
+            cash_balance: Cash balance (optional, defaults to 0)
+            **kwargs: Additional fields for the holding
+            
+        Returns:
+            Domain portfolio holding entity (dict) or None if creation failed
+        """
+        try:
+            # First try to get existing holding by portfolio
+            model = self.session.query(PortfolioHoldingsModel).filter(
+                PortfolioHoldingsModel.portfolio_id == portfolio_id
+            ).first()
+            if model:
+                return self._to_entity(model)
+            
+            # Get or create portfolio dependency
+            from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+            portfolio_repo = PortfolioRepository(self.session)
+            portfolio = portfolio_repo.get_by_id(portfolio_id)
+            if not portfolio:
+                portfolio = portfolio_repo.get_or_create("Default Portfolio")
+                portfolio_id = portfolio.id if portfolio else portfolio_id
+            
+            # Set defaults
+            cash_balance = cash_balance or 0
+            
+            # Create new portfolio holding entity
+            entity_data = {
+                'portfolio_id': portfolio_id,
+                'cash_balance': cash_balance,
+                'total_value': cash_balance,  # Initial total is just cash
+                'holdings_value': 0,
+                'holdings_data': {},
+                **kwargs
+            }
+            
+            # Save using model creation
+            model = self._to_model(entity_data)
+            self.session.add(model)
+            self.session.commit()
+            self.session.refresh(model)
+            
+            return self._to_entity(model)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for portfolio holding (portfolio_id: {portfolio_id}): {e}")
+            return None

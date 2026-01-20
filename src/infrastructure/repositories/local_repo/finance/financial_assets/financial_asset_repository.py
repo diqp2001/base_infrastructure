@@ -128,5 +128,71 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by date range: {e}")
             return []
+
+    def get_or_create(self, ticker: str, name: Optional[str] = None, exchange_id: Optional[int] = None, 
+                      currency_id: Optional[int] = None, **kwargs) -> Optional[EntityType]:
+        """
+        Get or create a financial asset with dependency resolution.
+        
+        Args:
+            ticker: Financial asset ticker symbol (primary identifier)
+            name: Financial asset name (optional, defaults to ticker if not provided)
+            exchange_id: Exchange ID (optional, will use default if not provided)
+            currency_id: Currency ID (optional, will use default USD if not provided)
+            **kwargs: Additional fields specific to the financial asset type
+            
+        Returns:
+            Domain financial asset entity or None if creation failed
+        """
+        try:
+            # First try to get existing asset by ticker
+            existing = self.get_by_ticker(ticker)
+            if existing:
+                return existing
+            
+            # Resolve dependencies
+            # Get or create exchange dependency if not provided
+            if not exchange_id:
+                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                exchange_repo = ExchangeRepository(self.session)
+                default_exchange = exchange_repo.get_or_create("NYSE", "New York Stock Exchange")
+                exchange_id = default_exchange.id if default_exchange else 1
+            
+            # Get or create currency dependency if not provided
+            if not currency_id:
+                from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+                currency_repo = CurrencyRepository(self.session)
+                default_currency = currency_repo.get_or_create("USD", "United States Dollar")
+                currency_id = default_currency.id if default_currency else 1
+            
+            # Set defaults
+            from datetime import datetime
+            
+            # Get next available ID
+            next_id = self._get_next_available_id()
+            
+            # Create entity data
+            entity_data = {
+                'id': next_id,
+                'ticker': ticker,
+                'name': name or ticker,
+                'exchange_id': exchange_id,
+                'currency_id': currency_id,
+                'start_date': datetime.now().date(),
+                'end_date': None
+            }
+            
+            # Add any additional kwargs
+            entity_data.update(kwargs)
+            
+            # Create new entity using the specific entity class
+            new_entity = self.entity_class(**entity_data)
+            
+            # Add to database
+            return self.add(new_entity)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for financial asset {ticker}: {e}")
+            return None
         
     

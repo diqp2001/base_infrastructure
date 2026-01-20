@@ -221,6 +221,41 @@ class CashRepository(FinancialAssetRepository, CashPort):
         
         return sum(Decimal(str(amount[0])) for amount in total if amount[0])
     
+    def get_or_create(self, name: str = None, currency: str = "USD", amount: float = 0.0, **kwargs) -> Optional[CashEntity]:
+        """
+        Get or create a cash asset by currency with dependency resolution.
+        
+        Args:
+            name: Cash asset name (optional, will default if not provided)
+            currency: Currency ISO code (e.g., 'USD', 'EUR')
+            amount: Initial cash amount (default: 0.0)
+            **kwargs: Additional fields for the cash
+            
+        Returns:
+            Cash entity or None if creation failed
+        """
+        try:
+            # First try to get existing cash by currency
+            existing_cash = self.get_by_currency(currency)
+            if existing_cash:
+                # Return the first one found or the one with the most amount
+                return max(existing_cash, key=lambda c: c.amount) if existing_cash else None
+            
+            # Create new cash if it doesn't exist
+            if not name:
+                name = f"Cash {currency.upper()}"
+            
+            # Get or create currency dependency
+            from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+            currency_repo = CurrencyRepository(self.session)
+            currency_entity = currency_repo.get_or_create(iso_code=currency)
+            
+            return self._create_or_get_cash(name, amount, currency, **kwargs)
+            
+        except Exception as e:
+            print(f"Error in get_or_create for cash {currency}: {e}")
+            return None
+    
     # Standard CRUD interface
     def create(self, entity: CashEntity) -> CashEntity:
         """Create new cash entity in database (standard CRUD interface)."""
