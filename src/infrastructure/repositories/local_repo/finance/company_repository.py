@@ -5,6 +5,7 @@ Follows the standardized repository pattern with _create_or_get_* methods
 consistent with other repositories in the codebase.
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.orm import Session
@@ -13,6 +14,8 @@ from src.infrastructure.models.finance.company import CompanyModel as CompanyMod
 from src.domain.entities.finance.company import Company as CompanyEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.company_port import CompanyPort
+
+logger = logging.getLogger(__name__)
 
 
 class CompanyRepository(BaseLocalRepository, CompanyPort):
@@ -127,6 +130,53 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
         self.session.commit()
         return True
     
+    def get_or_create(self, name: str, legal_name: Optional[str] = None, country_id: Optional[int] = None, 
+                      industry_id: Optional[int] = None) -> Optional[CompanyEntity]:
+        """
+        Get or create a company with dependency resolution.
+        Integrates the functionality from to_orm_with_dependencies.
+        
+        Args:
+            name: Company name
+            legal_name: Legal name (optional, will default to name if not provided)
+            country_id: Country ID (optional, will use default if not provided)
+            industry_id: Industry ID (optional)
+            
+        Returns:
+            Domain company entity or None if creation failed
+        """
+        try:
+            # First try to get existing company
+            existing = self.get_by_name(name)
+            if existing:
+                return existing[0]
+            
+            # Get or create country dependency if not provided
+            if not country_id:
+                from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+                country_repo = CountryRepository(self.session)
+                default_country = country_repo._create_or_get(name="Global", iso_code="GL")
+                country_id = default_country.id if default_country else 1
+            
+            # Set default legal name
+            if not legal_name:
+                legal_name = name
+            
+            # Create new company
+            new_company = CompanyEntity(
+                name=name,
+                legal_name=legal_name,
+                country_id=country_id,
+                industry_id=industry_id,
+                start_date=datetime.now().date()
+            )
+            
+            return self.add(new_company)
+            
+        except Exception as e:
+            logger.error(f"Error in get_or_create for company {name}: {e}")
+            return None
+
     def _get_next_available_company_id(self) -> int:
         """
         Get the next available ID for company creation.

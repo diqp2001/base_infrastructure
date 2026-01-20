@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import List, Optional
 
@@ -7,6 +8,8 @@ from src.infrastructure.models.finance.exchange import ExchangeModel as Exchange
 from src.domain.entities.finance.exchange import Exchange as ExchangeEntity
 from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.exchange_port import ExchangePort
+
+logger = logging.getLogger(__name__)
 
 
 class ExchangeRepository(BaseLocalRepository, ExchangePort):
@@ -132,6 +135,50 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
         self.session.delete(model)
         self.session.commit()
         return True
+
+    def get_or_create(self, name: str, legal_name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[ExchangeEntity]:
+        """
+        Get or create an exchange with dependency resolution.
+        Integrates the functionality from to_orm_with_dependencies.
+        
+        Args:
+            name: Exchange name
+            legal_name: Legal name (optional, will default to name if not provided)
+            country_id: Country ID (optional, will use default if not provided)
+            
+        Returns:
+            Domain exchange entity or None if creation failed
+        """
+        try:
+            # First try to get existing exchange
+            existing = self.get_by_name(name)
+            if existing:
+                return existing[0]
+            
+            # Get or create country dependency if not provided
+            if not country_id:
+                from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+                country_repo = CountryRepository(self.session)
+                default_country = country_repo._create_or_get(name="Global", iso_code="GL")
+                country_id = default_country.id if default_country else 1
+            
+            # Set default legal name
+            if not legal_name:
+                legal_name = name
+            
+            # Create new exchange
+            new_exchange = ExchangeEntity(
+                name=name,
+                legal_name=legal_name,
+                country_id=country_id,
+                start_date=date.today()
+            )
+            
+            return self.add(new_exchange)
+            
+        except Exception as e:
+            logger.error(f"Error in get_or_create for exchange {name}: {e}")
+            return None
 
     # ------------------------------------------------------------------
     # CREATE-OR-GET PATTERN (same as CompanyRepository)

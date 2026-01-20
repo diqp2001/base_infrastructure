@@ -1,10 +1,13 @@
 import requests
 import json
+import logging
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from sqlalchemy import MetaData
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+
+logger = logging.getLogger(__name__)
 
 from domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
@@ -560,6 +563,47 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             return 'NASDAQ'
         else:
             return 'NYSE'
+
+    def get_or_create(self, ticker: str, exchange_id: Optional[int] = None, company_id: Optional[int] = None) -> Optional[CompanyShareEntity]:
+        """
+        Get or create a company share with dependency resolution.
+        Integrates the functionality from to_orm_with_dependencies.
+        
+        Args:
+            ticker: Company share ticker symbol
+            exchange_id: Exchange ID (optional, will resolve if not provided)
+            company_id: Company ID (optional, will resolve if not provided)
+            
+        Returns:
+            Domain company share entity or None if creation failed
+        """
+        try:
+            # First try to get existing company share
+            existing = self.get_by_ticker(ticker)
+            if existing:
+                return existing
+            
+            # Get or create company dependency
+            if not company_id:
+                from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+                company_repo = CompanyRepository(self.session)
+                company = company_repo.get_or_create(name=f"Company for {ticker}")
+                company_id = company.id if company else 1
+            
+            # Get or create exchange dependency  
+            if not exchange_id:
+                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                exchange_repo = ExchangeRepository(self.session)
+                exchange_name = self._get_default_exchange_for_ticker(ticker)
+                exchange = exchange_repo.get_or_create(name=exchange_name)
+                exchange_id = exchange.id if exchange else 1
+            
+            # Use the existing _create_or_get method
+            return self._create_or_get(ticker=ticker, exchange_id=exchange_id, company_id=company_id)
+            
+        except Exception as e:
+            logger.error(f"Error in get_or_create for company share {ticker}: {e}")
+            return None
 
     # ----------------------------- Standard CRUD Interface -----------------------------
     def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:
