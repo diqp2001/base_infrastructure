@@ -1,9 +1,11 @@
-from typing import Any, Dict
-from sqlalchemy.orm import Session
+import logging
+from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
     FinancialAssetRepository
 )
+
+logger = logging.getLogger(__name__)
 
 from src.infrastructure.models.finance.financial_assets.index import IndexModel as Index_Model
 from src.domain.entities.finance.financial_assets.index.index import Index as Index_Entity
@@ -110,6 +112,26 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
         except Exception as e:
             print(f"Warning: Could not determine next available index ID: {str(e)}")
             return 1  # Default to 1 if query fails
+
+    def get_or_create(self, symbol: str, name: str = None, ticker: str = None,
+                      index_type: str = 'Stock', currency_code: str = 'USD',
+                      exchange: str = 'CBOE', **kwargs) -> Optional[Index_Entity]:
+        """
+        Get or create an index with dependency resolution.
+        
+        Args:
+            symbol: Index symbol (e.g., 'SPX', 'NDX')
+            name: Index name (defaults to '{symbol} Index')
+            ticker: Index ticker (optional)
+            index_type: Type of index (Stock, Bond, Commodity, etc.)
+            currency_code: Currency ISO code (default: USD)
+            exchange: Exchange name (defaults to 'CBOE')
+            **kwargs: Additional index parameters
+            
+        Returns:
+            Index entity or None if creation failed
+        """
+        return self._create_or_get(symbol, name, index_type, currency_code, exchange, **kwargs)
 
     def _create_or_get(self, symbol: str, name: str = None, 
                        index_type: str = 'Stock', currency: str = 'USD',

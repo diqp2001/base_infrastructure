@@ -35,7 +35,8 @@ class OptionsRepository(DerivativesRepository):
         return DomainOptions
 
     def get_or_create(self, ticker: str = None, name: str = None, symbol: str = None, 
-                      currency_code: str = "USD", option_type: str = None) -> Optional[DomainOptions]:
+                      currency_code: str = "USD", option_type: str = None, 
+                      underlying_asset_id: int = None) -> Optional[DomainOptions]:
         """
         Get or create an options with dependency resolution.
         Integrates the functionality from to_orm_with_dependencies.
@@ -46,6 +47,7 @@ class OptionsRepository(DerivativesRepository):
             symbol: Options symbol (optional) 
             currency_code: Currency ISO code (default: USD)
             option_type: Type of option (CALL/PUT)
+            underlying_asset_id: Required ID of the underlying asset
             
         Returns:
             Domain options entity or None if creation failed
@@ -60,6 +62,18 @@ class OptionsRepository(DerivativesRepository):
                 existing = self.get_by_symbol(symbol)
                 if existing:
                     return existing
+            
+            # Validate underlying asset exists if provided
+            if underlying_asset_id:
+                from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+                # Query to check if underlying asset exists
+                underlying_exists = self.session.query(FinancialAssetModel).filter(
+                    FinancialAssetModel.id == underlying_asset_id
+                ).first()
+                
+                if not underlying_exists:
+                    logger.error(f"Underlying asset with ID {underlying_asset_id} does not exist")
+                    return None
             
             # Get or create currency dependency
             from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
@@ -77,6 +91,10 @@ class OptionsRepository(DerivativesRepository):
             # Set currency_id if the model supports it
             if hasattr(new_option, 'currency_id') and currency:
                 new_option.currency_id = currency.asset_id
+            
+            # Set underlying_asset_id if provided
+            if hasattr(new_option, 'underlying_asset_id') and underlying_asset_id:
+                new_option.underlying_asset_id = underlying_asset_id
             
             return self.add(new_option)
             

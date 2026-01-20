@@ -1,10 +1,14 @@
 
+import logging
+from typing import Optional
 from src.domain.ports.finance.financial_assets.bond_port import BondPort
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.bond import BondModel as Bond_Model
 from src.domain.entities.finance.financial_assets.bond import Bond as Bond_Entity
 from src.infrastructure.repositories.mappers.finance.financial_assets.bond_mapper import BondMapper
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 class BondRepository(FinancialAssetRepository,BondPort):
     def __init__(self, session: Session):
@@ -62,6 +66,59 @@ class BondRepository(FinancialAssetRepository,BondPort):
             print(f"Error retrieving bond by CUSIP {cusip}: {e}")
             return None
     
+    def get_or_create(self, isin: str = None, cusip: str = None, ticker: str = None,
+                      name: str = None, currency_code: str = "USD") -> Optional[Bond_Entity]:
+        """
+        Get or create a bond with dependency resolution.
+        
+        Args:
+            isin: International Securities Identification Number
+            cusip: CUSIP identifier
+            ticker: Bond ticker symbol
+            name: Bond name
+            currency_code: Currency ISO code (default: USD)
+            
+        Returns:
+            Bond entity or None if creation failed
+        """
+        try:
+            # First try to get existing bond by ISIN, CUSIP, or ticker
+            if isin:
+                existing = self.get_by_isin(isin)
+                if existing:
+                    return existing
+            if cusip:
+                existing = self.get_by_cusip(cusip)
+                if existing:
+                    return existing
+            if ticker:
+                existing = self.get_by_ticker(ticker)
+                if existing:
+                    return existing
+            
+            # Get or create currency dependency
+            from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
+            currency_repo = CurrencyRepository(self.session)
+            currency = currency_repo.get_or_create(iso_code=currency_code)
+            
+            # Create new bond
+            new_bond = Bond_Entity(
+                isin=isin,
+                cusip=cusip,
+                ticker=ticker or isin or cusip,
+                name=name or f"Bond {ticker or isin or cusip}"
+            )
+            
+            # Set currency_id if the entity supports it
+            if hasattr(new_bond, 'currency_id') and currency:
+                new_bond.currency_id = currency.asset_id
+            
+            return self.add(new_bond)
+            
+        except Exception as e:
+            logger.error(f"Error in get_or_create for bond {isin or cusip or ticker}: {e}")
+            return None
+
     def add(self, domain_bond: Bond_Entity) -> Bond_Entity:
         """Add a new Bond record to the database."""
         try:
@@ -73,5 +130,5 @@ class BondRepository(FinancialAssetRepository,BondPort):
             return self._to_domain(new_bond)
         except Exception as e:
             self.session.rollback()
-            print(f"Error adding bond: {e}")
+            logger.error(f"Error adding bond: {e}")
             return None
