@@ -5,9 +5,9 @@ ORM model for Forward Contract - separate from src.domain entity to avoid metacl
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date, Text
 from sqlalchemy import ForeignKey
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
 
-
-class ForwardContractModel(FinancialAssetModel):
+class ForwardContractModel(DerivativeModel):
     """
     SQLAlchemy ORM model for Forward Contract.
     Completely separate from src.domain entity to avoid metaclass conflicts.
