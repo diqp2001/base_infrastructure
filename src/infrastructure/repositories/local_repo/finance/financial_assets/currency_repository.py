@@ -20,10 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory=None):
         """Initialize the repository with a database session."""
         super().__init__(session)
         self.mapper = CurrencyMapper()
+        self.factory = factory
     
     @property
     def model_class(self):

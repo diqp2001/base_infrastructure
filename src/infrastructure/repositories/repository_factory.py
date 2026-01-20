@@ -79,9 +79,9 @@ class RepositoryFactory:
                 'share_factor': ShareFactorRepository(self.session),
                 'index_future': IndexFutureRepository(self.session),
                 'company_share': CompanyShareRepository(self.session, factory=self),
-                'currency': CurrencyRepository(self.session),
+                'currency': CurrencyRepository(self.session, factory=self),
                 'bond': BondRepository(self.session),
-                'index': IndexRepository(self.session),
+                'index': IndexRepository(self.session, factory=self),
                 'crypto': CryptoRepository(self.session),
                 'commodity': CommodityRepository(self.session),  
                 'cash': CashRepository(self.session),
@@ -125,7 +125,8 @@ class RepositoryFactory:
                 ),
                 'index_future': IBKRIndexFutureRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['index_future']
+                    local_repo=local_repos['index_future'],
+                    factory=self
                 ),
                 'company_share': IBKRCompanyShareRepository(
                     ibkr_client=client,
@@ -149,7 +150,8 @@ class RepositoryFactory:
                 ),
                 'crypto': IBKRCryptoRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['crypto']
+                    local_repo=local_repos['crypto'],
+                    factory=self
                 ),
                 'commodity': IBKRCommodityRepository(
                     ibkr_client=client,

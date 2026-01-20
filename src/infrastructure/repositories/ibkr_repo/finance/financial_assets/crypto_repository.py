@@ -23,16 +23,18 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: CryptoPort):
+    def __init__(self, ibkr_client, local_repo: CryptoPort, factory=None):
         """
         Initialize IBKR Crypto Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             local_repo: Local repository implementing CryptoPort for persistence
+            factory: Repository factory for dependency injection (optional)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         self.local_repo = local_repo
+        self.factory = factory
     @property
     def entity_class(self):
         """Return the domain entity class for Crypto."""
