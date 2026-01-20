@@ -17,9 +17,10 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.company_sh
 
 
 class CompanyShareRepository(ShareRepository,CompanySharePort):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory=None):
         # Properly call parent constructor with session
         super().__init__(session)
+        self.factory = factory
     
     @property  
     def model_class(self):
@@ -514,9 +515,17 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
     def _resolve_exchange_dependency(self, ticker: str, exchange_name: Optional[str] = None) -> int:
         """Resolve exchange dependency for the company share."""
         try:
-            from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+            # Use factory if available, otherwise create repository directly
+            if self.factory:
+                local_repos = self.factory.create_local_repositories()
+                exchange_repo = local_repos.get('exchange')
+                if not exchange_repo:
+                    from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                    exchange_repo = ExchangeRepository(self.session)
+            else:
+                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                exchange_repo = ExchangeRepository(self.session)
             
-            exchange_repo = ExchangeRepository(self.session)
             exchange_name = exchange_name or self._get_default_exchange_for_ticker(ticker)
             
             exchange = exchange_repo._create_or_get(
@@ -536,9 +545,17 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                                   country_name: Optional[str] = None) -> int:
         """Resolve company dependency for the company share."""
         try:
-            from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+            # Use factory if available, otherwise create repository directly
+            if self.factory:
+                local_repos = self.factory.create_local_repositories()
+                company_repo = local_repos.get('company')
+                if not company_repo:
+                    from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+                    company_repo = CompanyRepository(self.session)
+            else:
+                from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+                company_repo = CompanyRepository(self.session)
             
-            company_repo = CompanyRepository(self.session)
             company_name = company_name or f"{ticker} Inc."
             
             company = company_repo._create_or_get(
@@ -585,15 +602,31 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             
             # Get or create company dependency
             if not company_id:
-                from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-                company_repo = CompanyRepository(self.session)
+                # Use factory if available
+                if self.factory:
+                    local_repos = self.factory.create_local_repositories()
+                    company_repo = local_repos.get('company')
+                    if not company_repo:
+                        from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+                        company_repo = CompanyRepository(self.session)
+                else:
+                    from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+                    company_repo = CompanyRepository(self.session)
                 company = company_repo.get_or_create(name=f"Company for {ticker}")
                 company_id = company.id if company else 1
             
             # Get or create exchange dependency  
             if not exchange_id:
-                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                exchange_repo = ExchangeRepository(self.session)
+                # Use factory if available
+                if self.factory:
+                    local_repos = self.factory.create_local_repositories()
+                    exchange_repo = local_repos.get('exchange')
+                    if not exchange_repo:
+                        from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                        exchange_repo = ExchangeRepository(self.session)
+                else:
+                    from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+                    exchange_repo = ExchangeRepository(self.session)
                 exchange_name = self._get_default_exchange_for_ticker(ticker)
                 exchange = exchange_repo.get_or_create(name=exchange_name)
                 exchange_id = exchange.id if exchange else 1
