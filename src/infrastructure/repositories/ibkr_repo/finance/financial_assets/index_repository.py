@@ -24,7 +24,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: IndexPort, factory=None, currency_repo=None):
+    def __init__(self, ibkr_client, factory):
         """
         Initialize IBKR Index Repository.
         
@@ -35,9 +35,9 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             currency_repo: Currency repository for get-or-create currency functionality (legacy)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
-        self.local_repo = local_repo
+        
         self.factory = factory
-        self.currency_repo = currency_repo
+        self.local_repo = self.factory.index_local_repo
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
@@ -197,35 +197,20 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         """
         try:
             # Try factory's currency repository first (preferred approach)
-            if self.factory and hasattr(self.factory, 'currency_repo'):
-                currency_repo = self.factory.currency_repo
+            if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
+                currency_repo = self.factory.currency_ibkr_repo
                 if currency_repo:
                     currency = currency_repo.get_or_create(iso_code, name)
                     if currency:
                         return currency
             
-            # Fall back to direct currency repository (legacy support)
-            if self.currency_repo:
-                currency = self.currency_repo.get_or_create(iso_code, name)
-                if currency:
-                    return currency
+            
                     
-            # Final fallback - create currency directly
-            print(f"Creating currency directly (no factory/currency_repo available): {iso_code}")
-            return Currency(
-                id=None,
-                name=name,
-                symbol=iso_code
-            )
+            
             
         except Exception as e:
             print(f"Error getting or creating currency {iso_code}: {e}")
-            # Ultimate fallback - create currency directly
-            return Currency(
-                id=None,
-                name=name,
-                symbol=iso_code
-            )
+            
 
     def _get_index_exchange(self, symbol: str) -> str:
         """Get appropriate exchange for index symbol."""

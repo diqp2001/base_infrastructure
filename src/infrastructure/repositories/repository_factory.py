@@ -63,6 +63,9 @@ class RepositoryFactory:
         self.ibkr_client = ibkr_client
         self._local_repositories = {}
         self._ibkr_repositories = {}
+        self.create_local_repositories()
+        if ibkr_client:
+            self.create_ibkr_repositories()
 
     def create_local_repositories(self) -> Dict[str, Any]:
         """
@@ -111,7 +114,7 @@ class RepositoryFactory:
 
         if not self._ibkr_repositories:
             # Ensure local repositories exist first
-            local_repos = self.create_local_repositories()
+            local_repos = self._local_repositories
             
             self._ibkr_repositories = {
                 'factor': IBKRFactorRepository(
@@ -218,12 +221,6 @@ class RepositoryFactory:
             print(f"Error creating IBKR client: {e}")
             return None
 
-    @property
-    def currency_repo(self):
-        """Get currency repository for dependency injection."""
-        local_repos = self.create_local_repositories()
-        return local_repos.get('currency')
-
     def get_local_repository(self, entity_class: type):
         """
         Get local repository for a given entity class.
@@ -262,3 +259,183 @@ class RepositoryFactory:
     def has_ibkr_client(self) -> bool:
         """Check if IBKR client is available."""
         return self.ibkr_client is not None
+    
+    
+    @property
+    def factor_value_local_repo(self):
+        """Get factor_value repository for dependency injection."""
+        return self._local_repositories.get('factor_value')
+
+
+    @property
+    def factor_local_repo(self):
+        """Get factor repository for dependency injection."""
+        return self._local_repositories.get('factor')
+
+
+    @property
+    def base_factor_local_repo(self):
+        """Get base_factor repository for dependency injection."""
+        return self._local_repositories.get('base_factor')
+
+
+    @property
+    def share_factor_local_repo(self):
+        """Get share_factor repository for dependency injection."""
+        return self._local_repositories.get('share_factor')
+
+
+    @property
+    def index_future_local_repo(self):
+        """Get index_future repository for dependency injection."""
+        return self._local_repositories.get('index_future')
+
+
+    @property
+    def company_share_local_repo(self):
+        """Get company_share repository for dependency injection."""
+        return self._local_repositories.get('company_share')
+
+
+    @property
+    def currency_local_repo(self):
+        """Get currency repository for dependency injection."""
+        return self._local_repositories.get('currency')
+
+
+    @property
+    def bond_local_repo(self):
+        """Get bond repository for dependency injection."""
+        return self._local_repositories.get('bond')
+
+
+    @property
+    def index_local_repo(self):
+        """Get index repository for dependency injection."""
+        return self._local_repositories.get('index')
+
+
+    @property
+    def crypto_local_repo(self):
+        """Get crypto repository for dependency injection."""
+        return self._local_repositories.get('crypto')
+
+
+    @property
+    def commodity_local_repo(self):
+        """Get commodity repository for dependency injection."""
+        return self._local_repositories.get('commodity')
+
+
+    @property
+    def cash_local_repo(self):
+        """Get cash repository for dependency injection."""
+        return self._local_repositories.get('cash')
+
+
+    @property
+    def equity_local_repo(self):
+        """Get equity repository for dependency injection."""
+        return self._local_repositories.get('equity')
+
+
+    @property
+    def etf_share_local_repo(self):
+        """Get etf_share repository for dependency injection."""
+        return self._local_repositories.get('etf_share')
+
+
+    @property
+    def share_local_repo(self):
+        """Get share repository for dependency injection."""
+        return self._local_repositories.get('share')
+
+
+    @property
+    def security_local_repo(self):
+        """Get security repository for dependency injection."""
+        return self._local_repositories.get('security')
+
+
+    @property
+    def factor_ibkr_repo(self):
+        """Get factor repository for dependency injection."""
+        return self._ibkr_repositories.get('factor')
+
+
+    @property
+    def factor_value_ibkr_repo(self):
+        """Get factor_value repository for dependency injection."""
+        return self._ibkr_repositories.get('factor_value')
+
+
+    @property
+    def index_future_ibkr_repo(self):
+        """Get index_future repository for dependency injection."""
+        return self._ibkr_repositories.get('index_future')
+
+
+    @property
+    def company_share_ibkr_repo(self):
+        """Get company_share repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share')
+
+
+    @property
+    def currency_ibkr_repo(self):
+        """Get currency repository for dependency injection."""
+        return self._ibkr_repositories.get('currency')
+
+
+    @property
+    def bond_ibkr_repo(self):
+        """Get bond repository for dependency injection."""
+        return self._ibkr_repositories.get('bond')
+
+
+    @property
+    def index_ibkr_repo(self):
+        """Get index repository for dependency injection."""
+        return self._ibkr_repositories.get('index')
+
+
+    @property
+    def crypto_ibkr_repo(self):
+        """Get crypto repository for dependency injection."""
+        return self._ibkr_repositories.get('crypto')
+
+
+    @property
+    def commodity_ibkr_repo(self):
+        """Get commodity repository for dependency injection."""
+        return self._ibkr_repositories.get('commodity')
+
+
+    @property
+    def cash_ibkr_repo(self):
+        """Get cash repository for dependency injection."""
+        return self._ibkr_repositories.get('cash')
+
+
+    @property
+    def equity_ibkr_repo(self):
+        """Get equity repository for dependency injection."""
+        return self._ibkr_repositories.get('equity')
+
+
+    @property
+    def etf_share_ibkr_repo(self):
+        """Get etf_share repository for dependency injection."""
+        return self._ibkr_repositories.get('etf_share')
+
+
+    @property
+    def share_ibkr_repo(self):
+        """Get share repository for dependency injection."""
+        return self._ibkr_repositories.get('share')
+
+
+    @property
+    def security_ibkr_repo(self):
+        """Get security repository for dependency injection."""
+        return self._ibkr_repositories.get('security')

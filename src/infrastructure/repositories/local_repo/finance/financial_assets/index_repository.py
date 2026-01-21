@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
     FinancialAssetRepository
@@ -16,7 +17,7 @@ from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 class IndexRepository(FinancialAssetRepository, IndexPort):
     """Repository for Index financial assets."""
     
-    def __init__(self, session: Session, factory=None):
+    def __init__(self, session: Session, factory):
         """Initialize IndexRepository with database session."""
         super().__init__(session)
         self.factory = factory
@@ -160,14 +161,15 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
         try:
             # Generate next available ID
             next_id = self._get_next_available_index_id()
-            
+            currency_local_repo = self.factory.currency_local_repo
+            currency_object = currency_local_repo.get_or_create(currency)
             # Create new index entity
             new_index = Index_Entity(
                 id=next_id,
                 symbol=symbol,
+                currency_id = currency_object.id,
                 name=name or f"{symbol}_Index",
-                is_tradeable=kwargs.get('is_tradeable', False),
-                is_active=kwargs.get('is_active', True)
+                start_date = date.today()
             )
             
             # Add to database
