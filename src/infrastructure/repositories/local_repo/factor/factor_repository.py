@@ -12,8 +12,10 @@ from src.domain.ports.factor.factor_port import FactorPort
 
 class FactorRepository(BaseFactorRepository, FactorPort):
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize FactorRepository with database session."""
         super().__init__(session)
+        self.factory = factory
 
     # ----------------------------
     # Required by BaseLocalRepository

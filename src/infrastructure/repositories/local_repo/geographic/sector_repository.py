@@ -14,8 +14,10 @@ from src.domain.ports.sector_port import SectorPort
 
 class SectorRepository(GeographicRepository, SectorPort):
     """Repository for Sector entities."""
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize SectorRepository with database session."""
         self.session = session
+        self.factory = factory
         self.data_store = []
     @property
     def model_class(self):

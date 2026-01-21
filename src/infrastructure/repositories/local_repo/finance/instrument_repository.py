@@ -17,9 +17,10 @@ from src.infrastructure.repositories.mappers.finance.instrument_mapper import In
 class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel], InstrumentPort):
     """Local repository implementation for Instrument entities."""
 
-    def __init__(self, session: Session):
-        """Initialize the repository with a database session."""
+    def __init__(self, session: Session, factory):
+        """Initialize InstrumentRepository with database session."""
         super().__init__(session)
+        self.factory = factory
 
     @property
     def model_class(self):
@@ -72,8 +73,7 @@ class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel
                     return self._to_entity(models)
             
             # Validate asset exists - get or create if needed
-            from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
-            share_repo = CompanyShareRepository(self.session)
+            share_repo = self.factory.company_share_local_repo
             # Try to get existing asset by ID first
             try:
                 asset_model = self.session.query(share_repo.model_class).filter(

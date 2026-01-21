@@ -14,8 +14,10 @@ from src.infrastructure.models.factor.factor_value import FactorValueModel as Fa
 class FactorValueRepository(BaseLocalRepository, FactorValuePort):
     """Local repository for factor value model"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize FactorValueRepository with database session."""
         super().__init__(session)
+        self.factory = factory
     
     @property
     def model_class(self):

@@ -17,8 +17,9 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
     Specialization of FutureRepository.
     """
 
-    def __init__(self, session: Session):
-        super().__init__(session)
+    def __init__(self, session: Session, factory):
+        """Initialize IndexFutureRepository with database session."""
+        super().__init__(session, factory)
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""

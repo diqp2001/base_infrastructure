@@ -14,8 +14,10 @@ from src.domain.ports.industry_port import IndustryPort
 
 class IndustryRepository(GeographicRepository, IndustryPort):
     """Repository for Industry entities."""
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize IndustryRepository with database session."""
         self.session = session
+        self.factory = factory
         self.data_store = []
     @property
     def model_class(self):
@@ -149,9 +151,8 @@ class IndustryRepository(GeographicRepository, IndustryPort):
             
             # Resolve sector dependency if sector_name is provided but sector_id is not
             if sector_name and not sector_id:
-                from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
-                sector_repo = SectorRepository(self.session)
-                sector = sector_repo.get_or_create(sector_name)
+                sector_local_repo = self.factory.sector_local_repo
+                sector = sector_local_repo.get_or_create(sector_name)
                 sector_id = sector.id if sector else 1
             
             return self._create_or_get(name, sector_name, classification_system, description)

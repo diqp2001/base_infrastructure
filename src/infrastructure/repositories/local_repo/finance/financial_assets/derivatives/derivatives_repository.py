@@ -10,8 +10,9 @@ from src.domain.entities.finance.financial_assets.derivatives import Derivatives
 class DerivativesRepository(FinancialAssetRepository, DerivativePort):
     """Local repository for derivatives model"""
     
-    def __init__(self, session: Session):
-        super().__init__(session)
+    def __init__(self, session: Session, factory):
+        """Initialize DerivativesRepository with database session."""
+        super().__init__(session, factory)
         self.data_store = []
     
     @property
@@ -64,9 +65,8 @@ class DerivativesRepository(FinancialAssetRepository, DerivativePort):
             
             # Resolve underlying asset dependency if not provided
             if not underlying_asset_id:
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
-                share_repo = CompanyShareRepository(self.session)
-                default_share = share_repo.get_or_create("SPY", "SPDR S&P 500 ETF Trust")
+                company_share_local_repo = self.factory.company_share_local_repo
+                default_share = company_share_local_repo.get_or_create("SPY", "SPDR S&P 500 ETF Trust")
                 underlying_asset_id = default_share.id if default_share else 1
             
             # Use parent class get_or_create with derivative-specific parameters

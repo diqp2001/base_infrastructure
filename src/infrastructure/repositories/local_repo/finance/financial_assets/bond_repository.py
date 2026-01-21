@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 class BondRepository(FinancialAssetRepository,BondPort):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
         """Initialize BondRepository with database session."""
         super().__init__(session)
+        self.factory = factory
     
     @property
     def model_class(self):
@@ -97,9 +98,8 @@ class BondRepository(FinancialAssetRepository,BondPort):
                     return existing
             
             # Get or create currency dependency
-            from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
-            currency_repo = CurrencyRepository(self.session)
-            currency = currency_repo.get_or_create(iso_code=currency_code)
+            currency_local_repo = self.factory.currency_local_repo
+            currency = currency_local_repo.get_or_create(iso_code=currency_code)
             
             # Create new bond
             new_bond = Bond_Entity(

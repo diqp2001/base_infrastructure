@@ -14,9 +14,10 @@ from src.domain.entities.finance.financial_assets.derivatives.future.future impo
 class FutureRepository(FinancialAssetRepository, FuturePort):
     """Repository for Future derivative instruments."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
         """Initialize FutureRepository with database session."""
         super().__init__(session)
+        self.factory = factory
 
     @property
     def model_class(self):
@@ -250,9 +251,8 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
                 return existing
             
             # Get or create currency dependency
-            from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
-            currency_repo = CurrencyRepository(self.session)
-            currency_entity = currency_repo.get_or_create(iso_code=currency)
+            currency_local_repo = self.factory.currency_local_repo
+            currency_entity = currency_local_repo.get_or_create(iso_code=currency)
             
             return self._create_or_get(symbol, contract_name, future_type, underlying_asset, exchange, currency, **kwargs)
             

@@ -9,8 +9,10 @@ from src.domain.entities.finance.financial_assets.share.share import Share as Sh
 
 
 class ShareRepository(FinancialAssetRepository,SharePort):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize ShareRepository with database session."""
         super().__init__(session)
+        self.factory = factory
     
     @property
     def model_class(self):
@@ -133,9 +135,8 @@ class ShareRepository(FinancialAssetRepository,SharePort):
             
             if not exchange_id:
                 # Get or create a default exchange
-                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                exchange_repo = ExchangeRepository(self.session)
-                default_exchange = exchange_repo.get_or_create("NASDAQ", name="NASDAQ")
+                exchange_local_repo = self.factory.exchange_local_repo
+                default_exchange = exchange_local_repo.get_or_create("NASDAQ", name="NASDAQ")
                 exchange_id = default_exchange.id if default_exchange else 1
             
             new_share = ShareEntity(

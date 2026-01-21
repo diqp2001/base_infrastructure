@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 class EquityRepository(FinancialAssetRepository, EquityPort):
     """Local repository for equity model"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize EquityRepository with database session."""
         super().__init__(session)
+        self.factory = factory
         self.data_store = []
     
     @property

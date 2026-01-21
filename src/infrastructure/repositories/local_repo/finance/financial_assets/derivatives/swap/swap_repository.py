@@ -11,8 +11,9 @@ from src.domain.entities.finance.financial_assets.derivatives.swap import Swap a
 class SwapRepository(FinancialAssetRepository, SwapPort):
     """Local repository for swap model"""
     
-    def __init__(self, session: Session):
-        super().__init__(session)
+    def __init__(self, session: Session, factory):
+        """Initialize SwapRepository with database session."""
+        super().__init__(session, factory)
         self.data_store = []
     
     @property
@@ -80,9 +81,8 @@ class SwapRepository(FinancialAssetRepository, SwapPort):
             
             if not currency_id:
                 # Get or create a default currency
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
-                currency_repo = CurrencyRepository(self.session)
-                default_currency = currency_repo.get_or_create(iso_code="USD")
+                currency_local_repo = self.factory.currency_local_repo
+                default_currency = currency_local_repo.get_or_create(iso_code="USD")
                 currency_id = default_currency.asset_id if default_currency else 1
             
             new_swap = SwapEntity(

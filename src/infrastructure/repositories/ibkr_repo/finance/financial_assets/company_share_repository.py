@@ -28,26 +28,18 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(
-        self, 
-        ibkr_client, 
-        local_repo: CompanySharePort,
-        factory=None,
-        factor_repo: Optional['IBKRCompanyShareFactorRepository'] = None
-    ):
+    def __init__(self, ibkr_client, factory):
         """
         Initialize IBKR Company Share Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
-            local_repo: Local repository implementing CompanySharePort for persistence
-            factory: Repository factory for dependency injection (optional)
-            factor_repo: IBKR factor repository for factor-related operations (optional)
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
+            factory: Repository factory for dependency injection (preferred)
         """
-        super().__init__(ibkr_client)
-        self.local_repo = local_repo
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
+        
         self.factory = factory
-        self.factor_repo = factor_repo
+        self.local_repo = self.factory.company_share_local_repo
 
     @property
     def entity_class(self):
@@ -288,23 +280,40 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         return contract
 
     def _resolve_exchange_id(self, ibkr_exchange: str, contract_details: ContractDetails) -> int:
-        """Resolve exchange ID from IBKR exchange code."""
-        # This would typically involve looking up or creating exchange entities
-        # For now, return default values
-        exchange_map = {
-            'SMART': 1,    # Default
-            'NASDAQ': 2,   # NASDAQ
-            'NYSE': 3,     # NYSE
-            'TSE': 4,      # Toronto
-            'LSE': 5,      # London
-        }
-        return exchange_map.get(ibkr_exchange, 1)
+        """Resolve exchange ID from IBKR exchange code using factory pattern."""
+        try:
+            exchange_local_repo = self.factory.exchange_local_repo
+            
+            # Map IBKR exchange codes to standard names
+            exchange_name_map = {
+                'SMART': 'SMART',
+                'NASDAQ': 'NASDAQ',
+                'NYSE': 'NYSE',
+                'TSE': 'TSE',
+                'LSE': 'LSE',
+            }
+            
+            exchange_name = exchange_name_map.get(ibkr_exchange, ibkr_exchange)
+            exchange_object = exchange_local_repo.get_or_create(exchange_name)
+            
+            return exchange_object.id if exchange_object else 1
+        except Exception as e:
+            print(f"Error resolving exchange ID for {ibkr_exchange}: {e}")
+            return 1
 
     def _resolve_company_id(self, symbol: str, contract_details: ContractDetails) -> int:
-        """Resolve company ID from IBKR data."""
-        # This would typically involve looking up or creating company entities
-        # For now, return a default value
-        # In real implementation, you'd create/lookup the company based on
-        # contract_details.longName, industry, etc.
-        return 1
+        """Resolve company ID from IBKR data using factory pattern."""
+        try:
+            company_local_repo = self.factory.company_local_repo
+            
+            # Extract company name from contract details
+            company_name = getattr(contract_details, 'longName', f"{symbol} Company")
+            
+            # Create or get company
+            company_object = company_local_repo.get_or_create(company_name)
+            
+            return company_object.id if company_object else 1
+        except Exception as e:
+            print(f"Error resolving company ID for {symbol}: {e}")
+            return 1
     

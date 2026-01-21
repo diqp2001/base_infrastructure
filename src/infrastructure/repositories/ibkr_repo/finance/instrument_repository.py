@@ -36,26 +36,21 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
     4. Delegates persistence to local repositories
     """
 
-    def __init__(
-        self, 
-        ibkr_client,
-        local_instrument_repo: InstrumentPort,
-        financial_asset_repo: FinancialAssetPort,
-        factor_repo: Optional['IBKRInstrumentFactorRepository'] = None
-    ):
+    def __init__(self, ibkr_client, factory):
         """
         Initialize IBKR Instrument Repository.
         
         Args:
-            ibkr_client: Interactive Brokers API client
-            local_instrument_repo: Local repository for instrument persistence
-            financial_asset_repo: Repository for financial asset lookups
-            factor_repo: IBKR instrument factor repository for factor operations (optional)
+            ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
+            factory: Repository factory for dependency injection (preferred)
         """
         super().__init__(ibkr_client)
-        self.local_instrument_repo = local_instrument_repo
-        self.financial_asset_repo = financial_asset_repo
-        self.factor_repo = factor_repo
+        self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
+        
+        self.factory = factory
+        self.local_instrument_repo = self.factory.instrument_local_repo
+        self.financial_asset_repo = self.factory.financial_asset_local_repo
+        self.factor_repo = getattr(self.factory, 'ibkr_instrument_factor_repo', None)
         self.contract_mapper = IBKRContractInstrumentMapper()
     @property
     def entity_class(self):
