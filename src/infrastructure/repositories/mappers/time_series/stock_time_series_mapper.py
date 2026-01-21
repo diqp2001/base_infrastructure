@@ -6,7 +6,8 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.time_series.stock_time_series import StockTimeSeries as DomainStockTimeSeries
+
+from src.domain.entities.time_series.finance.stock_time_series import StockTimeSeries as DomainStockTimeSeries
 from src.infrastructure.models.time_series.finance.stock_time_series import StockTimeSeriesModel as ORMStockTimeSeries
 
 

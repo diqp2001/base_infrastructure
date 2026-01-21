@@ -81,9 +81,7 @@ class EntityService:
         # Create factory with optional IBKR client
         self.repository_factory = RepositoryFactory(self.session, ibkr_client)
         
-        # Create repositories using factory
-        self.local_repositories = self.repository_factory.create_local_repositories()
-        self.ibkr_repositories = self.repository_factory.create_ibkr_repositories()
+        
         
 
     
@@ -116,15 +114,7 @@ class EntityService:
         """
         return self.repository_factory.create_ibkr_repositories(ibkr_client)
 
-    # def get_local_repository(self, entity_type):
-    #     """
-    #     Return the repository associated with a domain entity type.
-    #     """
-    #     repo = self.local_repositories.get(entity_type)
-    #     if repo is None:
-    #         raise ValueError(f"No repository registered for entity type: {entity_type.__name__}")
-    #     repo = repo(self.session)
-    #     return repo
+    
     def get_local_repository(self, entity_class: type):
         """
         Return the repository associated with a given domain entity class.

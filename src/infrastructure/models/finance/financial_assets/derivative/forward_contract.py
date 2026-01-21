@@ -15,7 +15,7 @@ class ForwardContractModel(DerivativeModel):
     __tablename__ = 'forward_contracts'
 
     # Primary key is also foreign key to parent
-    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
+    id = Column(Integer, ForeignKey("derivatives.id"), primary_key=True)
     
 
     __mapper_args__ = {
@@ -23,6 +23,6 @@ class ForwardContractModel(DerivativeModel):
 }
 
     def __repr__(self):
-        return f"<ForwardContract(id={self.id}, ticker={self.ticker}, forward_price={self.forward_price}, delivery={self.delivery_date})>"
+        return f"<ForwardContract(id={self.id}, )>"
 
 

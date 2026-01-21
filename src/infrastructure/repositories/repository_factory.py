@@ -76,22 +76,20 @@ class RepositoryFactory:
         """
         if not self._local_repositories:
             self._local_repositories = {
-                'factor_value': FactorValueRepository(self.session),
-                'factor': FactorRepository(self.session),
-                'base_factor': BaseFactorRepository(self.session),
-                'share_factor': ShareFactorRepository(self.session),
-                'index_future': IndexFutureRepository(self.session),
+                'factor_value': FactorValueRepository(self.session, factory=self),
+                'factor': FactorRepository(self.session, factory=self),
+                'index_future': IndexFutureRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
-                'bond': BondRepository(self.session),
+                'bond': BondRepository(self.session, factory=self),
                 'index': IndexRepository(self.session, factory=self),
-                'crypto': CryptoRepository(self.session),
-                'commodity': CommodityRepository(self.session),  
-                'cash': CashRepository(self.session),
-                'equity': EquityRepository(self.session),
-                'etf_share': ETFShareRepository(self.session),  
-                'share': ShareRepository(self.session),
-                'security': SecurityRepository(self.session)
+                'crypto': CryptoRepository(self.session, factory=self),
+                'commodity': CommodityRepository(self.session, factory=self),  
+                'cash': CashRepository(self.session, factory=self),
+                'equity': EquityRepository(self.session, factory=self),
+                'etf_share': ETFShareRepository(self.session, factory=self),  
+                'share': ShareRepository(self.session, factory=self),
+                'security': SecurityRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -109,7 +107,7 @@ class RepositoryFactory:
         client = ibkr_client or self.ibkr_client
         
         if not client:
-            print("No IBKR client available - IBKR repositories cannot be created")
+            client = self.create_ibkr_client()
             return None
 
         if not self._ibkr_repositories:
@@ -124,7 +122,8 @@ class RepositoryFactory:
                 ),
                 'factor_value': IBKRFactorValueRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['factor_value']
+                    local_repo=local_repos['factor_value'],
+                    factory=self
                 ),
                 'index_future': IBKRIndexFutureRepository(
                     ibkr_client=client,

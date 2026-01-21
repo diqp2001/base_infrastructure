@@ -6,7 +6,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.financial_assets.swap_leg import SwapLeg as DomainSwapLeg
+from src.domain.entities.finance.financial_assets.derivatives.swap_leg import SwapLeg as DomainSwapLeg
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel as ORMSwapLeg
 
 

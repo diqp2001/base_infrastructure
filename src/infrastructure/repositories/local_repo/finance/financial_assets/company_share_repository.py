@@ -19,8 +19,7 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.company_sh
 class CompanyShareRepository(ShareRepository,CompanySharePort):
     def __init__(self, session: Session, factory=None):
         # Properly call parent constructor with session
-        super().__init__(session)
-        self.factory = factory
+        super().__init__(session,factory)
     
     @property  
     def model_class(self):

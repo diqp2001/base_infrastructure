@@ -7,7 +7,8 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
-from src.domain.entities.finance.market_data import MarketData as DomainMarketData
+
+from src.domain.entities.finance.back_testing.financial_assets.security_backtest import MarketData as DomainMarketData
 from src.infrastructure.models.finance.market_data import MarketDataModel as ORMMarketData
 
 

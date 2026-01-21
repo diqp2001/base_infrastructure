@@ -6,7 +6,8 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.financial_assets.etf_share import ETFShare as DomainETFShare
+
+from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare as DomainETFShare
 from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel as ORMETFShare
 
 

@@ -20,7 +20,7 @@ class OptionsModel(DerivativeModel):
     """
     __tablename__ = 'options'
 
-    id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
+    id = Column(Integer, ForeignKey("derivatives.id"), primary_key=True)
     
     option_type = Column(SQLEnum(OptionType), nullable=False)
     

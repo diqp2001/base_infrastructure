@@ -2,7 +2,7 @@
 Infrastructure model for time series.
 SQLAlchemy model for domain time series entity.
 """
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import BYTEA
 from src.infrastructure.models import ModelBase as Base
 from datetime import datetime
@@ -18,7 +18,7 @@ class TimeSeriesModel(Base):
     
     # Store serialized DataFrame data
     data_json = Column(JSON, nullable=True)  # For small series, store as JSON
-    data_binary = Column(BYTEA, nullable=True)  # For large series, store as pickle/compressed binary
+    data_binary = Column(Boolean, nullable=True)  # For large series, store as pickle/compressed binary
     
     # Metadata
     rows_count = Column(Integer, nullable=True)

@@ -6,7 +6,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.financial_assets.forward_contract import ForwardContract as DomainForwardContract
+from src.domain.entities.finance.financial_assets.derivatives.forward import Forward as DomainForwardContract
 from src.infrastructure.models.finance.financial_assets.derivative.forward_contract import ForwardContractModel as ORMForwardContract
 
 
