@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 class CompanyRepository(BaseLocalRepository, CompanyPort):
     """Repository for managing Company entities."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize CompanyRepository with database session."""
         super().__init__(session)
+        self.factory = factory
     
     @property
     def model_class(self):
@@ -153,9 +155,8 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
             
             # Get or create country dependency if not provided
             if not country_id:
-                from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
-                country_repo = CountryRepository(self.session)
-                default_country = country_repo._create_or_get(name="Global", iso_code="GL")
+                country_local_repo = self.factory.country_local_repo
+                default_country = country_local_repo._create_or_get(name="Global", iso_code="GL")
                 country_id = default_country.id if default_country else 1
             
             # Set default legal name

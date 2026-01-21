@@ -22,18 +22,18 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: SecurityPort, factory=None):
+    def __init__(self, ibkr_client, factory):
         """
         Initialize IBKR Security Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
-            local_repo: Local repository implementing SecurityPort for persistence
-            factory: Repository factory for dependency injection (optional)
+            factory: Repository factory for dependency injection (preferred)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
-        self.local_repo = local_repo
+        
         self.factory = factory
+        self.local_repo = self.factory.security_local_repo
     @property
     def entity_class(self):
         """Return the domain entity class for Security."""

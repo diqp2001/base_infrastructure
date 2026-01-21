@@ -520,11 +520,9 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                 local_repos = self.factory.create_local_repositories()
                 exchange_repo = local_repos.get('exchange')
                 if not exchange_repo:
-                    from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                    exchange_repo = ExchangeRepository(self.session)
+                    exchange_repo = self.factory.exchange_local_repo
             else:
-                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                exchange_repo = ExchangeRepository(self.session)
+                exchange_repo = self.factory.exchange_local_repo
             
             exchange_name = exchange_name or self._get_default_exchange_for_ticker(ticker)
             
@@ -550,11 +548,9 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                 local_repos = self.factory.create_local_repositories()
                 company_repo = local_repos.get('company')
                 if not company_repo:
-                    from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-                    company_repo = CompanyRepository(self.session)
+                    company_repo = self.factory.company_local_repo
             else:
-                from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-                company_repo = CompanyRepository(self.session)
+                company_repo = self.factory.company_local_repo
             
             company_name = company_name or f"{ticker} Inc."
             
@@ -607,11 +603,9 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                     local_repos = self.factory.create_local_repositories()
                     company_repo = local_repos.get('company')
                     if not company_repo:
-                        from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-                        company_repo = CompanyRepository(self.session)
+                        company_repo = self.factory.company_local_repo
                 else:
-                    from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
-                    company_repo = CompanyRepository(self.session)
+                    company_repo = self.factory.company_local_repo
                 company = company_repo.get_or_create(name=f"Company for {ticker}")
                 company_id = company.id if company else 1
             
@@ -622,11 +616,9 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                     local_repos = self.factory.create_local_repositories()
                     exchange_repo = local_repos.get('exchange')
                     if not exchange_repo:
-                        from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                        exchange_repo = ExchangeRepository(self.session)
+                        exchange_repo = self.factory.exchange_local_repo
                 else:
-                    from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                    exchange_repo = ExchangeRepository(self.session)
+                    exchange_repo = self.factory.exchange_local_repo
                 exchange_name = self._get_default_exchange_for_ticker(ticker)
                 exchange = exchange_repo.get_or_create(name=exchange_name)
                 exchange_id = exchange.id if exchange else 1

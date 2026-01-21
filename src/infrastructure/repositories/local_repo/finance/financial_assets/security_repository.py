@@ -12,8 +12,10 @@ from sqlalchemy.orm import Session
 class SecurityRepository(FinancialAssetRepository, SecurityPort):
     """Local repository for security model"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize SecurityRepository with database session."""
         super().__init__(session)
+        self.factory = factory
         self.data_store = []
     
     @property

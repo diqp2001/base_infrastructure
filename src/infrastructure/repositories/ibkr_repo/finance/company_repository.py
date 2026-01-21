@@ -21,18 +21,18 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, local_repo: CompanyPort, factory=None):
+    def __init__(self, ibkr_client, factory):
         """
         Initialize IBKR Company Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
-            local_repo: Local repository implementing CompanyPort for persistence
-            factory: Repository factory for dependency injection (optional)
+            factory: Repository factory for dependency injection (preferred)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
-        self.local_repo = local_repo
+        
         self.factory = factory
+        self.local_repo = self.factory.company_local_repo
 
     @property
     def entity_class(self):
@@ -91,7 +91,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             # 1. Check local repository first
             entity = self.local_repo.get_by_name(symbol_or_name)
             
-            list_of_value = self.local_factor_value_repo.get_all_dates_by_id_entity_id(factor_id,entity.id)
+            list_of_value = self.factory.factor_value_local_repo.get_all_dates_by_id_entity_id(factor_id,entity.id)
             #if time selected is in list_of_value return the existing facor value
             if existing:
                 return existing

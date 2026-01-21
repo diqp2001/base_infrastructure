@@ -320,9 +320,8 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             
             if not country_id:
                 # Get or create a default country
-                from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
-                country_repo = CountryRepository(self.session)
-                default_country = country_repo._create_or_get(name="Global", iso_code="GL")
+                country_local_repo = self.factory.country_local_repo
+                default_country = country_local_repo._create_or_get(name="Global", iso_code="GL")
                 country_id = default_country.id if default_country else 1
             
             new_currency = DomainCurrency(

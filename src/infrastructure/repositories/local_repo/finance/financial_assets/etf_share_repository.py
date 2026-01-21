@@ -10,8 +10,10 @@ from src.domain.entities.finance.financial_assets.share.etf_share import ETFShar
 class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
     """Local repository for ETF share model"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize ETFShareRepository with database session."""
         super().__init__(session)
+        self.factory = factory
         self.data_store = []
     
     @property
@@ -77,9 +79,8 @@ class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
             
             if not exchange_id:
                 # Get or create a default exchange
-                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                exchange_repo = ExchangeRepository(self.session)
-                default_exchange = exchange_repo.get_or_create("NASDAQ", name="NASDAQ")
+                exchange_local_repo = self.factory.exchange_local_repo
+                default_exchange = exchange_local_repo.get_or_create("NASDAQ", name="NASDAQ")
                 exchange_id = default_exchange.id if default_exchange else 1
             
             new_etf_share = ETFShareEntity(

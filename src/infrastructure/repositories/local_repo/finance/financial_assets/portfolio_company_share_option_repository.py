@@ -117,16 +117,14 @@ class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioC
             # Resolve dependencies
             # Get or create currency dependency if not provided
             if not currency_id:
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
-                currency_repo = CurrencyRepository(self.session)
-                default_currency = currency_repo.get_or_create("USD", "United States Dollar")
+                currency_local_repo = self.factory.currency_local_repo
+                default_currency = currency_local_repo.get_or_create("USD", "United States Dollar")
                 currency_id = default_currency.id if default_currency else 1
             
             # Get or create underlying asset dependency if not provided
             if not underlying_asset_id:
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
-                share_repo = CompanyShareRepository(self.session)
-                default_share = share_repo.get_or_create("DEFAULT_SHARE", "DEFAULT")
+                company_share_local_repo = self.factory.company_share_local_repo
+                default_share = company_share_local_repo.get_or_create("DEFAULT_SHARE", "DEFAULT")
                 underlying_asset_id = default_share.id if default_share else 1
             
             # Set defaults

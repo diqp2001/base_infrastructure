@@ -153,16 +153,14 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             # Resolve dependencies
             # Get or create exchange dependency if not provided
             if not exchange_id:
-                from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
-                exchange_repo = ExchangeRepository(self.session)
-                default_exchange = exchange_repo.get_or_create("NYSE", "New York Stock Exchange")
+                exchange_local_repo = self.factory.exchange_local_repo
+                default_exchange = exchange_local_repo.get_or_create("NYSE", "New York Stock Exchange")
                 exchange_id = default_exchange.id if default_exchange else 1
             
             # Get or create currency dependency if not provided
             if not currency_id:
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
-                currency_repo = CurrencyRepository(self.session)
-                default_currency = currency_repo.get_or_create("USD", "United States Dollar")
+                currency_local_repo = self.factory.currency_local_repo
+                default_currency = currency_local_repo.get_or_create("USD", "United States Dollar")
                 currency_id = default_currency.id if default_currency else 1
             
             # Set defaults

@@ -14,8 +14,10 @@ from src.domain.ports.country_port import CountryPort
 
 class CountryRepository(GeographicRepository, CountryPort):
     """Repository for Country entities."""
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize CountryRepository with database session."""
         self.session = session
+        self.factory = factory
         self.data_store = []
     @property
     def model_class(self):

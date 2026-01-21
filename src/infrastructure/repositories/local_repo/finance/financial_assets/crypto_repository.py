@@ -19,8 +19,10 @@ from src.domain.ports.finance.financial_assets.crypto_port import CryptoPort
 class CryptoRepository(FinancialAssetRepository, CryptoPort):
     """Repository for managing Crypto entities."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory):
+        """Initialize CryptoRepository with database session."""
         super().__init__(session)
+        self.factory = factory
     
     @property
     def model_class(self):
