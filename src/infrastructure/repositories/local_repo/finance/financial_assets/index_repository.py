@@ -16,9 +16,10 @@ from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 class IndexRepository(FinancialAssetRepository, IndexPort):
     """Repository for Index financial assets."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory=None):
         """Initialize IndexRepository with database session."""
         super().__init__(session)
+        self.factory = factory
 
     @property
     def model_class(self):
