@@ -179,6 +179,76 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             print(f"Error mapping instrument factors to asset factors: {e}")
             return []
 
+    def get_or_create(self, instrument: IBKRInstrument, tick_type: IBKRTickType, tick_value: Any, 
+                     timestamp: Optional[datetime] = None) -> Optional[FactorValue]:
+        """
+        Get or create a factor value for an instrument from IBKR tick data.
+        
+        This method follows the established pattern:
+        1. Check if factor value already exists
+        2. If not, create from IBKR tick data
+        3. Return the created/found factor value
+        
+        Args:
+            instrument: IBKRInstrument entity
+            tick_type: IBKR tick type for the factor
+            tick_value: Value from IBKR tick
+            timestamp: When the tick was captured (defaults to now)
+            
+        Returns:
+            FactorValue entity or None if creation/retrieval failed
+        """
+        try:
+            timestamp = timestamp or datetime.now()
+            date_obj = timestamp.date()
+            date_str = date_obj.strftime('%Y-%m-%d')
+            
+            # Get or create factor for this tick type
+            factor_mapping = self.tick_mapper.get_factor_mapping(tick_type)
+            if not factor_mapping:
+                print(f"No factor mapping found for tick type {tick_type}")
+                return None
+            
+            # Get factor from local repository (assuming it exists from factor repository)
+            factor = None
+            if hasattr(self.local_repo, 'get_factor_by_name'):
+                factor = self.local_repo.get_factor_by_name(factor_mapping.factor_name)
+            elif hasattr(self, 'factory') and self.factory:
+                factor_repo = getattr(self.factory, 'factor_local_repo', None)
+                if factor_repo:
+                    factor = factor_repo.get_by_name(factor_mapping.factor_name)
+            
+            if not factor:
+                print(f"Factor not found for tick type {tick_type}: {factor_mapping.factor_name}")
+                return None
+            
+            # Check if factor value already exists for this instrument, factor, and date
+            existing_value = self._check_existing_factor_value(factor.id, instrument.id, date_str)
+            if existing_value:
+                return existing_value
+            
+            # Create new factor value from IBKR tick data
+            new_factor_value = FactorValue(
+                id=None,  # Will be set by repository
+                factor_id=factor.id,
+                entity_id=instrument.id,
+                date=date_obj,
+                value=str(tick_value)
+            )
+            
+            # Persist to database via local repository
+            created_value = self.local_repo.add(new_factor_value)
+            if created_value:
+                print(f"Created factor value: {factor.name} for instrument {instrument.id} on {date_str}")
+                return created_value
+            else:
+                print(f"Failed to create factor value for instrument {instrument.id}")
+                return None
+                
+        except Exception as e:
+            print(f"Error in get_or_create for instrument factor: {e}")
+            return None
+
     def get_supported_tick_types(self) -> List[IBKRTickType]:
         """Get list of tick types supported for factor mapping."""
         return self.tick_mapper.get_supported_tick_types()

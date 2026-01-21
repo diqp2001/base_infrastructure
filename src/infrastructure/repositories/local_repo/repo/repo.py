@@ -41,3 +41,39 @@ class RepoRepository:
             self.session.commit()
             return True
         return False
+    
+    def get_or_create(self, name: str):
+        """
+        Get or create a repository record by name.
+        
+        This method follows the established pattern:
+        1. Check if repository already exists by name
+        2. If not, create new repository
+        3. Return the created/found repository
+        
+        Args:
+            name: Repository name
+            
+        Returns:
+            Repo entity or None if creation/retrieval failed
+        """
+        try:
+            # Check if repository already exists by name (same logic as add method)
+            existing_repo = self.session.query(Repo).filter(Repo.name == name).first()
+            if existing_repo:
+                return existing_repo
+            
+            # Create new repository
+            new_repo = Repo(name=name)
+            self.session.add(new_repo)
+            self.session.commit()
+            return new_repo
+            
+        except Exception as e:
+            print(f"Error in get_or_create for repo {name}: {e}")
+            self.session.rollback()
+            return None
+    
+    def get_by_name(self, name: str):
+        """Get repository by name."""
+        return self.session.query(Repo).filter(Repo.name == name).first()
