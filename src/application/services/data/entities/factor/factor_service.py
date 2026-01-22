@@ -62,13 +62,13 @@ class FactorService(EntityService):
         """
         super().__init__(database_service, db_type)
         
-        # Initialize additional factor-specific repositories
-        self.base_factor_repository = self.local_repositories['base_factor']
-        self.share_factor_repository = self.local_repositories['share_factor']
-        self.company_share_repository = self.local_repositories['company_share']
+        # # Initialize additional factor-specific repositories
+        # self.base_factor_repository = self.local_repositories['base_factor']
+        # self.share_factor_repository = self.local_repositories['share_factor']
+        # self.company_share_repository = self.local_repositories['company_share']
         
         # Initialize tick mapper for IBKR operations
-        self.tick_mapper = IBKRTickFactorMapper()
+        # self.tick_mapper = IBKRTickFactorMapper()
 
     # ========================================
     # FACTOR CREATION METHODS (from FactorCreationService)

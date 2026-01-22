@@ -433,16 +433,16 @@ class MisbuffetEngine(BaseEngine):
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
                 try:
 
-                    # Step 1: Verify and ensure data exists
-                    if hasattr(self.algorithm, 'trainer') and self.algorithm.trainer and not hasattr(self.algorithm, '_data_verified'):
-                        self.logger.info("🔍 Verifying  data availability...")
-                        data_verification_result = self.algorithm._verify_and_import_data()
+                    # # Step 1: Verify and ensure data exists
+                    # if hasattr(self.algorithm, 'trainer') and self.algorithm.trainer and not hasattr(self.algorithm, '_data_verified'):
+                    #     self.logger.info("🔍 Verifying  data availability...")
+                    #     #data_verification_result = self.algorithm._verify_and_import_data()
                         
-                        if not data_verification_result.get('success', False):
-                            self.logger.error("❌ Data verification failed - cannot proceed with trading")
-                            return
-                        self._data_verified = True
-                        self.logger.info("✅ SPX data verified and available")
+                    #     if not data_verification_result.get('success', False):
+                    #         self.logger.error("❌ Data verification failed - cannot proceed with trading")
+                    #         return
+                    #     self._data_verified = True
+                    #     self.logger.info("✅ SPX data verified and available")
 
                     data_slice = self._create_data_slice(current_date, universe)
                     
