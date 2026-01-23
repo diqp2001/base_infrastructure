@@ -14,8 +14,15 @@ from ..common.enums import Resolution, SecurityType
 from ..common.time_utils import Time
 from .data_reader import BaseDataReader, LeanDataReader, CsvDataReader, MemoryDataReader
 
+class MarketDataProvider(ABC):
+    """
+    Abstract base class for different market data providers.
+    Can be implemented for different data sources (files, APIs, etc.).
+    """
 
-class HistoryProvider(IHistoryProvider):
+    
+
+class HistoryProvider(MarketDataProvider):
     """
     Base class for historical data providers.
     """

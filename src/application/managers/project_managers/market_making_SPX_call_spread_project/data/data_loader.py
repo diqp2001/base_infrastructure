@@ -8,11 +8,13 @@ and IBKR services, following the pattern from test_base_project.
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, NamedTuple, Optional, Any, Tuple
 from pathlib import Path
 
 
 from application.services.data.entities.factor.factor_service import FactorService
+from application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
+from application.services.misbuffet.data.market_data_service import MarketDataService
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
@@ -22,6 +24,12 @@ from src.infrastructure.models.finance.financial_assets.company_share import Com
 
 logger = logging.getLogger(__name__)
 
+class DataServices(NamedTuple):
+    """Container for all initialized data services."""
+    entity_service: EntityService
+    market_data_service: MarketDataService
+    history_service: MarketDataHistoryService
+    database_service: DatabaseService
 
 class DataLoader:
     """
@@ -40,10 +48,13 @@ class DataLoader:
         self.database_service = database_service
         
         self.logger = logging.getLogger(self.__class__.__name__)
-        
         # Initialize enhanced services for comprehensive data management
         self.financial_asset_service = EntityService(database_service)
         self.financial_asset_service.create_ibkr_repositories()
+
+
+        self.market_data_service = MarketDataService(self.financial_asset_service)
+        self.market_data_history_service = MarketDataHistoryService(self.market_data_service)
         self.factor_data_service = FactorService(database_service)
         
         # Store factor_manager reference for _ensure_entities_exist access
