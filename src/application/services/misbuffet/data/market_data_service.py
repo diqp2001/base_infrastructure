@@ -24,7 +24,7 @@ class MarketDataService:
         self.on_data_slice: Optional[Callable[[Slice], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
         
-    def create_data_slice(self, current_date: datetime, universe: List[str], factor_data_service=None) -> Slice:
+    def create_data_slice(self, current_date: datetime, universe: List[str]) -> Slice:
         """
         Create a data slice for the given date and universe.
         This is the main method called by the engine's _create_data_slice.
@@ -50,7 +50,7 @@ class MarketDataService:
             try:
                 # Get point-in-time data for this ticker
                 point_in_time_data = self._get_point_in_time_data(
-                    ticker, current_date, factor_data_service
+                    ticker, current_date
                 )
                 
                 if point_in_time_data is not None and not point_in_time_data.empty:
@@ -94,13 +94,11 @@ class MarketDataService:
             
         return slice_data
     
-    def _get_point_in_time_data(self, ticker: str, point_in_time: datetime, factor_data_service) -> Optional[pd.DataFrame]:
+    def _get_point_in_time_data(self, ticker: str, point_in_time: datetime) -> Optional[pd.DataFrame]:
         """
         Get point-in-time data for a specific ticker and date.
         Uses the factor data service to retrieve historical data.
         """
-        if not factor_data_service:
-            return None
         
         try:
             # Get entity using entity service

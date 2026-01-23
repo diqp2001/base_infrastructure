@@ -232,9 +232,10 @@ class MisbuffetEngine(BaseEngine):
                 self.algorithm = self._algorithm  # Maintain backward compatibility
                 
                 # Inject MarketDataHistoryService into algorithm if available
-                if hasattr(self.data_loader, 'market_data_history_service'):
-                    self.algorithm._history_service = self.data_loader.market_data_history_service
-                    self.algorithm._factor_data_service = self.factor_data_service
+                if hasattr(self.algorithm.trainer.data_loader, 'market_data_history_service'):
+                    self.data_loader = self.algorithm.trainer.data_loader
+                    self.algorithm._history_service = self.algorithm.trainer.data_loader.market_data_history_service
+                    self.algorithm._factor_data_service = self.algorithm.trainer.data_loader.factor_data_service
                     self.logger.info("Injected MarketDataHistoryService into algorithm")
                 
             # Setup algorithm with config
@@ -328,28 +329,11 @@ class MisbuffetEngine(BaseEngine):
                     self.factor_data_service = FactorService(self.database_service)
                     self.financial_asset_service = EntityService(self.database_service)
                     self.logger.info(f"Services initialized for {self.engine_config.entity_type} data access")
-                elif hasattr(config, 'database_manager'):
-                    # Backward compatibility: if database_manager is provided instead
-                    self.database_manager = config.database_manager
-                    # Try to create database_service from database_manager if needed
-                    try:
-                        if not self.database_service and hasattr(config.database_manager, 'session'):
-                            from src.application.services.database_service.database_service import DatabaseService
-                            self.database_service = DatabaseService()
-                            self.database_service.session = config.database_manager.session
-                            self.factor_data_service = FactorService(self.database_service)
-                            self.financial_asset_service = EntityService(self.database_service)
-                            self.logger.info(f"Services initialized from database_manager for {self.engine_config.entity_type} data access")
-                    except Exception as e:
-                        self.logger.warning(f"Could not create services from database_manager: {e}")
-                else:
-                    self.logger.warning("No database_service or database_manager provided in config")
                 
-                # Add history method that uses real data from database
-                if not hasattr(self.algorithm, 'history'):
-                    def real_history(tickers, periods, resolution, end_time=None):
-                        return self._get_historical_data(tickers, periods, end_time)
-                    self.algorithm.history = real_history
+                else:
+                    self.logger.warning("No database_service  provided in config")
+                
+                
                 
                 self.logger.info(f"Portfolio setup complete with initial capital: {initial_capital}")
             
@@ -444,7 +428,7 @@ class MisbuffetEngine(BaseEngine):
                     # Use MarketDataService to create the data slice
                     if hasattr(self.data_loader, 'market_data_service'):
                         data_slice = self.data_loader.market_data_service.create_data_slice(
-                            current_date, universe, self.factor_data_service
+                            current_date, universe
                         )
                     else:
                         # Fallback to original method
