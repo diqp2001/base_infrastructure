@@ -6,17 +6,13 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import mlflow
-import mlflow.sklearn
-import mlflow.pytorch
 
 # Base classes
-from application.managers.project_managers.market_making_SPX_call_spread_project.data.data_loader import DataLoader
-from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
+#from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.managers.project_managers.project_manager import ProjectManager
 
 # Interactive Brokers integration
-from src.application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
 from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 # Backtesting components
@@ -58,7 +54,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
         self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         self.database_service.set_ext_db()
         # Initialize core components
-        self.factor_manager = FactorManager(self.database_service)
+        #self.factor_manager = FactorManager(self.database_service)
         # Backtesting components
         self.backtest_runner = BacktestRunner(self.database_service)
         self.algorithm = None
