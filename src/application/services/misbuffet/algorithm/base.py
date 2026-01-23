@@ -610,7 +610,7 @@ class QCAlgorithm:
                 resolution: Resolution = Resolution.DAILY, 
                 end_time: Optional[datetime] = None) -> Dict[str, Any]:
         """
-        Get historical data for specified symbols.
+        Get historical data for specified symbols using MarketDataHistoryService.
         
         Args:
             symbols: Symbol or list of symbols
@@ -619,16 +619,45 @@ class QCAlgorithm:
             end_time: End time for historical data (None for current time)
             
         Returns:
-            Dictionary or DataFrame of historical data
+            DataFrame of historical data
         """
-        # This is a placeholder implementation
-        # In a real system, this would fetch data from a data provider
+        # Use MarketDataHistoryService if available from the engine/data_loader
+        if hasattr(self, '_history_service') and self._history_service:
+            try:
+                # Set frontier to current algorithm time to prevent look-ahead bias
+                self._history_service.set_frontier(self.time)
+                
+                # Convert resolution to string format
+                resolution_str = '1d'  # Default
+                if resolution == Resolution.HOUR:
+                    resolution_str = '1h'
+                elif resolution == Resolution.MINUTE:
+                    resolution_str = '1m'
+                
+                # Get historical data using the service
+                df = self._history_service.get_history(
+                    symbols=symbols, 
+                    periods=periods, 
+                    resolution=resolution_str,
+                    factor_data_service=getattr(self, '_factor_data_service', None)
+                )
+                
+                if not df.empty:
+                    info(f"Retrieved {len(df)} historical records using MarketDataHistoryService")
+                    return df
+                else:
+                    warning(f"No historical data found for symbols {symbols}")
+                    
+            except Exception as e:
+                error(f"Error using MarketDataHistoryService: {e}")
+                # Fall through to mock implementation
+        
+        # Fallback: Generate mock historical data for demonstration
         import pandas as pd
         
         if isinstance(symbols, str):
             symbols = [symbols]
         
-        # Generate mock historical data for demonstration
         if end_time is None:
             end_time = self.time
         

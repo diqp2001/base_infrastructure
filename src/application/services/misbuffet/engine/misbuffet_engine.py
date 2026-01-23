@@ -231,6 +231,12 @@ class MisbuffetEngine(BaseEngine):
                 
                 self.algorithm = self._algorithm  # Maintain backward compatibility
                 
+                # Inject MarketDataHistoryService into algorithm if available
+                if hasattr(self.data_loader, 'market_data_history_service'):
+                    self.algorithm._history_service = self.data_loader.market_data_history_service
+                    self.algorithm._factor_data_service = self.factor_data_service
+                    self.logger.info("Injected MarketDataHistoryService into algorithm")
+                
             # Setup algorithm with config
             if self.algorithm:
                 # Portfolio setup with algorithm framework's SecurityPortfolioManager
@@ -435,7 +441,14 @@ class MisbuffetEngine(BaseEngine):
 
                     
 
-                    data_slice = self._create_data_slice(current_date, universe)
+                    # Use MarketDataService to create the data slice
+                    if hasattr(self.data_loader, 'market_data_service'):
+                        data_slice = self.data_loader.market_data_service.create_data_slice(
+                            current_date, universe, self.factor_data_service
+                        )
+                    else:
+                        # Fallback to original method
+                        data_slice = self._create_data_slice(current_date, universe)
                     
                     # Only call on_data if we have data for this date
                     if data_slice.has_data:
@@ -920,7 +933,14 @@ class MisbuffetEngine(BaseEngine):
                 # Create data slice with real stock data for this date
                 if self.algorithm and hasattr(self.algorithm, 'on_data'):
                     try:
-                        data_slice = self._create_data_slice(current_date, universe)
+                        # Use MarketDataService to create the data slice
+                        if hasattr(self.data_loader, 'market_data_service'):
+                            data_slice = self.data_loader.market_data_service.create_data_slice(
+                                current_date, universe, self.factor_data_service
+                            )
+                        else:
+                            # Fallback to original method
+                            data_slice = self._create_data_slice(current_date, universe)
                         
                         # Only call on_data if we have data for this date
                         if data_slice.has_data:
