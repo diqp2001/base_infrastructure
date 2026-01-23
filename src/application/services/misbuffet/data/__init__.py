@@ -18,6 +18,11 @@ from .data_normalization import DataNormalizationHelper
 from .data_cache import DataCache
 from .file_format import FileFormat
 
+# New DDD-oriented services
+from .market_data_service import MarketDataService
+from .market_data_history_service import MarketDataHistoryService, Frontier
+from .data_loader import DataLoader, DataConfiguration, DataServices
+
 __all__ = [
     # Data Feeds
     'DataFeed', 'LiveTradingDataFeed', 'FileSystemDataFeed',
@@ -34,6 +39,10 @@ __all__ = [
     
     # Data Management
     'DataManager', 'DataQueueHandler', 'FakeDataQueue',
+    
+    # DDD-oriented Services
+    'MarketDataService', 'MarketDataHistoryService', 'Frontier',
+    'DataLoader', 'DataConfiguration', 'DataServices',
     
     # Utilities
     'DataNormalizationHelper', 'DataCache', 'FileFormat',
