@@ -4,6 +4,8 @@ import pandas as pd
 import logging
 from src.application.services.misbuffet.common.data_types import Slice, TradeBar, Symbol
 from src.application.services.data.entities.entity_service import EntityService
+from src.domain.entities.factor.factor import Factor
+from src.domain.entities.factor.factor_value import FactorValue
 
 
 class MarketDataService:
@@ -112,18 +114,30 @@ class MarketDataService:
             factor_data = {}
             
             for factor_name in factor_names:
-                factor = factor_data_service.get_factor_by_name(factor_name)
+                # Use entity service to get or create factor
+                factor = self.entity_service._create_or_get(
+                    Factor, 
+                    factor_name,
+                    group='price', 
+                    subgroup='market_data'
+                )
                 if factor:
-                    # Get factor values for the specific date
-                    factor_values = factor_data_service.get_factor_values(
-                        factor_id=int(factor.id),
+                    # Create composite key for factor value lookup
+                    date_str = point_in_time.strftime('%Y-%m-%d')
+                    composite_key = f"{factor.id}_{entity.id}_{date_str}"
+                    
+                    # Use entity service to get factor value
+                    factor_value = self.entity_service._create_or_get(
+                        FactorValue,
+                        composite_key,
+                        factor_id=factor.id,
                         entity_id=entity.id,
-                        start_date=point_in_time.strftime('%Y-%m-%d'),
-                        end_date=point_in_time.strftime('%Y-%m-%d')
+                        date=point_in_time.date(),
+                        value="0.0"  # Default value if not found
                     )
                     
-                    if factor_values:
-                        factor_data[factor_name] = float(factor_values[0].value)
+                    if factor_value:
+                        factor_data[factor_name] = float(factor_value.value)
             
             # Create DataFrame if we have data
             if factor_data:
@@ -142,13 +156,25 @@ class MarketDataService:
         Get entity by ticker using the entity service.
         """
         try:
-            # Try to get company share first (most common case)
-            from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
-            with self.entity_service.database_service.session as session:
-                entity = session.query(CompanyShareModel).filter(
-                    CompanyShareModel.ticker == ticker
-                ).first()
-                return entity
+            # Import the domain entity class
+            from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+            
+            # Check if IBKR client is available in entity service
+            if hasattr(self.entity_service, 'repository_factory') and \
+               hasattr(self.entity_service.repository_factory, 'ibkr_client') and \
+               self.entity_service.repository_factory.ibkr_client:
+                # Use IBKR method if client is available
+                entity = self.entity_service._create_or_get_ibkr(
+                    CompanyShare, 
+                    ticker
+                )
+            else:
+                # Use local method
+                entity = self.entity_service._create_or_get(
+                    CompanyShare, 
+                    ticker
+                )
+            return entity
         except Exception as e:
             self.logger.debug(f"Error getting entity for ticker {ticker}: {e}")
             return None
