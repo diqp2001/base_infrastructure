@@ -40,56 +40,57 @@ class MarketDataService:
             Slice containing market data for the specified time
         """
         # Validate if current_date is a trading day
-        if not self._is_valid_trading_day(current_date):
-            self.logger.debug(f"Skipping non-trading day: {current_date}")
-            return Slice(time=current_date)
+        if  self._is_valid_trading_day(current_date):
+            
+            
         
-        # Create the slice for this time point
-        slice_data = Slice(time=current_date)
-        
-        # Get data for each symbol in the universe
-        for ticker in universe:
-            try:
-                # Get point-in-time data for this ticker
-                point_in_time_data = self._get_point_in_time_data(
-                    ticker, current_date
-                )
-                
-                if point_in_time_data is not None and not point_in_time_data.empty:
-                    # Create Symbol object
-                    symbol = Symbol.create_equity(ticker)
-                    
-                    # Use the most recent data point
-                    latest_data = point_in_time_data.iloc[-1]
-                    
-                    # Create TradeBar with actual market data
-                    trade_bar = TradeBar(
-                        symbol=symbol,
-                        time=current_date,
-                        end_time=current_date,
-                        open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
-                        high=float(latest_data.get('High', latest_data.get('high', 0.0))),
-                        low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
-                        close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
-                        volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+            # Create the slice for this time point
+            slice_data = Slice(time=current_date)
+            
+            # Get data for each symbol in the universe
+            for ticker in universe:
+                try:
+                    # Get point-in-time data for this ticker
+                    point_in_time_data = self._get_point_in_time_data(
+                        ticker, current_date
                     )
                     
-                    # Add to slice
-                    slice_data.bars[symbol] = trade_bar
-                    
-                    # Also add to data dictionary for has_data() compatibility
-                    if symbol not in slice_data._data:
-                        slice_data._data[symbol] = []
-                    slice_data._data[symbol].append(trade_bar)
-                    
-            except Exception as e:
-                self.logger.debug(f"Error creating data slice for {ticker} on {current_date}: {e}")
-                if self.on_error:
-                    self.on_error(f"Error getting data for {ticker}: {str(e)}")
-                continue
+                    if point_in_time_data is not None and not point_in_time_data.empty:
+                        # Create Symbol object
+                        symbol = Symbol.create_equity(ticker)
+                        
+                        # Use the most recent data point
+                        latest_data = point_in_time_data.iloc[-1]
+                        
+                        # Create TradeBar with actual market data
+                        trade_bar = TradeBar(
+                            symbol=symbol,
+                            time=current_date,
+                            end_time=current_date,
+                            open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
+                            high=float(latest_data.get('High', latest_data.get('high', 0.0))),
+                            low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
+                            close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
+                            volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+                        )
+                        
+                        # Add to slice
+                        slice_data.bars[symbol] = trade_bar
+                        
+                        # Also add to data dictionary for has_data() compatibility
+                        if symbol not in slice_data._data:
+                            slice_data._data[symbol] = []
+                        slice_data._data[symbol].append(trade_bar)
+                        
+                except Exception as e:
+                    self.logger.debug(f"Error creating data slice for {ticker} on {current_date}: {e}")
+                    if self.on_error:
+                        self.on_error(f"Error getting data for {ticker}: {str(e)}")
+                    continue
         
-        self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")
-        
+            self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")
+        else:
+            self.logger.debug(f"Skipping non-trading day: {current_date}")
         # Trigger callback if set
         if self.on_data_slice:
             self.on_data_slice(slice_data)
@@ -151,13 +152,12 @@ class MarketDataService:
             self.logger.debug(f"Error getting point-in-time data for {ticker} on {point_in_time}: {e}")
             return None
     
-    def _get_entity_by_ticker(self, ticker: str):
+    def _get_entity_by_ticker(self, ticker: str, entity_class= Factor):
         """
         Get entity by ticker using the entity service.
         """
         try:
-            # Import the domain entity class
-            from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+            
             
             # Check if IBKR client is available in entity service
             if hasattr(self.entity_service, 'repository_factory') and \
@@ -165,13 +165,13 @@ class MarketDataService:
                self.entity_service.repository_factory.ibkr_client:
                 # Use IBKR method if client is available
                 entity = self.entity_service._create_or_get_ibkr(
-                    CompanyShare, 
+                    entity_class, 
                     ticker
                 )
             else:
                 # Use local method
                 entity = self.entity_service._create_or_get(
-                    CompanyShare, 
+                    entity_class, 
                     ticker
                 )
             return entity
