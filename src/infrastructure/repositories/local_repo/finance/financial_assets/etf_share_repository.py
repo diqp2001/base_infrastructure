@@ -7,14 +7,16 @@ from src.domain.ports.finance.financial_assets.share.etf_share_port import ETFSh
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel as ETFShareModel
 from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare as ETFShareEntity
+from src.infrastructure.repositories.mappers.finance.financial_assets.etf_share_mapper import ETFShareMapper
 class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
     """Local repository for ETF share model"""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: ETFShareMapper = None):
         """Initialize ETFShareRepository with database session."""
         super().__init__(session)
         self.factory = factory
         self.data_store = []
+        self.mapper = mapper or ETFShareMapper()
     
     @property
     def model_class(self):
@@ -113,18 +115,11 @@ class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
         """Convert model to entity."""
         if not model:
             return None
-        return ETFShareEntity(
-            id=model.id,
-            name=model.name,
-            symbol=model.symbol,
-            exchange_id=model.exchange_id
+        return self.mapper.to_domain(model)
         )
     
     def _to_model(self, entity: ETFShareEntity) -> ETFShareModel:
         """Convert entity to model."""
-        return ETFShareModel(
-            id=entity.id,
-            name=entity.name,
-            symbol=entity.symbol,
-            exchange_id=entity.exchange_id
-        )
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)

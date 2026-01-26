@@ -9,15 +9,17 @@ from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor_value import FactorValue
 from src.infrastructure.models.factor.factor_value import FactorValueModel as FactorValueModel
+from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
 
 class FactorValueRepository(BaseLocalRepository, FactorValuePort):
     """Local repository for factor value model"""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: FactorValueMapper = None):
         """Initialize FactorValueRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or FactorValueMapper()
     
     @property
     def model_class(self):
@@ -32,22 +34,13 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return FactorValue(
-            id=model.id,
-            factor_id=model.factor_id,
-            entity_id=model.entity_id,
-            date=model.date,
-            value=model.value
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: FactorValue) -> FactorValueModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
-        
-        return FactorValueModel(
-            id=entity.id,
+        return self.mapper.to_orm(entity)
             factor_id=entity.factor_id,
             entity_id=entity.entity_id,
             date=entity.date,

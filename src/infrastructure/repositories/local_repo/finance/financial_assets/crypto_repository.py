@@ -13,16 +13,18 @@ from decimal import Decimal
 from src.infrastructure.models.finance.financial_assets.crypto import CryptoModel as CryptoModel
 from src.domain.entities.finance.financial_assets.crypto import Crypto as CryptoEntity
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.mappers.finance.financial_assets.crypto_mapper import CryptoMapper
 from src.domain.ports.finance.financial_assets.crypto_port import CryptoPort
 
 
 class CryptoRepository(FinancialAssetRepository, CryptoPort):
     """Repository for managing Crypto entities."""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: CryptoMapper = None):
         """Initialize CryptoRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or CryptoMapper()
     
     @property
     def model_class(self):
@@ -38,16 +40,13 @@ class CryptoRepository(FinancialAssetRepository, CryptoPort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return CryptoEntity(
-            asset_id=model.id,  # Using model.id as asset_id for compatibility
-            symbol=model.symbol,
-            name=model.name
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: CryptoEntity) -> CryptoModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
+            return None
+        return self.mapper.to_orm(entity)
             return None
         
         return CryptoModel(

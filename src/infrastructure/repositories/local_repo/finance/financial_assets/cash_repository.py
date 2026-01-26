@@ -13,16 +13,18 @@ from decimal import Decimal
 from src.infrastructure.models.finance.financial_assets.cash import CashModel as CashModel
 from src.domain.entities.finance.financial_assets.cash import Cash as CashEntity
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.mappers.finance.financial_assets.cash_mapper import CashMapper
 from src.domain.ports.finance.financial_assets.cash_port import CashPort
 
 
 class CashRepository(FinancialAssetRepository, CashPort):
     """Repository for managing Cash entities."""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: CashMapper = None):
         """Initialize CashRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or CashMapper()
     
     @property
     def model_class(self):
@@ -38,26 +40,13 @@ class CashRepository(FinancialAssetRepository, CashPort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return CashEntity(
-            asset_id=model.asset_id,
-            name=model.name,
-            amount=float(model.amount) if model.amount else 0.0,
-            currency=model.currency or "USD"
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: CashEntity) -> CashModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
-        
-        return CashModel(
-            asset_id=entity.asset_id,
-            name=entity.name,
-            amount=float(entity.amount),
-            currency=entity.currency,
-            last_updated=datetime.now()
-        )
+        return self.mapper.to_orm(entity)
     
     def get_all(self) -> List[CashEntity]:
         """Retrieve all Cash records."""
