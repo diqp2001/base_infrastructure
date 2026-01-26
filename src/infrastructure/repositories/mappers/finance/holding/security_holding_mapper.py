@@ -7,7 +7,8 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
-from src.domain.entities.finance.holding.security_holding import SecurityHolding as DomainSecurityHolding
+#from src.domain.entities.finance.holding.security_holding import SecurityHolding as DomainSecurityHolding
+from src.domain.entities.finance.back_testing.back_testing_security import SecurityHolding as DomainSecurityHolding
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel as ORMSecurityHolding
 
 

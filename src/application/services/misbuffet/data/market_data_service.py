@@ -48,45 +48,46 @@ class MarketDataService:
             slice_data = Slice(time=current_date)
             
             # Get data for each symbol in the universe
-            for ticker in universe:
-                try:
-                    # Get point-in-time data for this ticker
-                    point_in_time_data = self._get_point_in_time_data(
-                        ticker, current_date
-                    )
-                    
-                    if point_in_time_data is not None and not point_in_time_data.empty:
-                        # Create Symbol object
-                        symbol = Symbol.create_equity(ticker)
-                        
-                        # Use the most recent data point
-                        latest_data = point_in_time_data.iloc[-1]
-                        
-                        # Create TradeBar with actual market data
-                        trade_bar = TradeBar(
-                            symbol=symbol,
-                            time=current_date,
-                            end_time=current_date,
-                            open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
-                            high=float(latest_data.get('High', latest_data.get('high', 0.0))),
-                            low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
-                            close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
-                            volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+            for entity_class, entities in universe.items():
+                for entity in entities:
+                    try:
+                        point_in_time_data = self._get_point_in_time_data(
+                            entity,entity_class, current_date
                         )
+
                         
-                        # Add to slice
-                        slice_data.bars[symbol] = trade_bar
-                        
-                        # Also add to data dictionary for has_data() compatibility
-                        if symbol not in slice_data._data:
-                            slice_data._data[symbol] = []
-                        slice_data._data[symbol].append(trade_bar)
-                        
-                except Exception as e:
-                    self.logger.debug(f"Error creating data slice for {ticker} on {current_date}: {e}")
-                    if self.on_error:
-                        self.on_error(f"Error getting data for {ticker}: {str(e)}")
-                    continue
+                        if point_in_time_data is not None and not point_in_time_data.empty:
+                            # Create Symbol object
+                            symbol = Symbol.create_equity(entity)
+                            
+                            # Use the most recent data point
+                            latest_data = point_in_time_data.iloc[-1]
+                            
+                            # Create TradeBar with actual market data
+                            trade_bar = TradeBar(
+                                symbol=symbol,
+                                time=current_date,
+                                end_time=current_date,
+                                open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
+                                high=float(latest_data.get('High', latest_data.get('high', 0.0))),
+                                low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
+                                close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
+                                volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+                            )
+                            
+                            # Add to slice
+                            slice_data.bars[symbol] = trade_bar
+                            
+                            # Also add to data dictionary for has_data() compatibility
+                            if symbol not in slice_data._data:
+                                slice_data._data[symbol] = []
+                            slice_data._data[symbol].append(trade_bar)
+                            
+                    except Exception as e:
+                        self.logger.debug(f"Error creating data slice for {ticker} on {current_date}: {e}")
+                        if self.on_error:
+                            self.on_error(f"Error getting data for {ticker}: {str(e)}")
+                        continue
         
             self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")
         else:
@@ -97,7 +98,7 @@ class MarketDataService:
             
         return slice_data
     
-    def _get_point_in_time_data(self, ticker: str, point_in_time: datetime) -> Optional[pd.DataFrame]:
+    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime) -> Optional[pd.DataFrame]:
         """
         Get point-in-time data for a specific ticker and date.
         Uses the factor data service to retrieve historical data.
@@ -105,7 +106,7 @@ class MarketDataService:
         
         try:
             # Get entity using entity service
-            entity = self._get_entity_by_ticker(ticker)
+            entity = self._get_entity_by_ticker(ticker,entity_class)
             if not entity:
                 self.logger.debug(f"No entity found for ticker {ticker}")
                 return None
@@ -152,7 +153,7 @@ class MarketDataService:
             self.logger.debug(f"Error getting point-in-time data for {ticker} on {point_in_time}: {e}")
             return None
     
-    def _get_entity_by_ticker(self, ticker: str, entity_class= Factor):
+    def _get_entity_by_ticker(self, ticker: str, entity_class= None):
         """
         Get entity by ticker using the entity service.
         """

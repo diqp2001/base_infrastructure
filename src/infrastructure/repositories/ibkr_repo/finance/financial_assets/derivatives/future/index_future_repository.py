@@ -24,7 +24,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client, factory=None):
         """
         Initialize IBKR Index Future Repository.
         
@@ -35,7 +35,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
-        self.local_repo = self.factory.index_future_local_repo
+        self.local_repo =  self.factory.index_future_local_repo 
     @property
     def entity_class(self):
         """Return the domain entity class for IndexFuture."""

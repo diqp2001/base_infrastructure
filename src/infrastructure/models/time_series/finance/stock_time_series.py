@@ -35,4 +35,4 @@ class StockTimeSeriesModel(FinancialAssetTimeSeriesModel):
         
     
     def __repr__(self):
-        return f"<StockTimeSeries(id={self.id}, name={self.name}, stock_id={self.stock_id})>"
+        return f"<StockTimeSeries(id={self.id}, name={self.name})>"

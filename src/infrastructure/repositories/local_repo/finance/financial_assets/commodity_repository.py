@@ -3,8 +3,8 @@
 
 import logging
 from typing import Optional
-from domain.ports.finance.financial_assets.commodity_port import CommodityPort
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.domain.ports.finance.financial_assets.commodity_port import CommodityPort
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.commodity import CommodityModel as CommodityModel
 from src.domain.entities.finance.financial_assets.commodity import Commodity as CommodityEntity
 from sqlalchemy.orm import Session

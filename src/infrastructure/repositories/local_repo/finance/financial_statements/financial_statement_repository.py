@@ -1,6 +1,6 @@
 # Financial Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/financial_statement.py
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 from typing import Optional
 class FinancialStatementRepository(BaseLocalRepository):

@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from src.infrastructure.models.finance.financial_assets.crypto import CryptoModel as CryptoModel
 from src.domain.entities.finance.financial_assets.crypto import Crypto as CryptoEntity
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.ports.finance.financial_assets.crypto_port import CryptoPort
 
 

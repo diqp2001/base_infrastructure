@@ -416,7 +416,6 @@ class MisbuffetEngine(BaseEngine):
         
         # Track universe of symbols the algorithm is interested in
         universe = getattr(self.algorithm, 'universe')
-        
         # Configurable simulation loop - process data at specified intervals
         while current_date <= end_date:
             # Create data slice with real stock data for this date

@@ -18,7 +18,7 @@ class SwapLegModel(DerivativeModel):
     
     
     # Relationships
-    swaps = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap.SwapModel", back_populates="swap_legs")
+    swaps = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap.SwapModel", back_populates="swap_legs",foreign_keys=[swap_id])
     
     __mapper_args__ = {
     "polymorphic_identity": "swap_leg",

@@ -1,6 +1,6 @@
 # Cash Flow Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/cash_flow_statement.py
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 from typing import Optional
 class CashFlowStatementRepository(BaseLocalRepository):

@@ -23,7 +23,7 @@ class BaseIBKRFactorRepository(BaseIBKRRepository):
     - Delegation to local repositories for persistence
     """
 
-    def __init__(self, ibkr_client, local_repo):
+    def __init__(self, ibkr_client):
         """
         Initialize base IBKR factor repository.
         
@@ -32,7 +32,6 @@ class BaseIBKRFactorRepository(BaseIBKRRepository):
             local_repo: Local repository for persistence operations
         """
         super().__init__(ibkr_client)
-        self.local_repo = local_repo
     @property
     def entity_class(self):
         

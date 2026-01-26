@@ -3,8 +3,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from domain.ports.finance.holding.portfolio_company_share_holding_port import PortfolioCompanyShareHoldingPort
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.domain.ports.finance.holding.portfolio_company_share_holding_port import PortfolioCompanyShareHoldingPort
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
 from src.infrastructure.repositories.mappers.finance.holding.portfolio_company_share_holding_mapper import PortfolioCompanyShareHoldingMapper

@@ -10,7 +10,9 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from src.domain.entities.finance.financial_assets.options import Options as DomainOptions
+#from src.domain.entities.finance.financial_assets.options import Options as DomainOptions
+
+from src.domain.entities.finance.financial_assets.derivatives.option.option import Option as DomainOptions
 from src.infrastructure.models.finance.financial_assets.derivative.options import OptionsModel as ORMOptions
 from src.infrastructure.repositories.mappers.finance.financial_assets.options_mapper import OptionsMapper
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.derivatives_repository import DerivativesRepository

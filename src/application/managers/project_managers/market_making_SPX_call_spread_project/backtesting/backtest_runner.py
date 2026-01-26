@@ -141,7 +141,7 @@ class BacktestRunner:
             
             # Initialize backtest parameters
             model_type = "pricing"
-            tickers = ["SPX"]
+            universe = config.get('universe')
             start_date = config.get('backtest_start', '2025-07-01')
             end_date = config.get('backtest_end', '2025-12-31')
             initial_capital = config.get('initial_capital', 100000)
@@ -191,7 +191,7 @@ class BacktestRunner:
                 'start_date': start_date,
                 'end_date': end_date,
                 'initial_capital': initial_capital,
-                'tickers': tickers,
+                'tickers': universe,
                 'model_type': model_type
             }
             
@@ -217,7 +217,7 @@ class BacktestRunner:
             
             backtest_summary = {
                 'backtest_config': {
-                    'tickers': tickers,
+                    'tickers': universe,
                     'start_date': start_date.isoformat(),
                     'end_date': end_date.isoformat(),
                     'initial_capital': initial_capital,

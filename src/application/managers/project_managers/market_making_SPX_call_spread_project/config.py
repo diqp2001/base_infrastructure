@@ -5,6 +5,9 @@ Configuration settings for Market Making SPX Call Spread Project
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
+
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.entities.finance.financial_assets.index.index import Index
 # Base configuration
 BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 DATA_PATH = BASE_PROJECT_ROOT / "data"
@@ -17,11 +20,14 @@ CONFIG_TEST = {
 }
 
 # Default configuration for market making SPX call spread project
+
+
 DEFAULT_CONFIG = {
     # Project settings
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
-    
+    'universe' : {Index: ["SPX"],IndexFuture: ["ES"]},
+    'target_factor':{Index: ["SPX"],IndexFuture: ["ES"]},
     # SPX Configuration
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',

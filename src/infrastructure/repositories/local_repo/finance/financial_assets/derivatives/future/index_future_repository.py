@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 
-from infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import (
+from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import (
     FutureRepository
 )
 from src.domain.entities.finance.financial_assets.derivatives.future.future import (

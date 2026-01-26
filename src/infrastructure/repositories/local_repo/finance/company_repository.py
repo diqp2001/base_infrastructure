@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from src.infrastructure.models.finance.company import CompanyModel as CompanyModel
 from src.domain.entities.finance.company import Company as CompanyEntity
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.ports.finance.company_port import CompanyPort
 
 logger = logging.getLogger(__name__)

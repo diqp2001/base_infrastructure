@@ -28,7 +28,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client,  factory=None):
         """
         Initialize IBKR Company Share Repository.
         

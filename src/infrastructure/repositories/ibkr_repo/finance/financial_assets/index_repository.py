@@ -24,7 +24,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client,  factory=None):
         """
         Initialize IBKR Index Repository.
         
@@ -200,7 +200,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
                 currency_repo = self.factory.currency_ibkr_repo
                 if currency_repo:
-                    currency = currency_repo.get_or_create(iso_code, name)
+                    currency = currency_repo.get_or_create(iso_code)
                     if currency:
                         return currency
             

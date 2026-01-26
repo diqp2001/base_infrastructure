@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from src.infrastructure.models.finance.market_data import MarketDataModel
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
 class MarketDataRepository(BaseLocalRepository):

@@ -23,7 +23,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client, factory=None):
         """
         Initialize IBKR Currency Repository.
         
@@ -51,7 +51,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         """
         try:
             # 1. Check local repository first
-            existing = self.local_repo.get_by_symbol(pair_symbol)
+            existing = self.local_repo.get_by_iso_code(pair_symbol)
             if existing:
                 return existing
             

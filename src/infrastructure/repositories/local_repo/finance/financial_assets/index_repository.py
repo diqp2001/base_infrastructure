@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Optional
 from datetime import date
 from sqlalchemy.orm import Session
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
     FinancialAssetRepository
 )
 

@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.future.future import Future as DomainFuture
-from infrastructure.models.finance.financial_assets.derivative.future import FutureModel as ORMFuture
+from src.infrastructure.models.finance.financial_assets.derivative.future import FutureModel as ORMFuture
 from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapper import IndexMapper
 
 

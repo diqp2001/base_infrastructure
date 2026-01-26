@@ -18,7 +18,9 @@ class SwapModel(DerivativeModel):
     id = Column(Integer, ForeignKey("derivatives.id"), primary_key=True)
     
 
-    swap_legs = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg.SwapLegModel", back_populates="swaps")
+    swap_legs = relationship("src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg.SwapLegModel", back_populates="swaps",foreign_keys="SwapLegModel.swap_id",
+        cascade="all, delete-orphan"
+    )
     
     
     __mapper_args__ = {

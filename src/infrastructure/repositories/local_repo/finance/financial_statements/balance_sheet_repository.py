@@ -2,7 +2,7 @@
 # Mirrors src/infrastructure/models/finance/financial_statements/balance_sheet.py
 
 from typing import Optional
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 
 class BalanceSheetRepository(BaseLocalRepository):

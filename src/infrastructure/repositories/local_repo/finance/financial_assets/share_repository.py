@@ -2,8 +2,8 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from domain.ports.finance.financial_assets.share.share_port import SharePort
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.domain.ports.finance.financial_assets.share.share_port import SharePort
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.share import ShareModel as ShareModel
 from src.domain.entities.finance.financial_assets.share.share import Share as ShareEntity
 

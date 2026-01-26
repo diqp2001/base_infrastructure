@@ -2,7 +2,7 @@
 # Mirrors src/infrastructure/models/finance/financial_assets/equity.py
 
 from typing import Optional
-from infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.domain.ports.finance.financial_assets.equity_port import EquityPort
 from src.infrastructure.models.finance.financial_assets.equity import EquityModel as EquityModel
 from src.domain.entities.finance.financial_assets.equity import Equity as EquityEntity

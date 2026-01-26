@@ -46,6 +46,7 @@ from src.infrastructure.models.finance.financial_assets.etf_share import ETFShar
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivative.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
 from src.infrastructure.models.finance.financial_assets.derivative.forward_contract import (
     ForwardContractModel
@@ -119,7 +120,7 @@ __all__ = [
     'ExchangeModel', 'CompanyModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
     'ShareModel', 'CompanyShareModel', 'ETFShareModel',
-    'BondModel', 'OptionsModel', 'DerivativeModel',
+    'BondModel', 'OptionsModel','FutureModel', 'DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 

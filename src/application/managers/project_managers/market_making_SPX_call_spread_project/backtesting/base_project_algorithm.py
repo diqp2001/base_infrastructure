@@ -64,10 +64,10 @@ class Algorithm(QCAlgorithm):
         self.config = get_config()
         
         # Define universe and store Security objects
-        self.universe = ["SPX"]#self.config['DATA']['DEFAULT_UNIVERSE']
+        self.universe = self.config['universe']
         self.my_securities = {}  # Dictionary to store Security objects by ticker for easy lookup
         
-        for ticker in self.universe:
+        """for ticker in self.universe:
             try:
                 security = self.add_equity(ticker, Resolution.DAILY)
                 if security is not None:
@@ -77,7 +77,7 @@ class Algorithm(QCAlgorithm):
                 else:
                     self.log(f"Warning: Failed to add security {ticker} - got None")
             except Exception as e:
-                self.log(f"Error adding security {ticker}: {str(e)}")
+                self.log(f"Error adding security {ticker}: {str(e)}")"""
 
         # Algorithm parameters
         self.lookback_window = 20   # volatility window

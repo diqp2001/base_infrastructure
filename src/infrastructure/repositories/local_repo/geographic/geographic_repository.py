@@ -7,7 +7,7 @@ from abc import abstractmethod
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
-from infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 
 
 class GeographicRepository(BaseLocalRepository):

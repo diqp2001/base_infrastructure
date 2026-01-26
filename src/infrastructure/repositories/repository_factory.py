@@ -117,72 +117,58 @@ class RepositoryFactory:
             self._ibkr_repositories = {
                 'factor': IBKRFactorRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['factor'],
                     factory=self
                 ),
                 'factor_value': IBKRFactorValueRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['factor_value'],
                     factory=self
                 ),
                 'index_future': IBKRIndexFutureRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['index_future'],
                     factory=self
                 ),
                 'company_share': IBKRCompanyShareRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['company_share'],
                     factory=self
                 ),
                 'currency': IBKRCurrencyRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['currency'],
                     factory=self
                 ),
                 'bond': IBKRBondRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['bond'],
                     factory=self
                 ),
                 'index': IBKRIndexRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['index'],
-                    factory=self  # Pass factory for dependency injection
+                    factory=self  
                 ),
                 'crypto': IBKRCryptoRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['crypto'],
                     factory=self
                 ),
                 'commodity': IBKRCommodityRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['commodity'],
                     factory=self
                 ),
                 'cash': IBKRCashRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['cash'],
                     factory=self
                 ),
                 'equity': IBKREquityRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['equity'],
                     factory=self
                 ),
                 'etf_share': IBKRETFShareRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['etf_share'],
                     factory=self
                 ),
                 'share': IBKRShareRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['share'],
                     factory=self
                 ),
                 'security': IBKRSecurityRepository(
                     ibkr_client=client,
-                    local_repo=local_repos['security'],
                     factory=self
                 )
             }
