@@ -12,6 +12,7 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
+from src.domain.entities.country import Country
 from src.domain.ports.finance.financial_assets.currency_port import CurrencyPort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.currency import Currency
@@ -39,24 +40,24 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
     def entity_class(self):
         """Return the domain entity class for Currency."""
         return Currency
-    def get_or_create(self, pair_symbol: str) -> Optional[Currency]:
+    def get_or_create(self, symbol: str) -> Optional[Currency]:
         """
-        Get or create a currency pair by symbol using IBKR API.
+        Get or create a currency  by symbol using IBKR API.
         
         Args:
-            pair_symbol: The currency pair symbol (e.g., 'EURUSD', 'GBPJPY')
+            symbol: The currency  symbol (e.g., 'USD', 'JPY')
             
         Returns:
             Currency entity or None if creation/retrieval failed
         """
         try:
             # 1. Check local repository first
-            existing = self.local_repo.get_by_iso_code(pair_symbol)
+            existing = self.local_repo.get_by_iso_code(symbol)
             if existing:
                 return existing
             
             # 2. Fetch from IBKR API
-            contract = self._fetch_contract(pair_symbol)
+            contract = self._fetch_contract(symbol)
             if not contract:
                 return None
                 
@@ -66,7 +67,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details_list, pair_symbol)
+            entity = self._contract_to_domain(contract, contract_details_list, symbol)
             if not entity:
                 return None
                 
@@ -74,7 +75,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for currency pair {pair_symbol}: {e}")
+            print(f"Error in IBKR get_or_create for currency pair {symbol}: {e}")
             return None
 
     def get_by_symbol(self, symbol: str) -> Optional[Currency]:
@@ -101,7 +102,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         """Delete currency entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
-    def _fetch_contract(self, pair_symbol: str) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
         """
         Fetch currency contract from IBKR API.
         
@@ -113,17 +114,15 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         """
         try:
             # Parse currency pair
-            base_currency, quote_currency = self._parse_currency_pair(pair_symbol)
             
             contract = Contract()
-            contract.symbol = base_currency
+            contract.symbol = symbol
             contract.secType = "CASH"
-            contract.exchange = "IDEALPRO"  # IBKR's forex exchange
-            contract.currency = quote_currency
+            contract.exchange = "IDEALPRO"  
             
             return contract
         except Exception as e:
-            print(f"Error fetching IBKR currency contract for {pair_symbol}: {e}")
+            print(f"Error fetching IBKR currency contract for {symbol}: {e}")
             return None
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
@@ -171,23 +170,50 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             # Extract data from IBKR API response
             pip_size = contract_details.get('min_tick', 0.00001)
             long_name = contract_details.get('long_name', f"{base_currency}/{quote_currency}")
-            
+            country = self._get_or_create_country("USA")
             return Currency(
                 id=None,  # Let database generate
                 symbol=pair_symbol,
                 name=long_name,
-                base_currency=base_currency,
-                quote_currency=quote_currency,
-                pip_size=Decimal(str(pip_size)),
-                # IBKR-specific fields  
-                ibkr_contract_id=contract_details.get('contract_id'),
-                ibkr_local_symbol=contract_details.get('local_symbol', ''),
-                ibkr_trading_class=contract_details.get('trading_class', ''),
-                ibkr_exchange=contract.exchange
+                country_id = country.id,
+                start_date=datetime.today()
+                # base_currency=base_currency,
+                # quote_currency=quote_currency,
+                # pip_size=Decimal(str(pip_size)),
+                # # IBKR-specific fields  
+                # ibkr_contract_id=contract_details.get('contract_id'),
+                # ibkr_local_symbol=contract_details.get('local_symbol', ''),
+                # ibkr_trading_class=contract_details.get('trading_class', ''),
+                # ibkr_exchange=contract.exchange
             )
         except Exception as e:
             print(f"Error converting IBKR currency contract to domain entity: {e}")
             return None
+        
+    def _get_or_create_country(self,  name: str) -> Country:
+        """
+        Get or create a country using factory or country repository if available.
+        Falls back to direct country creation if no dependencies are provided.
+        
+        Args:
+            
+            name: country name (e.g., 'USA')
+            
+        Returns:
+            country domain entity
+        """
+        try:
+            # Try factory's currency repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'country_ibkr_repo'):
+                country_repo = self.factory.country_ibkr_repo
+                if country_repo:
+                    country = country_repo.get_or_create(name)
+                    if country:
+                        return country
+            
+        except Exception as e:
+            print(f"Error getting or creating currency {name}: {e}")
+            
 
     def _parse_currency_pair(self, pair_symbol: str) -> tuple[str, str]:
         """

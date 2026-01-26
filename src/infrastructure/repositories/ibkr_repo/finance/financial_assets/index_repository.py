@@ -171,13 +171,13 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             name = contract_details.get('long_name', f"{symbol} Index")
             
             # Get or create USD currency for indices (most indices are USD-denominated)
-            usd_currency = self._get_or_create_currency("USD", "US Dollar")
+            currency = self._get_or_create_currency("USD", "US Dollar")
             
             return Index(
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency_id=usd_currency.id,
+                currency_id=currency.id,
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")
