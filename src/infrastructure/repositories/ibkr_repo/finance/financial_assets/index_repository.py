@@ -177,7 +177,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency=usd_currency,
+                currency_id=usd_currency.id,
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}")

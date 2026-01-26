@@ -84,9 +84,9 @@ class MarketDataService:
                             slice_data._data[symbol].append(trade_bar)
                             
                     except Exception as e:
-                        self.logger.debug(f"Error creating data slice for {ticker} on {current_date}: {e}")
+                        self.logger.debug(f"Error creating data slice for {symbol} on {current_date}: {e}")
                         if self.on_error:
-                            self.on_error(f"Error getting data for {ticker}: {str(e)}")
+                            self.on_error(f"Error getting data for {symbol}: {str(e)}")
                         continue
         
             self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")

@@ -142,7 +142,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
         """
         try:
             orm_currency = self.session.query(ORMCurrency).filter(
-                ORMCurrency.iso_code == iso_code.upper()
+                ORMCurrency.symbol == iso_code.upper()
             ).first()
             
             if orm_currency:

@@ -25,7 +25,7 @@ class FinancialStatementRepository(BaseLocalRepository):
         """Find all financial statements"""
         return self.data_store.copy()
 
-    def get_or_create(self, primary_key: str, **kwargs) -> Optional:
+    def get_or_create(self, primary_key: str, **kwargs):
         """
         Get or create a financial statement with dependency resolution.
         
