@@ -14,6 +14,7 @@ from ibapi.contract import Contract, ContractDetails
 from src.domain.ports.finance.exchange_port import ExchangePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.domain.entities.finance.exchange import Exchange
+from src.infrastructure.repositories.mappers.finance.exchange_mapper import ExchangeMapper
 
 
 class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
@@ -22,18 +23,20 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client, factory, mapper: ExchangeMapper = None):
         """
         Initialize IBKR Exchange Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             factory: Repository factory for dependency injection (preferred)
+            mapper: Exchange mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo = self.factory.exchange_local_repo
+        self.mapper = mapper or ExchangeMapper()
 
     @property
     def entity_class(self):

@@ -15,6 +15,7 @@ from ibapi.common import TickerId
 from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
 
 # Forward reference for type hints
 from typing import TYPE_CHECKING
@@ -28,18 +29,20 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client,  factory=None):
+    def __init__(self, ibkr_client, factory=None, mapper: CompanyShareMapper = None):
         """
         Initialize IBKR Company Share Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             factory: Repository factory for dependency injection (preferred)
+            mapper: CompanyShare mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo = self.factory.company_share_local_repo
+        self.mapper = mapper or CompanyShareMapper()
 
     @property
     def entity_class(self):

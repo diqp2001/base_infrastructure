@@ -12,6 +12,7 @@ from src.domain.entities.country import Country
 from src.domain.entities.continent import Continent
 from src.domain.ports.country_port import CountryPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
+from src.infrastructure.repositories.mappers.country_mapper import CountryMapper
 
 
 class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
@@ -19,19 +20,21 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
     IBKR implementation of CountryPort for country data with continent dependency management.
     """
 
-    def __init__(self, ibkr_client,
-                    factory):
+    def __init__(self, ibkr_client, factory, mapper: CountryMapper = None):
         """
         Initialize IBKR Country Repository.
         
         Args:
+            ibkr_client: Interactive Brokers API client
             factory: Repository factory for dependency injection (required)
+            mapper: Country mapper for entity/model conversion (optional, will create if not provided)
         """
         self.factory = factory
         if factory:
             self.local_repo = self.factory.country_local_repo
         else:
             raise ValueError("Factory is required for IBKRCountryRepository")
+        self.mapper = mapper or CountryMapper()
 
     @property
     def entity_class(self):

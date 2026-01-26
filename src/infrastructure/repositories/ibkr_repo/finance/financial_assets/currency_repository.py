@@ -17,6 +17,7 @@ from src.domain.entities.country import Country
 from src.domain.ports.finance.financial_assets.currency_port import CurrencyPort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.currency import Currency
+from src.infrastructure.repositories.mappers.finance.financial_assets.currency_mapper import CurrencyMapper
 
 
 class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
@@ -25,18 +26,20 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory=None):
+    def __init__(self, ibkr_client, factory=None, mapper: CurrencyMapper = None):
         """
         Initialize IBKR Currency Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             factory: Repository factory for dependency injection (preferred)
+            mapper: Currency mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo = self.factory.currency_local_repo
+        self.mapper = mapper or CurrencyMapper()
     @property
     def entity_class(self):
         """Return the domain entity class for Currency."""
@@ -174,7 +177,9 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             # Get the appropriate country for this currency
             #iso_code = self._extract_currency_iso(symbol)
             country = self._get_or_create_country(self._get_country_for_currency(symbol))
-            return Currency(
+            
+            # Create domain entity using mapper
+            currency = Currency(
                 id=None,  # Let database generate
                 symbol=symbol,
                 name=long_name,
@@ -189,6 +194,8 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                 # ibkr_trading_class=contract_details.get('trading_class', ''),
                 # ibkr_exchange=contract.exchange
             )
+            
+            return currency
         except Exception as e:
             print(f"Error converting IBKR currency contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None

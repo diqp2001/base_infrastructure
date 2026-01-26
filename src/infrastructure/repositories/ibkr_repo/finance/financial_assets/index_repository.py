@@ -17,6 +17,7 @@ from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.domain.entities.finance.financial_assets.currency import Currency
+from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapper import IndexMapper
 
 
 class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
@@ -25,20 +26,20 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client,  factory=None):
+    def __init__(self, ibkr_client, factory=None, mapper: IndexMapper = None):
         """
         Initialize IBKR Index Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
-            local_repo: Local repository implementing IndexPort for persistence
             factory: Repository factory for dependency injection (preferred)
-            currency_repo: Currency repository for get-or-create currency functionality (legacy)
+            mapper: Index mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo = self.factory.index_local_repo
+        self.mapper = mapper or IndexMapper()
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
