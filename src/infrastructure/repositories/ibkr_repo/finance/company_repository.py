@@ -13,6 +13,7 @@ from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.domain.ports.finance.company_port import CompanyPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
 from src.domain.entities.finance.company import Company
+from src.infrastructure.repositories.mappers.finance.company_mapper import CompanyMapper
 
 
 class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
@@ -21,18 +22,20 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory):
+    def __init__(self, ibkr_client, factory, mapper: CompanyMapper = None):
         """
         Initialize IBKR Company Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             factory: Repository factory for dependency injection (preferred)
+            mapper: Company mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo = self.factory.company_local_repo
+        self.mapper = mapper or CompanyMapper()
 
     @property
     def entity_class(self):

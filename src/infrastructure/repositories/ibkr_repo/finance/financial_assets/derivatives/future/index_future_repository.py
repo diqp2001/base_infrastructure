@@ -17,6 +17,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financia
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.currency import Currency
 from src.domain.entities.finance.exchange import Exchange
+from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
 
 
 
@@ -26,18 +27,20 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory=None):
+    def __init__(self, ibkr_client, factory=None, mapper: FutureMapper = None):
         """
         Initialize IBKR Index Future Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
             factory: Repository factory for dependency injection (preferred)
+            mapper: Future mapper for entity/model conversion (optional, will create if not provided)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
         self.local_repo =  self.factory.index_future_local_repo 
+        self.mapper = mapper or FutureMapper()
     @property
     def entity_class(self):
         """Return the domain entity class for IndexFuture."""
