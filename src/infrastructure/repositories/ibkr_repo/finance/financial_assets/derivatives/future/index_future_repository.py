@@ -15,6 +15,8 @@ from ibapi.common import TickerId
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.entities.finance.financial_assets.currency import Currency
+from src.domain.entities.finance.exchange import Exchange
 
 
 
@@ -172,11 +174,15 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             contract_size = self._resolve_contract_size(contract.symbol)
             tick_size = contract_details.get('min_tick', 0.25)
             
+            # Get or create currency and exchange dependencies
+            currency = self._get_or_create_currency(contract.currency, f"{contract.currency} Currency")
+            exchange = self._get_or_create_exchange(contract.exchange)
+            
             return IndexFuture(
                 symbol=self._normalize_symbol(contract),
                 #name=f"{self._normalize_symbol(contract)} Index Future",
-                exchange=contract.exchange,
-                currency=contract.currency,
+                exchange_id=exchange.id if exchange else None,
+                currency_id=currency.id if currency else None,
                 underlying_asset=underlying_index,
                 #contract_size=contract_size,
                 #tick_size=Decimal(str(tick_size)),
@@ -191,6 +197,89 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         except Exception as e:
             print(f"Error converting IBKR contract to domain entity: {e}")
             return None
+
+    def _get_or_create_currency(self, iso_code: str, name: str) -> Optional[Currency]:
+        """
+        Get or create a currency using factory or currency repository if available.
+        Falls back to direct currency creation if no dependencies are provided.
+        
+        Args:
+            iso_code: Currency ISO code (e.g., 'USD', 'EUR')
+            name: Currency name (e.g., 'US Dollar')
+            
+        Returns:
+            Currency domain entity
+        """
+        try:
+            # Try factory's currency repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
+                currency_repo = self.factory.currency_ibkr_repo
+                if currency_repo:
+                    currency = currency_repo.get_or_create(iso_code)
+                    if currency:
+                        return currency
+            
+            # Fallback: create minimal currency entity for basic functionality
+            return Currency(
+                id=None,  # Let database generate
+                symbol=iso_code,
+                name=name,
+                country_id=None,  # Will be set by currency repo if available
+                start_date=datetime.today().date()
+            )
+                    
+        except Exception as e:
+            print(f"Error getting or creating currency {iso_code}: {e}")
+            # Return minimal currency as last resort
+            return Currency(
+                id=None,
+                symbol=iso_code,
+                name=name,
+                country_id=None,
+                start_date=datetime.today().date()
+            )
+
+    def _get_or_create_exchange(self, exchange_code: str) -> Optional[Exchange]:
+        """
+        Get or create an exchange using factory or exchange repository if available.
+        Falls back to direct exchange creation if no dependencies are provided.
+        
+        Args:
+            exchange_code: Exchange code (e.g., 'CME', 'GLOBEX', 'NYSE')
+            
+        Returns:
+            Exchange domain entity
+        """
+        try:
+            # Try factory's exchange repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'exchange_ibkr_repo'):
+                exchange_repo = self.factory.exchange_ibkr_repo
+                if exchange_repo:
+                    exchange = exchange_repo.get_or_create(exchange_code)
+                    if exchange:
+                        return exchange
+            
+            # Fallback: create minimal exchange entity for basic functionality
+            return Exchange(
+                id=None,  # Let database generate
+                code=exchange_code,
+                name=f"{exchange_code} Exchange",
+                country_id=None,  # Will be set by exchange repo if available
+                timezone="UTC",
+                currency="USD"
+            )
+                    
+        except Exception as e:
+            print(f"Error getting or creating exchange {exchange_code}: {e}")
+            # Return minimal exchange as last resort
+            return Exchange(
+                id=None,
+                code=exchange_code,
+                name=f"{exchange_code} Exchange", 
+                country_id=None,
+                timezone="UTC",
+                currency="USD"
+            )
 
     def _extract_underlying_symbol(self, symbol: str) -> str:
         """Extract underlying symbol from future symbol (e.g., 'ESZ25' -> 'ES')."""
