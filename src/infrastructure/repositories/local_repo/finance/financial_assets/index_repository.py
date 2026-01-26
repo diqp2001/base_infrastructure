@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, Optional
 from datetime import date
 from sqlalchemy.orm import Session
@@ -62,7 +63,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             )
             return self._to_domain(index)
         except Exception as e:
-            print(f"Error retrieving index by ID {id}: {e}")
+            print(f"Error retrieving index by ID {id}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_symbol(self, symbol: str) -> Index_Entity:
@@ -75,7 +76,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             )
             return self._to_domain(index)
         except Exception as e:
-            print(f"Error retrieving index by symbol {symbol}: {e}")
+            print(f"Error retrieving index by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     # ------------------------------------------------------------------
@@ -92,7 +93,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             return self._to_domain(new_index)
         except Exception as e:
             self.session.rollback()
-            print(f"Error adding index: {e}")
+            print(f"Error adding index: {e}_{os.path.abspath(__file__)}")
             return None
         
     def _get_next_available_index_id(self) -> int:
@@ -112,7 +113,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
                 return 1  # Start from 1 if no records exist
                 
         except Exception as e:
-            print(f"Warning: Could not determine next available index ID: {str(e)}")
+            print(f"Warning: Could not determine next available index ID: {str(e)}_{os.path.abspath(__file__)}")
             return 1  # Default to 1 if query fails
 
     def get_or_create(self, symbol: str, name: str = None, ticker: str = None,
@@ -176,7 +177,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             return self.add(new_index)
             
         except Exception as e:
-            print(f"Error creating index for {symbol}: {str(e)}")
+            print(f"Error creating index for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return None
 
     def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
@@ -219,7 +220,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             }
             
         except Exception as e:
-            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}")
+            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return {
                 'name': f"{symbol} Index",
                 'base_value': 100.0,

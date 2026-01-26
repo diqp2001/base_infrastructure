@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+import os
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
@@ -77,7 +78,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for index symbol {symbol}: {e}")
+            print(f"Error in IBKR get_or_create for index symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_symbol(self, symbol: str) -> Optional[Index]:
@@ -124,7 +125,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             )
             return contract
         except Exception as e:
-            print(f"Error creating IBKR index contract for {symbol}: {e}")
+            print(f"Error creating IBKR index contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
@@ -148,7 +149,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return None
                 
         except Exception as e:
-            print(f"Error fetching IBKR index contract details: {e}")
+            print(f"Error fetching IBKR index contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Index]:
@@ -180,7 +181,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 currency_id=currency.id,
             )
         except Exception as e:
-            print(f"Error converting IBKR index contract to domain entity: {e}")
+            print(f"Error converting IBKR index contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _get_or_create_currency(self, iso_code: str, name: str = None) -> Currency:
@@ -214,7 +215,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             )
                     
         except Exception as e:
-            print(f"Error getting or creating currency {iso_code}: {e}")
+            print(f"Error getting or creating currency {iso_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal currency as last resort
             return Currency(
                 id=None,

@@ -4,6 +4,7 @@ Follows the same patterns as other repositories in the project.
 """
 
 import logging
+import os
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime
@@ -65,11 +66,11 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             
         except IntegrityError as e:
             self.session.rollback()
-            logger.error(f"Currency {currency.iso_code} already exists: {e}")
+            logger.error(f"Currency {currency.symbol} already exists: {e}_{os.path.abspath(__file__)}")
             raise
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error adding currency {currency.iso_code}: {e}")
+            logger.error(f"Error adding currency {currency.symbol}: {e}_{os.path.abspath(__file__)}")
             raise
 
     def add_bulk(self, currencies: List[DomainCurrency]) -> List[DomainCurrency]:
@@ -108,7 +109,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error in bulk currency add: {e}")
+            logger.error(f"Error in bulk currency add: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_by_id(self, currency_id: int) -> Optional[DomainCurrency]:
@@ -128,7 +129,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving currency by ID {currency_id}: {e}")
+            logger.error(f"Error retrieving currency by ID {currency_id}: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_by_iso_code(self, iso_code: str) -> Optional[DomainCurrency]:
@@ -148,7 +149,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving currency by ISO code {iso_code}: {e}")
+            logger.error(f"Error retrieving currency by ISO code {iso_code}: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_by_country(self, country_id: int) -> List[DomainCurrency]:
@@ -167,7 +168,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return [self.mapper.to_domain(orm_currency) for orm_currency in orm_currencies]
             
         except Exception as e:
-            logger.error(f"Error retrieving currencies for country {country_id}: {e}")
+            logger.error(f"Error retrieving currencies for country {country_id}: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_major_currencies(self) -> List[DomainCurrency]:
@@ -185,7 +186,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return [self.mapper.to_domain(orm_currency) for orm_currency in orm_currencies]
             
         except Exception as e:
-            logger.error(f"Error retrieving major currencies: {e}")
+            logger.error(f"Error retrieving major currencies: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_tradeable_currencies(self) -> List[DomainCurrency]:
@@ -203,7 +204,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return [self.mapper.to_domain(orm_currency) for orm_currency in orm_currencies]
             
         except Exception as e:
-            logger.error(f"Error retrieving tradeable currencies: {e}")
+            logger.error(f"Error retrieving tradeable currencies: {e}_{os.path.abspath(__file__)}")
             raise
 
     def get_all(self) -> List[DomainCurrency]:
@@ -217,7 +218,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return [self.mapper.to_domain(orm_currency) for orm_currency in orm_currencies]
             
         except Exception as e:
-            logger.error(f"Error retrieving all currencies: {e}")
+            logger.error(f"Error retrieving all currencies: {e}_{os.path.abspath(__file__)}")
             raise
 
     def update(self, currency: DomainCurrency) -> DomainCurrency:
@@ -246,7 +247,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error updating currency {currency.iso_code}: {e}")
+            logger.error(f"Error updating currency {currency.iso_code}: {e}_{os.path.abspath(__file__)}")
             raise
 
     def delete(self, currency_id: int) -> bool:
@@ -272,7 +273,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
                 
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error deleting currency {currency_id}: {e}")
+            logger.error(f"Error deleting currency {currency_id}: {e}_{os.path.abspath(__file__)}")
             raise
 
     
@@ -286,7 +287,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
         try:
             return self.session.query(ORMCurrency).count()
         except Exception as e:
-            logger.error(f"Error counting currencies: {e}")
+            logger.error(f"Error counting currencies: {e}_{os.path.abspath(__file__)}")
             raise
     
     def get_or_create(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
@@ -335,5 +336,5 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             return self.add(new_currency)
             
         except Exception as e:
-            logger.error(f"Error in get_or_create_by_code for {iso_code}: {e}")
+            logger.error(f"Error in get_or_create_by_code for {iso_code}: {e}_{os.path.abspath(__file__)}")
             return None

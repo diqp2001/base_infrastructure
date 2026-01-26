@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+import os
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
@@ -77,7 +78,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}")
+            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_symbol(self, symbol: str) -> Optional[IndexFuture]:
@@ -127,7 +128,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             
             return contract
         except Exception as e:
-            print(f"Error fetching IBKR contract for {symbol}: {e}")
+            print(f"Error fetching IBKR contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
@@ -195,7 +196,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
                 #ibkr_trading_class=getattr(contract, 'tradingClass', '')
             )
         except Exception as e:
-            print(f"Error converting IBKR contract to domain entity: {e}")
+            print(f"Error converting IBKR contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _get_or_create_currency(self, iso_code: str, name: str) -> Optional[Currency]:
@@ -270,7 +271,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             )
                     
         except Exception as e:
-            print(f"Error getting or creating exchange {exchange_code}: {e}")
+            print(f"Error getting or creating exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal exchange as last resort
             return Exchange(
                 id=None,

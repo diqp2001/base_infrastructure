@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
@@ -59,7 +60,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             )
             return self._to_domain(future)
         except Exception as e:
-            print(f"Error retrieving future by ID {id}: {e}")
+            print(f"Error retrieving future by ID {id}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_symbol(self, symbol: str) -> Future_Entity:
@@ -72,7 +73,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             )
             return self._to_domain(future)
         except Exception as e:
-            print(f"Error retrieving future by symbol {symbol}: {e}")
+            print(f"Error retrieving future by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_symbol_and_expiry(self, symbol: str, expiration_date) -> Future_Entity:
@@ -89,7 +90,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             return self._to_domain(future)
         except Exception as e:
             print(
-                f"Error retrieving future {symbol} expiring {expiration_date}: {e}"
+                f"Error retrieving future {symbol} expiring {expiration_date}: {e}_{os.path.abspath(__file__)}"
             )
             return None
 
@@ -107,7 +108,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             return self._to_domain(new_future)
         except Exception as e:
             self.session.rollback()
-            print(f"Error adding future: {e}")
+            print(f"Error adding future: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _get_next_available_future_id(self) -> int:
@@ -127,7 +128,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
                 return 1  # Start from 1 if no records exist
                 
         except Exception as e:
-            print(f"Warning: Could not determine next available future ID: {str(e)}")
+            print(f"Warning: Could not determine next available future ID: {str(e)}_{os.path.abspath(__file__)}")
             return 1  # Default to 1 if query fails
 
     def _create_or_get(self, symbol: str, contract_name: str = None,
@@ -176,7 +177,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             return self.add(new_future)
             
         except Exception as e:
-            print(f"Error creating future for {symbol}: {str(e)}")
+            print(f"Error creating future for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return None
         
     def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
@@ -219,7 +220,7 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             }, self.create(**data)
             
         except Exception as e:
-            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}")
+            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return {
                 'name': f"{symbol} Future",
                 'base_value': 100.0,
@@ -257,5 +258,5 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             return self._create_or_get(symbol, contract_name, future_type, underlying_asset, exchange, currency, **kwargs)
             
         except Exception as e:
-            print(f"Error in get_or_create for future {symbol}: {e}")
+            print(f"Error in get_or_create for future {symbol}: {e}_{os.path.abspath(__file__)}")
             return None

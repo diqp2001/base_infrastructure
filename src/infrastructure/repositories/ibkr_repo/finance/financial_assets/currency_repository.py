@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+import os
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
@@ -122,7 +123,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             
             return contract
         except Exception as e:
-            print(f"Error fetching IBKR currency contract for {symbol}: {e}")
+            print(f"Error fetching IBKR currency contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
@@ -146,7 +147,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                 return None
                 
         except Exception as e:
-            print(f"Error fetching IBKR currency contract details: {e}")
+            print(f"Error fetching IBKR currency contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], symbol: str) -> Optional[Currency]:
@@ -189,7 +190,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                 # ibkr_exchange=contract.exchange
             )
         except Exception as e:
-            print(f"Error converting IBKR currency contract to domain entity: {e}")
+            print(f"Error converting IBKR currency contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None
         
     def _get_or_create_country(self, name: str) -> Country:
@@ -213,14 +214,10 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                         return country
             
             # Fallback: create minimal country entity for basic functionality
-            return Country(
-                id=None,  # Let database generate
-                name=name,
-                continent_id=None  # Will be set by country repo if available
-            )
+            return None
             
         except Exception as e:
-            print(f"Error getting or creating country {name}: {e}")
+            print(f"Error getting or creating country {name}: {e}_{os.path.abspath(__file__)}")
             # Return minimal country as last resort
             return Country(
                 id=None,
@@ -288,7 +285,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         }
         
         if base not in valid_currencies or quote not in valid_currencies:
-            raise ValueError(f"Invalid currency codes in pair: {base}/{quote}")
+            raise ValueError(f"Invalid currency codes in pair: {base}/{quote}_{os.path.abspath(__file__)}")
         
         return base, quote
 

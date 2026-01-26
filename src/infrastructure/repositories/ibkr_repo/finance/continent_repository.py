@@ -5,6 +5,7 @@ This repository handles continent data for IBKR financial entities, serving as t
 top-level geographic entity in the dependency chain.
 """
 
+import os
 from typing import Optional, List
 
 from src.domain.entities.continent import Continent
@@ -63,7 +64,7 @@ class IBKRContinentRepository(BaseIBKRRepository, ContinentPort):
             )
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for continent {name}: {e}")
+            print(f"Error in IBKR get_or_create for continent {name}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_name(self, name: str) -> Optional[Continent]:

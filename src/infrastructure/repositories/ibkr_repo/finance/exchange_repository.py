@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+import os
 from typing import Optional, List
 from datetime import datetime, time
 
@@ -64,7 +65,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for exchange {exchange_code}: {e}")
+            print(f"Error in IBKR get_or_create for exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_code(self, exchange_code: str) -> Optional[Exchange]:
@@ -123,7 +124,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
                 # ibkr_supported_order_types=exchange_info.get('order_types', [])
             )
         except Exception as e:
-            print(f"Error creating exchange entity for {exchange_code}: {e}")
+            print(f"Error creating exchange entity for {exchange_code}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _get_ibkr_exchange_info(self, exchange_code: str) -> Optional[dict]:

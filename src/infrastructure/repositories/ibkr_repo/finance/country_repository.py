@@ -5,6 +5,7 @@ This repository handles country data for IBKR financial entities, applying IBKR-
 business rules and handling continent dependencies.
 """
 
+import os
 from typing import Optional, List
 
 from src.domain.entities.country import Country
@@ -67,7 +68,7 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
             )
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for country {name}: {e}")
+            print(f"Error in IBKR get_or_create for country {name}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_name(self, name: str) -> Optional[Country]:
@@ -121,7 +122,7 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
             )
             
         except Exception as e:
-            print(f"Error getting or creating continent {name}: {e}")
+            print(f"Error getting or creating continent {name}: {e}_{os.path.abspath(__file__)}")
             # Return minimal continent as last resort
             return Continent(
                 id=None,

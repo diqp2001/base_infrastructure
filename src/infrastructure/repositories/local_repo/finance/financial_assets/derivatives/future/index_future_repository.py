@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -74,7 +75,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
             
             return self._future_to_index_future(future_entity) if future_entity else None
         except Exception as e:
-            print(f"Error in get_or_create for symbol {symbol}: {e}")
+            print(f"Error in get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def create_or_get_index_future(
@@ -137,5 +138,5 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
                 asset_class=getattr(future_entity, 'asset_class', 'DERIVATIVE')
             )
         except Exception as e:
-            print(f"Error converting Future to IndexFuture: {e}")
+            print(f"Error converting Future to IndexFuture: {e}_{os.path.abspath(__file__)}")
             return None

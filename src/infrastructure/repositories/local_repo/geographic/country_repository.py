@@ -2,6 +2,7 @@
 Country Repository - handles persistence for Country entities.
 """
 
+import os
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
@@ -83,7 +84,7 @@ class CountryRepository(GeographicRepository, CountryPort):
                 return 1  # Start from 1 if no records exist
                 
         except Exception as e:
-            print(f"Warning: Could not determine next available country ID: {str(e)}")
+            print(f"Warning: Could not determine next available country ID: {str(e)}_{os.path.abspath(__file__)}")
             return 1  # Default to 1 if query fails
     
     def get_or_create(self, name: str, iso_code: Optional[str] = None,
@@ -148,5 +149,5 @@ class CountryRepository(GeographicRepository, CountryPort):
             
         except Exception as e:
             self.session.rollback()
-            print(f"Error creating country {name}: {str(e)}")
+            print(f"Error creating country {name}: {str(e)}_{os.path.abspath(__file__)}")
             return None

@@ -2,6 +2,7 @@
 Continent Repository - handles persistence for Continent entities.
 """
 
+import os
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
@@ -71,7 +72,7 @@ class ContinentRepository(GeographicRepository, ContinentPort):
                 return 1  # Start from 1 if no records exist
                 
         except Exception as e:
-            print(f"Warning: Could not determine next available continent ID: {str(e)}")
+            print(f"Warning: Could not determine next available continent ID: {str(e)}_{os.path.abspath(__file__)}")
             return 1  # Default to 1 if query fails
     
     def _create_or_get(self, name: str, hemisphere: Optional[str] = None,
@@ -112,7 +113,7 @@ class ContinentRepository(GeographicRepository, ContinentPort):
             
         except Exception as e:
             self.session.rollback()
-            print(f"Error creating continent {name}: {str(e)}")
+            print(f"Error creating continent {name}: {str(e)}_{os.path.abspath(__file__)}")
             return None
     
     def get_or_create(self, name: str, hemisphere: str = None, description: str = None) -> Optional[Continent]:
