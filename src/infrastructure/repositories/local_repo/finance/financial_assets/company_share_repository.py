@@ -17,9 +17,10 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.company_sh
 
 
 class CompanyShareRepository(ShareRepository,CompanySharePort):
-    def __init__(self, session: Session, factory=None):
+    def __init__(self, session: Session, factory=None, mapper: CompanyShareMapper = None):
         # Properly call parent constructor with session
         super().__init__(session,factory)
+        self.mapper = mapper or CompanyShareMapper()
     
     @property  
     def model_class(self):
@@ -35,11 +36,13 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         """Convert an infrastructure CompanyShare to a domain CompanyShare using mapper."""
         if not infra_share:
             return None
-        return CompanyShareMapper.to_domain(infra_share)
+        return self.mapper.to_domain(infra_share)
     
     def _to_model(self, entity: CompanyShareEntity) -> CompanyShareModel:
         """Convert domain entity to ORM model."""
-        return CompanyShareMapper.to_infrastructure(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
     
     def _to_domain(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
         """Legacy method - delegates to _to_entity."""

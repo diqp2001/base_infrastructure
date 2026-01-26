@@ -14,11 +14,12 @@ from src.domain.ports.sector_port import SectorPort
 
 class SectorRepository(GeographicRepository, SectorPort):
     """Repository for Sector entities."""
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: SectorMapper = None):
         """Initialize SectorRepository with database session."""
         self.session = session
         self.factory = factory
         self.data_store = []
+        self.mapper = mapper or SectorMapper()
     @property
     def model_class(self):
         """Return the Sector ORM model class."""
@@ -31,11 +32,13 @@ class SectorRepository(GeographicRepository, SectorPort):
         """Convert ORM model to domain entity."""
         if not model:
             return None
-        return SectorMapper.to_domain(model)
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: Sector) -> SectorModel:
         """Convert domain entity to ORM model."""
-        return SectorMapper.to_orm(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
     
     def get_by_classification_system(self, classification_system: str) -> List[Sector]:
         """Get sectors by classification system."""

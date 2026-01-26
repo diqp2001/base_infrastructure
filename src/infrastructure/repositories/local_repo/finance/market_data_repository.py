@@ -12,66 +12,37 @@ from decimal import Decimal
 
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.mappers.finance.market_data_mapper import MarketDataMapper
 
 
 class MarketDataRepository(BaseLocalRepository):
     """Repository for managing MarketData entities."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory, mapper: MarketDataMapper = None):
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or MarketDataMapper()
     
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for MarketData."""
         return MarketDataModel
     
-    def _to_entity(self, model: MarketDataModel) -> dict:
-        """Convert infrastructure model to domain entity-like dict."""
+    def _to_entity(self, model: MarketDataModel):
+        """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return {
-            'id': model.id,
-            'symbol_ticker': model.symbol_ticker,
-            'symbol_exchange': model.symbol_exchange,
-            'security_type': model.security_type,
-            'timestamp': model.timestamp,
-            'price': Decimal(str(model.price)) if model.price else Decimal('0'),
-            'volume': model.volume,
-            'bid': Decimal(str(model.bid)) if model.bid else None,
-            'ask': Decimal(str(model.ask)) if model.ask else None,
-            'bid_size': model.bid_size,
-            'ask_size': model.ask_size,
-            'open': Decimal(str(model.open)) if model.open else None,
-            'high': Decimal(str(model.high)) if model.high else None,
-            'low': Decimal(str(model.low)) if model.low else None,
-            'close': Decimal(str(model.close)) if model.close else None,
-            'exchange': model.exchange,
-            'last_trade_time': model.last_trade_time,
+        return self.mapper.to_domain(model)
             'mid_price': Decimal(str(model.mid_price)) if model.mid_price else None,
             'spread': Decimal(str(model.spread)) if model.spread else None,
             'created_at': model.created_at
         }
     
-    def _to_model(self, entity_data: dict) -> MarketDataModel:
-        """Convert domain entity-like dict to infrastructure model."""
-        if not entity_data:
+    def _to_model(self, entity) -> MarketDataModel:
+        """Convert domain entity to infrastructure model."""
+        if not entity:
             return None
-        
-        return MarketDataModel(
-            symbol_ticker=entity_data.get('symbol_ticker'),
-            symbol_exchange=entity_data.get('symbol_exchange'),
-            security_type=entity_data.get('security_type'),
-            timestamp=entity_data.get('timestamp'),
-            price=float(entity_data.get('price', 0)),
-            volume=entity_data.get('volume'),
-            bid=float(entity_data['bid']) if entity_data.get('bid') else None,
-            ask=float(entity_data['ask']) if entity_data.get('ask') else None,
-            bid_size=entity_data.get('bid_size'),
-            ask_size=entity_data.get('ask_size'),
-            open=float(entity_data['open']) if entity_data.get('open') else None,
-            high=float(entity_data['high']) if entity_data.get('high') else None,
-            low=float(entity_data['low']) if entity_data.get('low') else None,
+        return self.mapper.to_orm(entity)
             close=float(entity_data['close']) if entity_data.get('close') else None,
             exchange=entity_data.get('exchange'),
             last_trade_time=entity_data.get('last_trade_time'),

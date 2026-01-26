@@ -6,13 +6,15 @@ from src.domain.ports.finance.financial_assets.share.share_port import SharePort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.share import ShareModel as ShareModel
 from src.domain.entities.finance.financial_assets.share.share import Share as ShareEntity
+from src.infrastructure.repositories.mappers.finance.financial_assets.share_mapper import ShareMapper
 
 
 class ShareRepository(FinancialAssetRepository,SharePort):
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: ShareMapper = None):
         """Initialize ShareRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or ShareMapper()
     
     @property
     def model_class(self):
@@ -28,27 +30,13 @@ class ShareRepository(FinancialAssetRepository,SharePort):
         """Convert ORM model to domain entity."""
         if not infra_obj:
             return None
-        return ShareEntity(
-            id=infra_obj.id,
-            ticker=infra_obj.ticker,
-            exchange_id=infra_obj.exchange_id,
-            company_id=infra_obj.company_id,
-            start_date=infra_obj.start_date,
-            end_date=infra_obj.end_date
-        )
+        return self.mapper.to_domain(infra_obj)
     
     def _to_model(self, entity: ShareEntity) -> ShareModel:
         """Convert domain entity to ORM model."""
-        model = ShareModel(
-            ticker=entity.ticker,
-            exchange_id=entity.exchange_id,
-            company_id=entity.company_id,
-            start_date=entity.start_date,
-            end_date=entity.end_date
-        )
-        if hasattr(entity, 'id') and entity.id is not None:
-            model.id = entity.id
-        return model
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
 
     # Legacy method support - inherits from base
     def get_by_id(self, id: int) -> ShareEntity:

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from src.infrastructure.models.finance.company import CompanyModel as CompanyModel
 from src.domain.entities.finance.company import Company as CompanyEntity
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.mappers.finance.company_mapper import CompanyMapper
 from src.domain.ports.finance.company_port import CompanyPort
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,11 @@ logger = logging.getLogger(__name__)
 class CompanyRepository(BaseLocalRepository, CompanyPort):
     """Repository for managing Company entities."""
     
-    def __init__(self, session: Session, factory):
-        """Initialize CompanyRepository with database session."""
+    def __init__(self, session: Session, factory, mapper: CompanyMapper = None):
+        """Initialize CompanyRepository with database session and mapper."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or CompanyMapper()
     
     @property
     def model_class(self):
@@ -40,30 +42,13 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return CompanyEntity(
-            id=model.id,
-            name=model.name,
-            legal_name=model.legal_name,
-            country_id=model.country_id,
-            industry_id=model.industry_id,
-            start_date=model.start_date,
-            end_date=model.end_date
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: CompanyEntity) -> CompanyModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
-        
-        return CompanyModel(
-            name=entity.name,
-            legal_name=entity.legal_name,
-            country_id=entity.country_id,
-            industry_id=entity.industry_id,
-            start_date=entity.start_date,
-            end_date=entity.end_date
-        )
+        return self.mapper.to_orm(entity)
     
     def get_all(self) -> List[CompanyEntity]:
         """Retrieve all Company records."""

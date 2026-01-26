@@ -6,17 +6,19 @@ from src.domain.ports.finance.financial_assets.security_port import SecurityPort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.security import SecurityModel as SecurityModel
 from src.domain.entities.finance.financial_assets.security import Security as SecurityEntity
+from src.infrastructure.repositories.mappers.finance.financial_assets.security_mapper import SecurityMapper
 from sqlalchemy.orm import Session
 
 
 class SecurityRepository(FinancialAssetRepository, SecurityPort):
     """Local repository for security model"""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: SecurityMapper = None):
         """Initialize SecurityRepository with database session."""
         super().__init__(session)
         self.factory = factory
         self.data_store = []
+        self.mapper = mapper or SecurityMapper()
     
     @property
     def model_class(self):
@@ -128,18 +130,10 @@ class SecurityRepository(FinancialAssetRepository, SecurityPort):
         """Convert model to entity."""
         if not model:
             return None
-        return SecurityEntity(
-            id=model.id,
-            name=model.name,
-            symbol=model.symbol,
-            portfolio_id=getattr(model, 'portfolio_id', None)
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: SecurityEntity) -> SecurityModel:
         """Convert entity to model."""
-        return SecurityModel(
-            id=entity.id,
-            name=entity.name,
-            symbol=entity.symbol,
-            portfolio_id=entity.portfolio_id
-        )
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)

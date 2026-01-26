@@ -18,14 +18,17 @@ from src.domain.entities.finance.portfolio.portfolio import (
     Portfolio as PortfolioEntity
 )
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.mappers.finance.portfolio_mapper import PortfolioMapper
 from src.domain.ports.finance.portfolio.portfolio_port import PortfolioPort
 
 
 class PortfolioRepository(BaseLocalRepository, PortfolioPort):
     """Repository for managing Portfolio entities."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory, mapper: PortfolioMapper = None):
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or PortfolioMapper()
     
     @property
     def model_class(self):
@@ -36,18 +39,13 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        
-       
-        
-        return PortfolioEntity(
-            name=model.name,
-            
-            
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: PortfolioEntity) -> PortfolioModel:
         """Convert domain entity to infrastructure model."""
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
         if not entity:
             return None
         
