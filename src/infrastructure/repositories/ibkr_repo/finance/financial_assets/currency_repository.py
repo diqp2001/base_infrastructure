@@ -170,7 +170,9 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             # Extract data from IBKR API response
             pip_size = contract_details.get('min_tick', 0.00001)
             long_name = contract_details.get('long_name', f"{base_currency}/{quote_currency}")
-            country = self._get_or_create_country("USA")
+            # Get the appropriate country for this currency
+            iso_code = self._extract_currency_iso(pair_symbol)
+            country = self._get_or_create_country(self._get_country_for_currency(iso_code))
             return Currency(
                 id=None,  # Let database generate
                 symbol=pair_symbol,
@@ -190,20 +192,19 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             print(f"Error converting IBKR currency contract to domain entity: {e}")
             return None
         
-    def _get_or_create_country(self,  name: str) -> Country:
+    def _get_or_create_country(self, name: str) -> Country:
         """
         Get or create a country using factory or country repository if available.
         Falls back to direct country creation if no dependencies are provided.
         
         Args:
-            
             name: country name (e.g., 'USA')
             
         Returns:
             country domain entity
         """
         try:
-            # Try factory's currency repository first (preferred approach)
+            # Try factory's country repository first (preferred approach)
             if self.factory and hasattr(self.factory, 'country_ibkr_repo'):
                 country_repo = self.factory.country_ibkr_repo
                 if country_repo:
@@ -211,9 +212,57 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
                     if country:
                         return country
             
-        except Exception as e:
-            print(f"Error getting or creating currency {name}: {e}")
+            # Fallback: create minimal country entity for basic functionality
+            return Country(
+                id=None,  # Let database generate
+                name=name,
+                continent_id=None  # Will be set by country repo if available
+            )
             
+        except Exception as e:
+            print(f"Error getting or creating country {name}: {e}")
+            # Return minimal country as last resort
+            return Country(
+                id=None,
+                name=name,
+                continent_id=None
+            )
+
+    def _extract_currency_iso(self, pair_symbol: str) -> str:
+        """Extract base currency ISO code from pair symbol."""
+        if len(pair_symbol) >= 3:
+            return pair_symbol[:3].upper()
+        return pair_symbol.upper()
+    
+    def _get_country_for_currency(self, iso_code: str) -> str:
+        """Map currency ISO code to country name."""
+        currency_country_map = {
+            'USD': 'United States',
+            'EUR': 'Germany',  # Euro zone represented by Germany
+            'GBP': 'United Kingdom',
+            'JPY': 'Japan',
+            'AUD': 'Australia',
+            'CAD': 'Canada',
+            'CHF': 'Switzerland',
+            'NZD': 'New Zealand',
+            'SEK': 'Sweden',
+            'NOK': 'Norway',
+            'DKK': 'Denmark',
+            'PLN': 'Poland',
+            'CZK': 'Czech Republic',
+            'HUF': 'Hungary',
+            'RUB': 'Russia',
+            'CNH': 'China',
+            'HKD': 'Hong Kong',
+            'SGD': 'Singapore',
+            'ZAR': 'South Africa',
+            'MXN': 'Mexico',
+            'BRL': 'Brazil',
+            'INR': 'India',
+            'KRW': 'South Korea',
+            'TRY': 'Turkey'
+        }
+        return currency_country_map.get(iso_code, 'United States')  # Default to USA
 
     def _parse_currency_pair(self, pair_symbol: str) -> tuple[str, str]:
         """

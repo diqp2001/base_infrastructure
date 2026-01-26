@@ -25,6 +25,9 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.derivat
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
+from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+from src.infrastructure.repositories.local_repo.geographic.continent_repository import ContinentRepository
+from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
 
 # IBKR repositories
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
@@ -41,6 +44,9 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivati
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.country_repository import IBKRCountryRepository
+from src.infrastructure.repositories.ibkr_repo.finance.continent_repository import IBKRContinentRepository
+from src.infrastructure.repositories.ibkr_repo.finance.exchange_repository import IBKRExchangeRepository
 
 
 class RepositoryFactory:
@@ -89,7 +95,10 @@ class RepositoryFactory:
                 'equity': EquityRepository(self.session, factory=self),
                 'etf_share': ETFShareRepository(self.session, factory=self),  
                 'share': ShareRepository(self.session, factory=self),
-                'security': SecurityRepository(self.session, factory=self)
+                'security': SecurityRepository(self.session, factory=self),
+                'country': CountryRepository(self.session, factory=self),
+                'continent': ContinentRepository(self.session, factory=self),
+                'exchange': ExchangeRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -168,6 +177,12 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'security': IBKRSecurityRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'country': IBKRCountryRepository(factory=self),
+                'continent': IBKRContinentRepository(factory=self),
+                'exchange': IBKRExchangeRepository(
                     ibkr_client=client,
                     factory=self
                 )
@@ -341,6 +356,21 @@ class RepositoryFactory:
         """Get security repository for dependency injection."""
         return self._local_repositories.get('security')
 
+    @property
+    def country_local_repo(self):
+        """Get country repository for dependency injection."""
+        return self._local_repositories.get('country')
+
+    @property
+    def continent_local_repo(self):
+        """Get continent repository for dependency injection."""
+        return self._local_repositories.get('continent')
+
+    @property
+    def exchange_local_repo(self):
+        """Get exchange repository for dependency injection."""
+        return self._local_repositories.get('exchange')
+
 
     @property
     def factor_ibkr_repo(self):
@@ -424,3 +454,18 @@ class RepositoryFactory:
     def security_ibkr_repo(self):
         """Get security repository for dependency injection."""
         return self._ibkr_repositories.get('security')
+
+    @property
+    def country_ibkr_repo(self):
+        """Get country repository for dependency injection."""
+        return self._ibkr_repositories.get('country')
+
+    @property
+    def continent_ibkr_repo(self):
+        """Get continent repository for dependency injection."""
+        return self._ibkr_repositories.get('continent')
+
+    @property
+    def exchange_ibkr_repo(self):
+        """Get exchange repository for dependency injection."""
+        return self._ibkr_repositories.get('exchange')

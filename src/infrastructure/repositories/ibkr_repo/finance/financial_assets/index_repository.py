@@ -204,12 +204,25 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                     if currency:
                         return currency
             
-            
+            # Fallback: create minimal currency entity for basic functionality
+            return Currency(
+                id=None,  # Let database generate
+                symbol=iso_code,
+                name=name,
+                country_id=None,  # Will be set by currency repo if available
+                start_date=datetime.today().date()
+            )
                     
-            
-            
         except Exception as e:
             print(f"Error getting or creating currency {iso_code}: {e}")
+            # Return minimal currency as last resort
+            return Currency(
+                id=None,
+                symbol=iso_code,
+                name=name,
+                country_id=None,
+                start_date=datetime.today().date()
+            )
             
 
     def _get_index_exchange(self, symbol: str) -> str:
