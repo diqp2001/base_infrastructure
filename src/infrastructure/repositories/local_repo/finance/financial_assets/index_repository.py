@@ -18,10 +18,11 @@ from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
 class IndexRepository(FinancialAssetRepository, IndexPort):
     """Repository for Index financial assets."""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: IndexMapper = None):
         """Initialize IndexRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or IndexMapper()
 
     @property
     def model_class(self):
@@ -39,11 +40,13 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
         """Convert ORM Index model to domain Index entity."""
         if not infra_index:
             return None
-        return IndexMapper.to_domain(infra_index)
+        return self.mapper.to_domain(infra_index)
 
     def _to_model(self, entity: Index_Entity) -> Index_Model:
         """Convert domain Index entity to ORM model."""
-        return IndexMapper.to_orm(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
 
     def _to_domain(self, infra_index: Index_Model) -> Index_Entity:
         """Legacy compatibility method."""
@@ -86,7 +89,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
     def add(self, domain_index: Index_Entity) -> Index_Entity:
         """Add a new Index record to the database."""
         try:
-            new_index = IndexMapper.to_orm(domain_index)
+            new_index = self._to_model(domain_index)
             self.session.add(new_index)
             self.session.commit()
             self.session.refresh(new_index)

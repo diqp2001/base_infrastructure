@@ -13,14 +13,17 @@ from decimal import Decimal
 from src.domain.entities.finance.holding.position import Position as PositionEntity
 from src.infrastructure.models.finance.position import PositionModel as PositionModel
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.mappers.finance.position_mapper import PositionMapper
 from src.domain.ports.finance.position_port import PositionPort
 
 
 class PositionRepository(BaseLocalRepository, PositionPort):
     """Repository for managing Position entities."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory, mapper: PositionMapper = None):
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or PositionMapper()
     
     @property
     def model_class(self):
@@ -31,22 +34,13 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        
-        return PositionEntity(
-            id=model.id,
-            portfolio_id=model.portfolio_id,
-            asset_id=model.asset_id,
-            asset_type=model.asset_type,
-            symbol=model.symbol,
-            quantity=Decimal(str(model.quantity)) if model.quantity else Decimal('0'),
-            average_cost=Decimal(str(model.average_cost)) if model.average_cost else Decimal('0'),
-            current_price=Decimal(str(model.current_price)) if model.current_price else Decimal('0')
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: PositionEntity) -> PositionModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
+        return self.mapper.to_orm(entity)
         
         return PositionModel(
             portfolio_id=entity.portfolio_id,

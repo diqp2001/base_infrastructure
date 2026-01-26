@@ -7,14 +7,16 @@ from src.domain.ports.finance.financial_assets.derivatives.swap_port import Swap
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel as SwapModel
 from src.domain.entities.finance.financial_assets.derivatives.swap import Swap as SwapEntity
+from src.infrastructure.repositories.mappers.finance.financial_assets.swap_mapper import SwapMapper
 
 class SwapRepository(FinancialAssetRepository, SwapPort):
     """Local repository for swap model"""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: SwapMapper = None):
         """Initialize SwapRepository with database session."""
         super().__init__(session, factory)
         self.data_store = []
+        self.mapper = mapper or SwapMapper()
     
     @property
     def model_class(self):
@@ -116,20 +118,10 @@ class SwapRepository(FinancialAssetRepository, SwapPort):
         """Convert model to entity."""
         if not model:
             return None
-        return SwapEntity(
-            id=model.id,
-            name=model.name,
-            symbol=model.symbol,
-            currency_id=getattr(model, 'currency_id', None),
-            underlying_asset_id=getattr(model, 'underlying_asset_id', None)
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: SwapEntity) -> SwapModel:
         """Convert entity to model."""
-        return SwapModel(
-            id=entity.id,
-            name=entity.name,
-            symbol=entity.symbol,
-            currency_id=entity.currency_id,
-            underlying_asset_id=entity.underlying_asset_id
-        )
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)

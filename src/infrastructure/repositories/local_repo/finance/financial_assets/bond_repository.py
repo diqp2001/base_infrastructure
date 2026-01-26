@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 class BondRepository(FinancialAssetRepository,BondPort):
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: BondMapper = None):
         """Initialize BondRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or BondMapper()
     
     @property
     def model_class(self):
@@ -30,11 +31,13 @@ class BondRepository(FinancialAssetRepository,BondPort):
         """Convert an infrastructure Bond to a domain Bond using mapper."""
         if not infra_bond:
             return None
-        return BondMapper.to_domain(infra_bond)
+        return self.mapper.to_domain(infra_bond)
     
     def _to_model(self, entity: Bond_Entity) -> Bond_Model:
         """Convert domain entity to ORM model."""
-        return BondMapper.to_orm(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
     
     def _to_domain(self, infra_bond: Bond_Model) -> Bond_Entity:
         """Legacy method - delegates to _to_entity."""

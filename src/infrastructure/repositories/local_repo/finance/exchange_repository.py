@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.infrastructure.models.finance.exchange import ExchangeModel as ExchangeModel
 from src.domain.entities.finance.exchange import Exchange as ExchangeEntity
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
+from src.infrastructure.repositories.mappers.finance.exchange_mapper import ExchangeMapper
 from src.domain.ports.finance.exchange_port import ExchangePort
 
 logger = logging.getLogger(__name__)
@@ -15,10 +16,11 @@ logger = logging.getLogger(__name__)
 class ExchangeRepository(BaseLocalRepository, ExchangePort):
     """Repository for managing Exchange entities."""
 
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: ExchangeMapper = None):
         """Initialize ExchangeRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or ExchangeMapper()
 
     # ------------------------------------------------------------------
     # MODEL CLASS REFERENCE
@@ -40,28 +42,13 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
         """Convert DB model → domain entity."""
         if not model:
             return None
-
-        return ExchangeEntity(
-            id=model.id,
-            name=model.name,
-            legal_name=model.legal_name,
-            country_id=model.country_id,
-            start_date=model.start_date,
-            end_date=model.end_date
-        )
+        return self.mapper.to_domain(model)
 
     def _to_model(self, entity: ExchangeEntity) -> ExchangeModel:
         """Convert domain entity → DB model."""
         if not entity:
             return None
-
-        return ExchangeModel(
-            name=entity.name,
-            legal_name=entity.legal_name,
-            country_id=entity.country_id,
-            start_date=entity.start_date,
-            end_date=entity.end_date
-        )
+        return self.mapper.to_orm(entity)
 
     # ------------------------------------------------------------------
     # GETTERS

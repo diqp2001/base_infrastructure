@@ -6,15 +6,17 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.financi
 from src.domain.ports.finance.financial_assets.equity_port import EquityPort
 from src.infrastructure.models.finance.financial_assets.equity import EquityModel as EquityModel
 from src.domain.entities.finance.financial_assets.equity import Equity as EquityEntity
+from src.infrastructure.repositories.mappers.finance.financial_assets.equity_mapper import EquityMapper
 from sqlalchemy.orm import Session
 class EquityRepository(FinancialAssetRepository, EquityPort):
     """Local repository for equity model"""
     
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: EquityMapper = None):
         """Initialize EquityRepository with database session."""
         super().__init__(session)
         self.factory = factory
         self.data_store = []
+        self.mapper = mapper or EquityMapper()
     
     @property
     def model_class(self):
@@ -105,16 +107,11 @@ class EquityRepository(FinancialAssetRepository, EquityPort):
         """Convert model to entity."""
         if not model:
             return None
-        return EquityEntity(
-            id=model.id,
-            name=model.name,
-            symbol=model.symbol
-        )
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: EquityEntity) -> EquityModel:
         """Convert entity to model."""
-        return EquityModel(
-            id=entity.id,
-            name=entity.name,
-            symbol=entity.symbol
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
         )

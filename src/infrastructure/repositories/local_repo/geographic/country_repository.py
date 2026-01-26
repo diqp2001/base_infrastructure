@@ -15,11 +15,12 @@ from src.domain.ports.country_port import CountryPort
 
 class CountryRepository(GeographicRepository, CountryPort):
     """Repository for Country entities."""
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: CountryMapper = None):
         """Initialize CountryRepository with database session."""
         self.session = session
         self.factory = factory
         self.data_store = []
+        self.mapper = mapper or CountryMapper()
     @property
     def model_class(self):
         """Return the Country ORM model class."""
@@ -34,11 +35,13 @@ class CountryRepository(GeographicRepository, CountryPort):
         """Convert ORM model to domain entity."""
         if not model:
             return None
-        return CountryMapper.to_domain(model)
+        return self.mapper.to_domain(model)
     
     def _to_model(self, entity: Country) -> CountryModel:
         """Convert domain entity to ORM model."""
-        return CountryMapper.to_orm(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
     
     def get_by_iso_code(self, iso_code: str) -> Optional[Country]:
         """Get country by ISO code."""

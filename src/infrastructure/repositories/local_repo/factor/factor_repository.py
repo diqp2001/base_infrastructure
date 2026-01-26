@@ -7,15 +7,17 @@ from sqlalchemy.orm import Session
 from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.factor import Factor
 from src.infrastructure.models.factor.factor import FactorModel as FactorModel
+from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.domain.ports.factor.factor_port import FactorPort
 
 
 class FactorRepository(BaseFactorRepository, FactorPort):
 
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: FactorMapper = None):
         """Initialize FactorRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or FactorMapper()
 
     # ----------------------------
     # Required by BaseLocalRepository
@@ -33,21 +35,12 @@ class FactorRepository(BaseFactorRepository, FactorPort):
     def _to_entity(self, model: FactorModel) -> Optional[Factor]:
         if not model:
             return None
-
-        return Factor(
-            id=model.id,
-            name=model.name,
-            group=model.group,
-            subgroup=model.subgroup
-        )
+        return self.mapper.to_domain(model)
 
     def _to_model(self, entity: Factor) -> FactorModel:
-        return FactorModel(
-            id=entity.id,
-            name=entity.name,
-            group=entity.group,
-            subgroup=entity.subgroup
-        )
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
 
     def _create_or_get(self, name: str, group: str, subgroup: str) -> Factor:
         existing = self.session.query(FactorModel).filter(

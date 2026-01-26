@@ -15,10 +15,11 @@ from src.domain.entities.finance.financial_assets.derivatives.future.future impo
 class FutureRepository(FinancialAssetRepository, FuturePort):
     """Repository for Future derivative instruments."""
 
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: FutureMapper = None):
         """Initialize FutureRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or FutureMapper()
 
     @property
     def model_class(self):
@@ -36,9 +37,13 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
         """Convert ORM Future to domain Future."""
         if not infra_future:
             return None
-        return FutureMapper.to_domain(infra_future)
+        return self.mapper.to_domain(infra_future)
 
     def _to_model(self, entity: Future_Entity) -> Future_Model:
+        """Convert domain entity to ORM model."""
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
         """Convert domain Future to ORM model."""
         return FutureMapper.to_orm(entity)
 

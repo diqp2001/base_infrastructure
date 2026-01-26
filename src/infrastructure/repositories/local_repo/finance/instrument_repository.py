@@ -17,10 +17,11 @@ from src.infrastructure.repositories.mappers.finance.instrument_mapper import In
 class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel], InstrumentPort):
     """Local repository implementation for Instrument entities."""
 
-    def __init__(self, session: Session, factory):
+    def __init__(self, session: Session, factory, mapper: InstrumentMapper = None):
         """Initialize InstrumentRepository with database session."""
         super().__init__(session)
         self.factory = factory
+        self.mapper = mapper or InstrumentMapper()
 
     @property
     def model_class(self):
@@ -36,11 +37,13 @@ class InstrumentRepository(BaseLocalRepository[InstrumentEntity, InstrumentModel
         """Convert ORM model to domain entity using mapper."""
         if not model:
             return None
-        return InstrumentMapper.to_domain(model)
+        return self.mapper.to_domain(model)
 
     def _to_model(self, entity: InstrumentEntity) -> InstrumentModel:
         """Convert domain entity to ORM model using mapper."""
-        return InstrumentMapper.to_orm(entity)
+        if not entity:
+            return None
+        return self.mapper.to_orm(entity)
 
     def get_or_create(self, asset_id: int, source: str, date: Optional[datetime] = None, **kwargs) -> Optional[InstrumentEntity]:
         """
