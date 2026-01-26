@@ -1,5 +1,5 @@
 """
-IBKR Index Repository - Interactive Brokers implementation for Indices.
+IBKR Future Repository - Interactive Brokers implementation for Futures.
 
 This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
@@ -12,45 +12,51 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from src.domain.ports.finance.financial_assets.index.index_port import IndexPort
+from src.domain.ports.finance.financial_assets.derivatives.future.future_port import FuturePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
-from src.domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
 from src.domain.entities.finance.financial_assets.currency import Currency
+from src.domain.entities.finance.exchange import Exchange
+from src.domain.entities.country import Country
+from src.domain.entities.continent import Continent
 
 
-class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
+class IBKRFutureRepository(IBKRFinancialAssetRepository, FuturePort):
     """
-    IBKR implementation of IndexPort.
+    IBKR implementation of FuturePort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client,  factory=None):
+    def __init__(self, ibkr_client, factory=None):
         """
-        Initialize IBKR Index Repository.
+        Initialize IBKR Future Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client (InteractiveBrokersBroker instance)
-            local_repo: Local repository implementing IndexPort for persistence
             factory: Repository factory for dependency injection (preferred)
-            currency_repo: Currency repository for get-or-create currency functionality (legacy)
         """
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
-        self.local_repo = self.factory.index_local_repo
+        self.local_repo = self.factory.future_local_repo
+
     @property
     def entity_class(self):
-        """Return the SQLAlchemy model class for FactorValue."""
-        return Index
-    def get_or_create(self, symbol: str) -> Optional[Index]:
+        """Return the domain entity class for Future."""
+        return Future
+
+    def get_or_create(self, symbol: str, exchange: str = "CME", currency: str = "USD") -> Optional[Future]:
         """
-        Get or create an index by symbol using IBKR API.
+        Get or create a future by symbol using IBKR API.
+        Implements cascading creation: Future -> Currency/Exchange -> Country -> Continent
         
         Args:
-            symbol: The index symbol (e.g., 'SPX', 'NDX', 'RUT', 'VIX')
+            symbol: The future symbol (e.g., 'ES', 'CL', 'GC')
+            exchange: Exchange code (default: CME)
+            currency: Currency code (default: USD)
             
         Returns:
-            Index entity or None if creation/retrieval failed
+            Future entity or None if creation/retrieval failed
         """
         try:
             # 1. Check local repository first
@@ -59,7 +65,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return existing
             
             # 2. Fetch from IBKR API
-            contract = self._fetch_contract(symbol)
+            contract = self._fetch_contract(symbol, exchange, currency)
             if not contract:
                 return None
                 
@@ -69,7 +75,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details_list)
+            entity = self._contract_to_domain(contract, contract_details_list, exchange, currency)
             if not entity:
                 return None
                 
@@ -77,59 +83,60 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for index symbol {symbol}: {e}")
+            print(f"Error in IBKR get_or_create for future symbol {symbol}: {e}")
             return None
 
-    def get_by_symbol(self, symbol: str) -> Optional[Index]:
-        """Get index by symbol (delegates to local repository)."""
+    def get_by_symbol(self, symbol: str) -> Optional[Future]:
+        """Get future by symbol (delegates to local repository)."""
         return self.local_repo.get_by_symbol(symbol)
 
-    def get_by_id(self, entity_id: int) -> Optional[Index]:
-        """Get index by ID (delegates to local repository)."""
+    def get_by_id(self, entity_id: int) -> Optional[Future]:
+        """Get future by ID (delegates to local repository)."""
         return self.local_repo.get_by_id(entity_id)
 
-    def get_all(self) -> List[Index]:
-        """Get all indices (delegates to local repository)."""
+    def get_all(self) -> List[Future]:
+        """Get all futures (delegates to local repository)."""
         return self.local_repo.get_all()
 
-    def add(self, entity: Index) -> Optional[Index]:
-        """Add index entity (delegates to local repository)."""
+    def add(self, entity: Future) -> Optional[Future]:
+        """Add future entity (delegates to local repository)."""
         return self.local_repo.add(entity)
 
-    def update(self, entity: Index) -> Optional[Index]:
-        """Update index entity (delegates to local repository)."""
+    def update(self, entity: Future) -> Optional[Future]:
+        """Update future entity (delegates to local repository)."""
         return self.local_repo.update(entity)
 
     def delete(self, entity_id: int) -> bool:
-        """Delete index entity (delegates to local repository)."""
+        """Delete future entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
-    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str, exchange: str, currency: str) -> Optional[Contract]:
         """
-        Create index contract using IBKR broker helper method.
+        Create future contract using IBKR broker helper method.
         
         Args:
-            symbol: Index symbol
+            symbol: Future symbol
+            exchange: Exchange code
+            currency: Currency code
             
         Returns:
             IBKR Contract object or None if not found
         """
         try:
-            # Use the broker's helper method to create index contract
-            exchange = self._get_index_exchange(symbol)
-            contract = self.ib_broker.create_index_contract(
+            # Use the broker's helper method to create future contract
+            contract = self.ib_broker.create_future_contract(
                 symbol=symbol.upper(),
                 exchange=exchange,
-                currency="USD"
+                currency=currency
             )
             return contract
         except Exception as e:
-            print(f"Error creating IBKR index contract for {symbol}: {e}")
+            print(f"Error creating IBKR future contract for {symbol}: {e}")
             return None
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch index contract details from IBKR API using broker method.
+        Fetch future contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
@@ -148,19 +155,23 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return None
                 
         except Exception as e:
-            print(f"Error fetching IBKR index contract details: {e}")
+            print(f"Error fetching IBKR future contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Index]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], 
+                           exchange: str, currency_code: str) -> Optional[Future]:
         """
         Convert IBKR contract and details to domain entity using real API data.
+        Implements cascading creation chain: Future -> Currency/Exchange -> Country -> Continent
         
         Args:
             contract: IBKR Contract object
             contract_details_list: List of contract details dictionaries from IBKR API
+            exchange: Exchange code
+            currency_code: Currency code
             
         Returns:
-            Index domain entity or None if conversion failed
+            Future domain entity or None if conversion failed
         """
         try:
             # Use the first contract details result
@@ -168,19 +179,26 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             
             # Extract data from IBKR API response
             symbol = contract.symbol
-            name = contract_details.get('long_name', f"{symbol} Index")
+            name = contract_details.get('long_name', f"{symbol} Future")
             
-            # Get or create USD currency for indices (most indices are USD-denominated)
-            currency = self._get_or_create_currency("USD", "US Dollar")
+            # Get or create currency with cascading dependencies
+            currency = self._get_or_create_currency(currency_code, self._get_currency_name(currency_code))
             
-            return Index(
+            # Get or create exchange with cascading dependencies
+            exchange_entity = self._get_or_create_exchange(exchange, currency_code)
+            
+            return Future(
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency_id=currency.id,
+                currency_id=currency.id if currency else 1,
+                exchange_id=exchange_entity.id if exchange_entity else 1,
+                underlying_asset_id=None,  # Would need to resolve underlying asset
+                start_date=None,
+                end_date=None
             )
         except Exception as e:
-            print(f"Error converting IBKR index contract to domain entity: {e}")
+            print(f"Error converting IBKR future contract to domain entity: {e}")
             return None
 
     def _get_or_create_currency(self, iso_code: str, name: str) -> Currency:
@@ -242,6 +260,55 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 end_date=None
             )
 
+    def _get_or_create_exchange(self, exchange_code: str, currency_code: str = "USD") -> Exchange:
+        """
+        Get or create an exchange with cascading country/continent creation.
+        
+        Args:
+            exchange_code: Exchange code (e.g., 'CME', 'CBOE')
+            currency_code: Default currency code for the exchange
+            
+        Returns:
+            Exchange domain entity
+        """
+        try:
+            if self.factory and hasattr(self.factory, 'exchange_local_repo'):
+                exchange_repo = self.factory.exchange_local_repo
+                
+                # Check if exchange exists
+                existing_exchanges = exchange_repo.get_by_name(exchange_code)
+                if existing_exchanges:
+                    return existing_exchanges[0]  # Return first match
+                
+                # Exchange doesn't exist, create with cascading country
+                country = self._get_or_create_country_for_exchange(exchange_code)
+                
+                # Map exchange codes to full names
+                exchange_names = {
+                    'CME': 'Chicago Mercantile Exchange',
+                    'CBOE': 'Chicago Board Options Exchange',
+                    'CBOT': 'Chicago Board of Trade',
+                    'NYMEX': 'New York Mercantile Exchange',
+                    'COMEX': 'Commodity Exchange',
+                    'ICE': 'Intercontinental Exchange',
+                    'EUREX': 'Eurex Exchange',
+                }
+                
+                full_name = exchange_names.get(exchange_code, f"{exchange_code} Exchange")
+                
+                # Create new exchange
+                return exchange_repo.get_or_create(
+                    name=exchange_code,
+                    legal_name=full_name,
+                    country_id=country.id if country else 1
+                )
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting or creating exchange {exchange_code}: {e}")
+            return None
+
     def _get_or_create_country_for_currency(self, iso_code: str):
         """
         Get or create country for currency with cascading continent creation.
@@ -295,6 +362,59 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             print(f"Error getting or creating country for currency {iso_code}: {e}")
             return None
 
+    def _get_or_create_country_for_exchange(self, exchange_code: str):
+        """
+        Get or create country for exchange with cascading continent creation.
+        Maps exchange codes to countries.
+        
+        Args:
+            exchange_code: Exchange code
+            
+        Returns:
+            Country domain entity
+        """
+        try:
+            # Map common exchange codes to countries
+            exchange_to_country = {
+                'CME': ('United States', 'US', 'North America'),
+                'CBOE': ('United States', 'US', 'North America'),
+                'CBOT': ('United States', 'US', 'North America'),
+                'NYMEX': ('United States', 'US', 'North America'),
+                'COMEX': ('United States', 'US', 'North America'),
+                'ICE': ('United States', 'US', 'North America'),
+                'EUREX': ('Germany', 'DE', 'Europe'),
+                'LSE': ('United Kingdom', 'GB', 'Europe'),
+                'JSE': ('Japan', 'JP', 'Asia'),
+            }
+            
+            country_name, iso_country_code, continent_name = exchange_to_country.get(
+                exchange_code, ('Global', 'GL', 'Global')
+            )
+            
+            if self.factory and hasattr(self.factory, 'country_local_repo'):
+                country_repo = self.factory.country_local_repo
+                
+                # Check if country exists
+                existing_country = country_repo.get_by_name(country_name)
+                if existing_country:
+                    return existing_country
+                
+                # Country doesn't exist, create with cascading continent
+                continent = self._get_or_create_continent(continent_name)
+                
+                # Create new country
+                return country_repo._create_or_get(
+                    name=country_name,
+                    iso_code=iso_country_code,
+                    continent_id=continent.id if continent else 1
+                )
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting or creating country for exchange {exchange_code}: {e}")
+            return None
+
     def _get_or_create_continent(self, continent_name: str):
         """
         Get or create continent.
@@ -326,117 +446,54 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         except Exception as e:
             print(f"Error getting or creating continent {continent_name}: {e}")
             return None
-            
 
-    def _get_index_exchange(self, symbol: str) -> str:
-        """Get appropriate exchange for index symbol."""
-        exchange_map = {
-            'SPX': 'CBOE',    # S&P 500
-            'NDX': 'NASDAQ',  # NASDAQ 100
-            'RUT': 'CBOE',    # Russell 2000
-            'DJI': 'NYSE',    # Dow Jones Industrial Average
-            'VIX': 'CBOE',    # VIX Volatility Index
-            'OEX': 'CBOE',    # S&P 100
-            'COMP': 'NASDAQ', # NASDAQ Composite
-            'NYA': 'NYSE',    # NYSE Composite
+    def _get_currency_name(self, iso_code: str) -> str:
+        """Get human-readable currency name from ISO code."""
+        currency_names = {
+            'USD': 'US Dollar',
+            'EUR': 'Euro',
+            'GBP': 'British Pound',
+            'JPY': 'Japanese Yen',
+            'AUD': 'Australian Dollar',
+            'CAD': 'Canadian Dollar',
+            'CHF': 'Swiss Franc',
+            'CNY': 'Chinese Yuan',
+            'INR': 'Indian Rupee'
         }
-        return exchange_map.get(symbol.upper(), 'CBOE')
+        return currency_names.get(iso_code, f"{iso_code} Currency")
 
-    def _generate_request_id(self) -> int:
-        """Generate unique request ID for IBKR API calls."""
-        import random
-        return random.randint(1000, 99999)
-
-    def _determine_index_type(self, symbol: str) -> str:
-        """Determine index type based on symbol pattern."""
-        volatility_symbols = {'VIX', 'VXN', 'RVX', 'VXD'}
-        if symbol.upper() in volatility_symbols:
-            return 'VOLATILITY'
+    def get_major_futures(self) -> List[Future]:
+        """Get major futures contracts from IBKR."""
+        major_symbols = ['ES', 'NQ', 'YM', 'RTY', 'CL', 'GC', 'SI', 'NG']
         
-        commodity_symbols = {'GC', 'SI', 'CL', 'NG'}
-        if symbol.upper() in commodity_symbols:
-            return 'COMMODITY'
-            
-        return 'EQUITY'  # Default for most indices
-
-    def _determine_base_value(self, symbol: str) -> Optional[Decimal]:
-        """Determine base value for known indices, None for unknown."""
-        known_values = {
-            'SPX': Decimal('10.0'),
-            'OEX': Decimal('10.0'),
-            'NDX': Decimal('125.0'),
-            'RUT': Decimal('135.0'),
-            'DJI': Decimal('40.94'),
-            'COMP': Decimal('100.0'),
-            'NYA': Decimal('50.0'),
-            'VIX': None  # VIX doesn't have a traditional base value
-        }
-        return known_values.get(symbol.upper(), Decimal('100.0'))
-
-    def _determine_base_date(self, symbol: str) -> Optional[date]:
-        """Determine base date for known indices."""
-        known_dates = {
-            'SPX': date(1957, 3, 4),
-            'NDX': date(1985, 2, 1),
-            'RUT': date(1986, 12, 31),
-            'DJI': date(1896, 5, 26),
-            'VIX': date(1993, 1, 1),
-            'OEX': date(1983, 1, 3),
-            'COMP': date(1971, 2, 5),
-            'NYA': date(1966, 1, 3)
-        }
-        return known_dates.get(symbol.upper())
-
-    def _determine_weighting_method(self, symbol: str) -> str:
-        """Determine weighting method based on index characteristics."""
-        if symbol.upper() == 'DJI':
-            return 'PRICE'
-        elif symbol.upper() in {'VIX', 'VXN', 'RVX'}:
-            return 'IMPLIED_VOLATILITY'
-        else:
-            return 'MARKET_CAP'  # Default for most equity indices
-
-    def _determine_calculation_method(self, symbol: str) -> str:
-        """Determine calculation method based on index type."""
-        if symbol.upper() == 'DJI':
-            return 'PRICE_WEIGHTED'
-        elif symbol.upper() in {'VIX', 'VXN', 'RVX'}:
-            return 'OPTIONS_BASED'
-        else:
-            return 'CAPITALIZATION_WEIGHTED'  # Default for most equity indices
-
-    def get_major_indices(self) -> List[Index]:
-        """Get major market indices from IBKR."""
-        major_symbols = ['SPX', 'NDX', 'RUT', 'DJI', 'VIX', 'OEX']
-        
-        indices = []
+        futures = []
         for symbol in major_symbols:
-            index = self.get_or_create(symbol)
-            if index:
-                indices.append(index)
+            future = self.get_or_create(symbol)
+            if future:
+                futures.append(future)
         
-        return indices
+        return futures
 
-    def get_equity_indices(self) -> List[Index]:
-        """Get equity-based indices."""
-        equity_symbols = ['SPX', 'NDX', 'RUT', 'DJI', 'OEX', 'COMP', 'NYA']
+    def get_equity_index_futures(self) -> List[Future]:
+        """Get equity index futures."""
+        equity_symbols = ['ES', 'NQ', 'YM', 'RTY']  # S&P, Nasdaq, Dow, Russell
         
-        indices = []
+        futures = []
         for symbol in equity_symbols:
-            index = self.get_or_create(symbol)
-            if index:
-                indices.append(index)
+            future = self.get_or_create(symbol)
+            if future:
+                futures.append(future)
         
-        return indices
+        return futures
 
-    def get_volatility_indices(self) -> List[Index]:
-        """Get volatility indices."""
-        volatility_symbols = ['VIX', 'VXN', 'RVX']
+    def get_commodity_futures(self) -> List[Future]:
+        """Get commodity futures."""
+        commodity_symbols = ['CL', 'GC', 'SI', 'NG', 'HG', 'ZC', 'ZS', 'ZW']
         
-        indices = []
-        for symbol in volatility_symbols:
-            index = self.get_or_create(symbol)
-            if index:
-                indices.append(index)
+        futures = []
+        for symbol in commodity_symbols:
+            future = self.get_or_create(symbol)
+            if future:
+                futures.append(future)
         
-        return indices
+        return futures

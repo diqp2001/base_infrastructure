@@ -22,9 +22,13 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.currenc
 from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_repository import EquityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.index_future_repository import IndexFutureRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import FutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
+from src.infrastructure.repositories.local_repo.finance.exchange_repository import ExchangeRepository
+from src.infrastructure.repositories.local_repo.geographic.country_repository import CountryRepository
+from src.infrastructure.repositories.local_repo.geographic.continent_repository import ContinentRepository
 
 # IBKR repositories
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
@@ -38,9 +42,11 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.index_future_repository import IBKRIndexFutureRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.future_repository import IBKRFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.exchange_repository import IBKRExchangeRepository
 
 
 class RepositoryFactory:
@@ -79,6 +85,7 @@ class RepositoryFactory:
                 'factor_value': FactorValueRepository(self.session, factory=self),
                 'factor': FactorRepository(self.session, factory=self),
                 'index_future': IndexFutureRepository(self.session, factory=self),
+                'future': FutureRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
                 'bond': BondRepository(self.session, factory=self),
@@ -89,7 +96,10 @@ class RepositoryFactory:
                 'equity': EquityRepository(self.session, factory=self),
                 'etf_share': ETFShareRepository(self.session, factory=self),  
                 'share': ShareRepository(self.session, factory=self),
-                'security': SecurityRepository(self.session, factory=self)
+                'security': SecurityRepository(self.session, factory=self),
+                'exchange': ExchangeRepository(self.session, factory=self),
+                'country': CountryRepository(self.session, factory=self),
+                'continent': ContinentRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -124,6 +134,10 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'index_future': IBKRIndexFutureRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'future': IBKRFutureRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -168,6 +182,10 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'security': IBKRSecurityRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'exchange': IBKRExchangeRepository(
                     ibkr_client=client,
                     factory=self
                 )
@@ -275,6 +293,11 @@ class RepositoryFactory:
         """Get index_future repository for dependency injection."""
         return self._local_repositories.get('index_future')
 
+    @property
+    def future_local_repo(self):
+        """Get future repository for dependency injection."""
+        return self._local_repositories.get('future')
+
 
     @property
     def company_share_local_repo(self):
@@ -341,6 +364,21 @@ class RepositoryFactory:
         """Get security repository for dependency injection."""
         return self._local_repositories.get('security')
 
+    @property
+    def exchange_local_repo(self):
+        """Get exchange repository for dependency injection."""
+        return self._local_repositories.get('exchange')
+
+    @property
+    def country_local_repo(self):
+        """Get country repository for dependency injection."""
+        return self._local_repositories.get('country')
+
+    @property
+    def continent_local_repo(self):
+        """Get continent repository for dependency injection."""
+        return self._local_repositories.get('continent')
+
 
     @property
     def factor_ibkr_repo(self):
@@ -358,6 +396,11 @@ class RepositoryFactory:
     def index_future_ibkr_repo(self):
         """Get index_future repository for dependency injection."""
         return self._ibkr_repositories.get('index_future')
+
+    @property
+    def future_ibkr_repo(self):
+        """Get future repository for dependency injection."""
+        return self._ibkr_repositories.get('future')
 
 
     @property
@@ -424,3 +467,8 @@ class RepositoryFactory:
     def security_ibkr_repo(self):
         """Get security repository for dependency injection."""
         return self._ibkr_repositories.get('security')
+
+    @property
+    def exchange_ibkr_repo(self):
+        """Get exchange repository for dependency injection."""
+        return self._ibkr_repositories.get('exchange')
