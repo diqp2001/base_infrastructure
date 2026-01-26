@@ -52,17 +52,15 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             self.session.add(orm_currency)
             self.session.flush()
             
-            # Create historical rates if any
-            if currency.historical_rates:
-                historical_orm_rates = self.mapper.create_historical_rates_orm(currency, orm_currency.id)
-                self.session.add_all(historical_orm_rates)
+            
             
             self.session.commit()
             
-            logger.info(f"Added currency: {currency.iso_code} ({currency.name}) with ID {orm_currency.id}")
+            logger.info(f"Added currency:  ({currency.name}) with ID {orm_currency.id}")
             
             # Update domain entity with assigned ID and return
-            currency.asset_id = orm_currency.id
+            currency = self.mapper.to_domain(orm_currency)
+            
             return currency
             
         except IntegrityError as e:

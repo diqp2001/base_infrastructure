@@ -22,22 +22,13 @@ class CurrencyMapper:
         """Convert ORM model to domain entity."""
         # Create domain entity
         domain_entity = DomainCurrency(
-            asset_id=orm_obj.id,
+            id=orm_obj.id,
             name=orm_obj.name,
-            iso_code=orm_obj.iso_code,
+            symbol=orm_obj.symbol,
             country_id=orm_obj.country_id
         )
         
-        # Set exchange rate data
-        if orm_obj.exchange_rate_to_usd:
-            domain_entity.current_rate_to_usd = orm_obj.exchange_rate_to_usd
-            domain_entity.last_rate_update = orm_obj.last_rate_update
         
-        # Set currency properties
-        domain_entity.is_major_currency = orm_obj.is_major_currency
-        domain_entity.decimal_places = orm_obj.decimal_places
-        domain_entity.is_active = orm_obj.is_active
-        domain_entity.is_tradeable = orm_obj.is_tradeable
         
         
         
@@ -51,16 +42,11 @@ class CurrencyMapper:
         
         # Map basic fields
         orm_obj.name = domain_obj.name
-        orm_obj.iso_code = domain_obj.iso_code
+        orm_obj.symbol = domain_obj.symbol
         orm_obj.country_id = domain_obj.country_id
         
         
         
-        # Map currency properties
-        orm_obj.is_major_currency = domain_obj.is_major_currency
-        orm_obj.decimal_places = domain_obj.decimal_places
-        orm_obj.is_active = domain_obj.is_active
-        orm_obj.is_tradeable = domain_obj.is_tradeable
         
         return orm_obj
     

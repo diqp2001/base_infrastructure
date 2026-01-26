@@ -19,6 +19,7 @@ class ContinentRepository(GeographicRepository, ContinentPort):
         self.session = session
         self.factory = factory
         self.data_store = []
+        self.mapper = ContinentMapper()
     @property
     def model_class(self):
         """Return the Continent ORM model class."""
@@ -100,7 +101,6 @@ class ContinentRepository(GeographicRepository, ContinentPort):
             new_continent = Continent(
                 id=next_id,
                 name=name,
-                description=description or ""  # Default to empty string
             )
             
             # Convert to ORM model and add to database

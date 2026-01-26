@@ -6,7 +6,7 @@ applying IBKR-specific business rules before delegating persistence to the local
 """
 
 from typing import Optional, List
-from datetime import time
+from datetime import datetime, time
 
 from ibapi.contract import Contract, ContractDetails
 
@@ -109,17 +109,18 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             return Exchange(
                 id=None,  # Let database generate
                 name=exchange_info['name'],
-                code=exchange_code.upper(),
+                legal_name=exchange_code.upper(),
                 country_id=exchange_info['country_id'],
-                timezone=exchange_info['timezone'],
-                currency=exchange_info['currency'],
-                market_open_time=exchange_info['market_open'],
-                market_close_time=exchange_info['market_close'],
+                start_date = datetime.today().date()
+                # timezone=exchange_info['timezone'],
+                # currency=exchange_info['currency'],
+                # market_open_time=exchange_info['market_open'],
+                # market_close_time=exchange_info['market_close'],
                 # IBKR-specific fields
-                ibkr_exchange_code=exchange_code.upper(),
-                ibkr_routing_type=exchange_info.get('routing_type', 'DIRECT'),
-                ibkr_smart_routing=exchange_info.get('smart_routing', False),
-                ibkr_supported_order_types=exchange_info.get('order_types', [])
+                # ibkr_exchange_code=exchange_code.upper(),
+                # ibkr_routing_type=exchange_info.get('routing_type', 'DIRECT'),
+                # ibkr_smart_routing=exchange_info.get('smart_routing', False),
+                # ibkr_supported_order_types=exchange_info.get('order_types', [])
             )
         except Exception as e:
             print(f"Error creating exchange entity for {exchange_code}: {e}")

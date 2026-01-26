@@ -17,7 +17,8 @@ class IBKRContinentRepository(BaseIBKRRepository, ContinentPort):
     IBKR implementation of ContinentPort for continent data.
     """
 
-    def __init__(self, factory=None):
+    def __init__(self, ibkr_client,
+                    factory):
         """
         Initialize IBKR Continent Repository.
         

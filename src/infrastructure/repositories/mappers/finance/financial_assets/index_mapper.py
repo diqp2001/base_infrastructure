@@ -24,7 +24,8 @@ class IndexMapper:
             id=orm_obj.id,
             symbol=orm_obj.symbol,
             name=orm_obj.name,
-            description=orm_obj.description,
+            currency_id = orm_obj.currency_id
+            
             
         )
 
@@ -41,8 +42,7 @@ class IndexMapper:
         # Core identification
         orm_obj.symbol = domain_obj.symbol
         orm_obj.name = domain_obj.name
-        orm_obj.description = domain_obj.description
-        orm_obj.is_tradeable = False  # Index itself is not tradable
+        orm_obj.currency_id = domain_obj.currency_id
 
         return orm_obj
 

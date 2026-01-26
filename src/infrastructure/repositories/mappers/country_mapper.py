@@ -20,7 +20,8 @@ class CountryMapper:
         domain_entity = DomainCountry(
             id=orm_obj.id,
             name=orm_obj.name,
-            continent_id=getattr(orm_obj, 'continent_id', 1)  # Default to continent 1 if not set
+            iso_code=orm_obj.iso_code,
+            continent_id=getattr(orm_obj, 'continent_id')  
         )
         
         return domain_entity
@@ -32,7 +33,8 @@ class CountryMapper:
             # Create ORM object with required parameters: (name, iso_code)
             orm_obj = ORMCountry(
                 name=domain_obj.name,
-                iso_code=getattr(domain_obj, 'iso_code', 'US')  # Default to 'US' if not set
+                continent_id = domain_obj.continent_id or None,
+                iso_code=domain_obj.iso_code  # Default to 'US' if not set
             )
         
         # Map basic fields
@@ -42,18 +44,6 @@ class CountryMapper:
         # Map optional attributes if they exist
         if hasattr(domain_obj, 'iso_code') and hasattr(orm_obj, 'iso_code'):
             orm_obj.iso_code = domain_obj.iso_code
-        if hasattr(domain_obj, 'iso3_code') and hasattr(orm_obj, 'iso3_code'):
-            orm_obj.iso3_code = domain_obj.iso3_code
-        if hasattr(domain_obj, 'continent') and hasattr(orm_obj, 'continent'):
-            orm_obj.continent = domain_obj.continent
-        if hasattr(domain_obj, 'region') and hasattr(orm_obj, 'region'):
-            orm_obj.region = domain_obj.region
-        if hasattr(domain_obj, 'currency') and hasattr(orm_obj, 'currency'):
-            orm_obj.currency = domain_obj.currency
-        if hasattr(domain_obj, 'timezone') and hasattr(orm_obj, 'timezone'):
-            orm_obj.timezone = domain_obj.timezone
-        if hasattr(domain_obj, 'population') and hasattr(orm_obj, 'population'):
-            orm_obj.population = domain_obj.population
         
         # Set timestamps if they exist on the model
         if hasattr(orm_obj, 'created_at') and not orm_obj.created_at:

@@ -18,7 +18,8 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
     IBKR implementation of CountryPort for country data with continent dependency management.
     """
 
-    def __init__(self, factory=None):
+    def __init__(self, ibkr_client,
+                    factory):
         """
         Initialize IBKR Country Repository.
         

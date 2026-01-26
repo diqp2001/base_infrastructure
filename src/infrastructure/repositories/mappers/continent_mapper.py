@@ -34,19 +34,7 @@ class ContinentMapper:
         orm_obj.id = domain_obj.id
         orm_obj.name = domain_obj.name
         
-        # Set abbreviation based on common continent names
-        if not orm_obj.abbreviation:
-            continent_abbreviations = {
-                'Asia': 'AS',
-                'Africa': 'AF',
-                'Antarctica': 'AN',
-                'Australia': 'AU',
-                'Europe': 'EU',
-                'North America': 'NA',
-                'South America': 'SA',
-                'Oceania': 'OC'
-            }
-            orm_obj.abbreviation = continent_abbreviations.get(domain_obj.name)
+        
         
         # Set timestamps
         if not orm_obj.created_at:

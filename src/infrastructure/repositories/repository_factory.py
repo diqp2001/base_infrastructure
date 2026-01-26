@@ -180,8 +180,10 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
-                'country': IBKRCountryRepository(factory=self),
-                'continent': IBKRContinentRepository(factory=self),
+                'country': IBKRCountryRepository(ibkr_client=client,
+                    factory=self),
+                'continent': IBKRContinentRepository(ibkr_client=client,
+                    factory=self),
                 'exchange': IBKRExchangeRepository(
                     ibkr_client=client,
                     factory=self

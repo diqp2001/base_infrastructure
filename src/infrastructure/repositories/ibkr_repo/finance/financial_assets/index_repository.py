@@ -169,9 +169,9 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             # Extract data from IBKR API response
             symbol = contract.symbol
             name = contract_details.get('long_name', f"{symbol} Index")
-            
+            currency_iso_code =  contract_details.get('currency')
             # Get or create USD currency for indices (most indices are USD-denominated)
-            currency = self._get_or_create_currency("USD", "US Dollar")
+            currency = self._get_or_create_currency(iso_code = currency_iso_code)
             
             return Index(
                 id=None,  # Let database generate
@@ -183,7 +183,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             print(f"Error converting IBKR index contract to domain entity: {e}")
             return None
 
-    def _get_or_create_currency(self, iso_code: str, name: str) -> Currency:
+    def _get_or_create_currency(self, iso_code: str, name: str = None) -> Currency:
         """
         Get or create a currency using factory or currency repository if available.
         Falls back to direct currency creation if no dependencies are provided.
@@ -208,7 +208,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             return Currency(
                 id=None,  # Let database generate
                 symbol=iso_code,
-                name=name,
+                name=name or iso_code,
                 country_id=None,  # Will be set by currency repo if available
                 start_date=datetime.today().date()
             )

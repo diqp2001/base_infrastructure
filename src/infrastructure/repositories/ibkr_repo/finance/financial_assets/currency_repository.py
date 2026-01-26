@@ -149,7 +149,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             print(f"Error fetching IBKR currency contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], pair_symbol: str) -> Optional[Currency]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], symbol: str) -> Optional[Currency]:
         """
         Convert IBKR contract and details to domain entity using real API data.
         
@@ -165,17 +165,17 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             # Use the first contract details result
             contract_details = contract_details_list[0] if contract_details_list else {}
             
-            base_currency, quote_currency = self._parse_currency_pair(pair_symbol)
+            # base_currency, quote_currency = self._parse_currency_pair(symbol)
             
-            # Extract data from IBKR API response
-            pip_size = contract_details.get('min_tick', 0.00001)
-            long_name = contract_details.get('long_name', f"{base_currency}/{quote_currency}")
+            # # Extract data from IBKR API response
+            #pip_size = contract_details.get('min_tick', 0.00001)
+            long_name = contract_details.get('long_name', f"currency-{symbol}")
             # Get the appropriate country for this currency
-            iso_code = self._extract_currency_iso(pair_symbol)
-            country = self._get_or_create_country(self._get_country_for_currency(iso_code))
+            #iso_code = self._extract_currency_iso(symbol)
+            country = self._get_or_create_country(self._get_country_for_currency(symbol))
             return Currency(
                 id=None,  # Let database generate
-                symbol=pair_symbol,
+                symbol=symbol,
                 name=long_name,
                 country_id = country.id,
                 start_date=datetime.today()
