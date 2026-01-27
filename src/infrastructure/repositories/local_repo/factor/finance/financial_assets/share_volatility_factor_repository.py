@@ -1,30 +1,39 @@
 """
-Repository class for Share Volatility factor entities.
+Repository class for ShareVolatility factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from src.infrastructure.repositories.mappers.factor.share_volatility_factor_mapper import ShareVolatilityFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 
 
 class ShareVolatilityFactorRepository(BaseFactorRepository):
-    """Repository for Share Volatility factor entities with CRUD operations."""
+    """Repository for ShareVolatility factor entities with CRUD operations."""
     
     def __init__(self, session: Session):
         super().__init__(session)
+        self.mapper = ShareVolatilityFactorMapper()
 
     def get_factor_model(self):
-        return FactorMapper().get_factor_model()
+        return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return FactorMapper().get_factor_entity()
-    
+        return self.mapper.get_factor_entity()
+
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()
     
     def get_factor_value_entity(self):
         return FactorValueMapper().get_factor_value_entity()
+
+    def _to_entity(self, infra_obj):
+        """Convert ORM model to domain entity."""
+        return ShareVolatilityFactorMapper.to_domain(infra_obj)
+    
+    def _to_model(self, entity):
+        """Convert domain entity to ORM model."""
+        return ShareVolatilityFactorMapper.to_orm(entity)
 
     def get_or_create(self, primary_key: str, **kwargs):
         """

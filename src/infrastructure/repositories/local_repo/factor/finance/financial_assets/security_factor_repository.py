@@ -2,21 +2,23 @@
 Repository class for Security factor entities.
 """
 
-from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from sqlalchemy.orm import Session
+from src.infrastructure.repositories.mappers.factor.security_factor_mapper import SecurityFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 
 class SecurityFactorRepository(BaseFactorRepository):
     """Repository for Security factor entities with CRUD operations."""
     
-    def __init__(self, db_type='sqlite'):
-        super().__init__(db_type)
+    def __init__(self, session: Session):
+        super().__init__(session)
+        self.mapper = SecurityFactorMapper()
 
     def get_factor_model(self):
-        return FactorMapper().get_factor_model()
+        return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return FactorMapper().get_factor_entity()
+        return self.mapper.get_factor_entity()
 
     
     def get_factor_value_model(self):
@@ -24,6 +26,14 @@ class SecurityFactorRepository(BaseFactorRepository):
     
     def get_factor_value_entity(self):
         return FactorValueMapper().get_factor_value_entity()
+
+    def _to_entity(self, infra_obj):
+        """Convert ORM model to domain entity."""
+        return SecurityFactorMapper.to_domain(infra_obj)
+    
+    def _to_model(self, entity):
+        """Convert domain entity to ORM model."""
+        return SecurityFactorMapper.to_orm(entity)
 
     def get_or_create(self, primary_key: str, **kwargs):
         """
