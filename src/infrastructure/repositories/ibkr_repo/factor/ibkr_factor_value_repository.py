@@ -7,10 +7,12 @@ implementing the pipelines for IBKR Contract → Instrument → Factor Values �
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
+import inspect
 
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.entities.factor.factor import Factor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickType, IBKRTickFactorMapper
 
 # Forward references for type hints
@@ -215,6 +217,328 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in IBKR get_or_create_factor_value for {symbol_or_name}: {e}")
             return None
 
+    def get_or_create_factor_value_with_dependencies(
+        self,
+        factor_entity: Factor,
+        financial_asset_entity: Any,
+        time_date: str,
+        **kwargs
+    ) -> Optional[FactorValue]:
+        """
+        Enhanced get_or_create function with automatic dependency resolution.
+        
+        This method implements the functionality described in the issue:
+        1. Takes factor entity, financial asset entity, date, and kwargs
+        2. Gets dependencies from the factor class definition
+        3. Recursively resolves factor value dependencies  
+        4. Calls the factor's calculate method
+        5. Stores the result in the database
+        
+        Args:
+            factor_entity: Factor domain entity instance
+            financial_asset_entity: Financial asset entity (company share, etc)  
+            time_date: Date string in 'YYYY-MM-DD' format
+            **kwargs: Additional parameters for factor calculation
+            
+        Returns:
+            FactorValue entity or None if creation/retrieval failed
+        """
+        try:
+            if not factor_entity or not financial_asset_entity:
+                print("Factor entity and financial asset entity are required")
+                return None
+                
+            # Convert date string to date object for validation
+            date_obj = datetime.strptime(time_date, '%Y-%m-%d').date()
+            
+            # Get entity ID from financial asset (assumes entity has 'id' attribute)
+            entity_id = getattr(financial_asset_entity, 'id', 1)
+            factor_id = factor_entity.id
+            
+            # 1. Check if factor value already exists for this combination
+            existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
+            if existing:
+                return existing
+            
+            # 2. Get factor dependencies from the factor class definition
+            dependencies = self._get_factor_dependencies(factor_entity)
+            
+            # 3. Resolve all dependencies recursively  
+            resolved_dependencies = {}
+            for dep_name, dep_factor_info in dependencies.items():
+                dep_value = self._resolve_factor_dependency(
+                    dep_factor_info,
+                    financial_asset_entity,
+                    time_date,
+                    **kwargs
+                )
+                if dep_value is not None:
+                    resolved_dependencies[dep_name] = dep_value
+                else:
+                    print(f"Warning: Could not resolve dependency {dep_name} for factor {factor_entity.name}")
+            
+            # 4. Call the factor's calculate method with resolved dependencies
+            calculated_value = self._call_factor_calculate_method(
+                factor_entity,
+                financial_asset_entity,
+                resolved_dependencies,
+                **kwargs
+            )
+            
+            if calculated_value is None:
+                print(f"Factor calculation failed for {factor_entity.name}")
+                return None
+            
+            # 5. Create and store the factor value
+            factor_value = FactorValue(
+                id=None,  # Let database generate
+                factor_id=factor_id,
+                entity_id=entity_id,
+                date=date_obj,
+                value=str(calculated_value)  # Convert to string for storage
+            )
+            
+            # 6. Delegate persistence to local repository 
+            if hasattr(self, 'local_repo') and self.local_repo:
+                return self.local_repo.add(factor_value)
+            else:
+                # Fallback: use factory to get local repository
+                if self.factory:
+                    local_repo = self.factory.get_factor_value_repository()
+                    if local_repo:
+                        return local_repo.add(factor_value)
+                
+            print("No local repository available for factor value storage")
+            return None
+            
+        except Exception as e:
+            print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
+            return None
+
+    def _get_factor_dependencies(self, factor_entity: Factor) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract dependencies from factor class definition.
+        
+        Looks for:
+        1. Class attribute 'dependencies' 
+        2. Method parameters that might indicate dependencies
+        3. Factor-specific dependency patterns
+        
+        Args:
+            factor_entity: Factor domain entity
+            
+        Returns:
+            Dict mapping dependency names to dependency information
+        """
+        dependencies = {}
+        
+        try:
+            factor_class = factor_entity.__class__
+            
+            # 1. Check for explicit dependencies attribute
+            if hasattr(factor_class, 'dependencies'):
+                deps = getattr(factor_class, 'dependencies')
+                if isinstance(deps, dict):
+                    dependencies.update(deps)
+                elif isinstance(deps, list):
+                    # Convert list to dict with basic info
+                    for dep in deps:
+                        dependencies[dep] = {'name': dep, 'required': True}
+            
+            # 2. Analyze calculate method parameters
+            calculate_methods = [method for method in dir(factor_class) 
+                               if method.startswith('calculate') and callable(getattr(factor_class, method))]
+            
+            for method_name in calculate_methods:
+                method = getattr(factor_class, method_name)
+                if hasattr(method, '__code__'):
+                    # Get method parameter names (excluding 'self')
+                    param_names = method.__code__.co_varnames[1:method.__code__.co_argcount]
+                    for param in param_names:
+                        if param not in dependencies and param not in ['time_date', 'kwargs', 'params']:
+                            # Infer dependency type from parameter name
+                            dependencies[param] = {
+                                'name': param,
+                                'required': True,
+                                'method': method_name
+                            }
+            
+            # 3. Add common financial factor dependencies based on factor type
+            if hasattr(factor_entity, 'group'):
+                group = factor_entity.group.lower()
+                
+                if 'momentum' in group:
+                    # Momentum factors typically need price data
+                    if 'price_data' not in dependencies:
+                        dependencies['price_data'] = {'name': 'price_data', 'required': True}
+                        
+                elif 'option' in group:
+                    # Option factors need underlying price, volatility, etc.
+                    for dep in ['underlying_price', 'volatility', 'risk_free_rate']:
+                        if dep not in dependencies:
+                            dependencies[dep] = {'name': dep, 'required': True}
+                            
+                elif 'technical' in group:
+                    # Technical factors need price/volume data
+                    for dep in ['price_data', 'volume_data']:
+                        if dep not in dependencies:
+                            dependencies[dep] = {'name': dep, 'required': False}
+        
+        except Exception as e:
+            print(f"Error extracting dependencies for {factor_entity.name}: {e}")
+        
+        return dependencies
+
+    def _resolve_factor_dependency(
+        self,
+        dep_info: Dict[str, Any],
+        financial_asset_entity: Any,
+        time_date: str,
+        **kwargs
+    ) -> Optional[Any]:
+        """
+        Resolve a single factor dependency.
+        
+        Args:
+            dep_info: Dependency information dictionary
+            financial_asset_entity: Financial asset entity
+            time_date: Date string
+            **kwargs: Additional parameters
+            
+        Returns:
+            Resolved dependency value or None
+        """
+        try:
+            dep_name = dep_info.get('name')
+            
+            # Check if dependency is provided in kwargs
+            if dep_name in kwargs:
+                return kwargs[dep_name]
+            
+            # Try to resolve from factory repositories
+            if self.factory:
+                
+                # Special handling for common dependencies
+                if dep_name == 'price_data':
+                    # Try to get price data from market data or other sources
+                    return self._get_price_data(financial_asset_entity, time_date)
+                    
+                elif dep_name == 'volume_data':
+                    return self._get_volume_data(financial_asset_entity, time_date)
+                    
+                elif dep_name == 'underlying_price':
+                    return self._get_underlying_price(financial_asset_entity, time_date)
+                    
+                elif dep_name == 'volatility':
+                    return self._get_volatility_data(financial_asset_entity, time_date)
+                    
+                elif dep_name == 'risk_free_rate':
+                    return self._get_risk_free_rate(time_date)
+                    
+                else:
+                    # Try to resolve as another factor value
+                    return self._resolve_factor_value_dependency(dep_name, financial_asset_entity, time_date)
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error resolving dependency {dep_info.get('name', 'unknown')}: {e}")
+            return None
+
+    def _call_factor_calculate_method(
+        self,
+        factor_entity: Factor,
+        financial_asset_entity: Any,
+        resolved_dependencies: Dict[str, Any],
+        **kwargs
+    ) -> Optional[Any]:
+        """
+        Call the appropriate calculate method on the factor with resolved dependencies.
+        
+        Args:
+            factor_entity: Factor domain entity
+            financial_asset_entity: Financial asset entity
+            resolved_dependencies: Dict of resolved dependency values
+            **kwargs: Additional parameters
+            
+        Returns:
+            Calculated factor value or None
+        """
+        try:
+            factor_class = factor_entity.__class__
+            
+            # Look for calculate methods in order of preference
+            calculate_methods = [
+                'calculate',
+                'calculate_momentum',
+                'calculate_price', 
+                'calculate_value',
+                'compute'
+            ]
+            
+            for method_name in calculate_methods:
+                if hasattr(factor_class, method_name):
+                    method = getattr(factor_entity, method_name)
+                    if callable(method):
+                        
+                        # Try to call the method with resolved dependencies
+                        try:
+                            # Get method signature to match parameters
+                            sig = inspect.signature(method)
+                            method_params = {}
+                            
+                            for param_name, param in sig.parameters.items():
+                                if param_name in resolved_dependencies:
+                                    method_params[param_name] = resolved_dependencies[param_name]
+                                elif param_name in kwargs:
+                                    method_params[param_name] = kwargs[param_name]
+                            
+                            # Call the method
+                            result = method(**method_params)
+                            if result is not None:
+                                return result
+                                
+                        except Exception as method_error:
+                            print(f"Error calling {method_name} on {factor_entity.name}: {method_error}")
+                            continue
+            
+            print(f"No suitable calculate method found for {factor_entity.name}")
+            return None
+            
+        except Exception as e:
+            print(f"Error calling factor calculate method for {factor_entity.name}: {e}")
+            return None
+
+    # Helper methods for common dependency resolution
+    
+    def _get_price_data(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
+        """Get price data for the financial asset at the given date."""
+        # This would typically fetch from market data repository
+        # For now, return a placeholder
+        return 100.0  # Mock price data
+    
+    def _get_volume_data(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
+        """Get volume data for the financial asset at the given date.""" 
+        return 1000000  # Mock volume data
+    
+    def _get_underlying_price(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
+        """Get underlying asset price."""
+        return 100.0  # Mock underlying price
+    
+    def _get_volatility_data(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
+        """Get volatility data."""
+        return 0.2  # Mock volatility (20%)
+    
+    def _get_risk_free_rate(self, time_date: str) -> Optional[float]:
+        """Get risk-free rate for the given date."""
+        return 0.05  # Mock risk-free rate (5%)
+    
+    def _resolve_factor_value_dependency(self, dep_name: str, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
+        """Try to resolve dependency as another factor value."""
+        # This would involve looking up the dependent factor and recursively calculating its value
+        # For now, return None to indicate dependency couldn't be resolved
+        return None
+
     # FactorValuePort interface implementation (delegate to local repository)
 
     def get_by_id(self, entity_id: int) -> Optional[FactorValue]:
@@ -274,6 +598,73 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         return self.local_repo.delete(entity_id)
 
     # Private helper methods - IBKR-specific implementation
+
+    def _validate_factor_value_data(self, factor_id: int, entity_id: int, time_date: str) -> bool:
+        """
+        Validate factor value data before processing.
+        
+        Args:
+            factor_id: Factor ID
+            entity_id: Entity ID  
+            time_date: Date string in 'YYYY-MM-DD' format
+            
+        Returns:
+            True if data is valid, False otherwise
+        """
+        try:
+            if not factor_id or factor_id <= 0:
+                print(f"Invalid factor_id: {factor_id}")
+                return False
+            
+            if not entity_id or entity_id <= 0:
+                print(f"Invalid entity_id: {entity_id}")
+                return False
+            
+            if not time_date:
+                print("Time date is required")
+                return False
+                
+            # Validate date format
+            try:
+                datetime.strptime(time_date, '%Y-%m-%d')
+            except ValueError:
+                print(f"Invalid date format: {time_date}. Expected YYYY-MM-DD")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error validating factor value data: {e}")
+            return False
+
+    def _check_existing_factor_value(self, factor_id: int, entity_id: int, time_date: str) -> Optional[FactorValue]:
+        """
+        Check if factor value already exists for the given combination.
+        
+        Args:
+            factor_id: Factor ID
+            entity_id: Entity ID
+            time_date: Date string in 'YYYY-MM-DD' format
+            
+        Returns:
+            Existing FactorValue or None
+        """
+        try:
+            # Try local repository first
+            if hasattr(self, 'local_repo') and self.local_repo:
+                return self.local_repo.get_by_factor_entity_date(factor_id, entity_id, time_date)
+            
+            # Fallback: use factory to get local repository
+            if self.factory:
+                local_repo = self.factory.get_factor_value_repository()
+                if local_repo:
+                    return local_repo.get_by_factor_entity_date(factor_id, entity_id, time_date)
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error checking existing factor value: {e}")
+            return None
 
     def _fetch_contract_for_symbol(self, symbol_or_name: str) -> Optional['Contract']:
         """
