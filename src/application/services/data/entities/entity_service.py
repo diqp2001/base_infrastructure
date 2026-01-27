@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import date, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,7 @@ from src.application.services.database_service.database_service import DatabaseS
 from src.domain.entities.finance.financial_assets.index.index import Index
 
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
+from src.infrastructure.repositories.local_repo.factor.factor_repository_factory import FactorRepositoryFactory
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
@@ -80,6 +82,12 @@ class EntityService:
         
         # Create factory with optional IBKR client
         self.repository_factory = RepositoryFactory(self.session, ibkr_client)
+        
+        # Create factor repository factory for improved factor management
+        self.factor_repository_factory = FactorRepositoryFactory(self.session, self.repository_factory)
+        
+        # Initialize logger
+        self.logger = logging.getLogger(__name__)
         
         
         
@@ -228,6 +236,34 @@ class EntityService:
             self.logger.error(
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
+    
+    def create_or_get_factor_for_entity(self, entity_class, name: str, group: str = "price", 
+                                      subgroup: str = "default", **kwargs):
+        """
+        Create or get a factor for a specific entity type using the new factory pattern.
+        This replaces the old approach of using entity_factor_class_input.
+        
+        Args:
+            entity_class: The entity class (e.g., Share, Index, etc.)
+            name: Factor name
+            group: Factor group (default: "price")  
+            subgroup: Factor subgroup (default: "default")
+            **kwargs: Additional arguments
+            
+        Returns:
+            Factor instance or None
+        """
+        try:
+            return self.factor_repository_factory.create_or_get_factor_for_entity(
+                entity_class=entity_class,
+                name=name,
+                group=group,
+                subgroup=subgroup,
+                **kwargs
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating factor {name} for entity {entity_class.__name__}: {e}")
+            return None
 
     def _create_or_get_ibkr(self, entity_cls: object, entity_symbol: str, entity_id: int = None,
                             **kwargs) -> Optional[object]:
