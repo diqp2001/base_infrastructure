@@ -20,6 +20,56 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.share_tech
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_target_factor import ShareTargetFactor as ShareTargetFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_volatility_factor import ShareVolatilityFactor as ShareVolatilityFactorEntity
 
+# Import additional factor types
+from src.domain.entities.factor.finance.financial_assets.bond_factor.bond_factor import BondFactor as BondFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor as DerivativeFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor as OptionFactorEntity  
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor as FutureFactorEntity
+
+# Import corresponding entity types for mapping
+from src.domain.entities.continent import Continent
+from src.domain.entities.country import Country
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.security import Security
+from src.domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.currency import Currency
+from src.domain.entities.finance.financial_assets.equity import Equity
+from src.domain.entities.finance.financial_assets.share.share import Share
+from src.domain.entities.finance.financial_assets.bond import Bond
+from src.domain.entities.finance.financial_assets.derivatives.derivative import Derivative
+from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
+from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
+
+
+# Factor Entity to Entity Type Mapping Dictionary
+FACTOR_ENTITY_MAPPING = {
+    # Geographic factors
+    ContinentFactorEntity: Continent,
+    CountryFactorEntity: Country,
+    
+    # Financial asset factors
+    FinancialAssetFactorEntity: FinancialAsset,
+    SecurityFactorEntity: Security,
+    IndexFactorEntity: Index,
+    CurrencyFactorEntity: Currency,
+    EquityFactorEntity: Equity,
+    
+    # Share factors
+    ShareFactorEntity: Share,
+    ShareMomentumFactorEntity: Share,
+    ShareTechnicalFactorEntity: Share,
+    ShareTargetFactorEntity: Share,
+    ShareVolatilityFactorEntity: Share,
+    
+    # Bond factors
+    BondFactorEntity: Bond,
+    
+    # Derivative factors
+    DerivativeFactorEntity: Derivative,
+    OptionFactorEntity: Option,
+    FutureFactorEntity: Future,
+}
+
 
 def _get_entity_type_from_factor(factor) -> str:
     """
