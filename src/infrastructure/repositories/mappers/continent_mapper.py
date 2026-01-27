@@ -12,7 +12,12 @@ from src.infrastructure.models.continent import ContinentModel as ORMContinent
 
 class ContinentMapper:
     """Mapper for Continent domain entity and ORM model."""
-
+    @property
+    def entity_class(self):
+        return DomainContinent
+    @property
+    def model_class(self):
+        return ORMContinent
     @staticmethod
     def to_domain(orm_obj: ORMContinent) -> DomainContinent:
         """Convert ORM model to domain entity."""

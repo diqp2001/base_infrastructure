@@ -23,6 +23,6 @@ class StructuredNote(Derivative):
         start_date: date,
         end_date: Optional[date] = None,
     ):
-        super().__init__(id, underlying_asset, start_date, end_date)
+        super().__init__(id=id, underlying_asset=underlying_asset, start_date=start_date, end_date=end_date)
 
         self.legs = legs

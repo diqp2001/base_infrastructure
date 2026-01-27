@@ -43,7 +43,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
     @property
     def entity_class(self):
         """Return the domain entity class for Currency."""
-        return Currency
+        return self.mapper.entity_class
     def get_or_create(self, symbol: str) -> Optional[Currency]:
         """
         Get or create a currency  by symbol using IBKR API.
@@ -179,20 +179,13 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             country = self._get_or_create_country(self._get_country_for_currency(symbol))
             
             # Create domain entity using mapper
-            currency = Currency(
+            currency = self.entity_class(
                 id=None,  # Let database generate
                 symbol=symbol,
                 name=long_name,
                 country_id = country.id,
-                start_date=datetime.today()
-                # base_currency=base_currency,
-                # quote_currency=quote_currency,
-                # pip_size=Decimal(str(pip_size)),
-                # # IBKR-specific fields  
-                # ibkr_contract_id=contract_details.get('contract_id'),
-                # ibkr_local_symbol=contract_details.get('local_symbol', ''),
-                # ibkr_trading_class=contract_details.get('trading_class', ''),
-                # ibkr_exchange=contract.exchange
+                start_date=datetime.now()
+                
             )
             
             return currency
@@ -226,12 +219,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
         except Exception as e:
             print(f"Error getting or creating country {name}: {e}_{os.path.abspath(__file__)}")
             # Return minimal country as last resort
-            return Country(
-                id=None,
-                name=name,
-                continent_id=None
-            )
-
+            
     def _extract_currency_iso(self, pair_symbol: str) -> str:
         """Extract base currency ISO code from pair symbol."""
         if len(pair_symbol) >= 3:

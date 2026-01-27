@@ -13,7 +13,13 @@ from src.infrastructure.models.finance.financial_assets.index import IndexModel 
 
 class IndexMapper:
     """Mapper for Index domain entity and ORM model."""
-
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Currency."""
+        return DomainIndex
+    @property
+    def model_class(self):
+        return ORMIndex
     @staticmethod
     def to_domain(orm_obj: ORMIndex) -> Optional[DomainIndex]:
         """Convert ORM Index model to domain Index entity."""

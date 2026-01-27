@@ -16,7 +16,7 @@ class FactorModel(Base):
     data_type = Column(String(100), nullable=True)
     source = Column(String(255), nullable=True)
     definition = Column(Text, nullable=True)
-    factor_type = Column(String(100), nullable=False)  # Discriminator for inheritance
+    factor_type = Column(String(100), nullable=False, index=True)  # Discriminator for inheritance
     # Relationships
     factor_values = relationship("src.infrastructure.models.factor.factor_value.FactorValueModel",back_populates="factors")
     __mapper_args__ = {

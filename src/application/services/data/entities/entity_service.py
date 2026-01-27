@@ -216,10 +216,12 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {symbol}: {e}"
             )
 
-    def _create_or_get(self, entity_cls ,name: str) :
+    def _create_or_get(self, entity_cls ,name: str,
+                            **kwargs) :
         try:
             repository = self.get_local_repository(entity_cls)
-            return repository._create_or_get(entity_cls,name)
+            return repository._create_or_get(entity_cls,name,
+                            **kwargs)
 
 
         except Exception as e:
@@ -251,7 +253,8 @@ class EntityService:
                 return None
 
             # Get entity information from IBKR API
-            entity = ibkr_repository.get_or_create(entity_symbol)
+            entity = ibkr_repository.get_or_create(entity_symbol,
+                            **kwargs)
 
             return entity
 

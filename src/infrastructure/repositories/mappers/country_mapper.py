@@ -12,38 +12,41 @@ from src.infrastructure.models.country import CountryModel as ORMCountry
 
 class CountryMapper:
     """Mapper for Country domain entity and ORM model."""
-
-    @staticmethod
-    def to_domain(orm_obj: ORMCountry) -> DomainCountry:
+    @property
+    def entity_class(self):
+        return DomainCountry
+    @property
+    def model_class(self):
+        return ORMCountry
+    def to_domain(self,orm_obj: ORMCountry) -> DomainCountry:
         """Convert ORM model to domain entity."""
         # Create domain entity with correct constructor parameters: (id, name, continent_id)
-        domain_entity = DomainCountry(
+        domain_entity = self.entity_class(
             id=orm_obj.id,
             name=orm_obj.name,
             iso_code=orm_obj.iso_code,
-            continent_id=getattr(orm_obj, 'continent_id')  
+            continent_id=orm_obj.continent_id
         )
         
         return domain_entity
 
-    @staticmethod
-    def to_orm(domain_obj: DomainCountry, orm_obj: Optional[ORMCountry] = None) -> ORMCountry:
+    def to_orm(self,domain_obj: DomainCountry, orm_obj: Optional[ORMCountry] = None) -> ORMCountry:
         """Convert domain entity to ORM model."""
         if orm_obj is None:
             # Create ORM object with required parameters: (name, iso_code)
-            orm_obj = ORMCountry(
+            orm_obj = self.model_class(
                 name=domain_obj.name,
-                continent_id = domain_obj.continent_id or None,
                 iso_code=domain_obj.iso_code  # Default to 'US' if not set
             )
         
-        # Map basic fields
-        orm_obj.id = domain_obj.id
+        # Only assign ID if explicitly set (avoid breaking autoincrement)
+        if domain_obj.id is not None:
+            orm_obj.id = domain_obj.id
+
         orm_obj.name = domain_obj.name
+        orm_obj.iso_code = domain_obj.iso_code
+        orm_obj.continent_id = domain_obj.continent_id
         
-        # Map optional attributes if they exist
-        if hasattr(domain_obj, 'iso_code') and hasattr(orm_obj, 'iso_code'):
-            orm_obj.iso_code = domain_obj.iso_code
         
         # Set timestamps if they exist on the model
         if hasattr(orm_obj, 'created_at') and not orm_obj.created_at:

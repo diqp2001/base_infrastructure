@@ -11,6 +11,8 @@ from src.domain.entities.factor.continent_factor import ContinentFactor as Conti
 from src.domain.entities.factor.country_factor import CountryFactor as CountryFactorEntity
 from src.domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor as FinancialAssetFactorEntity
 from src.domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor as SecurityFactorEntity
+from src.domain.entities.factor.finance.financial_assets.index_factor import IndexFactor as IndexFactorEntity
+from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor as CurrencyFactorEntity
 from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor as EquityFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor as ShareFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor as ShareMomentumFactorEntity
@@ -35,10 +37,10 @@ def _get_entity_type_from_factor(factor) -> str:
         return 'country'
     elif any(continent_type in factor_class_name for continent_type in ['Continent', 'continent']):
         return 'continent'
-    else:
-        # For basic price factors and other general factors, default to 'share'
-        # as most factors in the trading system are share-related
-        return 'share'  # Default fallback
+    elif any(index_type in factor_class_name for index_type in ['Index', 'index']):
+        return 'index'
+    elif any(currency_type in factor_class_name for currency_type in ['Currency', 'currency']):
+        return 'currency'
 
 
 
@@ -86,6 +88,16 @@ class FactorMapper:
             )
         elif factor_type == 'security':
             return SecurityFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'index':
+            return IndexFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'currency':
+            return CurrencyFactorEntity(
                 **base_args,
                 
             )

@@ -8,6 +8,7 @@ top-level geographic entity in the dependency chain.
 import os
 from typing import Optional, List
 
+from src.infrastructure.repositories.mappers.continent_mapper import ContinentMapper
 from src.domain.entities.continent import Continent
 from src.domain.ports.continent_port import ContinentPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_repository import BaseIBKRRepository
@@ -26,6 +27,7 @@ class IBKRContinentRepository(BaseIBKRRepository, ContinentPort):
         Args:
             factory: Repository factory for dependency injection (required)
         """
+        self.mapper = ContinentMapper()
         self.factory = factory
         if factory:
             self.local_repo = self.factory.continent_local_repo
@@ -35,7 +37,11 @@ class IBKRContinentRepository(BaseIBKRRepository, ContinentPort):
     @property
     def entity_class(self):
         """Return the domain entity class for Continent."""
-        return Continent
+        return self.mapper.entity_class
+    @property
+    def entity_class(self):
+        """Return the model entity class for Continent."""
+        return self.mapper.model_class
 
     def get_or_create(self, name: str) -> Optional[Continent]:
         """

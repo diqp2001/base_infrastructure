@@ -26,12 +26,7 @@ class SymbolModel(Base):
     properties = relationship("SymbolProperties", back_populates="symbol", uselist=False)
     mappings = relationship("SymbolMapping", foreign_keys="SymbolMapping.original_symbol_id", back_populates="original_symbol")
     
-    def __init__(self, value: str, symbol_id: str, security_type_id: int, market_id: int):
-        self.value = value
-        self.symbol_id = symbol_id
-        self.security_type_id = security_type_id
-        self.market_id = market_id
-    
+   
     def __repr__(self):
         return f"<Symbol(value={self.value}, symbol_id={self.symbol_id})>"
 
@@ -56,24 +51,7 @@ class SymbolProperties(Base):
     # Relationships
     symbol = relationship("Symbol", back_populates="properties")
     
-    def __init__(self, symbol_id: int, time_zone: str = "America/New_York", lot_size: int = 1,
-                 tick_size: Decimal = Decimal('0.01'), minimum_price_variation: Decimal = Decimal('0.01'),
-                 contract_multiplier: int = 1, minimum_order_size: int = 1, maximum_order_size: int = None,
-                 price_scaling: Decimal = Decimal('1'), margin_requirement: Decimal = Decimal('0.25'),
-                 short_able: bool = True, exchange_hours: dict = None):
-        self.symbol_id = symbol_id
-        self.time_zone = time_zone
-        self.exchange_hours = exchange_hours
-        self.lot_size = lot_size
-        self.tick_size = tick_size
-        self.minimum_price_variation = minimum_price_variation
-        self.contract_multiplier = contract_multiplier
-        self.minimum_order_size = minimum_order_size
-        self.maximum_order_size = maximum_order_size
-        self.price_scaling = price_scaling
-        self.margin_requirement = margin_requirement
-        self.short_able = short_able
-
+    
 
 class SymbolMapping(Base):
     __tablename__ = 'symbol_mappings'
@@ -88,12 +66,7 @@ class SymbolMapping(Base):
     original_symbol = relationship("Symbol", foreign_keys=[original_symbol_id])
     mapped_symbol = relationship("Symbol", foreign_keys=[mapped_symbol_id])
     
-    def __init__(self, original_symbol_id: int, mapped_symbol_id: int, data_provider: str, 
-                 mapping_date: datetime = None):
-        self.original_symbol_id = original_symbol_id
-        self.mapped_symbol_id = mapped_symbol_id
-        self.data_provider = data_provider
-        self.mapping_date = mapping_date or datetime.utcnow()
+    
 
 
 class SymbolSecurityDatabase(Base):
@@ -104,7 +77,4 @@ class SymbolSecurityDatabase(Base):
     description = Column(Text, nullable=True)
     created_date = Column(DateTime, default=datetime.utcnow)
     
-    def __init__(self, name: str, description: str = None):
-        self.name = name
-        self.description = description
-        self.created_date = datetime.utcnow()
+    

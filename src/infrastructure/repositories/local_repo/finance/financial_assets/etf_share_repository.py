@@ -116,7 +116,6 @@ class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
         if not model:
             return None
         return self.mapper.to_domain(model)
-        )
     
     def _to_model(self, entity: ETFShareEntity) -> ETFShareModel:
         """Convert entity to model."""

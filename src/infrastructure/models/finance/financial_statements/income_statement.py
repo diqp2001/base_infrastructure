@@ -19,11 +19,7 @@ class IncomeStatementModel(FinancialStatementModel):
         'polymorphic_identity': 'income_statement',
     }
     
-    def __init__(self, company_id: int, period: str, year: int, revenue: float, expenses: float, net_income: float):
-        super().__init__(company_id, period, year)
-        self.revenue = revenue
-        self.expenses = expenses
-        self.net_income = net_income
+    
     
     def __repr__(self):
         return f"<IncomeStatement(company_id={self.company_id}, period={self.period}, year={self.year}, revenue={self.revenue})>"

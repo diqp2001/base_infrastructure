@@ -14,7 +14,12 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapp
 
 class FutureMapper:
     """Mapper for Future domain entity and ORM model."""
-
+    @property
+    def entity_class(self):
+        return DomainFuture
+    @property
+    def model_class(self):
+        return ORMFuture
     @staticmethod
     def to_domain(orm_obj: ORMFuture) -> Optional[DomainFuture]:
         """Convert ORM Future model to domain Future entity."""

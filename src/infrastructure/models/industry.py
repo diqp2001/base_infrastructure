@@ -13,10 +13,7 @@ class IndustryModel(Base):
     companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="industry")
     sectors = relationship("src.infrastructure.models.sector.SectorModel", back_populates="industries")
     
-    def __init__(self, name, sector_id, description=None):
-        self.name = name
-        self.sector_id = sector_id
-        self.description = description
+    
     
     def __repr__(self):
         return f"<Industry(name={self.name}, sector_id={self.sector_id}, description={self.description})>"

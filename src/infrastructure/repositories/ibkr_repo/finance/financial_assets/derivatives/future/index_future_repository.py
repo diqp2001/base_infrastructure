@@ -45,7 +45,10 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     @property
     def entity_class(self):
         """Return the domain entity class for IndexFuture."""
-        return IndexFuture
+        return self.mapper.entity_class
+    @property
+    def model_class(self):
+        return self.mapper.model_class
     def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
         """
         Get or create an index future by symbol using IBKR API.
@@ -182,7 +185,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             currency = self._get_or_create_currency(contract.currency, f"{contract.currency} Currency")
             exchange = self._get_or_create_exchange(contract.exchange)
             
-            return IndexFuture(
+            return self.entity_class(
                 symbol=self._normalize_symbol(contract),
                 #name=f"{self._normalize_symbol(contract)} Index Future",
                 exchange_id=exchange.id if exchange else None,
@@ -223,26 +226,12 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
                     if currency:
                         return currency
             
-            # Fallback: create minimal currency entity for basic functionality
-            return Currency(
-                id=None,  # Let database generate
-                symbol=iso_code,
-                name=name,
-                country_id=None,  # Will be set by currency repo if available
-                start_date=datetime.today().date()
-            )
+           
                     
         except Exception as e:
             print(f"Error getting or creating currency {iso_code}: {e}")
             # Return minimal currency as last resort
-            return Currency(
-                id=None,
-                symbol=iso_code,
-                name=name,
-                country_id=None,
-                start_date=datetime.today().date()
-            )
-
+           
     def _get_or_create_exchange(self, exchange_code: str) -> Optional[Exchange]:
         """
         Get or create an exchange using factory or exchange repository if available.
@@ -263,27 +252,12 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
                     if exchange:
                         return exchange
             
-            # Fallback: create minimal exchange entity for basic functionality
-            return Exchange(
-                id=None,  # Let database generate
-                code=exchange_code,
-                name=f"{exchange_code} Exchange",
-                country_id=None,  # Will be set by exchange repo if available
-                timezone="UTC",
-                currency="USD"
-            )
+           
                     
         except Exception as e:
             print(f"Error getting or creating exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal exchange as last resort
-            return Exchange(
-                id=None,
-                code=exchange_code,
-                name=f"{exchange_code} Exchange", 
-                country_id=None,
-                timezone="UTC",
-                currency="USD"
-            )
+            
 
     def _extract_underlying_symbol(self, symbol: str) -> str:
         """Extract underlying symbol from future symbol (e.g., 'ESZ25' -> 'ES')."""

@@ -12,7 +12,12 @@ from src.infrastructure.models.finance.exchange import ExchangeModel as ORMExcha
 
 class ExchangeMapper:
     """Mapper for Exchange domain entity and ORM model."""
-
+    @property
+    def entity_class(self):
+        return DomainExchange
+    @property
+    def model_class(self):
+        return ORMExchange
     @staticmethod
     def to_domain(orm_obj: ORMExchange) -> DomainExchange:
         """Convert ORM model to domain entity."""

@@ -39,7 +39,11 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
     @property
     def entity_class(self):
         """Return the domain entity class for Country."""
-        return Country
+        return self.mapper.entity_class
+    @property
+    def model_class(self):
+        """Return the model entity class for Country."""
+        return self.mapper.model_class
 
     def get_or_create(self, name: str) -> Optional[Country]:
         """
@@ -118,19 +122,12 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
                     if continent:
                         return continent
             
-            # Fallback: create minimal continent entity for basic functionality
-            return Continent(
-                id=None,  # Let database generate
-                name=name
-            )
+            
             
         except Exception as e:
             print(f"Error getting or creating continent {name}: {e}_{os.path.abspath(__file__)}")
             # Return minimal continent as last resort
-            return Continent(
-                id=None,
-                name=name
-            )
+            
 
     def _get_continent_for_country(self, country_name: str) -> str:
         """Map country name to continent name."""

@@ -125,7 +125,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
             # Create IndexFuture from Future entity attributes
             # Note: This is a simplified conversion. In a real implementation,
             # you might need more sophisticated mapping logic
-            return IndexFuture(
+            return self.mapper.entity_class(
                 symbol=future_entity.symbol,
                 name=future_entity.name,
                 exchange=future_entity.exchange,

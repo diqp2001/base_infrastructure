@@ -41,8 +41,11 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
     @property
     def entity_class(self):
         """Return the domain entity class for Exchange."""
-        return Exchange
-
+        return self.mapper.entity_class
+    @property
+    def model_class(self):
+        """Return the model entity class for Exchange."""
+        return self.mapper.model_class
     def get_or_create(self, exchange_code: str) -> Optional[Exchange]:
         """
         Get or create an exchange by code using IBKR API.
@@ -110,7 +113,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             if not exchange_info:
                 return None
             
-            return Exchange(
+            return self.entity_class(
                 id=None,  # Let database generate
                 name=exchange_info['name'],
                 legal_name=exchange_code.upper(),

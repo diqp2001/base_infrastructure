@@ -121,7 +121,6 @@ class RepositoryFactory:
 
         if not self._ibkr_repositories:
             # Ensure local repositories exist first
-            local_repos = self._local_repositories
             
             self._ibkr_repositories = {
                 'factor': IBKRFactorRepository(

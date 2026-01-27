@@ -13,7 +13,7 @@ from src.domain.ports.factor.factor_port import FactorPort
 
 class FactorRepository(BaseFactorRepository, FactorPort):
 
-    def __init__(self, session: Session, factory, mapper: FactorMapper = None):
+    def __init__(self, session: Session, factory, mapper: FactorMapper = None,):
         """Initialize FactorRepository with database session."""
         super().__init__(session)
         self.factory = factory
@@ -52,7 +52,7 @@ class FactorRepository(BaseFactorRepository, FactorPort):
         if existing:
             return self._to_entity(existing)
 
-        entity = Factor(
+        entity = self.entity_class(
             id=self._get_next_available_id(),
             name=name,
             group=group,

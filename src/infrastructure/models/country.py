@@ -19,10 +19,7 @@ class CountryModel(Base):
     companies = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="country")
     exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="country")
     currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel", back_populates="country")
-    def __init__(self, name, iso_code, region=None):
-        self.name = name
-        self.iso_code = iso_code
-        self.region = region
+    
 
     def __repr__(self):
         return f"<Country(name={self.name}, iso_code={self.iso_code}, region={self.region})>"

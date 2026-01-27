@@ -118,10 +118,8 @@ class MarketDataService:
             for factor_name in factor_names:
                 # Use entity service to get or create factor
                 factor = self.entity_service._create_or_get(
-                    Factor, 
-                    factor_name,
-                    group='price', 
-                    subgroup='market_data'
+                    entity_cls = Factor, 
+                    name = factor_name
                 )
                 if factor:
                     # Create composite key for factor value lookup

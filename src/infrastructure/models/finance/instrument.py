@@ -31,18 +31,7 @@ class InstrumentModel(Base):
     # Relationships
     asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", back_populates="instruments")
     
-    def __init__(self, asset_id: int, source: str, date: datetime):
-        """
-        Initialize Instrument model.
-        
-        Args:
-            asset_id: ID of the associated FinancialAsset
-            source: Data source name
-            date: Date of the instrument data
-        """
-        self.asset_id = asset_id
-        self.source = source
-        self.date = date
+    
     
     def __repr__(self):
         return (

@@ -16,7 +16,14 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 
 class CurrencyMapper:
     """Mapper for Currency domain entity and ORM model."""
-
+    @property
+    def entity_class(self):
+        """Return the domain entity class for Currency."""
+        return DomainCurrency
+    @property
+    def model_class(self):
+        """Return the domain entity class for Currency."""
+        return ORMCurrency
     @staticmethod
     def to_domain(orm_obj: ORMCurrency) -> DomainCurrency:
         """Convert ORM model to domain entity."""

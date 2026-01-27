@@ -19,13 +19,6 @@ class CompanyModel(Base):
     industry = relationship("src.infrastructure.models.industry.IndustryModel", back_populates="companies")
     company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="company")
     
-    def __init__(self, name, legal_name, country_id, industry_id, start_date, end_date=None):
-        self.name = name
-        self.legal_name = legal_name
-        self.country_id = country_id
-        self.industry_id = industry_id
-        self.start_date = start_date
-        self.end_date = end_date or datetime.max  # Default to datetime.max if no end_date is provided
     
     def __repr__(self):
         return f"<Company(name={self.name}, legal_name={self.legal_name}, start_date={self.start_date}, end_date={self.end_date})>"

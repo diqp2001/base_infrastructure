@@ -19,11 +19,7 @@ class BalanceSheetModel(FinancialStatementModel):
         'polymorphic_identity': 'balance_sheet',
     }
     
-    def __init__(self, company_id: int, period: str, year: int, assets: float, liabilities: float, equity: float):
-        super().__init__(company_id, period, year)
-        self.assets = assets
-        self.liabilities = liabilities
-        self.equity = equity
+    
     
     def __repr__(self):
         return f"<BalanceSheet(company_id={self.company_id}, period={self.period}, year={self.year}, assets={self.assets})>"

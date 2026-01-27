@@ -114,4 +114,3 @@ class EquityRepository(FinancialAssetRepository, EquityPort):
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-        )

@@ -22,6 +22,4 @@ class PositionModel(Base):
         back_populates="positions"
     )
 
-    def __init__(self, quantity: int, position_type: PositionType):
-        self.quantity = quantity
-        self.position_type = position_type
+ 

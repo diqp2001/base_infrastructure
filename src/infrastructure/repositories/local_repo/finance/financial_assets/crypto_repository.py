@@ -47,16 +47,7 @@ class CryptoRepository(FinancialAssetRepository, CryptoPort):
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-            return None
-        
-        return CryptoModel(
-            symbol=entity.symbol,
-            name=entity.name,
-            current_price=0,
-            is_active=True,
-            is_tradeable=True,
-            last_update=datetime.now()
-        )
+           
     
     def get_all(self) -> List[CryptoEntity]:
         """Retrieve all Crypto records."""

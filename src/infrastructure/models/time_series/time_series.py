@@ -28,19 +28,7 @@ class TimeSeriesModel(Base):
     created_date = Column(DateTime, default=datetime.utcnow)
     updated_date = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, name: str, series_type: str, description: str = None, data_json: dict = None,
-                 data_binary: bytes = None, rows_count: int = None, columns_count: int = None,
-                 columns_info: dict = None):
-        self.name = name
-        self.series_type = series_type
-        self.description = description
-        self.data_json = data_json
-        self.data_binary = data_binary
-        self.rows_count = rows_count
-        self.columns_count = columns_count
-        self.columns_info = columns_info
-        self.created_date = datetime.utcnow()
-        self.updated_date = datetime.utcnow()
+    
     
     def __repr__(self):
         return f"<TimeSeries(id={self.id}, name={self.name}, type={self.series_type}, rows={self.rows_count})>"

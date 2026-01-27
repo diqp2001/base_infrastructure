@@ -41,11 +41,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-            factor_id=entity.factor_id,
-            entity_id=entity.entity_id,
-            date=entity.date,
-            value=entity.value
-        )
+            
     
     def get_by_id(self, entity_id: int) -> Optional[FactorValue]:
         """Get factor value by ID."""

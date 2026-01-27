@@ -24,10 +24,6 @@ class FinancialStatementModel(Base):
         'polymorphic_on': statement_type
     }
     
-    def __init__(self, company_id: int, period: str, year: int):
-        self.company_id = company_id
-        self.period = period
-        self.year = year
     
     def __repr__(self):
         return f"<FinancialStatement(company_id={self.company_id}, period={self.period}, year={self.year})>"

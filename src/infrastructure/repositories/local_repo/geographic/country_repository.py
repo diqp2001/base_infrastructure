@@ -137,10 +137,11 @@ class CountryRepository(GeographicRepository, CountryPort):
             next_id = self._get_next_available_country_id()
             
             # Create new country entity
-            new_country = Country(
+            new_country = self.entity_class(
                 id=next_id,
                 name=name,
-                continent_id=continent_id or 1  # Use provided continent_id or default to 1
+                iso_code=iso_code,
+                continent_id=continent_id   # Use provided continent_id or default to 1
             )
             
             # Convert to ORM model and add to database

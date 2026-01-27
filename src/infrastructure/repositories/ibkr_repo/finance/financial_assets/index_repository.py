@@ -43,7 +43,13 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
-        return Index
+        return self.mapper.entity_class
+    
+    @property
+    def model_class(self):
+        """Return the domain entity class for Currency."""
+        return self.mapper.model_class
+    
     def get_or_create(self, symbol: str) -> Optional[Index]:
         """
         Get or create an index by symbol using IBKR API.
@@ -175,7 +181,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             # Get or create USD currency for indices (most indices are USD-denominated)
             currency = self._get_or_create_currency(iso_code = currency_iso_code)
             
-            return Index(
+            return self.entity_class(
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
@@ -206,25 +212,10 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                     if currency:
                         return currency
             
-            # Fallback: create minimal currency entity for basic functionality
-            return Currency(
-                id=None,  # Let database generate
-                symbol=iso_code,
-                name=name or iso_code,
-                country_id=None,  # Will be set by currency repo if available
-                start_date=datetime.today().date()
-            )
-                    
+            
         except Exception as e:
             print(f"Error getting or creating currency {iso_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal currency as last resort
-            return Currency(
-                id=None,
-                symbol=iso_code,
-                name=name,
-                country_id=None,
-                start_date=datetime.today().date()
-            )
             
 
     def _get_index_exchange(self, symbol: str) -> str:
