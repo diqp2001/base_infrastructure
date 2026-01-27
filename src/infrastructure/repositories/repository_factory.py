@@ -20,6 +20,12 @@ from src.infrastructure.repositories.local_repo.factor.country_factor_repository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_factor_repository import IndexFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.equity_factor_repository import EquityFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.bond_factor_repository import BondFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivative_factor_repository import DerivativeFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.financial_asset_factor_repository import FinancialAssetFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.security_factor_repository import SecurityFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.futures_factor_repository import FuturesFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.options_factor_repository import OptionsFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
@@ -47,6 +53,14 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.i
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_share_factor_repository import IBKRShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_currency_factor_repository import IBKRCurrencyFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_equity_factor_repository import IBKREquityFactorRepository
+
+# New IBKR Factor repositories
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_bond_factor_repository import IBKRBondFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_future_factor_repository import IBKRFutureFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_option_factor_repository import IBKROptionFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_financial_asset_factor_repository import IBKRFinancialAssetFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_security_factor_repository import IBKRSecurityFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.bond_repository import IBKRBondRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.cash_repository import IBKRCashRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.commodity_repository import IBKRCommodityRepository
@@ -106,6 +120,12 @@ class RepositoryFactory:
                 'share_factor': ShareFactorRepository(self.session, factory=self),
                 'currency_factor': CurrencyFactorRepository(self.session, factory=self),
                 'equity_factor': EquityFactorRepository(self.session, factory=self),
+                'bond_factor': BondFactorRepository(self.session, factory=self),
+                'derivative_factor': DerivativeFactorRepository(self.session, factory=self),
+                'financial_asset_factor': FinancialAssetFactorRepository(self.session, factory=self),
+                'security_factor': SecurityFactorRepository(self.session, factory=self),
+                'future_factor': FuturesFactorRepository(self.session, factory=self),
+                'option_factor': OptionsFactorRepository(self.session, factory=self),
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
@@ -175,6 +195,31 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'equity_factor': IBKREquityFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                # New IBKR factor repositories
+                'bond_factor': IBKRBondFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'derivative_factor': IBKRDerivativeFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'future_factor': IBKRFutureFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'option_factor': IBKROptionFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'financial_asset_factor': IBKRFinancialAssetFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'security_factor': IBKRSecurityFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -345,6 +390,36 @@ class RepositoryFactory:
     def equity_factor_local_repo(self):
         """Get equity_factor repository for dependency injection."""
         return self._local_repositories.get('equity_factor')
+
+    @property
+    def bond_factor_local_repo(self):
+        """Get bond_factor repository for dependency injection."""
+        return self._local_repositories.get('bond_factor')
+
+    @property
+    def derivative_factor_local_repo(self):
+        """Get derivative_factor repository for dependency injection."""
+        return self._local_repositories.get('derivative_factor')
+
+    @property
+    def financial_asset_factor_local_repo(self):
+        """Get financial_asset_factor repository for dependency injection."""
+        return self._local_repositories.get('financial_asset_factor')
+
+    @property
+    def security_factor_local_repo(self):
+        """Get security_factor repository for dependency injection."""
+        return self._local_repositories.get('security_factor')
+
+    @property
+    def future_factor_local_repo(self):
+        """Get future_factor repository for dependency injection."""
+        return self._local_repositories.get('future_factor')
+
+    @property
+    def option_factor_local_repo(self):
+        """Get option_factor repository for dependency injection."""
+        return self._local_repositories.get('option_factor')
 
 
     @property
@@ -574,3 +649,34 @@ class RepositoryFactory:
     def exchange_ibkr_repo(self):
         """Get exchange repository for dependency injection."""
         return self._ibkr_repositories.get('exchange')
+
+    # New IBKR factor repository properties
+    @property
+    def bond_factor_ibkr_repo(self):
+        """Get bond_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('bond_factor')
+
+    @property
+    def derivative_factor_ibkr_repo(self):
+        """Get derivative_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('derivative_factor')
+
+    @property
+    def future_factor_ibkr_repo(self):
+        """Get future_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('future_factor')
+
+    @property
+    def option_factor_ibkr_repo(self):
+        """Get option_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('option_factor')
+
+    @property
+    def financial_asset_factor_ibkr_repo(self):
+        """Get financial_asset_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('financial_asset_factor')
+
+    @property
+    def security_factor_ibkr_repo(self):
+        """Get security_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('security_factor')
