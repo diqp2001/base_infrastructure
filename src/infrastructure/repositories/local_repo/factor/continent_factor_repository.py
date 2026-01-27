@@ -1,0 +1,68 @@
+"""
+Repository class for Continent factor entities.
+"""
+
+from sqlalchemy.orm import Session
+from src.infrastructure.repositories.mappers.factor.continent_factor_mapper import ContinentFactorMapper
+from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from .base_factor_repository import BaseFactorRepository
+
+
+class ContinentFactorRepository(BaseFactorRepository):
+    """Repository for Continent factor entities with CRUD operations."""
+    
+    def __init__(self, session: Session):
+        super().__init__(session)
+        self.mapper = ContinentFactorMapper()
+
+    def get_factor_model(self):
+        return self.mapper.get_factor_model()
+    
+    def get_factor_entity(self):
+        return self.mapper.get_factor_entity()
+
+    def get_factor_value_model(self):
+        return FactorValueMapper().get_factor_value_model()
+    
+    def get_factor_value_entity(self):
+        return FactorValueMapper().get_factor_value_entity()
+
+    def _to_entity(self, infra_obj):
+        """Convert ORM model to domain entity."""
+        return ContinentFactorMapper.to_domain(infra_obj)
+    
+    def _to_model(self, entity):
+        """Convert domain entity to ORM model."""
+        return ContinentFactorMapper.to_orm(entity)
+
+    def get_or_create(self, primary_key: str, **kwargs):
+        """
+        Get or create a continent factor with dependency resolution.
+        
+        Args:
+            primary_key: Factor name identifier
+            **kwargs: Additional parameters for factor creation
+            
+        Returns:
+            Factor entity or None if creation failed
+        """
+        try:
+            # Check existing by primary identifier (factor name)
+            existing = self.get_by_name(primary_key)
+            if existing:
+                return existing
+            
+            # Create new factor using base _create_or_get method
+            return self._create_or_get(
+                name=primary_key,
+                group=kwargs.get('group', 'continent'),
+                subgroup=kwargs.get('subgroup', 'geography'),
+                data_type=kwargs.get('data_type', 'string'),
+                source=kwargs.get('source', 'geography_data'),
+                definition=kwargs.get('definition', f'Continent factor: {primary_key}'),
+                entity_type=kwargs.get('entity_type', 'continent')
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create for continent factor {primary_key}: {e}")
+            return None

@@ -2,7 +2,7 @@
 Repository class for Share factor entities.
 """
 
-from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
+from src.infrastructure.repositories.mappers.factor.share_factor_mapper import ShareFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 from sqlalchemy.orm import Session
@@ -13,13 +13,14 @@ class ShareFactorRepository(BaseFactorRepository):
     
     def __init__(self, session: Session):
         super().__init__(session)
+        self.mapper = ShareFactorMapper()
 
     
     def get_factor_model(self):
-        return FactorMapper().get_factor_model()
+        return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return FactorMapper().get_factor_entity()
+        return self.mapper.get_factor_entity()
 
     
     def get_factor_value_model(self):
@@ -27,6 +28,14 @@ class ShareFactorRepository(BaseFactorRepository):
     
     def get_factor_value_entity(self):
         return FactorValueMapper().get_factor_value_entity()
+
+    def _to_entity(self, infra_obj):
+        """Convert ORM model to domain entity."""
+        return ShareFactorMapper.to_domain(infra_obj)
+    
+    def _to_model(self, entity):
+        """Convert domain entity to ORM model."""
+        return ShareFactorMapper.to_orm(entity)
 
     def get_or_create(self, primary_key: str, **kwargs):
         """
