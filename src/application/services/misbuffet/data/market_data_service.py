@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Callable, List, Optional, Union
 import pandas as pd
 import logging
+from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
 from src.application.services.misbuffet.common.data_types import Slice, TradeBar, Symbol
 from src.application.services.data.entities.entity_service import EntityService
 from src.domain.entities.factor.factor import Factor
@@ -117,9 +118,11 @@ class MarketDataService:
             
             for factor_name in factor_names:
                 # Use entity service to get or create factor
+                entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
                 factor = self.entity_service._create_or_get(
                     entity_cls = Factor, 
-                    name = factor_name
+                    name = factor_name,
+                    entity_factor_class_input = entity_factor_class_input
                 )
                 if factor:
                     # Create composite key for factor value lookup

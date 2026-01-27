@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Optional
 
-from src.infrastructure.models.factor.factor_model import FinancialAssetFactor
+from src.domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor
+
 
 
 class DerivativeFactor(FinancialAssetFactor):

@@ -13,16 +13,18 @@ from src.domain.ports.factor.factor_port import FactorPort
 
 class FactorRepository(BaseFactorRepository, FactorPort):
 
-    def __init__(self, session: Session, factory, mapper: FactorMapper = None,):
+    def __init__(self, session: Session, factory, mapper: FactorMapper = None,entity_factor_class_input = None):
         """Initialize FactorRepository with database session."""
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or FactorMapper()
+        
 
     # ----------------------------
     # Required by BaseLocalRepository
     # ----------------------------
-
+    def redef_entity_class(self,entity_factor_class_input = None):
+        self.entity_class_input =entity_factor_class_input
     @property
     def model_class(self):
         return FactorModel
@@ -30,7 +32,10 @@ class FactorRepository(BaseFactorRepository, FactorPort):
     @property
     def entity_class(self):
         """Return the domain entity class for Factor."""
-        return Factor
+        if self.entity_class_input== None:
+            return Factor
+        
+        return self.entity_class_input
 
     def _to_entity(self, model: FactorModel) -> Optional[Factor]:
         if not model:

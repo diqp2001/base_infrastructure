@@ -69,6 +69,60 @@ FACTOR_ENTITY_MAPPING = {
     OptionFactorEntity: Option,
     FutureFactorEntity: Future,
 }
+ENTITY_FACTOR_MAPPING = {
+    Continent: [
+        ContinentFactorEntity
+    ],
+    
+    Country: [
+        CountryFactorEntity
+    ],
+    
+    FinancialAsset: [
+        FinancialAssetFactorEntity
+    ],
+    
+    Security: [
+        SecurityFactorEntity
+    ],
+    
+    Index: [
+        IndexFactorEntity
+    ],
+    
+    Currency: [
+        CurrencyFactorEntity
+    ],
+    
+    Equity: [
+        EquityFactorEntity
+    ],
+    
+    Share: [
+        ShareFactorEntity,
+        ShareMomentumFactorEntity,
+        ShareTechnicalFactorEntity,
+        ShareTargetFactorEntity,
+        ShareVolatilityFactorEntity
+    ],
+    
+    Bond: [
+        BondFactorEntity
+    ],
+    
+    Derivative: [
+        DerivativeFactorEntity
+    ],
+    
+    Option: [
+        OptionFactorEntity
+    ],
+    
+    Future: [
+        FutureFactorEntity
+    ],
+}
+
 
 
 def _get_entity_type_from_factor(factor) -> str:
