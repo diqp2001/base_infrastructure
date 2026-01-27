@@ -135,7 +135,7 @@ class MarketDataService:
                         factor_id=factor.id,
                         entity_id=entity.id,
                         date=point_in_time.date(),
-                        value="0.0"  # Default value if not found
+                         
                     )
                     
                     if factor_value:
