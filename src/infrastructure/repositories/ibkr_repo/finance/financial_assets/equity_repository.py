@@ -39,7 +39,7 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
     def entity_class(self):
         """Return the domain entity class for Equity."""
         return Equity
-    def get_or_create(self, symbol: str) -> Optional[Equity]:
+    def _create_or_get(self, symbol: str) -> Optional[Equity]:
         """
         Get or create an equity by symbol using IBKR API.
         

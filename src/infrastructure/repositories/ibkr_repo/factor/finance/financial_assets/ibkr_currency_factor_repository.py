@@ -66,7 +66,7 @@ class IBKRCurrencyFactorRepository(BaseIBKRFactorRepository, CurrencyFactorPort)
             return self.local_repo.delete(entity_id)
         return False
 
-    def get_or_create(self, name: str, group: str = "forex", subgroup: str = "currency") -> Optional[CurrencyFactor]:
+    def _create_or_get(self, name: str, group: str = "forex", subgroup: str = "currency") -> Optional[CurrencyFactor]:
         try:
             if self.local_repo:
                 existing_factor = self.local_repo.get_by_name(name)

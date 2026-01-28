@@ -43,7 +43,7 @@ class IBKRContinentRepository(BaseIBKRRepository, ContinentPort):
         """Return the model entity class for Continent."""
         return self.mapper.model_class
 
-    def get_or_create(self, name: str) -> Optional[Continent]:
+    def _create_or_get(self, name: str) -> Optional[Continent]:
         """
         Get or create a continent by name.
         

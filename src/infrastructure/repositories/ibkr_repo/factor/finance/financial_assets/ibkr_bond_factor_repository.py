@@ -161,7 +161,7 @@ class IBKRBondFactorRepository(BaseIBKRFactorRepository, BondFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def get_or_create(self, name: str, group: str = "fixed_income", subgroup: str = "bond") -> Optional[BondFactor]:
+    def _create_or_get(self, name: str, group: str = "fixed_income", subgroup: str = "bond") -> Optional[BondFactor]:
         """
         Get or create a bond factor.
         

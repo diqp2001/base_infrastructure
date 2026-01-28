@@ -1,7 +1,7 @@
 """
 Repository class for ETF Share factor entities.
 """
-
+from sqlalchemy.orm import Session
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
@@ -10,8 +10,9 @@ from ...base_factor_repository import BaseFactorRepository
 class ETFShareFactorRepository(BaseFactorRepository):
     """Repository for ETF Share factor entities with CRUD operations."""
     
-    def __init__(self, db_type='sqlite'):
-        super().__init__(db_type)
+    def __init__(self, session:Session,factory=None):
+        super().__init__(session)
+        self.factory = factory
 
     def get_factor_model(self):
         return FactorMapper().get_factor_model()

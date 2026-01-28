@@ -41,7 +41,7 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
         """Return the domain entity class for Commodity."""
         return Commodity
 
-    def get_or_create(self, symbol: str) -> Optional[Commodity]:
+    def _create_or_get(self, symbol: str) -> Optional[Commodity]:
         """
         Get or create a commodity by symbol using IBKR API.
         

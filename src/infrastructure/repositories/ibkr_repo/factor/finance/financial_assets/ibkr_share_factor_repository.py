@@ -147,7 +147,7 @@ class IBKRShareFactorRepository(BaseIBKRFactorRepository, ShareFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def get_or_create(self, name: str, group: str = "price", subgroup: str = "share") -> Optional[ShareFactor]:
+    def _create_or_get(self, name: str, group: str = "price", subgroup: str = "share") -> Optional[ShareFactor]:
         """
         Get or create a share factor.
         

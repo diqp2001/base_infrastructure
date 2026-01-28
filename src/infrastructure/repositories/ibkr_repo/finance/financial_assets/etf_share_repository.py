@@ -39,7 +39,7 @@ class IBKRETFShareRepository(IBKRFinancialAssetRepository, ETFSharePort):
     def entity_class(self):
         """Return the domain entity class for ETFShare."""
         return ETFShare
-    def get_or_create(self, symbol: str) -> Optional[ETFShare]:
+    def _create_or_get(self, symbol: str) -> Optional[ETFShare]:
         """
         Get or create an ETF share by symbol using IBKR API.
         

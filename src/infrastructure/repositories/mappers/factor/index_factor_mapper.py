@@ -15,11 +15,14 @@ class IndexFactorMapper(BaseFactorMapper):
     def get_factor_model(self):
         return FactorModel
     
+    def get_factor_discriminator(self):
+        return "index_factor"
+    
     def get_factor_entity(self):
         return IndexFactor
     
-    @classmethod
-    def to_domain(cls, orm_model: Optional[FactorModel]) -> Optional[IndexFactor]:
+    
+    def to_domain(self, orm_model: Optional[FactorModel]) -> Optional[IndexFactor]:
         """Convert ORM model to IndexFactor domain entity."""
         if not orm_model:
             return None
@@ -34,16 +37,15 @@ class IndexFactorMapper(BaseFactorMapper):
             factor_id=orm_model.id,
         )
     
-    @classmethod
-    def to_orm(cls, domain_entity: IndexFactor) -> FactorModel:
+    
+    def to_orm(self, domain_entity: IndexFactor) -> FactorModel:
         """Convert IndexFactor domain entity to ORM model."""
         return FactorModel(
-            id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,
             subgroup=domain_entity.subgroup,
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            entity_type='index'
+            factor_type = self.get_factor_discriminator()
         )

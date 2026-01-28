@@ -42,7 +42,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
         """Return the domain entity class for Company."""
         return Company
 
-    def get_or_create(self, symbol_or_name: str) -> Optional[Company]:
+    def _create_or_get(self, symbol_or_name: str) -> Optional[Company]:
         """
         Get or create a company by symbol or name using IBKR API.
         

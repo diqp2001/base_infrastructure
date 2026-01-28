@@ -175,7 +175,7 @@ class IBKROptionFactorRepository(BaseIBKRFactorRepository, OptionFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def get_or_create(self, name: str, group: str = "derivatives", subgroup: str = "options") -> Optional[OptionFactor]:
+    def _create_or_get(self, name: str, group: str = "derivatives", subgroup: str = "options") -> Optional[OptionFactor]:
         """
         Get or create an option factor.
         

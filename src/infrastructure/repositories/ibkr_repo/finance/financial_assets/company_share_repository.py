@@ -96,7 +96,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         
 
 
-    def get_or_create(self, symbol: str) -> Optional[CompanyShare]:
+    def _create_or_get(self, symbol: str) -> Optional[CompanyShare]:
         """
         Get or create a company share by symbol using IBKR API.
         

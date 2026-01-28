@@ -39,7 +39,7 @@ class IBKRCryptoRepository(IBKRFinancialAssetRepository, CryptoPort):
     def entity_class(self):
         """Return the domain entity class for Crypto."""
         return Crypto
-    def get_or_create(self, symbol: str) -> Optional[Crypto]:
+    def _create_or_get(self, symbol: str) -> Optional[Crypto]:
         """
         Get or create a cryptocurrency by symbol using IBKR API.
         

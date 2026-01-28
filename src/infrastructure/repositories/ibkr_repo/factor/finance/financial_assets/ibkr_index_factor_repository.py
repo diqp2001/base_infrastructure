@@ -147,7 +147,7 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def get_or_create(self, name: str, group: str = "price", subgroup: str = "index") -> Optional[IndexFactor]:
+    def _create_or_get(self, name: str, group: str = "price", subgroup: str = "index",**kwargs) -> Optional[IndexFactor]:
         """
         Get or create an index factor.
         
@@ -160,25 +160,12 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
             IndexFactor entity from database or newly created
         """
         try:
-            # Check if factor already exists by name
-            if self.local_repo:
-                existing_factor = self.local_repo.get_by_name(name)
-                if existing_factor:
-                    return existing_factor
             
-            # Create new index factor
-            new_factor = IndexFactor(
-                name=name,
-                group=group,
-                subgroup=subgroup,
-                data_type="numeric",
-                source="IBKR",
-                definition=f"Index factor: {name} (from IBKR data)"
-            )
+            
             
             # Persist to local database
             if self.local_repo:
-                created_factor = self.local_repo.add(new_factor)
+                created_factor = self.local_repo._create_or_get(primary_key=name, **kwargs)
                 if created_factor:
                     print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
                     return created_factor

@@ -11,8 +11,9 @@ from ...base_factor_repository import BaseFactorRepository
 class ShareTechnicalFactorRepository(BaseFactorRepository):
     """Repository for ShareTechnical factor entities with CRUD operations."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session,factory=None):
         super().__init__(session)
+        self.factory = factory
         self.mapper = ShareTechnicalFactorMapper()
 
     def get_factor_model(self):

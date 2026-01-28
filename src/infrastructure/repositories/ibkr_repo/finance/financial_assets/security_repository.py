@@ -38,7 +38,7 @@ class IBKRSecurityRepository(IBKRFinancialAssetRepository, SecurityPort):
     def entity_class(self):
         """Return the domain entity class for Security."""
         return Security
-    def get_or_create(self, symbol: str) -> Optional[Security]:
+    def _create_or_get(self, symbol: str) -> Optional[Security]:
         """
         Get or create a security by symbol using IBKR API.
         

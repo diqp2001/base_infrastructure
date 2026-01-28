@@ -12,8 +12,9 @@ from ...base_factor_repository import BaseFactorRepository
 class FuturesFactorRepository(BaseFactorRepository):
     """Repository for Futures factor entities with CRUD operations."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session,factory=None):
         super().__init__(session)
+        self.factory = factory
         self.mapper = FutureFactorMapper()
 
     def get_factor_model(self):

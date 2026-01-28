@@ -50,7 +50,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         """Return the domain entity class for Currency."""
         return self.mapper.model_class
     
-    def get_or_create(self, symbol: str) -> Optional[Index]:
+    def _create_or_get(self, symbol: str=None,**kwargs) -> Optional[Index]:
         """
         Get or create an index by symbol using IBKR API.
         

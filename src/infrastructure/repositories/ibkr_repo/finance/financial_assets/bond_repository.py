@@ -41,7 +41,7 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
         """Return the domain entity class for Bond."""
         return Bond
 
-    def get_or_create(self, symbol: str) -> Optional[Bond]:
+    def _create_or_get(self, symbol: str) -> Optional[Bond]:
         """
         Get or create a bond by symbol using IBKR API.
         

@@ -45,7 +45,7 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
         """Return the model entity class for Country."""
         return self.mapper.model_class
 
-    def get_or_create(self, name: str) -> Optional[Country]:
+    def _create_or_get(self, name: str) -> Optional[Country]:
         """
         Get or create a country by name with continent dependency resolution.
         

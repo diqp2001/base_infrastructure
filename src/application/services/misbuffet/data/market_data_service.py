@@ -119,9 +119,10 @@ class MarketDataService:
             for factor_name in factor_names:
                 # Use entity service to get or create factor
                 entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
-                factor = self.entity_service._create_or_get(
+                factor = self.entity_service._create_or_get_ibkr(
                     entity_cls = entity_factor_class_input, 
-                    name = factor_name
+                    entity_symbol = factor_name,
+                    group="price",
                 )
                 if factor:
                     # Create composite key for factor value lookup
@@ -166,8 +167,8 @@ class MarketDataService:
                self.entity_service.repository_factory.ibkr_client:
                 # Use IBKR method if client is available
                 entity = self.entity_service._create_or_get_ibkr(
-                    entity_class, 
-                    ticker
+                    entity_cls = entity_class, 
+                    entity_symbol = ticker
                 )
             else:
                 # Use local method

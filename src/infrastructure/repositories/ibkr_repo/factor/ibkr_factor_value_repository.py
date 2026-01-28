@@ -217,7 +217,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in IBKR get_or_create_factor_value for {symbol_or_name}: {e}")
             return None
 
-    def get_or_create_factor_value_with_dependencies(
+    def _create_or_get(
         self,
         factor_entity: Factor,
         financial_asset_entity: Any,

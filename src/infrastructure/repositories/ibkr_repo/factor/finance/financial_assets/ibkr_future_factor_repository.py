@@ -167,7 +167,7 @@ class IBKRFutureFactorRepository(BaseIBKRFactorRepository, FutureFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def get_or_create(self, name: str, group: str = "derivatives", subgroup: str = "futures") -> Optional[FutureFactor]:
+    def _create_or_get(self, name: str, group: str = "derivatives", subgroup: str = "futures") -> Optional[FutureFactor]:
         """
         Get or create a future factor.
         

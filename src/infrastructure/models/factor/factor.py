@@ -24,14 +24,7 @@ class FactorModel(Base):
         'polymorphic_on': factor_type
     }
     
-    def __init__(self, name: str, group: str, subgroup: str = None, data_type: str = None,
-                 source: str = None, definition: str = None):
-        self.name = name
-        self.group = group
-        self.subgroup = subgroup
-        self.data_type = data_type
-        self.source = source
-        self.definition = definition
+    
     
     def __repr__(self):
         return f"<Factor(id={self.id}, name={self.name}, group={self.group})>"

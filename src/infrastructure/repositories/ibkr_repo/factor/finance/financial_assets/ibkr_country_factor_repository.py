@@ -92,7 +92,7 @@ class IBKRCountryFactorRepository(BaseIBKRFactorRepository, CountryFactorPort):
             return self.local_repo.delete(entity_id)
         return False
 
-    def get_or_create(self, name: str, group: str = "geographic", subgroup: str = "country") -> Optional[CountryFactor]:
+    def _create_or_get(self, name: str, group: str = "geographic", subgroup: str = "country") -> Optional[CountryFactor]:
         """
         Get or create a country factor from IBKR data.
         

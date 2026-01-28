@@ -169,7 +169,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
             print(f"Error creating factor value from tick data: {e}")
             return None
 
-    def get_or_create_factor_value(self, symbol_or_name: str, factor_id: int, time: str) -> Optional[FactorValue]:
+    def _create_or_get(self, symbol_or_name: str, factor_id: int, time: str) -> Optional[FactorValue]:
         """
         Get or create a factor value for a company by symbol or name using IBKR API.
         
@@ -186,7 +186,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
                 return None
                 
             # 1. Get or create company share entity first
-            company_share = self.company_share_repo.get_or_create(symbol_or_name)
+            company_share = self.company_share_repo._create_or_get(symbol_or_name)
             if not company_share:
                 print(f"Could not find or create company share for {symbol_or_name}")
                 return None

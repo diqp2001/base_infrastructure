@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 class ShareFactorRepository(BaseFactorRepository):
     """Repository for Share factor entities with CRUD operations."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session,factory=None):
         super().__init__(session)
+        self.factory = factory
         self.mapper = ShareFactorMapper()
 
     

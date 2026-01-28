@@ -698,7 +698,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         
         return values_stored
     
-    def _create_or_get(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, entity_type: str = "ShareFactor"):
+    def _create_or_get(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, entity_type: str ):
         """Create factor if it doesn't exist, otherwise return existing based on name AND discriminator."""
         existing_factor = self.get_by_name_and_discriminator(name, entity_type)
         if existing_factor:
@@ -719,7 +719,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             FactorModel = self.get_factor_model()
             factor = self.session.query(FactorModel).filter(
                 FactorModel.name == name,
-                FactorModel.entity_type == entity_type
+                FactorModel.factor_type == entity_type
             ).first()
             return self._to_domain_factor(factor)
         except Exception as e:

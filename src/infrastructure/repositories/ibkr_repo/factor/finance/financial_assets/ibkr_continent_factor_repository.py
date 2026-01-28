@@ -93,7 +93,7 @@ class IBKRContinentFactorRepository(BaseIBKRFactorRepository, ContinentFactorPor
             return self.local_repo.delete(entity_id)
         return False
 
-    def get_or_create(self, name: str, group: str = "geographic", subgroup: str = "continent") -> Optional[ContinentFactor]:
+    def _create_or_get(self, name: str, group: str = "geographic", subgroup: str = "continent") -> Optional[ContinentFactor]:
         """
         Get or create a continent factor from IBKR data.
         

@@ -21,11 +21,7 @@ class FactorValueModel(Base):
     factors = relationship("src.infrastructure.models.factor.factor.FactorModel",back_populates="factor_values")
     
     
-    def __init__(self, factor_id: int, entity_id: int, date: Date, value: str):
-        self.factor_id = factor_id
-        self.entity_id = entity_id
-        self.date = date
-        self.value = value
+
     
     def __repr__(self):
         return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date})>"

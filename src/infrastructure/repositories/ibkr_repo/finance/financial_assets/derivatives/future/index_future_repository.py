@@ -49,7 +49,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     @property
     def model_class(self):
         return self.mapper.model_class
-    def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
+    def _create_or_get(self, symbol: str) -> Optional[IndexFuture]:
         """
         Get or create an index future by symbol using IBKR API.
         

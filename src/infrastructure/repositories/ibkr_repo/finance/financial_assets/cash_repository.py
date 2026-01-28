@@ -40,7 +40,7 @@ class IBKRCashRepository(IBKRFinancialAssetRepository, CashPort):
         """Return the domain entity class for Cash."""
         return Cash
 
-    def get_or_create(self, currency_code: str) -> Optional[Cash]:
+    def _create_or_get(self, currency_code: str) -> Optional[Cash]:
         """
         Get or create a cash position by currency using IBKR API.
         

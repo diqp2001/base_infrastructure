@@ -60,7 +60,7 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         
         return IBKRInstrument
 
-    def get_or_create(self, symbol: str) -> Optional[IBKRInstrument]:
+    def _create_or_get(self, symbol: str) -> Optional[IBKRInstrument]:
         """
         Get or create an instrument by symbol using IBKR API.
         

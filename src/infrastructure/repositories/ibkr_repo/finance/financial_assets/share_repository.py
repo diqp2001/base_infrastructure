@@ -40,7 +40,7 @@ class IBKRShareRepository(IBKRFinancialAssetRepository, SharePort):
         """Return the domain entity class for Share."""
         return Share
 
-    def get_or_create(self, symbol: str) -> Optional[Share]:
+    def _create_or_get(self, symbol: str) -> Optional[Share]:
         """
         Get or create a share by symbol using IBKR API.
         
