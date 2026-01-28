@@ -4,7 +4,7 @@ IBKR Share Factor Mapper - Mapper for ShareFactor domain entities and ORM models
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import FactorModel, ShareFactorModel
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
 
@@ -34,9 +34,9 @@ class IBKRShareFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: ShareFactor) -> FactorModel:
+    def to_orm(domain_entity: ShareFactor) -> ShareFactorModel:
         """Convert ShareFactor domain entity to ORM model."""
-        return FactorModel(
+        return ShareFactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,
@@ -44,5 +44,4 @@ class IBKRShareFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            factor_type='share',  # Set discriminator for share factors
         )

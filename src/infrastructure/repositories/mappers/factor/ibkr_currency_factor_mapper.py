@@ -4,7 +4,7 @@ IBKR Currency Factor Mapper - Mapper for CurrencyFactor domain entities and ORM 
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import FactorModel, CurrencyFactorModel
 from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor
 
 
@@ -34,9 +34,9 @@ class IBKRCurrencyFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: CurrencyFactor) -> FactorModel:
+    def to_orm(domain_entity: CurrencyFactor) -> CurrencyFactorModel:
         """Convert CurrencyFactor domain entity to ORM model."""
-        return FactorModel(
+        return CurrencyFactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,
@@ -44,5 +44,4 @@ class IBKRCurrencyFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            factor_type='currency',  # Set discriminator for currency factors
         )
