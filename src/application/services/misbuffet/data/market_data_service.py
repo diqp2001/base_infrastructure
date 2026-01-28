@@ -130,11 +130,11 @@ class MarketDataService:
                     composite_key = f"{factor.id}_{entity.id}_{date_str}"
                     
                     # Use entity service to get factor value
-                    factor_value = self.entity_service._create_or_get(
-                        FactorValue,
-                        composite_key,
-                        factor_id=factor.id,
-                        entity_id=entity.id,
+                    factor_value = self.entity_service._create_or_get_ibkr(
+                        entity_cls = FactorValue,
+                        entity_symbol = composite_key,
+                        factor=factor,
+                        entity=entity,
                         date=point_in_time.date(),
                          
                     )

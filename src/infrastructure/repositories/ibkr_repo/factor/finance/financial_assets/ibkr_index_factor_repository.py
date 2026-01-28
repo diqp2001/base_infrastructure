@@ -167,7 +167,7 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
             if self.local_repo:
                 created_factor = self.local_repo._create_or_get(primary_key=name, **kwargs)
                 if created_factor:
-                    print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
+                    #print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
                     return created_factor
             
             print(f"Failed to create index factor: {name}")

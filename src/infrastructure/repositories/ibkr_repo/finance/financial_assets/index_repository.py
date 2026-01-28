@@ -67,7 +67,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
                 return existing
             
             # 2. Fetch from IBKR API
-            contract = self._fetch_contract(symbol)
+            contract = self._fetch_contract(symbol,**kwargs)
             if not contract:
                 return None
                 
@@ -112,7 +112,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         """Delete index entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
-    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str,**kwargs) -> Optional[Contract]:
         """
         Create index contract using IBKR broker helper method.
         
@@ -125,11 +125,13 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
         try:
             # Use the broker's helper method to create index contract
             exchange = self._get_index_exchange(symbol)
-            contract = self.ib_broker.create_index_contract(
-                symbol=symbol.upper(),
-                exchange=exchange,
-                currency="USD"
-            )
+            contract = Contract()
+            contract.symbol = symbol.upper()
+            contract.secType = "IND"
+            contract.exchange = exchange
+            contract.currency = kwargs.get('currency', 'USD')
+            contract.primaryExchange = exchange
+                
             return contract
         except Exception as e:
             print(f"Error creating IBKR index contract for {symbol}: {e}_{os.path.abspath(__file__)}")
@@ -208,7 +210,7 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
                 currency_repo = self.factory.currency_ibkr_repo
                 if currency_repo:
-                    currency = currency_repo.get_or_create(iso_code)
+                    currency = currency_repo._create_or_get(iso_code)
                     if currency:
                         return currency
             

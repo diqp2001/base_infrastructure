@@ -33,7 +33,10 @@ class IBKRFactorRepository(BaseIBKRFactorRepository, FactorPort):
         self.factory = factory
         self.local_repo = self.factory.factor_local_repo
     # FactorPort interface implementation (delegate to local repository)
-
+    @property
+    def entity_class(self):
+        
+        return Factor
     def get_by_id(self, entity_id: int) -> Optional[Factor]:
         """Get factor by ID (delegates to local repository)."""
         return self.local_repo.get_by_id(entity_id)
@@ -86,7 +89,7 @@ class IBKRFactorRepository(BaseIBKRFactorRepository, FactorPort):
         """Delete factor entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
-    def get_or_create(self, tick_type: IBKRTickType, contract_data: Optional[Dict[str, Any]] = None) -> Optional[Factor]:
+    def _create_or_get(self, tick_type: IBKRTickType, contract_data: Optional[Dict[str, Any]] = None) -> Optional[Factor]:
         """
         Get or create a factor from IBKR tick type.
         

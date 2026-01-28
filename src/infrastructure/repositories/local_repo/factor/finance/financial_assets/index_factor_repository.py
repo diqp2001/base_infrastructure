@@ -52,7 +52,7 @@ class IndexFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_name_and_discriminator(name =primary_key,entity_type = self.mapper.get_factor_discriminator())
+            existing = self.get_by_name_and_discriminator(name =primary_key,entity_type = self.mapper.discriminator)
             if existing:
                 return existing
             domain_factor = self.get_factor_entity()(name=primary_key,
@@ -74,7 +74,10 @@ class IndexFactorRepository(BaseFactorRepository):
             
             self.session.add(orm_factor)
             self.session.commit()
-            return self._to_domain_factor(orm_factor)
+            if orm_factor:
+                    #print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
+                    return self._to_domain_factor(orm_factor)
+            
         
             
             

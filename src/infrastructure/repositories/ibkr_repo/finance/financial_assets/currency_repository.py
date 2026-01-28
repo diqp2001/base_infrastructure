@@ -209,7 +209,7 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             if self.factory and hasattr(self.factory, 'country_ibkr_repo'):
                 country_repo = self.factory.country_ibkr_repo
                 if country_repo:
-                    country = country_repo.get_or_create(name)
+                    country = country_repo._create_or_get(name)
                     if country:
                         return country
             

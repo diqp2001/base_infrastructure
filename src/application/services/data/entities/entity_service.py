@@ -229,7 +229,7 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
-    def _create_or_get_ibkr(self, entity_cls: object, entity_symbol: str, entity_id: int = None,
+    def _create_or_get_ibkr(self, entity_cls: object, entity_symbol: str = None, entity_id: int = None,
                             **kwargs) -> Optional[object]:
         """
         Create index entity if it doesn't exist, otherwise return existing.

@@ -118,7 +118,7 @@ class IBKRCountryRepository(BaseIBKRRepository, CountryPort):
             if self.factory and hasattr(self.factory, 'continent_ibkr_repo'):
                 continent_repo = self.factory.continent_ibkr_repo
                 if continent_repo:
-                    continent = continent_repo.get_or_create(name)
+                    continent = continent_repo._create_or_get(name)
                     if continent:
                         return continent
             
