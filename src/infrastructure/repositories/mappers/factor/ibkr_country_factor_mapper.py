@@ -4,7 +4,7 @@ IBKR Country Factor Mapper - Mapper for CountryFactor domain entities and ORM mo
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import FactorModel, CountryFactorModel
 from src.domain.entities.factor.country_factor import CountryFactor
 
 
@@ -34,9 +34,9 @@ class IBKRCountryFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: CountryFactor) -> FactorModel:
+    def to_orm(domain_entity: CountryFactor) -> CountryFactorModel:
         """Convert CountryFactor domain entity to ORM model."""
-        return FactorModel(
+        return CountryFactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,
@@ -44,5 +44,4 @@ class IBKRCountryFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            factor_type='country',  # Set discriminator for country factors
         )

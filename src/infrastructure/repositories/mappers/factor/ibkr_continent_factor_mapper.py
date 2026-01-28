@@ -4,7 +4,7 @@ IBKR Continent Factor Mapper - Mapper for ContinentFactor domain entities and OR
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import FactorModel, ContinentFactorModel
 from src.domain.entities.factor.continent_factor import ContinentFactor
 
 
@@ -34,9 +34,9 @@ class IBKRContinentFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: ContinentFactor) -> FactorModel:
+    def to_orm(domain_entity: ContinentFactor) -> ContinentFactorModel:
         """Convert ContinentFactor domain entity to ORM model."""
-        return FactorModel(
+        return ContinentFactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,
@@ -44,5 +44,4 @@ class IBKRContinentFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            factor_type='continent',  # Set discriminator for continent factors
         )
