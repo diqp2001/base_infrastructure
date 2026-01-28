@@ -231,9 +231,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _create_or_get(
         self,
-        factor_entity: Factor,
-        financial_asset_entity: Any,
-        time_date: str,
+         entity_symbol,
         **kwargs
     ) -> Optional[FactorValue]:
         """
@@ -255,6 +253,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             FactorValue entity or None if creation/retrieval failed
         """
         try:
+            factor_entity = kwargs.get('factor')
+            financial_asset_entity = kwargs.get('entity')
+            time_date = kwargs.get('date')
             if not factor_entity or not financial_asset_entity:
                 print("Factor entity and financial asset entity are required")
                 return None
@@ -699,13 +700,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if hasattr(self, 'local_repo') and self.local_repo:
                 return self.local_repo.get_by_factor_entity_date(factor_id, entity_id, time_date)
             
-            # Fallback: use factory to get local repository
-            if self.factory:
-                local_repo = self.factory.get_factor_value_repository()
-                if local_repo:
-                    return local_repo.get_by_factor_entity_date(factor_id, entity_id, time_date)
-            
-            return None
+           
             
         except Exception as e:
             print(f"Error checking existing factor value: {e}")
@@ -745,8 +740,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             contract.secType = "STK"
             contract.exchange = "CBOE"
-            contract.currency = self.factory.get_local_repository(Currency).get_by_id(getattr(financial_asset_entity, 'currency_id', None))
-            return 
+            contract.currency = self.factory.currency_local_repo.get_by_id(getattr(financial_asset_entity, 'currency_id', None)).symbol
+            return contract
             
         except Exception as e:
             print(f"Error fetching IBKR contract for factor {factor_entity.name}: {e}")
