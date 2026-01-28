@@ -324,24 +324,52 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 # CASE 2: No dependencies - fetch directly from IBKR
                 print(f"Factor {factor_entity.name} has no dependencies - fetching directly from IBKR")
                 
-                # 2. Fetch from IBKR API
-                contract = self._fetch_contract(factor_entity, financial_asset_entity)
-                if not contract:
-                    return None
+                # Check if ibkr_instrument_repo is available
+                if not self.ibkr_instrument_repo:
+                    print("IBKR instrument repository not available, using legacy method")
+                    # Fallback to legacy method
+                    contract = self._fetch_contract(factor_entity, financial_asset_entity)
+                    if not contract:
+                        return None
+                        
+                    contract_details_list = self._fetch_contract_details(contract)
+                    if not contract_details_list:
+                        return None
+                        
+                    factor_value = self._contract_to_domain(
+                        contract, 
+                        contract_details_list, 
+                        factor_entity, 
+                        financial_asset_entity, 
+                        date_obj
+                    )
+                else:
+                    # Use the new pattern with ibkr_instrument_repo.get_or_create_from_contract
+                    contract = self._fetch_contract(factor_entity, financial_asset_entity)
+                    if not contract:
+                        return None
+                        
+                    contract_details_list = self._fetch_contract_details(contract)
+                    if not contract_details_list:
+                        return None
                     
-                # 3. Get contract details from IBKR
-                contract_details_list = self._fetch_contract_details(contract)
-                if not contract_details_list:
-                    return None
+                    # Use the instrument repository pattern to get factor value
+                    timestamp = datetime.now()  # Use current timestamp for IBKR data
+                    instrument = self.ibkr_instrument_repo.get_or_create_from_contract(
+                        contract=contract,
+                        contract_details=contract_details_list,
+                        tick_data=None,  # No specific tick data for basic factor values
+                        timestamp=timestamp
+                    )
                     
-                # 4. Apply IBKR-specific rules and convert to domain entity
-                factor_value = self._contract_to_domain(
-                    contract, 
-                    contract_details_list, 
-                    factor_entity, 
-                    financial_asset_entity, 
-                    date_obj
-                )
+                    if not instrument:
+                        print(f"Failed to create instrument for factor {factor_entity.name}")
+                        return None
+                    
+                    # The instrument creation automatically creates factor values and maps them
+                    # Check if our specific factor value was created
+                    factor_value = self._check_existing_factor_value(factor_id, entity_id, time_date)
+                
                 if not factor_value:
                     return None
             
