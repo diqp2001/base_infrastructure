@@ -8,7 +8,8 @@ implementing the pipelines for IBKR Contract → Instrument → Factor Values �
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import inspect
-
+from ibapi.contract import Contract
+from domain.entities.finance.financial_assets.currency import Currency
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
@@ -228,7 +229,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in IBKR get_or_create_factor_value for {symbol_or_name}: {e}")
             return None
 
-    def get_or_create_factor_value_with_dependencies(
+    def _create_or_get(
         self,
         factor_entity: Factor,
         financial_asset_entity: Any,
@@ -579,102 +580,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     # Helper methods for common dependency resolution
     
-    def _get_price_data(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Get price data for the financial asset at the given date."""
-        # This would typically fetch from market data repository
-        # For now, return a placeholder
-        return 100.0  # Mock price data
     
-    def _get_volume_data(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Get volume data for the financial asset at the given date.""" 
-        return 1000000  # Mock volume data
     
-    def _get_underlying_price(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
-        """Get underlying asset price."""
-        return 100.0  # Mock underlying price
-    
-    def _get_volatility_data(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
-        """Get volatility data."""
-        return 0.2  # Mock volatility (20%)
-    
-    def _get_risk_free_rate(self, time_date: str) -> Optional[float]:
-        """Get risk-free rate for the given date."""
-        return 0.05  # Mock risk-free rate (5%)
-    
-    def _resolve_factor_value_dependency(self, dep_name: str, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Try to resolve dependency as another factor value."""
-        # This would involve looking up the dependent factor and recursively calculating its value
-        # For now, return None to indicate dependency couldn't be resolved
-        return None
-    
-    # Helper methods for IBKR-based dependency resolution
+   
 
-    def _get_or_create_price_data_from_ibkr(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Get or create price data from IBKR for the financial asset at the given date."""
-        try:
-            # This would fetch actual price data from IBKR API and store in DB
-            # For now, return mock data
-            print(f"Fetching price data from IBKR for {getattr(financial_asset_entity, 'symbol', 'unknown')} on {time_date}")
-            return 100.0  # Mock price data
-        except Exception as e:
-            print(f"Error getting price data from IBKR: {e}")
-            return None
     
-    def _get_or_create_volume_data_from_ibkr(self, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Get or create volume data from IBKR for the financial asset at the given date."""
-        try:
-            # This would fetch actual volume data from IBKR API and store in DB
-            print(f"Fetching volume data from IBKR for {getattr(financial_asset_entity, 'symbol', 'unknown')} on {time_date}")
-            return 1000000  # Mock volume data
-        except Exception as e:
-            print(f"Error getting volume data from IBKR: {e}")
-            return None
-    
-    def _get_or_create_underlying_price_from_ibkr(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
-        """Get or create underlying asset price from IBKR."""
-        try:
-            # This would fetch actual underlying price from IBKR API and store in DB
-            print(f"Fetching underlying price from IBKR for {getattr(financial_asset_entity, 'symbol', 'unknown')} on {time_date}")
-            return 100.0  # Mock underlying price
-        except Exception as e:
-            print(f"Error getting underlying price from IBKR: {e}")
-            return None
-    
-    def _get_or_create_volatility_data_from_ibkr(self, financial_asset_entity: Any, time_date: str) -> Optional[float]:
-        """Get or create volatility data from IBKR."""
-        try:
-            # This would fetch actual volatility from IBKR API and store in DB
-            print(f"Fetching volatility data from IBKR for {getattr(financial_asset_entity, 'symbol', 'unknown')} on {time_date}")
-            return 0.2  # Mock volatility (20%)
-        except Exception as e:
-            print(f"Error getting volatility from IBKR: {e}")
-            return None
-    
-    def _get_or_create_risk_free_rate_from_ibkr(self, time_date: str) -> Optional[float]:
-        """Get or create risk-free rate from IBKR for the given date."""
-        try:
-            # This would fetch actual risk-free rate from IBKR API and store in DB
-            print(f"Fetching risk-free rate from IBKR for {time_date}")
-            return 0.05  # Mock risk-free rate (5%)
-        except Exception as e:
-            print(f"Error getting risk-free rate from IBKR: {e}")
-            return None
-    
-    def _resolve_factor_value_dependency_from_ibkr(self, dep_name: str, financial_asset_entity: Any, time_date: str) -> Optional[Any]:
-        """Try to resolve dependency as another factor value from IBKR."""
-        try:
-            # This would involve:
-            # 1. Looking up the dependent factor by name
-            # 2. Recursively calling get_or_create_factor_value_with_dependencies for that factor
-            # 3. Returning the calculated value
-            print(f"Resolving factor dependency {dep_name} from IBKR for {getattr(financial_asset_entity, 'symbol', 'unknown')} on {time_date}")
-            # For now, return None to indicate dependency couldn't be resolved
-            return None
-        except Exception as e:
-            print(f"Error resolving factor value dependency {dep_name} from IBKR: {e}")
-            return None
-
-    # FactorValuePort interface implementation (delegate to local repository)
 
     def get_by_id(self, entity_id: int) -> Optional[FactorValue]:
         """Get factor value by ID (delegates to local repository)."""
@@ -825,8 +735,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
             
-            # Use the existing method to get contract by symbol
-            return self._fetch_contract_for_symbol(symbol)
+            contract = Contract()
+            # Try as symbol first
+            if len(symbol) <= 5 and symbol.isupper():
+                contract.symbol = symbol
+            else:
+                # If it looks like a company name, assume it's a symbol
+                contract.symbol = symbol.upper()
+            
+            contract.secType = "STK"
+            contract.exchange = "CBOE"
+            contract.currency = self.factory.get_local_repository(Currency).get_by_id(getattr(financial_asset_entity, 'currency_id', None))
+            return 
             
         except Exception as e:
             print(f"Error fetching IBKR contract for factor {factor_entity.name}: {e}")
@@ -843,7 +763,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             IBKR Contract object or None if not found
         """
         try:
-            from ibapi.contract import Contract
+            
             
             contract = Contract()
             # Try as symbol first
