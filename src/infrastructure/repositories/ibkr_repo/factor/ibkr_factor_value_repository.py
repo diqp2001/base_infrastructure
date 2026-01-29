@@ -59,7 +59,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         if hasattr(self, '_local_repo') and self._local_repo:
             return self._local_repo
         if self.factory:
-            return self.factory.get_factor_value_repository()
+            return self.factory.factor_value_local_repo
         return None
 
     # Pipeline Methods - Main functionality requested by user
@@ -130,9 +130,31 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print(f"Failed to create instrument for {symbol_or_name}")
                 return None
             
-            # 6. The instrument creation process automatically creates factor values
-            # and maps them to the financial asset 
-            # So we just need to retrieve the specific factor value requested
+            # 6. Use factory to get ibkr_instrument_factor_repository and call get_or_create
+            if self.factory:
+                instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
+                if instrument_factor_repo:
+                    # Get the factor entity from local repository
+                    factor_repo = self.factory.factor_local_repo
+                    if factor_repo:
+                        factor_entity = factor_repo.get_by_id(factor_id)
+                        if factor_entity:
+                            # Get financial asset entity - this should be passed from caller
+                            financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                            if financial_asset_entity:
+                                # Call get_or_create on instrument factor repository to create factor value
+                                # for the proper financial asset entity and factor entity
+                                factor_value = self._create_or_get(
+                                    entity_symbol=symbol_or_name,  # Pass the symbol
+                                    factor=factor_entity,
+                                    entity=financial_asset_entity,
+                                    date=time,
+                                    instrument=instrument,
+                                    tick_data=tick_data
+                                )
+                                return factor_value
+            
+            # 7. Fallback: retrieve the specific factor value requested
             return self._check_existing_factor_value(factor_id, entity_id, time)
             
         except Exception as e:

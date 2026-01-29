@@ -38,8 +38,16 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
         """
         super().__init__(ibkr_client)
         self.local_instrument_repo = factory.instrument_ibkr_repo
+        self.factory = factory
         self.tick_mapper = IBKRTickFactorMapper()
         self.contract_mapper = IBKRContractInstrumentMapper()
+
+    @property
+    def local_repo(self):
+        """Get local factor value repository through factory."""
+        if self.factory:
+            return self.factory.factor_value_local_repo
+        return None
 
     def create_factor_values_from_ticks(
         self,
@@ -222,7 +230,7 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
                 return None
             
             # Check if factor value already exists for this instrument, factor, and date
-            existing_value = self._check_existing_factor_value(factor.id, instrument.id, date_str)
+            existing_value = self.local_repo.get_by_factor_entity_date(factor.id, instrument.id, date_str)
             if existing_value:
                 return existing_value
             
