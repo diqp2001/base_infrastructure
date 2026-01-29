@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 # Local repositories
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
+from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
@@ -114,9 +115,10 @@ class RepositoryFactory:
         """
         if not self._local_repositories:
             self._local_repositories = {
+                'instrument': InstrumentRepository(self.session, factory=self),
                 'factor_value': FactorValueRepository(self.session, factory=self),
                 'factor': FactorRepository(self.session, factory=self),
-                'financial_asset:':FinancialAssetRepository(self.session, factory=self),
+                'financial_asset': FinancialAssetRepository(self.session, factory=self),
                 # Individual factor repositories
                 'continent_factor': ContinentFactorRepository(self.session, factory=self),
                 'country_factor': CountryFactorRepository(self.session, factory=self),
@@ -366,9 +368,15 @@ class RepositoryFactory:
         return self.ibkr_client is not None
     
     @property
+    def instrument_local_repo(self):
+        """Get instrument repository for dependency injection."""
+        return self._local_repositories.get('instrument')
+    
+    @property
     def financial_asset_local_repo(self):
-        """Get factor_value repository for dependency injection."""
+        """Get financial_asset repository for dependency injection."""
         return self._local_repositories.get('financial_asset')
+    
     @property
     def factor_value_local_repo(self):
         """Get factor_value repository for dependency injection."""
