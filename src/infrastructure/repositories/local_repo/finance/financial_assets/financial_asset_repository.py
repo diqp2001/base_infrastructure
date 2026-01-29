@@ -14,10 +14,11 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
     Base repository for all financial asset types (shares, bonds, currencies, etc.).
     Extends BaseRepository with financial asset specific functionality.
     """
-    def __init__(self, session: Session):
+    def __init__(self, session: Session,**kwargs):
         """Initialize IndexRepository with database session."""
 
         super().__init__(session)
+        self.factory = kwargs.get('factory')
         from application.services.api_service.ibkr_service.market_data import MarketData
         self.market_data = MarketData()
     @property

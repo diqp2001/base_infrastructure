@@ -26,8 +26,7 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
     def __init__(
         self, 
         ibkr_client, 
-        local_factor_value_repo,
-        local_instrument_repo
+        factory
     ):
         """
         Initialize IBKR Instrument Factor Repository.
@@ -37,8 +36,8 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             local_factor_value_repo: Local repository for factor value persistence
             local_instrument_repo: Local repository for instrument persistence
         """
-        super().__init__(ibkr_client, local_factor_value_repo)
-        self.local_instrument_repo = local_instrument_repo
+        super().__init__(ibkr_client)
+        self.local_instrument_repo = factory.instrument_ibkr_repo
         self.tick_mapper = IBKRTickFactorMapper()
         self.contract_mapper = IBKRContractInstrumentMapper()
 

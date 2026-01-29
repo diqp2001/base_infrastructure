@@ -50,7 +50,7 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
-        self.local_instrument_repo = self.factory.instrument_local_repo
+        self.local_instrument_repo = self
         self.financial_asset_repo = self.factory.financial_asset_local_repo
         self.factor_repo = getattr(self.factory, 'ibkr_instrument_factor_repo', None)
         self.contract_mapper = IBKRContractInstrumentMapper()

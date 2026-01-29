@@ -9,6 +9,9 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 # Local repositories
+from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
+from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
@@ -113,6 +116,7 @@ class RepositoryFactory:
             self._local_repositories = {
                 'factor_value': FactorValueRepository(self.session, factory=self),
                 'factor': FactorRepository(self.session, factory=self),
+                'financial_asset:':FinancialAssetRepository(self.session, factory=self),
                 # Individual factor repositories
                 'continent_factor': ContinentFactorRepository(self.session, factory=self),
                 'country_factor': CountryFactorRepository(self.session, factory=self),
@@ -165,6 +169,14 @@ class RepositoryFactory:
             # Ensure local repositories exist first
             
             self._ibkr_repositories = {
+                'instrument_factor': IBKRInstrumentFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'instrument': IBKRInstrumentRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
                 'factor': IBKRFactorRepository(
                     ibkr_client=client,
                     factory=self
@@ -353,7 +365,10 @@ class RepositoryFactory:
         """Check if IBKR client is available."""
         return self.ibkr_client is not None
     
-    
+    @property
+    def financial_asset_local_repo(self):
+        """Get factor_value repository for dependency injection."""
+        return self._local_repositories.get('financial_asset')
     @property
     def factor_value_local_repo(self):
         """Get factor_value repository for dependency injection."""
@@ -520,7 +535,14 @@ class RepositoryFactory:
         """Get exchange repository for dependency injection."""
         return self._local_repositories.get('exchange')
 
-
+    @property
+    def instrument_ibkr_repo(self):
+        """Get factor repository for dependency injection."""
+        return self._ibkr_repositories.get('instrument')
+    @property
+    def instrument_factor_ibkr_repo(self):
+        """Get factor repository for dependency injection."""
+        return self._ibkr_repositories.get('instrument_factor')
     @property
     def factor_ibkr_repo(self):
         """Get factor repository for dependency injection."""
