@@ -11,6 +11,18 @@ from src.infrastructure.models.finance.instrument import InstrumentModel as ORMI
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
+class GenericFinancialAsset(FinancialAsset):
+    """Simple concrete implementation of FinancialAsset for mapping purposes."""
+    
+    def __init__(self, id, name, symbol, start_date=None, end_date=None, asset_type="generic"):
+        super().__init__(id, name, symbol, start_date, end_date)
+        self._asset_type = asset_type
+    
+    @property
+    def asset_type(self) -> str:
+        return self._asset_type
+
+
 class InstrumentMapper:
     """Mapper for Instrument domain entity and ORM model."""
 
@@ -25,17 +37,23 @@ class InstrumentMapper:
         financial_asset = None
         if orm_obj.asset:
             # Create a simple FinancialAsset entity with basic info
-            financial_asset = FinancialAsset(
+            financial_asset = GenericFinancialAsset(
                 id=orm_obj.asset.id,
-                start_date=orm_obj.asset.start_date,
-                end_date=orm_obj.asset.end_date
+                name=getattr(orm_obj.asset, 'name', None),
+                symbol=getattr(orm_obj.asset, 'symbol', None),
+                start_date=getattr(orm_obj.asset, 'start_date', None),
+                end_date=getattr(orm_obj.asset, 'end_date', None),
+                asset_type=getattr(orm_obj.asset, 'asset_type', 'generic')
             )
         elif orm_obj.asset_id:
             # If no asset relationship loaded, create a placeholder
-            financial_asset = FinancialAsset(
+            financial_asset = GenericFinancialAsset(
                 id=orm_obj.asset_id,
+                name=f"Asset_{orm_obj.asset_id}",
+                symbol=f"SYM_{orm_obj.asset_id}",
                 start_date=None,
-                end_date=None
+                end_date=None,
+                asset_type='generic'
             )
 
         # Create domain entity
