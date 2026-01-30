@@ -233,14 +233,11 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             existing_value = self.local_repo.get_by_factor_entity_date(factor.id, instrument.id, date_str)
             if existing_value:
                 return existing_value
-            tick_value = self.ib_client.get_market_data_snapshot( contract)
+            tick_value = self.ib_client.get_historical_data(contract = contract)
 
-            # while self.ib_client.last_price.get(1) is None:
-            #     time.sleep(5)
-
-            # tick_value = self.ib_client.last_price[1]
+            # tick_value
+            # [{'date': '20260126', 'open': 6923.23, 'high': 6964.66, 'low': 6921.6, 'close': 6950.23, 'volume': 0, 'barCount': 22203}, {'date': '20260127', 'open': 6965.96, 'high': 6988.82, 'low': 6958.83, 'close': 6978.6, 'volume': 0, 'barCount': 22146}, {'date': '20260128', 'open': 7002.0, 'high': 7002.28, 'low': 6963.46, 'close': 6978.03, 'volume': 0, 'barCount': 22526}, {'date': '20260129', 'open': 6977.74, 'high': 6992.84, 'low': 6870.8, 'close': 6969.01, 'volume': 0, 'barCount': 22775}, {'date': '20260130', 'open': 6947.27, 'high': 6964.09, 'low': 6893.48, 'close': 6937.5, 'volume': 0, 'barCount': 22901}]
             
-            # Create new factor value from IBKR tick data
             new_factor_value = FactorValue(
                 id=None,  # Will be set by repository
                 factor_id=factor.id,
