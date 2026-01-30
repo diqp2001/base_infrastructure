@@ -157,7 +157,7 @@ class IBKRTickFactorMapper:
     TICK_TO_FACTOR_MAP: Dict[IBKRTickType, FactorMapping] = {
         # Core Price Data
         IBKRTickType.BID_PRICE: FactorMapping(
-            factor_name="Bid Price",
+            factor_name="Bid",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -166,7 +166,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.ASK_PRICE: FactorMapping(
-            factor_name="Ask Price",
+            factor_name="Ask",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -175,7 +175,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.LAST_PRICE: FactorMapping(
-            factor_name="Last Price",
+            factor_name="Last",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -184,7 +184,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.CLOSE_PRICE: FactorMapping(
-            factor_name="Close Price",
+            factor_name="Close",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -193,7 +193,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.OPEN_TICK: FactorMapping(
-            factor_name="Open Price",
+            factor_name="Open",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -202,7 +202,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.HIGH: FactorMapping(
-            factor_name="High Price",
+            factor_name="High",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",
@@ -211,7 +211,7 @@ class IBKRTickFactorMapper:
             is_price=True
         ),
         IBKRTickType.LOW: FactorMapping(
-            factor_name="Low Price",
+            factor_name="Low",
             factor_group="Market",
             factor_subgroup="Price",
             data_type="decimal",

@@ -272,16 +272,16 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
         try:
             # This would depend on your financial asset resolution logic
             # For example, for stocks you might look up by symbol
-            if contract.secType == "STK":
-                # Look up company share by symbol
-                company_shares = self.financial_asset_repo.get_by_ticker(contract.symbol)
-                if company_shares and len(company_shares) > 0:
-                    return company_shares[0]
+            entity_domain = self.financial_asset_repo.get_by_symbol(contract.symbol)
+            # if contract.secType == "STK":
+            #     # Look up company share by symbol
+            #     company_shares = self.financial_asset_repo.get_by_ticker(contract.symbol)
+            #     if company_shares and len(company_shares) > 0:
+            #         return company_shares[0]
             
             # Could implement similar logic for other asset types (bonds, futures, etc.)
             
-            print(f"Could not resolve financial asset for contract {contract.symbol} ({contract.secType})")
-            return None
+            return entity_domain
             
         except Exception as e:
             print(f"Error resolving financial asset: {e}")

@@ -6,7 +6,7 @@ implementing the core pipeline: Instrument + Tick Data → Factor Values.
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, time
 
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
@@ -186,7 +186,7 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             print(f"Error mapping instrument factors to asset factors: {e}")
             return []
 
-    def get_or_create(self, instrument: IBKRInstrument, tick_type: IBKRTickType, tick_value: Any, 
+    def get_or_create(self, instrument: IBKRInstrument,contract,tick_type: IBKRTickType= 14, tick_value: Any = 14, 
                      timestamp: Optional[datetime] = None) -> Optional[FactorValue]:
         """
         Get or create a factor value for an instrument from IBKR tick data.
@@ -233,6 +233,12 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             existing_value = self.local_repo.get_by_factor_entity_date(factor.id, instrument.id, date_str)
             if existing_value:
                 return existing_value
+            tick_value = self.ib_client.get_market_data_snapshot( contract)
+
+            # while self.ib_client.last_price.get(1) is None:
+            #     time.sleep(5)
+
+            # tick_value = self.ib_client.last_price[1]
             
             # Create new factor value from IBKR tick data
             new_factor_value = FactorValue(

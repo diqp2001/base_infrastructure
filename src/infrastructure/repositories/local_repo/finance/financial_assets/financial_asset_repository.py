@@ -1,12 +1,16 @@
 
 
 from abc import ABC, abstractmethod
+import os
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
+
+from src.infrastructure.repositories.mappers.finance.financial_assets.financial_asset_mapper import FinancialAssetMapper
 
 
 from ...base_repository import BaseLocalRepository, EntityType, ModelType
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel as ORMFinancialAsset
 from sqlalchemy.orm import Session
 
 class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
@@ -21,10 +25,16 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
         self.factory = kwargs.get('factory')
         from application.services.api_service.ibkr_service.market_data import MarketData
         self.market_data = MarketData()
+        self.mapper = FinancialAssetMapper()
     @property
     def entity_class(self):
         
         return FinancialAsset
+    
+    @property
+    def model_class(self):
+        
+        return ORMFinancialAsset
     # --- Financial Asset Specific Methods ---
 
     def get_by_ticker(self, ticker: str) -> Optional[EntityType]:
@@ -36,6 +46,18 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             return self._to_entity(model) if model else None
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by ticker {ticker}: {e}")
+            return None
+    def get_by_symbol(self, symbol: str) -> Optional[EntityType]:
+        """Fetch an Index by its symbol (e.g. SPX, NDX)."""
+        try:
+            model = (
+                self.session.query(self.model_class)
+                .filter(self.model_class.symbol == symbol)
+                .first()
+            )
+            return self.mapper.to_domain(model)
+        except Exception as e:
+            print(f"Error retrieving index by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def exists_by_ticker(self, ticker: str) -> bool:

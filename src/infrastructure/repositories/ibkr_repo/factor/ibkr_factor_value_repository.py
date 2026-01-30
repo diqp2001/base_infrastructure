@@ -10,6 +10,8 @@ from datetime import datetime, date
 import inspect
 from ibapi.contract import Contract
 from domain.entities.finance.financial_assets.currency import Currency
+
+from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
@@ -51,6 +53,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         super().__init__(ibkr_client)
         self.ibkr_instrument_repo = ibkr_instrument_repo
         self.factory = factory
+        self.ibkr_instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
         self.tick_mapper = IBKRTickFactorMapper()
         
     @property 
@@ -370,6 +373,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     return None
+                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument,contract)
                 
                 # The instrument creation automatically creates factor values and maps them
                 # Check if our specific factor value was created
@@ -612,13 +616,6 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error calling factor calculate method for {factor_entity.name}: {e}")
             return None
 
-    # Helper methods for common dependency resolution
-    
-    
-    
-   
-
-    
 
     def get_by_id(self, entity_id: int) -> Optional[FactorValue]:
         """Get factor value by ID (delegates to local repository)."""
@@ -751,31 +748,37 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             IBKR Contract object or None if not found
         """
         try:
-            # Extract symbol from financial asset entity
-            symbol = getattr(financial_asset_entity, 'symbol', None)
-            if not symbol:
-                # Try other common attribute names
-                symbol = getattr(financial_asset_entity, 'ticker', None)
-                if not symbol:
-                    symbol = getattr(financial_asset_entity, 'name', None)
-            
+            # --- Extract symbol ---
+            symbol = (
+                getattr(financial_asset_entity, 'symbol', None)
+                or getattr(financial_asset_entity, 'ticker', None)
+                or getattr(financial_asset_entity, 'name', None)
+            )
+
             if not symbol:
                 print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
-            
+
             contract = Contract()
-            # Try as symbol first
-            if len(symbol) <= 5 and symbol.isupper():
-                contract.symbol = symbol
+            contract.symbol = symbol.upper()
+
+            # --- secType routing ---
+            if isinstance(financial_asset_entity, self.factory.index_local_repo.entity_class):
+                contract.secType = "IND"
+                contract.exchange = "CBOE"   # or SMART, see note below
             else:
-                # If it looks like a company name, assume it's a symbol
-                contract.symbol = symbol.upper()
-            
-            contract.secType = "STK"
-            contract.exchange = "CBOE"
-            contract.currency = self.factory.currency_local_repo.get_by_id(getattr(financial_asset_entity, 'currency_id', None)).symbol
+                contract.secType = "STK"
+                contract.exchange = "SMART"
+                contract.primaryExchange = "NASDAQ"  # optional but recommended
+
+            # --- currency ---
+            currency = self.factory.currency_local_repo.get_by_id(
+                getattr(financial_asset_entity, 'currency_id', None)
+            )
+            contract.currency = currency.symbol if currency else "USD"
+
             return contract
-            
+                
         except Exception as e:
             print(f"Error fetching IBKR contract for factor {factor_entity.name}: {e}")
             return None
