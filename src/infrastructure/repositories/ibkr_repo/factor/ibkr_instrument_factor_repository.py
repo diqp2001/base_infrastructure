@@ -233,12 +233,37 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             existing_value = self.local_repo.get_by_factor_entity_date(factor.id, instrument.id, date_str)
             if existing_value:
                 return existing_value
-            tick_value = self.ib_client.get_market_data_snapshot( contract)
-
-            # while self.ib_client.last_price.get(1) is None:
-            #     time.sleep(5)
-
-            # tick_value = self.ib_client.last_price[1]
+            
+            # Get market data snapshot from IBKR
+            market_data = self.ib_client.get_market_data_snapshot(contract)
+            
+            # Extract the appropriate value based on tick type
+            tick_value = None
+            if not market_data or market_data.get('error'):
+                print(f"Failed to get market data for contract: {market_data.get('error', 'Unknown error')}")
+                return None
+            
+            # Map IBKR tick types to market data keys
+            tick_type_mapping = {
+                1: 'BID',        # Bid price
+                2: 'ASK',        # Ask price  
+                4: 'LAST',       # Last price
+                6: 'HIGH',       # High price
+                7: 'LOW',        # Low price
+                9: 'CLOSE',      # Close price
+                14: 'OPEN'       # Open price
+            }
+            
+            # Get the market data key for this tick type
+            market_key = tick_type_mapping.get(tick_type.value if hasattr(tick_type, 'value') else tick_type)
+            if market_key and market_key in market_data:
+                tick_value = market_data[market_key]
+            else:
+                # Default to LAST price if specific tick type not found
+                tick_value = market_data.get('LAST')
+                if tick_value is None:
+                    print(f"No suitable market data found for tick type {tick_type}")
+                    return None
             
             # Create new factor value from IBKR tick data
             new_factor_value = FactorValue(
