@@ -1139,8 +1139,718 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         logger.info("✨ Access Level Analysis Complete!")
         logger.info("=" * 60)
 
+    def test_comprehensive_market_access(self):
+        """
+        Comprehensive test function that tests ALL market access types and returns a detailed summary.
+        
+        This function tests:
+        - Asset Classes: Stocks, Commodities, Bonds, Futures
+        - Data Types: Live market data, Historical delayed data, Streaming data
+        - Market Access: Real-time quotes, Level 2 data, Contract details
+        
+        Returns:
+            Dict: Comprehensive summary of all market access test results
+        """
+        logger.info("\n🚀 === COMPREHENSIVE MARKET ACCESS TEST ===")
+        logger.info("=" * 70)
+        
+        # Initialize results structure
+        market_access_results = {
+            'connection_status': {'tested': False, 'status': 'unknown', 'details': ''},
+            'asset_classes': {
+                'stocks': {'tested': False, 'status': 'unknown', 'details': '', 'test_results': {}},
+                'commodities': {'tested': False, 'status': 'unknown', 'details': '', 'test_results': {}},
+                'bonds': {'tested': False, 'status': 'unknown', 'details': '', 'test_results': {}},
+                'futures': {'tested': False, 'status': 'unknown', 'details': '', 'test_results': {}}
+            },
+            'data_types': {
+                'live_market_data': {'tested': False, 'status': 'unknown', 'details': '', 'symbols_tested': []},
+                'historical_delayed': {'tested': False, 'status': 'unknown', 'details': '', 'symbols_tested': []},
+                'streaming_data': {'tested': False, 'status': 'unknown', 'details': '', 'symbols_tested': []},
+                'level2_depth': {'tested': False, 'status': 'unknown', 'details': '', 'symbols_tested': []},
+                'contract_details': {'tested': False, 'status': 'unknown', 'details': '', 'symbols_tested': []}
+            },
+            'test_summary': {
+                'total_tests': 0,
+                'passed': 0,
+                'failed': 0,
+                'partial': 0,
+                'start_time': datetime.now(),
+                'end_time': None,
+                'duration': None
+            },
+            'recommendations': []
+        }
+        
+        # Connect to IB
+        try:
+            if not self.connected:
+                if not self.ib_broker.connect():
+                    market_access_results['connection_status'] = {
+                        'tested': True, 
+                        'status': 'failed', 
+                        'details': 'Cannot connect to Interactive Brokers Gateway/TWS'
+                    }
+                    return self._generate_market_access_summary(market_access_results)
+                
+            market_access_results['connection_status'] = {
+                'tested': True, 
+                'status': 'success', 
+                'details': 'Successfully connected to IB Gateway/TWS'
+            }
+            logger.info("✅ Connected to Interactive Brokers")
+            
+        except Exception as e:
+            market_access_results['connection_status'] = {
+                'tested': True, 
+                'status': 'error', 
+                'details': f'Connection error: {str(e)[:100]}'
+            }
+            return self._generate_market_access_summary(market_access_results)
+        
+        # Test 1: STOCKS Asset Class
+        logger.info("\n📈 Testing STOCKS Asset Class...")
+        stock_results = self._test_stocks_market_access()
+        market_access_results['asset_classes']['stocks'] = stock_results
+        
+        # Test 2: COMMODITIES Asset Class  
+        logger.info("\n🥇 Testing COMMODITIES Asset Class...")
+        commodity_results = self._test_commodities_market_access()
+        market_access_results['asset_classes']['commodities'] = commodity_results
+        
+        # Test 3: BONDS Asset Class
+        logger.info("\n🏛️ Testing BONDS Asset Class...")
+        bond_results = self._test_bonds_market_access()
+        market_access_results['asset_classes']['bonds'] = bond_results
+        
+        # Test 4: FUTURES Asset Class
+        logger.info("\n📊 Testing FUTURES Asset Class...")
+        futures_results = self._test_futures_market_access()
+        market_access_results['asset_classes']['futures'] = futures_results
+        
+        # Test 5: Data Types Comprehensive Testing
+        logger.info("\n🔍 Testing DATA TYPES across all assets...")
+        self._test_data_types_comprehensive(market_access_results)
+        
+        # Finalize summary
+        market_access_results['test_summary']['end_time'] = datetime.now()
+        market_access_results['test_summary']['duration'] = (
+            market_access_results['test_summary']['end_time'] - 
+            market_access_results['test_summary']['start_time']
+        ).total_seconds()
+        
+        # Generate and return comprehensive summary
+        return self._generate_market_access_summary(market_access_results)
+
+    def _test_stocks_market_access(self):
+        """Test stocks market access across different exchanges and data types."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'test_results': {}}
+        
+        # Test stocks: US equities, ETFs, international
+        test_symbols = [
+            {'symbol': 'AAPL', 'exchange': 'SMART', 'primaryExchange': 'NASDAQ', 'type': 'US Large Cap'},
+            {'symbol': 'SPY', 'exchange': 'SMART', 'primaryExchange': 'ARCA', 'type': 'ETF'},
+            {'symbol': 'TSLA', 'exchange': 'SMART', 'primaryExchange': 'NASDAQ', 'type': 'US Growth'},
+        ]
+        
+        successful_tests = 0
+        total_tests = len(test_symbols)
+        
+        for stock_info in test_symbols:
+            try:
+                logger.info(f"  Testing {stock_info['symbol']} ({stock_info['type']})...")
+                
+                # Create contract
+                contract = self.ib_broker.create_stock_contract(
+                    stock_info['symbol'], 'STK', stock_info['exchange']
+                )
+                if stock_info.get('primaryExchange'):
+                    contract.primaryExchange = stock_info['primaryExchange']
+                
+                test_result = {
+                    'live_data': False,
+                    'historical_data': False,
+                    'contract_details': False,
+                    'error_messages': []
+                }
+                
+                # Test live market data
+                try:
+                    snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
+                    if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
+                        test_result['live_data'] = True
+                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                    else:
+                        error_msg = snapshot.get('error', 'No live data') if snapshot else 'No response'
+                        test_result['error_messages'].append(f"Live data: {error_msg}")
+                        logger.info(f"    ⚠️  Live data limited: {error_msg}")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
+                
+                # Test historical data
+                try:
+                    historical = self.ib_broker.get_historical_data(
+                        contract=contract,
+                        duration_str="5 D",
+                        bar_size_setting="1 day",
+                        what_to_show="TRADES",
+                        timeout=8
+                    )
+                    if historical and len(historical) > 0:
+                        test_result['historical_data'] = True
+                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                    else:
+                        test_result['error_messages'].append("Historical: No data received")
+                        logger.info("    ⚠️  No historical data")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Historical error: {str(e)[:50]}")
+                
+                # Test contract details
+                try:
+                    details = self.ib_broker.get_contract_details(contract, timeout=5)
+                    if details and len(details) > 0:
+                        test_result['contract_details'] = True
+                        logger.info(f"    ✅ Contract details: {len(details)} matches")
+                    else:
+                        test_result['error_messages'].append("Contract details: No details received")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Contract details error: {str(e)[:50]}")
+                
+                result['test_results'][stock_info['symbol']] = test_result
+                
+                # Count as successful if at least 2 out of 3 work
+                working_count = sum([test_result['live_data'], test_result['historical_data'], test_result['contract_details']])
+                if working_count >= 2:
+                    successful_tests += 1
+                    
+            except Exception as e:
+                logger.error(f"    ❌ Error testing {stock_info['symbol']}: {e}")
+                result['test_results'][stock_info['symbol']] = {
+                    'live_data': False, 'historical_data': False, 'contract_details': False,
+                    'error_messages': [f"General error: {str(e)[:50]}"]
+                }
+        
+        # Determine overall status
+        if successful_tests == total_tests:
+            result['status'] = 'success'
+            result['details'] = f"All {total_tests} stock symbols tested successfully"
+        elif successful_tests > 0:
+            result['status'] = 'partial'
+            result['details'] = f"{successful_tests}/{total_tests} stock symbols working"
+        else:
+            result['status'] = 'failed'
+            result['details'] = f"No stock symbols working ({total_tests} tested)"
+            
+        return result
+
+    def _test_commodities_market_access(self):
+        """Test commodities market access (futures and spot)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'test_results': {}}
+        
+        # Test commodity futures (most accessible way to trade commodities via IB)
+        commodity_contracts = [
+            {'symbol': 'CL', 'exchange': 'NYMEX', 'type': 'Crude Oil Futures'},
+            {'symbol': 'GC', 'exchange': 'COMEX', 'type': 'Gold Futures'},
+            {'symbol': 'SI', 'exchange': 'COMEX', 'type': 'Silver Futures'},
+        ]
+        
+        successful_tests = 0
+        total_tests = len(commodity_contracts)
+        
+        for commodity_info in commodity_contracts:
+            try:
+                logger.info(f"  Testing {commodity_info['symbol']} ({commodity_info['type']})...")
+                
+                # Create futures contract
+                contract = self.ib_broker.create_stock_contract(
+                    commodity_info['symbol'], 'FUT', commodity_info['exchange']
+                )
+                contract.currency = 'USD'
+                
+                test_result = {
+                    'live_data': False,
+                    'historical_data': False,
+                    'contract_details': False,
+                    'error_messages': []
+                }
+                
+                # Test market data snapshot
+                try:
+                    snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
+                    if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
+                        test_result['live_data'] = True
+                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                    else:
+                        error_msg = snapshot.get('error', 'No commodity data') if snapshot else 'No response'
+                        test_result['error_messages'].append(f"Live data: {error_msg}")
+                        logger.info(f"    ⚠️  Commodity data limited: {error_msg}")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
+                
+                # Test historical data
+                try:
+                    historical = self.ib_broker.get_historical_data(
+                        contract=contract,
+                        duration_str="1 M",
+                        bar_size_setting="1 day",
+                        what_to_show="TRADES",
+                        timeout=8
+                    )
+                    if historical and len(historical) > 0:
+                        test_result['historical_data'] = True
+                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                    else:
+                        test_result['error_messages'].append("Historical: No commodity historical data")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Historical error: {str(e)[:50]}")
+                
+                # Test contract details
+                try:
+                    details = self.ib_broker.get_contract_details(contract, timeout=8)
+                    if details and len(details) > 0:
+                        test_result['contract_details'] = True
+                        logger.info(f"    ✅ Contract details: {len(details)} commodity contracts")
+                    else:
+                        test_result['error_messages'].append("Contract details: No commodity contracts found")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Contract details error: {str(e)[:50]}")
+                
+                result['test_results'][commodity_info['symbol']] = test_result
+                
+                # Count as successful if at least 1 out of 3 work (commodities can be more restrictive)
+                working_count = sum([test_result['live_data'], test_result['historical_data'], test_result['contract_details']])
+                if working_count >= 1:
+                    successful_tests += 1
+                    
+            except Exception as e:
+                logger.error(f"    ❌ Error testing {commodity_info['symbol']}: {e}")
+                result['test_results'][commodity_info['symbol']] = {
+                    'live_data': False, 'historical_data': False, 'contract_details': False,
+                    'error_messages': [f"General error: {str(e)[:50]}"]
+                }
+        
+        # Determine overall status
+        if successful_tests == total_tests:
+            result['status'] = 'success'
+            result['details'] = f"All {total_tests} commodity symbols tested successfully"
+        elif successful_tests > 0:
+            result['status'] = 'partial'
+            result['details'] = f"{successful_tests}/{total_tests} commodity symbols working"
+        else:
+            result['status'] = 'failed'
+            result['details'] = f"No commodity symbols working ({total_tests} tested)"
+            
+        return result
+
+    def _test_bonds_market_access(self):
+        """Test bonds market access (Treasury futures and corporate bonds)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'test_results': {}}
+        
+        # Test Treasury futures (most accessible bond instruments via IB)
+        bond_contracts = [
+            {'symbol': 'ZN', 'exchange': 'CBOT', 'type': '10-Year Treasury Note Futures'},
+            {'symbol': 'ZB', 'exchange': 'CBOT', 'type': '30-Year Treasury Bond Futures'},
+            {'symbol': 'ZF', 'exchange': 'CBOT', 'type': '5-Year Treasury Note Futures'},
+        ]
+        
+        successful_tests = 0
+        total_tests = len(bond_contracts)
+        
+        for bond_info in bond_contracts:
+            try:
+                logger.info(f"  Testing {bond_info['symbol']} ({bond_info['type']})...")
+                
+                # Create Treasury futures contract
+                contract = self.ib_broker.create_stock_contract(
+                    bond_info['symbol'], 'FUT', bond_info['exchange']
+                )
+                contract.currency = 'USD'
+                
+                test_result = {
+                    'live_data': False,
+                    'historical_data': False,
+                    'contract_details': False,
+                    'error_messages': []
+                }
+                
+                # Test market data snapshot
+                try:
+                    snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
+                    if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
+                        test_result['live_data'] = True
+                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                    else:
+                        error_msg = snapshot.get('error', 'No bond data') if snapshot else 'No response'
+                        test_result['error_messages'].append(f"Live data: {error_msg}")
+                        logger.info(f"    ⚠️  Bond data limited: {error_msg}")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
+                
+                # Test historical data
+                try:
+                    historical = self.ib_broker.get_historical_data(
+                        contract=contract,
+                        duration_str="1 M",
+                        bar_size_setting="1 day",
+                        what_to_show="TRADES",
+                        timeout=8
+                    )
+                    if historical and len(historical) > 0:
+                        test_result['historical_data'] = True
+                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                    else:
+                        test_result['error_messages'].append("Historical: No bond historical data")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Historical error: {str(e)[:50]}")
+                
+                # Test contract details
+                try:
+                    details = self.ib_broker.get_contract_details(contract, timeout=8)
+                    if details and len(details) > 0:
+                        test_result['contract_details'] = True
+                        logger.info(f"    ✅ Contract details: {len(details)} bond contracts")
+                    else:
+                        test_result['error_messages'].append("Contract details: No bond contracts found")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Contract details error: {str(e)[:50]}")
+                
+                result['test_results'][bond_info['symbol']] = test_result
+                
+                # Count as successful if at least 1 out of 3 work
+                working_count = sum([test_result['live_data'], test_result['historical_data'], test_result['contract_details']])
+                if working_count >= 1:
+                    successful_tests += 1
+                    
+            except Exception as e:
+                logger.error(f"    ❌ Error testing {bond_info['symbol']}: {e}")
+                result['test_results'][bond_info['symbol']] = {
+                    'live_data': False, 'historical_data': False, 'contract_details': False,
+                    'error_messages': [f"General error: {str(e)[:50]}"]
+                }
+        
+        # Determine overall status
+        if successful_tests == total_tests:
+            result['status'] = 'success' 
+            result['details'] = f"All {total_tests} bond symbols tested successfully"
+        elif successful_tests > 0:
+            result['status'] = 'partial'
+            result['details'] = f"{successful_tests}/{total_tests} bond symbols working"
+        else:
+            result['status'] = 'failed'
+            result['details'] = f"No bond symbols working ({total_tests} tested)"
+            
+        return result
+
+    def _test_futures_market_access(self):
+        """Test futures market access across different categories."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'test_results': {}}
+        
+        # Test various futures categories
+        futures_contracts = [
+            {'symbol': 'ES', 'exchange': 'CME', 'type': 'S&P 500 E-mini Futures'},
+            {'symbol': 'NQ', 'exchange': 'CME', 'type': 'Nasdaq 100 E-mini Futures'},  
+            {'symbol': 'YM', 'exchange': 'CBOT', 'type': 'Dow Jones E-mini Futures'},
+        ]
+        
+        successful_tests = 0
+        total_tests = len(futures_contracts)
+        
+        for futures_info in futures_contracts:
+            try:
+                logger.info(f"  Testing {futures_info['symbol']} ({futures_info['type']})...")
+                
+                # Create futures contract
+                contract = self.ib_broker.create_stock_contract(
+                    futures_info['symbol'], 'FUT', futures_info['exchange']
+                )
+                contract.currency = 'USD'
+                
+                test_result = {
+                    'live_data': False,
+                    'historical_data': False,
+                    'contract_details': False,
+                    'error_messages': []
+                }
+                
+                # Test market data snapshot
+                try:
+                    snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
+                    if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
+                        test_result['live_data'] = True
+                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                    else:
+                        error_msg = snapshot.get('error', 'No futures data') if snapshot else 'No response'
+                        test_result['error_messages'].append(f"Live data: {error_msg}")
+                        logger.info(f"    ⚠️  Futures data limited: {error_msg}")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
+                
+                # Test historical data
+                try:
+                    historical = self.ib_broker.get_historical_data(
+                        contract=contract,
+                        duration_str="1 M",
+                        bar_size_setting="1 day",
+                        what_to_show="TRADES",
+                        use_rth=False,  # Futures trade nearly 24h
+                        timeout=8
+                    )
+                    if historical and len(historical) > 0:
+                        test_result['historical_data'] = True
+                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                    else:
+                        test_result['error_messages'].append("Historical: No futures historical data")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Historical error: {str(e)[:50]}")
+                
+                # Test contract details
+                try:
+                    details = self.ib_broker.get_contract_details(contract, timeout=8)
+                    if details and len(details) > 0:
+                        test_result['contract_details'] = True
+                        logger.info(f"    ✅ Contract details: {len(details)} futures contracts")
+                    else:
+                        test_result['error_messages'].append("Contract details: No futures contracts found")
+                except Exception as e:
+                    test_result['error_messages'].append(f"Contract details error: {str(e)[:50]}")
+                
+                result['test_results'][futures_info['symbol']] = test_result
+                
+                # Count as successful if at least 2 out of 3 work
+                working_count = sum([test_result['live_data'], test_result['historical_data'], test_result['contract_details']])
+                if working_count >= 2:
+                    successful_tests += 1
+                    
+            except Exception as e:
+                logger.error(f"    ❌ Error testing {futures_info['symbol']}: {e}")
+                result['test_results'][futures_info['symbol']] = {
+                    'live_data': False, 'historical_data': False, 'contract_details': False,
+                    'error_messages': [f"General error: {str(e)[:50]}"]
+                }
+        
+        # Determine overall status
+        if successful_tests == total_tests:
+            result['status'] = 'success'
+            result['details'] = f"All {total_tests} futures symbols tested successfully"
+        elif successful_tests > 0:
+            result['status'] = 'partial'
+            result['details'] = f"{successful_tests}/{total_tests} futures symbols working"
+        else:
+            result['status'] = 'failed'
+            result['details'] = f"No futures symbols working ({total_tests} tested)"
+            
+        return result
+
+    def _test_data_types_comprehensive(self, market_access_results):
+        """Test different data types comprehensively across asset classes."""
+        
+        # Test Level 2 Market Depth
+        logger.info("  🔍 Testing Level 2 Market Depth...")
+        try:
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract.primaryExchange = "ARCA"
+            
+            depth = self.ib_broker.get_market_depth(spy_contract, num_rows=5, timeout=8)
+            if depth and not depth.get('error') and (depth.get('bids') or depth.get('asks')):
+                bid_count = len(depth.get('bids', []))
+                ask_count = len(depth.get('asks', []))
+                market_access_results['data_types']['level2_depth'] = {
+                    'tested': True, 'status': 'success',
+                    'details': f"Level 2 data available - {bid_count} bids, {ask_count} asks",
+                    'symbols_tested': ['SPY']
+                }
+                logger.info(f"    ✅ Level 2: {bid_count} bids, {ask_count} asks")
+            else:
+                error_msg = depth.get('error', 'No depth data') if depth else 'No response'
+                market_access_results['data_types']['level2_depth'] = {
+                    'tested': True, 'status': 'limited',
+                    'details': f"Limited: {error_msg}",
+                    'symbols_tested': ['SPY']
+                }
+                logger.info(f"    ⚠️  Level 2 limited: {error_msg}")
+        except Exception as e:
+            market_access_results['data_types']['level2_depth'] = {
+                'tested': True, 'status': 'error',
+                'details': f"Error: {str(e)[:100]}",
+                'symbols_tested': ['SPY']
+            }
+        
+        # Test Streaming Data Subscriptions
+        logger.info("  📡 Testing Streaming Data Subscriptions...")
+        try:
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART") 
+            spy_contract.primaryExchange = "ARCA"
+            
+            subscription_id = self.ib_broker.subscribe_market_data(spy_contract, "")
+            if subscription_id and subscription_id > 0:
+                time.sleep(3)  # Brief wait for data
+                
+                # Check for streaming data
+                has_streaming_data = False
+                if hasattr(self.ib_broker, 'ib_connection') and hasattr(self.ib_broker.ib_connection, 'market_data'):
+                    if subscription_id in self.ib_broker.ib_connection.market_data:
+                        data = self.ib_broker.ib_connection.market_data[subscription_id]
+                        if data and data.get('prices'):
+                            has_streaming_data = True
+                
+                self.ib_broker.unsubscribe_market_data(subscription_id)
+                
+                if has_streaming_data:
+                    market_access_results['data_types']['streaming_data'] = {
+                        'tested': True, 'status': 'success',
+                        'details': 'Streaming data subscriptions working',
+                        'symbols_tested': ['SPY']
+                    }
+                    logger.info("    ✅ Streaming: Working")
+                else:
+                    market_access_results['data_types']['streaming_data'] = {
+                        'tested': True, 'status': 'partial',
+                        'details': 'Subscription created but no data received',
+                        'symbols_tested': ['SPY']
+                    }
+                    logger.info("    ⚠️  Streaming: Subscription created but no data")
+            else:
+                market_access_results['data_types']['streaming_data'] = {
+                    'tested': True, 'status': 'failed',
+                    'details': 'Failed to create subscription',
+                    'symbols_tested': ['SPY']
+                }
+        except Exception as e:
+            market_access_results['data_types']['streaming_data'] = {
+                'tested': True, 'status': 'error',
+                'details': f"Error: {str(e)[:100]}",
+                'symbols_tested': ['SPY']
+            }
+
+    def _generate_market_access_summary(self, market_access_results):
+        """Generate comprehensive summary of market access test results."""
+        
+        logger.info("\n" + "=" * 70)
+        logger.info("📊 === COMPREHENSIVE MARKET ACCESS SUMMARY ===")
+        logger.info("=" * 70)
+        
+        summary = market_access_results['test_summary']
+        summary['end_time'] = datetime.now()
+        
+        # Connection Status
+        logger.info(f"\n🔌 CONNECTION STATUS:")
+        conn = market_access_results['connection_status']
+        status_icon = "✅" if conn['status'] == 'success' else "❌"
+        logger.info(f"  {status_icon} {conn['details']}")
+        
+        # Asset Classes Summary
+        logger.info(f"\n📈 ASSET CLASSES ACCESS:")
+        logger.info("-" * 40)
+        
+        asset_summary = {}
+        for asset_type, result in market_access_results['asset_classes'].items():
+            if result['tested']:
+                icon = {"success": "✅", "partial": "🟡", "failed": "❌", "error": "🔥"}.get(result['status'], "❓")
+                logger.info(f"  {icon} {asset_type.upper():<12} | {result['status'].upper():<8} | {result['details']}")
+                asset_summary[asset_type] = result['status']
+        
+        # Data Types Summary
+        logger.info(f"\n🔍 DATA TYPES ACCESS:")
+        logger.info("-" * 40)
+        
+        data_summary = {}
+        for data_type, result in market_access_results['data_types'].items():
+            if result.get('tested', False):
+                icon = {"success": "✅", "partial": "🟡", "failed": "❌", "limited": "⚠️", "error": "🔥"}.get(result['status'], "❓")
+                logger.info(f"  {icon} {data_type.replace('_', ' ').upper():<18} | {result['status'].upper():<8} | {result['details']}")
+                data_summary[data_type] = result['status']
+        
+        # Overall Statistics
+        logger.info(f"\n📊 OVERALL STATISTICS:")
+        logger.info("-" * 40)
+        
+        # Count successes
+        asset_success = sum(1 for status in asset_summary.values() if status == 'success')
+        asset_partial = sum(1 for status in asset_summary.values() if status == 'partial')
+        data_success = sum(1 for status in data_summary.values() if status == 'success')
+        data_partial = sum(1 for status in data_summary.values() if status == 'partial')
+        
+        total_asset_tests = len([r for r in market_access_results['asset_classes'].values() if r['tested']])
+        total_data_tests = len([r for r in market_access_results['data_types'].values() if r.get('tested', False)])
+        
+        logger.info(f"  Asset Classes:     {asset_success}/{total_asset_tests} fully working, {asset_partial}/{total_asset_tests} partially working")
+        logger.info(f"  Data Types:        {data_success}/{total_data_tests} fully working, {data_partial}/{total_data_tests} partially working")
+        logger.info(f"  Total Success Rate: {((asset_success + data_success) / max(total_asset_tests + total_data_tests, 1) * 100):.1f}%")
+        
+        # Generate Recommendations
+        recommendations = []
+        if asset_summary.get('stocks') == 'failed':
+            recommendations.append("📈 Check stock market data subscriptions - core equity access limited")
+        if asset_summary.get('futures') in ['failed', 'partial']:
+            recommendations.append("📊 Consider enabling futures trading permissions for full futures access")
+        if asset_summary.get('commodities') in ['failed', 'partial']:
+            recommendations.append("🥇 Commodity futures may require specific exchange data subscriptions")
+        if asset_summary.get('bonds') in ['failed', 'partial']:
+            recommendations.append("🏛️ Treasury futures access may require bond market data subscriptions")
+        if data_summary.get('level2_depth') in ['failed', 'limited']:
+            recommendations.append("📊 Level 2 market depth requires additional market data subscriptions")
+        if data_summary.get('streaming_data') in ['failed', 'partial']:
+            recommendations.append("📡 Streaming data issues may indicate market data permission limits")
+        
+        logger.info(f"\n💡 RECOMMENDATIONS:")
+        logger.info("-" * 40)
+        if recommendations:
+            for i, rec in enumerate(recommendations, 1):
+                logger.info(f"  {i}. {rec}")
+        else:
+            logger.info("  🎉 Excellent! All tested market access types are working well.")
+        
+        logger.info(f"\n⏱️  Test Duration: {summary.get('duration', 0):.1f} seconds")
+        logger.info("=" * 70)
+        logger.info("✨ Comprehensive Market Access Test Complete!")
+        logger.info("=" * 70)
+        
+        # Clean up connection
+        try:
+            self.disconnect_from_ib()
+        except:
+            pass
+        
+        return market_access_results
 
 
+def main():
+    """
+    Main entry point for running the comprehensive IB market data examples.
+    
+    Usage:
+        python comprehensive_market_data_examples.py                # Run all examples
+        python comprehensive_market_data_examples.py test          # Run access level test pipeline
+        python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test
+        python comprehensive_market_data_examples.py help          # Show help
+    """
+    import sys
+    
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'test':
+            # Run access level test pipeline only
+            examples = ComprehensiveIBMarketDataExamples()
+            examples.test_access_level_pipeline()
+        elif sys.argv[1] == 'comprehensive':
+            # Run comprehensive market access test
+            examples = ComprehensiveIBMarketDataExamples()
+            results = examples.test_comprehensive_market_access()
+            return results
+        elif sys.argv[1] == 'help':
+            print("Usage:")
+            print("  python comprehensive_market_data_examples.py              # Run all examples")
+            print("  python comprehensive_market_data_examples.py test         # Run access level test pipeline") 
+            print("  python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test")
+            print("  python comprehensive_market_data_examples.py help         # Show this help")
+            return
+    else:
+        # Run all examples
+        examples = ComprehensiveIBMarketDataExamples()
+        examples.run_all_examples()
+
+
+if __name__ == "__main__":
+    main()
 
 
 
