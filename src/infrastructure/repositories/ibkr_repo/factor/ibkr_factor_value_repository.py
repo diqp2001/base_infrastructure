@@ -11,6 +11,7 @@ import inspect
 from ibapi.contract import Contract
 from domain.entities.finance.financial_assets.currency import Currency
 
+from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
@@ -280,7 +281,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         try:
             factor_entity = kwargs.get('factor')
             financial_asset_entity = kwargs.get('entity')
-            time_date = kwargs.get('date')
+            self.get_ibkr_factor_base(financial_asset_entity)
+            time_date = kwargs.get('date',datetime.now() )
             if not factor_entity or not financial_asset_entity:
                 print("Factor entity and financial asset entity are required")
                 return None
@@ -374,13 +376,81 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     return None
-                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity)
+                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show=kwargs.get('what_to_show') or None)
                
                 return factor_value
         except Exception as e:
             print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
             return None
+    def get_ibkr_factor_base(self,financial_asset_entity):
+        timestamp = datetime.now()
+        
+        entity_factor_class_base = ENTITY_FACTOR_MAPPING[financial_asset_entity.__class__][0]
+        list_what_to_show = ["TRADES",
+            "MIDPOINT",
+            "BID",
+            "ASK",
+            "BID_ASK",
+            "HISTORICAL_VOLATILITY",
+            "OPTION_IMPLIED_VOLATILITY"]
+        factor_name_list = ['open','high', 'low', 'close', 'volume', 'barCount']
+        for what_to_show in list_what_to_show:
+            for factor_name in factor_name_list:
+                factor = self.factory.get_ibkr_repository(entity_factor_class_base)._create_or_get(
+                        name = factor_name,
+                        group="price",
+                        subgroup=what_to_show,
+                        source = "IBKR"
 
+                    )
+                factor_entity = factor
+                financial_asset_entity = financial_asset_entity
+                time_date = datetime.now()
+                timestamp = datetime.now()  # Use current timestamp for IBKR data
+                if not factor_entity or not financial_asset_entity:
+                    print("Factor entity and financial asset entity are required")
+                    return None
+
+                # Ensure time_date is a string
+                if isinstance(time_date, date):
+                    time_date = time_date.strftime("%Y-%m-%d")
+                elif not isinstance(time_date, str):
+                    time_date = str(time_date)
+                
+
+                # Get entity ID from financial asset (assumes entity has 'id' attribute)
+                entity_id = financial_asset_entity.id
+                factor_id = factor_entity.id
+                
+                # 1. Check if factor value already exists for this combination
+                existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
+                if existing:
+                    continue
+                # Use the new pattern with ibkr_instrument_repo.get_or_create_from_contract
+                contract = self._fetch_contract(factor_entity, financial_asset_entity)
+                if not contract:
+                    continue
+                    
+                contract_details_list = self._fetch_contract_details(contract)
+                if not contract_details_list:
+                    continue
+                
+                # Use the instrument repository pattern to get factor value
+                
+                # Check if ibkr_instrument_repo is available
+                self.ibkr_instrument_repo = self.factory.instrument_ibkr_repo
+                instrument = self.ibkr_instrument_repo.get_or_create_from_contract(
+                    contract=contract,
+                    contract_details=contract_details_list,
+                    tick_data=None,  # No specific tick data for basic factor values
+                    timestamp=timestamp
+                )
+                
+                if not instrument:
+                    print(f"Failed to create instrument for factor {factor_entity.name}")
+                    continue
+                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show, bar_size_setting = "1 sec",)
+                    
     def _get_factor_dependencies(self, factor_entity: Factor) -> Dict[str, Dict[str, Any]]:
         """
         Extract dependencies from factor class definition.

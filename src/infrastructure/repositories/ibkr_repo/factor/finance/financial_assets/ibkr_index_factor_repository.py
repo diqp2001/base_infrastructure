@@ -147,7 +147,7 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
             print(f"Error in get_or_create_from_tick_type for tick type {tick_type}: {e}")
             return None
 
-    def _create_or_get(self, name: str, group: str = "price", subgroup: str = "index",**kwargs) -> Optional[IndexFactor]:
+    def _create_or_get(self, name: str,**kwargs) -> Optional[IndexFactor]:
         """
         Get or create an index factor.
         

@@ -186,8 +186,8 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             print(f"Error mapping instrument factors to asset factors: {e}")
             return []
 
-    def get_or_create(self, instrument: IBKRInstrument,contract,historical=False,factor= None,entity  = None,
-                     timestamp: Optional[datetime] = None) -> Optional[FactorValue]:
+    def get_or_create(self, instrument: IBKRInstrument,contract,historical=True,factor= None,entity  = None,
+                     timestamp: Optional[datetime] = None, what_to_show = "TRADES",  duration_str: str = "1 W", bar_size_setting: str = "1 day",) -> Optional[FactorValue]:
         """
         Get or create a factor value for an instrument from IBKR tick data.
         
@@ -224,12 +224,19 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
                 return existing_value
             
             if historical:
-                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=factor_mapping[0].name)
+                # HISTORICAL_VOLATILITY
+                # OPTION_IMPLIED_VOLATILITY
+                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str)
+                tick_value = tick_value[-1][factor_mapping[0].name.lower()]
             else:
                 tick_value = self.ib_client.get_market_data_snapshot(contract = contract,generic_tick_list=factor_mapping[0].value)
                 # if tick_value['error']:
                 #     tick_value = self.ib_client.get_market_data(contract = contract,generic_tick_list=factor_mapping[0].value)
-            
+                #             tick_value[-1]
+                #             tick_value
+                # [{'date': '20260127', 'open': 6965.96, 'high': 6988.82, 'low': 6958.83, 'close': 6978.6, 'volume': 0, 'barCount': 22146}, {'date': '20260128', 'open': 7002.0, 'high': 7002.28, 'low': 6963.46, 'close': 6978.03, 'volume': 0, 'barCount': 22526}, {'date': '20260129', 'open': 6977.74, 'high': 6992.84, 'low': 6870.8, 'close': 6969.01, 'volume': 0, 'barCount': 22775}, {'date': '20260130', 'open': 6947.27, 'high': 6964.09, 'low': 6893.48, 'close': 6939.03, 'volume': 0, 'barCount': 22901}, {'date': '20260202', 'open': 6916.64, 'high': 6991.92, 'low': 6914.34, 'close': 6979.03, 'volume': 0, 'barCount': 21643}]
+                # tick_value[-1]
+                # {'date': '20260202', 'open': 6916.64, 'high': 6991.92, 'low': 6914.34, 'close': 6979.03, 'volume': 0, 'barCount': 21643}
             new_factor_value = FactorValue(
                 id=None,  # Will be set by repository
                 factor_id=factor.id,

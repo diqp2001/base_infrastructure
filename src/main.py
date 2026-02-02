@@ -29,9 +29,12 @@ if __name__ == '__main__':
     #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
     #TestBaseProjectManager().run()
     #CrossSectionnal().run()
-    ibkr_service = ComprehensiveIBMarketDataExamples()
-    ibkr_service.run_all_examples()
-    #MarketMakingSPXCallSpreadProjectManager().run()
+    # ibkr_service = ComprehensiveIBMarketDataExamples()
+    # results_market_access = ibkr_service.test_comprehensive_market_access()
+    # results = ibkr_service.test_comprehensive_tick_access()
+    # print("")
+    # #ibkr_service.run_all_examples()
+    MarketMakingSPXCallSpreadProjectManager().run()
 
 
     

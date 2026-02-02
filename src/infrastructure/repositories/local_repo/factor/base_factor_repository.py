@@ -726,3 +726,32 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             print(f"Error retrieving factor by name and discriminator: {e}")
             return None
 
+    def get_by_all(
+    self,
+    name: str,
+    group: str,
+    factor_type: str = None,
+    subgroup: Optional[str] = None,
+    data_type: Optional[str] = None,
+    source: Optional[str] = None,
+) -> Optional[FactorEntity]:
+        """Retrieve a factor matching all non-id fields."""
+        try:
+            FactorModel = self.get_factor_model()
+
+            query = self.session.query(FactorModel).filter(
+                FactorModel.name == name,
+                FactorModel.group == group,
+                FactorModel.factor_type == factor_type,
+                FactorModel.subgroup == subgroup,
+                FactorModel.data_type == data_type,
+                FactorModel.source == source,
+            )
+
+            factor = query.first()
+            return self._to_domain_factor(factor)
+
+        except Exception as e:
+            print(f"Error retrieving factor by all attributes: {e}")
+            return None
+

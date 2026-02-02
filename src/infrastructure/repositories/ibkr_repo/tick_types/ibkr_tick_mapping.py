@@ -481,7 +481,11 @@ class IBKRTickFactorMapper:
 
             # String name (e.g. "High")
             elif isinstance(tick_type, str):
+                
                 enum_tick = IBKRTickType[tick_type.upper()]
+                
+                
+
 
             else:
                 return None

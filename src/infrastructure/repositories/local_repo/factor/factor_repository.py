@@ -4,7 +4,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
-from infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.factor import Factor
 from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper

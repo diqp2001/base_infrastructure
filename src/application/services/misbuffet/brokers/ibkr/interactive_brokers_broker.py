@@ -698,7 +698,7 @@ class InteractiveBrokersBroker(BaseBroker):
             return {'error': str(e)}
     
     def get_historical_data(self, contract: Contract, end_date_time: str = "",
-                           duration_str: str = "1 W", bar_size_setting: str = "1 day",
+                           duration_str: str = "1 W", bar_size_setting: str = "5 mins",
                            what_to_show: str = "TRADES", use_rth: bool = True,
                            format_date: int = 1, timeout: int = 30) -> List[Dict[str, Any]]:
         """

@@ -2624,8 +2624,8 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         # Test Duration
         duration = summary.get('duration', 0)
-        logger.info(f"\\n⏱️  Test Duration: {duration:.1f} seconds")
-        logger.info(f"Performance: {total_tested_ticks / max(duration, 1):.1f} ticks tested per second")
+        #logger.info(f"\\n⏱️  Test Duration: {duration:.1f} seconds")
+        #logger.info(f"Performance: {total_tested_ticks / max(duration, 1):.1f} ticks tested per second")
         
         logger.info("=" * 70)
         logger.info("✨ Comprehensive Tick Access Test Complete!")

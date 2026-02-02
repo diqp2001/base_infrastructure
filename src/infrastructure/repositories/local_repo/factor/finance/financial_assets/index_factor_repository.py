@@ -52,7 +52,10 @@ class IndexFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_name_and_discriminator(name =primary_key,entity_type = self.mapper.discriminator)
+            existing = self.get_by_all(name =primary_key,group=kwargs.get('group', 'index'),
+                subgroup=kwargs.get('subgroup', 'daily'),
+                data_type=kwargs.get('data_type', 'numeric'),
+                source=kwargs.get('source', 'market_data'))
             if existing:
                 return existing
             domain_factor = self.get_factor_entity()(name=primary_key,
@@ -60,7 +63,7 @@ class IndexFactorRepository(BaseFactorRepository):
                 subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market_data'),
-                definition=kwargs.get('definition', f'Index factor: {primary_key}')
+                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
                 )
             
             # # Use sequential ID generation if factor doesn't have an ID
