@@ -376,9 +376,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     return None
-                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show=kwargs.get('what_to_show') or None)
-               
-                return factor_value
+                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show=kwargs.get('what_to_show') or None)
+                tick_value
+                new_factor_value = FactorValue(
+                        id=None,  # Will be set by repository
+                        factor_id=factor_entity.id,
+                        entity_id=financial_asset_entity.id,
+                        date=timestamp,
+                        value=str(tick_value)
+                    )
+            
+            # Persist to database via local repository
+            created_value = self.local_repo.add(new_factor_value)
+            if created_value:
+                print(f"Created factor value: {factor_entity.name} ")
+                return created_value
+                
         except Exception as e:
             print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
             return None
@@ -449,8 +462,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     continue
-                factor_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show, bar_size_setting = "1 sec",)
-                    
+                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show, bar_size_setting = "1 sec",)
+                
+                new_factor_value = FactorValue(
+                        id=None,  # Will be set by repository
+                        factor_id=factor_entity.id,
+                        entity_id=financial_asset_entity.id,
+                        date=timestamp,
+                        value=str(tick_value)
+                    )
+            
+                # Persist to database via local repository
+                created_value = self.local_repo.add(new_factor_value)
+                if created_value:
+                    print(f"Created factor value: {factor_entity.name} ")
+                    return created_value
+                
     def _get_factor_dependencies(self, factor_entity: Factor) -> Dict[str, Dict[str, Any]]:
         """
         Extract dependencies from factor class definition.
