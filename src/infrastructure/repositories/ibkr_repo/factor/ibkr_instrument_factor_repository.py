@@ -187,7 +187,7 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             return []
 
     def get_or_create(self, instrument: IBKRInstrument,contract,historical=True,factor= None,entity  = None,
-                     timestamp: Optional[datetime] = None, what_to_show = "TRADES",  duration_str: str = "1 W", bar_size_setting: str = "1 day",) -> Optional[FactorValue]:
+                     timestamp: Optional[datetime] = None, what_to_show = "TRADES",  duration_str: str = "1 W", bar_size_setting: str = "5 secs",end_date_time: str = "") -> Optional[FactorValue]:
         """
         Get or create a factor value for an instrument from IBKR tick data.
         

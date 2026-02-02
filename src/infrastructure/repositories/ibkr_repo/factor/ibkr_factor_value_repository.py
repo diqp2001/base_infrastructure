@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import inspect
 from ibapi.contract import Contract
+from dateutil.relativedelta import relativedelta
 from domain.entities.finance.financial_assets.currency import Currency
 
 from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
@@ -462,21 +463,24 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     continue
-                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show, bar_size_setting = "1 sec",)
+                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show)
+                for tick in tick_value:
+                    if len(tick['date']) == 8:
+                        date = datetime.strptime(tick['date'], "%Y%m%d")
+                    else:
+
+                        datetime.strptime(tick['date'], "%Y%m%d %H:%M:%S")
+                    new_factor_value = FactorValue(
+                            id=None,  # Will be set by repository
+                            factor_id=factor_entity.id,
+                            entity_id=financial_asset_entity.id,
+                            date=date,
+                            value=str(tick[factor.name])
+                        )
                 
-                new_factor_value = FactorValue(
-                        id=None,  # Will be set by repository
-                        factor_id=factor_entity.id,
-                        entity_id=financial_asset_entity.id,
-                        date=timestamp,
-                        value=str(tick_value)
-                    )
-            
-                # Persist to database via local repository
-                created_value = self.local_repo.add(new_factor_value)
-                if created_value:
-                    print(f"Created factor value: {factor_entity.name} ")
-                    return created_value
+                    # Persist to database via local repository
+                    self.local_repo.add(new_factor_value)
+                    
                 
     def _get_factor_dependencies(self, factor_entity: Factor) -> Dict[str, Dict[str, Any]]:
         """
