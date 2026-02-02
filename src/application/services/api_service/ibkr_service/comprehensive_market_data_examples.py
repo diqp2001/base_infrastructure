@@ -79,9 +79,30 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # Create contracts for different asset types
             spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
             spy_contract.primaryExchange = "ARCA"
-            
-            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
-            
+            contract = Contract()
+            contract.symbol = "ES"
+            contract.secType = "FUT"
+            contract.exchange = "GLOBEX"
+            contract.currency = "USD"
+            contract.lastTradeDateOrContractMonth = "20260326"
+            contract.multiplier = "50"
+            contract.tradingClass = "ES"
+            base = Contract()
+            base.symbol = "ES"
+            base.secType = "FUT"
+            base.exchange = "GLOBEX"
+            base.currency = "USD"
+
+            contract_details = self.ib_broker.ib_connection.reqContractDetailsSync(base)  # custom sync wrapper
+            if not contract_details:
+                raise ValueError("No contract details found ")
+            es_contract = contract_details[0].contract 
+            #self.ib_broker.ib_connection.request_contract_details(1, base)
+            es_contract = contract
+
+            # es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
+            # es_contract.lastTradeDateOrContractMonth = "202403"
+
             # Example 1a: Market Data Snapshots
             logger.info("📊 Getting market data snapshots...")
             
@@ -100,7 +121,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             
             # Example 1b: Streaming Market Data
             logger.info("📈 Subscribing to streaming market data...")
-            
+            es_contract = self.ib_broker.ib_connection.contract_details.contract 
             subscription_id = self.ib_broker.subscribe_market_data(es_contract, "225,232,236")
             
             if subscription_id > 0:
@@ -732,23 +753,23 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
 
             """self.example_TR_10_YR_future_historical_data()
             time.sleep(2)"""
-            self.example_sp500_index_historical_data()
-            time.sleep(2)
+            # self.example_sp500_index_historical_data()
+            # time.sleep(2)
 
-            self.example_sp500_future_historical_data()
-            time.sleep(2)
+            # self.example_sp500_future_historical_data()
+            # time.sleep(2)
 
             self.example_live_market_data()
             time.sleep(2)  # Brief pause between examples
             
-            self.example_historical_data()
-            time.sleep(2)
+            # self.example_historical_data()
+            # time.sleep(2)
             
-            self.example_contract_details()
-            time.sleep(2)
+            # self.example_contract_details()
+            # time.sleep(2)
             
-            self.example_delayed_market_data()
-            time.sleep(2)
+            # self.example_delayed_market_data()
+            # time.sleep(2)
             
             
             logger.info("\\n✅ All examples completed successfully!")

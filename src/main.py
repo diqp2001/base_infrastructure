@@ -22,13 +22,17 @@ from src.application.services.api_service.ibkr_service.interactive_brokers_api_s
 
 
 
+
+
+
 if __name__ == '__main__':
     #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
     #TestBaseProjectManager().run()
     #CrossSectionnal().run()
-    # ibkr_service = ComprehensiveIBMarketDataExamples()
-    # ibkr_service.run_all_examples()
-    MarketMakingSPXCallSpreadProjectManager().run()
+    ibkr_service = ComprehensiveIBMarketDataExamples()
+    ibkr_service.run_all_examples()
+    #MarketMakingSPXCallSpreadProjectManager().run()
 
-   
+
     
+        

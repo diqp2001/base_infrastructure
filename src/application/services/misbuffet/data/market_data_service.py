@@ -113,7 +113,7 @@ class MarketDataService:
                 return None
             
             # Get price factor data for this date
-            factor_names = ['Open', 'High', 'Low', 'Close', 'Volume']
+            factor_names = [ 'High','Open', 'Low', 'Close', 'Volume']
             factor_data = {}
             
             for factor_name in factor_names:

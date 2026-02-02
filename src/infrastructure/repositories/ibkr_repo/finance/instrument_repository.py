@@ -134,43 +134,43 @@ class IBKRInstrumentRepository(BaseIBKRRepository, InstrumentPort):
                 print(f"Could not resolve financial asset for contract {contract.symbol}")
                 return None
             
-            # 2. Check if instrument already exists
-            existing_instruments = self.local_instrument_repo.get_by_asset_and_source(
-                asset.id, "IBKR"
+            # # 2. Check if instrument already exists
+            # existing_instruments = self.local_instrument_repo.get_by_asset_and_source(
+            #     asset.id, "IBKR"
+            # )
+            # if existing_instruments:
+            #     # Use most recent instrument
+            #     existing_instrument = max(existing_instruments, key=lambda x: x.date)
+            #     if isinstance(existing_instrument, IBKRInstrument):
+            #         instrument = existing_instrument
+            #     else:
+            #         # Convert regular Instrument to IBKRInstrument if needed
+            #         instrument = self._convert_to_ibkr_instrument(existing_instrument)
+            # else:
+            # 3. Create new instrument from contract
+            instrument = self.contract_mapper.contract_to_instrument(
+                contract, contract_details, asset, timestamp
             )
-            if existing_instruments:
-                # Use most recent instrument
-                existing_instrument = max(existing_instruments, key=lambda x: x.date)
-                if isinstance(existing_instrument, IBKRInstrument):
-                    instrument = existing_instrument
-                else:
-                    # Convert regular Instrument to IBKRInstrument if needed
-                    instrument = self._convert_to_ibkr_instrument(existing_instrument)
-            else:
-                # 3. Create new instrument from contract
-                instrument = self.contract_mapper.contract_to_instrument(
-                    contract, contract_details, asset, timestamp
-                )
-                if not instrument:
-                    return None
+            if not instrument:
+                return None
                 
-                # 4. Persist instrument via local repository
-                persisted_instrument = self.local_instrument_repo.add(instrument)
-                if not persisted_instrument:
-                    print(f"Failed to persist instrument for {contract.symbol}")
-                    return None
+                # # 4. Persist instrument via local repository
+                # persisted_instrument = self.local_instrument_repo.add(instrument)
+                # if not persisted_instrument:
+                #     print(f"Failed to persist instrument for {contract.symbol}")
+                #     return None
                 
-                # Update instrument with persisted ID
-                instrument.id = persisted_instrument.id
+                # # Update instrument with persisted ID
+                # instrument.id = persisted_instrument.id
             
-            # 5. Create factor values from tick data if provided
-            if tick_data and self.factor_repo:
-                factor_values = self.factor_repo.create_factor_values_from_ticks(
-                    instrument, tick_data, timestamp
-                )
+            # # 5. Create factor values from tick data if provided
+            # if tick_data and self.factor_repo:
+            #     factor_values = self.factor_repo.create_factor_values_from_ticks(
+            #         instrument, tick_data, timestamp
+            #     )
                 
-                # 6. Map instrument factor values to financial asset factor values
-                self.factor_repo.map_to_financial_asset_factors(instrument, factor_values, asset)
+            #     # 6. Map instrument factor values to financial asset factor values
+            #     self.factor_repo.map_to_financial_asset_factors(instrument, factor_values, asset)
             
             return instrument
             

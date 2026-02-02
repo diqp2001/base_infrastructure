@@ -81,6 +81,12 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             FactorModel.name == name
         ).first()
         return self._to_entity(model)
+    def get_by_name_and_factor_type(self, name: str, factor_type: str) -> Optional[Factor]:
+        model = self.session.query(FactorModel).filter(
+            FactorModel.name == name,
+            FactorModel.factor_type == factor_type
+        ).first()
+        return self._to_entity(model)
 
     def get_by_group(self, group: str) -> List[Factor]:
         models = self.session.query(FactorModel).filter(

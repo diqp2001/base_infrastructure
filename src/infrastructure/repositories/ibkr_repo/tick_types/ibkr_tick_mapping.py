@@ -9,8 +9,8 @@ Each tick type represents a specific market data field that can be converted
 to a factor value for an instrument.
 """
 
-from enum import IntEnum
-from typing import Dict, List, Optional, Any
+from enum import Enum, IntEnum, StrEnum
+from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
 
 
@@ -27,6 +27,7 @@ class IBKRTickType(IntEnum):
     LAST_PRICE = 4
     LAST_SIZE = 5
     HIGH = 6
+    #HIGH = "High"
     LOW = 7
     VOLUME = 8
     CLOSE_PRICE = 9
@@ -39,6 +40,7 @@ class IBKRTickType(IntEnum):
     
     # Extended Price Ticks
     OPEN_TICK = 14
+    #OPEN_TICK = "Open"
     LOW_13_WEEK = 15
     HIGH_13_WEEK = 16
     LOW_26_WEEK = 17
@@ -453,18 +455,43 @@ class IBKRTickFactorMapper:
         )
     }
 
+   
+
     @classmethod
-    def get_factor_mapping(cls, tick_type: IBKRTickType) -> Optional[FactorMapping]:
+    def get_factor_mapping(
+        cls,
+        tick_type: Union[IBKRTickType, int, str]
+    ) -> Optional[FactorMapping]:
         """
         Get factor mapping configuration for an IBKR tick type.
-        
-        Args:
-            tick_type: IBKR tick type enum value
-            
-        Returns:
-            FactorMapping configuration or None if not mapped
+
+        Accepts:
+        - IBKRTickType (e.g. IBKRTickType.HIGH)
+        - int (e.g. 6)
+        - str (e.g. "High", "HIGH", "high")
         """
-        return cls.TICK_TO_FACTOR_MAP.get(tick_type)
+        try:
+            # Already an enum
+            if isinstance(tick_type, IBKRTickType):
+                enum_tick = tick_type
+
+            # Integer value
+            elif isinstance(tick_type, int):
+                enum_tick = IBKRTickType(tick_type)
+
+            # String name (e.g. "High")
+            elif isinstance(tick_type, str):
+                enum_tick = IBKRTickType[tick_type.upper()]
+
+            else:
+                return None
+
+        except (ValueError, KeyError):
+            # Invalid int or string
+            return None
+
+        return [enum_tick,cls.TICK_TO_FACTOR_MAP.get(enum_tick)]
+
 
     @classmethod
     def get_all_price_factors(cls) -> Dict[IBKRTickType, FactorMapping]:

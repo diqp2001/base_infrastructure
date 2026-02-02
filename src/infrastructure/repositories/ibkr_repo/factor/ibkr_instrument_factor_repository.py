@@ -186,7 +186,7 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             print(f"Error mapping instrument factors to asset factors: {e}")
             return []
 
-    def get_or_create(self, instrument: IBKRInstrument,contract,tick_type: IBKRTickType= 14, tick_value: Any = 14, 
+    def get_or_create(self, instrument: IBKRInstrument,contract,historical=False,factor= None,entity  = None,
                      timestamp: Optional[datetime] = None) -> Optional[FactorValue]:
         """
         Get or create a factor value for an instrument from IBKR tick data.
@@ -211,38 +211,30 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             date_str = date_obj.strftime('%Y-%m-%d')
             
             # Get or create factor for this tick type
-            factor_mapping = self.tick_mapper.get_factor_mapping(tick_type)
+            factor_mapping = self.tick_mapper.get_factor_mapping(factor.name)
             if not factor_mapping:
-                print(f"No factor mapping found for tick type {tick_type}")
+                print(f"No factor mapping found for tick type {factor.name}")
                 return None
             
-            # Get factor from local repository (assuming it exists from factor repository)
-            factor = None
-            if hasattr(self.local_repo, 'get_factor_by_name'):
-                factor = self.local_repo.get_factor_by_name(factor_mapping.factor_name)
-            elif hasattr(self, 'factory') and self.factory:
-                factor_repo = getattr(self.factory, 'factor_local_repo', None)
-                if factor_repo:
-                    factor = factor_repo.get_by_name(factor_mapping.factor_name)
             
-            if not factor:
-                print(f"Factor not found for tick type {tick_type}: {factor_mapping.factor_name}")
-                return None
             
             # Check if factor value already exists for this instrument, factor, and date
-            existing_value = self.local_repo.get_by_factor_entity_date(factor.id, instrument.id, date_str)
+            existing_value = self.local_repo.get_by_factor_entity_date(factor.id, entity.id, date_str)
             if existing_value:
                 return existing_value
-            tick_value = self.ib_client.get_historical_data(contract = contract)
-
-            # tick_value
-            # [{'date': '20260126', 'open': 6923.23, 'high': 6964.66, 'low': 6921.6, 'close': 6950.23, 'volume': 0, 'barCount': 22203}, {'date': '20260127', 'open': 6965.96, 'high': 6988.82, 'low': 6958.83, 'close': 6978.6, 'volume': 0, 'barCount': 22146}, {'date': '20260128', 'open': 7002.0, 'high': 7002.28, 'low': 6963.46, 'close': 6978.03, 'volume': 0, 'barCount': 22526}, {'date': '20260129', 'open': 6977.74, 'high': 6992.84, 'low': 6870.8, 'close': 6969.01, 'volume': 0, 'barCount': 22775}, {'date': '20260130', 'open': 6947.27, 'high': 6964.09, 'low': 6893.48, 'close': 6937.5, 'volume': 0, 'barCount': 22901}]
+            
+            if historical:
+                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=factor_mapping[0].name)
+            else:
+                tick_value = self.ib_client.get_market_data_snapshot(contract = contract,generic_tick_list=factor_mapping[0].value)
+                # if tick_value['error']:
+                #     tick_value = self.ib_client.get_market_data(contract = contract,generic_tick_list=factor_mapping[0].value)
             
             new_factor_value = FactorValue(
                 id=None,  # Will be set by repository
                 factor_id=factor.id,
-                entity_id=instrument.id,
-                date=date_obj,
+                entity_id=entity.id,
+                date=timestamp,
                 value=str(tick_value)
             )
             

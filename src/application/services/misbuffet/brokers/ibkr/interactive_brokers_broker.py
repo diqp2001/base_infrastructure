@@ -489,7 +489,7 @@ class InteractiveBrokersBroker(BaseBroker):
             # Track the subscription for proper lifecycle management
             if not use_snapshot:
                 self.ib_connection.market_data_subscriptions.add(req_id)
-                
+            self.ib_connection.reqMarketDataType(3)
             self.ib_connection.reqMktData(req_id, resolved_contract, "", use_snapshot, False, [])
             #self.ib_connection.request_contract_details(req_id=req_id,contract=contract)
             # Wait for data with progressive checks
@@ -617,7 +617,7 @@ class InteractiveBrokersBroker(BaseBroker):
             # Track subscription and request market data with specified tick types
             if not snapshot:
                 self.ib_connection.market_data_subscriptions.add(req_id)
-                
+            self.ib_connection.reqMarketDataType(3)   
             self.ib_connection.reqMktData(req_id, resolved_contract, final_generic_tick_list, snapshot, False, [])
             
             # Wait for data with progressive checks
