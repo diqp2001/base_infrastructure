@@ -11,6 +11,7 @@ access the full range of IB API features through the misbuffet broker infrastruc
 USAGE:
     python comprehensive_market_data_examples.py          # Run all examples
     python comprehensive_market_data_examples.py test     # Run access level test pipeline only
+    python comprehensive_market_data_examples.py ticks    # Run comprehensive tick access test only
 
 ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
@@ -1813,6 +1814,831 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         return market_access_results
 
+    def test_comprehensive_tick_access(self):
+        """
+        Comprehensive tick testing function that tests ALL IBKR tick types and returns a detailed summary.
+        
+        This function tests:
+        - Basic Price Ticks: BID, ASK, LAST, HIGH, LOW, CLOSE, OPEN
+        - Size Ticks: BID_SIZE, ASK_SIZE, LAST_SIZE, VOLUME
+        - Extended Ticks: 52-week high/low, option volume, implied volatility, etc.
+        - Generic Ticks: Auction data, shortable shares, fundamental ratios, etc.
+        - String Ticks: Last timestamp, news, dividends
+        
+        Returns:
+            Dict: Comprehensive summary of all tick access test results
+        """
+        logger.info("\n🎯 === COMPREHENSIVE TICK ACCESS TEST ====")
+        logger.info("=" * 70)
+        
+        # Initialize tick test results structure
+        tick_test_results = {
+            'connection_status': {'tested': False, 'status': 'unknown', 'details': ''},
+            'tick_categories': {
+                'basic_price_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}},
+                'size_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}},
+                'extended_price_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}},
+                'generic_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}},
+                'string_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}},
+                'option_ticks': {'tested': False, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+            },
+            'asset_tick_compatibility': {
+                'stocks': {'tested': False, 'status': 'unknown', 'details': '', 'successful_ticks': []},
+                'futures': {'tested': False, 'status': 'unknown', 'details': '', 'successful_ticks': []},
+                'options': {'tested': False, 'status': 'unknown', 'details': '', 'successful_ticks': []}
+            },
+            'test_summary': {
+                'total_tick_types_tested': 0,
+                'successful_ticks': 0,
+                'failed_ticks': 0,
+                'partial_ticks': 0,
+                'start_time': datetime.now(),
+                'end_time': None,
+                'duration': None
+            },
+            'recommendations': []
+        }
+        
+        # Connect to IB
+        try:
+            if not self.connected:
+                if not self.ib_broker.connect():
+                    tick_test_results['connection_status'] = {
+                        'tested': True, 
+                        'status': 'failed', 
+                        'details': 'Cannot connect to Interactive Brokers Gateway/TWS'
+                    }
+                    return self._generate_tick_access_summary(tick_test_results)
+                
+            tick_test_results['connection_status'] = {
+                'tested': True, 
+                'status': 'success', 
+                'details': 'Successfully connected to IB Gateway/TWS'
+            }
+            logger.info("✅ Connected to Interactive Brokers for tick testing")
+            
+        except Exception as e:
+            tick_test_results['connection_status'] = {
+                'tested': True, 
+                'status': 'error', 
+                'details': f'Connection error: {str(e)[:100]}'
+            }
+            return self._generate_tick_access_summary(tick_test_results)
+        
+        # Test 1: Basic Price Ticks
+        logger.info("\n💰 Testing BASIC PRICE TICKS...")
+        basic_price_results = self._test_basic_price_ticks()
+        tick_test_results['tick_categories']['basic_price_ticks'] = basic_price_results
+        
+        # Test 2: Size Ticks
+        logger.info("\n📊 Testing SIZE TICKS...")
+        size_results = self._test_size_ticks()
+        tick_test_results['tick_categories']['size_ticks'] = size_results
+        
+        # Test 3: Extended Price Ticks
+        logger.info("\n📈 Testing EXTENDED PRICE TICKS...")
+        extended_results = self._test_extended_price_ticks()
+        tick_test_results['tick_categories']['extended_price_ticks'] = extended_results
+        
+        # Test 4: Generic Ticks
+        logger.info("\n🔧 Testing GENERIC TICKS...")
+        generic_results = self._test_generic_ticks()
+        tick_test_results['tick_categories']['generic_ticks'] = generic_results
+        
+        # Test 5: String Ticks
+        logger.info("\n📝 Testing STRING TICKS...")
+        string_results = self._test_string_ticks()
+        tick_test_results['tick_categories']['string_ticks'] = string_results
+        
+        # Test 6: Option Ticks (if option data is available)
+        logger.info("\n📋 Testing OPTION TICKS...")
+        option_results = self._test_option_ticks()
+        tick_test_results['tick_categories']['option_ticks'] = option_results
+        
+        # Test 7: Asset-Tick Compatibility
+        logger.info("\n🎯 Testing ASSET-TICK COMPATIBILITY...")
+        self._test_asset_tick_compatibility(tick_test_results)
+        
+        # Finalize summary
+        tick_test_results['test_summary']['end_time'] = datetime.now()
+        tick_test_results['test_summary']['duration'] = (
+            tick_test_results['test_summary']['end_time'] - 
+            tick_test_results['test_summary']['start_time']
+        ).total_seconds()
+        
+        # Generate and return comprehensive summary
+        return self._generate_tick_access_summary(tick_test_results)
+
+    def _test_basic_price_ticks(self):
+        """Test basic price tick types (BID, ASK, LAST, HIGH, LOW, CLOSE, OPEN)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define basic price tick types according to IBKR API
+        basic_price_ticks = {
+            1: 'BID',
+            2: 'ASK', 
+            4: 'LAST',
+            6: 'HIGH',
+            7: 'LOW',
+            9: 'CLOSE',
+            14: 'OPEN'
+        }
+        
+        # Test with liquid stock (SPY)
+        try:
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract.primaryExchange = "ARCA"
+            
+            logger.info("  Testing basic price ticks with SPY...")
+            
+            # Get market data snapshot to test all basic ticks
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=spy_contract,
+                generic_tick_list="",  # Basic ticks don't need generic tick list
+                timeout=8
+            )
+            
+            successful_ticks = 0
+            total_ticks = len(basic_price_ticks)
+            
+            if snapshot and not snapshot.get('error'):
+                for tick_id, tick_name in basic_price_ticks.items():
+                    if tick_name in snapshot and snapshot[tick_name] is not None:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': snapshot[tick_name],
+                            'details': f'Received: {snapshot[tick_name]}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'failed',
+                            'value': None,
+                            'details': 'No data received'
+                        }
+                        logger.info(f"    ⚠️ {tick_name} (ID:{tick_id}): No data")
+            else:
+                error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
+                for tick_name in basic_price_ticks.values():
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'error',
+                        'details': f'Snapshot failed: {error_msg}'
+                    }
+                logger.warning(f"  ❌ Basic price tick test failed: {error_msg}")
+            
+            # Determine overall status
+            if successful_ticks == total_ticks:
+                result['status'] = 'success'
+                result['details'] = f'All {total_ticks} basic price ticks working'
+            elif successful_ticks > total_ticks // 2:
+                result['status'] = 'partial' 
+                result['details'] = f'{successful_ticks}/{total_ticks} basic price ticks working'
+            else:
+                result['status'] = 'failed'
+                result['details'] = f'Only {successful_ticks}/{total_ticks} basic price ticks working'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['details'] = f'Error testing basic price ticks: {str(e)[:100]}'
+            logger.error(f"  ❌ Error in basic price tick testing: {e}")
+        
+        return result
+
+    def _test_size_ticks(self):
+        """Test size tick types (BID_SIZE, ASK_SIZE, LAST_SIZE, VOLUME)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define size tick types according to IBKR API
+        size_ticks = {
+            0: 'BID_SIZE',
+            3: 'ASK_SIZE',
+            5: 'LAST_SIZE',
+            8: 'VOLUME'
+        }
+        
+        try:
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract.primaryExchange = "ARCA"
+            
+            logger.info("  Testing size ticks with SPY...")
+            
+            # Get market data snapshot to test size ticks
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=spy_contract,
+                generic_tick_list="",
+                timeout=8
+            )
+            
+            successful_ticks = 0
+            total_ticks = len(size_ticks)
+            
+            if snapshot and not snapshot.get('error'):
+                for tick_id, tick_name in size_ticks.items():
+                    if tick_name in snapshot and snapshot[tick_name] is not None:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': snapshot[tick_name],
+                            'details': f'Received: {snapshot[tick_name]}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'failed', 
+                            'value': None,
+                            'details': 'No data received'
+                        }
+                        logger.info(f"    ⚠️ {tick_name} (ID:{tick_id}): No data")
+            else:
+                error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
+                for tick_name in size_ticks.values():
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'error',
+                        'details': f'Snapshot failed: {error_msg}'
+                    }
+                logger.warning(f"  ❌ Size tick test failed: {error_msg}")
+            
+            # Determine overall status
+            if successful_ticks == total_ticks:
+                result['status'] = 'success'
+                result['details'] = f'All {total_ticks} size ticks working'
+            elif successful_ticks > 0:
+                result['status'] = 'partial'
+                result['details'] = f'{successful_ticks}/{total_ticks} size ticks working'
+            else:
+                result['status'] = 'failed'
+                result['details'] = f'No size ticks working ({total_ticks} tested)'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['details'] = f'Error testing size ticks: {str(e)[:100]}'
+            logger.error(f"  ❌ Error in size tick testing: {e}")
+        
+        return result
+
+    def _test_extended_price_ticks(self):
+        """Test extended price tick types (52-week high/low, etc.)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define extended price tick types that might be available
+        extended_price_ticks = {
+            15: '52_WEEK_HIGH',
+            16: '52_WEEK_LOW', 
+            30: 'BID_EXCH',
+            31: 'ASK_EXCH',
+            32: 'LAST_EXCH'
+        }
+        
+        try:
+            aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
+            aapl_contract.primaryExchange = "NASDAQ"
+            
+            logger.info("  Testing extended price ticks with AAPL...")
+            
+            # Note: Extended ticks may require specific generic tick codes
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=aapl_contract,
+                generic_tick_list="",  # Try basic first
+                timeout=8
+            )
+            
+            successful_ticks = 0
+            total_ticks = len(extended_price_ticks)
+            
+            if snapshot and not snapshot.get('error'):
+                # Check if extended tick data is in the response
+                for tick_id, tick_name in extended_price_ticks.items():
+                    # Extended ticks might be in generic section or not available
+                    tick_value = None
+                    if f'GENERIC_{tick_id}' in snapshot:
+                        tick_value = snapshot[f'GENERIC_{tick_id}']
+                    elif tick_name in snapshot:
+                        tick_value = snapshot[tick_name]
+                    
+                    if tick_value is not None:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': tick_value,
+                            'details': f'Received: {tick_value}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'limited',
+                            'value': None,
+                            'details': 'Extended tick may require specific subscription'
+                        }
+                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited access")
+            else:
+                error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
+                for tick_name in extended_price_ticks.values():
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'error',
+                        'details': f'Snapshot failed: {error_msg}'
+                    }
+                logger.warning(f"  ❌ Extended price tick test failed: {error_msg}")
+            
+            # Extended ticks are often limited - be lenient with success criteria
+            if successful_ticks > 0:
+                result['status'] = 'partial'
+                result['details'] = f'{successful_ticks}/{total_ticks} extended price ticks available'
+            else:
+                result['status'] = 'limited'
+                result['details'] = 'Extended price ticks may require specific subscriptions'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['details'] = f'Error testing extended price ticks: {str(e)[:100]}'
+            logger.error(f"  ❌ Error in extended price tick testing: {e}")
+        
+        return result
+
+    def _test_generic_ticks(self):
+        """Test generic tick types (auction data, shortable shares, etc.)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define important generic tick types according to IBKR API documentation
+        generic_ticks = {
+            100: 'OPTION_VOLUME',
+            101: 'OPTION_OPEN_INTEREST',
+            104: 'HISTORICAL_VOLATILITY',
+            106: 'IMPLIED_VOLATILITY',
+            225: 'AUCTION_IMBALANCE',
+            233: 'RT_VOLUME',
+            236: 'SHORTABLE_SHARES',
+            256: 'INVENTORY',
+            293: 'TRADE_RATE',
+            375: 'RT_TRADE_VOLUME',
+            411: 'REALTIME_HISTORICAL_VOLATILITY'
+        }
+        
+        try:
+            spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
+            spy_contract.primaryExchange = "ARCA"
+            
+            logger.info("  Testing generic ticks with SPY...")
+            
+            # Test with a selection of important generic ticks
+            test_generic_list = "225,233,236,256,293"  # Most commonly available
+            
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=spy_contract,
+                generic_tick_list=test_generic_list,
+                timeout=10
+            )
+            
+            successful_ticks = 0
+            total_ticks = len([tick for tick in test_generic_list.split(',')])
+            
+            if snapshot and not snapshot.get('error'):
+                for tick_code in test_generic_list.split(','):
+                    tick_id = int(tick_code)
+                    tick_name = generic_ticks.get(tick_id, f'GENERIC_{tick_id}')
+                    
+                    # Check for generic tick data
+                    tick_value = None
+                    if f'GENERIC_{tick_id}' in snapshot:
+                        tick_value = snapshot[f'GENERIC_{tick_id}']
+                    
+                    if tick_value is not None and tick_value != '' and tick_value != '0':
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': tick_value,
+                            'details': f'Received: {tick_value}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'limited',
+                            'value': tick_value,
+                            'details': 'Generic tick may require subscription or market conditions'
+                        }
+                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited/No data")
+                
+                # Also check for any other generic ticks that might be present
+                for key, value in snapshot.items():
+                    if key.startswith('GENERIC_') and key not in [f'GENERIC_{int(code)}' for code in test_generic_list.split(',')]:
+                        generic_id = key.replace('GENERIC_', '')
+                        generic_name = f'UNKNOWN_GENERIC_{generic_id}'
+                        result['ticks_tested'][generic_name] = {
+                            'tick_id': generic_id,
+                            'status': 'success',
+                            'value': value,
+                            'details': f'Unexpected generic tick found: {value}'
+                        }
+                        logger.info(f"    ✨ {generic_name}: {value}")
+                        
+            else:
+                error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
+                for tick_code in test_generic_list.split(','):
+                    tick_id = int(tick_code)
+                    tick_name = generic_ticks.get(tick_id, f'GENERIC_{tick_id}')
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'error',
+                        'details': f'Snapshot failed: {error_msg}'
+                    }
+                logger.warning(f"  ❌ Generic tick test failed: {error_msg}")
+            
+            # Generic ticks are often subscription-dependent - be realistic with expectations
+            if successful_ticks >= total_ticks // 2:
+                result['status'] = 'success'
+                result['details'] = f'{successful_ticks}/{total_ticks} generic ticks working'
+            elif successful_ticks > 0:
+                result['status'] = 'partial'
+                result['details'] = f'{successful_ticks}/{total_ticks} generic ticks available'
+            else:
+                result['status'] = 'limited'
+                result['details'] = 'Generic ticks may require specific market data subscriptions'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['details'] = f'Error testing generic ticks: {str(e)[:100]}'
+            logger.error(f"  ❌ Error in generic tick testing: {e}")
+        
+        return result
+
+    def _test_string_ticks(self):
+        """Test string tick types (timestamps, news, etc.)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define string tick types according to IBKR API
+        string_ticks = {
+            45: 'LAST_TIMESTAMP',
+            49: 'HALTED',
+            59: 'DIVIDENDS'
+        }
+        
+        try:
+            aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
+            aapl_contract.primaryExchange = "NASDAQ"
+            
+            logger.info("  Testing string ticks with AAPL...")
+            
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=aapl_contract,
+                generic_tick_list="",
+                timeout=8
+            )
+            
+            successful_ticks = 0
+            total_ticks = len(string_ticks)
+            
+            if snapshot and not snapshot.get('error'):
+                for tick_id, tick_name in string_ticks.items():
+                    tick_value = None
+                    
+                    # String ticks might be in different format
+                    if tick_name in snapshot:
+                        tick_value = snapshot[tick_name]
+                    elif f'STRING_{tick_id}' in snapshot:
+                        tick_value = snapshot[f'STRING_{tick_id}']
+                    
+                    if tick_value is not None and tick_value != '':
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': tick_value,
+                            'details': f'Received: {tick_value}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'limited',
+                            'value': None,
+                            'details': 'String tick not available or empty'
+                        }
+                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): No string data")
+            else:
+                error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
+                for tick_name in string_ticks.values():
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'error',
+                        'details': f'Snapshot failed: {error_msg}'
+                    }
+                logger.warning(f"  ❌ String tick test failed: {error_msg}")
+            
+            # String ticks are often optional - be lenient
+            if successful_ticks > 0:
+                result['status'] = 'success'
+                result['details'] = f'{successful_ticks}/{total_ticks} string ticks available'
+            else:
+                result['status'] = 'limited'
+                result['details'] = 'String ticks not available - may be conditional or require subscriptions'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['details'] = f'Error testing string ticks: {str(e)[:100]}'
+            logger.error(f"  ❌ Error in string tick testing: {e}")
+        
+        return result
+
+    def _test_option_ticks(self):
+        """Test option-specific tick types (implied volatility, option volume, etc.)."""
+        result = {'tested': True, 'status': 'unknown', 'details': '', 'ticks_tested': {}}
+        
+        # Define option-specific tick types
+        option_ticks = {
+            10: 'BID_IMPLIED_VOL',
+            11: 'ASK_IMPLIED_VOL', 
+            12: 'LAST_IMPLIED_VOL',
+            13: 'MODEL_OPTION_PRICE',
+            27: 'CALL_OPTION_VOLUME',
+            28: 'PUT_OPTION_VOLUME'
+        }
+        
+        try:
+            # Create an option contract - this is more complex and may not always work
+            logger.info("  Testing option ticks (may have limited access)...")
+            
+            # Try to create a simple SPY option contract
+            # Note: This is simplified - in practice, you'd need to get actual option chains
+            spy_option = Contract()
+            spy_option.symbol = "SPY"
+            spy_option.secType = "OPT"
+            spy_option.exchange = "SMART"
+            spy_option.currency = "USD"
+            spy_option.lastTradeDateOrContractMonth = "20260321"  # March 2026 expiry
+            spy_option.strike = 500.0  # ATM strike (approximate)
+            spy_option.right = "C"  # Call option
+            
+            # Test option ticks with generic tick list for options
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=spy_option,
+                generic_tick_list="100,101,104,106",  # Option-related generic ticks
+                timeout=10
+            )
+            
+            successful_ticks = 0
+            total_ticks = len(option_ticks)
+            
+            if snapshot and not snapshot.get('error'):
+                for tick_id, tick_name in option_ticks.items():
+                    tick_value = None
+                    
+                    # Option ticks might be in various formats
+                    if tick_name in snapshot:
+                        tick_value = snapshot[tick_name]
+                    elif f'OPTION_{tick_id}' in snapshot:
+                        tick_value = snapshot[f'OPTION_{tick_id}']
+                    elif f'GENERIC_{tick_id}' in snapshot:
+                        tick_value = snapshot[f'GENERIC_{tick_id}']
+                    
+                    if tick_value is not None and tick_value != '' and tick_value != 0:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'success',
+                            'value': tick_value,
+                            'details': f'Received: {tick_value}'
+                        }
+                        successful_ticks += 1
+                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                    else:
+                        result['ticks_tested'][tick_name] = {
+                            'tick_id': tick_id,
+                            'status': 'limited',
+                            'value': None,
+                            'details': 'Option tick requires option trading permissions'
+                        }
+                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited access")
+            else:
+                error_msg = snapshot.get('error', 'No option data') if snapshot else 'No response'
+                for tick_name in option_ticks.values():
+                    result['ticks_tested'][tick_name] = {
+                        'status': 'limited',
+                        'details': f'Option access limited: {error_msg}'
+                    }
+                logger.info(f"  🟡 Option tick access limited: {error_msg}")
+            
+            # Option ticks often require special permissions
+            if successful_ticks > 0:
+                result['status'] = 'success'
+                result['details'] = f'{successful_ticks}/{total_ticks} option ticks available'
+            else:
+                result['status'] = 'limited'
+                result['details'] = 'Option ticks require option trading permissions and market data subscriptions'
+                
+        except Exception as e:
+            result['status'] = 'limited'
+            result['details'] = f'Option access limited - requires option permissions: {str(e)[:50]}'
+            logger.info(f"  🟡 Option tick testing limited: {str(e)[:50]}")
+        
+        return result
+
+    def _test_asset_tick_compatibility(self, tick_test_results):
+        """Test tick compatibility across different asset classes."""
+        
+        # Test Stocks
+        logger.info("  📋 Testing tick compatibility with STOCKS...")
+        try:
+            tsla_contract = self.ib_broker.create_stock_contract("TSLA", "STK", "SMART")
+            tsla_contract.primaryExchange = "NASDAQ"
+            
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=tsla_contract,
+                generic_tick_list="225,236",
+                timeout=8
+            )
+            
+            successful_ticks = []
+            if snapshot and not snapshot.get('error'):
+                basic_ticks = ['BID', 'ASK', 'LAST', 'VOLUME']
+                for tick in basic_ticks:
+                    if tick in snapshot and snapshot[tick] is not None:
+                        successful_ticks.append(tick)
+                
+                tick_test_results['asset_tick_compatibility']['stocks'] = {
+                    'tested': True,
+                    'status': 'success' if len(successful_ticks) >= 3 else 'partial',
+                    'details': f'{len(successful_ticks)} basic ticks working with stocks',
+                    'successful_ticks': successful_ticks
+                }
+                logger.info(f"    ✅ Stocks: {len(successful_ticks)} ticks working")
+            else:
+                tick_test_results['asset_tick_compatibility']['stocks'] = {
+                    'tested': True, 'status': 'failed',
+                    'details': 'Stock tick compatibility test failed',
+                    'successful_ticks': []
+                }
+        except Exception as e:
+            tick_test_results['asset_tick_compatibility']['stocks'] = {
+                'tested': True, 'status': 'error',
+                'details': f'Error: {str(e)[:100]}', 'successful_ticks': []
+            }
+        
+        # Test Futures
+        logger.info("  📈 Testing tick compatibility with FUTURES...")
+        try:
+            es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
+            es_contract.currency = "USD"
+            
+            snapshot = self.ib_broker.get_market_data_snapshot(
+                contract=es_contract,
+                generic_tick_list="",
+                timeout=8
+            )
+            
+            successful_ticks = []
+            if snapshot and not snapshot.get('error'):
+                basic_ticks = ['BID', 'ASK', 'LAST', 'VOLUME']
+                for tick in basic_ticks:
+                    if tick in snapshot and snapshot[tick] is not None:
+                        successful_ticks.append(tick)
+                
+                tick_test_results['asset_tick_compatibility']['futures'] = {
+                    'tested': True,
+                    'status': 'success' if len(successful_ticks) >= 2 else 'partial',
+                    'details': f'{len(successful_ticks)} basic ticks working with futures',
+                    'successful_ticks': successful_ticks
+                }
+                logger.info(f"    ✅ Futures: {len(successful_ticks)} ticks working")
+            else:
+                tick_test_results['asset_tick_compatibility']['futures'] = {
+                    'tested': True, 'status': 'limited',
+                    'details': 'Futures tick compatibility limited',
+                    'successful_ticks': []
+                }
+        except Exception as e:
+            tick_test_results['asset_tick_compatibility']['futures'] = {
+                'tested': True, 'status': 'error',
+                'details': f'Error: {str(e)[:100]}', 'successful_ticks': []
+            }
+        
+        # Test Options (limited test due to complexity)
+        logger.info("  📋 Testing tick compatibility with OPTIONS...")
+        tick_test_results['asset_tick_compatibility']['options'] = {
+            'tested': True, 'status': 'limited',
+            'details': 'Option tick testing requires specific option contracts and permissions',
+            'successful_ticks': []
+        }
+        logger.info("    🟡 Options: Testing limited due to contract complexity")
+
+    def _generate_tick_access_summary(self, tick_test_results):
+        """Generate comprehensive summary of tick access test results."""
+        
+        logger.info("\\n" + "=" * 70)
+        logger.info("🎯 === COMPREHENSIVE TICK ACCESS SUMMARY ===")
+        logger.info("=" * 70)
+        
+        summary = tick_test_results['test_summary']
+        summary['end_time'] = datetime.now()
+        
+        # Connection Status
+        logger.info(f"\\n🔌 CONNECTION STATUS:")
+        conn = tick_test_results['connection_status']
+        status_icon = "✅" if conn['status'] == 'success' else "❌"
+        logger.info(f"  {status_icon} {conn['details']}")
+        
+        # Tick Categories Summary
+        logger.info(f"\\n🎯 TICK CATEGORIES ACCESS:")
+        logger.info("-" * 50)
+        
+        category_summary = {}
+        total_successful_ticks = 0
+        total_tested_ticks = 0
+        
+        for category, result in tick_test_results['tick_categories'].items():
+            if result['tested']:
+                icon_map = {
+                    "success": "✅", "partial": "🟡", "limited": "⚠️", 
+                    "failed": "❌", "error": "🔥"
+                }
+                icon = icon_map.get(result['status'], "❓")
+                logger.info(f"  {icon} {category.replace('_', ' ').upper():<20} | {result['status'].upper():<8} | {result['details']}")
+                category_summary[category] = result['status']
+                
+                # Count successful ticks in this category
+                if 'ticks_tested' in result:
+                    for tick_name, tick_data in result['ticks_tested'].items():
+                        total_tested_ticks += 1
+                        if tick_data.get('status') == 'success':
+                            total_successful_ticks += 1
+        
+        # Asset Compatibility Summary
+        logger.info(f"\\n📋 ASSET TICK COMPATIBILITY:")
+        logger.info("-" * 50)
+        
+        for asset_type, result in tick_test_results['asset_tick_compatibility'].items():
+            if result['tested']:
+                icon_map = {
+                    "success": "✅", "partial": "🟡", "limited": "⚠️", 
+                    "failed": "❌", "error": "🔥"
+                }
+                icon = icon_map.get(result['status'], "❓")
+                successful_count = len(result.get('successful_ticks', []))
+                logger.info(f"  {icon} {asset_type.upper():<12} | {result['status'].upper():<8} | {successful_count} ticks | {result['details']}")
+        
+        # Overall Statistics
+        logger.info(f"\\n📊 OVERALL TICK STATISTICS:")
+        logger.info("-" * 50)
+        
+        if total_tested_ticks > 0:
+            success_rate = (total_successful_ticks / total_tested_ticks) * 100
+            logger.info(f"  Total Ticks Tested:     {total_tested_ticks}")
+            logger.info(f"  Successful Ticks:       {total_successful_ticks} ({success_rate:.1f}%)")
+            logger.info(f"  Limited/Failed Ticks:   {total_tested_ticks - total_successful_ticks}")
+        else:
+            logger.info("  No tick data collected - connection or access issues")
+        
+        # Generate Recommendations
+        logger.info(f"\\n💡 TICK ACCESS RECOMMENDATIONS:")
+        logger.info("-" * 50)
+        
+        recommendations = []
+        
+        if category_summary.get('basic_price_ticks') == 'failed':
+            recommendations.append("💰 Basic price tick access failed - check market data permissions")
+        if category_summary.get('size_ticks') == 'failed':
+            recommendations.append("📊 Size tick access failed - verify Level 1 data subscription")
+        if category_summary.get('generic_ticks') == 'limited':
+            recommendations.append("🔧 Generic ticks limited - consider upgrading market data packages")
+        if category_summary.get('option_ticks') == 'limited':
+            recommendations.append("📋 Option ticks require option trading permissions and data subscriptions")
+        if category_summary.get('extended_price_ticks') == 'limited':
+            recommendations.append("📈 Extended price ticks may require premium market data subscriptions")
+        
+        # Asset-specific recommendations
+        asset_compat = tick_test_results['asset_tick_compatibility']
+        if asset_compat['stocks']['status'] in ['failed', 'error']:
+            recommendations.append("📋 Stock tick compatibility issues - verify equity market data access")
+        if asset_compat['futures']['status'] in ['limited', 'error']:
+            recommendations.append("📈 Futures tick access limited - may require futures data subscriptions")
+        
+        if recommendations:
+            for i, rec in enumerate(recommendations, 1):
+                logger.info(f"  {i}. {rec}")
+        else:
+            logger.info("  🎉 Excellent! Your tick access configuration is working well across all tested categories.")
+        
+        # Test Duration
+        duration = summary.get('duration', 0)
+        logger.info(f"\\n⏱️  Test Duration: {duration:.1f} seconds")
+        logger.info(f"Performance: {total_tested_ticks / max(duration, 1):.1f} ticks tested per second")
+        
+        logger.info("=" * 70)
+        logger.info("✨ Comprehensive Tick Access Test Complete!")
+        logger.info("=" * 70)
+        
+        # Clean up connection
+        try:
+            self.disconnect_from_ib()
+        except:
+            pass
+        
+        return tick_test_results
+
 
 def main():
     """
@@ -1822,6 +2648,7 @@ def main():
         python comprehensive_market_data_examples.py                # Run all examples
         python comprehensive_market_data_examples.py test          # Run access level test pipeline
         python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test
+        python comprehensive_market_data_examples.py ticks         # Run comprehensive tick access test
         python comprehensive_market_data_examples.py help          # Show help
     """
     import sys
@@ -1836,11 +2663,17 @@ def main():
             examples = ComprehensiveIBMarketDataExamples()
             results = examples.test_comprehensive_market_access()
             return results
+        elif sys.argv[1] == 'ticks':
+            # Run comprehensive tick access test
+            examples = ComprehensiveIBMarketDataExamples()
+            results = examples.test_comprehensive_tick_access()
+            return results
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
             print("  python comprehensive_market_data_examples.py test         # Run access level test pipeline") 
             print("  python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test")
+            print("  python comprehensive_market_data_examples.py ticks        # Run comprehensive tick access test")
             print("  python comprehensive_market_data_examples.py help         # Show this help")
             return
     else:
