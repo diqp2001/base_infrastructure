@@ -117,31 +117,55 @@ class MarketDataService:
             factor_data = {}
             
             for factor_name in factor_names:
+                if self.entity_service.repository_factory.ibkr_client:
                 # Use entity service to get or create factor
-                entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
-                factor = self.entity_service._create_or_get_ibkr(
-                    entity_cls = entity_factor_class_input, 
-                    entity_symbol = factor_name,
-                    group="price",
-                )
-                if factor:
-                    # Create composite key for factor value lookup
-                    date_str = point_in_time.strftime('%Y-%m-%d')
-                    composite_key = f"{factor.id}_{entity.id}_{date_str}"
-                    
-                    # Use entity service to get factor value
-                    factor_value = self.entity_service._create_or_get_ibkr(
-                        entity_cls = FactorValue,
-                        entity_symbol = composite_key,
-                        factor=factor,
-                        entity=entity,
-                        date=point_in_time.date(),
-                         
+                    entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
+                    factor = self.entity_service._create_or_get_ibkr(
+                        entity_cls = entity_factor_class_input, 
+                        entity_symbol = factor_name,
+                        group="price",
                     )
-                    
-                    if factor_value:
-                        factor_data[factor_name] = float(factor_value.value)
-            
+                    if factor:
+                        # Create composite key for factor value lookup
+                        date_str = point_in_time.strftime('%Y-%m-%d')
+                        composite_key = f"{factor.id}_{entity.id}_{date_str}"
+                        
+                        # Use entity service to get factor value
+                        factor_value = self.entity_service._create_or_get_ibkr(
+                            entity_cls = FactorValue,
+                            entity_symbol = composite_key,
+                            factor=factor,
+                            entity=entity,
+                            date=point_in_time.date(),
+                             
+                        )
+                        
+                        if factor_value:
+                            factor_data[factor_name] = float(factor_value.value)
+                else:
+                    entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
+                    factor = self.entity_service._create_or_get(
+                        entity_cls = entity_factor_class_input, 
+                        entity_symbol = factor_name,
+                        group="price",
+                    )
+                    if factor:
+                        # Create composite key for factor value lookup
+                        date_str = point_in_time.strftime('%Y-%m-%d')
+                        composite_key = f"{factor.id}_{entity.id}_{date_str}"
+                        
+                        # Use entity service to get factor value
+                        factor_value = self.entity_service._create_or_get(
+                            entity_cls = FactorValue,
+                            entity_symbol = composite_key,
+                            factor=factor,
+                            entity=entity,
+                            date=point_in_time.date(),
+                             
+                        )
+                        
+                        if factor_value:
+                            factor_data[factor_name] = float(factor_value.value)
             # Create DataFrame if we have data
             if factor_data:
                 factor_data['Date'] = point_in_time
