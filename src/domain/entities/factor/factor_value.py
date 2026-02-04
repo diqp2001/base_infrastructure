@@ -3,7 +3,7 @@ Domain entity for FactorValue.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from typing import Optional
 
 
@@ -16,7 +16,7 @@ class FactorValue:
     id: Optional[int]
     factor_id: int
     entity_id: int
-    date: date
+    date: datetime
     value: str
 
     def __post_init__(self):

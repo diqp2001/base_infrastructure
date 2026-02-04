@@ -114,29 +114,19 @@ class ModelTrainer:
         
         # Replicate the backtestRunner setup process
         # 1. Ensure basic entities exist
-        entities_summary = self.factor_manager._ensure_entities_exist(tickers)
+        self.data_loader.market_data_history_service
+        entities_summary = self.data_loader.market_data_history_service._ensure_entities_exist(tickers)
         
         # 2. Populate price factors  
-        price_summary = self.factor_manager.populate_price_factors(tickers, overwrite)
+        factors_summary = self.populate_factors(tickers, overwrite)
         
-        # 3. Populate momentum factors
-        momentum_summary = self.factor_manager.populate_momentum_factors(tickers, overwrite)
         
-        # 4. Calculate technical indicators
-        technical_summary = self.factor_manager.populate_technical_indicators(tickers, overwrite)
-        
-        # 5. Populate volatility and target factors (NEW)  
-        volatility_summary = self.factor_manager.populate_volatility_factors(tickers, overwrite)
-        
-        target_summary = self.factor_manager.populate_target_factors(tickers, overwrite)
-        
-        print(f"  ✅ Factor system populated:")
-        print(f"    • Price: {price_summary.get('values_calculated', 0)} values")
-        print(f"    • Momentum: {momentum_summary.get('values_calculated', 0)} values")
-        print(f"    • Technical: {technical_summary.get('values_calculated', 0)} values")
-        print(f"    • Volatility: {volatility_summary.get('values_calculated', 0)} values")
-        print(f"    • Targets: {target_summary.get('values_calculated', 0)} values")
-        
+    def populate_factors(self, tickers, overwrite):
+        factors = self.config.get('factors')
+        for factor in factors:
+            self.data_loader.market_data_history_service._create_or_get(factor)
+        #and target
+
     
     def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Load all factor data for a single ticker from database."""

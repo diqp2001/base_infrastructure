@@ -207,8 +207,8 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
         """
         try:
             timestamp = timestamp or datetime.now()
-            date_obj = timestamp.date()
-            date_str = date_obj.strftime('%Y-%m-%d')
+            date_obj = timestamp
+            date_str = date_obj.strftime("%Y-%m-%d %H:%M:%S")
             
             # Get or create factor for this tick type
             

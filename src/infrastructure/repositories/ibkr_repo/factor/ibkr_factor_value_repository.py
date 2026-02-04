@@ -282,7 +282,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         try:
             factor_entity = kwargs.get('factor')
             financial_asset_entity = kwargs.get('entity')
-            self.get_ibkr_factor_base(financial_asset_entity)
+            #self.get_ibkr_factor_base(financial_asset_entity)
             time_date = kwargs.get('date',datetime.now() )
             if not factor_entity or not financial_asset_entity:
                 print("Factor entity and financial asset entity are required")
@@ -290,12 +290,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
             # Ensure time_date is a string
             if isinstance(time_date, date):
-                time_date = time_date.strftime("%Y-%m-%d")
+                time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
             elif not isinstance(time_date, str):
                 time_date = str(time_date)
             
             # Parse date object for storage
-            date_obj = datetime.strptime(time_date, "%Y-%m-%d").date()
+            date_obj = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
 
             # Get entity ID from financial asset (assumes entity has 'id' attribute)
             entity_id = getattr(financial_asset_entity, 'id')
@@ -364,7 +364,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     return None
                 
                 # Use the instrument repository pattern to get factor value
-                timestamp = datetime.now()  # Use current timestamp for IBKR data
+                timestamp = time_date  # Use current timestamp for IBKR data
                 # Check if ibkr_instrument_repo is available
                 self.ibkr_instrument_repo = self.factory.instrument_ibkr_repo
                 instrument = self.ibkr_instrument_repo.get_or_create_from_contract(
@@ -377,21 +377,30 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     return None
-                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show=kwargs.get('what_to_show') or None)
-                tick_value
-                new_factor_value = FactorValue(
-                        id=None,  # Will be set by repository
-                        factor_id=factor_entity.id,
-                        entity_id=financial_asset_entity.id,
-                        date=timestamp,
-                        value=str(tick_value)
-                    )
+                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show = kwargs.get('what_to_show', 'TRADES'))
+                if tick_value:
+                    for bar in tick_value:
+                        bar_dt = datetime.strptime(bar["date"], "%Y%m%d  %H:%M:%S")
+                        if bar_dt == datetime.strptime(timestamp, "%Y-%m-%d  %H:%M:%S"):
+                            value = bar.get(factor_entity.name)
+                            new_factor_value = FactorValue(
+                                    id=None,  # Will be set by repository
+                                    factor_id=factor_entity.id,
+                                    entity_id=financial_asset_entity.id,
+                                    date=timestamp,
+                                    value=str(value)
+                                )
+                            # Persist to database via local repository
+                            created_value = self.local_repo.add(new_factor_value)
+                            if created_value:
+                                print(f"Created factor value: {factor_entity.name} ")
+                                return created_value
+                    
+                else:
+                    return None
+                    
+                
             
-            # Persist to database via local repository
-            created_value = self.local_repo.add(new_factor_value)
-            if created_value:
-                print(f"Created factor value: {factor_entity.name} ")
-                return created_value
                 
         except Exception as e:
             print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
@@ -425,11 +434,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     print("Factor entity and financial asset entity are required")
                     return None
 
-                # Ensure time_date is a string
-                if isinstance(time_date, date):
-                    time_date = time_date.strftime("%Y-%m-%d")
-                elif not isinstance(time_date, str):
-                    time_date = str(time_date)
+                
+                time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
+                
                 
 
                 # Get entity ID from financial asset (assumes entity has 'id' attribute)
@@ -463,13 +470,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if not instrument:
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     continue
-                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show)
+                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show= what_to_show,duration_str= "2 W",bar_size_setting = "15 mins")
                 for tick in tick_value:
                     if len(tick['date']) == 8:
                         date = datetime.strptime(tick['date'], "%Y%m%d")
                     else:
 
-                        datetime.strptime(tick['date'], "%Y%m%d %H:%M:%S")
+                        date = datetime.strptime(tick['date'], "%Y%m%d %H:%M:%S")
                     new_factor_value = FactorValue(
                             id=None,  # Will be set by repository
                             factor_id=factor_entity.id,
@@ -791,7 +798,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
             # Validate date format
             try:
-                datetime.strptime(time_date, '%Y-%m-%d')
+                datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
             except ValueError:
                 print(f"Invalid date format: {time_date}. Expected YYYY-MM-DD")
                 return False
@@ -956,7 +963,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             # Convert date string to date object
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
             
             # Extract factor value from IBKR data
             ibkr_data = {

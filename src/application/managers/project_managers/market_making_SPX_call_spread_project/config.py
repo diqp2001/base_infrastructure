@@ -63,22 +63,51 @@ DEFAULT_CONFIG = {
     },
     
     # Backtesting Configuration
-    'backtest_start': '2023-01-01',
-    'backtest_end': '2024-12-31',
+    'backtest_start': '2026-02-02 09:30:00',
+    'backtest_end': '2026-02-04 14:30:00',
+    # frequence
+    'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
     'commission_per_contract': 0.65,
     
     # Model Training
-    'model_types': ['tft', 'mlp'],
+    'model_type' : "pricing",
     'training_window': 252,  # 1 year of trading days
     'validation_split': 0.2,
     'test_split': 0.2,
     
     # Factors for modeling
-    'price_factors': ['open', 'high', 'low', 'close', 'volume'],
-    'technical_factors': ['sma_10', 'sma_20', 'rsi', 'macd', 'bb_upper', 'bb_lower'],
-    'volatility_factors': ['realized_vol_10', 'realized_vol_20', 'vix', 'term_structure'],
-    'market_factors': ['put_call_ratio', 'skew', 'term_structure_slope'],
+    # Factors for modeling
+    'factors' : {
+        'price_factors': [
+            {'name': 'open',   'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
+            {'name': 'high',   'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
+            {'name': 'low',    'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
+            {'name': 'close',  'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
+            {'name': 'volume', 'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
+        ],
+        'technical_factors': [
+            {'name': 'sma_10',   'group': 'technical', 'subgroup': 'trend', 'data_type': 'numeric'},
+            {'name': 'sma_20',   'group': 'technical', 'subgroup': 'trend', 'data_type': 'numeric'},
+            {'name': 'rsi',      'group': 'technical', 'subgroup': 'momentum', 'data_type': 'numeric'},
+            {'name': 'macd',     'group': 'technical', 'subgroup': 'momentum', 'data_type': 'numeric'},
+            {'name': 'bb_upper', 'group': 'technical', 'subgroup': 'volatility', 'data_type': 'numeric'},
+            {'name': 'bb_lower', 'group': 'technical', 'subgroup': 'volatility', 'data_type': 'numeric'},
+        ],
+        'volatility_factors': [
+            {'name': 'realized_vol_10', 'group': 'volatility', 'subgroup': 'realized', 'data_type': 'numeric'},
+            {'name': 'realized_vol_20', 'group': 'volatility', 'subgroup': 'realized', 'data_type': 'numeric'},
+            {'name': 'vix',             'group': 'volatility', 'subgroup': 'implied', 'data_type': 'numeric'},
+            {'name': 'term_structure',  'group': 'volatility', 'subgroup': 'term_structure', 'data_type': 'numeric'},
+        ],
+        'market_factors': [
+            {'name': 'put_call_ratio',       'group': 'market', 'subgroup': 'sentiment', 'data_type': 'numeric'},
+            {'name': 'skew',                 'group': 'market', 'subgroup': 'options', 'data_type': 'numeric'},
+            {'name': 'term_structure_slope', 'group': 'market', 'subgroup': 'rates', 'data_type': 'numeric'},
+        ],
+    },
+
+    
     
     # MLflow tracking
     'mlflow_experiment_name': 'market_making_spx_call_spread',

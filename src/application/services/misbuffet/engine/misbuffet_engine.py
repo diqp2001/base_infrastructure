@@ -93,18 +93,19 @@ class MisbuffetEngine(BaseEngine):
         Returns:
             dict with 'type' and 'value' for flexible interval handling
         """
+        config_interval = config_dict.get('custom_interval')
         # Check for custom intervals first (highest priority)
-        if config_dict.get('custom_interval_minutes'):
-            return {'type': 'timedelta', 'value': timedelta(minutes=config_dict['custom_interval_minutes'])}
+        if config_interval.get('custom_interval_minutes'):
+            return {'type': 'timedelta', 'value': timedelta(minutes=config_interval['custom_interval_minutes'])}
         
-        if config_dict.get('custom_interval_hours'):
-            return {'type': 'timedelta', 'value': timedelta(hours=config_dict['custom_interval_hours'])}
+        if config_interval.get('custom_interval_hours'):
+            return {'type': 'timedelta', 'value': timedelta(hours=config_interval['custom_interval_hours'])}
             
-        if config_dict.get('custom_interval_days'):
-            return {'type': 'timedelta', 'value': timedelta(days=config_dict['custom_interval_days'])}
+        if config_interval.get('custom_interval_days'):
+            return {'type': 'timedelta', 'value': timedelta(days=config_interval['custom_interval_days'])}
         
         # Use predefined backtest_interval
-        interval = config_dict.get('backtest_interval', 'daily').lower()
+        interval = config_interval.get('backtest_interval', 'daily').lower()
         
         # Handle intervals that require dateutil
         if interval in ['monthly', 'quarterly', 'semi_yearly', 'yearly']:
@@ -393,23 +394,16 @@ class MisbuffetEngine(BaseEngine):
         """Run the actual simulation loop."""
         # Get date range from engine config
         engine_config = getattr(config, 'custom_config', {})
-        start_date = datetime.strptime(engine_config.get('start_date', datetime(2021, 1, 1)), "%Y-%m-%d")
-        end_date = datetime.strptime(engine_config.get('end_date', datetime(2022, 1, 1)), "%Y-%m-%d")
+        start_date = datetime.strptime(engine_config.get('start_date', datetime(2021, 1, 1)), "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime(engine_config.get('end_date', datetime(2022, 1, 1)), "%Y-%m-%d %H:%M:%S")
         
         # Get configurable time interval
         time_interval = self._get_time_interval(engine_config)
-        interval_name = engine_config.get('backtest_interval', 'daily')
+        
         
         self.logger.info(f"Running simulation from {start_date} to {end_date}")
-        self.logger.info(f"Using {interval_name} intervals for backtesting")
         
-        # Log custom interval details if applicable
-        if engine_config.get('custom_interval_minutes'):
-            self.logger.info(f"Custom interval: {engine_config['custom_interval_minutes']} minutes")
-        elif engine_config.get('custom_interval_hours'):
-            self.logger.info(f"Custom interval: {engine_config['custom_interval_hours']} hours")
-        elif engine_config.get('custom_interval_days'):
-            self.logger.info(f"Custom interval: {engine_config['custom_interval_days']} days")
+        
         
         current_date = start_date
         data_points_processed = 0
@@ -429,9 +423,7 @@ class MisbuffetEngine(BaseEngine):
                         data_slice = self.data_loader.market_data_service.create_data_slice(
                             current_date, universe
                         )
-                    else:
-                        # Fallback to original method
-                        data_slice = self._create_data_slice(current_date, universe)
+                    
                     
                     # Only call on_data if we have data for this date
                     if data_slice.has_data:
@@ -921,9 +913,6 @@ class MisbuffetEngine(BaseEngine):
                             data_slice = self.data_loader.market_data_service.create_data_slice(
                                 current_date, universe, self.factor_data_service
                             )
-                        else:
-                            # Fallback to original method
-                            data_slice = self._create_data_slice(current_date, universe)
                         
                         # Only call on_data if we have data for this date
                         if data_slice.has_data:

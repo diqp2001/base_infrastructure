@@ -140,25 +140,25 @@ class BacktestRunner:
             self.logger.info("Starting SPX call spread backtest...")
             
             # Initialize backtest parameters
-            model_type = "pricing"
+            model_type = config.get('model_type')
             universe = config.get('universe')
             start_date = config.get('backtest_start', '2025-07-01')
             end_date = config.get('backtest_end', '2025-12-31')
             initial_capital = config.get('initial_capital', 100000)
-
+            config_interval = config.get('config_interval')
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
             
             
             
             # Configure algorithm
-            algorithm_config = {
-                'start_date': start_date,
-                'end_date': end_date,
-                'initial_capital': initial_capital,
-                'database_service': self.database_service,
-                **config
-            }
+            # algorithm_config = {
+            #     'start_date': start_date,
+            #     'end_date': end_date,
+            #     'initial_capital': initial_capital,
+            #     'database_service': self.database_service,
+            #     **config
+            # }
             
             
             
@@ -192,8 +192,10 @@ class BacktestRunner:
                 'end_date': end_date,
                 'initial_capital': initial_capital,
                 'tickers': universe,
-                'model_type': model_type
+                'model_type': model_type,
+                'custom_interval' : config_interval
             }
+            launcher_config.main_config = config
             
             # Pass the configured algorithm INSTANCE (not class) for Misbuffet to use
             launcher_config.algorithm = configured_algorithm
@@ -209,6 +211,7 @@ class BacktestRunner:
             engine = misbuffet.start_engine(config_file="engine_config.py")
             
             self.logger.info("📊 Executing backtest algorithm...")
+            start_time = datetime.now()
             result = engine.run(launcher_config)
             
             # Step 7: Process results
@@ -223,7 +226,6 @@ class BacktestRunner:
                     'initial_capital': initial_capital,
                     'model_type': model_type
                 },
-                'factor_system': factor_results if setup_factors else None,
                 #'model_training': training_results,
                 'misbuffet_result': result.summary() if result else None,
                 'execution_time': elapsed_time,

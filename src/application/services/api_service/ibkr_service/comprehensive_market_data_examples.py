@@ -2682,8 +2682,7 @@ def main():
         examples.run_all_examples()
 
 
-if __name__ == "__main__":
-    main()
+
 
 
 

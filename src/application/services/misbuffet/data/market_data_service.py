@@ -113,11 +113,11 @@ class MarketDataService:
                 return None
             
             # Get price factor data for this date
-            factor_names = [ 'High','Open', 'Low', 'Close', 'Volume']
+            factor_names = [ 'high','open', 'low', 'close', 'volume']
             factor_data = {}
             
             for factor_name in factor_names:
-                if self.entity_service.repository_factory.ibkr_client:
+                if self.entity_service.repository_factory.ibkr_client.ib_connection.connected_flag:
                 # Use entity service to get or create factor
                     entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
                     factor = self.entity_service._create_or_get_ibkr(
@@ -127,7 +127,7 @@ class MarketDataService:
                     )
                     if factor:
                         # Create composite key for factor value lookup
-                        date_str = point_in_time.strftime('%Y-%m-%d')
+                        date_str = point_in_time.strftime("%Y-%m-%d %H:%M:%S")
                         composite_key = f"{factor.id}_{entity.id}_{date_str}"
                         
                         # Use entity service to get factor value
@@ -136,7 +136,7 @@ class MarketDataService:
                             entity_symbol = composite_key,
                             factor=factor,
                             entity=entity,
-                            date=point_in_time.date(),
+                            date=point_in_time,
                              
                         )
                         

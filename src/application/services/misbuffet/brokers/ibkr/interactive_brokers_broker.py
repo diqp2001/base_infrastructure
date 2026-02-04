@@ -455,7 +455,7 @@ class InteractiveBrokersBroker(BaseBroker):
     
     
 
-    def get_market_data(self, symbol: str, use_snapshot: bool = False, timeout: int = 10) -> Dict[str, Any]:
+    def get_market_data(self, symbol: str, use_snapshot: bool = False, timeout: int = 60) -> Dict[str, Any]:
         """Get real-time market data for a symbol."""
         if not self.ib_connection or not self.ib_connection.is_connected():
             return {}
@@ -700,7 +700,7 @@ class InteractiveBrokersBroker(BaseBroker):
     def get_historical_data(self, contract: Contract, end_date_time: str = "",
                            duration_str: str = "1 W", bar_size_setting: str = "5 mins",
                            what_to_show: str = "TRADES", use_rth: bool = True,
-                           format_date: int = 1, timeout: int = 30) -> List[Dict[str, Any]]:
+                           format_date: int = 1, timeout: int = 90) -> List[Dict[str, Any]]:
         """
         Get historical data using Interactive Brokers API.
         

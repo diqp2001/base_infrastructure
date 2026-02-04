@@ -139,7 +139,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         """Get factor value by factor ID, entity ID, and date."""
         try:
             # Convert date string to date object
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
             
             model = self.session.query(FactorValueModel).filter(
                 FactorValueModel.factor_id == factor_id,
@@ -208,7 +208,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             
             # Create new factor value using base _create_or_get method
             from datetime import datetime
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
             
             return self._create_or_get(
                 factor_id=factor_id,

@@ -92,7 +92,7 @@ class Algorithm(QCAlgorithm):
         # Data tracking for flexible data format handling
         self._current_data_frame = None
         self._current_data_slice = None
-
+        self.initialized = True
         
         # Defer initial training until dependencies are injected
         # This will be triggered by the first on_data() call or explicit training call
