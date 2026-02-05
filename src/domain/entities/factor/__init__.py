@@ -4,6 +4,8 @@ Factor subdomain entities.
 
 from .factor import Factor
 from .factor_value import FactorValue
+from .factor_serie_collection import FactorSerieCollection
+from .factor_value_collection import FactorValueCollection
 from .continent_factor import ContinentFactor
 from .country_factor import CountryFactor
 from .finance.financial_assets.financial_asset_factor import FinancialAssetFactor
@@ -18,6 +20,8 @@ from .finance.financial_assets.share_factor.share_volatility_factor import Share
 __all__ = [
     'Factor',
     'FactorValue',
+    'FactorSerieCollection',
+    'FactorValueCollection',
     'ContinentFactor',
     'CountryFactor', 
     'FinancialAssetFactor',
