@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from application.managers.project_managers.market_making_SPX_call_spread_project.models.pricing_model import PricingModel
-
+from src.domain.entities.factor.factor import Factor
 
 from ..data.data_loader import DataLoader
 from ..data.factor_manager import FactorManager
@@ -120,12 +120,185 @@ class ModelTrainer:
         # 2. Populate price factors  
         factors_summary = self.populate_factors(tickers, overwrite)
         
+        # 3. Also use market_data_history_service to create factors from config
+        if hasattr(self.data_loader, 'market_data_history_service'):
+            history_service_results = self.data_loader.market_data_history_service.create_factors_from_config(
+                self.config.get('factors', {}), tickers
+            )
+            print(f"  📊 Market data history service created {history_service_results['factors_created']} factors")
         
-    def populate_factors(self, tickers, overwrite):
-        factors = self.config.get('factors')
-        for factor in factors:
-            self.data_loader.market_data_history_service._create_or_get(factor)
-        #and target
+        
+    def populate_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
+        """
+        Create factor domain entities from config with proper index and future mappings.
+        
+        Args:
+            tickers: List of tickers to create factors for
+            overwrite: Whether to overwrite existing factors
+            
+        Returns:
+            Dict containing factor creation summary
+        """
+        factors_config = self.config.get('factors', {})
+        results = {
+            'factors_created': 0,
+            'factors_skipped': 0,
+            'target_factors_created': 0,
+            'factor_details': [],
+            'errors': []
+        }
+        
+        try:
+            # Process each factor group from config
+            for factor_group_name, factor_list in factors_config.items():
+                print(f"  📊 Processing factor group: {factor_group_name}")
+                
+                for factor_config in factor_list:
+                    if not isinstance(factor_config, dict):
+                        continue
+                        
+                    factor_name = factor_config.get('name')
+                    factor_group = factor_config.get('group', 'unknown')
+                    factor_subgroup = factor_config.get('subgroup', 'default')
+                    factor_data_type = factor_config.get('data_type', 'numeric')
+                    
+                    if not factor_name:
+                        continue
+                    
+                    try:
+                        # Create factor using market_data_history_service
+                        factor_entity = self._create_factor_from_config(
+                            name=factor_name,
+                            group=factor_group,
+                            subgroup=factor_subgroup,
+                            data_type=factor_data_type,
+                            tickers=tickers,
+                            overwrite=overwrite
+                        )
+                        
+                        if factor_entity:
+                            results['factors_created'] += 1
+                            results['factor_details'].append({
+                                'name': factor_name,
+                                'group': factor_group,
+                                'subgroup': factor_subgroup,
+                                'factor_id': getattr(factor_entity, 'id', None),
+                                'status': 'created'
+                            })
+                            print(f"    ✅ Created factor: {factor_name} (group: {factor_group})")
+                        else:
+                            results['factors_skipped'] += 1
+                            print(f"    ⚠️  Skipped factor: {factor_name}")
+                            
+                    except Exception as e:
+                        error_msg = f"Error creating factor {factor_name}: {str(e)}"
+                        results['errors'].append(error_msg)
+                        print(f"    ❌ {error_msg}")
+            
+            # Create target factors for specified tickers
+            target_config = self.config.get('target_factor', {})
+            if target_config:
+                results['target_factors_created'] = self._create_target_factors(
+                    target_config, tickers, overwrite
+                )
+            
+            print(f"✅ Factor population complete: {results['factors_created']} factors created, {results['factors_skipped']} skipped")
+            return results
+            
+        except Exception as e:
+            error_msg = f"Error in populate_factors: {str(e)}"
+            results['errors'].append(error_msg)
+            print(f"❌ {error_msg}")
+            return results
+    
+    def _create_factor_from_config(self, name: str, group: str, subgroup: str, 
+                                  data_type: str, tickers: List[str], overwrite: bool = False):
+        """
+        Create factor domain entity from config using market_data_history_service.
+        
+        Args:
+            name: Factor name
+            group: Factor group
+            subgroup: Factor subgroup
+            data_type: Data type
+            tickers: List of tickers to associate with
+            overwrite: Whether to overwrite existing factors
+        
+        Returns:
+            Factor entity if created successfully
+        """
+        try:
+            # Use data_loader's factor service to create factor
+            if hasattr(self.data_loader, 'factor_data_service'):
+                factor_entity = self.data_loader.factor_data_service.create_or_get_factor(
+                    name=name,
+                    group=group,
+                    subgroup=subgroup,
+                    data_type=data_type,
+                    source='config',
+                    definition=f'Factor {name} from {group}/{subgroup} configuration'
+                )
+                return factor_entity
+            else:
+                # Fallback to direct creation via market_data_history_service
+                factor_entity = Factor(
+                    name=name,
+                    group=group,
+                    subgroup=subgroup,
+                    data_type=data_type,
+                    source='config',
+                    definition=f'Factor {name} from {group}/{subgroup} configuration'
+                )
+                return factor_entity
+                
+        except Exception as e:
+            print(f"Error creating factor {name}: {str(e)}")
+            return None
+    
+    def _create_target_factors(self, target_config: Dict, tickers: List[str], overwrite: bool = False) -> int:
+        """
+        Create target factors for specified asset classes and tickers.
+        
+        Args:
+            target_config: Target configuration from config
+            tickers: List of tickers
+            overwrite: Whether to overwrite existing factors
+            
+        Returns:
+            Number of target factors created
+        """
+        target_factors_created = 0
+        
+        try:
+            for asset_class, ticker_list in target_config.items():
+                # Extract asset class name from class object
+                asset_class_name = asset_class.__name__ if hasattr(asset_class, '__name__') else str(asset_class)
+                
+                for ticker in ticker_list:
+                    if ticker in tickers:  # Only create for requested tickers
+                        try:
+                            # Create target factor for this asset class and ticker
+                            target_name = f'{ticker}_{asset_class_name.lower()}_target'
+                            target_entity = self._create_factor_from_config(
+                                name=target_name,
+                                group='target',
+                                subgroup=asset_class_name.lower(),
+                                data_type='numeric',
+                                tickers=[ticker],
+                                overwrite=overwrite
+                            )
+                            
+                            if target_entity:
+                                target_factors_created += 1
+                                print(f"    ✅ Created target factor: {target_name}")
+                                
+                        except Exception as e:
+                            print(f"    ❌ Error creating target factor for {ticker}: {str(e)}")
+            
+        except Exception as e:
+            print(f"Error creating target factors: {str(e)}")
+        
+        return target_factors_created
 
     
     def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:

@@ -237,3 +237,122 @@ class MarketDataHistoryService:
         if self._frontier is None:
             return False
         return requested_time <= self._frontier.frontier
+    
+    def _create_or_get_factor(self, factor_config: Dict[str, Any]) -> Optional[Any]:
+        """
+        Create or get a factor entity from configuration.
+        
+        This method provides factor creation functionality for the market_data_history_service
+        as requested in the issue. It creates proper factor domain entities with factor
+        index and factor future mappings when dependencies are not present.
+        
+        Args:
+            factor_config: Dictionary containing factor configuration with keys:
+                - name: Factor name
+                - group: Factor group
+                - subgroup: Factor subgroup 
+                - data_type: Data type
+                - factor_index: Optional factor index for ordering
+                - factor_future_start: Optional future start for factors without dependencies
+        
+        Returns:
+            Factor entity if created successfully, None otherwise
+        """
+        try:
+            from src.domain.entities.factor.factor import Factor
+            
+            # Extract configuration
+            name = factor_config.get('name')
+            group = factor_config.get('group', 'unknown')
+            subgroup = factor_config.get('subgroup', 'default')
+            data_type = factor_config.get('data_type', 'numeric')
+            factor_index = factor_config.get('factor_index')
+            factor_future_start = factor_config.get('factor_future_start')
+            
+            if not name:
+                self.logger.warning("Factor name is required")
+                return None
+            
+            # Create factor domain entity
+            factor_entity = Factor(
+                name=name,
+                group=group,
+                subgroup=subgroup,
+                data_type=data_type,
+                source='config',
+                definition=f'Factor {name} from {group}/{subgroup} configuration'
+            )
+            
+            # Set factor index if provided (for ordering without dependencies)
+            if factor_index is not None:
+                factor_entity.factor_index = factor_index
+                
+            # Set factor future start if provided (for factors without dependencies)
+            if factor_future_start is not None:
+                factor_entity.factor_future_start = factor_future_start
+            
+            self.logger.info(f"Created factor entity: {name} (group: {group}, index: {factor_index})")
+            return factor_entity
+            
+        except Exception as e:
+            self.logger.error(f"Error creating factor from config: {e}")
+            return None
+    
+    def create_factors_from_config(self, factors_config: Dict[str, List[Dict]], 
+                                 tickers: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Create multiple factors from configuration.
+        
+        This is the main function requested for market_data_history_service to create
+        factors from config with proper factor domain entities.
+        
+        Args:
+            factors_config: Configuration dictionary with factor groups
+            tickers: Optional list of tickers to filter for
+            
+        Returns:
+            Dictionary containing creation results
+        """
+        results = {
+            'factors_created': 0,
+            'factors_failed': 0,
+            'factor_entities': [],
+            'errors': []
+        }
+        
+        try:
+            for factor_group, factor_list in factors_config.items():
+                self.logger.info(f"Processing factor group: {factor_group}")
+                
+                for factor_config in factor_list:
+                    if not isinstance(factor_config, dict):
+                        continue
+                    
+                    # Add factor index and future start for factors without dependencies
+                    if 'factor_index' not in factor_config:
+                        factor_config['factor_index'] = results['factors_created']
+                    
+                    if 'factor_future_start' not in factor_config:
+                        factor_config['factor_future_start'] = datetime.now()
+                    
+                    # Create factor entity
+                    factor_entity = self._create_or_get_factor(factor_config)
+                    
+                    if factor_entity:
+                        results['factors_created'] += 1
+                        results['factor_entities'].append(factor_entity)
+                        self.logger.info(f"  ✅ Created: {factor_config.get('name')}")
+                    else:
+                        results['factors_failed'] += 1
+                        error_msg = f"Failed to create factor: {factor_config.get('name')}"
+                        results['errors'].append(error_msg)
+                        self.logger.warning(f"  ❌ {error_msg}")
+            
+            self.logger.info(f"Factor creation complete: {results['factors_created']} created, {results['factors_failed']} failed")
+            
+        except Exception as e:
+            error_msg = f"Error in create_factors_from_config: {str(e)}"
+            results['errors'].append(error_msg)
+            self.logger.error(error_msg)
+        
+        return results
