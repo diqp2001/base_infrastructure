@@ -19,6 +19,8 @@ from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository impor
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.factor import Factor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickType, IBKRTickFactorMapper
+from src.dto.factor.factor_batch import FactorBatch
+from src.dto.factor.factor_value_batch import FactorValueBatch
 
 # Forward references for type hints
 from typing import TYPE_CHECKING
@@ -1080,3 +1082,172 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
             return None
+
+    def get_or_create_batch(self, factor_batch: FactorBatch) -> Optional[FactorValueBatch]:
+        """
+        Batch get or create factor values for a batch of factors.
+        
+        This method optimizes factor value creation by:
+        1. Processing factors in batches
+        2. Minimizing IBKR API calls through bulk operations
+        3. Using batch database operations for persistence
+        
+        Args:
+            factor_batch: FactorBatch DTO containing factors to process
+            
+        Returns:
+            FactorValueBatch DTO containing created/retrieved factor values or None if failed
+        """
+        try:
+            if factor_batch.is_empty():
+                print("Cannot process empty factor batch")
+                return None
+            
+            created_factor_values = []
+            
+            # Process factors in chunks to optimize performance
+            chunk_size = factor_batch.metadata.get('chunk_size', 100)
+            factor_chunks = factor_batch.chunk(chunk_size) if len(factor_batch) > chunk_size else [factor_batch]
+            
+            for chunk in factor_chunks:
+                chunk_results = self._process_factor_chunk(chunk)
+                if chunk_results:
+                    created_factor_values.extend(chunk_results)
+            
+            if not created_factor_values:
+                print("No factor values were created or retrieved")
+                return None
+            
+            # Create result batch with metadata
+            result_metadata = {
+                'processed_count': len(created_factor_values),
+                'original_batch_size': len(factor_batch),
+                'processing_timestamp': datetime.now().isoformat()
+            }
+            
+            return FactorValueBatch(
+                factor_values=created_factor_values,
+                metadata=result_metadata
+            )
+            
+        except Exception as e:
+            print(f"Error in get_or_create_batch: {e}")
+            return None
+    
+    def _process_factor_chunk(self, factor_chunk: FactorBatch) -> List[FactorValue]:
+        """
+        Process a chunk of factors to create factor values.
+        
+        Args:
+            factor_chunk: Chunk of factors to process
+            
+        Returns:
+            List of created/retrieved FactorValue entities
+        """
+        try:
+            chunk_results = []
+            
+            # Get common metadata from chunk
+            entity_id = factor_chunk.metadata.get('entity_id', 1)
+            financial_asset_entity = factor_chunk.metadata.get('financial_asset_entity')
+            time_date = factor_chunk.metadata.get('time_date', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            
+            # Batch validation
+            if not self._validate_batch_parameters(entity_id, time_date):
+                return []
+            
+            # Process each factor in the chunk
+            for factor in factor_chunk.factors:
+                try:
+                    # Check if factor value already exists
+                    existing = self._check_existing_factor_value(factor.id, entity_id, time_date)
+                    if existing:
+                        chunk_results.append(existing)
+                        continue
+                    
+                    # Create new factor value using existing logic
+                    if financial_asset_entity:
+                        factor_value = self._create_or_get(
+                            entity_symbol=getattr(financial_asset_entity, 'symbol', ''),
+                            factor=factor,
+                            entity=financial_asset_entity,
+                            date=time_date
+                        )
+                    else:
+                        # Fallback to basic creation
+                        factor_value = self.get_or_create_factor_value(
+                            symbol_or_name=factor_chunk.metadata.get('symbol', ''),
+                            factor_id=factor.id,
+                            time=time_date
+                        )
+                    
+                    if factor_value:
+                        chunk_results.append(factor_value)
+                        
+                except Exception as factor_error:
+                    print(f"Error processing factor {factor.name}: {factor_error}")
+                    continue
+            
+            # Batch persistence optimization
+            if chunk_results and self.local_repo:
+                self._batch_persist_factor_values(chunk_results)
+            
+            return chunk_results
+            
+        except Exception as e:
+            print(f"Error processing factor chunk: {e}")
+            return []
+    
+    def _validate_batch_parameters(self, entity_id: int, time_date: str) -> bool:
+        """Validate batch processing parameters."""
+        try:
+            if not entity_id or entity_id <= 0:
+                print(f"Invalid entity_id for batch: {entity_id}")
+                return False
+            
+            if not time_date:
+                print("Time date is required for batch processing")
+                return False
+                
+            # Validate date format
+            try:
+                datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                print(f"Invalid date format for batch: {time_date}")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error validating batch parameters: {e}")
+            return False
+    
+    def _batch_persist_factor_values(self, factor_values: List[FactorValue]) -> bool:
+        """
+        Optimize persistence of multiple factor values.
+        
+        Args:
+            factor_values: List of FactorValue entities to persist
+            
+        Returns:
+            True if batch persistence succeeded, False otherwise
+        """
+        try:
+            if not factor_values or not self.local_repo:
+                return False
+            
+            # Check if local repository has batch add method
+            if hasattr(self.local_repo, 'add_batch'):
+                return self.local_repo.add_batch(factor_values)
+            else:
+                # Fallback to individual adds
+                success_count = 0
+                for fv in factor_values:
+                    if self.local_repo.add(fv):
+                        success_count += 1
+                
+                return success_count == len(factor_values)
+                
+        except Exception as e:
+            print(f"Error in batch persistence: {e}")
+            return False

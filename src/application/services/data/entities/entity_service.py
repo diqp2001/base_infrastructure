@@ -3,13 +3,15 @@ Financial Asset Service - handles creation and management of financial asset ent
 Provides a service layer for creating financial asset domain entities like Company, CompanyShare, Currency, etc.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any, Type
 from decimal import Decimal
 from datetime import date, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from sqlalchemy.orm import Session
+from src.dto.factor.factor_batch import FactorBatch
+from src.dto.factor.factor_value_batch import FactorValueBatch
 
 
 
@@ -259,4 +261,178 @@ class EntityService:
 
         except Exception as e:
             print(f"Error creating/getting {entity_cls.__name__} for symbol {entity_symbol}: {str(e)}")
+            return None
+
+    def get_or_create_batch_local(
+        self, 
+        entity_class: Type, 
+        batch_data: List[Dict[str, Any]], 
+        batch_metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
+        """
+        Generic batch get_or_create service for any entity type using local repositories.
+        
+        This method provides a unified interface for batch operations across all entity types,
+        not just factors and factor values.
+        
+        Args:
+            entity_class: The domain entity class (e.g., Factor, FactorValue, CompanyShare)
+            batch_data: List of dictionaries containing entity creation parameters
+            batch_metadata: Optional metadata for the batch operation
+            
+        Returns:
+            List of created/retrieved entity instances
+        """
+        try:
+            if not batch_data:
+                print("Cannot process empty batch data")
+                return []
+            
+            repository = self.get_local_repository(entity_class)
+            if not repository:
+                print(f"No local repository found for {entity_class.__name__}")
+                return []
+            
+            results = []
+            
+            # Check if repository has native batch support
+            if hasattr(repository, 'get_or_create_batch'):
+                results = repository.get_or_create_batch(batch_data, batch_metadata)
+            else:
+                # Fallback to individual get_or_create operations
+                for item_data in batch_data:
+                    try:
+                        if hasattr(repository, '_create_or_get'):
+                            entity = repository._create_or_get(**item_data)
+                        elif hasattr(repository, 'get_or_create'):
+                            entity = repository.get_or_create(**item_data)
+                        else:
+                            print(f"Repository {repository.__class__.__name__} doesn't support get_or_create operations")
+                            continue
+                        
+                        if entity:
+                            results.append(entity)
+                            
+                    except Exception as item_error:
+                        print(f"Error processing batch item: {item_error}")
+                        continue
+            
+            print(f"Batch processed: {len(results)}/{len(batch_data)} entities created/retrieved")
+            return results
+            
+        except Exception as e:
+            print(f"Error in generic batch get_or_create: {e}")
+            return []
+
+    def get_or_create_batch_ibkr(
+        self, 
+        entity_class: Type, 
+        batch_data: List[Dict[str, Any]], 
+        batch_metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
+        """
+        Generic batch get_or_create service for any entity type using IBKR repositories.
+        
+        Args:
+            entity_class: The domain entity class
+            batch_data: List of dictionaries containing entity creation parameters
+            batch_metadata: Optional metadata for the batch operation
+            
+        Returns:
+            List of created/retrieved entity instances
+        """
+        try:
+            if not batch_data:
+                print("Cannot process empty batch data")
+                return []
+            
+            repository = self.get_ibkr_repository(entity_class)
+            if not repository:
+                print(f"No IBKR repository found for {entity_class.__name__}")
+                return []
+            
+            results = []
+            
+            # Check if repository has native batch support
+            if hasattr(repository, 'get_or_create_batch'):
+                results = repository.get_or_create_batch(batch_data, batch_metadata)
+            else:
+                # Fallback to individual get_or_create operations
+                for item_data in batch_data:
+                    try:
+                        if hasattr(repository, '_create_or_get_ibkr'):
+                            entity = repository._create_or_get_ibkr(**item_data)
+                        elif hasattr(repository, '_create_or_get'):
+                            entity = repository._create_or_get(**item_data)
+                        elif hasattr(repository, 'get_or_create'):
+                            entity = repository.get_or_create(**item_data)
+                        else:
+                            print(f"IBKR Repository {repository.__class__.__name__} doesn't support get_or_create operations")
+                            continue
+                        
+                        if entity:
+                            results.append(entity)
+                            
+                    except Exception as item_error:
+                        print(f"Error processing IBKR batch item: {item_error}")
+                        continue
+            
+            print(f"IBKR Batch processed: {len(results)}/{len(batch_data)} entities created/retrieved")
+            return results
+            
+        except Exception as e:
+            print(f"Error in generic IBKR batch get_or_create: {e}")
+            return []
+
+    def get_or_create_factor_value_batch(
+        self, 
+        factor_batch: FactorBatch,
+        entity_id: int,
+        time_date: str,
+        financial_asset_entity: Optional[Any] = None,
+        use_ibkr: bool = True
+    ) -> Optional[FactorValueBatch]:
+        """
+        Specialized batch method for FactorValue creation.
+        
+        Args:
+            factor_batch: FactorBatch DTO containing factors
+            entity_id: ID of the financial asset entity
+            time_date: Date string in 'YYYY-MM-DD HH:MM:SS' format
+            financial_asset_entity: Optional financial asset entity object
+            use_ibkr: Whether to use IBKR repository (True) or local repository (False)
+            
+        Returns:
+            FactorValueBatch DTO or None if failed
+        """
+        try:
+            from src.domain.entities.factor.factor_value import FactorValue
+            
+            # Add metadata to factor batch
+            factor_batch.metadata = factor_batch.metadata or {}
+            factor_batch.metadata.update({
+                'entity_id': entity_id,
+                'time_date': time_date,
+                'financial_asset_entity': financial_asset_entity
+            })
+            
+            if use_ibkr:
+                # Use IBKR repository
+                ibkr_repo = self.get_ibkr_repository(FactorValue)
+                if ibkr_repo and hasattr(ibkr_repo, 'get_or_create_batch'):
+                    return ibkr_repo.get_or_create_batch(factor_batch)
+                else:
+                    print("IBKR FactorValue repository doesn't support batch operations")
+                    return None
+            else:
+                # Use local repository
+                local_repo = self.get_local_repository(FactorValue)
+                if local_repo and hasattr(local_repo, 'get_or_create_batch'):
+                    return local_repo.get_or_create_batch(factor_batch)
+                else:
+                    print("Local FactorValue repository doesn't support batch operations")
+                    return None
+                    
+        except Exception as e:
+            print(f"Error in factor value batch creation: {e}")
             return None
