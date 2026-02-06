@@ -112,60 +112,86 @@ class MarketDataService:
                 self.logger.debug(f"No entity found for ticker {ticker}")
                 return None
             
-            # Get price factor data for this date
-            factor_names = [ 'high','open', 'low', 'close', 'volume']
+            # Get price factor data for this date using optimized batch processing
+            factor_names = ['high', 'open', 'low', 'close', 'volume']
             factor_data = {}
             
-            for factor_name in factor_names:
-                if self.entity_service.repository_factory.ibkr_client.ib_connection.connected_flag:
-                # Use entity service to get or create factor
-                    entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
-                    factor = self.entity_service._create_or_get_ibkr(
-                        entity_cls = entity_factor_class_input, 
-                        entity_symbol = factor_name,
-                        group="price",
-                    )
-                    if factor:
-                        # Create composite key for factor value lookup
-                        date_str = point_in_time.strftime("%Y-%m-%d %H:%M:%S")
-                        composite_key = f"{factor.id}_{entity.id}_{date_str}"
-                        
-                        # Use entity service to get factor value
-                        factor_value = self.entity_service._create_or_get_ibkr(
-                            entity_cls = FactorValue,
-                            entity_symbol = composite_key,
-                            factor=factor,
-                            entity=entity,
-                            date=point_in_time,
-                             
-                        )
-                        
-                        if factor_value:
-                            factor_data[factor_name] = float(factor_value.value)
+            if self.entity_service.repository_factory.ibkr_client.ib_connection.connected_flag:
+                # Create factors first
+                entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
+                factors = []
+                
+                # Get or create all factors in batch
+                factors_data = []
+                for factor_name in factor_names:
+                    factors_data.append({
+                        'entity_symbol': factor_name,
+                        'group': 'price',
+                        'entity_cls': entity_factor_class_input
+                    })
+                
+                # Use batch method to get/create factors
+                created_factors = self.entity_service.get_or_create_batch_ibkr(factors_data, entity_factor_class_input)
+                
+                if created_factors:
+                    # Prepare batch data for factor values with metadata for bulk IBKR processing
+                    factor_values_data = []
+                    for factor in created_factors:
+                        factor_values_data.append({
+                            'factor': factor,
+                            'financial_asset_entity': entity,
+                            'entity_id': entity.id,
+                            'time_date': point_in_time.strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                    
+                    # Use optimized batch method to get factor values from IBKR bulk data
+                    factor_values = self.entity_service.get_or_create_batch_ibkr(factor_values_data, FactorValue)
+                    
+                    # Build factor_data dictionary
+                    for factor_value in factor_values:
+                        # Find corresponding factor name
+                        for factor in created_factors:
+                            if factor.id == factor_value.factor_id:
+                                factor_data[factor.name] = float(factor_value.value)
+                                break
                 else:
+                    # Local batch processing for non-IBKR
                     entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
-                    factor = self.entity_service._create_or_get(
-                        entity_cls = entity_factor_class_input, 
-                        entity_symbol = factor_name,
-                        group="price",
-                    )
-                    if factor:
-                        # Create composite key for factor value lookup
-                        date_str = point_in_time.strftime('%Y-%m-%d')
-                        composite_key = f"{factor.id}_{entity.id}_{date_str}"
+                    
+                    # Get or create all factors in batch
+                    factors_data = []
+                    for factor_name in factor_names:
+                        factors_data.append({
+                            'entity_symbol': factor_name,
+                            'group': 'price'
+                        })
+                    
+                    # Use batch method to get/create factors locally
+                    created_factors = self.entity_service.get_or_create_batch_local(factors_data, entity_factor_class_input)
+                    
+                    if created_factors:
+                        # Prepare batch data for factor values
+                        factor_values_data = []
+                        for factor in created_factors:
+                            date_str = point_in_time.strftime('%Y-%m-%d')
+                            composite_key = f"{factor.id}_{entity.id}_{date_str}"
+                            factor_values_data.append({
+                                'entity_symbol': composite_key,
+                                'factor': factor,
+                                'entity': entity,
+                                'date': point_in_time.date()
+                            })
                         
-                        # Use entity service to get factor value
-                        factor_value = self.entity_service._create_or_get(
-                            entity_cls = FactorValue,
-                            entity_symbol = composite_key,
-                            factor=factor,
-                            entity=entity,
-                            date=point_in_time.date(),
-                             
-                        )
+                        # Use local batch method for factor values
+                        factor_values = self.entity_service.get_or_create_batch_local(factor_values_data, FactorValue)
                         
-                        if factor_value:
-                            factor_data[factor_name] = float(factor_value.value)
+                        # Build factor_data dictionary
+                        for factor_value in factor_values:
+                            # Find corresponding factor name
+                            for factor in created_factors:
+                                if factor.id == factor_value.factor_id:
+                                    factor_data[factor.name] = float(factor_value.value)
+                                    break
             # Create DataFrame if we have data
             if factor_data:
                 factor_data['Date'] = point_in_time
