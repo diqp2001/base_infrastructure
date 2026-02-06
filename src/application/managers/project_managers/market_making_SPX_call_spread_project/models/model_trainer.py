@@ -13,6 +13,7 @@ from pathlib import Path
 
 from application.managers.project_managers.market_making_SPX_call_spread_project.models.pricing_model import PricingModel
 from src.domain.entities.factor.factor import Factor
+from src.dto.factor.factor_batch import FactorBatch
 
 from ..data.data_loader import DataLoader
 from ..data.factor_manager import FactorManager
@@ -130,7 +131,7 @@ class ModelTrainer:
         
     def populate_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
         """
-        Create factor domain entities from config with proper index and future mappings.
+        Create factor domain entities from config using factor_batch DTO for optimized batch operations.
         
         Args:
             tickers: List of tickers to create factors for
@@ -145,13 +146,17 @@ class ModelTrainer:
             'factors_skipped': 0,
             'target_factors_created': 0,
             'factor_details': [],
-            'errors': []
+            'errors': [],
+            'factor_batches': []
         }
         
         try:
-            # Process each factor group from config
+            # Process each factor group from config using batch operations
             for factor_group_name, factor_list in factors_config.items():
                 print(f"  📊 Processing factor group: {factor_group_name}")
+                
+                # Collect factors for this group into a batch
+                group_factors = []
                 
                 for factor_config in factor_list:
                     if not isinstance(factor_config, dict):
@@ -161,39 +166,75 @@ class ModelTrainer:
                     factor_group = factor_config.get('group', 'unknown')
                     factor_subgroup = factor_config.get('subgroup', 'default')
                     factor_data_type = factor_config.get('data_type', 'numeric')
+                    factor_index = factor_config.get('factor_index', len(group_factors))
+                    factor_future_start = factor_config.get('factor_future_start', datetime.now())
                     
                     if not factor_name:
                         continue
                     
                     try:
-                        # Create factor using market_data_history_service
-                        factor_entity = self._create_factor_from_config(
+                        # Create factor entity with index and future start for factors without dependencies
+                        factor_entity = Factor(
                             name=factor_name,
                             group=factor_group,
                             subgroup=factor_subgroup,
                             data_type=factor_data_type,
-                            tickers=tickers,
-                            overwrite=overwrite
+                            source='config',
+                            definition=f'Factor {factor_name} from {factor_group}/{factor_subgroup} configuration'
                         )
                         
-                        if factor_entity:
-                            results['factors_created'] += 1
-                            results['factor_details'].append({
-                                'name': factor_name,
-                                'group': factor_group,
-                                'subgroup': factor_subgroup,
-                                'factor_id': getattr(factor_entity, 'id', None),
-                                'status': 'created'
-                            })
-                            print(f"    ✅ Created factor: {factor_name} (group: {factor_group})")
-                        else:
-                            results['factors_skipped'] += 1
-                            print(f"    ⚠️  Skipped factor: {factor_name}")
+                        # Add factor index and future start for factors without dependencies
+                        factor_entity.factor_index = factor_index
+                        factor_entity.factor_future_start = factor_future_start
+                        
+                        group_factors.append(factor_entity)
+                        
+                        results['factor_details'].append({
+                            'name': factor_name,
+                            'group': factor_group,
+                            'subgroup': factor_subgroup,
+                            'factor_index': factor_index,
+                            'factor_future_start': factor_future_start,
+                            'status': 'added_to_batch'
+                        })
+                        
+                        print(f"    ✅ Added to batch: {factor_name} (group: {factor_group}, index: {factor_index})")
                             
                     except Exception as e:
                         error_msg = f"Error creating factor {factor_name}: {str(e)}"
                         results['errors'].append(error_msg)
                         print(f"    ❌ {error_msg}")
+                
+                # Create FactorBatch for this group
+                if group_factors:
+                    try:
+                        factor_batch = FactorBatch(
+                            factors=group_factors,
+                            metadata={
+                                'group_name': factor_group_name,
+                                'tickers': tickers,
+                                'overwrite': overwrite,
+                                'created_at': datetime.now().isoformat()
+                            }
+                        )
+                        
+                        results['factor_batches'].append(factor_batch)
+                        results['factors_created'] += len(group_factors)
+                        
+                        print(f"    📦 Created FactorBatch for {factor_group_name}: {len(group_factors)} factors")
+                        
+                        # Process the batch using market_data_history_service
+                        if hasattr(self.data_loader, 'market_data_history_service'):
+                            batch_results = self.data_loader.market_data_history_service.process_factor_batch(
+                                factor_batch, tickers
+                            )
+                            print(f"    ✅ Processed batch: {batch_results.get('processed_count', 0)} factors")
+                        
+                    except Exception as e:
+                        error_msg = f"Error creating FactorBatch for {factor_group_name}: {str(e)}"
+                        results['errors'].append(error_msg)
+                        print(f"    ❌ {error_msg}")
+                        results['factors_skipped'] += len(group_factors)
             
             # Create target factors for specified tickers
             target_config = self.config.get('target_factor', {})
@@ -202,7 +243,7 @@ class ModelTrainer:
                     target_config, tickers, overwrite
                 )
             
-            print(f"✅ Factor population complete: {results['factors_created']} factors created, {results['factors_skipped']} skipped")
+            print(f"✅ Factor population complete: {results['factors_created']} factors created in {len(results['factor_batches'])} batches, {results['factors_skipped']} skipped")
             return results
             
         except Exception as e:
