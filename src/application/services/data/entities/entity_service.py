@@ -229,6 +229,77 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
+    def get_or_create_batch_local(self, entities_data: List[Dict[str, Any]], entity_cls: type) -> List[Any]:
+        """
+        Generic batch get_or_create for local repositories.
+        
+        Args:
+            entities_data: List of dictionaries containing entity data
+            entity_cls: Entity class to create/get
+            
+        Returns:
+            List of created/retrieved entities
+        """
+        try:
+            repository = self.get_local_repository(entity_cls)
+            results = []
+            
+            for entity_data in entities_data:
+                try:
+                    entity = repository._create_or_get(entity_cls, **entity_data)
+                    if entity:
+                        results.append(entity)
+                except Exception as e:
+                    print(f"Error in batch local get_or_create for {entity_cls.__name__}: {e}")
+                    continue
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error in get_or_create_batch_local: {e}")
+            return []
+
+    def get_or_create_batch_ibkr(self, entities_data: List[Dict[str, Any]], entity_cls: type) -> List[Any]:
+        """
+        Generic batch get_or_create for IBKR repositories with bulk data optimization.
+        
+        Args:
+            entities_data: List of dictionaries containing entity data
+            entity_cls: Entity class to create/get
+            
+        Returns:
+            List of created/retrieved entities
+        """
+        try:
+            ibkr_repository = self.get_ibkr_repository(entity_cls)
+            
+            if not ibkr_repository:
+                print(f"No IBKR repository available for {entity_cls.__name__}")
+                # Fallback to local batch operation
+                return self.get_or_create_batch_local(entities_data, entity_cls)
+            
+            # Check if repository supports optimized batch operations
+            if hasattr(ibkr_repository, 'get_or_create_batch_optimized'):
+                return ibkr_repository.get_or_create_batch_optimized(entities_data)
+            
+            # Fallback to individual IBKR operations
+            results = []
+            for entity_data in entities_data:
+                try:
+                    entity_symbol = entity_data.get('entity_symbol') or entity_data.get('symbol')
+                    entity = ibkr_repository._create_or_get(entity_symbol, **entity_data)
+                    if entity:
+                        results.append(entity)
+                except Exception as e:
+                    print(f"Error in batch IBKR get_or_create for {entity_cls.__name__}: {e}")
+                    continue
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error in get_or_create_batch_ibkr: {e}")
+            return []
+
     def _create_or_get_ibkr(self, entity_cls: object, entity_symbol: str = None, entity_id: int = None,
                             **kwargs) -> Optional[object]:
         """

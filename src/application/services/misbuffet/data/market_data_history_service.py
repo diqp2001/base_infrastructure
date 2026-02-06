@@ -155,33 +155,63 @@ class MarketDataHistoryService:
             except Exception as e:
                 self.logger.debug(f"Error using get_ticker_factor_data: {e}")
             
-            # Fallback: iterate through dates and get factor values
-            current_date = start_date
-            while current_date <= end_date:
-                try:
-                    daily_data = {'Date': current_date}
-                    
+            # Optimized: Use EntityService batch methods for historical data retrieval
+            try:
+                # Get all factors first using batch processing
+                factors_data = []
+                for factor_name in factor_names:
+                    factors_data.append({
+                        'entity_symbol': factor_name,
+                        'group': 'price'
+                    })
+                
+                # Get factors in batch through market data service entity service
+                factor_entities = []
+                if hasattr(factor_data_service, 'get_factor_by_name'):
+                    # Use existing factor data service methods
                     for factor_name in factor_names:
                         factor = factor_data_service.get_factor_by_name(factor_name)
                         if factor:
-                            factor_values = factor_data_service.get_factor_values(
-                                factor_id=int(factor.id),
-                                entity_id=entity.id,
-                                start_date=current_date.strftime('%Y-%m-%d'),
-                                end_date=current_date.strftime('%Y-%m-%d')
-                            )
-                            
-                            if factor_values:
-                                daily_data[factor_name] = float(factor_values[0].value)
-                    
-                    # Only add if we have actual price data
-                    if len(daily_data) > 1:  # More than just the date
-                        historical_data.append(daily_data)
-                        
-                except Exception as e:
-                    self.logger.debug(f"Error getting data for {symbol} on {current_date}: {e}")
+                            factor_entities.append(factor)
                 
-                current_date += timedelta(days=1)
+                if factor_entities and hasattr(self.market_data_service, 'entity_service'):
+                    # Use MarketDataService's entity service for optimized batch processing
+                    entity_service = self.market_data_service.entity_service
+                    
+                    # Check if IBKR is available for bulk data optimization
+                    if (hasattr(entity_service, 'repository_factory') and 
+                        hasattr(entity_service.repository_factory, 'ibkr_client') and
+                        entity_service.repository_factory.ibkr_client):
+                        
+                        # Prepare batch request for IBKR bulk data
+                        factor_values_data = []
+                        for factor in factor_entities:
+                            factor_values_data.append({
+                                'factor': factor,
+                                'financial_asset_entity': entity,
+                                'entity_id': entity.id,
+                                'time_date': start_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                'end_date': end_date.strftime("%Y-%m-%d %H:%M:%S")
+                            })
+                        
+                        # Get bulk factor values using optimized IBKR batch method
+                        bulk_factor_values = entity_service.get_or_create_batch_ibkr(factor_values_data, FactorValue)
+                        
+                        # Convert bulk factor values to DataFrame format
+                        historical_data = self._convert_bulk_factor_values_to_dataframe(
+                            bulk_factor_values, factor_entities, start_date, end_date
+                        )
+                        
+                    else:
+                        # Fallback to date iteration for local repositories
+                        historical_data = self._process_date_range_locally(
+                            factor_data_service, factor_names, entity, start_date, end_date
+                        )
+                else:
+                    # Original fallback: iterate through dates and get factor values
+                    historical_data = self._process_date_range_locally(
+                        factor_data_service, factor_names, entity, start_date, end_date
+                    )
             
             # Create DataFrame
             if historical_data:
@@ -504,3 +534,107 @@ class MarketDataHistoryService:
                 factor_values=[],
                 metadata={'error': str(e)}
             )
+
+    def _convert_bulk_factor_values_to_dataframe(self, bulk_factor_values: List[FactorValue],
+                                               factor_entities: List[Any], start_date: datetime, 
+                                               end_date: datetime) -> List[Dict[str, Any]]:
+        """
+        Convert bulk factor values from IBKR to historical data format.
+        
+        Args:
+            bulk_factor_values: List of FactorValue entities from IBKR bulk request
+            factor_entities: List of factor entities for name mapping
+            start_date: Start date for filtering
+            end_date: End date for filtering
+            
+        Returns:
+            List of dictionaries suitable for DataFrame creation
+        """
+        try:
+            historical_data = []
+            
+            # Group factor values by date
+            date_groups = {}
+            for factor_value in bulk_factor_values:
+                factor_date = factor_value.date
+                
+                # Filter by date range
+                if factor_date < start_date or factor_date > end_date:
+                    continue
+                
+                date_key = factor_date.strftime('%Y-%m-%d')
+                if date_key not in date_groups:
+                    date_groups[date_key] = {'Date': factor_date}
+                
+                # Find factor name by ID
+                factor_name = None
+                for factor in factor_entities:
+                    if factor.id == factor_value.factor_id:
+                        factor_name = factor.name
+                        break
+                
+                if factor_name:
+                    date_groups[date_key][factor_name] = float(factor_value.value)
+            
+            # Convert grouped data to list format
+            for date_key, daily_data in date_groups.items():
+                if len(daily_data) > 1:  # More than just the date
+                    historical_data.append(daily_data)
+            
+            self.logger.info(f"Converted {len(bulk_factor_values)} factor values to {len(historical_data)} daily records")
+            return historical_data
+            
+        except Exception as e:
+            self.logger.error(f"Error converting bulk factor values to dataframe: {e}")
+            return []
+
+    def _process_date_range_locally(self, factor_data_service, factor_names: List[str],
+                                  entity: Any, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
+        """
+        Process date range using local repositories (fallback method).
+        
+        Args:
+            factor_data_service: Factor data service
+            factor_names: List of factor names to retrieve
+            entity: Entity to get data for
+            start_date: Start date
+            end_date: End date
+            
+        Returns:
+            List of historical data dictionaries
+        """
+        try:
+            historical_data = []
+            current_date = start_date
+            
+            while current_date <= end_date:
+                try:
+                    daily_data = {'Date': current_date}
+                    
+                    for factor_name in factor_names:
+                        factor = factor_data_service.get_factor_by_name(factor_name)
+                        if factor:
+                            factor_values = factor_data_service.get_factor_values(
+                                factor_id=int(factor.id),
+                                entity_id=entity.id,
+                                start_date=current_date.strftime('%Y-%m-%d'),
+                                end_date=current_date.strftime('%Y-%m-%d')
+                            )
+                            
+                            if factor_values:
+                                daily_data[factor_name] = float(factor_values[0].value)
+                    
+                    # Only add if we have actual price data
+                    if len(daily_data) > 1:  # More than just the date
+                        historical_data.append(daily_data)
+                        
+                except Exception as e:
+                    self.logger.debug(f"Error getting local data for {entity} on {current_date}: {e}")
+                
+                current_date += timedelta(days=1)
+            
+            return historical_data
+            
+        except Exception as e:
+            self.logger.error(f"Error in local date range processing: {e}")
+            return []

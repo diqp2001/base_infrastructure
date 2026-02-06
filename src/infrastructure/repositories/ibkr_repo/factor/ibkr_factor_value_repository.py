@@ -410,12 +410,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     
     def get_or_create_batch(self, factor_batch: FactorBatch) -> Optional[FactorValueBatch]:
         """
-        Batch get or create factor values for a batch of factors.
+        Optimized batch get or create factor values leveraging IBKR bulk data responses.
         
-        This method optimizes factor value creation by:
-        1. Processing factors in batches
-        2. Minimizing IBKR API calls through bulk operations
-        3. Using batch database operations for persistence
+        This method is redesigned to efficiently use IBKR bulk historical data:
+        1. Makes single IBKR historical data requests that return 6 months of data
+        2. Extracts multiple factor values from each bulk response
+        3. Batch persists all factor values to database
         
         Args:
             factor_batch: FactorBatch DTO containing factors to process
@@ -428,26 +428,54 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print("Cannot process empty factor batch")
                 return None
 
+            # Extract metadata for bulk processing
+            financial_asset_entity = factor_batch.metadata.get('financial_asset_entity')
+            entity_id = factor_batch.metadata.get('entity_id')
+            time_date = factor_batch.metadata.get('time_date', datetime.now())
+            
+            if not financial_asset_entity or not entity_id:
+                print("Financial asset entity and entity_id required for IBKR batch processing")
+                return None
+            
+            # Convert time to datetime if needed
+            if isinstance(time_date, str):
+                time_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+            
             created_factor_values = []
-
-            # Process factors in chunks to optimize performance
-            chunk_size = factor_batch.metadata.get('chunk_size', 100)
-            factor_chunks = factor_batch.chunk(chunk_size) if len(factor_batch) > chunk_size else [factor_batch]
-
-            for chunk in factor_chunks:
-                chunk_results = self._process_factor_chunk(chunk)
-                if chunk_results:
-                    created_factor_values.extend(chunk_results)
+            
+            # Group factors by symbol to optimize IBKR calls
+            symbol_factors = self._group_factors_by_symbol(factor_batch, financial_asset_entity)
+            
+            for symbol, factors in symbol_factors.items():
+                try:
+                    # Make single IBKR historical data request for this symbol
+                    bulk_ibkr_data = self._fetch_bulk_historical_data(symbol, time_date)
+                    
+                    if bulk_ibkr_data:
+                        # Extract factor values for all factors from the bulk response
+                        factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
+                            bulk_ibkr_data, factors, entity_id
+                        )
+                        created_factor_values.extend(factor_values_from_bulk)
+                    
+                except Exception as e:
+                    print(f"Error processing symbol {symbol} in batch: {e}")
+                    continue
 
             if not created_factor_values:
-                print("No factor values were created or retrieved")
+                print("No factor values were created from bulk IBKR data")
                 return None
+
+            # Batch persist all factor values to database
+            self._batch_persist_factor_values(created_factor_values)
 
             # Create result batch with metadata
             result_metadata = {
                 'processed_count': len(created_factor_values),
                 'original_batch_size': len(factor_batch),
-                'processing_timestamp': datetime.now().isoformat()
+                'processing_timestamp': datetime.now().isoformat(),
+                'bulk_requests_made': len(symbol_factors),
+                'optimization_ratio': len(created_factor_values) / len(symbol_factors) if symbol_factors else 0
             }
 
             return FactorValueBatch(
@@ -456,7 +484,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             )
 
         except Exception as e:
-            print(f"Error in get_or_create_batch: {e}")
+            print(f"Error in optimized get_or_create_batch: {e}")
             return None
 
     def _process_factor_chunk(self, factor_chunk: FactorBatch) -> List[FactorValue]:
@@ -576,6 +604,268 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error in batch persistence: {e}")
             return False
+
+    def _group_factors_by_symbol(self, factor_batch: FactorBatch, financial_asset_entity: Any) -> Dict[str, List[Any]]:
+        """
+        Group factors by symbol to optimize IBKR requests.
+        
+        Args:
+            factor_batch: FactorBatch containing factors to group
+            financial_asset_entity: Financial asset entity for symbol extraction
+            
+        Returns:
+            Dictionary mapping symbols to lists of factors
+        """
+        try:
+            symbol = (
+                getattr(financial_asset_entity, 'symbol', None) or
+                getattr(financial_asset_entity, 'ticker', None) or 
+                getattr(financial_asset_entity, 'name', None)
+            )
+            
+            if not symbol:
+                print(f"Could not extract symbol from financial asset entity")
+                return {}
+            
+            # All factors for this entity use the same symbol
+            return {symbol: factor_batch.factors}
+            
+        except Exception as e:
+            print(f"Error grouping factors by symbol: {e}")
+            return {}
+
+    def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetch bulk historical data from IBKR for a symbol.
+        
+        This leverages the fact that IBKR returns 6 months of OHLCV data in a single request,
+        providing much more data than just the single requested date.
+        
+        Args:
+            symbol: Symbol to fetch data for
+            target_date: Target date (will fetch data including this date)
+            
+        Returns:
+            List of historical bar dictionaries from IBKR or None if failed
+        """
+        try:
+            # Create contract for the symbol
+            contract = self._create_contract_for_symbol(symbol)
+            if not contract:
+                return None
+            
+            # Use instrument factor repository to get historical data
+            if self.factory and hasattr(self.factory, 'instrument_factor_ibkr_repo'):
+                instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
+                
+                # Create a minimal instrument for the request
+                from src.domain.entities.finance.instrument.ibkr_instrument import IBKRInstrument
+                temp_instrument = IBKRInstrument(
+                    id=None,
+                    symbol=symbol,
+                    contract_details={},
+                    tick_data={},
+                    timestamp=target_date
+                )
+                
+                # Request bulk historical data - this returns 6 months of data
+                bulk_data = instrument_factor_repo.get_or_create(
+                    instrument=temp_instrument,
+                    contract=contract,
+                    factor=None,  # Will process all factors
+                    entity=None,  # Will be set per factor value
+                    what_to_show="TRADES",
+                    duration_str="6 M",  # Get 6 months of data in one request
+                    bar_size_setting="1 day",  # Daily bars for factor values
+                    historical=True
+                )
+                
+                return bulk_data
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error fetching bulk historical data for {symbol}: {e}")
+            return None
+
+    def _create_contract_for_symbol(self, symbol: str) -> Optional['Contract']:
+        """Create IBKR contract for symbol."""
+        try:
+            contract = Contract()
+            contract.symbol = symbol.upper()
+            contract.secType = "STK"
+            contract.exchange = "SMART"
+            contract.currency = "USD"
+            return contract
+        except Exception as e:
+            print(f"Error creating contract for {symbol}: {e}")
+            return None
+
+    def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]], 
+                                            factors: List[Any], entity_id: int) -> List[FactorValue]:
+        """
+        Extract multiple factor values from bulk IBKR historical data.
+        
+        This is the core optimization: instead of making separate requests for each factor,
+        we extract all factor values from the single bulk response.
+        
+        Args:
+            bulk_data: List of historical bars from IBKR
+            factors: List of factors to extract values for
+            entity_id: Entity ID for the factor values
+            
+        Returns:
+            List of FactorValue entities extracted from bulk data
+        """
+        try:
+            factor_values = []
+            
+            for bar_data in bulk_data:
+                try:
+                    # Parse date from IBKR format
+                    bar_date = self._parse_ibkr_date(bar_data.get('date'))
+                    if not bar_date:
+                        continue
+                    
+                    # Check if factor value already exists for this date (for any factor)
+                    # This prevents duplicate processing
+                    date_str = bar_date.strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Extract factor values for each factor from this bar
+                    for factor in factors:
+                        try:
+                            # Check if factor value already exists
+                            existing = self._check_existing_factor_value(factor.id, entity_id, date_str)
+                            if existing:
+                                factor_values.append(existing)
+                                continue
+                            
+                            # Extract value for this factor from the bar
+                            factor_value = self._extract_factor_value_from_bar(
+                                bar_data, factor, entity_id, bar_date
+                            )
+                            
+                            if factor_value:
+                                factor_values.append(factor_value)
+                                
+                        except Exception as factor_error:
+                            print(f"Error extracting factor {factor.name} from bar {bar_date}: {factor_error}")
+                            continue
+                    
+                except Exception as bar_error:
+                    print(f"Error processing bar data: {bar_error}")
+                    continue
+            
+            print(f"Extracted {len(factor_values)} factor values from {len(bulk_data)} bars for {len(factors)} factors")
+            return factor_values
+            
+        except Exception as e:
+            print(f"Error extracting factor values from bulk data: {e}")
+            return []
+
+    def _parse_ibkr_date(self, date_str: str) -> Optional[datetime]:
+        """Parse IBKR date string to datetime object."""
+        try:
+            if len(date_str) == 8:  # YYYYMMDD format
+                return datetime.strptime(date_str, "%Y%m%d")
+            else:  # YYYYMMDD HH:MM:SS format
+                return datetime.strptime(date_str, "%Y%m%d %H:%M:%S")
+        except Exception as e:
+            print(f"Error parsing IBKR date {date_str}: {e}")
+            return None
+
+    def _extract_factor_value_from_bar(self, bar_data: Dict[str, Any], factor: Any, 
+                                     entity_id: int, bar_date: datetime) -> Optional[FactorValue]:
+        """
+        Extract a single factor value from an IBKR bar.
+        
+        Args:
+            bar_data: Single bar from IBKR historical data
+            factor: Factor entity to extract value for
+            entity_id: Entity ID for the factor value
+            bar_date: Date of the bar
+            
+        Returns:
+            FactorValue entity or None if extraction failed
+        """
+        try:
+            factor_name = factor.name.lower()
+            
+            # Map factor names to IBKR bar fields
+            field_mapping = {
+                'open': 'open',
+                'high': 'high', 
+                'low': 'low',
+                'close': 'close',
+                'volume': 'volume',
+                'barcount': 'barCount'
+            }
+            
+            bar_field = field_mapping.get(factor_name)
+            if not bar_field or bar_field not in bar_data:
+                print(f"Factor {factor_name} not available in IBKR bar data")
+                return None
+            
+            value = bar_data[bar_field]
+            if value is None:
+                return None
+            
+            # Create FactorValue entity
+            return FactorValue(
+                id=None,  # Let database generate
+                factor_id=factor.id,
+                entity_id=entity_id,
+                date=bar_date,
+                value=str(value)
+            )
+            
+        except Exception as e:
+            print(f"Error extracting factor value from bar: {e}")
+            return None
+
+    def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]]) -> List[FactorValue]:
+        """
+        Optimized batch method for EntityService integration.
+        
+        Args:
+            entities_data: List of dictionaries containing entity data for batch processing
+            
+        Returns:
+            List of created/retrieved FactorValue entities
+        """
+        try:
+            # Convert entities_data to FactorBatch format
+            from src.dto.factor.factor_batch import FactorBatch
+            
+            factors = []
+            metadata = {}
+            
+            for entity_data in entities_data:
+                factor = entity_data.get('factor')
+                if factor:
+                    factors.append(factor)
+                
+                # Extract common metadata
+                if 'financial_asset_entity' in entity_data:
+                    metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
+                if 'entity_id' in entity_data:
+                    metadata['entity_id'] = entity_data['entity_id']
+                if 'time_date' in entity_data:
+                    metadata['time_date'] = entity_data['time_date']
+            
+            if not factors:
+                print("No factors found in entities_data")
+                return []
+            
+            # Create FactorBatch and use optimized processing
+            factor_batch = FactorBatch(factors=factors, metadata=metadata)
+            result_batch = self.get_or_create_batch(factor_batch)
+            
+            return result_batch.factor_values if result_batch else []
+            
+        except Exception as e:
+            print(f"Error in get_or_create_batch_optimized: {e}")
+            return []
 
     
     def get_ibkr_factor_base(self,financial_asset_entity):
