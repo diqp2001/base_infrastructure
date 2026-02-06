@@ -64,8 +64,8 @@ class ModelTrainer:
         """
         print("🚀 Starting complete spatiotemporal training pipeline...")
         
-        if tickers is None:
-            tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
+        # if tickers is None:
+        #     tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
         
         if seeds is None:
             seeds = [42, 123]
@@ -116,7 +116,7 @@ class ModelTrainer:
         # Replicate the backtestRunner setup process
         # 1. Ensure basic entities exist
         self.data_loader.market_data_history_service
-        entities_summary = self.data_loader.market_data_history_service._ensure_entities_exist(tickers)
+        # entities_summary = self.data_loader.market_data_history_service._ensure_entities_exist(tickers)
         
         # 2. Populate price factors  
         factors_summary = self.populate_factors(tickers, overwrite)

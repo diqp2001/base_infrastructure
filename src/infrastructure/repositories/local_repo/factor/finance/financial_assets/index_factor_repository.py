@@ -54,6 +54,7 @@ class IndexFactorRepository(BaseFactorRepository):
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(name =primary_key,group=kwargs.get('group', 'index'),
                 subgroup=kwargs.get('subgroup', 'daily'),
+                factor_type=kwargs.get('factor_type', 'index'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market_data'))
             if existing:
