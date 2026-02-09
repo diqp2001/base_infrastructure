@@ -21,6 +21,16 @@ from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository impor
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.factor import Factor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickType, IBKRTickFactorMapper
+from src.domain.entities.factor.factor_dependency_resolver import (
+    FactorDependencyResolver, 
+    DependencyResolutionContext,
+    FactorDependencyResolutionError
+)
+from src.domain.entities.factor.factor_dependency import (
+    InMemoryFactorDependencyRegistry,
+    FactorDiscriminator,
+    FactorReference
+)
 
 # Forward references for type hints
 from typing import TYPE_CHECKING
@@ -59,6 +69,14 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         self.factory = factory
         self.ibkr_instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
         self.tick_mapper = IBKRTickFactorMapper()
+        
+        # Initialize dependency resolution system
+        self.dependency_registry = InMemoryFactorDependencyRegistry()
+        self.dependency_resolver = FactorDependencyResolver(
+            registry=self.dependency_registry,
+            data_source_resolver=self  # Self-reference for IBKR data resolution
+        )
+        self._initialize_standard_factor_discriminators()
         
     @property 
     def local_repo(self):
@@ -312,43 +330,49 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             dependencies = self._get_factor_dependencies(factor_entity)
             
             if dependencies:
-                # CASE 1: Factor has dependencies - resolve dependencies first, then calculate
+                # CASE 1: Factor has dependencies - use new discriminator-based resolution
                 print(f"Factor {factor_entity.name} has dependencies: {list(dependencies.keys())}")
                 
-                # 3. Resolve all dependencies recursively from IBKR
-                resolved_dependencies = {}
-                for dep_name, dep_factor_info in dependencies.items():
-                    dep_value = self._resolve_factor_dependency_from_ibkr(
-                        dep_factor_info,
-                        financial_asset_entity,
-                        time_date,
+                try:
+                    # Create resolution context
+                    context = DependencyResolutionContext(
+                        timestamp=date_obj,
+                        entity_id=entity_id,
+                        instrument_id=kwargs.get('instrument_id')
+                    )
+                    
+                    # Use the new dependency resolver for discriminator-based resolution
+                    calculated_value = self.dependency_resolver.calculate_factor_with_dependencies(
+                        factor=factor_entity,
+                        context=context,
                         **kwargs
                     )
-                    if dep_value is not None:
-                        resolved_dependencies[dep_name] = dep_value
-                    else:
-                        print(f"Warning: Could not resolve dependency {dep_name} for factor {factor_entity.name}")
+                    
+                    if calculated_value is None:
+                        print(f"Factor calculation failed for {factor_entity.name} using dependency resolver")
+                        return None
                 
-                # 4. Call the factor's calculate method with resolved dependencies
-                calculated_value = self._call_factor_calculate_method(
-                    factor_entity,
-                    financial_asset_entity,
-                    resolved_dependencies,
-                    **kwargs
-                )
-                
-                if calculated_value is None:
-                    print(f"Factor calculation failed for {factor_entity.name}")
+                    # 5. Create and store the factor value
+                    factor_value = FactorValue(
+                        id=None,  # Let database generate
+                        factor_id=factor_id,
+                        entity_id=entity_id,
+                        date=date_obj,
+                        value=str(calculated_value)  # Convert to string for storage
+                    )
+                    
+                except FactorDependencyResolutionError as e:
+                    print(f"Dependency resolution error for {factor_entity.name}: {e}")
                     return None
-            
-                # 5. Create and store the factor value
-                factor_value = FactorValue(
-                    id=None,  # Let database generate
-                    factor_id=factor_id,
-                    entity_id=entity_id,
-                    date=date_obj,
-                    value=str(calculated_value)  # Convert to string for storage
-                )
+                
+                # Persist to database via local repository
+                created_value = self.local_repo.add(factor_value)
+                if created_value:
+                    print(f"Created factor value with dependencies: {factor_entity.name}")
+                    return created_value
+                else:
+                    print(f"Failed to persist factor value for {factor_entity.name}")
+                    return None
                 
             else:
                 # CASE 2: No dependencies - fetch directly from IBKR
@@ -988,12 +1012,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
     def _get_factor_dependencies(self, factor_entity: Factor) -> Dict[str, Dict[str, Any]]:
         """
-        Extract dependencies from factor class definition.
+        Extract dependencies from factor class definition using enhanced discriminator-based system.
         
-        Looks for:
-        1. Class attribute 'dependencies' 
-        2. Method parameters that might indicate dependencies
-        3. Factor-specific dependency patterns
+        Now supports:
+        1. New discriminator-based dependencies format (preferred)
+        2. Legacy class attribute 'dependencies' 
+        3. Method parameter analysis (fallback)
         
         Args:
             factor_entity: Factor domain entity
@@ -1006,17 +1030,33 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         try:
             factor_class = factor_entity.__class__
             
-            # 1. Check for explicit dependencies attribute
+            # 1. Check for new discriminator-based dependencies format
             if hasattr(factor_class, 'dependencies'):
                 deps = getattr(factor_class, 'dependencies')
                 if isinstance(deps, dict):
-                    dependencies.update(deps)
+                    # Check if this is the new discriminator format
+                    is_discriminator_format = any(
+                        isinstance(dep_data, dict) and 
+                        "factor" in dep_data and 
+                        isinstance(dep_data["factor"], dict) and
+                        "discriminator" in dep_data["factor"]
+                        for dep_data in deps.values()
+                    )
+                    
+                    if is_discriminator_format:
+                        # New format - return as-is for use with FactorDependencyResolver
+                        dependencies.update(deps)
+                        return dependencies
+                    else:
+                        # Legacy dict format - convert
+                        dependencies.update(deps)
                 elif isinstance(deps, list):
                     # Convert list to dict with basic info
                     for dep in deps:
                         dependencies[dep] = {'name': dep, 'required': True}
             
-                # 2. Analyze calculate method parameters
+            # 2. Analyze calculate method parameters (fallback)
+            if not dependencies:
                 calculate_methods = [method for method in dir(factor_class) 
                                 if method.startswith('calculate') and callable(getattr(factor_class, method))]
                 
@@ -1033,8 +1073,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                     'required': True,
                                     'method': method_name
                                 }
-            
-            
+                    break  # Use first calculate method found
         
         except Exception as e:
             print(f"Error extracting dependencies for {factor_entity.name}: {e}")
@@ -1577,3 +1616,159 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
             return None
+
+    def _initialize_standard_factor_discriminators(self) -> None:
+        """
+        Initialize standard factor discriminators for common market data factors.
+        
+        This creates the discriminator mappings for factors that can be resolved
+        directly from IBKR data without additional dependencies.
+        """
+        try:
+            # Standard market price factors
+            standard_factors = [
+                ("MARKET_SPOT_PRICE", "v1", "open", "Market Price", "Spot", "IBKR"),
+                ("MARKET_FUTURE_PRICE", "v1", "close", "Market Price", "Future", "IBKR"),
+                ("MARKET_HIGH_PRICE", "v1", "high", "Market Price", "High", "IBKR"), 
+                ("MARKET_LOW_PRICE", "v1", "low", "Market Price", "Low", "IBKR"),
+                ("MARKET_VOLUME", "v1", "volume", "Market Data", "Volume", "IBKR"),
+                ("MARKET_VOLATILITY", "v1", "HISTORICAL_VOLATILITY", "Market Data", "Volatility", "IBKR"),
+            ]
+            
+            for code, version, ibkr_field, group, subgroup, source in standard_factors:
+                discriminator = FactorDiscriminator(code=code, version=version)
+                
+                # Create a mock factor entity for registry - in real implementation,
+                # these would be loaded from the factor repository
+                mock_factor = type('StandardFactor', (), {
+                    'name': ibkr_field.title(),
+                    'group': group,
+                    'subgroup': subgroup,
+                    'source': source,
+                    'ibkr_field': ibkr_field,
+                    'id': hash(f"{code}:{version}")  # Generate deterministic ID
+                })()
+                
+                self.dependency_registry.register_factor(mock_factor, discriminator)
+            
+            print(f"Initialized {len(standard_factors)} standard factor discriminators")
+            
+        except Exception as e:
+            print(f"Error initializing standard factor discriminators: {e}")
+
+    def resolve_by_discriminator(
+        self,
+        discriminator: FactorDiscriminator,
+        factor_reference: FactorReference,
+        timestamp: datetime,
+        entity_id: Optional[int] = None,
+        instrument_id: Optional[int] = None,
+        **kwargs
+    ) -> Optional[Any]:
+        """
+        Resolve factor value by discriminator from IBKR data source.
+        
+        This method implements the data source resolution interface for the
+        FactorDependencyResolver and handles discriminator-based factor lookup.
+        
+        Args:
+            discriminator: Stable factor discriminator
+            factor_reference: Complete factor reference with metadata
+            timestamp: Timestamp for data resolution
+            entity_id: Optional entity ID for context
+            instrument_id: Optional instrument ID for context
+            **kwargs: Additional resolution parameters
+            
+        Returns:
+            Resolved factor value or None if resolution failed
+        """
+        try:
+            # First check if factor is registered in our dependency registry
+            registered_factor = self.dependency_registry.resolve_factor(discriminator)
+            
+            if registered_factor:
+                # Use IBKR API to get current value for this factor
+                return self._resolve_standard_factor_from_ibkr(
+                    registered_factor, 
+                    timestamp, 
+                    entity_id, 
+                    **kwargs
+                )
+            
+            # If not registered, try to resolve from discriminator code patterns
+            code = discriminator.code
+            
+            if code.startswith("MARKET_"):
+                return self._resolve_market_factor_by_code(code, timestamp, entity_id, **kwargs)
+            elif code.startswith("FUTURE_"):
+                return self._resolve_future_factor_by_code(code, timestamp, entity_id, **kwargs)
+            elif code.startswith("OPTION_"):
+                return self._resolve_option_factor_by_code(code, timestamp, entity_id, **kwargs)
+            else:
+                print(f"Unknown discriminator code pattern: {code}")
+                return None
+            
+        except Exception as e:
+            print(f"Error resolving factor by discriminator {discriminator.to_key()}: {e}")
+            return None
+
+    def _resolve_standard_factor_from_ibkr(
+        self, 
+        factor: Any, 
+        timestamp: datetime, 
+        entity_id: Optional[int] = None,
+        **kwargs
+    ) -> Optional[Any]:
+        """Resolve standard registered factor from IBKR API."""
+        try:
+            ibkr_field = getattr(factor, 'ibkr_field', 'close')
+            
+            # Get financial asset entity for contract creation
+            if entity_id and self.factory:
+                financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                if financial_asset_entity:
+                    # Fetch current data via IBKR
+                    contract = self._fetch_contract(financial_asset_entity=financial_asset_entity)
+                    if contract:
+                        # Use instrument factor repository to get current value
+                        if hasattr(self, 'factory') and self.factory:
+                            instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
+                            if instrument_factor_repo:
+                                tick_data = instrument_factor_repo.get_or_create(
+                                    contract=contract,
+                                    factor=factor,
+                                    entity=financial_asset_entity,
+                                    what_to_show=kwargs.get('what_to_show', 'TRADES')
+                                )
+                                
+                                # Extract specific field value
+                                if tick_data:
+                                    for bar in tick_data:
+                                        if ibkr_field in bar:
+                                            return bar[ibkr_field]
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error resolving standard factor from IBKR: {e}")
+            return None
+
+    def register_factor_with_discriminator(
+        self, 
+        factor: Factor, 
+        discriminator: FactorDiscriminator
+    ) -> None:
+        """
+        Register a factor entity with its discriminator for dependency resolution.
+        
+        This allows factors to be resolved by their stable discriminator codes.
+        """
+        self.dependency_registry.register_factor(factor, discriminator)
+
+    def get_registered_factor_count(self) -> int:
+        """Get count of factors registered in dependency registry."""
+        return self.dependency_registry.get_factor_count()
+
+    def list_registered_discriminators(self) -> List[FactorDiscriminator]:
+        """List all registered factor discriminators."""
+        return self.dependency_registry.list_registered_factors()
