@@ -259,13 +259,19 @@ class EntityService:
             print(f"Error in get_or_create_batch_local: {e}")
             return []
 
-    def get_or_create_batch_ibkr(self, entities_data: List[Dict[str, Any]], entity_cls: type) -> List[Any]:
+    def get_or_create_batch_ibkr(self, entities_data: List[Dict[str, Any]], entity_cls: type, 
+                                what_to_show: str = "TRADES", 
+                                duration_str: str = "6 M", 
+                                bar_size_setting: str = "1 day") -> List[Any]:
         """
         Generic batch get_or_create for IBKR repositories with bulk data optimization.
         
         Args:
             entities_data: List of dictionaries containing entity data
             entity_cls: Entity class to create/get
+            what_to_show: Nature of data to extract (TRADES, MIDPOINT, BID, ASK, etc.)
+            duration_str: Query duration (format: integer + space + unit S/D/W)
+            bar_size_setting: Bar size (1 sec to 1 day)
             
         Returns:
             List of created/retrieved entities
@@ -280,7 +286,9 @@ class EntityService:
             
             # Check if repository supports optimized batch operations
             if hasattr(ibkr_repository, 'get_or_create_batch_optimized'):
-                return ibkr_repository.get_or_create_batch_optimized(entities_data)
+                return ibkr_repository.get_or_create_batch_optimized(
+                    entities_data, what_to_show, duration_str, bar_size_setting
+                )
             
             # Fallback to individual IBKR operations
             results = []

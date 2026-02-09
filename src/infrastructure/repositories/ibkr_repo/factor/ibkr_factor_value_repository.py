@@ -408,17 +408,27 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
             return None
     
-    def get_or_create_batch(self, factor_batch: FactorBatch) -> Optional[FactorValueBatch]:
+    def get_or_create_batch(self, factor_batch: FactorBatch, 
+                           what_to_show: str = "TRADES", 
+                           duration_str: str = "6 M", 
+                           bar_size_setting: str = "1 day") -> Optional[FactorValueBatch]:
         """
         Optimized batch get or create factor values leveraging IBKR bulk data responses.
         
         This method is redesigned to efficiently use IBKR bulk historical data:
-        1. Makes single IBKR historical data requests that return 6 months of data
+        1. Makes single IBKR historical data requests that return bulk data
         2. Extracts multiple factor values from each bulk response
         3. Batch persists all factor values to database
         
         Args:
             factor_batch: FactorBatch DTO containing factors to process
+            what_to_show: Nature of data to extract. Valid values:
+                TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY
+            duration_str: Query duration (e.g., "6 M", "2 W", "30 D", "3600 S"). 
+                Format: integer + space + unit (S=seconds, D=days, W=weeks)
+            bar_size_setting: Bar size. Valid values:
+                1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 
+                15 mins, 30 mins, 1 hour, 1 day
             
         Returns:
             FactorValueBatch DTO containing created/retrieved factor values or None if failed
@@ -449,7 +459,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             for symbol, factors in symbol_factors.items():
                 try:
                     # Make single IBKR historical data request for this symbol
-                    bulk_ibkr_data = self._fetch_bulk_historical_data(symbol, time_date, financial_asset_entity)
+                    bulk_ibkr_data = self._fetch_bulk_historical_data(
+                        symbol, time_date, financial_asset_entity, what_to_show, duration_str, bar_size_setting
+                    )
                     
                     if bulk_ibkr_data:
                         # Extract factor values for all factors from the bulk response
@@ -634,16 +646,27 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error grouping factors by symbol: {e}")
             return {}
 
-    def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime,asset) -> Optional[List[Dict[str, Any]]]:
+    def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime, asset, 
+                                   what_to_show: str = "TRADES", 
+                                   duration_str: str = "6 M", 
+                                   bar_size_setting: str = "1 day") -> Optional[List[Dict[str, Any]]]:
         """
         Fetch bulk historical data from IBKR for a symbol.
         
-        This leverages the fact that IBKR returns 6 months of OHLCV data in a single request,
+        This leverages the fact that IBKR returns bulk OHLCV data in a single request,
         providing much more data than just the single requested date.
         
         Args:
             symbol: Symbol to fetch data for
             target_date: Target date (will fetch data including this date)
+            asset: Financial asset entity
+            what_to_show: Nature of data to extract. Valid values:
+                TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY
+            duration_str: Query duration (e.g., "6 M", "2 W", "30 D", "3600 S"). 
+                Format: integer + space + unit (S=seconds, D=days, W=weeks)
+            bar_size_setting: Bar size. Valid values:
+                1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 
+                15 mins, 30 mins, 1 hour, 1 day
             
         Returns:
             List of historical bar dictionaries from IBKR or None if failed
@@ -669,15 +692,15 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     date=target_date
                 )
                 
-                # Request bulk historical data - this returns 6 months of data
+                # Request bulk historical data with configurable parameters
                 bulk_data = instrument_factor_repo.get_or_create(
                     instrument=temp_instrument,
                     contract=contract,
                     factor=None,  # Will process all factors
                     entity=None,  # Will be set per factor value
-                    what_to_show="TRADES",
-                    duration_str="6 M",  # Get 6 months of data in one request
-                    bar_size_setting="1 day",  # Daily bars for factor values
+                    what_to_show=what_to_show,
+                    duration_str=duration_str,
+                    bar_size_setting=bar_size_setting,
                     historical=True
                 )
                 
@@ -824,12 +847,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting factor value from bar: {e}")
             return None
 
-    def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]]) -> List[FactorValue]:
+    def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]], 
+                                     what_to_show: str = "TRADES", 
+                                     duration_str: str = "6 M", 
+                                     bar_size_setting: str = "1 day") -> List[FactorValue]:
         """
         Optimized batch method for EntityService integration.
         
         Args:
             entities_data: List of dictionaries containing entity data for batch processing
+            what_to_show: Nature of data to extract. Valid values:
+                TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY
+            duration_str: Query duration (e.g., "6 M", "2 W", "30 D", "3600 S"). 
+                Format: integer + space + unit (S=seconds, D=days, W=weeks)
+            bar_size_setting: Bar size. Valid values:
+                1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 
+                15 mins, 30 mins, 1 hour, 1 day
             
         Returns:
             List of created/retrieved FactorValue entities
@@ -858,9 +891,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print("No factors found in entities_data")
                 return []
             
-            # Create FactorBatch and use optimized processing
+            # Create FactorBatch and use optimized processing with configurable parameters
             factor_batch = FactorBatch(factors=factors, metadata=metadata)
-            result_batch = self.get_or_create_batch(factor_batch)
+            result_batch = self.get_or_create_batch(factor_batch, what_to_show, duration_str, bar_size_setting)
             
             return result_batch.factor_values if result_batch else []
             
