@@ -130,8 +130,13 @@ class MarketDataService:
                         'entity_cls': entity_factor_class_input
                     })
                 
-                # Use batch method to get/create factors
-                created_factors = self.entity_service.get_or_create_batch_ibkr(factors_data, entity_factor_class_input)
+                # Use batch method to get/create factors with seconds bar_size for point-in-time data
+                created_factors = self.entity_service.get_or_create_batch_ibkr(
+                    factors_data, entity_factor_class_input,
+                    what_to_show="TRADES",
+                    duration_str="1 D", 
+                    bar_size_setting="1 sec"
+                )
                 
                 if created_factors:
                     # Prepare batch data for factor values with metadata for bulk IBKR processing
@@ -144,8 +149,13 @@ class MarketDataService:
                             'time_date': point_in_time.strftime("%Y-%m-%d %H:%M:%S")
                         })
                     
-                    # Use optimized batch method to get factor values from IBKR bulk data
-                    factor_values = self.entity_service.get_or_create_batch_ibkr(factor_values_data, FactorValue)
+                    # Use optimized batch method to get factor values from IBKR bulk data with seconds bar_size
+                    factor_values = self.entity_service.get_or_create_batch_ibkr(
+                        factor_values_data, FactorValue,
+                        what_to_show="TRADES",
+                        duration_str="1 D",
+                        bar_size_setting="1 sec"
+                    )
                     
                     # Build factor_data dictionary
                     for factor_value in factor_values:
