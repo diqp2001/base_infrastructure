@@ -3,7 +3,7 @@ Financial Asset Service - handles creation and management of financial asset ent
 Provides a service layer for creating financial asset domain entities like Company, CompanyShare, Currency, etc.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from decimal import Decimal
 from datetime import date, datetime
 from sqlalchemy import create_engine

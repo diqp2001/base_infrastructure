@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Union
 import pandas as pd
 import logging
+from src.domain.entities.factor.factor_value import FactorValue
 from src.application.services.misbuffet.data.frontier import Frontier
 from src.application.services.misbuffet.data.market_data_service import MarketDataService
 from src.dto.factor.factor_batch import FactorBatch
@@ -212,7 +213,10 @@ class MarketDataHistoryService:
                     historical_data = self._process_date_range_locally(
                         factor_data_service, factor_names, entity, start_date, end_date
                     )
-            
+            except Exception as e:
+                self.logger.error(f"Error getting symbol history for {symbol}: {e}")
+                return pd.DataFrame()
+
             # Create DataFrame
             if historical_data:
                 df = pd.DataFrame(historical_data)

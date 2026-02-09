@@ -208,27 +208,15 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
         try:
             timestamp = timestamp or datetime.now()
             date_obj = timestamp
-            date_str = date_obj.strftime("%Y-%m-%d %H:%M:%S")
             
-            # Get or create factor for this tick type
-            
-            
-            
-            
-            # Check if factor value already exists for this instrument, factor, and date
-            existing_value = self.local_repo.get_by_factor_entity_date(factor.id, entity.id, date_str)
-            if existing_value:
-                return existing_value
-            
-            if historical:
-                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str)
+            tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str)
                 
-            else:
-                factor_mapping = self.tick_mapper.get_factor_mapping(factor.name)
-                if not factor_mapping:
-                    print(f"No factor mapping found for tick type {factor.name}")
-                    return None
-                tick_value = self.ib_client.get_market_data_snapshot(contract = contract,generic_tick_list=factor_mapping[0].value)
+            # else:
+            #     factor_mapping = self.tick_mapper.get_factor_mapping(factor.name)
+            #     if not factor_mapping:
+            #         print(f"No factor mapping found for tick type {factor.name}")
+            #         return None
+            #     tick_value = self.ib_client.get_market_data_snapshot(contract = contract,generic_tick_list=factor_mapping[0].value)
                 
             return tick_value
             

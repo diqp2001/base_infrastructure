@@ -449,7 +449,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             for symbol, factors in symbol_factors.items():
                 try:
                     # Make single IBKR historical data request for this symbol
-                    bulk_ibkr_data = self._fetch_bulk_historical_data(symbol, time_date)
+                    bulk_ibkr_data = self._fetch_bulk_historical_data(symbol, time_date, financial_asset_entity)
                     
                     if bulk_ibkr_data:
                         # Extract factor values for all factors from the bulk response
@@ -634,7 +634,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error grouping factors by symbol: {e}")
             return {}
 
-    def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime) -> Optional[List[Dict[str, Any]]]:
+    def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime,asset) -> Optional[List[Dict[str, Any]]]:
         """
         Fetch bulk historical data from IBKR for a symbol.
         
@@ -650,7 +650,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             # Create contract for the symbol
-            contract = self._create_contract_for_symbol(symbol)
+            #contract = self._create_contract_for_symbol(symbol)
+            contract = self._fetch_contract(financial_asset_entity = asset)
             if not contract:
                 return None
             
@@ -663,9 +664,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 temp_instrument = IBKRInstrument(
                     id=None,
                     symbol=symbol,
-                    contract_details={},
-                    tick_data={},
-                    timestamp=target_date
+                    asset= asset,
+                    source="IBKR",
+                    date=target_date
                 )
                 
                 # Request bulk historical data - this returns 6 months of data
@@ -1295,7 +1296,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error checking existing factor value: {e}")
             return None
 
-    def _fetch_contract(self, factor_entity: Factor, financial_asset_entity: Any) -> Optional['Contract']:
+    def _fetch_contract(self, factor_entity: Factor = None, financial_asset_entity: Any = None) -> Optional['Contract']:
         """
         Fetch IBKR contract for factor entity and financial asset entity.
         
