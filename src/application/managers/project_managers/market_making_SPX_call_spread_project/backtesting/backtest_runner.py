@@ -41,7 +41,6 @@ class BacktestRunner:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize components
-        self.factor_manager = FactorManager(self.database_service)
         self.model_trainer = None
         self.momentum_strategy = None
         self.algorithm_instance = None

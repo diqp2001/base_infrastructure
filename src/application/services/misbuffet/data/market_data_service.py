@@ -135,7 +135,7 @@ class MarketDataService:
                     factors_data, entity_factor_class_input,
                     what_to_show="TRADES",
                     duration_str="1 D", 
-                    bar_size_setting="1 sec"
+                    bar_size_setting="5 mins"
                 )
                 
                 if created_factors:
@@ -154,7 +154,7 @@ class MarketDataService:
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
                         duration_str="1 D",
-                        bar_size_setting="1 sec"
+                        bar_size_setting="5 mins"
                     )
                     
                     # Build factor_data dictionary

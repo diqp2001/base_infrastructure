@@ -346,7 +346,8 @@ class ModelTrainer:
         """Load all factor data for a single ticker from database."""
         try:
             # Use factor manager's method to load comprehensive factor data
-            factor_groups = ['price', 'momentum', 'technical', 'volatility', 'target']
+            
+            factor_groups = self.config.get('factors', {})
             ticker_data = self.factor_manager._get_ticker_factor_data(
                 ticker=ticker,
                 start_date=None,  # Use default date range
