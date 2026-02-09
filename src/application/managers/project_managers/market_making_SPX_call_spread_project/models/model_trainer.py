@@ -343,10 +343,35 @@ class ModelTrainer:
 
     
     def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
-        """Load all factor data for a single ticker from database."""
+        """Load all factor data for a single ticker using MarketDataHistoryService and get_history."""
         try:
-            # Use factor manager's method to load comprehensive factor data
+            # Check if MarketDataHistoryService is available through data_loader
+            if hasattr(self.data_loader, 'market_data_history_service') and self.data_loader.market_data_history_service:
+                # Get entity using entity service (similar to _get_point_in_time_data pattern)
+                if hasattr(self.data_loader.market_data_history_service, 'market_data_service'):
+                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker)
+                    if entity:
+                        # Set frontier for historical data access (prevent look-ahead bias)
+                        from datetime import datetime
+                        current_date = datetime.now()
+                        self.data_loader.market_data_history_service.set_frontier(current_date)
+                        
+                        # Use get_history method similar to _get_point_in_time_data pattern
+                        ticker_data = self.data_loader.market_data_history_service.get_history(
+                            symbols=ticker,
+                            periods=1000,  # Get substantial history for factor analysis
+                            resolution='1d',
+                            factor_data_service=self.factor_manager,
+                            what_to_show="TRADES",
+                            duration_str="2 Y",  # Get 2 years of data
+                            bar_size_setting="1 day"
+                        )
+                        
+                        if ticker_data is not None and not ticker_data.empty:
+                            return ticker_data
             
+            # Fallback to original method
+            print(f"  🔄 Using factor_manager for {ticker}...")
             factor_groups = self.config.get('factors', {})
             ticker_data = self.factor_manager._get_ticker_factor_data(
                 ticker=ticker,
