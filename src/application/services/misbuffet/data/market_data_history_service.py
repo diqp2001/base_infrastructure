@@ -41,7 +41,10 @@ class MarketDataHistoryService:
         self.logger.debug(f"Frontier set to {frontier_time}")
     
     def get_history(self, symbols: Union[str, List[str]], periods: int, 
-                   resolution: str = '1d', factor_data_service=None) -> pd.DataFrame:
+                   resolution: str = '1d', factor_data_service=None,
+                   what_to_show: str = "TRADES",
+                   duration_str: str = "6 M",
+                   bar_size_setting: str = "1 day") -> pd.DataFrame:
         """
         Get historical data for symbols, respecting the frontier.
         
@@ -50,6 +53,9 @@ class MarketDataHistoryService:
             periods: Number of periods to retrieve
             resolution: Data resolution (e.g., '1d', '1h', '1m')
             factor_data_service: Service to get factor data (passed from algorithm)
+            what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY)
+            duration_str: IBKR query duration (format: integer + space + unit: S/D/W, e.g., "6 M", "1 W")
+            bar_size_setting: IBKR bar size (1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 15 mins, 30 mins, 1 hour, 1 day)
             
         Returns:
             DataFrame with historical data up to the frontier time
@@ -85,9 +91,12 @@ class MarketDataHistoryService:
                 if self._is_cache_valid(cache_key):
                     symbol_data = self._history_cache[cache_key].copy()
                 else:
-                    # Get fresh data
+                    # Get fresh data with configurable IBKR parameters
                     symbol_data = self._get_symbol_history(
-                        symbol, start_date, end_date, factor_data_service
+                        symbol, start_date, end_date, factor_data_service,
+                        what_to_show=what_to_show,
+                        duration_str=duration_str,
+                        bar_size_setting=bar_size_setting
                     )
                     # Cache the result
                     self._history_cache[cache_key] = symbol_data.copy()
@@ -119,9 +128,24 @@ class MarketDataHistoryService:
             return pd.DataFrame()
     
     def _get_symbol_history(self, symbol: str, start_date: datetime, 
-                           end_date: datetime, factor_data_service) -> pd.DataFrame:
+                           end_date: datetime, factor_data_service,
+                           what_to_show: str = "TRADES",
+                           duration_str: str = "6 M",
+                           bar_size_setting: str = "1 day") -> pd.DataFrame:
         """
         Get historical data for a single symbol from the data source.
+        
+        Args:
+            symbol: Symbol to get data for
+            start_date: Start date for historical data
+            end_date: End date for historical data  
+            factor_data_service: Service to get factor data
+            what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, etc.)
+            duration_str: IBKR query duration (e.g., "6 M", "1 W")
+            bar_size_setting: IBKR bar size (e.g., "1 day", "1 hour", "1 sec")
+            
+        Returns:
+            DataFrame with historical data for the symbol
         """
         if not factor_data_service:
             return pd.DataFrame()
@@ -195,8 +219,13 @@ class MarketDataHistoryService:
                                 'end_date': end_date.strftime("%Y-%m-%d %H:%M:%S")
                             })
                         
-                        # Get bulk factor values using optimized IBKR batch method
-                        bulk_factor_values = entity_service.get_or_create_batch_ibkr(factor_values_data, FactorValue)
+                        # Get bulk factor values using optimized IBKR batch method with configurable parameters
+                        bulk_factor_values = entity_service.get_or_create_batch_ibkr(
+                            factor_values_data, FactorValue,
+                            what_to_show=what_to_show,
+                            duration_str=duration_str,
+                            bar_size_setting=bar_size_setting
+                        )
                         
                         # Convert bulk factor values to DataFrame format
                         historical_data = self._convert_bulk_factor_values_to_dataframe(
