@@ -17,6 +17,9 @@ from ..data.data_loader import SpatiotemporalDataLoader
 from ..data.factor_manager import FactorEnginedDataManager
 from ..data.factor_normalizer import FactorNormalizer
 from ..config import DEFAULT_CONFIG
+from src.application.services.misbuffet.data.market_data_service import MarketDataService
+from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
+from src.application.services.data.entities.entity_service import EntityService
 
 
 class SpatiotemporalModelTrainer:
@@ -43,6 +46,13 @@ class SpatiotemporalModelTrainer:
         self.factor_normalizer = FactorNormalizer(database_service)  # NEW: Factor normalization component
         self.tensor_splitter = TensorSplitterManager()
         self.model = HybridSpatiotemporalModel()
+        
+        # Initialize market data services for enhanced data loading
+        self.entity_service = EntityService(
+            repository_factory=database_service.repository_factory
+        )
+        self.market_data_service = MarketDataService(self.entity_service)
+        self.market_data_history_service = MarketDataHistoryService(self.market_data_service)
         
         # Training configuration
         self.training_config = self.config['TRAINING_CONFIG']
@@ -139,22 +149,60 @@ class SpatiotemporalModelTrainer:
         
     
     def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
-        """Load all factor data for a single ticker from database."""
+        """Load all factor data for a single ticker using MarketDataHistoryService and get_history."""
         try:
+            # Get entity using entity service (similar to _get_point_in_time_data pattern)
+            entity = self.market_data_service._get_entity_by_ticker(ticker)
+            if not entity:
+                print(f"  ⚠️  No entity found for ticker {ticker}")
+                return None
+            
             # Use factor manager's method to load comprehensive factor data
             factor_groups = ['price', 'momentum', 'technical', 'volatility', 'target']
-            ticker_data = self.factor_manager._get_ticker_factor_data(
-                ticker=ticker,
-                start_date=None,  # Use default date range
-                end_date=None,
-                factor_groups=factor_groups
+            
+            # Set frontier for historical data access (prevent look-ahead bias)
+            from datetime import datetime
+            current_date = datetime.now()
+            self.market_data_history_service.set_frontier(current_date)
+            
+            # Use get_history method similar to _get_point_in_time_data pattern
+            # This follows the pattern of calling entity_service.get_or_create_batch_ibkr
+            ticker_data = self.market_data_history_service.get_history(
+                symbols=ticker,
+                periods=1000,  # Get substantial history for factor analysis
+                resolution='1d',
+                factor_data_service=self.factor_manager,
+                what_to_show="TRADES",
+                duration_str="2 Y",  # Get 2 years of data
+                bar_size_setting="1 day"
             )
+            
+            # Fallback to original method if MarketDataHistoryService doesn't return data
+            if ticker_data is None or ticker_data.empty:
+                print(f"  🔄 Falling back to factor_manager for {ticker}...")
+                ticker_data = self.factor_manager._get_ticker_factor_data(
+                    ticker=ticker,
+                    start_date=None,  # Use default date range
+                    end_date=None,
+                    factor_groups=factor_groups
+                )
             
             return ticker_data
             
         except Exception as e:
             print(f"  ⚠️  Error loading factor data for {ticker}: {str(e)}")
-            return None
+            # Fallback to original implementation
+            try:
+                factor_groups = ['price', 'momentum', 'technical', 'volatility', 'target']
+                return self.factor_manager._get_ticker_factor_data(
+                    ticker=ticker,
+                    start_date=None,
+                    end_date=None,
+                    factor_groups=factor_groups
+                )
+            except Exception as fallback_error:
+                print(f"  ⚠️  Fallback also failed for {ticker}: {str(fallback_error)}")
+                return None
     
     def _load_ticker_price_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Load price data for a single ticker from database using repository pattern."""
