@@ -19,6 +19,19 @@ class FactorModel(Base):
     factor_type = Column(String(100), nullable=False, index=True)  # Discriminator for inheritance
     # Relationships
     factor_values = relationship("src.infrastructure.models.factor.factor_value.FactorValueModel",back_populates="factors")
+    
+    # Factor dependency relationships
+    dependents = relationship(
+        "src.infrastructure.models.factor.factor_dependency.FactorDependencyModel",
+        foreign_keys="FactorDependencyModel.dependent_factor_id",
+        back_populates="dependent_factor"
+    )
+    
+    dependencies = relationship(
+        "src.infrastructure.models.factor.factor_dependency.FactorDependencyModel", 
+        foreign_keys="FactorDependencyModel.independent_factor_id",
+        back_populates="independent_factor"
+    )
     __mapper_args__ = {
         'polymorphic_identity': 'factor',
         'polymorphic_on': factor_type

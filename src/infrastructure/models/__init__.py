@@ -53,6 +53,7 @@ from src.infrastructure.models.finance.financial_assets.derivative.forward_contr
 )
 from src.infrastructure.models.factor.factor import FactorModel
 from src.infrastructure.models.factor.factor_value import FactorValueModel
+from src.infrastructure.models.factor.factor_dependency import FactorDependencyModel
 # Swap instruments
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel
@@ -125,6 +126,6 @@ __all__ = [
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel','PositionModel','FactorModel','FactorValueModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'ensure_models_registered'
 ]
