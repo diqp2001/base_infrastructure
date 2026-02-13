@@ -20,7 +20,9 @@ src/application/managers/project_managers/market_making_SPX_call_spread_project/
 ├── data/                               # Data management components
 │   ├── __init__.py
 │   ├── data_loader.py                  # SPX data loading and IBKR integration
-│   └── factor_manager.py               # SPX-specific factor management
+│   ├── factor_manager.py               # SPX-specific factor management
+│   ├── factor_definition_config.py     # Factor configuration and metadata
+│   └── CLAUDE.md                       # Factor creation documentation
 │
 ├── models/                             # Pricing and modeling components
 │   ├── __init__.py
@@ -119,6 +121,38 @@ src/application/managers/project_managers/market_making_SPX_call_spread_project/
 - **Performance Analytics**: Sharpe ratio, max drawdown, win rate analysis
 - **Transaction Cost Modeling**: Realistic commission and slippage modeling
 - **MLflow Tracking**: Experiment tracking and result persistence
+
+### Factor Creation and Management System
+- **Structured Factor Library**: Comprehensive factor definitions in `data/factor_definition_config.py`
+- **Dependency Management**: Robust factor dependency tracking using `FactorDependency` entities
+- **Repository Pattern**: Clean separation between domain entities and infrastructure persistence
+- **Automatic Validation**: Built-in validation for factor relationships and parameters
+- **Extensible Architecture**: Easy addition of new factors with proper dependency resolution
+
+## 🧮 Factor System Architecture
+
+The SPX market making project uses a sophisticated factor creation system that manages dependencies between factors and ensures proper calculation order. The system is built on Domain-Driven Design principles:
+
+### Core Components:
+- **Factor Definition Config** (`data/factor_definition_config.py`): Central repository of all factor definitions
+- **Factor Dependencies** (`domain/entities/factor/factor_dependency.py`): Domain entities for dependency relationships
+- **Repository Layer**: Infrastructure for persisting and retrieving factor dependencies
+- **Calculation Pipeline**: Automated factor calculation with dependency resolution
+
+### Available Factor Categories:
+1. **Price Factors**: OHLCV data (open, high, low, close, volume)
+2. **Technical Indicators**: SMA, RSI, MACD, Bollinger Bands
+3. **Volatility Measures**: Realized volatility, VIX, term structure
+4. **Market Factors**: Put/call ratio, skew, term structure slope
+
+### Factor Creation Process:
+1. **Define Configuration**: Add factor metadata to `FACTOR_LIBRARY`
+2. **Specify Dependencies**: Define which factors this factor depends on
+3. **Create Domain Entity**: Use `FactorDependency` to establish relationships
+4. **Persist Dependencies**: Store relationships using repository pattern
+5. **Validate Pipeline**: Ensure no circular dependencies exist
+
+For detailed factor creation instructions, see `data/CLAUDE.md`.
 
 ## 📊 Configuration Parameters
 
@@ -242,10 +276,13 @@ print(f"Generated {len(opportunities)} opportunities")
 5. **Factor Storage**: Convert to factor system for unified access
 
 ### Factor System Integration
-- **Price Factors**: OHLCV data stored as individual factors
-- **Technical Factors**: Moving averages, RSI, MACD, Bollinger Bands
-- **Volatility Factors**: Historical volatility, ATR, Garman-Klass estimator
-- **Market Factors**: VIX integration, term structure slopes
+- **Price Factors**: OHLCV data stored as individual factors (`open`, `high`, `low`, `close`, `volume`)
+- **Technical Factors**: Moving averages (`sma_10`, `sma_20`), momentum indicators (`rsi`, `macd`), volatility bands (`bb_upper`, `bb_lower`)
+- **Volatility Factors**: Realized volatility measures (`realized_vol_10`, `realized_vol_20`), implied volatility (`vix`, `term_structure`)
+- **Market Factors**: Sentiment indicators (`put_call_ratio`, `skew`), market structure (`term_structure_slope`)
+- **Dependency Management**: Automatic resolution of factor dependencies using `FactorDependency` entities
+- **Repository Pattern**: Clean data access through `FactorDependencyRepository` for dependency relationships
+- **Configuration-Driven**: All factor definitions centralized in `factor_definition_config.py` with metadata and parameters
 
 ## ⚡ Performance Optimization
 
