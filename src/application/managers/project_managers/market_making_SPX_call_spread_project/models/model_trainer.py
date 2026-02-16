@@ -14,6 +14,11 @@ from pathlib import Path
 from application.managers.project_managers.market_making_SPX_call_spread_project.models.pricing_model import PricingModel
 from src.domain.entities.factor.factor import Factor
 from src.dto.factor.factor_batch import FactorBatch
+from src.domain.entities.factor.factor_dependency import FactorDependency
+from src.domain.entities.factor.finance.financial_assets.index.index_price_return_factor import IndexPriceReturnFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_price_return_factor import FuturePriceReturnFactor
+from src.domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 
 from ..data.data_loader import DataLoader
 from ..data.factor_manager import FactorManager
@@ -129,6 +134,7 @@ class ModelTrainer:
     def populate_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
         """
         Create factor domain entities from config using factor_batch DTO for optimized batch operations.
+        Enhanced to create return factors for index and future with proper dependencies.
         
         Args:
             tickers: List of tickers to create factors for
@@ -138,17 +144,29 @@ class ModelTrainer:
             Dict containing factor creation summary
         """
         factors_config = self.config.get('factors', {})
+        universe_config = self.config.get('universe', {})
         results = {
             'factors_created': 0,
             'factors_skipped': 0,
             'target_factors_created': 0,
+            'return_factors_created': 0,
             'factor_details': [],
             'errors': [],
-            'factor_batches': []
+            'factor_batches': [],
+            'dependencies_created': []
         }
         
         try:
-            # Process each factor group from config using batch operations
+            # Step 1: Create return factors for index and future assets with proper dependencies
+            print(f"  🎯 Creating return factors for index and future assets...")
+            return_factors_results = self._create_return_factors_with_dependencies(
+                universe_config, tickers, overwrite
+            )
+            results['return_factors_created'] = return_factors_results['return_factors_created']
+            results['dependencies_created'] = return_factors_results['dependencies_created']
+            results['errors'].extend(return_factors_results['errors'])
+            
+            # Step 2: Process each factor group from config using batch operations
             for factor_group_name, factor_list in factors_config.items():
                 print(f"  📊 Processing factor group: {factor_group_name}")
                 
@@ -233,14 +251,14 @@ class ModelTrainer:
                         print(f"    ❌ {error_msg}")
                         results['factors_skipped'] += len(group_factors)
             
-            # Create target factors for specified tickers
+            # Step 3: Create target factors for specified tickers
             target_config = self.config.get('target_factor', {})
             if target_config:
                 results['target_factors_created'] = self._create_target_factors(
                     target_config, tickers, overwrite
                 )
             
-            print(f"✅ Factor population complete: {results['factors_created']} factors created in {len(results['factor_batches'])} batches, {results['factors_skipped']} skipped")
+            print(f"✅ Factor population complete: {results['factors_created']} factors + {results['return_factors_created']} return factors created in {len(results['factor_batches'])} batches, {results['factors_skipped']} skipped")
             return results
             
         except Exception as e:
@@ -338,6 +356,153 @@ class ModelTrainer:
         
         return target_factors_created
 
+    def _create_return_factors_with_dependencies(self, universe_config: Dict, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
+        """
+        Create return factors for index and future assets with proper dependencies.
+        
+        Args:
+            universe_config: Universe configuration containing asset classes and tickers
+            tickers: List of tickers to create return factors for
+            overwrite: Whether to overwrite existing factors
+            
+        Returns:
+            Dict containing return factor creation results
+        """
+        results = {
+            'return_factors_created': 0,
+            'dependencies_created': [],
+            'errors': [],
+            'factor_details': []
+        }
+        
+        try:
+            print(f"    📈 Creating return factors with dependencies...")
+            
+            for asset_class, asset_tickers in universe_config.items():
+                if not asset_tickers:
+                    continue
+                    
+                # Get asset class name
+                asset_class_name = asset_class.__name__ if hasattr(asset_class, '__name__') else str(asset_class)
+                print(f"      🏢 Processing {asset_class_name} assets: {asset_tickers}")
+                
+                for ticker in asset_tickers:
+                    if ticker not in tickers:
+                        continue  # Only process requested tickers
+                        
+                    try:
+                        # Create return factor based on asset class
+                        if asset_class == Index:
+                            # Create index price return factor
+                            return_factor = IndexPriceReturnFactor(
+                                factor_id=None  # Will be assigned by repository
+                            )
+                            
+                            # Create dependency on price factors (open, close, high, low)
+                            price_dependencies = self._create_price_dependencies_for_return_factor(
+                                return_factor, ticker, 'index'
+                            )
+                            
+                        elif asset_class == IndexFuture:
+                            # Create future price return factor
+                            return_factor = FuturePriceReturnFactor(
+                                factor_id=None  # Will be assigned by repository
+                            )
+                            
+                            # Create dependency on price factors (open, close, high, low)
+                            price_dependencies = self._create_price_dependencies_for_return_factor(
+                                return_factor, ticker, 'future'
+                            )
+                        else:
+                            print(f"        ⚠️  Unknown asset class: {asset_class_name}")
+                            continue
+                        
+                        # Store the return factor via repository
+                        if hasattr(self.factor_manager, 'factor_repository'):
+                            stored_factor = self.factor_manager.factor_repository.create(return_factor)
+                            if stored_factor:
+                                results['return_factors_created'] += 1
+                                results['factor_details'].append({
+                                    'ticker': ticker,
+                                    'asset_class': asset_class_name,
+                                    'factor_name': return_factor.name,
+                                    'factor_id': stored_factor.id,
+                                    'dependencies': len(price_dependencies)
+                                })
+                                
+                                # Store dependencies
+                                for dependency in price_dependencies:
+                                    dependency.dependent_factor_id = stored_factor.id
+                                    if hasattr(self.factor_manager, 'factor_dependency_repository'):
+                                        stored_dep = self.factor_manager.factor_dependency_repository.create(dependency)
+                                        if stored_dep:
+                                            results['dependencies_created'].append({
+                                                'dependent_factor_id': stored_dep.dependent_factor_id,
+                                                'independent_factor_id': stored_dep.independent_factor_id
+                                            })
+                                
+                                print(f"        ✅ Created {asset_class_name} return factor for {ticker} with {len(price_dependencies)} dependencies")
+                            else:
+                                print(f"        ❌ Failed to store {asset_class_name} return factor for {ticker}")
+                        else:
+                            print(f"        ⚠️  Factor repository not available")
+                            
+                    except Exception as e:
+                        error_msg = f"Error creating return factor for {ticker} ({asset_class_name}): {str(e)}"
+                        results['errors'].append(error_msg)
+                        print(f"        ❌ {error_msg}")
+            
+            print(f"    ✅ Return factors creation complete: {results['return_factors_created']} factors with {len(results['dependencies_created'])} dependencies")
+            return results
+            
+        except Exception as e:
+            error_msg = f"Error in _create_return_factors_with_dependencies: {str(e)}"
+            results['errors'].append(error_msg)
+            print(f"    ❌ {error_msg}")
+            return results
+
+    def _create_price_dependencies_for_return_factor(self, return_factor: Factor, ticker: str, asset_type: str) -> List[FactorDependency]:
+        """
+        Create dependencies for return factor on price factors (open, close, high, low).
+        
+        Args:
+            return_factor: The return factor that depends on price factors
+            ticker: The ticker symbol
+            asset_type: 'index' or 'future'
+            
+        Returns:
+            List of FactorDependency objects
+        """
+        dependencies = []
+        
+        try:
+            # Define price factor names that return factor depends on
+            price_factor_names = ['Open', 'Close', 'High', 'Low']
+            
+            for price_factor_name in price_factor_names:
+                try:
+                    # Get price factor from repository
+                    if hasattr(self.factor_manager, 'share_factor_repository'):
+                        price_factor = self.factor_manager.share_factor_repository.get_by_name(price_factor_name)
+                        
+                        if price_factor and hasattr(price_factor, 'id'):
+                            # Create dependency (return factor depends on price factor)
+                            dependency = FactorDependency(
+                                dependent_factor_id=0,  # Will be set after return factor is stored
+                                independent_factor_id=int(price_factor.id)
+                            )
+                            dependencies.append(dependency)
+                            print(f"          📎 Created dependency: return_factor -> {price_factor_name} (ID: {price_factor.id})")
+                        else:
+                            print(f"          ⚠️  Price factor '{price_factor_name}' not found for {ticker}")
+                
+                except Exception as e:
+                    print(f"          ❌ Error creating dependency for {price_factor_name}: {str(e)}")
+            
+        except Exception as e:
+            print(f"        ❌ Error creating price dependencies: {str(e)}")
+        
+        return dependencies
     
     def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Load all factor data for a single ticker using MarketDataHistoryService and get_history."""
