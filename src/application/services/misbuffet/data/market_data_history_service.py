@@ -671,3 +671,34 @@ class MarketDataHistoryService:
         except Exception as e:
             self.logger.error(f"Error in local date range processing: {e}")
             return []
+    
+    def _create_or_get(self, entity_config: Dict[str, Any]) -> Optional[Any]:
+        """
+        Create or get an entity using the MarketDataService.
+        
+        This method provides entity creation functionality for the MarketDataHistoryService
+        using the underlying MarketDataService layer for proper layered architecture.
+        
+        Args:
+            entity_config: Dictionary containing entity configuration with keys:
+                - entity_class: Entity class to create/get
+                - entity_symbol: Entity symbol/identifier
+                - additional parameters for entity creation
+        
+        Returns:
+            Entity if created/retrieved successfully, None otherwise
+        """
+        try:
+            # Delegate to MarketDataService._create_or_get for proper layering
+            entity = self.market_data_service._create_or_get(entity_config)
+            
+            if entity:
+                self.logger.info(f"MarketDataHistoryService created/retrieved entity: {entity_config.get('entity_symbol')} via MarketDataService")
+            else:
+                self.logger.warning(f"MarketDataHistoryService failed to create/get entity: {entity_config.get('entity_symbol')}")
+            
+            return entity
+            
+        except Exception as e:
+            self.logger.error(f"Error in MarketDataHistoryService._create_or_get: {e}")
+            return None

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 import pandas as pd
 import logging
 from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
@@ -281,3 +281,48 @@ class MarketDataService:
         Get the current time.
         """
         return self._last_time
+    
+    def _create_or_get(self, entity_config: Dict[str, Any]) -> Optional[Any]:
+        """
+        Create or get an entity using the entity_service.
+        
+        This method provides entity creation functionality for the MarketDataService
+        using the underlying entity_service layer for proper layered architecture.
+        
+        Args:
+            entity_config: Dictionary containing entity configuration with keys:
+                - entity_class: Entity class to create/get
+                - entity_symbol: Entity symbol/identifier
+                - additional parameters for entity creation
+        
+        Returns:
+            Entity if created/retrieved successfully, None otherwise
+        """
+        try:
+            entity_class = entity_config.get('entity_class')
+            entity_symbol = entity_config.get('entity_symbol')
+            
+            if not entity_class or not entity_symbol:
+                self.logger.warning("entity_class and entity_symbol are required")
+                return None
+            
+            # Remove entity_class from kwargs to avoid passing it twice
+            kwargs = {k: v for k, v in entity_config.items() if k not in ['entity_class', 'entity_symbol']}
+            
+            # Use entity_service _create_or_get method
+            entity = self.entity_service._create_or_get(
+                entity_class, 
+                entity_symbol,
+                **kwargs
+            )
+            
+            if entity:
+                self.logger.info(f"Created/retrieved entity: {entity_symbol} (class: {entity_class.__name__})")
+            else:
+                self.logger.warning(f"Failed to create/get entity: {entity_symbol}")
+            
+            return entity
+            
+        except Exception as e:
+            self.logger.error(f"Error in MarketDataService._create_or_get: {e}")
+            return None
