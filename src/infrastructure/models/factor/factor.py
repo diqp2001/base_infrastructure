@@ -13,6 +13,7 @@ class FactorModel(Base):
     name = Column(String(255), nullable=False)
     group = Column(String(100), nullable=False)
     subgroup = Column(String(100), nullable=True)
+    frequency = Column(String(50), nullable=True)
     data_type = Column(String(100), nullable=True)
     source = Column(String(255), nullable=True)
     definition = Column(Text, nullable=True)
