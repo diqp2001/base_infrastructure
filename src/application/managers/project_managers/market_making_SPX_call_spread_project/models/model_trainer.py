@@ -113,10 +113,7 @@ class ModelTrainer:
         """Ensure all factors exist in database, following backtestRunner pattern."""
         print("  📍 Ensuring factor system is populated...")
         
-        # Replicate the backtestRunner setup process
-        # 1. Ensure basic entities exist
-        self.data_loader.market_data_history_service
-        # entities_summary = self.data_loader.market_data_history_service._ensure_entities_exist(tickers)
+        
         
         # 2. Populate price factors  
         factors_summary = self.populate_factors(tickers, overwrite)
