@@ -229,7 +229,7 @@ class EntityService:
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
-    def get_or_create_batch_local(self, entities_data: List[Dict[str, Any]], entity_cls: type) -> List[Any]:
+    def create_or_get_batch_local(self, entities_data: List[Dict[str, Any]], entity_cls: type) -> List[Any]:
         """
         Generic batch get_or_create for local repositories.
         
@@ -259,7 +259,7 @@ class EntityService:
             print(f"Error in get_or_create_batch_local: {e}")
             return []
 
-    def get_or_create_batch_ibkr(self, entities_data: List[Dict[str, Any]], entity_cls: type, 
+    def create_or_get_batch_ibkr(self, entities_data: List[Dict[str, Any]], entity_cls: type, 
                                 what_to_show: str = "TRADES", 
                                 duration_str: str = "6 M", 
                                 bar_size_setting: str = "1 day") -> List[Any]:
@@ -282,7 +282,7 @@ class EntityService:
             if not ibkr_repository:
                 print(f"No IBKR repository available for {entity_cls.__name__}")
                 # Fallback to local batch operation
-                return self.get_or_create_batch_local(entities_data, entity_cls)
+                return self.create_or_get_batch_local(entities_data, entity_cls)
             
             # Check if repository supports optimized batch operations
             if hasattr(ibkr_repository, 'get_or_create_batch_optimized'):

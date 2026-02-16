@@ -131,7 +131,7 @@ class MarketDataService:
                     })
                 
                 # Use batch method to get/create factors with seconds bar_size for point-in-time data
-                created_factors = self.entity_service.get_or_create_batch_ibkr(
+                created_factors = self.entity_service.create_or_get_batch_ibkr(
                     factors_data, entity_factor_class_input,
                     what_to_show="TRADES",
                     duration_str="1 D", 
@@ -150,7 +150,7 @@ class MarketDataService:
                         })
                     
                     # Use optimized batch method to get factor values from IBKR bulk data with seconds bar_size
-                    factor_values = self.entity_service.get_or_create_batch_ibkr(
+                    factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
                         duration_str="1 D",
@@ -177,7 +177,7 @@ class MarketDataService:
                         })
                     
                     # Use batch method to get/create factors locally
-                    created_factors = self.entity_service.get_or_create_batch_local(factors_data, entity_factor_class_input)
+                    created_factors = self.entity_service.create_or_get_batch_local(factors_data, entity_factor_class_input)
                     
                     if created_factors:
                         # Prepare batch data for factor values
@@ -193,7 +193,7 @@ class MarketDataService:
                             })
                         
                         # Use local batch method for factor values
-                        factor_values = self.entity_service.get_or_create_batch_local(factor_values_data, FactorValue)
+                        factor_values = self.entity_service.create_or_get_batch_local(factor_values_data, FactorValue)
                         
                         # Build factor_data dictionary
                         for factor_value in factor_values:

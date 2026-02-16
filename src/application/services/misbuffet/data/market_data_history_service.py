@@ -220,7 +220,7 @@ class MarketDataHistoryService:
                             })
                         
                         # Get bulk factor values using optimized IBKR batch method with configurable parameters
-                        bulk_factor_values = entity_service.get_or_create_batch_ibkr(
+                        bulk_factor_values = entity_service.create_or_get_batch_ibkr(
                             factor_values_data, FactorValue,
                             what_to_show=what_to_show,
                             duration_str=duration_str,
