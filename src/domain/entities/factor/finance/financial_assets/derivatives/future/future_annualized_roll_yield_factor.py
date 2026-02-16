@@ -5,7 +5,7 @@ import math
 
 
 
-class AnnualizedRollYieldFactor(FutureFactor):
+class FutureAnnualizedRollYieldFactor(FutureFactor):
     """Annualized roll yield factor for a futures contract."""
     
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
@@ -20,7 +20,7 @@ class AnnualizedRollYieldFactor(FutureFactor):
             **kwargs
         )
     
-    def calculate_roll_yield(
+    def calculate(
         self,
         spot_price: float,
         future_price: float,

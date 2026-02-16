@@ -2,20 +2,20 @@ from __future__ import annotations
 from typing import Optional
 import math
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor
+from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 
 
-class FutureAnnualizedPriceReturnFactor(FutureFactor):
+class IndexPriceReturnFactor(IndexFactor):
     """Annualized price return factor."""
 
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Annualized Price Return",
-            group="Price Factor",
+            name="Price Return",
+            group="Return Factor",
             subgroup="Return",
             data_type="float",
             source="model",
-            definition="Annualized return computed from two price observations.",
+            definition="Return computed from two price observations.",
             factor_id=factor_id,
             **kwargs
         )
@@ -24,11 +24,10 @@ class FutureAnnualizedPriceReturnFactor(FutureFactor):
         self,
         start_price: float,
         end_price: float,
-        T: float,
         method: str = "geometric"
     ) -> Optional[float]:
         """
-        Calculate annualized return.
+        Calculate return between two price observations.
 
         Parameters
         ----------
@@ -36,8 +35,6 @@ class FutureAnnualizedPriceReturnFactor(FutureFactor):
             Initial price
         end_price : float
             Final price
-        T : float
-            Time in years
         method : str
             'geometric' (default) or 'simple'
 
@@ -46,16 +43,17 @@ class FutureAnnualizedPriceReturnFactor(FutureFactor):
         float | None
         """
 
-        if start_price <= 0 or end_price <= 0 or T <= 0:
+        if start_price <= 0 or end_price <= 0:
             return None
 
         if method == "geometric":
-            # (P_end / P_start)^(1/T) - 1
-            return (end_price / start_price) ** (1 / T) - 1
+            # (P_end / P_start) - 1
+            return (end_price / start_price) - 1
 
         elif method == "simple":
-            # ((P_end / P_start) - 1) / T
-            return (end_price / start_price - 1) / T
+            # Same formula in a two-point case
+            return (end_price - start_price) / start_price
 
         else:
             raise ValueError("Method must be 'geometric' or 'simple'")
+

@@ -19,7 +19,7 @@ class FutureDiscountedValueFactor(FutureFactor):
             **kwargs
         )
     
-    def calculate_discounted_value(
+    def calculate(
         self,
         future_price: float,
         r: float,

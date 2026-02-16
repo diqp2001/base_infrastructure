@@ -19,7 +19,7 @@ class FutureForwardPriceFactor(FutureFactor):
             **kwargs
         )
     
-    def calculate_forward_price(
+    def calculate(
         self,
         spot_price: float,
         r: float,

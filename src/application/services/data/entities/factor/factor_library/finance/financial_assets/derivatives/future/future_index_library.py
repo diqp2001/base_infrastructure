@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor
-from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_annualized_price_return_factor import AnnualizedPriceReturnFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_annualized_price_return_factor import FutureAnnualizedPriceReturnFactor
 
 FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     
@@ -52,7 +52,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     },
 
     "return_open": {
-        "class": AnnualizedPriceReturnFactor, 
+        "class": FutureAnnualizedPriceReturnFactor, 
         "group": "return",
         "subgroup": "minutes",
         "data_type": "numeric",
