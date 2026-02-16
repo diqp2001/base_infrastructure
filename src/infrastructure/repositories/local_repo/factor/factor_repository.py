@@ -1,7 +1,7 @@
 # Factor Local Repository
 # Mirrors src/infrastructure/models/factor/factor.py
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
@@ -9,15 +9,18 @@ from src.domain.entities.factor.factor import Factor
 from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.domain.ports.factor.factor_port import FactorPort
+from src.domain.entities.factor.factor_dependency import FactorDependency
+from src.application.services.data.entities.factor.factor_library.factor_definition_config import get_factor_config, FACTOR_LIBRARY
 
 
 class FactorRepository(BaseFactorRepository, FactorPort):
 
-    def __init__(self, session: Session, factory, mapper: FactorMapper = None,entity_factor_class_input = None):
+    def __init__(self, session: Session, factory, mapper: FactorMapper = None, entity_factor_class_input = None, factor_dependency_repository = None):
         """Initialize FactorRepository with database session."""
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or FactorMapper()
+        self.factor_dependency_repository = factor_dependency_repository
         
 
     # ----------------------------
@@ -47,7 +50,130 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             return None
         return self.mapper.to_orm(entity)
 
+    def _get_factor_config_from_library(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find factor configuration from the factor library by name.
+        Searches through all nested libraries (INDEX_LIBRARY, FUTURE_INDEX_LIBRARY, etc.)
+        """
+        # Check main FACTOR_LIBRARY first
+        config = get_factor_config(name)
+        if config:
+            return config
+            
+        # Search through nested libraries
+        for library_key, library_value in FACTOR_LIBRARY.items():
+            if isinstance(library_value, set) and len(library_value) == 1:
+                # Handle the current nested structure like {"future_index_library":{FUTURE_INDEX_LIBRARY}}
+                nested_lib = list(library_value)[0]
+                if isinstance(nested_lib, dict) and name in nested_lib:
+                    return nested_lib[name]
+            elif isinstance(library_value, dict) and name in library_value:
+                return library_value[name]
+                
+        return None
+
+    def _create_or_get_dependencies(self, factor_config: Dict[str, Any]) -> List[Factor]:
+        """
+        Recursively create or get dependencies for a factor.
+        Handles both list-style and dict-style dependencies.
+        """
+        dependencies = factor_config.get("dependencies", [])
+        created_dependencies = []
+        
+        if isinstance(dependencies, list):
+            # Handle list-style dependencies: ["close", "open"]
+            for dep_name in dependencies:
+                dep_config = self._get_factor_config_from_library(dep_name)
+                if dep_config:
+                    dep_factor = self._create_or_get_with_config(dep_name, dep_config)
+                    if dep_factor:
+                        created_dependencies.append(dep_factor)
+                else:
+                    # Create basic factor if no config found
+                    dep_factor = self._create_or_get(dep_name, "basic", "unknown")
+                    if dep_factor:
+                        created_dependencies.append(dep_factor)
+        
+        elif isinstance(dependencies, dict):
+            # Handle dict-style dependencies: {"open": {...}}
+            for dep_name, dep_config in dependencies.items():
+                if isinstance(dep_config, dict):
+                    dep_factor = self._create_or_get_with_config(dep_name, dep_config)
+                    if dep_factor:
+                        created_dependencies.append(dep_factor)
+        
+        return created_dependencies
+
+    def _establish_dependencies(self, main_factor: Factor, dependencies: List[Factor]) -> None:
+        """
+        Establish dependency relationships in the database using FactorDependencyRepository.
+        """
+        if not self.factor_dependency_repository:
+            return
+            
+        for dep_factor in dependencies:
+            try:
+                # Check if dependency relationship already exists
+                if not self.factor_dependency_repository.exists(main_factor.id, dep_factor.id):
+                    dependency = FactorDependency(
+                        dependent_factor_id=main_factor.id,
+                        independent_factor_id=dep_factor.id
+                    )
+                    self.factor_dependency_repository.add(dependency)
+            except Exception as e:
+                print(f"Warning: Could not establish dependency between {main_factor.name} and {dep_factor.name}: {e}")
+
+    def _create_or_get_with_config(self, name: str, factor_config: Dict[str, Any]) -> Factor:
+        """
+        Create or get a factor using its configuration from the factor library.
+        Handles dependencies recursively.
+        """
+        # Extract config values with defaults
+        group = factor_config.get("group", "basic")
+        subgroup = factor_config.get("subgroup", "unknown")
+        
+        # Check if factor already exists
+        existing = self.session.query(FactorModel).filter(
+            FactorModel.name == name,
+            FactorModel.group == group,
+            FactorModel.subgroup == subgroup
+        ).first()
+
+        if existing:
+            return self._to_entity(existing)
+
+        # Create dependencies first
+        dependencies = self._create_or_get_dependencies(factor_config)
+        
+        # Create the main factor
+        entity_class = factor_config.get("class", self.entity_class)
+        entity = entity_class(
+            id=self._get_next_available_id(),
+            name=name,
+            group=group,
+            subgroup=subgroup
+        )
+
+        created_factor = self.create(entity)
+        
+        # Establish dependency relationships
+        if created_factor and dependencies:
+            self._establish_dependencies(created_factor, dependencies)
+        
+        return created_factor
+
     def _create_or_get(self, name: str, group: str, subgroup: str) -> Factor:
+        """
+        Create or get a factor. Now enhanced to handle dependencies if factor config is found.
+        """
+        # First try to get factor config from library
+        factor_config = self._get_factor_config_from_library(name)
+        
+        if factor_config:
+            # Use config-based creation with dependency handling
+            return self._create_or_get_with_config(name, factor_config)
+        
+        # Fallback to original simple creation for factors not in library
         existing = self.session.query(FactorModel).filter(
             FactorModel.name == name,
             FactorModel.group == group,
@@ -99,4 +225,20 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             FactorModel.subgroup == subgroup
         ).all()
         return [self._to_entity(m) for m in models]
+
+    def create_factor_with_dependencies(self, name: str) -> Optional[Factor]:
+        """
+        Public method to create a factor with all its dependencies from the factor library.
+        
+        Args:
+            name: Factor name to create
+            
+        Returns:
+            Created Factor entity with dependencies, or None if not found in library
+        """
+        factor_config = self._get_factor_config_from_library(name)
+        if not factor_config:
+            return None
+            
+        return self._create_or_get_with_config(name, factor_config)
 
