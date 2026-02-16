@@ -568,7 +568,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         return self.delete_factor(entity_id)
 
     # ----------------------------- Convenience Methods -----------------------------
-    def add_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str) -> Optional[FactorEntity]:
+    def add_factor(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, frequency: Optional[str] = None) -> Optional[FactorEntity]:
         """
         Convenience method to add a new factor.
         
@@ -579,6 +579,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             data_type: Data type (e.g., 'numeric', 'string')
             source: Data source
             definition: Factor definition/description
+            frequency: Factor frequency (e.g., '1d', '1h', '5m')
         
         Returns:
             Created factor entity or None if failed
@@ -591,6 +592,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition
@@ -698,7 +700,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         
         return values_stored
     
-    def _create_or_get(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, entity_type: str ):
+    def _create_or_get(self, name: str, group: str, subgroup: str, data_type: str, source: str, definition: str, entity_type: str, frequency: Optional[str] = None ):
         """Create factor if it doesn't exist, otherwise return existing based on name AND discriminator."""
         existing_factor = self.get_by_name_and_discriminator(name, entity_type)
         if existing_factor:
@@ -708,6 +710,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition
@@ -732,6 +735,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
     group: str,
     factor_type: str = None,
     subgroup: Optional[str] = None,
+    frequency: Optional[str] = None,
     data_type: Optional[str] = None,
     source: Optional[str] = None,
 ) -> Optional[FactorEntity]:
@@ -744,6 +748,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
                 FactorModel.group == group,
                 FactorModel.factor_type == factor_type,
                 FactorModel.subgroup == subgroup,
+                FactorModel.frequency == frequency,
                 FactorModel.data_type == data_type,
                 FactorModel.source == source,
             )
