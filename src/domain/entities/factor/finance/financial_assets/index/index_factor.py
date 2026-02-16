@@ -5,7 +5,7 @@ src/domain/entities/factor/index_factor.py
 
 from __future__ import annotations
 from typing import Optional
-from .security_factor import SecurityFactor
+from ..security_factor import SecurityFactor
 
 
 class IndexFactor(SecurityFactor):

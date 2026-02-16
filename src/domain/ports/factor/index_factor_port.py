@@ -4,7 +4,7 @@ Index Factor Port - Domain interface for IndexFactor repository operations.
 
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from src.domain.entities.factor.finance.financial_assets.index_factor import IndexFactor
+from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 
 
 class IndexFactorPort(ABC):

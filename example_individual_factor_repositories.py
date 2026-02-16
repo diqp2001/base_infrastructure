@@ -25,7 +25,7 @@ from src.infrastructure.repositories.local_repo.factor import (
 from src.infrastructure.repositories.local_repo.factor.factor_repository_registry import FactorRepositoryRegistry
 
 # Import factor entities
-from src.domain.entities.factor.finance.financial_assets.index_factor import IndexFactor
+from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_momentum_factor import ShareMomentumFactor
 
 

@@ -25,7 +25,7 @@ from src.domain.entities.factor.continent_factor import ContinentFactor as Conti
 from src.domain.entities.factor.country_factor import CountryFactor as CountryFactorEntity
 from src.domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor as FinancialAssetFactorEntity
 from src.domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor as SecurityFactorEntity
-from src.domain.entities.factor.finance.financial_assets.index_factor import IndexFactor as IndexFactorEntity
+from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor as CurrencyFactorEntity
 from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor as EquityFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor as ShareFactorEntity
