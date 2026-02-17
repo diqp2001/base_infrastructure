@@ -86,6 +86,16 @@ DEFAULT_CONFIG = {
         FACTOR_LIBRARY["future_index_library"]["close"],
         FACTOR_LIBRARY["future_index_library"]["volume"],
         
+        # Future return factors (daily, weekly, monthly)
+        FACTOR_LIBRARY["future_index_library"]["return_daily"],
+        FACTOR_LIBRARY["future_index_library"]["return_weekly"],
+        FACTOR_LIBRARY["future_index_library"]["return_monthly"],
+        
+        # Index return factors (daily, weekly, monthly)
+        FACTOR_LIBRARY["index_library"]["return_daily"],
+        FACTOR_LIBRARY["index_library"]["return_weekly"],
+        FACTOR_LIBRARY["index_library"]["return_monthly"],
+        
         # Technical factors
         FACTOR_LIBRARY["technical_library"]["sma_10"],
         FACTOR_LIBRARY["technical_library"]["sma_20"],
