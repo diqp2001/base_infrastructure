@@ -8,6 +8,7 @@ from datetime import datetime
 
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
+from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
 # Base configuration
 BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 DATA_PATH = BASE_PROJECT_ROOT / "data"
@@ -76,36 +77,34 @@ DEFAULT_CONFIG = {
     'validation_split': 0.2,
     'test_split': 0.2,
     
-    # Factors for modeling
-    # Factors for modeling
-    'factors' : {
-        'price_factors': [
-            {'name': 'open',   'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
-            {'name': 'high',   'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
-            {'name': 'low',    'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
-            {'name': 'close',  'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
-            {'name': 'volume', 'group': 'price', 'subgroup': 'minutes', 'data_type': 'numeric'},
-        ],
-        'technical_factors': [
-            {'name': 'sma_10',   'group': 'technical', 'subgroup': 'trend', 'data_type': 'numeric'},
-            {'name': 'sma_20',   'group': 'technical', 'subgroup': 'trend', 'data_type': 'numeric'},
-            {'name': 'rsi',      'group': 'technical', 'subgroup': 'momentum', 'data_type': 'numeric'},
-            {'name': 'macd',     'group': 'technical', 'subgroup': 'momentum', 'data_type': 'numeric'},
-            {'name': 'bb_upper', 'group': 'technical', 'subgroup': 'volatility', 'data_type': 'numeric'},
-            {'name': 'bb_lower', 'group': 'technical', 'subgroup': 'volatility', 'data_type': 'numeric'},
-        ],
-        'volatility_factors': [
-            {'name': 'realized_vol_10', 'group': 'volatility', 'subgroup': 'realized', 'data_type': 'numeric'},
-            {'name': 'realized_vol_20', 'group': 'volatility', 'subgroup': 'realized', 'data_type': 'numeric'},
-            {'name': 'vix',             'group': 'volatility', 'subgroup': 'implied', 'data_type': 'numeric'},
-            {'name': 'term_structure',  'group': 'volatility', 'subgroup': 'term_structure', 'data_type': 'numeric'},
-        ],
-        'market_factors': [
-            {'name': 'put_call_ratio',       'group': 'market', 'subgroup': 'sentiment', 'data_type': 'numeric'},
-            {'name': 'skew',                 'group': 'market', 'subgroup': 'options', 'data_type': 'numeric'},
-            {'name': 'term_structure_slope', 'group': 'market', 'subgroup': 'rates', 'data_type': 'numeric'},
-        ],
-    },
+    # Factors for modeling - transformed to list format using FACTOR_LIBRARY
+    'factors': [
+        # Price factors from future_index_library
+        FACTOR_LIBRARY["future_index_library"]["open"],
+        FACTOR_LIBRARY["future_index_library"]["high"],
+        FACTOR_LIBRARY["future_index_library"]["low"],
+        FACTOR_LIBRARY["future_index_library"]["close"],
+        FACTOR_LIBRARY["future_index_library"]["volume"],
+        
+        # Technical factors
+        FACTOR_LIBRARY["technical_library"]["sma_10"],
+        FACTOR_LIBRARY["technical_library"]["sma_20"],
+        FACTOR_LIBRARY["technical_library"]["rsi"],
+        FACTOR_LIBRARY["technical_library"]["macd"],
+        FACTOR_LIBRARY["technical_library"]["bb_upper"],
+        FACTOR_LIBRARY["technical_library"]["bb_lower"],
+        
+        # Volatility factors
+        FACTOR_LIBRARY["volatility_library"]["realized_vol_10"],
+        FACTOR_LIBRARY["volatility_library"]["realized_vol_20"],
+        FACTOR_LIBRARY["volatility_library"]["vix"],
+        FACTOR_LIBRARY["volatility_library"]["term_structure"],
+        
+        # Market factors
+        FACTOR_LIBRARY["market_library"]["put_call_ratio"],
+        FACTOR_LIBRARY["market_library"]["skew"],
+        FACTOR_LIBRARY["market_library"]["term_structure_slope"],
+    ],
 
     
     
