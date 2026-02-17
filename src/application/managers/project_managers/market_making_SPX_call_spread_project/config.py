@@ -77,7 +77,7 @@ DEFAULT_CONFIG = {
     'validation_split': 0.2,
     'test_split': 0.2,
     
-    # Factors for modeling - transformed to list format using FACTOR_LIBRARY
+    # Factors for modeling - only future_index_library and index_library factors
     'factors': [
         # Price factors from future_index_library
         FACTOR_LIBRARY["future_index_library"]["open"],
@@ -95,25 +95,6 @@ DEFAULT_CONFIG = {
         FACTOR_LIBRARY["index_library"]["return_daily"],
         FACTOR_LIBRARY["index_library"]["return_weekly"],
         FACTOR_LIBRARY["index_library"]["return_monthly"],
-        
-        # Technical factors
-        FACTOR_LIBRARY["technical_library"]["sma_10"],
-        FACTOR_LIBRARY["technical_library"]["sma_20"],
-        FACTOR_LIBRARY["technical_library"]["rsi"],
-        FACTOR_LIBRARY["technical_library"]["macd"],
-        FACTOR_LIBRARY["technical_library"]["bb_upper"],
-        FACTOR_LIBRARY["technical_library"]["bb_lower"],
-        
-        # Volatility factors
-        FACTOR_LIBRARY["volatility_library"]["realized_vol_10"],
-        FACTOR_LIBRARY["volatility_library"]["realized_vol_20"],
-        FACTOR_LIBRARY["volatility_library"]["vix"],
-        FACTOR_LIBRARY["volatility_library"]["term_structure"],
-        
-        # Market factors
-        FACTOR_LIBRARY["market_library"]["put_call_ratio"],
-        FACTOR_LIBRARY["market_library"]["skew"],
-        FACTOR_LIBRARY["market_library"]["term_structure_slope"],
     ],
 
     
