@@ -5,74 +5,100 @@ from src.domain.entities.factor.finance.financial_assets.index.index_price_retur
 
 INDEX_LIBRARY: Dict[str, Dict] = {
     
-"open": {
-        "class": IndexFactor, 
+
+
+    # ======================
+    # Minute Price Factors
+    # ======================
+
+    "open": {
+        "class": IndexFactor,
+        "name": "open",
         "group": "price",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level open price",
-        "dependencies": [],
+        "dependencies": {},
         "parameters": {}
     },
+
     "high": {
-        "class": IndexFactor, 
+        "class": IndexFactor,
+        "name": "high",
         "group": "price",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level high price",
-        "dependencies": [],
+        "dependencies": {},
         "parameters": {}
     },
+
     "low": {
-        "class": IndexFactor, 
+        "class": IndexFactor,
+        "name": "low",
         "group": "price",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level low price",
-        "dependencies": [],
+        "dependencies": {},
         "parameters": {}
     },
+
     "close": {
-        "class": IndexFactor, 
+        "class": IndexFactor,
+        "name": "close",
         "group": "price",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level close price",
-        "dependencies": [],
+        "dependencies": {},
         "parameters": {}
     },
+
     "volume": {
-        "class": IndexFactor, 
+        "class": IndexFactor,
+        "name": "volume",
         "group": "price",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level traded volume",
-        "dependencies": [],
+        "dependencies": {},
         "parameters": {}
     },
+
+    # ======================
+    # Minute Return Factors
+    # ======================
+
     "return_open": {
-        "class": IndexPriceReturnFactor, 
+        "class": IndexPriceReturnFactor,
+        "name": "return_open",
         "group": "return",
         "subgroup": "minutes",
         "data_type": "numeric",
         "description": "Minute-level open price return",
         "dependencies": {
             "open": {
-                "class": IndexFactor, 
-                    "group": "price",
-                    "subgroup": "minutes",
-                    "data_type": "numeric",
-                    "description": "Minute-level open price",
-                    "dependencies": [],
-                    "parameters": {}
-                },
-                },
+                "class": IndexFactor,
+                "name": "open",
+                "group": "price",
+                "subgroup": "minutes",
+                "data_type": "numeric",
+                "description": "Minute-level open price",
+                "dependencies": {},
+                "parameters": {}
+            }
+        },
         "parameters": {}
     },
-    
-    # Daily return factors
+
+    # ======================
+    # Daily Return Factors
+    # ======================
+
     "return_daily": {
         "class": IndexPriceReturnFactor,
+        "name": "return_daily",
         "group": "return",
         "subgroup": "daily",
         "data_type": "numeric",
@@ -80,20 +106,25 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "dependencies": {
             "close": {
                 "class": IndexFactor,
+                "name": "close",
                 "group": "price",
                 "subgroup": "daily",
                 "data_type": "numeric",
                 "description": "Daily close price",
-                "dependencies": [],
+                "dependencies": {},
                 "parameters": {}
-            },
+            }
         },
         "parameters": {"period": "1D"}
     },
-    
-    # Weekly return factors
+
+    # ======================
+    # Weekly Return Factors
+    # ======================
+
     "return_weekly": {
         "class": IndexPriceReturnFactor,
+        "name": "return_weekly",
         "group": "return",
         "subgroup": "weekly",
         "data_type": "numeric",
@@ -101,20 +132,25 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "dependencies": {
             "close": {
                 "class": IndexFactor,
+                "name": "close",
                 "group": "price",
                 "subgroup": "weekly",
                 "data_type": "numeric",
                 "description": "Weekly close price",
-                "dependencies": [],
+                "dependencies": {},
                 "parameters": {}
-            },
+            }
         },
         "parameters": {"period": "1W"}
     },
-    
-    # Monthly return factors
+
+    # ======================
+    # Monthly Return Factors
+    # ======================
+
     "return_monthly": {
         "class": IndexPriceReturnFactor,
+        "name": "return_monthly",
         "group": "return",
         "subgroup": "monthly",
         "data_type": "numeric",
@@ -122,15 +158,17 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "dependencies": {
             "close": {
                 "class": IndexFactor,
+                "name": "close",
                 "group": "price",
                 "subgroup": "monthly",
                 "data_type": "numeric",
                 "description": "Monthly close price",
-                "dependencies": [],
+                "dependencies": {},
                 "parameters": {}
-            },
+            }
         },
         "parameters": {"period": "1M"}
     },
-    
 }
+
+    

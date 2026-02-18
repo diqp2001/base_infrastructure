@@ -80,7 +80,7 @@ class IndexFactorRepository(BaseFactorRepository):
             self.session.commit()
             if orm_factor:
                     #print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
-                    return self._to_domain_factor(orm_factor)
+                    return self._to_entity(orm_factor) #to_domain
             
         
             

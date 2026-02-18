@@ -21,6 +21,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
     def __init__(self, session: Session, factory):
         """Initialize IndexFutureRepository with database session."""
         super().__init__(session, factory)
+        self.mapper = IndexFutureMapper()
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""

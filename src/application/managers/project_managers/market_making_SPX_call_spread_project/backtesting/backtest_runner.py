@@ -13,12 +13,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.managers.project_managers.market_making_SPX_call_spread_project.backtesting.base_project_algorithm import Algorithm
-from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
-from application.managers.project_managers.market_making_SPX_call_spread_project.models.model_trainer import ModelTrainer
-from application.managers.project_managers.market_making_SPX_call_spread_project.strategy.market_making_strategy import Strategy
-from application.services.misbuffet import Misbuffet
-from application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.backtesting.base_project_algorithm import Algorithm
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.models.model_trainer import ModelTrainer
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.strategy.market_making_strategy import Strategy
+from src.application.services.misbuffet import Misbuffet
+from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
 from src.application.services.database_service.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -201,7 +200,6 @@ class BacktestRunner:
             
             # Add database manager and other dependencies for real data access
             launcher_config.database_service = self.database_service
-            launcher_config.factor_manager = self.factor_manager
             launcher_config.model_trainer = self.model_trainer
             launcher_config.momentum_strategy = self.momentum_strategy
             
@@ -261,12 +259,7 @@ class BacktestRunner:
             # Create algorithm instance
             algorithm = Algorithm()
             
-            # Always inject our components - ensure they are not None
-            if self.factor_manager:
-                algorithm.set_factor_manager(self.factor_manager)
-                self.logger.info("✅ Factor manager injected into algorithm")
-            else:
-                self.logger.warning("⚠️ Factor manager is None - algorithm will have limited functionality")
+            
             
             if self.model_trainer:
                 algorithm.set_trainer(self.model_trainer)
