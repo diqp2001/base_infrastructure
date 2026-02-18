@@ -18,7 +18,6 @@ class ExchangeModel(Base):
     shares = relationship("src.infrastructure.models.finance.financial_assets.share.ShareModel", back_populates="exchange")
     company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchange")
     etf_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share.ETFShareModel", back_populates="exchange")
-    futures = relationship("src.infrastructure.models.finance.financial_assets.derivative.future.FutureModel", back_populates="exchange")
-    
+    futures = relationship("src.infrastructure.models.finance.financial_assets.derivative.future.future.FutureModel", back_populates="exchange")
     def __repr__(self):
         return f"<Company(name={self.name}, legal_name={self.legal_name}, start_date={self.start_date}, end_date={self.end_date})>"

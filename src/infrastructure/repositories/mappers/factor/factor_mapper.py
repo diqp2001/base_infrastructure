@@ -5,6 +5,7 @@ Mapper for converting between Factor domain entities and ORM models.
 from abc import abstractmethod
 from typing import Optional
 
+from domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
     FactorModel as Factormodel,
     ContinentFactorModel,
@@ -25,7 +26,7 @@ from src.domain.entities.factor.continent_factor import ContinentFactor as Conti
 from src.domain.entities.factor.country_factor import CountryFactor as CountryFactorEntity
 from src.domain.entities.factor.finance.financial_assets.financial_asset_factor import FinancialAssetFactor as FinancialAssetFactorEntity
 from src.domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor as SecurityFactorEntity
-from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
+
 from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor as CurrencyFactorEntity
 from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor as EquityFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor as ShareFactorEntity
@@ -39,6 +40,8 @@ from src.domain.entities.factor.finance.financial_assets.bond_factor.bond_factor
 from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor as DerivativeFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor as OptionFactorEntity  
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor as FutureFactorEntity
+from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor as IndexFutureFactorEntity
 
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
@@ -82,6 +85,7 @@ FACTOR_ENTITY_MAPPING = {
     DerivativeFactorEntity: Derivative,
     OptionFactorEntity: Option,
     FutureFactorEntity: Future,
+    IndexFutureFactorEntity: IndexFuture,
 }
 ENTITY_FACTOR_MAPPING = {
     Continent: [
@@ -135,6 +139,10 @@ ENTITY_FACTOR_MAPPING = {
     Future: [
         FutureFactorEntity
     ],
+    IndexFuture: [
+        IndexFutureFactorEntity
+    ],
+
 }
 
 
