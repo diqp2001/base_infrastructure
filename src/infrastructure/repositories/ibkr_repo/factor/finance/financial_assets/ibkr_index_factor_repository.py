@@ -10,7 +10,7 @@ from datetime import date
 
 from src.domain.ports.factor.index_factor_port import IndexFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
-from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
+from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickFactorMapper, IBKRTickType
 
 
