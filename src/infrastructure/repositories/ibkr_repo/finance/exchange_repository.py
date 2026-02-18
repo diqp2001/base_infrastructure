@@ -98,6 +98,10 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
         """Delete exchange entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
+    def get_or_create(self, identifier: str) -> Optional[Exchange]:
+        """Override base class to use _create_or_get implementation."""
+        return self._create_or_get(identifier)
+
     def _create_exchange_entity(self, exchange_code: str) -> Optional[Exchange]:
         """
         Create an exchange entity with IBKR-specific properties.
