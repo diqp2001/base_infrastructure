@@ -46,6 +46,12 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
     def model_class(self):
         """Return the model entity class for Exchange."""
         return self.mapper.model_class
+
+    def get_or_create(self, identifier: str) -> Optional[Exchange]:
+        """
+        Override base class get_or_create to use our _create_or_get implementation.
+        """
+        return self._create_or_get(identifier)
     def _create_or_get(self, exchange_code: str) -> Optional[Exchange]:
         """
         Get or create an exchange by code using IBKR API.

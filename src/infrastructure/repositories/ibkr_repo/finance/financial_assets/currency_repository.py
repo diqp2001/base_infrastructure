@@ -44,6 +44,12 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
     def entity_class(self):
         """Return the domain entity class for Currency."""
         return self.mapper.entity_class
+
+    def get_or_create(self, identifier: str) -> Optional[Currency]:
+        """
+        Override base class get_or_create to use our _create_or_get implementation.
+        """
+        return self._create_or_get(identifier)
     def _create_or_get(self, symbol: str) -> Optional[Currency]:
         """
         Get or create a currency  by symbol using IBKR API.
