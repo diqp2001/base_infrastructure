@@ -276,8 +276,8 @@ class ModelTrainer:
         from src.domain.entities.finance.financial_assets.index.index import Index
         from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
         from src.domain.entities.factor.factor_dependency import FactorDependency
-        from src.domain.entities.factor.index_price_return_factor import IndexPriceReturnFactor
-        from src.domain.entities.factor.future_price_return_factor import FuturePriceReturnFactor
+        from src.domain.entities.factor.finance.financial_assets.index.index_price_return_factor  import IndexPriceReturnFactor
+        from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_price_return_factor import FuturePriceReturnFactor
         
         results = {
             'factors_created': 0,

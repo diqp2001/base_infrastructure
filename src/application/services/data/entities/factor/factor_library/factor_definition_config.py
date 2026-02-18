@@ -8,8 +8,8 @@ from src.application.services.data.entities.factor.factor_library.finance.financ
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.future.future_index_library import FUTURE_INDEX_LIBRARY
 
 FACTOR_LIBRARY: Dict[str, Dict] = {
-    "future_index_library":{FUTURE_INDEX_LIBRARY},
-    "index_library":{INDEX_LIBRARY}
+    "future_index_library":FUTURE_INDEX_LIBRARY,
+    "index_library":INDEX_LIBRARY
     
     
 }
