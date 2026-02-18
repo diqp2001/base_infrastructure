@@ -70,4 +70,67 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "parameters": {}
     },
     
+    # Daily return factors
+    "return_daily": {
+        "class": IndexPriceReturnFactor,
+        "group": "return",
+        "subgroup": "daily",
+        "data_type": "numeric",
+        "description": "Daily price return",
+        "dependencies": {
+            "close": {
+                "class": IndexFactor,
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price",
+                "dependencies": [],
+                "parameters": {}
+            },
+        },
+        "parameters": {"period": "1D"}
+    },
+    
+    # Weekly return factors
+    "return_weekly": {
+        "class": IndexPriceReturnFactor,
+        "group": "return",
+        "subgroup": "weekly",
+        "data_type": "numeric",
+        "description": "Weekly price return",
+        "dependencies": {
+            "close": {
+                "class": IndexFactor,
+                "group": "price",
+                "subgroup": "weekly",
+                "data_type": "numeric",
+                "description": "Weekly close price",
+                "dependencies": [],
+                "parameters": {}
+            },
+        },
+        "parameters": {"period": "1W"}
+    },
+    
+    # Monthly return factors
+    "return_monthly": {
+        "class": IndexPriceReturnFactor,
+        "group": "return",
+        "subgroup": "monthly",
+        "data_type": "numeric",
+        "description": "Monthly price return",
+        "dependencies": {
+            "close": {
+                "class": IndexFactor,
+                "group": "price",
+                "subgroup": "monthly",
+                "data_type": "numeric",
+                "description": "Monthly close price",
+                "dependencies": [],
+                "parameters": {}
+            },
+        },
+        "parameters": {"period": "1M"}
+    },
+    
 }

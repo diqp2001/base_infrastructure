@@ -236,14 +236,13 @@ class ModelTrainer:
                         print(f"    ❌ {error_msg}")
                         results['factors_skipped'] += len(group_factors)
             
-            # Create return factors from universe config using MarketDataHistoryService
-            universe_config = self.config.get('universe', {})
-            if universe_config:
-                return_results = self._create_return_factors_from_universe(universe_config, tickers)
-                results['return_factors_created'] = return_results['factors_created']
-                results['return_factor_dependencies'] = return_results['dependencies_created']
-                results['return_factor_details'] = return_results['factor_details']
-                print(f"    🔗 Created {return_results['factors_created']} return factors with {return_results['dependencies_created']} dependencies")
+            # Create factors from config using the new create_factors method
+            factors_config = self.config.get('factors', [])
+            if factors_config:
+                factor_results = self.create_factors(factors_config, tickers)
+                results['config_factors_created'] = factor_results['factors_created']
+                results['config_factor_details'] = factor_results['factor_details']
+                print(f"    🔗 Created {factor_results['factors_created']} factors from config")
             
             # Create target factors for specified tickers
             target_config = self.config.get('target_factor', {})
@@ -252,7 +251,7 @@ class ModelTrainer:
                     target_config, tickers, overwrite
                 )
             
-            print(f"✅ Factor population complete: {results['factors_created']} config factors created in {len(results['factor_batches'])} batches, {results.get('return_factors_created', 0)} return factors created with {results.get('return_factor_dependencies', 0)} dependencies, {results['factors_skipped']} skipped")
+            print(f"✅ Factor population complete: {results['factors_created']} batch factors created in {len(results['factor_batches'])} batches, {results.get('config_factors_created', 0)} config factors created, {results['factors_skipped']} skipped")
             return results
             
         except Exception as e:
@@ -261,97 +260,76 @@ class ModelTrainer:
             print(f"❌ {error_msg}")
             return results
     
-    def _create_return_factors_from_universe(self, universe_config: Dict[str, List[str]], 
-                                           tickers: List[str]) -> Dict[str, Any]:
+    def create_factors(self, factors_config: List[Dict], tickers: List[str]) -> Dict[str, Any]:
         """
-        Create return factors for Index and IndexFuture assets from universe config using MarketDataHistoryService.
+        Create factors from config file using factor definitions.
         
         Args:
-            universe_config: Universe configuration like {Index: ["SPX"], IndexFuture: ["ES"]}
+            factors_config: List of factor configurations from config file
             tickers: List of tickers to associate with factors
             
         Returns:
-            Dictionary containing return factor creation results
+            Dictionary containing factor creation results
         """
-        from src.domain.entities.finance.financial_assets.index.index import Index
-        from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
-        from src.domain.entities.factor.factor_dependency import FactorDependency
-        from src.domain.entities.factor.finance.financial_assets.index.index_price_return_factor  import IndexPriceReturnFactor
-        from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_price_return_factor import FuturePriceReturnFactor
-        
         results = {
             'factors_created': 0,
-            'dependencies_created': 0,
             'factor_details': [],
             'errors': []
         }
         
         try:
-            for asset_class, symbols in universe_config.items():
-                for symbol in symbols:
-                    try:
-                        # Determine return factor type based on asset class
-                        if asset_class == Index:
-                            return_factor_class = IndexPriceReturnFactor
-                            factor_name = f"{symbol}_index_price_return"
-                            print(f"  📈 Creating IndexPriceReturnFactor for {symbol}")
-                        elif asset_class == IndexFuture:
-                            return_factor_class = FuturePriceReturnFactor
-                            factor_name = f"{symbol}_future_price_return"
-                            print(f"  📈 Creating FuturePriceReturnFactor for {symbol}")
-                        else:
-                            print(f"  ⚠️ Unsupported asset class for return factor: {asset_class}")
-                            continue
-                        
-                        # Create return factor entity using MarketDataHistoryService
-                        return_factor_config = {
-                            'entity_class': return_factor_class,
-                            'entity_symbol': factor_name,
+            for factor_config in factors_config:
+                if not isinstance(factor_config, dict):
+                    continue
+                    
+                factor_name = factor_config.get('name')
+                if not factor_name:
+                    continue
+                    
+                try:
+                    # Create factor entity using MarketDataHistoryService
+                    factor_creation_config = {
+                        'name': factor_name,
+                        'group': factor_config.get('group', 'unknown'),
+                        'subgroup': factor_config.get('subgroup', 'default'),
+                        'data_type': factor_config.get('data_type', 'numeric'),
+                        'source': 'config',
+                        'definition': factor_config.get('definition', f'Factor {factor_name} from config'),
+                        'factor_index': results['factors_created'],
+                        'factor_future_start': datetime.now()
+                    }
+                    
+                    # Create or get factor using market data history service
+                    if hasattr(self.data_loader, 'market_data_history_service'):
+                        factor_entity = self.data_loader.market_data_history_service._create_or_get(factor_creation_config)
+                    else:
+                        # Fallback to direct creation
+                        from src.domain.entities.factor.factor import Factor
+                        factor_entity = Factor(**factor_creation_config)
+                    
+                    if factor_entity:
+                        results['factors_created'] += 1
+                        results['factor_details'].append({
                             'name': factor_name,
-                            'group': 'price',
-                            'subgroup': 'return',
-                            'data_type': 'numeric',
-                            'source': 'config',
-                            'definition': f'Return factor for {symbol} {asset_class.__name__}',
-                            'underlying_symbol': symbol,
-                            'factor_index': results['factors_created'],
-                            'factor_future_start': datetime.now()
-                        }
-                        
-                        return_factor = self.data_loader.market_data_history_service._create_or_get(return_factor_config)
-                        
-                        if return_factor:
-                            results['factors_created'] += 1
-                            results['factor_details'].append({
-                                'name': factor_name,
-                                'symbol': symbol,
-                                'asset_class': asset_class.__name__,
-                                'factor_class': return_factor_class.__name__,
-                                'status': 'created'
-                            })
-                            
-                            # Create dependencies on price factors (Open, High, Low, Close)
-                            price_factor_names = ['open', 'high', 'low', 'close']
-                            dependencies_created = self._create_price_dependencies_for_return_factor(
-                                return_factor, symbol, asset_class, price_factor_names
-                            )
-                            results['dependencies_created'] += dependencies_created
-                            
-                            print(f"    ✅ Created return factor {factor_name} with {dependencies_created} dependencies")
-                        else:
-                            error_msg = f"Failed to create return factor for {symbol}"
-                            results['errors'].append(error_msg)
-                            print(f"    ❌ {error_msg}")
-                            
-                    except Exception as e:
-                        error_msg = f"Error creating return factor for {symbol}: {str(e)}"
+                            'group': factor_config.get('group', 'unknown'),
+                            'subgroup': factor_config.get('subgroup', 'default'),
+                            'status': 'created'
+                        })
+                        print(f"    ✅ Created factor: {factor_name}")
+                    else:
+                        error_msg = f"Failed to create factor {factor_name}"
                         results['errors'].append(error_msg)
                         print(f"    ❌ {error_msg}")
+                        
+                except Exception as e:
+                    error_msg = f"Error creating factor {factor_name}: {str(e)}"
+                    results['errors'].append(error_msg)
+                    print(f"    ❌ {error_msg}")
             
             return results
             
         except Exception as e:
-            error_msg = f"Error in _create_return_factors_from_universe: {str(e)}"
+            error_msg = f"Error in create_factors: {str(e)}"
             results['errors'].append(error_msg)
             print(f"❌ {error_msg}")
             return results
