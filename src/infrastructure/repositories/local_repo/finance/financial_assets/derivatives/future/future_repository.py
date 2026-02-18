@@ -8,7 +8,7 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.financi
     FinancialAssetRepository
 )
 
-from infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel as Future_Model
+from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel as Future_Model
 from src.domain.entities.finance.financial_assets.derivatives.future.future import Future as Future_Entity
 
 

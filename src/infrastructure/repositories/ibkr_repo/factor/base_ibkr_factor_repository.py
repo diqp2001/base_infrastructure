@@ -71,7 +71,7 @@ class BaseIBKRFactorRepository(BaseIBKRRepository):
             print(f"Error creating factor value from IBKR data: {e}")
             return None
 
-    @abstractmethod
+    
     def _extract_value_for_factor(self, factor_id: int, ibkr_data: Dict[str, Any]) -> Optional[Any]:
         """
         Extract specific factor value from IBKR data.

@@ -26,7 +26,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
-        return IndexFuture
+        return self.mapper.entity_class
     # ------------------------------------------------------------------
     # Index-specific queries
     # ------------------------------------------------------------------

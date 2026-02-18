@@ -22,6 +22,8 @@ class IndexFutureModel(FutureModel):
     
     
     
-
+    __mapper_args__ = {
+    "polymorphic_identity": "index_future",
+}
     def __repr__(self):
         return f"<Futures(id={self.id}, symbol={self.symbol}>"

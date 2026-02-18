@@ -18,91 +18,91 @@ class IndexFutureFactorPort(ABC):
     - Mock repositories (testing)
     """
 
-    @abstractmethod
-    def get_or_create(self, primary_key: str, **kwargs) -> Optional[IndexFutureFactor]:
-        """
-        Get an existing index future factor by primary key or create if not exists.
+    # @abstractmethod
+    # def get_or_create(self, primary_key: str, **kwargs) -> Optional[IndexFutureFactor]:
+    #     """
+    #     Get an existing index future factor by primary key or create if not exists.
         
-        Args:
-            primary_key: The primary identifier (typically factor name)
-            **kwargs: Additional parameters for factor creation
+    #     Args:
+    #         primary_key: The primary identifier (typically factor name)
+    #         **kwargs: Additional parameters for factor creation
             
-        Returns:
-            IndexFutureFactor entity if successful, None otherwise
-        """
-        pass
+    #     Returns:
+    #         IndexFutureFactor entity if successful, None otherwise
+    #     """
+    #     pass
 
-    @abstractmethod
-    def get_by_name(self, name: str) -> Optional[IndexFutureFactor]:
-        """
-        Get index future factor by name.
+    # @abstractmethod
+    # def get_by_name(self, name: str) -> Optional[IndexFutureFactor]:
+    #     """
+    #     Get index future factor by name.
         
-        Args:
-            name: Factor name
+    #     Args:
+    #         name: Factor name
             
-        Returns:
-            IndexFutureFactor entity if found, None otherwise
-        """
-        pass
+    #     Returns:
+    #         IndexFutureFactor entity if found, None otherwise
+    #     """
+    #     pass
 
-    @abstractmethod
-    def get_by_id(self, factor_id: int) -> Optional[IndexFutureFactor]:
-        """
-        Get index future factor by ID.
+    # @abstractmethod
+    # def get_by_id(self, factor_id: int) -> Optional[IndexFutureFactor]:
+    #     """
+    #     Get index future factor by ID.
         
-        Args:
-            factor_id: Factor ID
+    #     Args:
+    #         factor_id: Factor ID
             
-        Returns:
-            IndexFutureFactor entity if found, None otherwise
-        """
-        pass
+    #     Returns:
+    #         IndexFutureFactor entity if found, None otherwise
+    #     """
+    #     pass
 
-    @abstractmethod
-    def get_all(self) -> List[IndexFutureFactor]:
-        """
-        Get all index future factors.
+    # @abstractmethod
+    # def get_all(self) -> List[IndexFutureFactor]:
+    #     """
+    #     Get all index future factors.
         
-        Returns:
-            List of IndexFutureFactor entities
-        """
-        pass
+    #     Returns:
+    #         List of IndexFutureFactor entities
+    #     """
+    #     pass
 
-    @abstractmethod
-    def add(self, entity: IndexFutureFactor) -> Optional[IndexFutureFactor]:
-        """
-        Add a new index future factor.
+    # @abstractmethod
+    # def add(self, entity: IndexFutureFactor) -> Optional[IndexFutureFactor]:
+    #     """
+    #     Add a new index future factor.
         
-        Args:
-            entity: IndexFutureFactor entity to add
+    #     Args:
+    #         entity: IndexFutureFactor entity to add
             
-        Returns:
-            Added IndexFutureFactor entity if successful, None otherwise
-        """
-        pass
+    #     Returns:
+    #         Added IndexFutureFactor entity if successful, None otherwise
+    #     """
+    #     pass
 
-    @abstractmethod
-    def update(self, entity: IndexFutureFactor) -> Optional[IndexFutureFactor]:
-        """
-        Update an existing index future factor.
+    # @abstractmethod
+    # def update(self, entity: IndexFutureFactor) -> Optional[IndexFutureFactor]:
+    #     """
+    #     Update an existing index future factor.
         
-        Args:
-            entity: IndexFutureFactor entity to update
+    #     Args:
+    #         entity: IndexFutureFactor entity to update
             
-        Returns:
-            Updated IndexFutureFactor entity if successful, None otherwise
-        """
-        pass
+    #     Returns:
+    #         Updated IndexFutureFactor entity if successful, None otherwise
+    #     """
+    #     pass
 
-    @abstractmethod
-    def delete(self, factor_id: int) -> bool:
-        """
-        Delete an index future factor by ID.
+    # @abstractmethod
+    # def delete(self, factor_id: int) -> bool:
+    #     """
+    #     Delete an index future factor by ID.
         
-        Args:
-            factor_id: Factor ID to delete
+    #     Args:
+    #         factor_id: Factor ID to delete
             
-        Returns:
-            True if successful, False otherwise
-        """
-        pass
+    #     Returns:
+    #         True if successful, False otherwise
+    #     """
+    #     pass
