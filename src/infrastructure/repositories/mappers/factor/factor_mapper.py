@@ -5,7 +5,7 @@ Mapper for converting between Factor domain entities and ORM models.
 from abc import abstractmethod
 from typing import Optional
 
-from domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
     FactorModel as Factormodel,
     ContinentFactorModel,

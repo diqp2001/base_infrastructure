@@ -5,7 +5,7 @@ Mapper for IndexFactor domain entity and ORM model conversion.
 from typing import Optional
 
 from src.infrastructure.models.factor.factor import IndexFactorModel
-from domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
+from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 from .base_factor_mapper import BaseFactorMapper
 
 

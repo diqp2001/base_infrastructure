@@ -10,7 +10,7 @@ from datetime import datetime, date
 import inspect
 from ibapi.contract import Contract
 from dateutil.relativedelta import relativedelta
-from domain.entities.finance.financial_assets.currency import Currency
+from src.domain.entities.finance.financial_assets.currency import Currency
 
 from src.dto.factor.factor_batch import FactorBatch
 from src.dto.factor.factor_value_batch import FactorValueBatch
