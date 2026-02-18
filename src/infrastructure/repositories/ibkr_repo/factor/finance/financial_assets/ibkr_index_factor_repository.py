@@ -33,7 +33,7 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
         
     @property
     def entity_class(self):
-        return IndexFactor
+        return self.local_repo.get_factor_entity()
 
     @property
     def local_repo(self):

@@ -33,8 +33,8 @@ class IBKRFutureFactorRepository(BaseIBKRFactorRepository, FutureFactorPort):
         
     @property
     def entity_class(self):
-        return FutureFactor
-
+        return self.local_repo.get_factor_entity()
+    
     @property
     def local_repo(self):
         """Get local future factor repository for delegation."""
