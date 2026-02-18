@@ -13,6 +13,7 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
+from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_mapper import IndexFutureMapper
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
@@ -28,7 +29,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory=None, mapper: FutureMapper = None):
+    def __init__(self, ibkr_client, factory=None, mapper: IndexFutureMapper = None):
         """
         Initialize IBKR Index Future Repository.
         
@@ -41,7 +42,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         
         self.factory = factory
         self.local_repo =  self.factory.index_future_local_repo 
-        self.mapper = mapper or FutureMapper()
+        self.mapper = mapper or IndexFutureMapper()
     @property
     def entity_class(self):
         """Return the domain entity class for IndexFuture."""
@@ -124,13 +125,13 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         try:
             contract = Contract()
             contract.symbol = self._extract_underlying_symbol(symbol)
+            contract.tradingClass = contract.symbol
             contract.secType = "FUT"
-            contract.exchange = "CME"  # Default for index futures
-            contract.currency = "USD"
-            contract.lastTradeDateOrContractMonth = self._extract_expiry_from_symbol(symbol)
+            contract.exchange = "CME"  
+            #contract.lastTradeDateOrContractMonth = self._extract_expiry_from_symbol(symbol)
             
             # Additional IBKR-specific contract setup
-            contract = self._apply_ibkr_symbol_rules(contract, symbol)
+            #contract = self._apply_ibkr_symbol_rules(contract, symbol)
             
             return contract
         except Exception as e:

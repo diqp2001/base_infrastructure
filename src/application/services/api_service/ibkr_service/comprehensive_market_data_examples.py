@@ -760,11 +760,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # self.example_sp500_future_historical_data()
             # time.sleep(2)
 
-            self.example_live_market_data()
-            time.sleep(2)  # Brief pause between examples
+            # self.example_live_market_data()
+            # time.sleep(2)  # Brief pause between examples
             
-            # self.example_historical_data()
-            # time.sleep(2)
+            self.example_historical_data()
+            time.sleep(2)
             
             # self.example_contract_details()
             # time.sleep(2)
