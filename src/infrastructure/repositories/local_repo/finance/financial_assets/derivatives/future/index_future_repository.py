@@ -11,6 +11,7 @@ from src.domain.entities.finance.financial_assets.derivatives.future.future impo
 )
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
+from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_mapper import IndexFutureMapper
 
 class IndexFutureRepository(FutureRepository, IndexFuturePort):
     """
@@ -124,19 +125,16 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
         """
         try:
             # Create IndexFuture from Future entity attributes
-            # Note: This is a simplified conversion. In a real implementation,
-            # you might need more sophisticated mapping logic
             return self.mapper.entity_class(
-                symbol=future_entity.symbol,
+                id=future_entity.id,
                 name=future_entity.name,
-                exchange=future_entity.exchange,
-                currency=future_entity.currency,
-                underlying_index=future_entity.underlying_asset,
-                contract_size=getattr(future_entity, 'contract_size', 1),
-                tick_size=getattr(future_entity, 'tick_size', 0.01),
-                expiry_date=getattr(future_entity, 'expiry_date', None),
-                market_sector=getattr(future_entity, 'market_sector', 'INDEX'),
-                asset_class=getattr(future_entity, 'asset_class', 'DERIVATIVE')
+                symbol=future_entity.symbol,
+                currency_id=getattr(future_entity, 'currency_id', None),
+                exchange_id=getattr(future_entity, 'exchange_id', None),
+                underlying_asset_id=getattr(future_entity, 'underlying_asset_id', None),
+                start_date=getattr(future_entity, 'start_date', None),
+                end_date=getattr(future_entity, 'end_date', None),
+                underlying_index=getattr(future_entity, 'underlying_asset', None)
             )
         except Exception as e:
             print(f"Error converting Future to IndexFuture: {e}_{os.path.abspath(__file__)}")

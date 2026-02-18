@@ -186,20 +186,16 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             exchange = self._get_or_create_exchange(contract.exchange)
             
             return self.entity_class(
+                id=None,
+                name=f"{self._normalize_symbol(contract)} Index Future",
                 symbol=self._normalize_symbol(contract),
-                #name=f"{self._normalize_symbol(contract)} Index Future",
                 exchange_id=exchange.id if exchange else None,
                 currency_id=currency.id if currency else None,
-                underlying_asset=underlying_index,
-                #contract_size=contract_size,
-                #tick_size=Decimal(str(tick_size)),
-                expiration_date=self._parse_expiry_date(contract.lastTradeDateOrContractMonth),
-                #market_sector="INDEX",
-                #asset_class="DERIVATIVE",
+                underlying_index=underlying_index,
                 # Additional IBKR-specific fields
-                #ibkr_contract_id=getattr(contract, 'conId', None),
-                #ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                #ibkr_trading_class=getattr(contract, 'tradingClass', '')
+                # ibkr_contract_id=getattr(contract, 'conId', None),
+                # ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
+                # ibkr_trading_class=getattr(contract, 'tradingClass', '')
             )
         except Exception as e:
             print(f"Error converting IBKR contract to domain entity: {e}_{os.path.abspath(__file__)}")
