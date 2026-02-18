@@ -29,6 +29,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.financial_asset_factor_repository import FinancialAssetFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.security_factor_repository import SecurityFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.futures_factor_repository import FuturesFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_factor_repository import IndexFutureFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.options_factor_repository import OptionsFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
@@ -62,6 +63,7 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.i
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_bond_factor_repository import IBKRBondFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_future_factor_repository import IBKRFutureFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_factor_repository import IBKRIndexFutureFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_option_factor_repository import IBKROptionFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_financial_asset_factor_repository import IBKRFinancialAssetFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_security_factor_repository import IBKRSecurityFactorRepository
@@ -131,6 +133,7 @@ class RepositoryFactory:
                 'financial_asset_factor': FinancialAssetFactorRepository(self.session, factory=self),
                 'security_factor': SecurityFactorRepository(self.session, factory=self),
                 'future_factor': FuturesFactorRepository(self.session, factory=self),
+                'index_future_factor': IndexFutureFactorRepository(self.session, factory=self),
                 'option_factor': OptionsFactorRepository(self.session, factory=self),
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
@@ -222,6 +225,10 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'future_factor': IBKRFutureFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'index_future_factor': IBKRIndexFutureFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -438,6 +445,11 @@ class RepositoryFactory:
     def future_factor_local_repo(self):
         """Get future_factor repository for dependency injection."""
         return self._local_repositories.get('future_factor')
+
+    @property
+    def index_future_factor_local_repo(self):
+        """Get index_future_factor repository for dependency injection."""
+        return self._local_repositories.get('index_future_factor')
 
     @property
     def option_factor_local_repo(self):
@@ -695,6 +707,11 @@ class RepositoryFactory:
     def future_factor_ibkr_repo(self):
         """Get future_factor repository for dependency injection."""
         return self._ibkr_repositories.get('future_factor')
+
+    @property
+    def index_future_factor_ibkr_repo(self):
+        """Get index_future_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('index_future_factor')
 
     @property
     def option_factor_ibkr_repo(self):
