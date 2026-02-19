@@ -73,6 +73,15 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
         )
         return [self._to_entity(model) for model in models]
 
+    def get_by_code(self, code: str) -> Optional[ExchangeEntity]:
+        """Get exchange by code (same as legal_name in this implementation)."""
+        model = (
+            self.session.query(ExchangeModel)
+            .filter(ExchangeModel.legal_name == code)
+            .first()
+        )
+        return self._to_entity(model)
+
     def exists_by_name(self, name: str) -> bool:
         return (
             self.session.query(ExchangeModel)
