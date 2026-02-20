@@ -22,6 +22,7 @@ from src.infrastructure.repositories.local_repo.factor.factor_value_repository i
 from src.infrastructure.repositories.local_repo.factor.continent_factor_repository import ContinentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.country_factor_repository import CountryFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_factor_repository import IndexFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_price_return_factor_repository import IndexPriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.equity_factor_repository import EquityFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.bond_factor_repository import BondFactorRepository
@@ -55,6 +56,7 @@ from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_reposito
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_continent_factor_repository import IBKRContinentFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_country_factor_repository import IBKRCountryFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_factor_repository import IBKRIndexFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_price_return_factor_repository import IBKRIndexPriceReturnFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_share_factor_repository import IBKRShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_currency_factor_repository import IBKRCurrencyFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_equity_factor_repository import IBKREquityFactorRepository
@@ -125,6 +127,7 @@ class RepositoryFactory:
                 'continent_factor': ContinentFactorRepository(self.session, factory=self),
                 'country_factor': CountryFactorRepository(self.session, factory=self),
                 'index_factor': IndexFactorRepository(self.session, factory=self),
+                'index_price_return_factor': IndexPriceReturnFactorRepository(self.session, factory=self),
                 'share_factor': ShareFactorRepository(self.session, factory=self),
                 'currency_factor': CurrencyFactorRepository(self.session, factory=self),
                 'equity_factor': EquityFactorRepository(self.session, factory=self),
@@ -200,6 +203,10 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'index_factor': IBKRIndexFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'index_price_return_factor': IBKRIndexPriceReturnFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -412,6 +419,11 @@ class RepositoryFactory:
         return self._local_repositories.get('index_factor')
 
     @property
+    def index_price_return_factor_local_repo(self):
+        """Get index_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('index_price_return_factor')
+
+    @property
     def currency_factor_local_repo(self):
         """Get currency_factor repository for dependency injection."""
         return self._local_repositories.get('currency_factor')
@@ -589,6 +601,11 @@ class RepositoryFactory:
     def index_factor_ibkr_repo(self):
         """Get index_factor repository for dependency injection."""
         return self._ibkr_repositories.get('index_factor')
+
+    @property
+    def index_price_return_factor_ibkr_repo(self):
+        """Get index_price_return_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('index_price_return_factor')
 
     @property
     def share_factor_ibkr_repo(self):
