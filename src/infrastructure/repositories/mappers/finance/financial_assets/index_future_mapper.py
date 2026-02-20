@@ -39,6 +39,7 @@ class IndexFutureMapper:
             underlying_asset_id=orm_obj.underlying_asset_id if hasattr(orm_obj, 'underlying_asset_id') else None,
             start_date=orm_obj.start_date if hasattr(orm_obj, 'start_date') else None,
             end_date=orm_obj.end_date if hasattr(orm_obj, 'end_date') else None,
+            contract_size=orm_obj.contract_size if hasattr(orm_obj, 'contract_size') else None,
             underlying_index=orm_obj.underlying if hasattr(orm_obj, 'underlying') else None,
         )
 

@@ -23,6 +23,7 @@ class Future(Derivative):
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
             expiration_date: Optional[date] = None,
+            contract_size: Optional[int] = None,
             
         ):
 
@@ -30,3 +31,4 @@ class Future(Derivative):
         self.currency_id = currency_id
         self.exchange_id = exchange_id
         self.expiration_date = expiration_date
+        self.contract_size = contract_size

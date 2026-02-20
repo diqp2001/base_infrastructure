@@ -21,7 +21,7 @@ class FutureModel(DerivativeModel):
 
     id = Column(Integer, ForeignKey("derivatives.id"), primary_key=True)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
-    
+    contract_size = Column(Integer, nullable=True)  # Contract multiplier/size
     
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="futures") 
     
