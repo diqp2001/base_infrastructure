@@ -35,9 +35,7 @@ class FutureMapper:
             start_date=orm_obj.start_date,
             end_date=orm_obj.end_date,
             contract_size=orm_obj.contract_size,
-            tick_size=Decimal(str(orm_obj.tick_size))
-            if orm_obj.tick_size is not None
-            else None,
+            
         )
 
         # Optional market data
@@ -63,7 +61,7 @@ class FutureMapper:
 
         # Contract specs
         orm_obj.contract_size = domain_obj.contract_size
-        orm_obj.tick_size = domain_obj.tick_size
+        
 
         # Underlying (FK handled by repository/session)
         if domain_obj.underlying_asset:

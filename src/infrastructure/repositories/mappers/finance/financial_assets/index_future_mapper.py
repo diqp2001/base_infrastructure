@@ -55,8 +55,8 @@ class IndexFutureMapper:
     @staticmethod
     def to_orm(domain_obj: DomainIndexFuture) -> ORMIndexFuture:
         """Convert domain IndexFuture entity to ORM model."""
-        if orm_obj is None:
-            orm_obj = ORMIndexFuture()
+        
+        orm_obj = ORMIndexFuture()
 
         # Identification
         orm_obj.symbol = domain_obj.symbol

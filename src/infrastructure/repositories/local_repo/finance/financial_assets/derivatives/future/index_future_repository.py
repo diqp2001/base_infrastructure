@@ -27,6 +27,11 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
         return self.mapper.entity_class
+    
+    @property
+    def model_class(self):
+        """Return the SQLAlchemy model class for FactorValue."""
+        return self.mapper.model_class
     # ------------------------------------------------------------------
     # Index-specific queries
     # ------------------------------------------------------------------
@@ -42,11 +47,33 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
             return future
 
         return None
-
+    def add(self, domain_index: IndexFuture) -> IndexFuture:
+        """Add a new Index record to the database."""
+        try:
+            new_index = self.mapper.to_orm(domain_index)
+            self.session.add(new_index)
+            self.session.commit()
+            return self.mapper.to_domain(new_index)
+        except Exception as e:
+            self.session.rollback()
+            print(f"Error adding index: {e}_{os.path.abspath(__file__)}")
+            return None
     # ------------------------------------------------------------------
     # Factory helpers
     # ------------------------------------------------------------------
-
+    
+    def get_by_symbol(self, symbol: str):
+        """Fetch a Future by its symbol."""
+        try:
+            index_future = (
+                self.session.query(self.model_class)
+                .filter(self.model_class.symbol == symbol)
+                .first()
+            )
+            return self.mapper.to_domain(index_future)
+        except Exception as e:
+            print(f"Error retrieving future by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
+            return None
     def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
         """
         Get or create an index future by symbol.
@@ -61,9 +88,9 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
         try:
             # First try to get existing
             existing = self.get_by_symbol(symbol)
-            if existing and existing.future_type == "INDEX":
+            if existing :
                 # Convert Future to IndexFuture entity
-                return self._future_to_index_future(existing)
+                return existing
             
             # Create new index future with minimal parameters
             future_entity = self._create_or_get(
@@ -80,38 +107,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
             print(f"Error in get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def create_or_get_index_future(
-        self,
-        symbol: str,
-        underlying_index: str,
-        exchange: str = "CME",
-        currency: str = "USD",
-        contract_name: Optional[str] = None,
-        **kwargs
-    ) -> Future_Entity:
-        """
-        Create or retrieve an INDEX future (legacy method).
-
-        Args:
-            symbol: Future symbol (e.g., 'ESZ5')
-            underlying_index: Underlying index (e.g., 'SPX')
-            exchange: Exchange (default CME)
-            currency: Currency (default USD)
-            contract_name: Optional explicit contract name
-            **kwargs: Additional Future parameters
-
-        Returns:
-            Future_Entity
-        """
-        return self._create_or_get(
-            symbol=symbol,
-            contract_name=contract_name or f"{symbol} Index Future",
-            future_type="INDEX",
-            underlying_asset=underlying_index,
-            exchange=exchange,
-            currency=currency,
-            **kwargs,
-        )
+    
     
     def _future_to_index_future(self, future_entity: Future_Entity) -> Optional[IndexFuture]:
         """

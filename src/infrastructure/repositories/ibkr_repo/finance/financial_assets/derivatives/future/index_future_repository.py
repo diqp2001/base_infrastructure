@@ -6,7 +6,7 @@ applying IBKR-specific business rules before delegating persistence to the local
 """
 
 import os
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -75,14 +75,17 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             contract_details_list = self._fetch_contract_details(contract)
             if not contract_details_list:
                 return None
+            entity_created = []
+            for    contract_detail in contract_details_list:
+                # 4. Apply IBKR-specific rules and convert to domain entity
+                entity = self._contract_to_domain(contract, contract_detail)
+                if not entity:
+                    return None
                 
-            # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_domain(contract, contract_details_list)
-            if not entity:
-                return None
+                entity_created.append(self.local_repo.add(entity))
                 
             # 5. Delegate persistence to local repository
-            return self.local_repo.add(entity)
+            return entity_created[0]
             
         except Exception as e:
             print(f"Error in IBKR get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
@@ -162,7 +165,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             print(f"Error fetching IBKR contract details: {e}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[IndexFuture]:
+    def _contract_to_domain(self, contract: Contract, contract_details: Any) -> Optional[IndexFuture]:
         """
         Convert IBKR contract and details to domain entity using intelligent contract selection.
         
@@ -175,9 +178,9 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         """
         try:
             # Select the appropriate contract from multiple available contracts
-            contract_details = self._select_optimal_contract(contract_details_list)
+            #contract_details = self._select_optimal_contract(contract_details_list)
             if not contract_details:
-                print(f"No suitable contract found from {len(contract_details_list)} available contracts")
+                print(f"No suitable contract found from {len(contract_details)} available contracts")
                 return None
             
             # Apply IBKR-specific business rules and create domain entity
@@ -186,21 +189,16 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             tick_size = contract_details.get('min_tick', 0.25)
             
             # Get or create currency and exchange dependencies
-            currency = self._get_or_create_currency(contract.currency, f"{contract.currency} Currency")
-            exchange = self._get_or_create_exchange(contract.exchange)
+            currency = self._get_or_create_currency(contract_details.get("currency") , f"{contract.currency} Currency")
+            exchange = self._get_or_create_exchange(contract_details.get("exchange"))
             
             return self.entity_class(
                 id=None,
                 name=f"{self._normalize_symbol(contract)} Index Future",
-                symbol=self._normalize_symbol(contract),
-                exchange_id=exchange.id if exchange else None,
-                currency_id=currency.id if currency else None,
+                symbol=contract_details.get("local_symbol"),
+                exchange_id=exchange.id ,
+                currency_id=currency.id ,
                 contract_size=contract_size,
-                underlying_index=underlying_index,
-                # Additional IBKR-specific fields
-                # ibkr_contract_id=getattr(contract, 'conId', None),
-                # ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                # ibkr_trading_class=getattr(contract, 'tradingClass', '')
             )
         except Exception as e:
             print(f"Error converting IBKR contract to domain entity: {e}_{os.path.abspath(__file__)}")
