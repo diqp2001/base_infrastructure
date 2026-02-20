@@ -311,8 +311,8 @@ class MarketDataService:
             
             # Use entity_service _create_or_get method
             entity = self.entity_service._create_or_get(
-                entity_class, 
-                entity_symbol,
+                entity_cls = entity_class, 
+                #name = entity_symbol,
                 **kwargs
             )
             
