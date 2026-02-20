@@ -192,6 +192,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
                 symbol=self._normalize_symbol(contract),
                 exchange_id=exchange.id if exchange else None,
                 currency_id=currency.id if currency else None,
+                contract_size=contract_size,
                 underlying_index=underlying_index,
                 # Additional IBKR-specific fields
                 # ibkr_contract_id=getattr(contract, 'conId', None),
