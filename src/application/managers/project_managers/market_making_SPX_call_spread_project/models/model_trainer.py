@@ -118,12 +118,7 @@ class ModelTrainer:
         # 2. Populate price factors  
         factors_summary = self.populate_factors(tickers, overwrite)
         
-        # 3. Also use market_data_history_service to create factors from config
-        if hasattr(self.data_loader, 'market_data_history_service'):
-            history_service_results = self.data_loader.market_data_history_service.create_factors_from_config(
-                self.config.get('factors', {}), tickers
-            )
-            print(f"  📊 Market data history service created {history_service_results['factors_created']} factors")
+        
         
         
     def populate_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
@@ -151,90 +146,7 @@ class ModelTrainer:
         }
         
         try:
-            # Process each factor group from config using batch operations
-            # for factor_group_name, factor_list in factors_config.items():
-            #     print(f"  📊 Processing factor group: {factor_group_name}")
-                
-            #     # Collect factors for this group into a batch
-            #     group_factors = []
-                
-            #     for factor_config in factor_list:
-            #         if not isinstance(factor_config, dict):
-            #             continue
-                        
-            #         factor_name = factor_config.get('name')
-            #         factor_group = factor_config.get('group', 'unknown')
-            #         factor_subgroup = factor_config.get('subgroup', 'default')
-            #         factor_data_type = factor_config.get('data_type', 'numeric')
-            #         factor_index = factor_config.get('factor_index', len(group_factors))
-            #         factor_future_start = factor_config.get('factor_future_start', datetime.now())
-                    
-            #         if not factor_name:
-            #             continue
-                    
-            #         try:
-            #             # Create factor entity with index and future start for factors without dependencies
-            #             factor_entity = Factor(
-            #                 name=factor_name,
-            #                 group=factor_group,
-            #                 subgroup=factor_subgroup,
-            #                 data_type=factor_data_type,
-            #                 source='config',
-            #                 definition=f'Factor {factor_name} from {factor_group}/{factor_subgroup} configuration'
-            #             )
-                        
-            #             # Add factor index and future start for factors without dependencies
-            #             factor_entity.factor_index = factor_index
-            #             factor_entity.factor_future_start = factor_future_start
-                        
-            #             group_factors.append(factor_entity)
-                        
-            #             results['factor_details'].append({
-            #                 'name': factor_name,
-            #                 'group': factor_group,
-            #                 'subgroup': factor_subgroup,
-            #                 'factor_index': factor_index,
-            #                 'factor_future_start': factor_future_start,
-            #                 'status': 'added_to_batch'
-            #             })
-                        
-            #             print(f"    ✅ Added to batch: {factor_name} (group: {factor_group}, index: {factor_index})")
-                            
-            #         except Exception as e:
-            #             error_msg = f"Error creating factor {factor_name}: {str(e)}"
-            #             results['errors'].append(error_msg)
-            #             print(f"    ❌ {error_msg}")
-                
-                # # Create FactorBatch for this group
-                # if group_factors:
-                #     try:
-                #         factor_batch = FactorBatch(
-                #             factors=group_factors,
-                #             metadata={
-                #                 'group_name': factor_group_name,
-                #                 'tickers': tickers,
-                #                 'overwrite': overwrite,
-                #                 'created_at': datetime.now().isoformat()
-                #             }
-                #         )
-                        
-                #         results['factor_batches'].append(factor_batch)
-                #         results['factors_created'] += len(group_factors)
-                        
-                #         print(f"    📦 Created FactorBatch for {factor_group_name}: {len(group_factors)} factors")
-                        
-                #         # Process the batch using market_data_history_service
-                #         if hasattr(self.data_loader, 'market_data_history_service'):
-                #             batch_results = self.data_loader.market_data_history_service.process_factor_batch(
-                #                 factor_batch, tickers
-                #             )
-                #             print(f"    ✅ Processed batch: {batch_results.get('processed_count', 0)} factors")
-                        
-                #     except Exception as e:
-                #         error_msg = f"Error creating FactorBatch for {factor_group_name}: {str(e)}"
-                #         results['errors'].append(error_msg)
-                #         print(f"    ❌ {error_msg}")
-                #         results['factors_skipped'] += len(group_factors)
+            
             
             # Create factors from config using the new create_factors method
             factors_config = self.config.get('factors', [])
@@ -289,7 +201,9 @@ class ModelTrainer:
                 try:
                     # Create factor entity using MarketDataHistoryService
                     factor_creation_config = {
+                        'entity_class': factor_config.get('class', 'unknown'),
                         'name': factor_name,
+                        'entity_symbol': factor_name,
                         'group': factor_config.get('group', 'unknown'),
                         'subgroup': factor_config.get('subgroup', 'default'),
                         'data_type': factor_config.get('data_type', 'numeric'),

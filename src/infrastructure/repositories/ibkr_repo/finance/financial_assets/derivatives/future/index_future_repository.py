@@ -219,7 +219,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
                 currency_repo = self.factory.currency_ibkr_repo
                 if currency_repo:
-                    currency = currency_repo.get_or_create(iso_code)
+                    currency = currency_repo._create_or_get(iso_code)
                     if currency:
                         return currency
             
@@ -245,7 +245,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             if self.factory and hasattr(self.factory, 'exchange_ibkr_repo'):
                 exchange_repo = self.factory.exchange_ibkr_repo
                 if exchange_repo:
-                    exchange = exchange_repo.get_or_create(exchange_code)
+                    exchange = exchange_repo._create_or_get(exchange_code)
                     if exchange:
                         return exchange
             
