@@ -55,6 +55,11 @@ class IBKRCurrencyRepository(IBKRFinancialAssetRepository, CurrencyPort):
             Currency entity or None if creation/retrieval failed
         """
         try:
+            # Fix: Handle empty/None symbol to prevent TWS Error 321
+            if not symbol or symbol.strip() == "":
+                print(f"Warning: Empty currency symbol provided, skipping currency creation")
+                return None
+            
             # 1. Check local repository first
             existing = self.local_repo.get_by_iso_code(symbol)
             if existing:

@@ -22,6 +22,18 @@ from src.domain.entities.finance.exchange import Exchange
 from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
 
 
+class IndexFutureDataConfig:
+    """
+    Configuration for index future data requests to optimize data size.
+    Prevents "thick data" by using lightweight defaults.
+    """
+    # Lightweight defaults for index futures
+    DEFAULT_DURATION = "3 D"      # 3 days instead of 1 week
+    DEFAULT_BAR_SIZE = "1 hour"   # 1 hour instead of 5 mins
+    DEFAULT_WHAT_TO_SHOW = "TRADES"  # Essential data only
+    USE_RTH = True                # Regular trading hours only
+
+
 
 class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
     """
@@ -112,6 +124,49 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         """Delete index future entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
 
+    def get_optimized_historical_data(self, symbol: str, 
+                                    duration: str = None,
+                                    bar_size: str = None,
+                                    what_to_show: str = None) -> List[dict]:
+        """
+        Get historical data for index futures with optimized (lightweight) defaults.
+        
+        Args:
+            symbol: Index future symbol (e.g., 'ES', 'NQ')
+            duration: Duration string (defaults to lightweight 3D)
+            bar_size: Bar size (defaults to lightweight 1 hour)
+            what_to_show: Data type (defaults to TRADES only)
+            
+        Returns:
+            List of historical bars with minimal data footprint
+        """
+        try:
+            # Use lightweight defaults to prevent "thick data"
+            config = IndexFutureDataConfig()
+            duration = duration or config.DEFAULT_DURATION
+            bar_size = bar_size or config.DEFAULT_BAR_SIZE
+            what_to_show = what_to_show or config.DEFAULT_WHAT_TO_SHOW
+            
+            # Create contract
+            contract = self._fetch_contract(symbol)
+            if not contract:
+                print(f"Failed to create contract for {symbol}")
+                return []
+            
+            # Use broker's historical data method with optimized parameters
+            return self.ib_broker.get_historical_data(
+                contract=contract,
+                duration_str=duration,
+                bar_size_setting=bar_size,
+                what_to_show=what_to_show,
+                use_rth=config.USE_RTH,
+                timeout=15  # Shorter timeout for lightweight requests
+            )
+            
+        except Exception as e:
+            print(f"Error getting optimized historical data for {symbol}: {e}")
+            return []
+
     def _fetch_contract(self, symbol: str) -> Optional[Contract]:
         """
         Fetch contract from IBKR API.
@@ -127,7 +182,8 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             contract.symbol = self._extract_underlying_symbol(symbol)
             contract.tradingClass = contract.symbol
             contract.secType = "FUT"
-            contract.exchange = "CME"  
+            contract.exchange = "CME"
+            contract.currency = "USD"  # Fix: Set currency to prevent empty symbol error
             #contract.lastTradeDateOrContractMonth = self._extract_expiry_from_symbol(symbol)
             
             # Additional IBKR-specific contract setup
@@ -216,6 +272,12 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             Currency domain entity
         """
         try:
+            # Fix: Handle empty/None currency codes
+            if not iso_code or iso_code.strip() == "":
+                print(f"Warning: Empty currency code provided, defaulting to USD")
+                iso_code = "USD"
+                name = "US Dollar"
+            
             # Try factory's currency repository first (preferred approach)
             if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
                 currency_repo = self.factory.currency_ibkr_repo
