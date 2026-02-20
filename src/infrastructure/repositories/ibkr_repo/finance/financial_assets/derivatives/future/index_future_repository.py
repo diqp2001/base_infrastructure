@@ -42,7 +42,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         
         self.factory = factory
         self.local_repo =  self.factory.index_future_local_repo 
-        self.mapper = mapper or IndexFutureMapper()
+        self.mapper =  IndexFutureMapper()
     @property
     def entity_class(self):
         """Return the domain entity class for IndexFuture."""
