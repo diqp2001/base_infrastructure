@@ -4,7 +4,7 @@ IBKR Index Factor Mapper - Mapper for IndexFactor domain entities and ORM models
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel, IndexFactorModel
+from src.infrastructure.models.factor.factor import FactorModel
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 
 
@@ -34,9 +34,9 @@ class IBKRIndexFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: IndexFactor) -> IndexFactorModel:
+    def to_orm(domain_entity: IndexFactor) -> FactorModel:
         """Convert IndexFactor domain entity to ORM model."""
-        return IndexFactorModel(
+        return FactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,

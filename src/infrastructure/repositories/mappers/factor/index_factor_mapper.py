@@ -4,7 +4,7 @@ Mapper for IndexFactor domain entity and ORM model conversion.
 
 from typing import Optional
 
-from src.infrastructure.models.factor.factor import IndexFactorModel
+from src.infrastructure.models.factor.factor import FactorModel
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
 from .base_factor_mapper import BaseFactorMapper
 
@@ -16,7 +16,7 @@ class IndexFactorMapper(BaseFactorMapper):
         return 'index'
     
     def get_factor_model(self):
-        return IndexFactorModel
+        return FactorModel
     
     
     
@@ -24,7 +24,7 @@ class IndexFactorMapper(BaseFactorMapper):
         return IndexFactor
     
     
-    def to_domain(self, orm_model: Optional[IndexFactorModel]) -> Optional[IndexFactor]:
+    def to_domain(self, orm_model: Optional[FactorModel]) -> Optional[IndexFactor]:
         """Convert ORM model to IndexFactor domain entity."""
         if not orm_model:
             return None
@@ -40,9 +40,9 @@ class IndexFactorMapper(BaseFactorMapper):
         )
     
     
-    def to_orm(self, domain_entity: IndexFactor) -> IndexFactorModel:
+    def to_orm(self, domain_entity: IndexFactor) -> FactorModel:
         """Convert IndexFactor domain entity to ORM model."""
-        return IndexFactorModel(
+        return FactorModel(
             name=domain_entity.name,
             group=domain_entity.group,
             subgroup=domain_entity.subgroup,

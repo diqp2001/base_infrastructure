@@ -4,7 +4,7 @@ IBKR Equity Factor Mapper - Mapper for EquityFactor domain entities and ORM mode
 
 from typing import Optional
 from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel, EquityFactorModel
+from src.infrastructure.models.factor.factor import FactorModel
 from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor
 
 
@@ -34,9 +34,9 @@ class IBKREquityFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: EquityFactor) -> EquityFactorModel:
+    def to_orm(domain_entity: EquityFactor) -> FactorModel:
         """Convert EquityFactor domain entity to ORM model."""
-        return EquityFactorModel(
+        return FactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,

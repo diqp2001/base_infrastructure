@@ -34,9 +34,9 @@ class IBKRCurrencyFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: CurrencyFactor) -> CurrencyFactorModel:
+    def to_orm(domain_entity: CurrencyFactor) -> FactorModel:
         """Convert CurrencyFactor domain entity to ORM model."""
-        return CurrencyFactorModel(
+        return FactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,

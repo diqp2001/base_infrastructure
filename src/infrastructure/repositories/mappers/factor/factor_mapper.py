@@ -7,19 +7,7 @@ from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
-    FactorModel as Factormodel,
-    ContinentFactorModel,
-    CountryFactorModel,
-    FinancialAssetFactorModel,
-    SecurityFactorModel,
-    IndexFactorModel,
-    CurrencyFactorModel,
-    EquityFactorModel,
-    ShareFactorModel,
-    ShareMomentumFactorModel,
-    ShareTechnicalFactorModel,
-    ShareTargetFactorModel,
-    ShareVolatilityFactorModel
+    FactorModel as Factormodel
 )
 from src.domain.entities.factor.factor import Factor as FactorEntity
 from src.domain.entities.factor.continent_factor import ContinentFactor as ContinentFactorEntity
@@ -280,32 +268,7 @@ class FactorMapper:
             'definition': domain_entity.definition,
         }
         
-        # Use appropriate polymorphic subclass based on domain entity type
-        if isinstance(domain_entity, ContinentFactorEntity):
-            return ContinentFactorModel(**base_data)
-        elif isinstance(domain_entity, CountryFactorEntity):
-            return CountryFactorModel(**base_data)
-        elif isinstance(domain_entity, FinancialAssetFactorEntity):
-            return FinancialAssetFactorModel(**base_data)
-        elif isinstance(domain_entity, SecurityFactorEntity):
-            return SecurityFactorModel(**base_data)
-        elif isinstance(domain_entity, IndexFactorEntity):
-            return IndexFactorModel(**base_data)
-        elif isinstance(domain_entity, CurrencyFactorEntity):
-            return CurrencyFactorModel(**base_data)
-        elif isinstance(domain_entity, EquityFactorEntity):
-            return EquityFactorModel(**base_data)
-        elif isinstance(domain_entity, ShareFactorEntity):
-            return ShareFactorModel(**base_data)
-        elif isinstance(domain_entity, ShareMomentumFactorEntity):
-            return ShareMomentumFactorModel(**base_data)
-        elif isinstance(domain_entity, ShareTechnicalFactorEntity):
-            return ShareTechnicalFactorModel(**base_data)
-        elif isinstance(domain_entity, ShareTargetFactorEntity):
-            return ShareTargetFactorModel(**base_data)
-        elif isinstance(domain_entity, ShareVolatilityFactorEntity):
-            return ShareVolatilityFactorModel(**base_data)
-        else:
-            # Default to base FactorModel for unknown types
-            return Factormodel(**base_data)
+        
+        # Default to base FactorModel for unknown types
+        return Factormodel(**base_data)
     
