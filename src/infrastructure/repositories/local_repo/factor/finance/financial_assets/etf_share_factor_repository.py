@@ -13,7 +13,9 @@ class ETFShareFactorRepository(BaseFactorRepository):
     def __init__(self, session:Session,factory=None):
         super().__init__(session)
         self.factory = factory
-
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return FactorMapper().get_factor_model()
     

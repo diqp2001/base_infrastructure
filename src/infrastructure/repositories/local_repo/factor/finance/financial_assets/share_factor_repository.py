@@ -16,7 +16,9 @@ class ShareFactorRepository(BaseFactorRepository):
         self.factory = factory
         self.mapper = ShareFactorMapper()
 
-    
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     

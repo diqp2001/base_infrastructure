@@ -10,12 +10,7 @@ class FutureAnnualizedPriceReturnFactor(FutureFactor):
 
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Annualized Price Return",
-            group="Price Factor",
-            subgroup="Return",
-            data_type="float",
-            source="model",
-            definition="Annualized return computed from two price observations.",
+            
             factor_id=factor_id,
             **kwargs
         )

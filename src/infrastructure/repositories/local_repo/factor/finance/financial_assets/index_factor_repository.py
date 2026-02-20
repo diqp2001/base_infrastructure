@@ -17,7 +17,9 @@ class IndexFactorRepository(BaseFactorRepository):
         self.factory = factory
         self.mapper = IndexFactorMapper()
         self.mapper_value = FactorValueMapper()
-
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     
@@ -55,10 +57,10 @@ class IndexFactorRepository(BaseFactorRepository):
             existing = self.get_by_all(name =primary_key,group=kwargs.get('group', 'index'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 factor_type=kwargs.get('factor_type', 'index'),
-                data_type=kwargs.get('data_type', 'numeric'),
+                data_type=self.mapper.discriminator,
                 source=kwargs.get('source', 'market_data'))
             if existing:
-                return existing
+                return self._to_entity(existing)
             domain_factor = self.get_factor_entity()(name=primary_key,
                 group=kwargs.get('group', 'index'),
                 subgroup=kwargs.get('subgroup', 'daily'),

@@ -173,10 +173,11 @@ class Algorithm(QCAlgorithm):
             # Step 1: Execute model training pipeline for data creation and verification
             if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_model_trained'):
                 self.logger.info("🚀 Running model training pipeline for data preparation...")
+                
                 training_result = self.trainer.train_complete_pipeline(
                     tickers=self.universe,
                     model_type='pricing',  # Use pricing models for SPX options
-                    seeds=[42, 123]
+                    seeds=[42, 123],data =data
                 )
                 
                 if training_result.get('error'):

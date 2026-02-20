@@ -9,12 +9,7 @@ class FutureDiscountedValueFactor(FutureFactor):
     
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Discounted Value",
-            group="Future Factor",
-            subgroup="Price",
-            data_type="float",
-            source="model",
-            definition="Present value of the future's payoff.",
+           
             factor_id=factor_id,
             **kwargs
         )

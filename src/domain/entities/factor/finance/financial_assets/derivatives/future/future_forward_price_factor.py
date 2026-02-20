@@ -9,12 +9,7 @@ class FutureForwardPriceFactor(FutureFactor):
     
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Forward Price",
-            group="Future Factor",
-            subgroup="Price",
-            data_type="float",
-            source="model",
-            definition="Theoretical forward/futures price using cost-of-carry.",
+            
             factor_id=factor_id,
             **kwargs
         )

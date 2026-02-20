@@ -50,7 +50,7 @@ class ModelTrainer:
     def train_complete_pipeline(self,
                               tickers: Optional[List[str]] = None,
                               model_type: str = 'both',
-                              seeds: Optional[List[int]] = None) -> Dict[str, Any]:
+                              seeds: Optional[List[int]] = None,data=None) -> Dict[str, Any]:
         """
         Execute the complete training pipeline.
         
@@ -69,10 +69,10 @@ class ModelTrainer:
         
         if seeds is None:
             seeds = [42, 123]
-        
+        date = list(data.items())[0][1].time #date from data
         # Step 1: Prepare factor data (store in database, don't create tensors)
         print("\n📊 Step 1: Preparing factor-enhanced data...")
-        factor_data = self._prepare_factor_data(tickers)
+        factor_data = self._prepare_factor_data(date)
         
         # Step 2: NEW - Apply comprehensive normalization and factor enhancement
         print("\n🔧 Step 2: Normalizing and enhancing factors...")
@@ -109,19 +109,7 @@ class ModelTrainer:
         
         return final_results
     
-    def _ensure_factors_exist(self, tickers: List[str], overwrite: bool = False) -> None:
-        """Ensure all factors exist in database, following backtestRunner pattern."""
-        print("  📍 Ensuring factor system is populated...")
-        
-        
-        
-        # 2. Populate price factors  
-        factors_summary = self.populate_factors(tickers, overwrite)
-        
-        
-        
-        
-    def populate_factors(self, tickers: List[str], overwrite: bool = False) -> Dict[str, Any]:
+    def _ensure_factors_exist(self) -> None:
         """
         Create factor domain entities from config using factor_batch DTO for optimized batch operations.
         
@@ -151,7 +139,7 @@ class ModelTrainer:
             # Create factors from config using the new create_factors method
             factors_config = self.config.get('factors', [])
             if factors_config:
-                factor_results = self.create_factors(factors_config, tickers)
+                factor_results = self.create_factors(factors_config)
                 results['config_factors_created'] = factor_results['factors_created']
                 results['config_factor_details'] = factor_results['factor_details']
                 print(f"    🔗 Created {factor_results['factors_created']} factors from config")
@@ -171,8 +159,13 @@ class ModelTrainer:
             results['errors'].append(error_msg)
             print(f"❌ {error_msg}")
             return results
+        
+        
+        
+        
+ 
     
-    def create_factors(self, factors_config: List[Dict], tickers: List[str]) -> Dict[str, Any]:
+    def create_factors(self, factors_config: List[Dict]) -> Dict[str, Any]:
         """
         Create factors from config file using factor definitions.
         
@@ -221,6 +214,7 @@ class ModelTrainer:
                     if factor_entity:
                         results['factors_created'] += 1
                         results['factor_details'].append({
+                            'factor_entity':factor_entity,
                             'name': factor_name,
                             'group': factor_config.get('group', 'unknown'),
                             'subgroup': factor_config.get('subgroup', 'default'),
@@ -350,95 +344,9 @@ class ModelTrainer:
             print(f"Error creating factor {name}: {str(e)}")
             return None
     
-    def _create_target_factors(self, target_config: Dict, tickers: List[str], overwrite: bool = False) -> int:
-        """
-        Create target factors for specified asset classes and tickers.
-        
-        Args:
-            target_config: Target configuration from config
-            tickers: List of tickers
-            overwrite: Whether to overwrite existing factors
-            
-        Returns:
-            Number of target factors created
-        """
-        target_factors_created = 0
-        
-        try:
-            for asset_class, ticker_list in target_config.items():
-                # Extract asset class name from class object
-                asset_class_name = asset_class.__name__ if hasattr(asset_class, '__name__') else str(asset_class)
-                
-                for ticker in ticker_list:
-                    if ticker in tickers:  # Only create for requested tickers
-                        try:
-                            # Create target factor for this asset class and ticker
-                            target_name = f'{ticker}_{asset_class_name.lower()}_target'
-                            target_entity = self._create_factor_from_config(
-                                name=target_name,
-                                group='target',
-                                subgroup=asset_class_name.lower(),
-                                data_type='numeric',
-                                tickers=[ticker],
-                                overwrite=overwrite
-                            )
-                            
-                            if target_entity:
-                                target_factors_created += 1
-                                print(f"    ✅ Created target factor: {target_name}")
-                                
-                        except Exception as e:
-                            print(f"    ❌ Error creating target factor for {ticker}: {str(e)}")
-            
-        except Exception as e:
-            print(f"Error creating target factors: {str(e)}")
-        
-        return target_factors_created
+    
 
     
-    def _load_ticker_factor_data(self, ticker: str) -> Optional[pd.DataFrame]:
-        """Load all factor data for a single ticker using MarketDataHistoryService and get_history."""
-        try:
-            # Check if MarketDataHistoryService is available through data_loader
-            if hasattr(self.data_loader, 'market_data_history_service') and self.data_loader.market_data_history_service:
-                # Get entity using entity service (similar to _get_point_in_time_data pattern)
-                if hasattr(self.data_loader.market_data_history_service, 'market_data_service'):
-                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker)
-                    if entity:
-                        # Set frontier for historical data access (prevent look-ahead bias)
-                        from datetime import datetime
-                        current_date = datetime.now()
-                        self.data_loader.market_data_history_service.set_frontier(current_date)
-                        
-                        # Use get_history method similar to _get_point_in_time_data pattern
-                        ticker_data = self.data_loader.market_data_history_service.get_history(
-                            symbols=ticker,
-                            periods=1000,  # Get substantial history for factor analysis
-                            resolution='1d',
-                            factor_data_service=self.factor_manager,
-                            what_to_show="TRADES",
-                            duration_str="2 Y",  # Get 2 years of data
-                            bar_size_setting="1 day"
-                        )
-                        
-                        if ticker_data is not None and not ticker_data.empty:
-                            return ticker_data
-            
-            # Fallback to original method
-            print(f"  🔄 Using factor_manager for {ticker}...")
-            factor_groups = self.config.get('factors', {})
-            ticker_data = self.factor_manager._get_ticker_factor_data(
-                ticker=ticker,
-                start_date=None,  # Use default date range
-                end_date=None,
-                factor_groups=factor_groups
-            )
-            
-            return ticker_data
-            
-        except Exception as e:
-            print(f"  ⚠️  Error loading factor data for {ticker}: {str(e)}")
-            return None
     
     def _load_ticker_price_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Load price data for a single ticker from database using repository pattern."""
@@ -490,25 +398,25 @@ class ModelTrainer:
             print(f"  ⚠️  Error loading price data for {ticker}: {str(e)}")
             return None
     
-    def _prepare_factor_data(self, tickers: List[str]) -> Dict[str, pd.DataFrame]:
+    def _prepare_factor_data(self,date) -> Dict[str, pd.DataFrame]:
         """Prepare factor-enhanced data for all tickers using database-driven approach."""
-        print(f"📊 Preparing factor data using database for {len(tickers)} tickers...")
         
         # Step 1: Ensure all factors exist in database (like backtestRunner)
-        self._ensure_factors_exist(tickers, overwrite=False)
+        results = self._ensure_factors_exist()
         
         # Step 2: Load factor data from database for each ticker
-        factor_data = {}
-        
-        for ticker in tickers:
-            print(f"  🔍 Loading factor data for {ticker}...")
-            ticker_data = self._load_ticker_factor_data(ticker)
-            
-            if ticker_data is not None and hasattr(ticker_data, 'empty') and not ticker_data.empty:
-                factor_data[ticker] = ticker_data
-                print(f"    ✅ Loaded {len(ticker_data)} records with {len(ticker_data.columns)} factors")
-            else:
-                print(f"    ⚠️  No factor data found for {ticker}")
+        if not date:
+            from datetime import datetime
+            date = datetime.now()
+        self.data_loader.market_data_history_service.set_frontier(date)
+        factor_groups = results['config_factor_details']
+        entities = []
+        universe = self.config.get('universe', {})
+        for entity_class, tickers_list in universe.items():
+                for ticker in tickers_list:
+                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker,entity_class)
+                    entities.append(entity)
+        factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups,entities,date)
         
         print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data

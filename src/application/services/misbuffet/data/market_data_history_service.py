@@ -40,224 +40,201 @@ class MarketDataHistoryService:
         
         self.logger.debug(f"Frontier set to {frontier_time}")
     
-    def get_history(self, symbols: Union[str, List[str]], periods: int, 
-                   resolution: str = '1d', factor_data_service=None,
-                   what_to_show: str = "TRADES",
-                   duration_str: str = "6 M",
-                   bar_size_setting: str = "1 day") -> pd.DataFrame:
-        """
-        Get historical data for symbols, respecting the frontier.
+    # def get_history(self, symbols: Union[str, List[str]], periods: int, 
+    #                resolution: str = '1d', factor_data_service=None,
+    #                what_to_show: str = "TRADES",
+    #                duration_str: str = "6 M",
+    #                bar_size_setting: str = "1 day") -> pd.DataFrame:
+    #     """
+    #     Get historical data for symbols, respecting the frontier.
         
-        Args:
-            symbols: Symbol or list of symbols to get data for
-            periods: Number of periods to retrieve
-            resolution: Data resolution (e.g., '1d', '1h', '1m')
-            factor_data_service: Service to get factor data (passed from algorithm)
-            what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY)
-            duration_str: IBKR query duration (format: integer + space + unit: S/D/W, e.g., "6 M", "1 W")
-            bar_size_setting: IBKR bar size (1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 15 mins, 30 mins, 1 hour, 1 day)
+    #     Args:
+    #         symbols: Symbol or list of symbols to get data for
+    #         periods: Number of periods to retrieve
+    #         resolution: Data resolution (e.g., '1d', '1h', '1m')
+    #         factor_data_service: Service to get factor data (passed from algorithm)
+    #         what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, BID_ASK, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY)
+    #         duration_str: IBKR query duration (format: integer + space + unit: S/D/W, e.g., "6 M", "1 W")
+    #         bar_size_setting: IBKR bar size (1 sec, 5 secs, 15 secs, 30 secs, 1 min, 2 mins, 3 mins, 5 mins, 15 mins, 30 mins, 1 hour, 1 day)
             
-        Returns:
-            DataFrame with historical data up to the frontier time
-        """
-        if self._frontier is None:
-            raise ValueError("Frontier must be set before accessing historical data")
+    #     Returns:
+    #         DataFrame with historical data up to the frontier time
+    #     """
+    #     if self._frontier is None:
+    #         raise ValueError("Frontier must be set before accessing historical data")
         
-        # Normalize symbols to list
-        if isinstance(symbols, str):
-            symbols = [symbols]
+    #     # Normalize symbols to list
+    #     if isinstance(symbols, str):
+    #         symbols = [symbols]
         
-        # Calculate start date based on periods
-        end_date = self._frontier.frontier
+    #     # Calculate start date based on periods
+    #     end_date = self._frontier.frontier
         
-        if resolution == '1d':
-            start_date = end_date - timedelta(days=periods + 10)  # Add buffer for weekends/holidays
-        elif resolution == '1h':
-            start_date = end_date - timedelta(hours=periods)
-        elif resolution == '1m':
-            start_date = end_date - timedelta(minutes=periods)
-        else:
-            raise ValueError(f"Unsupported resolution: {resolution}")
+    #     if resolution == '1d':
+    #         start_date = end_date - timedelta(days=periods + 10)  # Add buffer for weekends/holidays
+    #     elif resolution == '1h':
+    #         start_date = end_date - timedelta(hours=periods)
+    #     elif resolution == '1m':
+    #         start_date = end_date - timedelta(minutes=periods)
+    #     else:
+    #         raise ValueError(f"Unsupported resolution: {resolution}")
         
-        self.logger.debug(f"Getting history for {symbols} from {start_date} to {end_date} ({periods} periods)")
+    #     self.logger.debug(f"Getting history for {symbols} from {start_date} to {end_date} ({periods} periods)")
         
-        # Get data for all symbols
-        all_data = []
+    #     # Get data for all symbols
+    #     all_data = []
         
-        for symbol in symbols:
-            try:
-                # Check cache first
-                cache_key = f"{symbol}_{start_date}_{end_date}_{resolution}"
-                if self._is_cache_valid(cache_key):
-                    symbol_data = self._history_cache[cache_key].copy()
-                else:
-                    # Get fresh data with configurable IBKR parameters
-                    symbol_data = self._get_symbol_history(
-                        symbol, start_date, end_date, factor_data_service,
-                        what_to_show=what_to_show,
-                        duration_str=duration_str,
-                        bar_size_setting=bar_size_setting
-                    )
-                    # Cache the result
-                    self._history_cache[cache_key] = symbol_data.copy()
-                    self._cache_expiry[cache_key] = datetime.now() + timedelta(minutes=5)
+    #     for symbol in symbols:
+    #         try:
+    #             # Check cache first
+    #             cache_key = f"{symbol}_{start_date}_{end_date}_{resolution}"
+    #             if self._is_cache_valid(cache_key):
+    #                 symbol_data = self._history_cache[cache_key].copy()
+    #             else:
+    #                 # Get fresh data with configurable IBKR parameters
+    #                 symbol_data = self._get_symbol_history(
+    #                     symbol, start_date, end_date, factor_data_service,
+    #                     what_to_show=what_to_show,
+    #                     duration_str=duration_str,
+    #                     bar_size_setting=bar_size_setting
+    #                 )
+    #                 # Cache the result
+    #                 self._history_cache[cache_key] = symbol_data.copy()
+    #                 self._cache_expiry[cache_key] = datetime.now() + timedelta(minutes=5)
                 
-                if not symbol_data.empty:
-                    # Ensure we don't exceed the frontier
-                    symbol_data = symbol_data[symbol_data.index <= end_date]
+    #             if not symbol_data.empty:
+    #                 # Ensure we don't exceed the frontier
+    #                 symbol_data = symbol_data[symbol_data.index <= end_date]
                     
-                    # Limit to requested number of periods
-                    if len(symbol_data) > periods:
-                        symbol_data = symbol_data.tail(periods)
+    #                 # Limit to requested number of periods
+    #                 if len(symbol_data) > periods:
+    #                     symbol_data = symbol_data.tail(periods)
                     
-                    # Add symbol column for multi-symbol datasets
-                    symbol_data['Symbol'] = symbol
-                    all_data.append(symbol_data)
+    #                 # Add symbol column for multi-symbol datasets
+    #                 symbol_data['Symbol'] = symbol
+    #                 all_data.append(symbol_data)
                     
-            except Exception as e:
-                self.logger.warning(f"Error getting history for {symbol}: {e}")
-                continue
+    #         except Exception as e:
+    #             self.logger.warning(f"Error getting history for {symbol}: {e}")
+    #             continue
         
-        # Combine all data
-        if all_data:
-            result = pd.concat(all_data, ignore_index=False)
-            self.logger.debug(f"Retrieved {len(result)} historical records")
-            return result
-        else:
-            self.logger.warning(f"No historical data found for symbols {symbols}")
-            return pd.DataFrame()
+    #     # Combine all data
+    #     if all_data:
+    #         result = pd.concat(all_data, ignore_index=False)
+    #         self.logger.debug(f"Retrieved {len(result)} historical records")
+    #         return result
+    #     else:
+    #         self.logger.warning(f"No historical data found for symbols {symbols}")
+    #         return pd.DataFrame()
     
-    def _get_symbol_history(self, symbol: str, start_date: datetime, 
-                           end_date: datetime, factor_data_service,
-                           what_to_show: str = "TRADES",
-                           duration_str: str = "6 M",
-                           bar_size_setting: str = "1 day") -> pd.DataFrame:
-        """
-        Get historical data for a single symbol from the data source.
+    # def _get_symbol_history(self, symbol: str, start_date: datetime, 
+    #                        end_date: datetime, factor_data_service,
+    #                        what_to_show: str = "TRADES",
+    #                        duration_str: str = "6 M",
+    #                        bar_size_setting: str = "1 day") -> pd.DataFrame:
+    #     """
+    #     Get historical data for a single symbol from the data source.
         
-        Args:
-            symbol: Symbol to get data for
-            start_date: Start date for historical data
-            end_date: End date for historical data  
-            factor_data_service: Service to get factor data
-            what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, etc.)
-            duration_str: IBKR query duration (e.g., "6 M", "1 W")
-            bar_size_setting: IBKR bar size (e.g., "1 day", "1 hour", "1 sec")
+    #     Args:
+    #         symbol: Symbol to get data for
+    #         start_date: Start date for historical data
+    #         end_date: End date for historical data  
+    #         factor_data_service: Service to get factor data
+    #         what_to_show: IBKR data type (TRADES, MIDPOINT, BID, ASK, etc.)
+    #         duration_str: IBKR query duration (e.g., "6 M", "1 W")
+    #         bar_size_setting: IBKR bar size (e.g., "1 day", "1 hour", "1 sec")
             
-        Returns:
-            DataFrame with historical data for the symbol
-        """
-        if not factor_data_service:
-            return pd.DataFrame()
+    #     Returns:
+    #         DataFrame with historical data for the symbol
+    #     """
+    #     if not factor_data_service:
+    #         return pd.DataFrame()
         
-        try:
-            # Get entity for the symbol
-            entity = self.market_data_service._get_entity_by_ticker(symbol)
-            if not entity:
-                return pd.DataFrame()
+    #     try:
+    #         # Get entity for the symbol
+    #         entity = self.market_data_service._get_entity_by_ticker(symbol)
+    #         if not entity:
+    #             return pd.DataFrame()
             
-            # Get historical factor data
-            factor_names = ['Open', 'High', 'Low', 'Close', 'Volume']
-            historical_data = []
             
-            # Query factor data service for the date range
-            # Note: This assumes factor_data_service has a method to get data ranges
-            try:
-                # Try to get ticker factor data if available
-                if hasattr(factor_data_service, 'get_ticker_factor_data'):
-                    df = factor_data_service.get_ticker_factor_data(
-                        ticker=symbol,
-                        start_date=start_date.strftime('%Y-%m-%d'),
-                        end_date=end_date.strftime('%Y-%m-%d'),
-                        factor_groups=['price']
-                    )
-                    if df is not None and not df.empty:
-                        # Ensure the index is datetime for proper filtering
-                        if 'date' in df.columns:
-                            df['date'] = pd.to_datetime(df['date'])
-                            df = df.set_index('date')
-                        return df
-            except Exception as e:
-                self.logger.debug(f"Error using get_ticker_factor_data: {e}")
+    #         historical_data = []
             
-            # Optimized: Use EntityService batch methods for historical data retrieval
-            try:
-                # Get all factors first using batch processing
-                factors_data = []
-                for factor_name in factor_names:
-                    factors_data.append({
-                        'entity_symbol': factor_name,
-                        'group': 'price'
-                    })
+            
+            
+    #         # Optimized: Use EntityService batch methods for historical data retrieval
+    #         try:
+    #             # Get all factors first using batch processing
+    #             factors_data = []
                 
-                # Get factors in batch through market data service entity service
-                factor_entities = []
-                if hasattr(factor_data_service, 'get_factor_by_name'):
-                    # Use existing factor data service methods
-                    for factor_name in factor_names:
-                        factor = factor_data_service.get_factor_by_name(factor_name)
-                        if factor:
-                            factor_entities.append(factor)
                 
-                if factor_entities and hasattr(self.market_data_service, 'entity_service'):
-                    # Use MarketDataService's entity service for optimized batch processing
-                    entity_service = self.market_data_service.entity_service
+    #             # Get factors in batch through market data service entity service
+    #             factor_entities = []
+    #             if hasattr(factor_data_service, 'get_factor_by_name'):
+    #                 # Use existing factor data service methods
+    #                 for factor_name in factor_names:
+    #                     factor = factor_data_service.get_factor_by_name(factor_name)
+    #                     if factor:
+    #                         factor_entities.append(factor)
+                
+    #             if factor_entities and hasattr(self.market_data_service, 'entity_service'):
+    #                 # Use MarketDataService's entity service for optimized batch processing
+    #                 entity_service = self.market_data_service.entity_service
                     
-                    # Check if IBKR is available for bulk data optimization
-                    if (hasattr(entity_service, 'repository_factory') and 
-                        hasattr(entity_service.repository_factory, 'ibkr_client') and
-                        entity_service.repository_factory.ibkr_client):
+    #                 # Check if IBKR is available for bulk data optimization
+    #                 if (hasattr(entity_service, 'repository_factory') and 
+    #                     hasattr(entity_service.repository_factory, 'ibkr_client') and
+    #                     entity_service.repository_factory.ibkr_client):
                         
-                        # Prepare batch request for IBKR bulk data
-                        factor_values_data = []
-                        for factor in factor_entities:
-                            factor_values_data.append({
-                                'factor': factor,
-                                'financial_asset_entity': entity,
-                                'entity_id': entity.id,
-                                'time_date': start_date.strftime("%Y-%m-%d %H:%M:%S"),
-                                'end_date': end_date.strftime("%Y-%m-%d %H:%M:%S")
-                            })
+    #                     # Prepare batch request for IBKR bulk data
+    #                     factor_values_data = []
+    #                     for factor in factor_entities:
+    #                         factor_values_data.append({
+    #                             'factor': factor,
+    #                             'financial_asset_entity': entity,
+    #                             'entity_id': entity.id,
+    #                             'time_date': start_date.strftime("%Y-%m-%d %H:%M:%S"),
+    #                             'end_date': end_date.strftime("%Y-%m-%d %H:%M:%S")
+    #                         })
                         
-                        # Get bulk factor values using optimized IBKR batch method with configurable parameters
-                        bulk_factor_values = entity_service.create_or_get_batch_ibkr(
-                            factor_values_data, FactorValue,
-                            what_to_show=what_to_show,
-                            duration_str=duration_str,
-                            bar_size_setting=bar_size_setting
-                        )
+    #                     # Get bulk factor values using optimized IBKR batch method with configurable parameters
+    #                     bulk_factor_values = entity_service.create_or_get_batch_ibkr(
+    #                         factor_values_data, FactorValue,
+    #                         what_to_show=what_to_show,
+    #                         duration_str=duration_str,
+    #                         bar_size_setting=bar_size_setting
+    #                     )
                         
-                        # Convert bulk factor values to DataFrame format
-                        historical_data = self._convert_bulk_factor_values_to_dataframe(
-                            bulk_factor_values, factor_entities, start_date, end_date
-                        )
+    #                     # Convert bulk factor values to DataFrame format
+    #                     historical_data = self._convert_bulk_factor_values_to_dataframe(
+    #                         bulk_factor_values, factor_entities, start_date, end_date
+    #                     )
                         
-                    else:
-                        # Fallback to date iteration for local repositories
-                        historical_data = self._process_date_range_locally(
-                            factor_data_service, factor_names, entity, start_date, end_date
-                        )
-                else:
-                    # Original fallback: iterate through dates and get factor values
-                    historical_data = self._process_date_range_locally(
-                        factor_data_service, factor_names, entity, start_date, end_date
-                    )
-            except Exception as e:
-                self.logger.error(f"Error getting symbol history for {symbol}: {e}")
-                return pd.DataFrame()
+    #                 else:
+    #                     # Fallback to date iteration for local repositories
+    #                     historical_data = self._process_date_range_locally(
+    #                         factor_data_service, factor_names, entity, start_date, end_date
+    #                     )
+    #             else:
+    #                 # Original fallback: iterate through dates and get factor values
+    #                 historical_data = self._process_date_range_locally(
+    #                     factor_data_service, factor_names, entity, start_date, end_date
+    #                 )
+    #         except Exception as e:
+    #             self.logger.error(f"Error getting symbol history for {symbol}: {e}")
+    #             return pd.DataFrame()
 
-            # Create DataFrame
-            if historical_data:
-                df = pd.DataFrame(historical_data)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df = df.set_index('Date')
-                return df
+    #         # Create DataFrame
+    #         if historical_data:
+    #             df = pd.DataFrame(historical_data)
+    #             df['Date'] = pd.to_datetime(df['Date'])
+    #             df = df.set_index('Date')
+    #             return df
             
-            return pd.DataFrame()
+    #         return pd.DataFrame()
             
-        except Exception as e:
-            self.logger.error(f"Error getting symbol history for {symbol}: {e}")
-            return pd.DataFrame()
+    #     except Exception as e:
+    #         self.logger.error(f"Error getting symbol history for {symbol}: {e}")
+    #         return pd.DataFrame()
     
     def _is_cache_valid(self, cache_key: str) -> bool:
         """
@@ -527,7 +504,47 @@ class MarketDataHistoryService:
         except Exception as e:
             self.logger.error(f"Error in local date range processing: {e}")
             return []
+        
+    def _create_or_get_factor_value_batch(self,factor_groups: Any, entities: Any, 
+                                date: Any, ) -> FactorValueBatch:
+        factor_data = {}
+        
+        created_factors =[]
+        factor_values = []
+        max_date = date
+        
+        for factor_config in factor_groups:
+            
+            
+            created_factors.append(factor_config.get('factor_entity', 'unknown'))
     
+        factor_values_data = []
+        for factor in  created_factors:
+            for entity in entities:
+                if entity == None:
+                    break
+                for factor in created_factors:
+                    factor_values_data.append({
+                        'factor': factor,
+                        'financial_asset_entity': entity,
+                        'entity_id': entity.id,
+                        'max_date': max_date.strftime("%Y-%m-%d %H:%M:%S")
+                    })
+        factor_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(
+                        factor_values_data, FactorValue,
+                        what_to_show="TRADES",
+                        duration_str="1 D",
+                        bar_size_setting="5 mins"
+                    )
+        for factor_value in factor_values:
+                        # Find corresponding factor name
+                        for factor in created_factors:
+                            if factor.id == factor_value.factor_id:
+                                factor_data[factor.name] = float(factor_value.value)
+                                break
+        
+        return factor_data
+
     def _create_or_get(self, entity_config: Dict[str, Any]) -> Optional[Any]:
         """
         Create or get an entity using the MarketDataService.

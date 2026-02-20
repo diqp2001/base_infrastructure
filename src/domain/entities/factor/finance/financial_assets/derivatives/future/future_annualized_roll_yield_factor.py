@@ -10,12 +10,7 @@ class FutureAnnualizedRollYieldFactor(FutureFactor):
     
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Annualized Roll Yield",
-            group="Future Factor",
-            subgroup="Yield",
-            data_type="float",
-            source="model",
-            definition="Annualized roll yield of the futures contract.",
+            
             factor_id=factor_id,
             **kwargs
         )

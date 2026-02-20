@@ -10,12 +10,7 @@ class FuturePriceReturnFactor(FutureFactor):
 
     def __init__(self, factor_id: Optional[int] = None, **kwargs):
         super().__init__(
-            name="Price Return",
-            group="Return Factor",
-            subgroup="Return",
-            data_type="float",
-            source="model",
-            definition="Return computed from two price observations.",
+            
             factor_id=factor_id,
             **kwargs
         )

@@ -738,7 +738,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
     frequency: Optional[str] = None,
     data_type: Optional[str] = None,
     source: Optional[str] = None,
-) -> Optional[FactorEntity]:
+):
         """Retrieve a factor matching all non-id fields."""
         try:
             FactorModel = self.get_factor_model()
@@ -754,7 +754,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
             )
 
             factor = query.first()
-            return self._to_domain_factor(factor)
+            return factor
 
         except Exception as e:
             print(f"Error retrieving factor by all attributes: {e}")

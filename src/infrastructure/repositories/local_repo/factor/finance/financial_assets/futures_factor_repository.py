@@ -16,7 +16,9 @@ class FuturesFactorRepository(BaseFactorRepository):
         super().__init__(session)
         self.factory = factory
         self.mapper = FutureFactorMapper()
-
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     

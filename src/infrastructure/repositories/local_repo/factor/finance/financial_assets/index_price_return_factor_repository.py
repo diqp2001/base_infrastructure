@@ -17,6 +17,10 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
         self.mapper = IndexPriceReturnFactorMapper()
         self.mapper_value = FactorValueMapper()
 
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
+
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     
@@ -37,7 +41,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
 
-    def _create_or_get(self, primary_key: str, **kwargs):
+    def _create_or_get(self,entity_cls, primary_key: str, **kwargs):
         """
         Get or create an index price return factor with dependency resolution.
         
@@ -55,11 +59,12 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'return'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 factor_type=kwargs.get('factor_type', 'index_price_return'),
-                data_type=kwargs.get('data_type', 'numeric'),
+                data_type=self.mapper.discriminator,
                 source=kwargs.get('source', 'calculated')
             )
             if existing:
-                return existing
+                
+                return self._to_entity(existing)
             
             domain_factor = self.get_factor_entity()(
                 name=primary_key,

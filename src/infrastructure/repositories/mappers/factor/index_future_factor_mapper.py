@@ -11,7 +11,9 @@ from .base_factor_mapper import BaseFactorMapper
 
 class IndexFutureFactorMapper(BaseFactorMapper):
     """Mapper for IndexFutureFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'index_future'
     def get_factor_model(self):
         return FactorModel
     

@@ -14,12 +14,7 @@ class CompanyShareOptionVegaFactor(CompanyShareOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Vega",
-            group="Option Greek",
-            subgroup="Vega",
-            data_type="float",
-            source="model",
-            definition="Sensitivity of option value to implied volatility.",
+            
             factor_id=factor_id,
             **kwargs,
         )

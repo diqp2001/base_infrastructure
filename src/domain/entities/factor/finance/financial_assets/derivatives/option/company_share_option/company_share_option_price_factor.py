@@ -14,12 +14,7 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Price",
-            group="Option Factor",
-            subgroup="Price",
-            data_type="float",
-            source="model",
-            definition="Theoretical option price calculated using Black-Scholes model.",
+            
             factor_id=factor_id,
             **kwargs,
         )

@@ -16,7 +16,9 @@ class IndexFutureFactorRepository(BaseFactorRepository):
         super().__init__(session)
         self.factory = factory
         self.mapper = IndexFutureFactorMapper()
-
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     
@@ -51,9 +53,17 @@ class IndexFutureFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_name(primary_key)
+            existing = self.get_by_all(
+                name=primary_key,
+                group=kwargs.get('group', 'return'),
+                subgroup=kwargs.get('subgroup', 'daily'),
+                factor_type=kwargs.get('factor_type', 'index_price_return'),
+                data_type=self.mapper.discriminator,
+                source=kwargs.get('source', 'calculated')
+            )
             if existing:
-                return existing
+                
+                return self._to_entity(existing)
             
             # Create new factor using base _create_or_get method
             return self._create_or_get(

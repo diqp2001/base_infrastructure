@@ -16,7 +16,9 @@ class IBKRIndexFactorMapper(BaseFactorMapper):
     
     def get_factor_entity(self):
         return IndexFactor
-
+    @property
+    def discriminator(self):
+        return 'index_future'
     @staticmethod
     def to_domain(orm_model: Optional[FactorModel]) -> Optional[IndexFactor]:
         """Convert ORM model to IndexFactor domain entity."""

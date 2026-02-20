@@ -15,7 +15,9 @@ class CurrencyFactorRepository(BaseFactorRepository):
         super().__init__(session)
         self.factory = factory
         self.mapper = CurrencyFactorMapper()
-
+    @property
+    def entity_class(self):
+        return self.get_factor_entity()
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     

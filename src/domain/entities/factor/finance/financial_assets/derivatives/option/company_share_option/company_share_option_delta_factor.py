@@ -13,12 +13,7 @@ class CompanyShareOptionDeltaFactor(CompanyShareOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Delta",
-            group="Option Greek",
-            subgroup="Delta",
-            data_type="float",
-            source="model",
-            definition="Rate of change of option value with respect to underlying price.",
+            
             factor_id=factor_id,
             **kwargs,
         )
