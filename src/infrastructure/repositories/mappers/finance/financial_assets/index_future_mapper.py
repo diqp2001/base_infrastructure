@@ -61,12 +61,12 @@ class IndexFutureMapper:
         # Identification
         orm_obj.symbol = domain_obj.symbol
         orm_obj.name = domain_obj.name
-        orm_obj.currency_id=domain_obj.currency_id if hasattr(domain_obj, 'currency_id') else None,
-        orm_obj.exchange_id=domain_obj.exchange_id if hasattr(domain_obj, 'exchange_id') else None,
-        orm_obj.underlying_asset_id=domain_obj.underlying_asset_id if hasattr(domain_obj, 'underlying_asset_id') else None,
-        orm_obj.start_date=domain_obj.start_date if hasattr(domain_obj, 'start_date') else None,
-        orm_obj.end_date=domain_obj.end_date if hasattr(domain_obj, 'end_date') else None,
-        orm_obj.contract_size=domain_obj.contract_size if hasattr(domain_obj, 'contract_size') else None,
+        orm_obj.currency_id = domain_obj.currency_id if hasattr(domain_obj, 'currency_id') else None
+        orm_obj.exchange_id = domain_obj.exchange_id if hasattr(domain_obj, 'exchange_id') else None
+        orm_obj.underlying_asset_id = domain_obj.underlying_asset_id if hasattr(domain_obj, 'underlying_asset_id') else None
+        orm_obj.start_date = domain_obj.start_date if hasattr(domain_obj, 'start_date') else None
+        orm_obj.end_date = domain_obj.end_date if hasattr(domain_obj, 'end_date') else None
+        orm_obj.contract_size = domain_obj.contract_size if hasattr(domain_obj, 'contract_size') else None
         
 
         return orm_obj
