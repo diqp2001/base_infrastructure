@@ -30,18 +30,13 @@ class FutureMapper:
 
         domain_entity = DomainFuture(
             symbol=orm_obj.symbol,
-            underlying_asset=orm_obj.underlying,
-            expiration_date=orm_obj.expiration_date,
             start_date=orm_obj.start_date,
             end_date=orm_obj.end_date,
             contract_size=orm_obj.contract_size,
             
         )
 
-        # Optional market data
-        if orm_obj.last_price is not None:
-            domain_entity._price = Decimal(str(orm_obj.last_price))
-
+        
         if orm_obj.last_update:
             domain_entity._last_update = orm_obj.last_update
 
@@ -55,7 +50,6 @@ class FutureMapper:
 
         # Identification
         orm_obj.symbol = domain_obj.symbol
-        orm_obj.expiration_date = domain_obj.expiration_date
         orm_obj.start_date = domain_obj.start_date
         orm_obj.end_date = domain_obj.end_date
 
@@ -63,16 +57,9 @@ class FutureMapper:
         orm_obj.contract_size = domain_obj.contract_size
         
 
-        # Underlying (FK handled by repository/session)
-        if domain_obj.underlying_asset:
-            orm_obj.underlying_index_symbol = domain_obj.underlying_asset.symbol
+        
 
-        # Market data
-        if hasattr(domain_obj, "_price") and domain_obj._price:
-            orm_obj.last_price = domain_obj._price
-
-        orm_obj.last_update = datetime.now()
-        orm_obj.is_tradeable = True
+        
 
         return orm_obj
 
