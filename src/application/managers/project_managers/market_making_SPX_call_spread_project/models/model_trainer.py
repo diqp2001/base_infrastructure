@@ -80,11 +80,11 @@ class ModelTrainer:
         
         # Step 3: Create training tensors (separate step as requested)
         print("\n🔧 Step 3: Creating training tensors...")
-        tensor_data = self._create_training_tensors(normalized_factor_data, model_type)
+        #tensor_data = self._create_training_tensors(normalized_factor_data, model_type)
         
         # Step 4: Train models
         print("\n🚀 Step 4: Training spatiotemporal models...")
-        training_results = self._train_models(tensor_data, model_type)
+        training_results = self._train_models(normalized_factor_data, model_type)
         
         # Step 5: Evaluate performance
         print("\n📈 Step 5: Evaluating model performance...")
@@ -95,7 +95,7 @@ class ModelTrainer:
             'tickers': tickers,
             'model_type': model_type,
             'factor_data_summary': self._summarize_factor_data(factor_data),
-            'tensor_data_summary': self._summarize_tensor_data(tensor_data),
+            #'tensor_data_summary': self._summarize_tensor_data(tensor_data),
             'training_results': training_results,
             'performance_summary': performance_summary,
             'training_completed': datetime.now().isoformat(),

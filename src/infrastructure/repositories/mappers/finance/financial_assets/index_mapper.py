@@ -14,6 +14,9 @@ from src.infrastructure.models.finance.financial_assets.index import IndexModel 
 class IndexMapper:
     """Mapper for Index domain entity and ORM model."""
     @property
+    def discriminator(self):
+        return 'index'
+    @property
     def entity_class(self):
         """Return the domain entity class for Currency."""
         return DomainIndex

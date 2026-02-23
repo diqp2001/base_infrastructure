@@ -16,36 +16,43 @@ class IBKRIndexFutureFactorRepository(BaseIBKRFactorRepository, IndexFutureFacto
     def __init__(self, ibkr_client, factory=None):
         """Initialize IBKR Index Future Factor Repository."""
         super().__init__(ibkr_client, factory)
-        self.local_repo = factory.index_future_factor_local_repo if factory else None
+        self.factory = factory
+        if self.factory:
+            self.local_repo = self.factory._local_repositories.get('index_future_factor')
 
-    def get_or_create(self, primary_key: str, **kwargs) -> Optional[IndexFutureFactor]:
+    @property
+    def entity_class(self):
+        return self.local_repo.get_factor_entity()
+    
+
+    def _create_or_get(self, name: str,**kwargs):
         """
-        Get or create an index future factor using IBKR data if available.
+        Get or create an index factor.
         
         Args:
-            primary_key: Factor name identifier
-            **kwargs: Additional parameters for factor creation
+            name: Factor name
+            group: Factor group (default: "price")
+            subgroup: Factor subgroup (default: "index")
             
         Returns:
-            IndexFutureFactor entity or None if creation failed
+            IndexFactor entity from database or newly created
         """
         try:
-            # First check local repository
-            if self.local_repo:
-                existing = self.local_repo.get_by_name(primary_key)
-                if existing:
-                    return existing
-
-            # For index future factors, we may need to enhance with IBKR-specific logic
-            # For now, delegate to local repository with enhanced parameters
-            if self.local_repo:
-                enhanced_kwargs = self._enhance_with_ibkr_data(primary_key, **kwargs)
-                return self.local_repo.get_or_create(primary_key, **enhanced_kwargs)
             
+            
+            
+            # Persist to local database
+            if self.local_repo:
+                created_factor = self.local_repo._create_or_get(primary_key=name, **kwargs)
+                if created_factor:
+                    #print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
+                    return created_factor
+            
+            print(f"Failed to create index factor: {name}")
             return None
-            
+                
         except Exception as e:
-            print(f"Error in IBKR get_or_create for index future factor {primary_key}: {e}")
+            print(f"Error in get_or_create for index factor {name}: {e}")
             return None
 
     def _enhance_with_ibkr_data(self, primary_key: str, **kwargs) -> dict:

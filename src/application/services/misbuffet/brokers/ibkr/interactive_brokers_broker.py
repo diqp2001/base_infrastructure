@@ -726,55 +726,55 @@ class InteractiveBrokersBroker(BaseBroker):
             
             self.logger.info(f"Requesting historical data for {contract.symbol} "
                            f"({duration_str}, {bar_size_setting})")
+            resolved_contract = contract
+            # # Fix Issues #3 and #5: Use contract resolver for proper contract resolution
+            # if not hasattr(self, 'contract_resolver'):
+            #     self.contract_resolver = ContractResolver(self.ib_connection)
             
-            # Fix Issues #3 and #5: Use contract resolver for proper contract resolution
-            if not hasattr(self, 'contract_resolver'):
-                self.contract_resolver = ContractResolver(self.ib_connection)
-            
-            # Resolve contract appropriately based on type
-            if contract.secType == "FUT":
-                self.logger.info(
-                    f"🔍 Resolving futures contract for historical data: {contract.symbol} on {contract.exchange}"
-                )
-                resolved_contract = self.contract_resolver.resolve_front_future(
-                    contract.symbol, contract.exchange
-                )
-                if not resolved_contract:
-                    self.logger.error(
-                        f"❌ Failed to resolve futures contract for historical data: {contract.symbol}"
-                    )
-                    return []
-                else:
-                    self.logger.info(
-                        f"✅ Successfully resolved futures contract: {resolved_contract.localSymbol} "
-                        f"(conId: {resolved_contract.conId}, exchange: {resolved_contract.exchange})"
-                    )
+            # # Resolve contract appropriately based on type
+            # if contract.secType == "FUT":
+            #     self.logger.info(
+            #         f"🔍 Resolving futures contract for historical data: {contract.symbol} on {contract.exchange}"
+            #     )
+            #     resolved_contract = self.contract_resolver.resolve_front_future(
+            #         contract.symbol, contract.exchange
+            #     )
+            #     if not resolved_contract:
+            #         self.logger.error(
+            #             f"❌ Failed to resolve futures contract for historical data: {contract.symbol}"
+            #         )
+            #         return []
+            #     else:
+            #         self.logger.info(
+            #             f"✅ Successfully resolved futures contract: {resolved_contract.localSymbol} "
+            #             f"(conId: {resolved_contract.conId}, exchange: {resolved_contract.exchange})"
+            #         )
 
-            elif contract.secType == "IND":
-                # 🔴 CRITICAL: indices must NOT be resolved
-                self.logger.info(
-                    f"📌 Using index contract directly (no resolution): {contract.symbol}"
-                )
-                resolved_contract = contract
+            # elif contract.secType == "IND":
+            #     # 🔴 CRITICAL: indices must NOT be resolved
+            #     self.logger.info(
+            #         f"📌 Using index contract directly (no resolution): {contract.symbol}"
+            #     )
+            #     resolved_contract = contract
 
-            else:
-                self.logger.info(
-                    f"🔍 Resolving stock contract for historical data: {contract.symbol}"
-                )
-                resolved_contract = self.contract_resolver.resolve_stock(
-                    contract.symbol,
-                    contract.exchange,
-                    getattr(contract, 'primaryExchange', '')
-                )
-                if not resolved_contract:
-                    self.logger.warning(
-                        f"⚠️  Failed to resolve contract for historical data: {contract.symbol}, using fallback"
-                    )
-                    resolved_contract = contract
-                else:
-                    self.logger.info(
-                        f"✅ Successfully resolved stock contract: {resolved_contract.symbol}"
-                    )
+            # else:
+            #     self.logger.info(
+            #         f"🔍 Resolving stock contract for historical data: {contract.symbol}"
+            #     )
+            #     resolved_contract = self.contract_resolver.resolve_stock(
+            #         contract.symbol,
+            #         contract.exchange,
+            #         getattr(contract, 'primaryExchange', '')
+            #     )
+            #     if not resolved_contract:
+            #         self.logger.warning(
+            #             f"⚠️  Failed to resolve contract for historical data: {contract.symbol}, using fallback"
+            #         )
+            #         resolved_contract = contract
+            #     else:
+            #         self.logger.info(
+            #             f"✅ Successfully resolved stock contract: {resolved_contract.symbol}"
+            #         )
 
             # Request historical data with resolved contract
             self.ib_connection.request_historical_data(

@@ -44,3 +44,15 @@ class FactorModel(Base):
         return f"<Factor(id={self.id}, name={self.name}, group={self.group})>"
 
 
+class IndexFutureFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_factor"
+    }
+class IndexFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_factor"
+    }
+class IndexPriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_price_return_factor"
+    }

@@ -74,22 +74,24 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             contract_details_list = self._fetch_contract_details(contract)
             if not contract_details_list:
                 return None
-            entity_created = []
-            for    contract_detail in contract_details_list:
-                # 4. Apply IBKR-specific rules and convert to domain entity
-                entity = self._contract_to_domain(contract, contract_detail)
-                if not entity:
-                    return None
-                
-                entity_created.append(self.local_repo.add(entity))
-                
-            # 5. Delegate persistence to local repository
-            return entity_created[0]
+            contract_detail = self.get_contract_by_local_symbol(contract_details_list,symbol)
+            
+            
+            # 4. Apply IBKR-specific rules and convert to domain entity
+            entity = self._contract_to_domain(contract, contract_detail)
+            if not entity:
+                return None
+            return self.local_repo.add(entity)
             
         except Exception as e:
             print(f"Error in IBKR get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
-
+    def get_contract_by_local_symbol(self,contract_details_list, symbol: str):
+        return next(
+            (contract for contract in contract_details_list
+            if contract.get("local_symbol") == symbol),
+            None
+        )
     def get_by_symbol(self, symbol: str) -> Optional[IndexFuture]:
         """Get index future by symbol (delegates to local repository)."""
         return self.local_repo.get_by_symbol(symbol)
@@ -126,10 +128,12 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         """
         try:
             contract = Contract()
-            contract.symbol = self._extract_underlying_symbol(symbol)
-            contract.tradingClass = contract.symbol
+            contract.symbol = symbol
+            contract.tradingClass = self._extract_underlying_symbol(symbol)
+            contract.lastTradeDateOrContractMonth = self.build_future_contract_from_local_symbol(symbol)
             contract.secType = "FUT"
             contract.exchange = "CME"  
+            contract.includeExpired = True
             #contract.lastTradeDateOrContractMonth = self._extract_expiry_from_symbol(symbol)
             
             # Additional IBKR-specific contract setup
@@ -140,6 +144,52 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             print(f"Error fetching IBKR contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
+
+
+
+
+
+    def build_future_contract_from_local_symbol(self,local_symbol: str) -> Contract:
+        """
+        Converts IBKR local_symbol like 'ESZ6'
+        into a properly formatted IBKR FUT Contract.
+        """
+        MONTH_CODES = {
+        "F": "01",  # January
+        "G": "02",  # February
+        "H": "03",  # March
+        "J": "04",  # April
+        "K": "05",  # May
+        "M": "06",  # June
+        "N": "07",  # July
+        "Q": "08",  # August
+        "U": "09",  # September
+        "V": "10",  # October
+        "X": "11",  # November
+        "Z": "12",  # December
+    }
+        # Extract parts
+        root_symbol = local_symbol[:-2]
+        month_code = local_symbol[-2]
+        year_digit = local_symbol[-1]
+
+        if month_code not in MONTH_CODES:
+            raise ValueError(f"Invalid month code: {month_code}")
+
+        # Robust year handling (works across decades)
+        current_year = datetime.utcnow().year
+        current_decade = (current_year // 10) * 10
+        year = current_decade + int(year_digit)
+
+        # If decoded year is in the past, assume next decade
+        if year < current_year - 1:
+            year += 10
+
+        expiry = f"{year}{MONTH_CODES[month_code]}"
+
+        
+
+        return expiry
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch contract details from IBKR API using broker method.
@@ -316,6 +366,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
 
     def _resolve_underlying_index(self, symbol: str) -> str:
         """Resolve underlying index from IBKR symbol."""
+        symbol = self._extract_underlying_symbol(symbol)
         index_map = {
             'ES': 'SPX',      # S&P 500
             'NQ': 'NDX',      # NASDAQ 100
@@ -326,6 +377,7 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
 
     def _resolve_contract_size(self, symbol: str) -> int:
         """Resolve contract size from IBKR symbol."""
+        symbol = self._extract_underlying_symbol(symbol)
         size_map = {
             'ES': 50,     # $50 per point
             'NQ': 20,     # $20 per point

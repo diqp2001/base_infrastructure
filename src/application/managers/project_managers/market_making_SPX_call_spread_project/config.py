@@ -27,8 +27,8 @@ DEFAULT_CONFIG = {
     # Project settings
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
-    'universe' : {Index: ["SPX"],IndexFuture: ["ES"]},
-    'target_factor':{Index: ["SPX"],IndexFuture: ["ES"]},
+    'universe' : {Index: ["SPX"],IndexFuture: ["ESZ6"]},
+    'target_factor':{Index: ["SPX"],IndexFuture: ["ESZ6"]},
     # SPX Configuration
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',

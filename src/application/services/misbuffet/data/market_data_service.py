@@ -153,8 +153,8 @@ class MarketDataService:
                     factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
-                        duration_str="1 D",
-                        bar_size_setting="5 mins"
+                        duration_str="6 M",
+                        bar_size_setting="1 day"
                     )
                     
                     # Build factor_data dictionary

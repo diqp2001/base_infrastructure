@@ -27,28 +27,36 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for Index."""
-        return Index_Model
+        return self.mapper.model_class
+    
+    def get_by_id(self, id: int):
+        return (
+            self.session
+            .query(self.model_class)
+            .filter(self.model_class.id == id)
+            .one_or_none()
+        )
     @property
     def entity_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
-        return Index_Entity
+        return self.mapper.entity_class
     # ------------------------------------------------------------------
     # Mapping helpers
     # ------------------------------------------------------------------
 
-    def _to_entity(self, infra_index: Index_Model) -> Index_Entity:
+    def _to_entity(self, infra_index: model_class) -> entity_class:
         """Convert ORM Index model to domain Index entity."""
         if not infra_index:
             return None
         return self.mapper.to_domain(infra_index)
 
-    def _to_model(self, entity: Index_Entity) -> Index_Model:
+    def _to_model(self, entity: entity_class) -> model_class:
         """Convert domain Index entity to ORM model."""
         if not entity:
             return None
         return self.mapper.to_orm(entity)
 
-    def _to_domain(self, infra_index: Index_Model) -> Index_Entity:
+    def _to_domain(self, infra_index: model_class) -> entity_class:
         """Legacy compatibility method."""
         return self._to_entity(infra_index)
 
@@ -56,12 +64,12 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
     # Query methods
     # ------------------------------------------------------------------
 
-    def get_by_id(self, id: int) -> Index_Entity:
+    def get_by_id(self, id: int) -> entity_class:
         """Fetch an Index by database ID."""
         try:
             index = (
-                self.session.query(Index_Model)
-                .filter(Index_Model.id == id)
+                self.session.query(self.model_class)
+                .filter(self.model_class.id == id)
                 .first()
             )
             return self._to_domain(index)
@@ -69,12 +77,12 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             print(f"Error retrieving index by ID {id}: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def get_by_symbol(self, symbol: str) -> Index_Entity:
+    def get_by_symbol(self, symbol: str) -> entity_class:
         """Fetch an Index by its symbol (e.g. SPX, NDX)."""
         try:
             index = (
-                self.session.query(Index_Model)
-                .filter(Index_Model.symbol == symbol)
+                self.session.query(self.model_class)
+                .filter(self.model_class.symbol == symbol)
                 .first()
             )
             return self._to_domain(index)
@@ -86,7 +94,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
     # Persistence
     # ------------------------------------------------------------------
 
-    def add(self, domain_index: Index_Entity) -> Index_Entity:
+    def add(self, domain_index: entity_class) -> entity_class:
         """Add a new Index record to the database."""
         try:
             new_index = self._to_model(domain_index)
@@ -108,7 +116,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             int: Next available ID (defaults to 1 if no records exist)
         """
         try:
-            max_id_result = self.session.query(Index_Model.id).order_by(Index_Model.id.desc()).first()
+            max_id_result = self.session.query(self.model_class.id).order_by(self.model_class.id.desc()).first()
             
             if max_id_result:
                 return max_id_result[0] + 1
@@ -119,25 +127,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             print(f"Warning: Could not determine next available index ID: {str(e)}_{os.path.abspath(__file__)}")
             return 1  # Default to 1 if query fails
 
-    def get_or_create(self, symbol: str, name: str = None, ticker: str = None,
-                      index_type: str = 'Stock', currency_code: str = 'USD',
-                      exchange: str = 'CBOE', **kwargs) -> Optional[Index_Entity]:
-        """
-        Get or create an index with dependency resolution.
-        
-        Args:
-            symbol: Index symbol (e.g., 'SPX', 'NDX')
-            name: Index name (defaults to '{symbol} Index')
-            ticker: Index ticker (optional)
-            index_type: Type of index (Stock, Bond, Commodity, etc.)
-            currency_code: Currency ISO code (default: USD)
-            exchange: Exchange name (defaults to 'CBOE')
-            **kwargs: Additional index parameters
-            
-        Returns:
-            Index entity or None if creation failed
-        """
-        return self._create_or_get(symbol, name, index_type, currency_code, exchange, **kwargs)
+    
 
     def _create_or_get(self, symbol: str, name: str = None, 
                        index_type: str = 'Stock', currency: str = 'USD',
@@ -168,7 +158,7 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
             currency_local_repo = self.factory.currency_local_repo
             currency_object = currency_local_repo.get_or_create(currency)
             # Create new index entity
-            new_index = Index_Entity(
+            new_index = self.entity_class(
                 id=next_id,
                 symbol=symbol,
                 currency_id = currency_object.id,

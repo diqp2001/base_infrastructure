@@ -32,6 +32,13 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
     def model_class(self):
         """Return the SQLAlchemy model class for FactorValue."""
         return self.mapper.model_class
+    def get_by_id(self, id: int):
+        return (
+            self.session
+            .query(self.model_class)
+            .filter(self.model_class.id == id)
+            .one_or_none()
+        )
     # ------------------------------------------------------------------
     # Index-specific queries
     # ------------------------------------------------------------------
@@ -74,6 +81,13 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
         except Exception as e:
             print(f"Error retrieving future by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
+    def get_by_id(self, id: int):
+        return (
+            self.session
+            .query(self.model_class)
+            .filter(self.model_class.id == id)
+            .one_or_none()
+        )
     # def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
     #     """
     #     Get or create an index future by symbol.

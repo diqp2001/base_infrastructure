@@ -30,17 +30,14 @@ class IBKRIndexFactorRepository(BaseIBKRFactorRepository, IndexFactorPort):
         """
         super().__init__(ibkr_client)
         self.factory = factory
+        if self.factory:
+            self.local_repo = self.factory._local_repositories.get('index_factor')
         
     @property
     def entity_class(self):
         return self.local_repo.get_factor_entity()
 
-    @property
-    def local_repo(self):
-        """Get local index factor repository for delegation."""
-        if self.factory:
-            return self.factory._local_repositories.get('index_factor')
-        return None
+    
 
     # IndexFactorPort interface implementation (delegate to local repository)
     

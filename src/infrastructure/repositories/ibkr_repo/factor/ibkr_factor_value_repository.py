@@ -73,6 +73,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     @property
     def entity_class(self):
         return FactorValue
+    
     def get_or_create_factor_value_with_ticks(
         self, 
         symbol_or_name: str, 
@@ -410,7 +411,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     
     def get_or_create_batch(self, factor_batch: FactorBatch, 
                            what_to_show: str = "TRADES", 
-                           duration_str: str = "6 M", 
+                           duration_str: str = "1 M", 
                            bar_size_setting: str = "1 day") -> Optional[FactorValueBatch]:
         """
         Optimized batch get or create factor values leveraging IBKR bulk data responses.
@@ -648,7 +649,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime, asset, 
                                    what_to_show: str = "TRADES", 
-                                   duration_str: str = "6 M", 
+                                   duration_str: str = "1 M", 
                                    bar_size_setting: str = "1 day") -> Optional[List[Dict[str, Any]]]:
         """
         Fetch bulk historical data from IBKR for a symbol.
@@ -849,7 +850,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]], 
                                      what_to_show: str = "TRADES", 
-                                     duration_str: str = "6 M", 
+                                     duration_str: str = "1 M", 
                                      bar_size_setting: str = "1 day") -> List[FactorValue]:
         """
         Optimized batch method for EntityService integration.
@@ -1347,28 +1348,33 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 or getattr(financial_asset_entity, 'ticker', None)
                 or getattr(financial_asset_entity, 'name', None)
             )
-
+            repo = self.factory.get_ibkr_repository(type(financial_asset_entity))
+            
             if not symbol:
                 print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
+            contract = repo._fetch_contract(symbol)
 
-            contract = Contract()
-            contract.symbol = symbol.upper()
+            # contract = Contract()
+            # contract.symbol = symbol.upper()
+            # exchange = self.factory.exchange_local_repo.get_by_id(
+            #     getattr(financial_asset_entity, 'exchange_id', None)
+            # )
+            # contract.exchange = exchange.symbol
+            # # # --- secType routing ---
+            # # if isinstance(financial_asset_entity, self.factory.index_local_repo.entity_class):
+            # #     contract.secType = "IND"
+            # #     contract.exchange = "CBOE"   # or SMART, see note below
+            # # else:
+            # #     contract.secType = "STK"
+            # #     contract.exchange = "SMART"
+            # #     contract.primaryExchange = "NASDAQ"  # optional but recommended
 
-            # --- secType routing ---
-            if isinstance(financial_asset_entity, self.factory.index_local_repo.entity_class):
-                contract.secType = "IND"
-                contract.exchange = "CBOE"   # or SMART, see note below
-            else:
-                contract.secType = "STK"
-                contract.exchange = "SMART"
-                contract.primaryExchange = "NASDAQ"  # optional but recommended
-
-            # --- currency ---
-            currency = self.factory.currency_local_repo.get_by_id(
-                getattr(financial_asset_entity, 'currency_id', None)
-            )
-            contract.currency = currency.symbol if currency else "USD"
+            # # --- currency ---
+            # currency = self.factory.currency_local_repo.get_by_id(
+            #     getattr(financial_asset_entity, 'currency_id', None)
+            # )
+            # contract.currency = currency.symbol if currency else "USD"
 
             return contract
                 

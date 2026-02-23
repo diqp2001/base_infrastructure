@@ -4,7 +4,7 @@ Mapper for IndexFutureFactor domain entity and ORM model conversion.
 
 from typing import Optional
 
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import FactorModel, IndexFutureFactorModel
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor
 from .base_factor_mapper import BaseFactorMapper
 
@@ -14,14 +14,17 @@ class IndexFutureFactorMapper(BaseFactorMapper):
     @property
     def discriminator(self):
         return 'index_future'
+    @property
+    def model_class(self):
+        return IndexFutureFactorModel
     def get_factor_model(self):
-        return FactorModel
+        return IndexFutureFactorModel
     
     def get_factor_entity(self):
         return IndexFutureFactor
     
     @classmethod
-    def to_domain(cls, orm_model: Optional[FactorModel]) -> Optional[IndexFutureFactor]:
+    def to_domain(cls, orm_model: Optional[IndexFutureFactorModel]) -> Optional[IndexFutureFactor]:
         """Convert ORM model to IndexFutureFactor domain entity."""
         if not orm_model:
             return None
@@ -38,15 +41,14 @@ class IndexFutureFactorMapper(BaseFactorMapper):
         )
     
     @classmethod
-    def to_orm(cls, domain_entity: IndexFutureFactor) -> FactorModel:
+    def to_orm(cls, domain_entity: IndexFutureFactor):
         """Convert IndexFutureFactor domain entity to ORM model."""
-        return FactorModel(
-            id=domain_entity.id,
+        return IndexFutureFactorModel(
+            
             name=domain_entity.name,
             group=domain_entity.group,
             subgroup=domain_entity.subgroup,
             data_type=domain_entity.data_type,
             source=domain_entity.source,
-            definition=domain_entity.definition,
-            entity_type='index_future'
+            definition=domain_entity.definition
         )

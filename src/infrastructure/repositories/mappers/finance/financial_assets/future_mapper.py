@@ -15,6 +15,9 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.index_mapp
 class FutureMapper:
     """Mapper for Future domain entity and ORM model."""
     @property
+    def discriminator(self):
+        return 'future'
+    @property
     def entity_class(self):
         return DomainFuture
     @property

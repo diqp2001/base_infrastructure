@@ -519,11 +519,14 @@ class MarketDataHistoryService:
             created_factors.append(factor_config.get('factor_entity', 'unknown'))
     
         factor_values_data = []
-        for factor in  created_factors:
-            for entity in entities:
-                if entity == None:
-                    break
-                for factor in created_factors:
+        
+        for entity in entities:
+            if entity == None:
+                break
+            for factor in created_factors:
+                factor_discriminator = self.market_data_service.entity_service.get_discriminator_by_domain_entity(factor)
+                entity_discriminator = self.market_data_service.entity_service.get_discriminator_by_domain_entity(entity)
+                if factor_discriminator == entity_discriminator:
                     factor_values_data.append({
                         'factor': factor,
                         'financial_asset_entity': entity,
@@ -533,8 +536,8 @@ class MarketDataHistoryService:
         factor_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
-                        duration_str="1 D",
-                        bar_size_setting="5 mins"
+                        duration_str="6 M",
+                        bar_size_setting="1 day"
                     )
         for factor_value in factor_values:
                         # Find corresponding factor name

@@ -2,6 +2,7 @@
 Repository class for Index Future factor entities.
 """
 
+from typing import Optional
 from sqlalchemy.orm import Session
 from src.infrastructure.repositories.mappers.factor.index_future_factor_mapper import IndexFutureFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -24,7 +25,16 @@ class IndexFutureFactorRepository(BaseFactorRepository):
     
     def get_factor_entity(self):
         return self.mapper.get_factor_entity()
-
+    @property
+    def model_class(self):
+        return self.mapper.model_class
+    def get_by_id(self, id: int):
+        return (
+            self.session
+            .query(self.model_class)
+            .filter(self.model_class.id == id)
+            .one_or_none()
+        )
     
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()
@@ -40,7 +50,7 @@ class IndexFutureFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return IndexFutureFactorMapper.to_orm(entity)
 
-    def get_or_create(self, primary_key: str, **kwargs):
+    def _create_or_get(self, primary_key: str, **kwargs):
         """
         Get or create an index future factor with dependency resolution.
         
@@ -53,30 +63,70 @@ class IndexFutureFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_all(
-                name=primary_key,
-                group=kwargs.get('group', 'return'),
+            existing = self.get_by_all(name =primary_key,group=kwargs.get('group', 'index_future'),
                 subgroup=kwargs.get('subgroup', 'daily'),
-                factor_type=kwargs.get('factor_type', 'index_price_return'),
+                factor_type=kwargs.get('factor_type', 'index'),
                 data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'calculated')
-            )
+                source=kwargs.get('source', 'market_data'))
             if existing:
-                
                 return self._to_entity(existing)
-            
-            # Create new factor using base _create_or_get method
-            return self._create_or_get(
-                name=primary_key,
-                group=kwargs.get('group', 'derivatives'),
-                subgroup=kwargs.get('subgroup', 'index_futures'),
+            domain_factor = self.get_factor_entity()(name=primary_key,
+                group=kwargs.get('group', 'index_future'),
+                subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market_data'),
-                definition=kwargs.get('definition', f'Index Future factor: {primary_key}'),
-                entity_type=kwargs.get('entity_type', 'IndexFuturesFactor'),
-                underlying_index=kwargs.get('underlying_index')
-            )
+                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+                )
+            
+            # # Use sequential ID generation if factor doesn't have an ID
+            # if not hasattr(domain_factor, 'id') or domain_factor.id is None:
+            #     next_id = self._get_next_available_factor_id()
+            #     domain_factor.id = next_id
+            
+            # Use FactorMapper to convert domain entity to ORM model
+            # This ensures entity_type is properly set
+            orm_factor = self._to_model(domain_factor)
+            
+            self.session.add(orm_factor)
+            self.session.commit()
+            if orm_factor:
+                    #print(f"Created new index factor: {created_factor.name} (ID: {created_factor.id})")
+                    return self._to_entity(orm_factor) #to_domain
+            
+        
+            
             
         except Exception as e:
-            print(f"Error in get_or_create for index future factor {primary_key}: {e}")
+            print(f"Error in get_or_create for index factor {primary_key}: {e}")
+            return None
+        
+    def get_by_all(
+self,
+    name: str,
+    group: str,
+    factor_type: str = None,
+    subgroup: Optional[str] = None,
+    frequency: Optional[str] = None,
+    data_type: Optional[str] = None,
+    source: Optional[str] = None,
+    ):
+        """Retrieve a factor matching all non-id fields."""
+        try:
+            FactorModel = self.get_factor_model()
+
+            query = self.session.query(FactorModel).filter(
+                FactorModel.name == name,
+                FactorModel.group == group,
+                FactorModel.factor_type == factor_type,
+                FactorModel.subgroup == subgroup,
+                FactorModel.frequency == frequency,
+                FactorModel.data_type == data_type,
+                FactorModel.source == source,
+            )
+
+            factor = query.first()
+            return factor
+
+        except Exception as e:
+            print(f"Error retrieving factor by all attributes: {e}")
             return None

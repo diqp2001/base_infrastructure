@@ -179,7 +179,7 @@ class EntityService:
             repository = self.get_local_repository(entity_cls)
             return repository.get_by_id(entity_id)
         except Exception as e:
-            self.logger.error(
+            print(
                 f"Error pulling {entity_cls.__name__} with ID {entity_id}: {e}"
             )
             return None
@@ -212,10 +212,49 @@ class EntityService:
 
 
         except Exception as e:
-            self.logger.error(
+            print(
                 f"Error pulling {entity_cls.__name__} with symbol {symbol}: {e}"
             )
+    def get_by_domain_entity(self, entity_cls ) -> Optional[Index]:
+        """
+        Get index by symbol from database, following get_by_ticker pattern.
 
+        Args:
+            symbol: Index symbol (e.g., 'SPX', 'NASDAQ')
+
+        Returns:
+            Index entity or None if not found
+        """
+        try:
+            repository = self.get_local_repository(type(entity_cls))
+            entity = repository.get_by_id(entity_cls.id)
+            return entity
+        
+
+
+        except Exception as e:
+            print(
+                f"Error pulling {entity_cls.__name__} with symbol {entity_cls.id}: {e}"
+            )
+    def get_discriminator_by_domain_entity(self, entity_cls ) -> Optional[Index]:
+        """
+        Get index by symbol from database, following get_by_ticker pattern.
+
+        Args:
+            symbol: Index symbol (e.g., 'SPX', 'NASDAQ')
+
+        Returns:
+            Index entity or None if not found
+        """
+        try:
+            repository = self.get_local_repository(type(entity_cls))
+            discriminator = repository.mapper.discriminator
+            return discriminator
+        
+        except Exception as e:
+            print(
+                f"Error pulling {entity_cls.__name__} with symbol {entity_cls.id}: {e}"
+            )
     def _create_or_get(self, entity_cls ,name: str,
                             **kwargs) :
         try:
@@ -225,7 +264,7 @@ class EntityService:
 
 
         except Exception as e:
-            self.logger.error(
+            print(
                 f"Error pulling {entity_cls.__name__} with symbol {name}: {e}"
             )
 
@@ -338,4 +377,24 @@ class EntityService:
 
         except Exception as e:
             print(f"Error creating/getting {entity_cls.__name__} for symbol {entity_symbol}: {str(e)}")
+            return None
+        
+    def _fetch_contract_ibkr(self, entity_cls: object, entity_symbol: str = None, entity_id: int = None,
+                            **kwargs) -> Optional[object]:
+        
+        try:
+            # Check if entity already exists by symbol
+            ibkr_repository = self.get_ibkr_repository(entity_cls)
+            
+            if not ibkr_repository:
+                print(f"No IBKR repository available for {entity_cls.__name__}")
+                return None
+
+            # Get entity information from IBKR API
+            entity = ibkr_repository._fetch_contract_ibkr(entity_symbol,**kwargs)
+
+            return entity
+
+        except Exception as e:
+            print(f"Error _fetch_contract_ibkr {entity_cls.__name__} for symbol {entity_symbol}: {str(e)}")
             return None

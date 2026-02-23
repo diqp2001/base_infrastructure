@@ -2,6 +2,7 @@
 Repository class for IndexPriceReturnFactor entities.
 """
 
+from typing import Optional
 from sqlalchemy.orm import Session
 from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -20,7 +21,15 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
     @property
     def entity_class(self):
         return self.get_factor_entity()
-
+    @property
+    def model_class(self):
+        return self.mapper.model_class
+    def get_by_id(self, id: int):
+        entity = self._to_entity(self.session
+            .query(self.model_class)
+            .filter(self.model_class.id == id)
+            .one_or_none())
+        return entity
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     
@@ -87,3 +96,34 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
         except Exception as e:
             print(f"Error in get_or_create for index price return factor {primary_key}: {e}")
             return None
+        
+    def get_by_all(
+        self,
+        name: str,
+        group: str,
+        factor_type: str = None,
+        subgroup: Optional[str] = None,
+        frequency: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ):
+            """Retrieve a factor matching all non-id fields."""
+            try:
+                FactorModel = self.get_factor_model()
+
+                query = self.session.query(FactorModel).filter(
+                    FactorModel.name == name,
+                    FactorModel.group == group,
+                    FactorModel.factor_type == factor_type,
+                    FactorModel.subgroup == subgroup,
+                    FactorModel.frequency == frequency,
+                    FactorModel.data_type == data_type,
+                    FactorModel.source == source,
+                )
+
+                factor = query.first()
+                return factor
+
+            except Exception as e:
+                print(f"Error retrieving factor by all attributes: {e}")
+                return None

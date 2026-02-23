@@ -13,7 +13,9 @@ from src.infrastructure.models.finance.financial_assets.derivative.future.index_
 
 class IndexFutureMapper:
     """Mapper for IndexFuture domain entity and ORM model."""
-    
+    @property
+    def discriminator(self):
+        return 'index_future'
     @property
     def entity_class(self):
         return DomainIndexFuture
@@ -42,12 +44,12 @@ class IndexFutureMapper:
             underlying_index=orm_obj.underlying if hasattr(orm_obj, 'underlying') else None,
         )
 
-        # Optional market data
-        if orm_obj.last_price is not None:
-            domain_entity._price = Decimal(str(orm_obj.last_price))
+        # # Optional market data
+        # if orm_obj.last_price is not None:
+        #     domain_entity._price = Decimal(str(orm_obj.last_price))
 
-        if orm_obj.last_update:
-            domain_entity._last_update = orm_obj.last_update
+        # if orm_obj.last_update:
+        #     domain_entity._last_update = orm_obj.last_update
 
         return domain_entity
 

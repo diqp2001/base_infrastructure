@@ -17,6 +17,9 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 class CurrencyMapper:
     """Mapper for Currency domain entity and ORM model."""
     @property
+    def discriminator(self):
+        return 'currency'
+    @property
     def entity_class(self):
         """Return the domain entity class for Currency."""
         return DomainCurrency
