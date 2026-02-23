@@ -63,7 +63,18 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
                 return existing
             
             # 2. Create exchange entity with IBKR-specific data
-            entity = self._create_exchange_entity(exchange_code)
+            exchange_info = self._get_ibkr_exchange_info(exchange_code)
+            if not exchange_info:
+                return None
+            country = self._get_or_create_country(exchange_info['country_name'])
+            entity = self.entity_class(
+                id=None,  # Let database generate
+                name=exchange_info['name'],
+                legal_name=exchange_code.upper(),
+                country_id=country.id,
+                start_date = datetime.today().date()
+            )
+            
             if not entity:
                 return None
                 
@@ -73,6 +84,33 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
         except Exception as e:
             print(f"Error in IBKR get_or_create for exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             return None
+        
+    def _get_or_create_country(self, name: str):
+        """
+        Get or create a country using factory or country repository if available.
+        Falls back to direct country creation if no dependencies are provided.
+        
+        Args:
+            name: country name (e.g., 'USA')
+            
+        Returns:
+            country domain entity
+        """
+        try:
+            # Try factory's country repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'country_ibkr_repo'):
+                country_repo = self.factory.country_ibkr_repo
+                if country_repo:
+                    country = country_repo._create_or_get(name)
+                    if country:
+                        return country
+            
+            # Fallback: create minimal country entity for basic functionality
+            return None
+            
+        except Exception as e:
+            print(f"Error getting or creating country {name}: {e}_{os.path.abspath(__file__)}")
+            # Return minimal country as last resort
 
     def get_by_code(self, exchange_code: str) -> Optional[Exchange]:
         """Get exchange by code (delegates to local repository)."""
@@ -218,6 +256,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             'CME': {
                 'name': 'Chicago Mercantile Exchange',
                 'country_id': 1,  # USA
+                'country_name': "United States",
                 'timezone': 'America/Chicago',
                 'currency': 'USD',
                 'market_open': time(17, 0),  # Sunday evening start

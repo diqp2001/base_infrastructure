@@ -189,14 +189,16 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             tick_size = contract_details.get('min_tick', 0.25)
             
             # Get or create currency and exchange dependencies
-            currency = self._get_or_create_currency(contract_details.get("currency") , f"{contract.currency} Currency")
+            currency = self._get_or_create_currency(contract_details.get("currency") , f"{contract_details.get("currency")} Currency")
             exchange = self._get_or_create_exchange(contract_details.get("exchange"))
+            underlying = self._get_or_create_underlying_index(underlying_index)
             
             return self.entity_class(
                 id=None,
                 name=f"{self._normalize_symbol(contract)} Index Future",
                 symbol=contract_details.get("local_symbol"),
                 exchange_id=exchange.id ,
+                underlying_asset_id=underlying.id,
                 currency_id=currency.id ,
                 contract_size=contract_size,
             )
@@ -256,6 +258,23 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         except Exception as e:
             print(f"Error getting or creating exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal exchange as last resort
+            
+    def _get_or_create_underlying_index(self, index_name: str) -> Optional[Exchange]:
+        """
+        Get or create an exchange using factory or index
+        """
+        try:
+            if self.factory and hasattr(self.factory, 'index_ibkr_repo'):
+                index_repo = self.factory.index_ibkr_repo
+                if index_repo:
+                    index = index_repo._create_or_get(index_name)
+                    if index:
+                        return index
+            
+           
+                    
+        except Exception as e:
+            print(f"Error getting or creating index {index_name}: {e}_{os.path.abspath(__file__)}")
             
 
     def _extract_underlying_symbol(self, symbol: str) -> str:
