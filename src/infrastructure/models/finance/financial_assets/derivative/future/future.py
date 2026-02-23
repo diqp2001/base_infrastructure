@@ -23,6 +23,10 @@ class FutureModel(DerivativeModel):
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     contract_size = Column(Integer, nullable=True)  # Contract multiplier/size
     
+    # Market data fields
+    last_price = Column(Numeric(20, 8), nullable=True)  # Current market price
+    last_update = Column(DateTime, nullable=True)  # Last price update timestamp
+    
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="futures") 
     
     __mapper_args__ = {
