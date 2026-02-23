@@ -19,7 +19,6 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financia
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.currency import Currency
 from src.domain.entities.finance.exchange import Exchange
-from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
 
 
 

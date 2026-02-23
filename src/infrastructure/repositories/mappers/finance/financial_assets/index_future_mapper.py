@@ -9,7 +9,6 @@ from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture as DomainIndexFuture
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel as ORMIndexFuture
-from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
 
 
 class IndexFutureMapper:

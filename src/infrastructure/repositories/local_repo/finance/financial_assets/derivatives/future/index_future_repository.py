@@ -74,64 +74,39 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
         except Exception as e:
             print(f"Error retrieving future by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
-    def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
-        """
-        Get or create an index future by symbol.
-        Implementation of IndexFuturePort interface.
+    # def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
+    #     """
+    #     Get or create an index future by symbol.
+    #     Implementation of IndexFuturePort interface.
         
-        Args:
-            symbol: The future symbol (e.g., 'ESZ25', 'NQH25')
+    #     Args:
+    #         symbol: The future symbol (e.g., 'ESZ25', 'NQH25')
             
-        Returns:
-            IndexFuture entity or None if creation/retrieval failed
-        """
-        try:
-            # First try to get existing
-            existing = self.get_by_symbol(symbol)
-            if existing :
-                # Convert Future to IndexFuture entity
-                return existing
+    #     Returns:
+    #         IndexFuture entity or None if creation/retrieval failed
+    #     """
+    #     try:
+    #         # First try to get existing
+    #         existing = self.get_by_symbol(symbol)
+    #         if existing :
+    #             # Convert Future to IndexFuture entity
+    #             return existing
             
-            # Create new index future with minimal parameters
-            future_entity = self._create_or_get(
-                symbol=symbol,
-                contract_name=f"{symbol} Index Future",
-                future_type="INDEX",
-                underlying_asset="INDEX",  # Default for index futures
-                exchange="CME",  # Default exchange
-                currency="USD",  # Default currency
-            )
+    #         # Create new index future with minimal parameters
+    #         future_entity = self._create_or_get(
+    #             symbol=symbol,
+    #             contract_name=f"{symbol} Index Future",
+    #             future_type="INDEX",
+    #             underlying_asset="INDEX",  # Default for index futures
+    #             exchange="CME",  # Default exchange
+    #             currency="USD",  # Default currency
+    #         )
             
-            return self._future_to_index_future(future_entity) if future_entity else None
-        except Exception as e:
-            print(f"Error in get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
-            return None
+    #         return self._future_to_index_future(future_entity) if future_entity else None
+    #     except Exception as e:
+    #         print(f"Error in get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
+    #         return None
 
     
     
-    def _future_to_index_future(self, future_entity: Future_Entity) -> Optional[IndexFuture]:
-        """
-        Convert Future entity to IndexFuture entity.
-        
-        Args:
-            future_entity: Future entity to convert
-            
-        Returns:
-            IndexFuture entity or None if conversion failed
-        """
-        try:
-            # Create IndexFuture from Future entity attributes
-            return self.mapper.entity_class(
-                id=future_entity.id,
-                name=future_entity.name,
-                symbol=future_entity.symbol,
-                currency_id=getattr(future_entity, 'currency_id', None),
-                exchange_id=getattr(future_entity, 'exchange_id', None),
-                underlying_asset_id=getattr(future_entity, 'underlying_asset_id', None),
-                start_date=getattr(future_entity, 'start_date', None),
-                end_date=getattr(future_entity, 'end_date', None),
-                underlying_index=getattr(future_entity, 'underlying_asset', None)
-            )
-        except Exception as e:
-            print(f"Error converting Future to IndexFuture: {e}_{os.path.abspath(__file__)}")
-            return None
+    
