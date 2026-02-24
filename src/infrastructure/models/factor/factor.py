@@ -56,3 +56,28 @@ class IndexPriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "index_price_return_factor"
     }
+
+
+# Index Future Option Factor Models
+class IndexFutureOptionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_option_factor"
+    }
+
+
+class IndexFutureOptionPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_option_price_factor"
+    }
+
+
+class IndexFutureOptionPriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_option_price_return_factor"
+    }
+
+
+class IndexFutureOptionDeltaFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_option_delta_factor"
+    }
