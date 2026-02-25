@@ -96,7 +96,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Daily price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFutureFactor,
                 "name": "close",
                 "group": "price",
@@ -104,8 +104,18 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": [],
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=2, hours=0, minutes=0)}
             },
+            "end_price": {
+                "class": IndexFutureFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price",
+                "dependencies": [],
+                "parameters": {"lag": timedelta(days=1, hours=0, minutes=0)}
+            }
         },
         "parameters": {"period": "1D"}
     },
@@ -119,7 +129,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Weekly price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFutureFactor,
                 "name": "close",
                 "group": "price",
@@ -127,8 +137,18 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Weekly close price",
                 "dependencies": [],
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=14, hours=0, minutes=0)}
             },
+            "end_price": {
+                "class": IndexFutureFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "weekly",
+                "data_type": "numeric",
+                "description": "Weekly close price",
+                "dependencies": [],
+                "parameters": {"lag": timedelta(days=7, hours=0, minutes=0)}
+            }
         },
         "parameters": {"period": "1W"}
     },
@@ -142,7 +162,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Monthly price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFutureFactor,
                 "name": "close",
                 "group": "price",
@@ -150,8 +170,18 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Monthly close price",
                 "dependencies": [],
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=60, hours=0, minutes=0)}
             },
+            "end_price": {
+                "class": IndexFutureFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "monthly",
+                "data_type": "numeric",
+                "description": "Monthly close price",
+                "dependencies": [],
+                "parameters": {"lag": timedelta(days=30, hours=0, minutes=0)}
+            }
         },
         "parameters": {"period": "1M"}
     },
