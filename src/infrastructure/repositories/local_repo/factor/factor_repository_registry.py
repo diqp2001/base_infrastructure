@@ -40,6 +40,7 @@ from src.domain.entities.factor.finance.financial_assets.bond_factor.bond_factor
 from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_price_return_factor import FuturePriceReturnFactor
 
 from .base_factor_repository import BaseFactorRepository
 
@@ -71,6 +72,7 @@ FACTOR_REPOSITORY_MAPPING: Dict[Type, Type[BaseFactorRepository]] = {
     DerivativeFactor: DerivativeFactorRepository,
     OptionFactor: OptionsFactorRepository,
     FutureFactor: FuturesFactorRepository,
+    FuturePriceReturnFactor: FuturesFactorRepository,
 }
 
 
