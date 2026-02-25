@@ -166,6 +166,14 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         """Get company shares by company ID (delegates to local repository)."""
         return self.local_repo.get_by_company_id(company_id)
 
+    def get_by_exchange_id(self, exchange_id: int) -> List[CompanyShare]:
+        """Get company shares by exchange ID (delegates to local repository)."""
+        return self.local_repo.get_by_exchange_id(exchange_id)
+
+    def get_active_company_shares(self) -> List[CompanyShare]:
+        """Get all active company shares (delegates to local repository)."""
+        return self.local_repo.get_active_company_shares()
+
     def _fetch_contract(self, symbol: str) -> Optional[Contract]:
         """
         Fetch contract from IBKR API.

@@ -135,6 +135,26 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         ).all()
         return [self._to_domain(share) for share in shares]
 
+    def get_by_exchange_id(self, exchange_id: int) -> List[CompanyShareEntity]:
+        """
+        Retrieve CompanyShare records by exchange_id.
+        """
+        shares = self.session.query(CompanyShareModel).filter(
+            CompanyShareModel.exchange_id == exchange_id
+        ).all()
+        return [self._to_domain(share) for share in shares]
+
+    def get_active_company_shares(self) -> List[CompanyShareEntity]:
+        """
+        Retrieve all active company shares (end_date is None or in the future).
+        """
+        from datetime import date
+        shares = self.session.query(CompanyShareModel).filter(
+            or_(CompanyShareModel.end_date.is_(None), 
+                CompanyShareModel.end_date > date.today())
+        ).all()
+        return [self._to_domain(share) for share in shares]
+
     def exists_by_id(self, company_share_id: int) -> bool:
         """Check if a CompanyShare exists by its ID."""
         return self.session.query(CompanyShareModel).filter(
