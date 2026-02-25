@@ -389,6 +389,22 @@ class RepositoryFactory:
             Repository instance or None if not found
         """
         repos = self.create_local_repositories()
+        
+        # First check if it's a Factor entity and use factor registry
+        try:
+            from src.domain.entities.factor.factor import Factor
+            if issubclass(entity_class, Factor):
+                from src.infrastructure.repositories.local_repo.factor.factor_repository_registry import FactorRepositoryRegistry
+                try:
+                    return FactorRepositoryRegistry.get_repository(entity_class, self.session)
+                except KeyError:
+                    # If not found in factor registry, fall through to regular lookup
+                    pass
+        except (ImportError, TypeError):
+            # If Factor class not available or entity_class is not a class, continue with regular lookup
+            pass
+        
+        # Regular repository lookup
         for repo in repos.values():
             if hasattr(repo, 'entity_class') and repo.entity_class is entity_class:
                 return repo
