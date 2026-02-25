@@ -5,6 +5,7 @@ Domain entity for factor dependencies - pure domain logic without infrastructure
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Optional
 
 
@@ -14,12 +15,13 @@ class FactorDependency:
     Domain entity representing a dependency relationship between two factors.
     
     This entity captures the relationship where one factor (dependent) depends on 
-    another factor (independent) for its calculation.
+    another factor (independent) for its calculation, with optional time lag.
     """
     
     dependent_factor_id: int
     independent_factor_id: int
     id: Optional[int] = None
+    lag: Optional[timedelta] = None
     
     def __post_init__(self):
         """Validate the factor dependency relationship."""
@@ -34,4 +36,4 @@ class FactorDependency:
     
     def __repr__(self) -> str:
         return (f"FactorDependency(id={self.id}, dependent_factor_id={self.dependent_factor_id}, "
-                f"independent_factor_id={self.independent_factor_id})")
+                f"independent_factor_id={self.independent_factor_id}, lag={self.lag})")

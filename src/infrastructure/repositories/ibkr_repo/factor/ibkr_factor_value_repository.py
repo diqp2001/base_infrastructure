@@ -839,7 +839,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     dependency_info.append({
                         'independent_factor_id': dep.independent_factor_id,
                         'independent_factor': independent_factor,
-                        'dependency_id': dep.id
+                        'dependency_id': dep.id,
+                        'lag': dep.lag
                     })
             
             return dependency_info
@@ -870,9 +871,15 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             for dep_info in dependencies:
                 independent_factor = dep_info['independent_factor']
                 independent_factor_id = dep_info['independent_factor_id']
+                lag = dep_info.get('lag')
+                
+                # Calculate the adjusted date considering the lag
+                dependency_date = bar_date
+                if lag:
+                    dependency_date = bar_date - lag
                 
                 # First try to get the dependency value from the database
-                date_str = bar_date.strftime("%Y-%m-%d %H:%M:%S")
+                date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
                 existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
                 
                 if existing_dep_value:
@@ -889,7 +896,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             id=None,
                             factor_id=independent_factor_id,
                             entity_id=entity_id,
-                            date=bar_date,
+                            date=dependency_date,
                             value=str(extracted_value)
                         )
                         if self.local_repo:

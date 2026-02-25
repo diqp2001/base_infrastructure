@@ -74,7 +74,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
         try:
             updates = {
                 'dependent_factor_id': entity.dependent_factor_id,
-                'independent_factor_id': entity.independent_factor_id
+                'independent_factor_id': entity.independent_factor_id,
+                'lag': entity.lag
             }
             updated_model = super().update(entity.id, updates)
             return FactorDependencyMapper.model_to_entity(updated_model) if updated_model else None
@@ -100,13 +101,14 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
         ).count()
         return count > 0
     
-    def _create_or_get(self, independent_factor, dependent_factor) -> Optional[FactorDependency]:
+    def _create_or_get(self, independent_factor, dependent_factor, lag=None) -> Optional[FactorDependency]:
         """
         Create or get a factor dependency relationship.
         
         Args:
             independent_factor: Domain entity of the independent factor
             dependent_factor: Domain entity of the dependent factor
+            lag: Optional timedelta for time-based dependency lag
             
         Returns:
             FactorDependency entity or None if creation failed
@@ -133,7 +135,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             # Create new dependency
             dependency_entity = FactorDependency(
                 dependent_factor_id=dependent_factor_id,
-                independent_factor_id=independent_factor_id
+                independent_factor_id=independent_factor_id,
+                lag=lag
             )
             
             return self.add(dependency_entity)
