@@ -107,7 +107,7 @@ class FuturePriceReturnFactorRepository(BaseFactorRepository):
 
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
-                    repo_factor_dependency._create_or_get(independent_factor = self._to_entity(orm_factor),dependent_factor = dependency_entity)
+                    repo_factor_dependency._create_or_get(independent_factor =dependency_entity ,dependent_factor = self._to_entity(orm_factor))
  
             
             self.session.commit()
