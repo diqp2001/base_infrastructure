@@ -33,9 +33,6 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-            created_at=entity_data.get('created_at', datetime.now()),
-            updated_at=entity_data.get('updated_at', datetime.now())
-        )
     def get_by_id(self, holding_id: int) -> Optional[PortfolioHoldingsModel]:
         """Get a portfolio holding by ID"""
         model = self.session.query(PortfolioHoldingsModel).filter_by(id=holding_id).first()

@@ -21,9 +21,10 @@ from src.infrastructure.repositories.local_repo.base_repository import BaseLocal
 class HoldingRepository(BaseLocalRepository, HoldingPort):
     """Repository for holding entities with basic CRUD operations"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory,mapper: HoldingMapper = None):
         self.session = session
-        self.mapper = HoldingMapper()
+        self.factory = factory
+        self.mapper = mapper or HoldingMapper()
 
     def get_by_id(self, holding_id: int) -> Optional[HoldingModel]:
         """Get a holding by ID"""

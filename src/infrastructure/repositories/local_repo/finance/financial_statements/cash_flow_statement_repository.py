@@ -1,13 +1,16 @@
 # Cash Flow Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/cash_flow_statement.py
+from src.infrastructure.repositories.mappers.finance.financial_statements.cash_flow_statement_mapper import CashFlowStatementMapper
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 from typing import Optional
 class CashFlowStatementRepository(BaseLocalRepository):
     
-    def __init__(self, session: Session):
-
+    def __init__(self, session: Session, factory, mapper: CashFlowStatementMapper = None):
+        
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or CashFlowStatementMapper()
         self.data_store = []
     
     def save(self, cash_flow_statement):

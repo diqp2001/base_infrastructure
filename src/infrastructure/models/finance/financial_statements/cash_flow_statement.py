@@ -3,7 +3,6 @@ Infrastructure model for cash flow statement.
 SQLAlchemy model for domain cash flow statement entity.
 """
 from sqlalchemy import Column, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import DECIMAL
 from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatementModel
 
 
@@ -11,9 +10,9 @@ class CashFlowStatementModel(FinancialStatementModel):
     __tablename__ = 'cash_flow_statements'
     
     id = Column(Integer, ForeignKey("financial_statements.id"), primary_key=True)
-    operating_cash_flow = Column(DECIMAL(precision=20, scale=2), nullable=False)
-    investing_cash_flow = Column(DECIMAL(precision=20, scale=2), nullable=False)
-    financing_cash_flow = Column(DECIMAL(precision=20, scale=2), nullable=False)
+    operating_cash_flow = Column(Integer, nullable=False)
+    investing_cash_flow = Column(Integer, nullable=False)
+    financing_cash_flow = Column(Integer, nullable=False)
     
     __mapper_args__ = {
         'polymorphic_identity': 'cash_flow_statement',

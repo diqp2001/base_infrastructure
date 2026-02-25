@@ -13,9 +13,10 @@ from src.infrastructure.repositories.mappers.finance.holding.portfolio_company_s
 class PortfolioCompanyShareHoldingRepository(BaseLocalRepository, PortfolioCompanyShareHoldingPort):
     """Repository for portfolio company share holding entities"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, factory,mapper: PortfolioCompanyShareHoldingMapper = None):
         self.session = session
-        self.mapper = PortfolioCompanyShareHoldingMapper()
+        self.factory = factory
+        self.mapper = mapper or PortfolioCompanyShareHoldingMapper()
 
     def get_by_id(self, holding_id: int) -> Optional[PortfolioCompanyShareHoldingModel]:
         """Get a portfolio company share holding by ID"""

@@ -1,13 +1,16 @@
 # Income Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/income_statement.py
 from typing import Optional
+from src.infrastructure.repositories.mappers.finance.financial_statements.income_statement_mapper import IncomeStatementMapper
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 class IncomeStatementRepository(BaseLocalRepository):
     
-    def __init__(self, session: Session):
-
+    def __init__(self, session: Session, factory, mapper: IncomeStatementMapper = None):
+        
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or IncomeStatementMapper()
         self.data_store = []
     
     def save(self, income_statement):

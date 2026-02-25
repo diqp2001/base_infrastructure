@@ -1,13 +1,16 @@
 # Financial Statement Local Repository
 # Mirrors src/infrastructure/models/finance/financial_statements/financial_statement.py
+from src.infrastructure.repositories.mappers.finance.financial_statements.financial_statement_mapper import FinancialStatementMapper
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 from typing import Optional
 class FinancialStatementRepository(BaseLocalRepository):
     
-    def __init__(self, session: Session):
-
+    def __init__(self, session: Session, factory, mapper: FinancialStatementMapper = None):
+        
         super().__init__(session)
+        self.factory = factory
+        self.mapper = mapper or FinancialStatementMapper()
         self.data_store = []
     
     def save(self, financial_statement):

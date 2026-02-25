@@ -2,16 +2,18 @@
 # Mirrors src/infrastructure/models/finance/financial_statements/balance_sheet.py
 
 from typing import Optional
+from src.infrastructure.repositories.mappers.finance.financial_statements.balance_sheet_mapper import BalanceSheetMapper
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 
 class BalanceSheetRepository(BaseLocalRepository):
     """Local repository for balance sheet model"""
     
-    def __init__(self, session: Session):
-
+    def __init__(self, session: Session, factory, mapper: BalanceSheetMapper = None):
+        
         super().__init__(session)
-        self.data_store = []
+        self.factory = factory
+        self.mapper = mapper or BalanceSheetMapper()
     
     def save(self, balance_sheet):
         """Save balance sheet to local storage"""

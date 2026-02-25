@@ -33,23 +33,13 @@ class MarketDataRepository(BaseLocalRepository):
         if not model:
             return None
         return self.mapper.to_domain(model)
-            'mid_price': Decimal(str(model.mid_price)) if model.mid_price else None,
-            'spread': Decimal(str(model.spread)) if model.spread else None,
-            'created_at': model.created_at
-        }
-    
+            
     def _to_model(self, entity) -> MarketDataModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-            close=float(entity_data['close']) if entity_data.get('close') else None,
-            exchange=entity_data.get('exchange'),
-            last_trade_time=entity_data.get('last_trade_time'),
-            mid_price=float(entity_data['mid_price']) if entity_data.get('mid_price') else None,
-            spread=float(entity_data['spread']) if entity_data.get('spread') else None,
-            created_at=entity_data.get('created_at', datetime.now())
-        )
+            
     
     def get_all(self) -> List[dict]:
         """Retrieve all MarketData records."""
