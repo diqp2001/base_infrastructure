@@ -50,49 +50,91 @@ class FuturePriceReturnFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
 
-    def get_or_create(self, primary_key: str, **kwargs):
+    def _create_or_get(self,entity_cls, primary_key: str, **kwargs):
         """
-        Get or create a future price return factor with dependency resolution.
+        Get or create an  price return factor with dependency resolution.
         
         Args:
             primary_key: Factor name identifier
             **kwargs: Additional parameters for factor creation
             
         Returns:
-            FuturePriceReturnFactor entity
+            Factor entity or None if creation failed
         """
-        # Try to get existing entity first
-        existing_entity = self.get_by_name(primary_key)
+        try:
+            # Check existing by primary identifier (factor name)
+            existing = self.get_by_all(
+                name=primary_key,
+                group=kwargs.get('group', 'return'),
+                
+                factor_type=kwargs.get('factor_type', 'future_price_return_factor')
+            )
+            if existing:
+                
+                return self._to_entity(existing)
+            
+            domain_factor = self.get_factor_entity()(
+                name=primary_key,
+                group=kwargs.get('group', 'return'),
+                subgroup=kwargs.get('subgroup', 'daily'),
+                data_type=kwargs.get('data_type', 'numeric'),
+                source=kwargs.get('source', 'calculated'),
+                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+            )
+            
+            # Use FactorMapper to convert domain entity to ORM model
+            # This ensures entity_type is properly set
+            orm_factor = self._to_model(domain_factor)
+            
+            self.session.add(orm_factor)
+            self.session.commit()
+            if orm_factor:
+                return self._to_entity(orm_factor)
+            
+        except Exception as e:
+            print(f"Error in get_or_create  price return factor {primary_key}: {e}")
+            return None
         
-        if existing_entity:
-            return existing_entity
-        
-        # Create new entity with default values
-        new_entity = self.get_factor_entity()(
-            name=primary_key,
-            group=kwargs.get('group', 'financial_assets'),
-            subgroup=kwargs.get('subgroup', 'derivatives'),
-            frequency=kwargs.get('frequency', 'daily'),
-            data_type=kwargs.get('data_type', 'float'),
-            source=kwargs.get('source', 'calculated'),
-            definition=kwargs.get('definition', 'Future price return factor')
-        )
-        
-        # Save to database
-        model = self._to_model(new_entity)
-        self.session.add(model)
-        self.session.flush()  # Flush to get the ID
-        
-        # Return entity with ID
-        new_entity.factor_id = model.id
-        return new_entity
-    
-    def get_by_name(self, name: str):
-        """Get factor by name."""
-        model = self.session.query(self.model_class).filter(
-            self.model_class.name == name
-        ).one_or_none()
-        
-        if model:
-            return self._to_entity(model)
-        return None
+    def get_by_all(
+        self,
+        name: str,
+        group: str,
+        factor_type: Optional[str] = None,
+        subgroup: Optional[str] = None,
+        frequency: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ):
+        """Retrieve a factor matching all provided (non-None) fields."""
+        try:
+            FactorModel = self.get_factor_model()
+
+            query = self.session.query(FactorModel)
+
+            # Mandatory filters
+            query = query.filter(
+                FactorModel.name == name,
+                FactorModel.group == group,
+            )
+
+            # Optional filters
+            if factor_type is not None:
+                query = query.filter(FactorModel.factor_type == factor_type)
+
+            if subgroup is not None:
+                query = query.filter(FactorModel.subgroup == subgroup)
+
+            if frequency is not None:
+                query = query.filter(FactorModel.frequency == frequency)
+
+            if data_type is not None:
+                query = query.filter(FactorModel.data_type == data_type)
+
+            if source is not None:
+                query = query.filter(FactorModel.source == source)
+
+            return query.first()
+
+        except Exception as e:
+            print(f"Error retrieving factor by all attributes: {e}")
+            return None

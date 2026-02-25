@@ -66,11 +66,9 @@ class IndexFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_all(name =primary_key,group=kwargs.get('group', 'index'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                factor_type=kwargs.get('factor_type', 'index'),
-                data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data'))
+            existing = self.get_by_all(name =primary_key,
+                                       group=kwargs.get('group', 'price'),
+                factor_type=kwargs.get('factor_type', 'index_factor'))
             if existing:
                 return self._to_entity(existing)
             domain_factor = self.get_factor_entity()(name=primary_key,
@@ -104,31 +102,44 @@ class IndexFactorRepository(BaseFactorRepository):
             return None
 
     def get_by_all(
-    self,
-    name: str,
-    group: str,
-    factor_type: str = None,
-    subgroup: Optional[str] = None,
-    frequency: Optional[str] = None,
-    data_type: Optional[str] = None,
-    source: Optional[str] = None,
-):
-        """Retrieve a factor matching all non-id fields."""
+        self,
+        name: str,
+        group: str,
+        factor_type: Optional[str] = None,
+        subgroup: Optional[str] = None,
+        frequency: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ):
+        """Retrieve a factor matching all provided (non-None) fields."""
         try:
             FactorModel = self.get_factor_model()
 
-            query = self.session.query(FactorModel).filter(
+            query = self.session.query(FactorModel)
+
+            # Mandatory filters
+            query = query.filter(
                 FactorModel.name == name,
                 FactorModel.group == group,
-                FactorModel.factor_type == factor_type,
-                FactorModel.subgroup == subgroup,
-                FactorModel.frequency == frequency,
-                FactorModel.data_type == data_type,
-                FactorModel.source == source,
             )
 
-            factor = query.first()
-            return factor
+            # Optional filters
+            if factor_type is not None:
+                query = query.filter(FactorModel.factor_type == factor_type)
+
+            if subgroup is not None:
+                query = query.filter(FactorModel.subgroup == subgroup)
+
+            if frequency is not None:
+                query = query.filter(FactorModel.frequency == frequency)
+
+            if data_type is not None:
+                query = query.filter(FactorModel.data_type == data_type)
+
+            if source is not None:
+                query = query.filter(FactorModel.source == source)
+
+            return query.first()
 
         except Exception as e:
             print(f"Error retrieving factor by all attributes: {e}")

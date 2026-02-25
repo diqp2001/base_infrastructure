@@ -35,7 +35,7 @@ class FuturePriceReturnFactorMapper(BaseFactorMapper):
             name=orm_model.name,
             group=orm_model.group,
             subgroup=orm_model.subgroup,
-            frequency=orm_model.frequency,
+            #frequency=orm_model.frequency,
             data_type=orm_model.data_type,
             source=orm_model.source,
             definition=orm_model.definition
@@ -44,11 +44,10 @@ class FuturePriceReturnFactorMapper(BaseFactorMapper):
     def to_orm(self, domain_entity: FuturePriceReturnFactor) -> FuturePriceReturnFactorModel:
         """Convert FuturePriceReturnFactor domain entity to ORM model."""
         return FuturePriceReturnFactorModel(
-            id=domain_entity.factor_id,
             name=domain_entity.name,
             group=domain_entity.group,
             subgroup=domain_entity.subgroup,
-            frequency=domain_entity.frequency,
+            #frequency=domain_entity.frequency,
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition

@@ -459,11 +459,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             for symbol, factors in symbol_factors.items():
                 try:
-                    # Make single IBKR historical data request for this symbol
+                    # Make single IBKR historical data request for this symbol 
                     bulk_ibkr_data = self._fetch_bulk_historical_data(
                         symbol, time_date, financial_asset_entity, what_to_show, duration_str, bar_size_setting
-                    )
-                    
+                    )#functionning
+                    #WE NEED TO IMPLEMENT A WAY THE CALCULATE FUNCTION IS CALLED AND BEFORE THAT THE FACTOR DEPENDENCY
                     if bulk_ibkr_data:
                         # Extract factor values for all factors from the bulk response
                         factor_values_from_bulk = self._extract_factor_values_from_bulk_data(

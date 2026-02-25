@@ -4,6 +4,7 @@ Repository class for IndexPriceReturnFactor entities.
 
 from typing import Optional
 from sqlalchemy.orm import Session
+from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
 from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
@@ -66,10 +67,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
             existing = self.get_by_all(
                 name=primary_key,
                 group=kwargs.get('group', 'return'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                factor_type=kwargs.get('factor_type', 'index_price_return'),
-                data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'calculated')
+                factor_type=kwargs.get('factor_type', 'index_price_return_factor')
             )
             if existing:
                 
@@ -83,47 +81,77 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                 source=kwargs.get('source', 'calculated'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
             )
-            
-            # Use FactorMapper to convert domain entity to ORM model
-            # This ensures entity_type is properly set
             orm_factor = self._to_model(domain_factor)
             
             self.session.add(orm_factor)
+            #create_or_get dependencies
+            if kwargs.get('dependencies'):
+                dependencies = kwargs.get('dependencies')
+                for dependency in dependencies.items():
+                    entity_class = dependency.get('class')
+                    repo = self.factory.get_local_repository(entity_class)
+                    #create or get dependencies
+                    name=dependency.get('name')
+                    group=dependency.get('group')
+                    subgroup=dependency.get('subgroup')
+                    data_type=dependency.get('data_type')
+                    factor_type=dependency.get('factor_type')
+                    definition=dependency.get('definition')
+                    dependencies=dependency.get('dependencies')
+                    dependency_entity = repo._create_or_get(name,group,subgroup,data_type,factor_type,definition,dependencies)
+
+                    repo_factor_dependency = self.factory.get_local_repository(FactorDependencyRepository)
+                    repo_factor_dependency._create_or_get(independent_factor = self._to_entity(orm_factor),dependent_factor = dependency_entity)
+ 
+            
             self.session.commit()
             if orm_factor:
                 return self._to_entity(orm_factor)
             
         except Exception as e:
-            print(f"Error in get_or_create for index price return factor {primary_key}: {e}")
+            print(f"Error in get_or_create  price return factor {primary_key}: {e}")
             return None
         
     def get_by_all(
         self,
         name: str,
         group: str,
-        factor_type: str = None,
+        factor_type: Optional[str] = None,
         subgroup: Optional[str] = None,
         frequency: Optional[str] = None,
         data_type: Optional[str] = None,
         source: Optional[str] = None,
     ):
-            """Retrieve a factor matching all non-id fields."""
-            try:
-                FactorModel = self.get_factor_model()
+        """Retrieve a factor matching all provided (non-None) fields."""
+        try:
+            FactorModel = self.get_factor_model()
 
-                query = self.session.query(FactorModel).filter(
-                    FactorModel.name == name,
-                    FactorModel.group == group,
-                    FactorModel.factor_type == factor_type,
-                    FactorModel.subgroup == subgroup,
-                    FactorModel.frequency == frequency,
-                    FactorModel.data_type == data_type,
-                    FactorModel.source == source,
-                )
+            query = self.session.query(FactorModel)
 
-                factor = query.first()
-                return factor
+            # Mandatory filters
+            query = query.filter(
+                FactorModel.name == name,
+                FactorModel.group == group,
+            )
 
-            except Exception as e:
-                print(f"Error retrieving factor by all attributes: {e}")
-                return None
+            # Optional filters
+            if factor_type is not None:
+                query = query.filter(FactorModel.factor_type == factor_type)
+
+            if subgroup is not None:
+                query = query.filter(FactorModel.subgroup == subgroup)
+
+            if frequency is not None:
+                query = query.filter(FactorModel.frequency == frequency)
+
+            if data_type is not None:
+                query = query.filter(FactorModel.data_type == data_type)
+
+            if source is not None:
+                query = query.filter(FactorModel.source == source)
+
+            return query.first()
+
+        except Exception as e:
+            print(f"Error retrieving factor by all attributes: {e}")
+            return None

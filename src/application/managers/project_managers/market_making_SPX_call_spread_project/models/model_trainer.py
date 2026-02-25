@@ -203,7 +203,8 @@ class ModelTrainer:
                         'source': 'config',
                         'definition': factor_config.get('definition', f'Factor {factor_name} from config'),
                         'factor_index': results['factors_created'],
-                        'factor_future_start': datetime.now()
+                        'factor_future_start': datetime.now(),
+                        "dependencies": factor_config.get('dependencies', None),
                     }
                     
                     # Create or get factor using market data history service
