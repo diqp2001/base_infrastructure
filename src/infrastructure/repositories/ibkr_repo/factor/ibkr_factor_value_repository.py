@@ -332,9 +332,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 # 4. Call the factor's calculate method with resolved dependencies
                 calculated_value = self._call_factor_calculate_method(
-                    factor_entity,
-                    financial_asset_entity,
-                    resolved_dependencies,
+                    factor=factor_entity,
+                    financial_asset_entity=financial_asset_entity,
+                    dependency_values=resolved_dependencies,
                     **kwargs
                 )
                 
@@ -899,7 +899,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         return None
             
             # Call the factor's calculate method with resolved dependencies
-            calculated_value = self._call_factor_calculate_method(factor, dependency_values)
+            calculated_value = self._call_factor_calculate_method(factor=factor, dependency_values=dependency_values)
             
             if calculated_value is None:
                 print(f"Factor calculation returned None for {factor.name}")
@@ -963,33 +963,72 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting simple factor {factor.name} from bar: {e}")
             return None
 
-    def _call_factor_calculate_method(self, factor: Any, dependency_values: Dict[str, float]) -> Optional[float]:
+    def _call_factor_calculate_method(self, factor: Any, dependency_values: Dict[str, Any] = None, 
+                                    financial_asset_entity: Any = None, **kwargs) -> Optional[float]:
         """
         Call the factor's calculate method with resolved dependency values.
+        
+        This unified method supports both calling patterns:
+        1. Simple: factor + dependency_values (for _handle_factor_with_dependencies)
+        2. Advanced: factor + financial_asset_entity + dependency_values + kwargs (for _create_or_get)
         
         Args:
             factor: Factor entity with calculate method
             dependency_values: Dictionary of resolved dependency values
+            financial_asset_entity: Optional financial asset entity for advanced calling patterns
+            **kwargs: Additional parameters for method calling
             
         Returns:
             Calculated factor value or None if calculation failed
         """
         try:
+            if dependency_values is None:
+                dependency_values = {}
+            
             # Look for calculate methods in the factor
             calculate_methods = [
                 'calculate',
                 'calculate_delta', 
                 'calculate_price',
                 'calculate_value',
-                'calculate_return'
+                'calculate_return',
+                'calculate_momentum',
+                'compute'
             ]
             
             for method_name in calculate_methods:
+                # Check both instance and class for the method
+                method = None
                 if hasattr(factor, method_name):
                     method = getattr(factor, method_name)
-                    if callable(method):
+                elif hasattr(factor.__class__, method_name):
+                    method = getattr(factor, method_name)
+                
+                if method and callable(method):
+                    try:
+                        # Advanced calling pattern with signature inspection
+                        if financial_asset_entity is not None or kwargs:
+                            try:
+                                # Get method signature to match parameters
+                                sig = inspect.signature(method)
+                                method_params = {}
+                                
+                                for param_name, param in sig.parameters.items():
+                                    if param_name in dependency_values:
+                                        method_params[param_name] = dependency_values[param_name]
+                                    elif param_name in kwargs:
+                                        method_params[param_name] = kwargs[param_name]
+                                
+                                # Call the method with matched parameters
+                                result = method(**method_params)
+                                if result is not None:
+                                    return float(result)
+                            except Exception as inspect_error:
+                                # Fall back to simple calling pattern
+                                pass
+                        
+                        # Simple calling pattern - try keyword arguments first
                         try:
-                            # Try to call the method with dependency values as keyword arguments
                             result = method(**dependency_values)
                             if result is not None:
                                 return float(result)
@@ -1003,15 +1042,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             except Exception as pos_error:
                                 print(f"Could not call {method_name} with positional args: {pos_error}")
                                 continue
-                        except Exception as method_error:
-                            print(f"Error calling {method_name} on {factor.name}: {method_error}")
-                            continue
+                        
+                    except Exception as method_error:
+                        print(f"Error calling {method_name} on {getattr(factor, 'name', 'unknown')}: {method_error}")
+                        continue
             
-            print(f"No suitable calculate method found or callable for factor {factor.name}")
+            print(f"No suitable calculate method found or callable for factor {getattr(factor, 'name', 'unknown')}")
             return None
             
         except Exception as e:
-            print(f"Error calling factor calculate method for {factor.name}: {e}")
+            print(f"Error calling factor calculate method for {getattr(factor, 'name', 'unknown')}: {e}")
             return None
 
     def _parse_ibkr_date(self, date_str: str) -> Optional[datetime]:
@@ -1372,69 +1412,6 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error resolving dependency {dep_info.get('name', 'unknown')}: {e}")
             return None
 
-    def _call_factor_calculate_method(
-        self,
-        factor_entity: Factor,
-        financial_asset_entity: Any,
-        resolved_dependencies: Dict[str, Any],
-        **kwargs
-    ) -> Optional[Any]:
-        """
-        Call the appropriate calculate method on the factor with resolved dependencies.
-        
-        Args:
-            factor_entity: Factor domain entity
-            financial_asset_entity: Financial asset entity
-            resolved_dependencies: Dict of resolved dependency values
-            **kwargs: Additional parameters
-            
-        Returns:
-            Calculated factor value or None
-        """
-        try:
-            factor_class = factor_entity.__class__
-            
-            # Look for calculate methods in order of preference
-            calculate_methods = [
-                'calculate',
-                'calculate_momentum',
-                'calculate_price', 
-                'calculate_value',
-                'compute'
-            ]
-            
-            for method_name in calculate_methods:
-                if hasattr(factor_class, method_name):
-                    method = getattr(factor_entity, method_name)
-                    if callable(method):
-                        
-                        # Try to call the method with resolved dependencies
-                        try:
-                            # Get method signature to match parameters
-                            sig = inspect.signature(method)
-                            method_params = {}
-                            
-                            for param_name, param in sig.parameters.items():
-                                if param_name in resolved_dependencies:
-                                    method_params[param_name] = resolved_dependencies[param_name]
-                                elif param_name in kwargs:
-                                    method_params[param_name] = kwargs[param_name]
-                            
-                            # Call the method
-                            result = method(**method_params)
-                            if result is not None:
-                                return result
-                                
-                        except Exception as method_error:
-                            print(f"Error calling {method_name} on {factor_entity.name}: {method_error}")
-                            continue
-            
-            print(f"No suitable calculate method found for {factor_entity.name}")
-            return None
-            
-        except Exception as e:
-            print(f"Error calling factor calculate method for {factor_entity.name}: {e}")
-            return None
 
 
     def get_by_id(self, entity_id: int) -> Optional[FactorValue]:
