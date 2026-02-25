@@ -29,6 +29,12 @@ from src.infrastructure.models.sector import SectorModel
 from src.infrastructure.models.finance.exchange import ExchangeModel
 from src.infrastructure.models.finance.company import CompanyModel
 
+# Financial statements (depends on company)
+from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatementModel
+from src.infrastructure.models.finance.financial_statements.balance_sheet import BalanceSheetModel
+from src.infrastructure.models.finance.financial_statements.income_statement import IncomeStatementModel
+from src.infrastructure.models.finance.financial_statements.cash_flow_statement import CashFlowStatementModel
+
 
 # Basic financial assets (depends on exchange/company)
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -93,7 +99,8 @@ def ensure_models_registered():
     
     # Core models that must be registered for string relationships to work
     required_models = {
-        'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel', 
+        'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
+        'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'PortfolioModel','PortfolioDerivativeModel',
         'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'HoldingModel'
     }
@@ -120,6 +127,7 @@ __all__ = [
     'ModelBase',
     'CountryModel', 'IndustryModel', 'SectorModel', 'ContinentModel',
     'ExchangeModel', 'CompanyModel',
+    'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
     'ShareModel', 'CompanyShareModel', 'ETFShareModel',
     'BondModel', 'OptionsModel','FutureModel', 'IndexFutureModel','DerivativeModel',
