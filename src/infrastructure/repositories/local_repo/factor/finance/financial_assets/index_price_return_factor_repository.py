@@ -88,17 +88,19 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
             if kwargs.get('dependencies'):
                 dependencies = kwargs.get('dependencies')
                 for dependency in dependencies.items():
-                    entity_class = dependency.get('class')
+                    entity_class = dependency[1].get('class')
                     repo = self.factory.get_local_repository(entity_class)
-                    #create or get dependencies
-                    name=dependency.get('name')
-                    group=dependency.get('group')
-                    subgroup=dependency.get('subgroup')
-                    data_type=dependency.get('data_type')
-                    factor_type=dependency.get('factor_type')
-                    definition=dependency.get('definition')
-                    dependencies=dependency.get('dependencies')
-                    dependency_entity = repo._create_or_get(name,group,subgroup,data_type,factor_type,definition,dependencies)
+                    
+                    dependency_config = dependency[1]
+                    dependency_entity = repo._create_or_get(
+                            primary_key=dependency_config.get("name"),
+                            group=dependency_config.get("group"),
+                            subgroup=dependency_config.get("subgroup"),
+                            data_type=dependency_config.get("data_type"),
+                            factor_type=dependency_config.get("factor_type"),
+                            source=dependency_config.get("source"),
+                            definition=dependency_config.get("definition"),)
+
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
                     repo_factor_dependency._create_or_get(independent_factor = self._to_entity(orm_factor),dependent_factor = dependency_entity)
