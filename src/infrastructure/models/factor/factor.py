@@ -48,6 +48,11 @@ class IndexFutureFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "index_future_factor"
     }
+
+class IndexFuturePriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "index_future_price_return_factor"
+    }
 class IndexFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "index_factor"
