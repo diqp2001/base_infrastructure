@@ -4,6 +4,7 @@ Repository class for Portfolio Company Share Option Price Return factor entities
 
 from typing import Optional
 from sqlalchemy.orm import Session
+from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.infrastructure.repositories.mappers.factor.portfolio_company_share_option_price_return_factor_mapper import PortfolioCompanyShareOptionPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
@@ -90,6 +91,28 @@ class PortfolioCompanyShareOptionPriceReturnFactorRepository(BaseFactorRepositor
             orm_factor = self._to_model(domain_factor)
             
             self.session.add(orm_factor)
+            #create_or_get dependencies
+            if kwargs.get('dependencies'):
+                dependencies = kwargs.get('dependencies')
+                for dependency in dependencies.items():
+                    entity_class = dependency[1].get('class')
+                    repo = self.factory.get_local_repository(entity_class)
+                    
+                    dependency_config = dependency[1]
+                    dependency_entity = repo._create_or_get(
+                            primary_key=dependency_config.get("name"),
+                            group=dependency_config.get("group"),
+                            subgroup=dependency_config.get("subgroup"),
+                            data_type=dependency_config.get("data_type"),
+                            factor_type=dependency_config.get("factor_type"),
+                            source=dependency_config.get("source"),
+                            definition=dependency_config.get("definition"),)
+
+
+                    repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
+                    repo_factor_dependency._create_or_get(independent_factor = self._to_entity(orm_factor),dependent_factor = dependency_entity)
+ 
+            
             self.session.commit()
             if orm_factor:
                 return self._to_entity(orm_factor)
