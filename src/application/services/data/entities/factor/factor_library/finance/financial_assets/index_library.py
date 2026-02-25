@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Dict, List
 
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor
@@ -78,7 +79,7 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Minute-level open price return",
         "dependencies": {
-            "open": {
+            "start_price": {
                 "class": IndexFactor,
                 "name": "open",
                 "group": "price",
@@ -86,7 +87,17 @@ INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Minute-level open price",
                 "dependencies": {},
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=1, hours=0, minutes=0)}
+            },
+            "end_price": {
+                "class": IndexFactor,
+                "name": "open",
+                "group": "price",
+                "subgroup": "minutes",
+                "data_type": "numeric",
+                "description": "Minute-level open price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=0, hours=0, minutes=1)}
             }
         },
         "parameters": {}
@@ -104,7 +115,7 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Daily price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFactor,
                 "name": "close",
                 "group": "price",
@@ -112,7 +123,17 @@ INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": {},
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=2, hours=0, minutes=0)}
+            },
+            "end_price": {
+                "class": IndexFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=1, hours=0, minutes=0)}
             }
         },
         "parameters": {"period": "1D"}
@@ -130,7 +151,7 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Weekly price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFactor,
                 "name": "close",
                 "group": "price",
@@ -138,7 +159,17 @@ INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Weekly close price",
                 "dependencies": {},
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=14, hours=0, minutes=0)}
+            },
+            "end_price": {
+                "class": IndexFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "weekly",
+                "data_type": "numeric",
+                "description": "Weekly close price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=7, hours=0, minutes=0)}
             }
         },
         "parameters": {"period": "1W"}
@@ -156,7 +187,7 @@ INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Monthly price return",
         "dependencies": {
-            "close": {
+            "start_price": {
                 "class": IndexFactor,
                 "name": "close",
                 "group": "price",
@@ -164,7 +195,17 @@ INDEX_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Monthly close price",
                 "dependencies": {},
-                "parameters": {}
+                "parameters": {"lag": timedelta(days=60, hours=0, minutes=0)}
+            },
+            "end_price": {
+                "class": IndexFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "monthly",
+                "data_type": "numeric",
+                "description": "Monthly close price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=30, hours=0, minutes=0)}
             }
         },
         "parameters": {"period": "1M"}
