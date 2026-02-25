@@ -11,6 +11,19 @@ from sqlalchemy.orm import Session
 # Local repositories
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
+from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
+from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
+from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
+from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.portfolio_holding_repository import PortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.portfolio_company_share_holding_repository import PortfolioCompanyShareHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.financial_statements.financial_statement_repository import FinancialStatementRepository
+from src.infrastructure.repositories.local_repo.finance.financial_statements.income_statement_repository import IncomeStatementRepository
+from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
+from src.infrastructure.repositories.local_repo.finance.financial_statements.cash_flow_statement_repository import CashFlowStatementRepository
+from src.infrastructure.repositories.local_repo.finance.market_data_repository import MarketDataRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
@@ -84,6 +97,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_re
 from src.infrastructure.repositories.ibkr_repo.finance.country_repository import IBKRCountryRepository
 from src.infrastructure.repositories.ibkr_repo.finance.continent_repository import IBKRContinentRepository
 from src.infrastructure.repositories.ibkr_repo.finance.exchange_repository import IBKRExchangeRepository
+from src.infrastructure.repositories.ibkr_repo.finance.company_repository import IBKRCompanyRepository
 
 
 class RepositoryFactory:
@@ -152,7 +166,25 @@ class RepositoryFactory:
                 'security': SecurityRepository(self.session, factory=self),
                 'country': CountryRepository(self.session, factory=self),
                 'continent': ContinentRepository(self.session, factory=self),
-                'exchange': ExchangeRepository(self.session, factory=self)
+                'exchange': ExchangeRepository(self.session, factory=self),
+                # Additional geographic repositories
+                'sector': SectorRepository(self.session, factory=self),
+                'industry': IndustryRepository(self.session, factory=self),
+                # Portfolio and position repositories
+                'position': PositionRepository(self.session, factory=self),
+                'portfolio': PortfolioRepository(self.session, factory=self),
+                'company': CompanyRepository(self.session, factory=self),
+                # Holding repositories
+                'holding': HoldingRepository(self.session, factory=self),
+                'portfolio_holding': PortfolioHoldingRepository(self.session, factory=self),
+                'portfolio_company_share_holding': PortfolioCompanyShareHoldingRepository(self.session, factory=self),
+                # Financial statement repositories
+                'financial_statement': FinancialStatementRepository(self.session, factory=self),
+                'income_statement': IncomeStatementRepository(self.session, factory=self),
+                'balance_sheet': BalanceSheetRepository(self.session, factory=self),
+                'cash_flow_statement': CashFlowStatementRepository(self.session, factory=self),
+                # Market data repository
+                'market_data': MarketDataRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -304,6 +336,10 @@ class RepositoryFactory:
                 'continent': IBKRContinentRepository(ibkr_client=client,
                     factory=self),
                 'exchange': IBKRExchangeRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company': IBKRCompanyRepository(
                     ibkr_client=client,
                     factory=self
                 )
@@ -744,3 +780,75 @@ class RepositoryFactory:
     def security_factor_ibkr_repo(self):
         """Get security_factor repository for dependency injection."""
         return self._ibkr_repositories.get('security_factor')
+    
+    # Additional local repository properties
+    @property
+    def sector_local_repo(self):
+        """Get sector repository for dependency injection."""
+        return self._local_repositories.get('sector')
+    
+    @property
+    def industry_local_repo(self):
+        """Get industry repository for dependency injection."""
+        return self._local_repositories.get('industry')
+    
+    @property
+    def position_local_repo(self):
+        """Get position repository for dependency injection."""
+        return self._local_repositories.get('position')
+    
+    @property
+    def portfolio_local_repo(self):
+        """Get portfolio repository for dependency injection."""
+        return self._local_repositories.get('portfolio')
+    
+    @property
+    def company_local_repo(self):
+        """Get company repository for dependency injection."""
+        return self._local_repositories.get('company')
+    
+    @property
+    def holding_local_repo(self):
+        """Get holding repository for dependency injection."""
+        return self._local_repositories.get('holding')
+    
+    @property
+    def portfolio_holding_local_repo(self):
+        """Get portfolio_holding repository for dependency injection."""
+        return self._local_repositories.get('portfolio_holding')
+    
+    @property
+    def portfolio_company_share_holding_local_repo(self):
+        """Get portfolio_company_share_holding repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_holding')
+    
+    @property
+    def financial_statement_local_repo(self):
+        """Get financial_statement repository for dependency injection."""
+        return self._local_repositories.get('financial_statement')
+    
+    @property
+    def income_statement_local_repo(self):
+        """Get income_statement repository for dependency injection."""
+        return self._local_repositories.get('income_statement')
+    
+    @property
+    def balance_sheet_local_repo(self):
+        """Get balance_sheet repository for dependency injection."""
+        return self._local_repositories.get('balance_sheet')
+    
+    @property
+    def cash_flow_statement_local_repo(self):
+        """Get cash_flow_statement repository for dependency injection."""
+        return self._local_repositories.get('cash_flow_statement')
+    
+    @property
+    def market_data_local_repo(self):
+        """Get market_data repository for dependency injection."""
+        return self._local_repositories.get('market_data')
+    
+    # Additional IBKR repository properties
+    @property
+    def company_ibkr_repo(self):
+        """Get company repository for dependency injection."""
+        return self._ibkr_repositories.get('company')
