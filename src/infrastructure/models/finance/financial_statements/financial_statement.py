@@ -17,7 +17,7 @@ class FinancialStatementModel(Base):
     statement_type = Column(String(50), nullable=False)  # Discriminator
     
     # Relationships
-    company = relationship("Company")
+    company = relationship("CompanyModel")
     
     __mapper_args__ = {
         'polymorphic_identity': 'financial_statement',
