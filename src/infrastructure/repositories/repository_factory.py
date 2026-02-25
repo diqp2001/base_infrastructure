@@ -30,6 +30,7 @@ from src.infrastructure.repositories.local_repo.factor.base_factor_repository im
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
+from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
 
 # Local Factor repositories
 from src.infrastructure.repositories.local_repo.factor.continent_factor_repository import ContinentFactorRepository
@@ -137,6 +138,7 @@ class RepositoryFactory:
                 'instrument': InstrumentRepository(self.session, factory=self),
                 'factor_value': FactorValueRepository(self.session, factory=self),
                 'factor': FactorRepository(self.session, factory=self),
+                'factor_dependency': FactorDependencyRepository(self.session),
                 'financial_asset': FinancialAssetRepository(self.session, factory=self),
                 # Individual factor repositories
                 'continent_factor': ContinentFactorRepository(self.session, factory=self),
@@ -439,6 +441,11 @@ class RepositoryFactory:
     def factor_local_repo(self):
         """Get factor repository for dependency injection."""
         return self._local_repositories.get('factor')
+
+    @property
+    def factor_dependency_local_repo(self):
+        """Get factor_dependency repository for dependency injection."""
+        return self._local_repositories.get('factor_dependency')
 
     # Individual local factor repositories
     @property
