@@ -15,103 +15,103 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 class CompanySharePriceReturnFactorPort(ABC):
     """Port interface for CompanySharePriceReturnFactor repositories"""
     
-    @abstractmethod
-    def get_by_id(self, entity_id: int) -> Optional[CompanySharePriceReturnFactor]:
-        """
-        Get company share price return factor by ID.
+    # @abstractmethod
+    # def get_by_id(self, entity_id: int) -> Optional[CompanySharePriceReturnFactor]:
+    #     """
+    #     Get company share price return factor by ID.
         
-        Args:
-            entity_id: The entity ID
+    #     Args:
+    #         entity_id: The entity ID
             
-        Returns:
-            CompanySharePriceReturnFactor entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         CompanySharePriceReturnFactor entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_name(self, name: str) -> Optional[CompanySharePriceReturnFactor]:
-        """
-        Get company share price return factor by name.
+    # @abstractmethod
+    # def get_by_name(self, name: str) -> Optional[CompanySharePriceReturnFactor]:
+    #     """
+    #     Get company share price return factor by name.
         
-        Args:
-            name: The factor name
+    #     Args:
+    #         name: The factor name
             
-        Returns:
-            CompanySharePriceReturnFactor entity or None if not found
-        """
-        pass
+    #     Returns:
+    #         CompanySharePriceReturnFactor entity or None if not found
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_group(self, group: str) -> List[CompanySharePriceReturnFactor]:
-        """
-        Get company share price return factors by group.
+    # @abstractmethod
+    # def get_by_group(self, group: str) -> List[CompanySharePriceReturnFactor]:
+    #     """
+    #     Get company share price return factors by group.
         
-        Args:
-            group: The factor group
+    #     Args:
+    #         group: The factor group
             
-        Returns:
-            List of CompanySharePriceReturnFactor entities in the group
-        """
-        pass
+    #     Returns:
+    #         List of CompanySharePriceReturnFactor entities in the group
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_by_subgroup(self, subgroup: str) -> List[CompanySharePriceReturnFactor]:
-        """
-        Get company share price return factors by subgroup.
+    # @abstractmethod
+    # def get_by_subgroup(self, subgroup: str) -> List[CompanySharePriceReturnFactor]:
+    #     """
+    #     Get company share price return factors by subgroup.
         
-        Args:
-            subgroup: The factor subgroup
+    #     Args:
+    #         subgroup: The factor subgroup
             
-        Returns:
-            List of CompanySharePriceReturnFactor entities in the subgroup
-        """
-        pass
+    #     Returns:
+    #         List of CompanySharePriceReturnFactor entities in the subgroup
+    #     """
+    #     pass
     
-    @abstractmethod
-    def get_all(self) -> List[CompanySharePriceReturnFactor]:
-        """
-        Get all company share price return factors.
+    # @abstractmethod
+    # def get_all(self) -> List[CompanySharePriceReturnFactor]:
+    #     """
+    #     Get all company share price return factors.
         
-        Returns:
-            List of CompanySharePriceReturnFactor entities
-        """
-        pass
+    #     Returns:
+    #         List of CompanySharePriceReturnFactor entities
+    #     """
+    #     pass
     
-    @abstractmethod
-    def add(self, entity: CompanySharePriceReturnFactor) -> Optional[CompanySharePriceReturnFactor]:
-        """
-        Add/persist a company share price return factor entity.
+    # @abstractmethod
+    # def add(self, entity: CompanySharePriceReturnFactor) -> Optional[CompanySharePriceReturnFactor]:
+    #     """
+    #     Add/persist a company share price return factor entity.
         
-        Args:
-            entity: The CompanySharePriceReturnFactor entity to persist
+    #     Args:
+    #         entity: The CompanySharePriceReturnFactor entity to persist
             
-        Returns:
-            Persisted CompanySharePriceReturnFactor entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Persisted CompanySharePriceReturnFactor entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def update(self, entity: CompanySharePriceReturnFactor) -> Optional[CompanySharePriceReturnFactor]:
-        """
-        Update a company share price return factor entity.
+    # @abstractmethod
+    # def update(self, entity: CompanySharePriceReturnFactor) -> Optional[CompanySharePriceReturnFactor]:
+    #     """
+    #     Update a company share price return factor entity.
         
-        Args:
-            entity: The CompanySharePriceReturnFactor entity to update
+    #     Args:
+    #         entity: The CompanySharePriceReturnFactor entity to update
             
-        Returns:
-            Updated CompanySharePriceReturnFactor entity or None if failed
-        """
-        pass
+    #     Returns:
+    #         Updated CompanySharePriceReturnFactor entity or None if failed
+    #     """
+    #     pass
     
-    @abstractmethod
-    def delete(self, entity_id: int) -> bool:
-        """
-        Delete a company share price return factor entity.
+    # @abstractmethod
+    # def delete(self, entity_id: int) -> bool:
+    #     """
+    #     Delete a company share price return factor entity.
         
-        Args:
-            entity_id: The entity ID to delete
+    #     Args:
+    #         entity_id: The entity ID to delete
             
-        Returns:
-            True if deleted successfully, False otherwise
-        """
-        pass
+    #     Returns:
+    #         True if deleted successfully, False otherwise
+    #     """
+    #     pass
