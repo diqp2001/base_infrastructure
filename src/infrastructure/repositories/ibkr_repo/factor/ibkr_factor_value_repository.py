@@ -987,13 +987,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             # Look for calculate methods in the factor
             calculate_methods = [
-                'calculate',
-                'calculate_delta', 
-                'calculate_price',
-                'calculate_value',
-                'calculate_return',
-                'calculate_momentum',
-                'compute'
+                'calculate'
             ]
             
             for method_name in calculate_methods:
@@ -1012,7 +1006,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 # Get method signature to match parameters
                                 sig = inspect.signature(method)
                                 method_params = {}
-                                
+                                #in dependency return needs 2 dependency with a fixed lag for the date we are in, the lag in a new column in the dependency table
                                 for param_name, param in sig.parameters.items():
                                     if param_name in dependency_values:
                                         method_params[param_name] = dependency_values[param_name]

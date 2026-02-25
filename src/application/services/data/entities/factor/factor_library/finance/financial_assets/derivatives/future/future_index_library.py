@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Dict, List
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor import IndexFuturePriceReturnFactor
@@ -62,7 +63,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Minute-level open price return",
         "dependencies": {
-            "open": {
+            "start_price": {
                 "class": IndexFutureFactor,
                     "name": "open", 
                     "group": "price",
@@ -70,7 +71,17 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
                     "data_type": "numeric",
                     "description": "Minute-level open price",
                     "dependencies": [],
-                    "parameters": {}
+                    "parameters": {"lag":timedelta(days=5, hours=3, minutes=10)}
+                },
+            "end_price": {
+                "class": IndexFutureFactor,
+                    "name": "open", 
+                    "group": "price",
+                    "subgroup": "minutes",
+                    "data_type": "numeric",
+                    "description": "Minute-level open price",
+                    "dependencies": [],
+                    "parameters": {"lag":timedelta(days=4, hours=3, minutes=10)}
                 },
                 },
         "parameters": {}
