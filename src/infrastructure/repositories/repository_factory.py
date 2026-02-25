@@ -36,6 +36,7 @@ from src.infrastructure.repositories.local_repo.factor.continent_factor_reposito
 from src.infrastructure.repositories.local_repo.factor.country_factor_repository import CountryFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_factor_repository import IndexFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_price_return_factor_repository import IndexPriceReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.future_price_return_factor_repository import FuturePriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.equity_factor_repository import EquityFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.bond_factor_repository import BondFactorRepository
@@ -142,6 +143,7 @@ class RepositoryFactory:
                 'country_factor': CountryFactorRepository(self.session, factory=self),
                 'index_factor': IndexFactorRepository(self.session, factory=self),
                 'index_price_return_factor': IndexPriceReturnFactorRepository(self.session, factory=self),
+                'future_price_return_factor': FuturePriceReturnFactorRepository(self.session, factory=self),
                 'share_factor': ShareFactorRepository(self.session, factory=self),
                 'currency_factor': CurrencyFactorRepository(self.session, factory=self),
                 'equity_factor': EquityFactorRepository(self.session, factory=self),
@@ -846,6 +848,11 @@ class RepositoryFactory:
     def market_data_local_repo(self):
         """Get market_data repository for dependency injection."""
         return self._local_repositories.get('market_data')
+    
+    @property
+    def future_price_return_factor_local_repo(self):
+        """Get future_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('future_price_return_factor')
     
     # Additional IBKR repository properties
     @property

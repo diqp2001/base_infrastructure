@@ -58,6 +58,12 @@ class IndexPriceReturnFactorModel(FactorModel):
     }
 
 
+class FuturePriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "future_price_return_factor"
+    }
+
+
 # Index Future Option Factor Models
 class IndexFutureOptionFactorModel(FactorModel):
     __mapper_args__ = {
