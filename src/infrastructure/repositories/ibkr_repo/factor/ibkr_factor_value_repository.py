@@ -729,10 +729,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]], 
                                             factors: List[Any], entity_id: int) -> List[FactorValue]:
         """
-        Extract multiple factor values from bulk IBKR historical data.
+        Extract multiple factor values from bulk IBKR historical data with dependency management.
         
-        This is the core optimization: instead of making separate requests for each factor,
-        we extract all factor values from the single bulk response.
+        Enhanced version that:
+        1. Checks for factor dependencies in the database
+        2. For factors with dependencies: resolves dependencies first, then calls calculate() method
+        3. For factors without dependencies: extracts directly from IBKR data as before
+        4. Stores calculated factor values in database
         
         Args:
             bulk_data: List of historical bars from IBKR
@@ -765,13 +768,27 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 factor_values.append(existing)
                                 continue
                             
-                            # Extract value for this factor from the bar
-                            factor_value = self._extract_factor_value_from_bar(
-                                bar_data, factor, entity_id, bar_date
-                            )
+                            # NEW: Check if factor has dependencies in the database
+                            dependencies = self._get_factor_dependencies_from_db(factor.id)
                             
-                            if factor_value:
-                                factor_values.append(factor_value)
+                            if dependencies:
+                                # Factor has dependencies - call calculate function
+                                print(f"Factor {factor.name} has {len(dependencies)} dependencies - using calculate function")
+                                
+                                calculated_factor_value = self._handle_factor_with_dependencies(
+                                    factor, dependencies, entity_id, bar_date, bar_data
+                                )
+                                
+                                if calculated_factor_value:
+                                    factor_values.append(calculated_factor_value)
+                            else:
+                                # Factor has no dependencies - extract directly from IBKR data
+                                factor_value = self._extract_factor_value_from_bar(
+                                    bar_data, factor, entity_id, bar_date
+                                )
+                                
+                                if factor_value:
+                                    factor_values.append(factor_value)
                                 
                         except Exception as factor_error:
                             print(f"Error extracting factor {factor.name} from bar {bar_date}: {factor_error}")
@@ -787,6 +804,215 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor values from bulk data: {e}")
             return []
+
+    def _get_factor_dependencies_from_db(self, factor_id: int) -> List[Dict[str, Any]]:
+        """
+        Get factor dependencies from the database.
+        
+        Args:
+            factor_id: ID of the factor to check for dependencies
+            
+        Returns:
+            List of dependency information dictionaries
+        """
+        try:
+            if not self.factory:
+                return []
+            
+            # Get factor dependency repository from factory
+            factor_dependency_repo = self.factory.factor_dependency_local_repo
+            if not factor_dependency_repo:
+                return []
+            
+            # Get dependencies where this factor is the dependent factor
+            dependencies = factor_dependency_repo.get_by_dependent_factor_id(factor_id)
+            
+            if not dependencies:
+                return []
+            
+            # Convert to list of dictionaries with additional information
+            dependency_info = []
+            for dep in dependencies:
+                # Get the independent factor entity
+                independent_factor = self.factory.factor_local_repo.get_by_id(dep.independent_factor_id)
+                if independent_factor:
+                    dependency_info.append({
+                        'independent_factor_id': dep.independent_factor_id,
+                        'independent_factor': independent_factor,
+                        'dependency_id': dep.id
+                    })
+            
+            return dependency_info
+            
+        except Exception as e:
+            print(f"Error getting factor dependencies from database for factor {factor_id}: {e}")
+            return []
+
+    def _handle_factor_with_dependencies(self, factor: Any, dependencies: List[Dict[str, Any]], 
+                                       entity_id: int, bar_date: datetime, bar_data: Dict[str, Any]) -> Optional[FactorValue]:
+        """
+        Handle factor calculation when factor has dependencies.
+        
+        Args:
+            factor: Factor entity with dependencies
+            dependencies: List of dependency information
+            entity_id: Entity ID for the factor value
+            bar_date: Date of the bar data
+            bar_data: IBKR bar data for resolving simple dependencies
+            
+        Returns:
+            Calculated FactorValue or None if calculation failed
+        """
+        try:
+            # Resolve dependency values
+            dependency_values = {}
+            
+            for dep_info in dependencies:
+                independent_factor = dep_info['independent_factor']
+                independent_factor_id = dep_info['independent_factor_id']
+                
+                # First try to get the dependency value from the database
+                date_str = bar_date.strftime("%Y-%m-%d %H:%M:%S")
+                existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
+                
+                if existing_dep_value:
+                    # Use existing value from database
+                    dependency_values[independent_factor.name] = float(existing_dep_value.value)
+                else:
+                    # Try to extract from current bar data if it's a simple factor
+                    extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
+                    if extracted_value is not None:
+                        dependency_values[independent_factor.name] = extracted_value
+                        
+                        # Store the dependency value in database for future use
+                        dep_factor_value = FactorValue(
+                            id=None,
+                            factor_id=independent_factor_id,
+                            entity_id=entity_id,
+                            date=bar_date,
+                            value=str(extracted_value)
+                        )
+                        if self.local_repo:
+                            self.local_repo.add(dep_factor_value)
+                    else:
+                        print(f"Could not resolve dependency {independent_factor.name} for factor {factor.name}")
+                        return None
+            
+            # Call the factor's calculate method with resolved dependencies
+            calculated_value = self._call_factor_calculate_method(factor, dependency_values)
+            
+            if calculated_value is None:
+                print(f"Factor calculation returned None for {factor.name}")
+                return None
+            
+            # Create and store the factor value
+            factor_value = FactorValue(
+                id=None,
+                factor_id=factor.id,
+                entity_id=entity_id,
+                date=bar_date,
+                value=str(calculated_value)
+            )
+            
+            # Store in database
+            if self.local_repo:
+                stored_value = self.local_repo.add(factor_value)
+                if stored_value:
+                    print(f"Successfully calculated and stored factor value for {factor.name}: {calculated_value}")
+                    return stored_value
+            
+            return factor_value
+            
+        except Exception as e:
+            print(f"Error handling factor with dependencies {factor.name}: {e}")
+            return None
+
+    def _extract_simple_factor_from_bar(self, bar_data: Dict[str, Any], factor: Any) -> Optional[float]:
+        """
+        Extract a simple factor value from bar data (for dependency resolution).
+        
+        Args:
+            bar_data: IBKR bar data
+            factor: Factor entity to extract value for
+            
+        Returns:
+            Factor value as float or None if not available
+        """
+        try:
+            factor_name = factor.name.lower()
+            
+            # Map factor names to IBKR bar fields
+            field_mapping = {
+                'open': 'open',
+                'high': 'high', 
+                'low': 'low',
+                'close': 'close',
+                'volume': 'volume',
+                'barcount': 'barCount',
+                'wap': 'wap'  # Weighted average price
+            }
+            
+            bar_field = field_mapping.get(factor_name)
+            if bar_field and bar_field in bar_data:
+                value = bar_data[bar_field]
+                return float(value) if value is not None else None
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error extracting simple factor {factor.name} from bar: {e}")
+            return None
+
+    def _call_factor_calculate_method(self, factor: Any, dependency_values: Dict[str, float]) -> Optional[float]:
+        """
+        Call the factor's calculate method with resolved dependency values.
+        
+        Args:
+            factor: Factor entity with calculate method
+            dependency_values: Dictionary of resolved dependency values
+            
+        Returns:
+            Calculated factor value or None if calculation failed
+        """
+        try:
+            # Look for calculate methods in the factor
+            calculate_methods = [
+                'calculate',
+                'calculate_delta', 
+                'calculate_price',
+                'calculate_value',
+                'calculate_return'
+            ]
+            
+            for method_name in calculate_methods:
+                if hasattr(factor, method_name):
+                    method = getattr(factor, method_name)
+                    if callable(method):
+                        try:
+                            # Try to call the method with dependency values as keyword arguments
+                            result = method(**dependency_values)
+                            if result is not None:
+                                return float(result)
+                        except TypeError:
+                            # If method signature doesn't match, try with positional arguments
+                            try:
+                                values_list = list(dependency_values.values())
+                                result = method(*values_list)
+                                if result is not None:
+                                    return float(result)
+                            except Exception as pos_error:
+                                print(f"Could not call {method_name} with positional args: {pos_error}")
+                                continue
+                        except Exception as method_error:
+                            print(f"Error calling {method_name} on {factor.name}: {method_error}")
+                            continue
+            
+            print(f"No suitable calculate method found or callable for factor {factor.name}")
+            return None
+            
+        except Exception as e:
+            print(f"Error calling factor calculate method for {factor.name}: {e}")
+            return None
 
     def _parse_ibkr_date(self, date_str: str) -> Optional[datetime]:
         """Parse IBKR date string to datetime object."""
