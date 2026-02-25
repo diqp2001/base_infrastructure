@@ -4,7 +4,7 @@ Repository class for IndexPriceReturnFactor entities.
 
 from typing import Optional
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
+from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
@@ -100,7 +100,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                     dependencies=dependency.get('dependencies')
                     dependency_entity = repo._create_or_get(name,group,subgroup,data_type,factor_type,definition,dependencies)
 
-                    repo_factor_dependency = self.factory.get_local_repository(FactorDependencyRepository)
+                    repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
                     repo_factor_dependency._create_or_get(independent_factor = self._to_entity(orm_factor),dependent_factor = dependency_entity)
  
             
