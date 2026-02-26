@@ -6,7 +6,7 @@ implementing the pipelines for IBKR Contract → Instrument → Factor Values �
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import inspect
 from ibapi.contract import Contract
 from dateutil.relativedelta import relativedelta
@@ -865,13 +865,19 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             Calculated FactorValue or None if calculation failed
         """
         try:
-            # Resolve dependency values
+            # Sort dependencies by lag to ensure consistent ordering (highest lag first = start_price)
+            sorted_dependencies = sorted(dependencies, key=lambda x: x.get('lag', timedelta(0)), reverse=True)
+            
+            # Resolve dependency values with proper parameter names
             dependency_values = {}
             
-            for dep_info in dependencies:
+            for i, dep_info in enumerate(sorted_dependencies):
                 independent_factor = dep_info['independent_factor']
                 independent_factor_id = dep_info['independent_factor_id']
                 lag = dep_info.get('lag')
+                
+                # Determine parameter name based on factor type and dependency position
+                param_name = self._get_dependency_parameter_name(factor, i, len(sorted_dependencies), independent_factor)
                 
                 # Calculate the adjusted date considering the lag
                 dependency_date = bar_date
@@ -884,12 +890,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 if existing_dep_value:
                     # Use existing value from database
-                    dependency_values[independent_factor.name] = float(existing_dep_value.value)
+                    dependency_values[param_name] = float(existing_dep_value.value)
                 else:
                     # Try to extract from current bar data if it's a simple factor
                     extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
                     if extracted_value is not None:
-                        dependency_values[independent_factor.name] = extracted_value
+                        dependency_values[param_name] = extracted_value
                         
                         # Store the dependency value in database for future use
                         dep_factor_value = FactorValue(
@@ -904,6 +910,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     else:
                         print(f"Could not resolve dependency {independent_factor.name} for factor {factor.name}")
                         return None
+            
+            print(f"Resolved {len(dependency_values)} dependencies for {factor.name}: {list(dependency_values.keys())}")
             
             # Call the factor's calculate method with resolved dependencies
             calculated_value = self._call_factor_calculate_method(factor=factor, dependency_values=dependency_values)
@@ -933,6 +941,40 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error handling factor with dependencies {factor.name}: {e}")
             return None
+
+    def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
+        """
+        Get the parameter name for a dependency based on factor type and dependency position.
+        
+        Args:
+            factor: The main factor requesting dependencies
+            dependency_index: Index of this dependency in sorted list (0=highest lag, 1=lower lag, etc.)
+            total_dependencies: Total number of dependencies
+            independent_factor: The independent factor entity
+            
+        Returns:
+            Parameter name to use for this dependency
+        """
+        try:
+            factor_name = getattr(factor, 'name', '').lower()
+            
+            # For return factors with 2 dependencies, map to start_price/end_price
+            if 'return' in factor_name and total_dependencies == 2:
+                if dependency_index == 0:  # Highest lag = start_price
+                    return 'start_price'
+                elif dependency_index == 1:  # Lower lag = end_price
+                    return 'end_price'
+            
+            # For other factors or different dependency counts, use factor name or generic names
+            if total_dependencies == 1:
+                return independent_factor.name
+            else:
+                # Multiple dependencies - use factor name with index
+                return f"{independent_factor.name}_{dependency_index}"
+            
+        except Exception as e:
+            print(f"Error determining parameter name: {e}")
+            return independent_factor.name if independent_factor else f"param_{dependency_index}"
 
     def _extract_simple_factor_from_bar(self, bar_data: Dict[str, Any], factor: Any) -> Optional[float]:
         """
