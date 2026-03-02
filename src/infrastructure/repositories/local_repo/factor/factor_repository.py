@@ -226,6 +226,142 @@ class FactorRepository(BaseFactorRepository, FactorPort):
         ).all()
         return [self._to_entity(m) for m in models]
 
+    def get_factor_by_name_and_group(self, name: str, group: str) -> Optional[Factor]:
+        """
+        Get factor by name and group.
+        
+        Args:
+            name: Factor name
+            group: Factor group
+            
+        Returns:
+            Factor entity if found, None otherwise
+        """
+        model = self.session.query(FactorModel).filter(
+            FactorModel.name == name,
+            FactorModel.group == group
+        ).first()
+        return self._to_entity(model)
+
+    def populate_dependencies_from_library(self, factor_name: str = None) -> int:
+        """
+        Populate factor dependencies from FACTOR_LIBRARY configuration to database.
+        
+        Args:
+            factor_name: If provided, only populate dependencies for this specific factor.
+                        If None, populate all factors from library.
+                        
+        Returns:
+            Number of dependency relationships created
+        """
+        created_count = 0
+        
+        if factor_name:
+            # Populate dependencies for specific factor
+            factor_config = self._get_factor_config_from_library(factor_name)
+            if factor_config:
+                created_count += self._populate_single_factor_dependencies(factor_name, factor_config)
+        else:
+            # Populate all factors from library
+            created_count += self._populate_all_library_dependencies()
+            
+        return created_count
+
+    def _populate_single_factor_dependencies(self, factor_name: str, factor_config: Dict[str, Any]) -> int:
+        """
+        Populate dependencies for a single factor from its configuration.
+        
+        Args:
+            factor_name: Name of the factor
+            factor_config: Configuration dictionary from factor library
+            
+        Returns:
+            Number of dependency relationships created for this factor
+        """
+        created_count = 0
+        
+        # Get or create the main factor
+        main_factor = self._create_or_get_with_config(factor_name, factor_config)
+        if not main_factor:
+            return 0
+            
+        dependencies = factor_config.get("dependencies", {})
+        
+        if isinstance(dependencies, dict):
+            # Handle structured dependencies like {"start_price": {...}, "end_price": {...}}
+            for dep_param_name, dep_config in dependencies.items():
+                if isinstance(dep_config, dict):
+                    dep_name = dep_config.get("name", dep_param_name)
+                    dep_group = dep_config.get("group", "basic")
+                    
+                    # Get or create dependency factor
+                    dep_factor = self._create_or_get_with_config(dep_name, dep_config)
+                    if dep_factor and self.factor_dependency_repository:
+                        
+                        # Extract lag information
+                        lag_timedelta = None
+                        parameters = dep_config.get("parameters", {})
+                        if "lag" in parameters:
+                            lag_timedelta = parameters["lag"]
+                            
+                        # Create dependency relationship
+                        if not self.factor_dependency_repository.exists(main_factor.id, dep_factor.id):
+                            from src.domain.entities.factor.factor_dependency import FactorDependency
+                            dependency = FactorDependency(
+                                dependent_factor_id=main_factor.id,
+                                independent_factor_id=dep_factor.id,
+                                lag=lag_timedelta
+                            )
+                            self.factor_dependency_repository.add(dependency)
+                            created_count += 1
+                            
+        elif isinstance(dependencies, list):
+            # Handle simple list dependencies like ["close", "open"]
+            for dep_name in dependencies:
+                dep_config = self._get_factor_config_from_library(dep_name)
+                if dep_config:
+                    dep_factor = self._create_or_get_with_config(dep_name, dep_config)
+                else:
+                    dep_factor = self._create_or_get(dep_name, "basic", "unknown")
+                    
+                if dep_factor and self.factor_dependency_repository:
+                    if not self.factor_dependency_repository.exists(main_factor.id, dep_factor.id):
+                        from src.domain.entities.factor.factor_dependency import FactorDependency
+                        dependency = FactorDependency(
+                            dependent_factor_id=main_factor.id,
+                            independent_factor_id=dep_factor.id
+                        )
+                        self.factor_dependency_repository.add(dependency)
+                        created_count += 1
+                        
+        return created_count
+
+    def _populate_all_library_dependencies(self) -> int:
+        """
+        Populate dependencies for all factors in the FACTOR_LIBRARY.
+        
+        Returns:
+            Total number of dependency relationships created
+        """
+        created_count = 0
+        
+        # Traverse all nested libraries in FACTOR_LIBRARY
+        for library_key, library_value in FACTOR_LIBRARY.items():
+            if isinstance(library_value, dict):
+                # Direct dictionary of factors
+                for factor_name, factor_config in library_value.items():
+                    if isinstance(factor_config, dict):
+                        created_count += self._populate_single_factor_dependencies(factor_name, factor_config)
+            elif isinstance(library_value, set) and len(library_value) == 1:
+                # Handle nested structure like {"future_index_library":{FUTURE_INDEX_LIBRARY}}
+                nested_lib = list(library_value)[0]
+                if isinstance(nested_lib, dict):
+                    for factor_name, factor_config in nested_lib.items():
+                        if isinstance(factor_config, dict):
+                            created_count += self._populate_single_factor_dependencies(factor_name, factor_config)
+                            
+        return created_count
+
     def create_factor_with_dependencies(self, name: str) -> Optional[Factor]:
         """
         Public method to create a factor with all its dependencies from the factor library.
