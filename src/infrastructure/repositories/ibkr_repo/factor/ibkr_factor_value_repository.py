@@ -768,8 +768,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 factor_values.append(existing)
                                 continue
                             
-                            # NEW: Check if factor has dependencies in the database
-                            dependencies = self._get_factor_dependencies_from_db(factor.id)
+                            # NEW: Check if factor has dependencies - try factor library config first, then database
+                            dependencies = self._get_factor_dependencies_from_config(factor) or self._get_factor_dependencies_from_db(factor.id)
                             
                             if dependencies:
                                 # Factor has dependencies - call calculate function
@@ -804,6 +804,57 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor values from bulk data: {e}")
             return []
+
+    def _get_factor_dependencies_from_config(self, factor: Any) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get factor dependencies from the factor library configuration.
+        
+        This method looks up the factor in the factor library configuration and
+        extracts its dependencies with proper parameter mapping.
+        
+        Args:
+            factor: Factor entity to check for dependencies
+            
+        Returns:
+            List of dependency information dictionaries or None if not found
+        """
+        try:
+            from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
+            from datetime import timedelta
+            
+            factor_name = factor.name
+            
+            # Search through all libraries for the factor
+            for library_name, library in FACTOR_LIBRARY.items():
+                if factor_name in library:
+                    factor_config = library[factor_name]
+                    config_dependencies = factor_config.get('dependencies', {})
+                    
+                    if not config_dependencies:
+                        return None
+                    
+                    # Convert config dependencies to the expected format
+                    dependency_info = []
+                    for param_name, dep_config in config_dependencies.items():
+                        # Create a mock dependency with the parameter name and lag info
+                        dependency_info.append({
+                            'parameter_name': param_name,  # This is key - preserves start_price/end_price
+                            'factor_name': dep_config.get('name', 'close'),
+                            'factor_group': dep_config.get('group', 'price'),
+                            'factor_subgroup': dep_config.get('subgroup', 'minutes'),
+                            'lag': dep_config.get('parameters', {}).get('lag', timedelta(0)),
+                            'from_config': True  # Flag to indicate this came from config
+                        })
+                    
+                    print(f"Found {len(dependency_info)} dependencies for {factor_name} in library config: {[d['parameter_name'] for d in dependency_info]}")
+                    return dependency_info
+            
+            # Factor not found in any library
+            return None
+            
+        except Exception as e:
+            print(f"Error getting factor dependencies from config for {getattr(factor, 'name', 'unknown')}: {e}")
+            return None
 
     def _get_factor_dependencies_from_db(self, factor_id: int) -> List[Dict[str, Any]]:
         """
@@ -872,41 +923,63 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             dependency_values = {}
             
             for i, dep_info in enumerate(sorted_dependencies):
-                independent_factor = dep_info['independent_factor']
-                independent_factor_id = dep_info['independent_factor_id']
-                lag = dep_info.get('lag')
-                
-                # Determine parameter name based on factor type and dependency position
-                param_name = self._get_dependency_parameter_name(factor, i, len(sorted_dependencies), independent_factor)
+                # Handle both config-based and database-based dependencies
+                if dep_info.get('from_config'):
+                    # Config-based dependency - use the parameter name directly
+                    param_name = dep_info['parameter_name']
+                    factor_name = dep_info['factor_name']
+                    lag = dep_info.get('lag', timedelta(0))
+                    
+                    # For config-based deps, we need to find/create the independent factor
+                    # For now, we'll extract the value directly from bar data based on factor name
+                    independent_factor = None
+                    independent_factor_id = None
+                else:
+                    # Database-based dependency - use existing logic
+                    independent_factor = dep_info['independent_factor']
+                    independent_factor_id = dep_info['independent_factor_id']
+                    lag = dep_info.get('lag')
+                    
+                    # Determine parameter name based on factor type and dependency position
+                    param_name = self._get_dependency_parameter_name(factor, i, len(sorted_dependencies), independent_factor)
                 
                 # Calculate the adjusted date considering the lag
                 dependency_date = bar_date
                 if lag:
                     dependency_date = bar_date - lag
                 
-                # First try to get the dependency value from the database
-                date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
-                existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
-                
-                if existing_dep_value:
-                    # Use existing value from database
-                    dependency_values[param_name] = float(existing_dep_value.value)
-                else:
-                    # Try to extract from current bar data if it's a simple factor
-                    extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
+                if dep_info.get('from_config'):
+                    # For config-based dependencies, extract directly from bar data
+                    extracted_value = self._extract_value_by_factor_name(bar_data, factor_name)
                     if extracted_value is not None:
                         dependency_values[param_name] = extracted_value
-                        
-                        # Store the dependency value in database for future use
-                        dep_factor_value = FactorValue(
-                            id=None,
-                            factor_id=independent_factor_id,
-                            entity_id=entity_id,
-                            date=dependency_date,
-                            value=str(extracted_value)
-                        )
-                        if self.local_repo:
-                            self.local_repo.add(dep_factor_value)
+                    else:
+                        print(f"Could not resolve config dependency {factor_name} (param: {param_name}) for factor {factor.name}")
+                        return None
+                else:
+                    # Database-based dependency - use existing logic
+                    date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
+                    existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
+                    
+                    if existing_dep_value:
+                        # Use existing value from database
+                        dependency_values[param_name] = float(existing_dep_value.value)
+                    else:
+                        # Try to extract from current bar data if it's a simple factor
+                        extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
+                        if extracted_value is not None:
+                            dependency_values[param_name] = extracted_value
+                            
+                            # Store the dependency value in database for future use
+                            dep_factor_value = FactorValue(
+                                id=None,
+                                factor_id=independent_factor_id,
+                                entity_id=entity_id,
+                                date=dependency_date,
+                                value=str(extracted_value)
+                            )
+                            if self.local_repo:
+                                self.local_repo.add(dep_factor_value)
                     else:
                         print(f"Could not resolve dependency {independent_factor.name} for factor {factor.name}")
                         return None
@@ -1010,6 +1083,42 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
         except Exception as e:
             print(f"Error extracting simple factor {factor.name} from bar: {e}")
+            return None
+
+    def _extract_value_by_factor_name(self, bar_data: Dict[str, Any], factor_name: str) -> Optional[float]:
+        """
+        Extract a factor value from bar data by factor name (for config-based dependencies).
+        
+        Args:
+            bar_data: IBKR bar data
+            factor_name: Name of the factor to extract value for
+            
+        Returns:
+            Factor value as float or None if not available
+        """
+        try:
+            factor_name_lower = factor_name.lower()
+            
+            # Map factor names to IBKR bar fields
+            field_mapping = {
+                'open': 'open',
+                'high': 'high', 
+                'low': 'low',
+                'close': 'close',
+                'volume': 'volume',
+                'barcount': 'barCount',
+                'wap': 'wap'  # Weighted average price
+            }
+            
+            bar_field = field_mapping.get(factor_name_lower)
+            if bar_field and bar_field in bar_data:
+                value = bar_data[bar_field]
+                return float(value) if value is not None else None
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error extracting factor {factor_name} from bar: {e}")
             return None
 
     def _call_factor_calculate_method(self, factor: Any, dependency_values: Dict[str, Any] = None, 
