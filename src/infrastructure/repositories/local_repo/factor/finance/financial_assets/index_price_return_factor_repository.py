@@ -4,18 +4,19 @@ Repository class for IndexPriceReturnFactor entities.
 
 from typing import Optional
 from sqlalchemy.orm import Session
+from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
-from ...base_factor_repository import BaseFactorRepository
+#from ...base_factor_repository import BaseFactorRepository
 
 
-class IndexPriceReturnFactorRepository(BaseFactorRepository):
+class IndexPriceReturnFactorRepository(FactorRepository):
     """Repository for IndexPriceReturnFactor entities with CRUD operations."""
     
     def __init__(self, session: Session, factory=None):
-        super().__init__(session)
+        super().__init__(session,factory)
         self.factory = factory
         self.mapper = IndexPriceReturnFactorMapper()
         self.mapper_value = FactorValueMapper()
@@ -88,15 +89,15 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
             self.session.commit()  # Commit factor first to get ID
             
             # Populate dependencies from FACTOR_LIBRARY using FactorRepository
-            if self.factory:
-                try:
-                    factor_repo = self.factory.get_local_repository(Factor)
-                    if factor_repo and hasattr(factor_repo, 'populate_dependencies_from_library'):
-                        dependencies_count = factor_repo.populate_dependencies_from_library(primary_key)
-                        if dependencies_count > 0:
-                            print(f"Populated {dependencies_count} dependencies for factor: {primary_key}")
-                except Exception as e:
-                    print(f"Warning: Could not populate dependencies from library for {primary_key}: {e}")
+            
+            try:
+                
+                
+                dependencies_count = self.populate_dependencies_from_library(primary_key)
+                if dependencies_count > 0:
+                    print(f"Populated {dependencies_count} dependencies for factor: {primary_key}")
+            except Exception as e:
+                print(f"Warning: Could not populate dependencies from library for {primary_key}: {e}")
             
             #create_or_get dependencies (legacy support)
             if kwargs.get('dependencies'):

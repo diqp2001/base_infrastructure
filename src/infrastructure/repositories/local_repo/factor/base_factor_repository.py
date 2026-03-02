@@ -4,24 +4,12 @@ Base repository class for factor entities with common CRUD operations.
 
 
 
-from abc import ABC, abstractmethod
-from typing import List, Optional, Union
-from datetime import date
-import pandas as pd
+from abc import ABC
 from sqlalchemy.orm import Session
-
 from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 
 from ..base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor import Factor as FactorEntity
-from src.domain.entities.factor.factor_value import FactorValue as FactorValueEntity
-
-
-
-from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
-from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
-
-from src.application.services.database_service.database_service import DatabaseService
 
 
 class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
@@ -31,6 +19,8 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         """Initialize repository with a database type."""
         # Call parent constructor with session
         super().__init__(session)
+    
+
 
 #     # ----------------------------- Abstract methods -----------------------------
 #     #@abstractmethod

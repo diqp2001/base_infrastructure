@@ -301,7 +301,8 @@ class FactorRepository(BaseFactorRepository, FactorPort):
                         # Check if dependency relationship already exists
                         existing_dep = self.session.query(FactorDependencyModel).filter(
                             FactorDependencyModel.dependent_factor_id == main_factor.id,
-                            FactorDependencyModel.independent_factor_id == dep_factor.id
+                            FactorDependencyModel.independent_factor_id == dep_factor.id,
+                            FactorDependencyModel.lag == lag
                         ).first()
                         
                         if not existing_dep:
