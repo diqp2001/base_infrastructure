@@ -908,8 +908,31 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if self.local_repo:
                             self.local_repo.add(dep_factor_value)
                     else:
-                        print(f"Could not resolve dependency {independent_factor.name} for factor {factor.name}")
-                        return None
+                        # Try to _create_or_get the factor value missing at the right dependency_date
+                        try:
+                            # Get the financial asset entity from factory
+                            financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                            if financial_asset_entity:
+                                # Use _create_or_get to generate the missing dependency factor value
+                                dependency_factor_value = self._create_or_get(
+                                    entity_symbol=getattr(financial_asset_entity, 'symbol', ''),
+                                    factor=independent_factor,
+                                    entity=financial_asset_entity,
+                                    date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
+                                )
+                                
+                                if dependency_factor_value:
+                                    dependency_values[param_name] = float(dependency_factor_value.value)
+                                    print(f"Successfully created missing dependency {independent_factor.name} for factor {factor.name}")
+                                else:
+                                    print(f"Could not create missing dependency {independent_factor.name} for factor {factor.name}")
+                                    return None
+                            else:
+                                print(f"Could not find financial asset entity with ID {entity_id}")
+                                return None
+                        except Exception as create_error:
+                            print(f"Error creating missing dependency {independent_factor.name}: {create_error}")
+                            return None
             
             print(f"Resolved {len(dependency_values)} dependencies for {factor.name}: {list(dependency_values.keys())}")
             
