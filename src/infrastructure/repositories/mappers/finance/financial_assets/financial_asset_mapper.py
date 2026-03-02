@@ -4,6 +4,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 """
 from typing import Optional
 
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset as DomainFinancialAsset
 from src.domain.entities.finance.financial_assets.index.index import Index as IndexEntity
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -47,7 +48,10 @@ class FinancialAssetMapper:
             return CurrencyEntity(
                 **base_args,
             )
-
+        elif asset_type == "index_future":
+            return IndexFuture(
+                **base_args,
+            )
         else:
             # Fallback: base FinancialAsset
             return DomainFinancialAsset(**base_args)

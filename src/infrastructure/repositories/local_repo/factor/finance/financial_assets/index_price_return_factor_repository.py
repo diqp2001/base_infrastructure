@@ -16,7 +16,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
     """Repository for IndexPriceReturnFactor entities with CRUD operations."""
     
     def __init__(self, session: Session, factory=None):
-        super().__init__(session,factory)
+        super().__init__(session)
         self.factory = factory
         self.mapper = IndexPriceReturnFactorMapper()
         self.mapper_value = FactorValueMapper()

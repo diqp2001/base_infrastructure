@@ -47,6 +47,17 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by ticker {ticker}: {e}")
             return None
+        
+    def get_by_id(self, id: int) -> Optional[EntityType]:
+        """Get financial asset by ticker symbol."""
+        try:
+            model = self.session.query(self.model_class).filter(
+                self.model_class.id == id
+            ).first()
+            return self.mapper.to_domain(model) if model else None
+        except Exception as e:
+            print(f"Error retrieving {self.model_class.__name__} by id {id}: {e}")
+            return None
     def get_by_symbol(self, symbol: str) -> Optional[EntityType]:
         """Fetch an Index by its symbol (e.g. SPX, NDX)."""
         try:

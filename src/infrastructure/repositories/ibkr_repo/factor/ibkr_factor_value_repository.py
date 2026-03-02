@@ -284,10 +284,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             factor_entity = kwargs.get('factor')
-            financial_asset_entity = kwargs.get('entity')
+            
             #self.get_ibkr_factor_base(financial_asset_entity)
             time_date = kwargs.get('date',datetime.now() )
-            if not factor_entity or not financial_asset_entity:
+            if not factor_entity :
                 print("Factor entity and financial asset entity are required")
                 return None
 
@@ -301,7 +301,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             date_obj = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
 
             # Get entity ID from financial asset (assumes entity has 'id' attribute)
-            entity_id = getattr(financial_asset_entity, 'id')
+            financial_asset_entity = kwargs.get('entity')
+            if financial_asset_entity:
+                entity_id = getattr(financial_asset_entity, 'id')
+            else:
+                entity_id = kwargs.get('entity_id')
+                
             factor_id = factor_entity.id
             
             # 1. Check if factor value already exists for this combination
@@ -891,48 +896,46 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if existing_dep_value:
                     # Use existing value from database
                     dependency_values[param_name] = float(existing_dep_value.value)
-                else:
-                    # Try to extract from current bar data if it's a simple factor
-                    extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
-                    if extracted_value is not None:
-                        dependency_values[param_name] = extracted_value
+                # else:
+                #     # Try to extract from current bar data if it's a simple factor
+                #     extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
+                #     if extracted_value is not None:
+                #         dependency_values[param_name] = extracted_value
                         
-                        # Store the dependency value in database for future use
-                        dep_factor_value = FactorValue(
-                            id=None,
-                            factor_id=independent_factor_id,
-                            entity_id=entity_id,
-                            date=dependency_date,
-                            value=str(extracted_value)
+                #         # Store the dependency value in database for future use
+                #         dep_factor_value = FactorValue(
+                #             id=None,
+                #             factor_id=independent_factor_id,
+                #             entity_id=entity_id,
+                #             date=dependency_date,
+                #             value=str(extracted_value)
+                #         )
+                #         if self.local_repo:
+                #             self.local_repo.add(dep_factor_value)
+                else:
+                    # Try to _create_or_get the factor value missing at the right dependency_date
+                    try:
+                        
+                        
+                        # Use _create_or_get to generate the missing dependency factor value
+                        entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                        dependency_factor_value = self._create_or_get(
+                            entity_symbol=None,
+                            factor=independent_factor,
+                            entity=entity,
+                            date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
                         )
-                        if self.local_repo:
-                            self.local_repo.add(dep_factor_value)
-                    else:
-                        # Try to _create_or_get the factor value missing at the right dependency_date
-                        try:
-                            # Get the financial asset entity from factory
-                            financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
-                            if financial_asset_entity:
-                                # Use _create_or_get to generate the missing dependency factor value
-                                dependency_factor_value = self._create_or_get(
-                                    entity_symbol=getattr(financial_asset_entity, 'symbol', ''),
-                                    factor=independent_factor,
-                                    entity=financial_asset_entity,
-                                    date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
-                                )
-                                
-                                if dependency_factor_value:
-                                    dependency_values[param_name] = float(dependency_factor_value.value)
-                                    print(f"Successfully created missing dependency {independent_factor.name} for factor {factor.name}")
-                                else:
-                                    print(f"Could not create missing dependency {independent_factor.name} for factor {factor.name}")
-                                    return None
-                            else:
-                                print(f"Could not find financial asset entity with ID {entity_id}")
-                                return None
-                        except Exception as create_error:
-                            print(f"Error creating missing dependency {independent_factor.name}: {create_error}")
+                        
+                        if dependency_factor_value:
+                            dependency_values[param_name] = float(dependency_factor_value.value)
+                            print(f"Successfully created missing dependency {independent_factor.name} for factor {factor.name}")
+                        else:
+                            print(f"Could not create missing dependency {independent_factor.name} for factor {factor.name}")
                             return None
+                        
+                    except Exception as create_error:
+                        print(f"Error creating missing dependency {independent_factor.name}: {create_error}")
+                        return None
             
             print(f"Resolved {len(dependency_values)} dependencies for {factor.name}: {list(dependency_values.keys())}")
             
