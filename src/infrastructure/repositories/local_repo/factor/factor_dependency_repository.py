@@ -121,15 +121,16 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             if not independent_factor_id or not dependent_factor_id:
                 return None
             
-            # Check if dependency already exists
-            if self.exists(dependent_factor_id, independent_factor_id):
+            
                 # Fetch existing dependency
-                existing_model = self.session.query(FactorDependencyModel).filter(
-                    and_(
-                        FactorDependencyModel.dependent_factor_id == dependent_factor_id,
-                        FactorDependencyModel.independent_factor_id == independent_factor_id
-                    )
-                ).first()
+            existing_model = self.session.query(FactorDependencyModel).filter(
+                and_(
+                    FactorDependencyModel.dependent_factor_id == dependent_factor_id,
+                    FactorDependencyModel.independent_factor_id == independent_factor_id,
+                    FactorDependencyModel.lag == lag
+                )
+            ).first()
+            if existing_model:
                 return FactorDependencyMapper.model_to_entity(existing_model) if existing_model else None
             
             # Create new dependency

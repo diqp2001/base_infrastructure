@@ -108,7 +108,7 @@ class IndexFuturePriceReturnFactorRepository(BaseFactorRepository):
 
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
-                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor))
+                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag = dependency_config.get("parameters").get("lag"))
  
             
             self.session.commit()
