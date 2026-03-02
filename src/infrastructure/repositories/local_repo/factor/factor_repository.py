@@ -55,20 +55,10 @@ class FactorRepository(BaseFactorRepository, FactorPort):
         """
         Find factor configuration from the factor library by name.
         Searches through all nested libraries (INDEX_LIBRARY, FUTURE_INDEX_LIBRARY, etc.)
-        """
-        # Check main FACTOR_LIBRARY first
-        config = get_factor_config(name)
-        if config:
-            return config
-            
-        # Search through nested libraries
+        """        
+        # Search through nested libraries directly
         for library_key, library_value in FACTOR_LIBRARY.items():
-            if isinstance(library_value, set) and len(library_value) == 1:
-                # Handle the current nested structure like {"future_index_library":{FUTURE_INDEX_LIBRARY}}
-                nested_lib = list(library_value)[0]
-                if isinstance(nested_lib, dict) and name in nested_lib:
-                    return nested_lib[name]
-            elif isinstance(library_value, dict) and name in library_value:
+            if isinstance(library_value, dict) and name in library_value:
                 return library_value[name]
                 
         return None
@@ -342,13 +332,17 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             if factor_name:
                 # Populate dependencies for a specific factor
                 total_count = self._populate_single_factor_dependencies(factor_name)
+                print(f"Populated {total_count} dependencies for factor: {factor_name}")
             else:
                 # Populate dependencies for all factors in library
                 for library_name, library_content in FACTOR_LIBRARY.items():
                     if isinstance(library_content, dict):
                         for name, config in library_content.items():
                             if isinstance(config, dict) and "dependencies" in config:
-                                total_count += self._populate_single_factor_dependencies(name)
+                                count = self._populate_single_factor_dependencies(name)
+                                total_count += count
+                                if count > 0:
+                                    print(f"Populated {count} dependencies for factor: {name}")
                                 
             self.session.commit()
             
