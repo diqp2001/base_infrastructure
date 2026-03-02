@@ -11,6 +11,7 @@ from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorM
 from src.domain.ports.factor.factor_port import FactorPort
 from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.application.services.data.entities.factor.factor_library.factor_definition_config import get_factor_config, FACTOR_LIBRARY
+from src.infrastructure.models.factor.factor_dependency import FactorDependencyModel
 
 
 class FactorRepository(BaseFactorRepository, FactorPort):
@@ -241,4 +242,119 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             return None
             
         return self._create_or_get_with_config(name, factor_config)
+
+    def get_factor_by_name_and_group(self, name: str, group: str) -> Optional[Factor]:
+        """
+        Retrieve a factor by both name and group parameters.
+        
+        Args:
+            name: Factor name to search for
+            group: Factor group to search for
+            
+        Returns:
+            Factor entity or None if not found
+        """
+        try:
+            model = self.session.query(FactorModel).filter(
+                FactorModel.name == name,
+                FactorModel.group == group
+            ).first()
+            return self._to_entity(model)
+        except Exception as e:
+            print(f"Error retrieving factor by name and group: {e}")
+            return None
+
+    def _populate_single_factor_dependencies(self, factor_name: str) -> int:
+        """
+        Populate dependencies for a single factor from FACTOR_LIBRARY configuration.
+        
+        Args:
+            factor_name: Name of the factor to populate dependencies for
+            
+        Returns:
+            Number of dependency relationships created
+        """
+        count = 0
+        factor_config = self._get_factor_config_from_library(factor_name)
+        
+        if not factor_config:
+            return count
+            
+        # Get or create the main factor
+        main_factor = self.get_factor_by_name_and_group(factor_name, factor_config.get("group", "basic"))
+        if not main_factor:
+            main_factor = self._create_or_get_with_config(factor_name, factor_config)
+            
+        if not main_factor:
+            return count
+            
+        # Handle structured dependencies (dict format with parameter names)
+        dependencies = factor_config.get("dependencies", {})
+        
+        if isinstance(dependencies, dict):
+            for param_name, dep_config in dependencies.items():
+                if isinstance(dep_config, dict):
+                    dep_name = dep_config.get("name")
+                    dep_group = dep_config.get("group", "basic")
+                    
+                    # Get or create the dependency factor
+                    dep_factor = self.get_factor_by_name_and_group(dep_name, dep_group)
+                    if not dep_factor:
+                        dep_factor = self._create_or_get_with_config(dep_name, dep_config)
+                        
+                    if dep_factor:
+                        # Extract lag from parameters
+                        lag = None
+                        if "parameters" in dep_config and "lag" in dep_config["parameters"]:
+                            lag = dep_config["parameters"]["lag"]
+                            
+                        # Check if dependency relationship already exists
+                        existing_dep = self.session.query(FactorDependencyModel).filter(
+                            FactorDependencyModel.dependent_factor_id == main_factor.id,
+                            FactorDependencyModel.independent_factor_id == dep_factor.id
+                        ).first()
+                        
+                        if not existing_dep:
+                            # Create new dependency relationship
+                            dependency_model = FactorDependencyModel(
+                                dependent_factor_id=main_factor.id,
+                                independent_factor_id=dep_factor.id,
+                                lag=lag
+                            )
+                            self.session.add(dependency_model)
+                            count += 1
+                            
+        return count
+
+    def populate_dependencies_from_library(self, factor_name: str = None) -> int:
+        """
+        Populate factor dependencies from FACTOR_LIBRARY configuration to database.
+        
+        Args:
+            factor_name: Specific factor name to populate (None for all factors)
+            
+        Returns:
+            Total number of dependency relationships created
+        """
+        total_count = 0
+        
+        try:
+            if factor_name:
+                # Populate dependencies for a specific factor
+                total_count = self._populate_single_factor_dependencies(factor_name)
+            else:
+                # Populate dependencies for all factors in library
+                for library_name, library_content in FACTOR_LIBRARY.items():
+                    if isinstance(library_content, dict):
+                        for name, config in library_content.items():
+                            if isinstance(config, dict) and "dependencies" in config:
+                                total_count += self._populate_single_factor_dependencies(name)
+                                
+            self.session.commit()
+            
+        except Exception as e:
+            print(f"Error populating dependencies from library: {e}")
+            self.session.rollback()
+            
+        return total_count
 

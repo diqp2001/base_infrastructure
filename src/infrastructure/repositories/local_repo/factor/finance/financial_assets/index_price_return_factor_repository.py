@@ -4,6 +4,7 @@ Repository class for IndexPriceReturnFactor entities.
 
 from typing import Optional
 from sqlalchemy.orm import Session
+from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -84,7 +85,20 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
             orm_factor = self._to_model(domain_factor)
             
             self.session.add(orm_factor)
-            #create_or_get dependencies
+            self.session.commit()  # Commit factor first to get ID
+            
+            # Populate dependencies from FACTOR_LIBRARY using FactorRepository
+            if self.factory:
+                try:
+                    factor_repo = self.factory.get_local_repository(Factor)
+                    if factor_repo and hasattr(factor_repo, 'populate_dependencies_from_library'):
+                        dependencies_count = factor_repo.populate_dependencies_from_library(primary_key)
+                        if dependencies_count > 0:
+                            print(f"Populated {dependencies_count} dependencies for factor: {primary_key}")
+                except Exception as e:
+                    print(f"Warning: Could not populate dependencies from library for {primary_key}: {e}")
+            
+            #create_or_get dependencies (legacy support)
             if kwargs.get('dependencies'):
                 dependencies = kwargs.get('dependencies')
                 for dependency in dependencies.items():
@@ -107,7 +121,6 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                     repo_factor_dependency._create_or_get(independent_factor = dependency_entity ,dependent_factor = self._to_entity(orm_factor), lag=lag)
  
             
-            self.session.commit()
             if orm_factor:
                 return self._to_entity(orm_factor)
             
