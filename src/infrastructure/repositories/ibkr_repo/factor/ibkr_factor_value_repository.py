@@ -366,7 +366,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 contract = self._fetch_contract(factor_entity, financial_asset_entity)
                 if not contract:
                     return None
-                    
+                
+                
+                
+                
+                
+                
+                
                 contract_details_list = self._fetch_contract_details(contract)
                 if not contract_details_list:
                     return None
@@ -386,6 +392,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     print(f"Failed to create instrument for factor {factor_entity.name}")
                     return None
                 tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show = kwargs.get('what_to_show', 'TRADES'))
+                
+                
+                
                 if tick_value:
                     for bar in tick_value:
                         bar_dt = datetime.strptime(bar["date"], "%Y%m%d  %H:%M:%S")
@@ -1684,7 +1693,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error fetching IBKR contract for {symbol_or_name}: {e}")
             return None
 
-    def _fetch_contract_details(self, contract: 'Contract') -> Optional['ContractDetails']:
+    def _fetch_contract_details(self, contract: 'Contract',factor_entity: Factor = None, financial_asset_entity: Any = None) -> Optional['ContractDetails']:
         """
         Fetch contract details from IBKR API.
         
@@ -1695,24 +1704,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             ContractDetails object or None if not found
         """
         try:
-            from ibapi.contract import ContractDetails
+            # --- Extract symbol ---
+            symbol = (
+                getattr(financial_asset_entity, 'symbol', None)
+                or getattr(financial_asset_entity, 'ticker', None)
+                or getattr(financial_asset_entity, 'name', None)
+            )
+            repo = self.factory.get_ibkr_repository(type(financial_asset_entity))
             
-            # This would involve an actual IBKR API call
-            # For now, return a mock object to demonstrate the pattern
-            # In real implementation, use self.ibkr_client.reqContractDetails()
-            
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            contract_details.marketName = "Stock Market"
-            contract_details.minTick = 0.01
-            contract_details.priceMagnifier = 1
-            contract_details.longName = f"{contract.symbol} Inc."
-            contract_details.industry = "Technology"
-            contract_details.category = "Common Stock"
+            if not symbol:
+                print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
+                return None
+            contract_details = repo._fetch_contract_details(contract)
             
             return contract_details
         except Exception as e:
-            print(f"Error fetching IBKR contract details: {e}")
+            print(f"Error _fetch_contract_details IBKR contract for factor {factor_entity.name}: {e}")
             return None
 
     def _contract_to_factor_value(
