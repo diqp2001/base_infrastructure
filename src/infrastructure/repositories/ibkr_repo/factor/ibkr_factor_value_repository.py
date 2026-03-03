@@ -357,64 +357,78 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 )
                 
             else:
-                # CASE 2: No dependencies - fetch directly from IBKR
+                # CASE 2: No dependencies - fetch directly from IBKR using optimized bulk data pattern
                 print(f"Factor {factor_entity.name} has no dependencies - fetching directly from IBKR")
                 
-                
-                    
-                # Use the new pattern with ibkr_instrument_repo.get_or_create_from_contract
-                contract = self._fetch_contract(factor_entity, financial_asset_entity)
-                if not contract:
-                    return None
-                
-                
-                
-                
-                
-                
-                
-                contract_details_list = self._fetch_contract_details(contract)
-                if not contract_details_list:
-                    return None
-                
-                # Use the instrument repository pattern to get factor value
-                timestamp = time_date  # Use current timestamp for IBKR data
-                # Check if ibkr_instrument_repo is available
-                self.ibkr_instrument_repo = self.factory.instrument_ibkr_repo
-                instrument = self.ibkr_instrument_repo.get_or_create_from_contract(
-                    contract=contract,
-                    contract_details=contract_details_list,
-                    tick_data=None,  # No specific tick data for basic factor values
-                    timestamp=timestamp
+                # Extract symbol from financial asset entity
+                symbol = (
+                    getattr(financial_asset_entity, 'symbol', None) or
+                    getattr(financial_asset_entity, 'ticker', None) or 
+                    getattr(financial_asset_entity, 'name', None)
                 )
                 
-                if not instrument:
-                    print(f"Failed to create instrument for factor {factor_entity.name}")
+                if not symbol:
+                    print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                     return None
-                tick_value = self.factory.instrument_factor_ibkr_repo.get_or_create(instrument=instrument,contract = contract, factor= factor_entity,entity= financial_asset_entity,what_to_show = kwargs.get('what_to_show', 'TRADES'))
                 
+                # Get configurable parameters with defaults from get_or_create_batch pattern
+                what_to_show = kwargs.get('what_to_show', 'TRADES')
+                duration_str = kwargs.get('duration_str', '1 M')
+                bar_size_setting = kwargs.get('bar_size_setting', '1 day')
                 
+                # Convert time_date string to datetime object for _fetch_bulk_historical_data
+                target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
                 
-                if tick_value:
-                    for bar in tick_value:
-                        bar_dt = datetime.strptime(bar["date"], "%Y%m%d  %H:%M:%S")
-                        if bar_dt == datetime.strptime(timestamp, "%Y-%m-%d  %H:%M:%S"):
-                            value = bar.get(factor_entity.name)
-                            new_factor_value = FactorValue(
-                                    id=None,  # Will be set by repository
-                                    factor_id=factor_entity.id,
-                                    entity_id=financial_asset_entity.id,
-                                    date=timestamp,
-                                    value=str(value)
-                                )
-                            # Persist to database via local repository
-                            created_value = self.local_repo.add(new_factor_value)
-                            if created_value:
-                                print(f"Created factor value: {factor_entity.name} ")
-                                return created_value
+                # Use the optimized bulk historical data fetching pattern from get_or_create_batch
+                bulk_ibkr_data = self._fetch_bulk_historical_data(
+                    symbol=symbol,
+                    target_date=target_date,
+                    asset=financial_asset_entity,
+                    what_to_show=what_to_show,
+                    duration_str=duration_str,
+                    bar_size_setting=bar_size_setting
+                )
+                
+                if not bulk_ibkr_data:
+                    print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
+                    return None
+                
+                # Extract factor value from bulk data using the same pattern as get_or_create_batch
+                for bar_data in bulk_ibkr_data:
+                    try:
+                        # Parse IBKR date format
+                        bar_date = self._parse_ibkr_date(bar_data.get('date'))
+                        if not bar_date:
+                            continue
+                        
+                        # Check if this bar matches our target date (allow some tolerance)
+                        date_diff = abs((bar_date - target_date).total_seconds())
+                        if date_diff <= 86400:  # Within 1 day tolerance
+                            
+                            # Extract factor value from bar using the same pattern
+                            factor_value = self._extract_factor_value_from_bar(
+                                bar_data=bar_data,
+                                factor=factor_entity,
+                                entity_id=entity_id,
+                                bar_date=bar_date
+                            )
+                            
+                            if factor_value:
+                                # Persist to database using local repository
+                                created_value = self.local_repo.add(factor_value)
+                                if created_value:
+                                    print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
+                                    return created_value
+                            
+                            # Found the matching date, no need to continue
+                            break
                     
-                else:
-                    return None
+                    except Exception as bar_error:
+                        print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
+                        continue
+                
+                print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
+                return None
                     
                 
             
