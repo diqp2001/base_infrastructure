@@ -12,6 +12,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "sma_10": {
         "group": "technical",
         "subgroup": "trend",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Simple Moving Average (10 periods)",
         "dependencies": ["close"],
@@ -20,6 +21,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "sma_20": {
         "group": "technical",
         "subgroup": "trend",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Simple Moving Average (20 periods)",
         "dependencies": ["close"],
@@ -28,6 +30,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "rsi": {
         "group": "technical",
         "subgroup": "momentum",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Relative Strength Index",
         "dependencies": ["close"],
@@ -36,6 +39,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "macd": {
         "group": "technical",
         "subgroup": "momentum",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "MACD indicator",
         "dependencies": ["close"],
@@ -44,6 +48,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "bb_upper": {
         "group": "technical",
         "subgroup": "volatility",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Upper Bollinger Band",
         "dependencies": ["close"],
@@ -52,6 +57,7 @@ TECHNICAL_LIBRARY: Dict[str, Dict] = {
     "bb_lower": {
         "group": "technical",
         "subgroup": "volatility",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Lower Bollinger Band",
         "dependencies": ["close"],
@@ -64,6 +70,7 @@ VOLATILITY_LIBRARY: Dict[str, Dict] = {
     "realized_vol_10": {
         "group": "volatility",
         "subgroup": "realized",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Realized volatility over 10 periods",
         "dependencies": ["close"],
@@ -72,6 +79,7 @@ VOLATILITY_LIBRARY: Dict[str, Dict] = {
     "realized_vol_20": {
         "group": "volatility",
         "subgroup": "realized",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Realized volatility over 20 periods",
         "dependencies": ["close"],
@@ -80,6 +88,7 @@ VOLATILITY_LIBRARY: Dict[str, Dict] = {
     "vix": {
         "group": "volatility",
         "subgroup": "implied",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "VIX (implied volatility index)",
         "dependencies": [],
@@ -88,6 +97,7 @@ VOLATILITY_LIBRARY: Dict[str, Dict] = {
     "term_structure": {
         "group": "volatility",
         "subgroup": "term_structure",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Volatility term structure",
         "dependencies": [],
@@ -100,6 +110,7 @@ MARKET_LIBRARY: Dict[str, Dict] = {
     "put_call_ratio": {
         "group": "market",
         "subgroup": "sentiment",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Put/Call ratio",
         "dependencies": [],
@@ -108,6 +119,7 @@ MARKET_LIBRARY: Dict[str, Dict] = {
     "skew": {
         "group": "market",
         "subgroup": "options",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Options skew",
         "dependencies": [],
@@ -116,6 +128,7 @@ MARKET_LIBRARY: Dict[str, Dict] = {
     "term_structure_slope": {
         "group": "market",
         "subgroup": "rates",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Term structure slope",
         "dependencies": [],
