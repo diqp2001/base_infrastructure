@@ -12,7 +12,16 @@ from src.infrastructure.models.finance.financial_assets.derivative.derivatives i
 
 class DerivativeMapper:
     """Mapper for Derivative domain entity and ORM model."""
-
+    @property
+    def discriminator(self):
+        return 'derivatives'
+    @property
+    def entity_class(self):
+        return DomainDerivative
+    
+    @property
+    def model_class(self):
+        return ORMDerivative
     @staticmethod
     def to_domain(orm_obj: ORMDerivative) -> DomainDerivative:
         """Convert ORM model to domain entity."""

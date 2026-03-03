@@ -66,7 +66,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         """
         try:
             # 1. Check local repository first
-            existing = self.local_repo.get_by_symbol_and_strike(symbol, strike_price)
+            existing = self.local_repo.get_by_symbol(symbol)
             if existing:
                 return existing
             

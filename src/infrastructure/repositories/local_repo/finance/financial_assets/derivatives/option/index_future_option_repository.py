@@ -49,7 +49,7 @@ class IndexFutureOptionRepository(OptionsRepository, IndexFutureOptionPort):
     # Index Future Option-specific queries
     # ------------------------------------------------------------------
 
-    def get_by_index_symbol(self, index_symbol: str) -> Optional[IndexFutureOption]:
+    def get_by_symbol(self, symbol: str) -> Optional[IndexFutureOption]:
         """
         Fetch an Index Future Option by index symbol.
         
@@ -62,15 +62,15 @@ class IndexFutureOptionRepository(OptionsRepository, IndexFutureOptionPort):
         try:
             option = (
                 self.session.query(self.model_class)
-                .filter(self.model_class.index_symbol == index_symbol)
+                .filter(self.model_class.symbol == symbol)
                 .first()
             )
             return self.mapper.to_domain(option) if option else None
         except Exception as e:
-            logger.error(f"Error retrieving index future option by index symbol {index_symbol}: {e}")
+            logger.error(f"Error retrieving index future option by index symbol {symbol}: {e}")
             return None
 
-    def get_by_strike_and_index(self, strike_price: float, index_symbol: str) -> Optional[IndexFutureOption]:
+    def get_by_strike_and_index(self, index_symbol: str,strike_price: float) -> Optional[IndexFutureOption]:
         """
         Fetch an Index Future Option by strike price and index symbol.
         

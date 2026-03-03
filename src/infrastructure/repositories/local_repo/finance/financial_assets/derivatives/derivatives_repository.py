@@ -3,27 +3,29 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivative_mapper import DerivativeMapper
 from src.domain.ports.finance.financial_assets.derivatives.derivative_port import DerivativePort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
-from src.infrastructure.models.finance.financial_assets.derivative.derivatives import Derivatives as DerivativesModel
-from src.domain.entities.finance.financial_assets.derivatives import Derivatives as DerivativesEntity
+
 class DerivativesRepository(FinancialAssetRepository, DerivativePort):
     """Local repository for derivatives model"""
     
     def __init__(self, session: Session, factory):
         """Initialize DerivativesRepository with database session."""
-        super().__init__(session, factory)
+        super().__init__(session)
+        self.factory=factory
+        self.mapper = DerivativeMapper()
         self.data_store = []
     
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for Derivatives."""
-        return DerivativesModel
+        return self.mapper.model_class
     
     @property
     def entity_class(self):
         """Return the domain entity class for Derivatives."""
-        return DerivativesEntity
+        return self.mapper.entity_class
     
     def save(self, derivative):
         """Save derivative to local storage"""
@@ -41,7 +43,7 @@ class DerivativesRepository(FinancialAssetRepository, DerivativePort):
         return self.data_store.copy()
 
     def get_or_create(self, ticker: str, name: Optional[str] = None, underlying_asset_id: Optional[int] = None, 
-                      exchange_id: Optional[int] = None, currency_id: Optional[int] = None, **kwargs) -> Optional[DerivativesEntity]:
+                      exchange_id: Optional[int] = None, currency_id: Optional[int] = None, **kwargs):
         """
         Get or create a derivative with dependency resolution.
         Extends the base FinancialAssetRepository get_or_create with derivative-specific functionality.

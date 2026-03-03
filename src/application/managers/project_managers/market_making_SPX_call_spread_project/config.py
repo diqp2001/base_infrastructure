@@ -28,8 +28,8 @@ DEFAULT_CONFIG = {
     # Project settings
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
-    'universe' : {Index: ["SPX"],IndexFuture: ["ESZ6"],IndexFutureOption: ["EW"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
-    'target_factor':{Index: ["SPX"],IndexFuture: ["ESZ6"],IndexFutureOption: ["EW"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
+    'universe' : {IndexFutureOption: ["EW"],Index: ["SPX"],IndexFuture: ["ESZ6"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
+    'target_factor':{IndexFutureOption: ["EW"],Index: ["SPX"],IndexFuture: ["ESZ6"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
     # SPX Configuration
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',

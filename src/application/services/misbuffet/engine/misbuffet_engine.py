@@ -457,66 +457,6 @@ class MisbuffetEngine(BaseEngine):
             'universe_size': len(universe)
         }
     
-    def _create_data_slice(self, current_date, universe):
-        """
-        Create a data slice for the given date focusing on time/date validation.
-        
-        This method now focuses on providing valid trading dates/times using market calendar,
-        rather than loading financial data. The financial data loading is handled by the
-        Algorithm.on_data() method through the model training pipeline.
-        """
-        
-        
-        # Validate if current_date is a trading day using basic rules
-        # This replaces the complex financial data loading with simple time validation
-        if not self._is_valid_trading_day(current_date):
-            self.logger.debug(f"Skipping non-trading day: {current_date}")
-            # Return empty slice for non-trading days
-            return Slice(time=current_date)
-        
-        # Create the slice for this time point
-        slice_data = Slice(time=current_date)
-        
-        # Instead of loading actual financial data, create minimal time-based data slices
-        # The actual financial data will be handled by Algorithm.on_data() method
-        for ticker in universe:
-            try:
-                #point_in_time_data is data that we will trade on or simulate trading on 
-                point_in_time_data = self._get_point_in_time_data(ticker, current_date)
-                if point_in_time_data is not None and not point_in_time_data.empty:
-                    # Create Symbol object
-                    symbol = Symbol.create_equity(ticker)
-                    # Use the most recent data point (should be just one for this date)
-                    latest_data = point_in_time_data.iloc[-1]
-                
-                    # Create minimal TradeBar with time information only
-                    # Financial data will be retrieved by the Algorithm through model_trainer
-                    trade_bar = TradeBar(
-                            symbol=symbol,
-                            time=current_date,
-                            end_time=current_date,
-                            open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
-                            high=float(latest_data.get('High', latest_data.get('high', 0.0))),
-                            low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
-                            close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
-                            volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
-                        )
-                    
-                    # Add to slice - focus on time/date structure rather than financial data
-                    slice_data.bars[symbol] = trade_bar
-                    # Also add to the data dictionary so has_data() returns True for valid trading days
-                    if symbol not in slice_data._data:
-                        slice_data._data[symbol] = []
-                    slice_data._data[symbol].append(trade_bar)
-                        
-            except Exception as e:
-                self.logger.debug(f"Error creating time slice for {ticker} on {current_date}: {e}")
-                continue
-        
-        # Add debug logging focused on time/date validation
-        self.logger.debug(f"Created time-based data slice for {current_date} (trading day: {self._is_valid_trading_day(current_date)}) with {len(slice_data.bars)} symbols")
-        
-        return slice_data
     
     
 
