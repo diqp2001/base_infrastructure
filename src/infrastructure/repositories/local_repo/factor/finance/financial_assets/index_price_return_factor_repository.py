@@ -79,6 +79,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                 name=primary_key,
                 group=kwargs.get('group', 'return'),
                 subgroup=kwargs.get('subgroup', 'daily'),
+                frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'calculated'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
@@ -111,6 +112,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
                             primary_key=dependency_config.get("name"),
                             group=dependency_config.get("group"),
                             subgroup=dependency_config.get("subgroup"),
+                            frequency=dependency_config.get("frequency", "1d"),
                             data_type=dependency_config.get("data_type"),
                             factor_type=dependency_config.get("factor_type"),
                             source=dependency_config.get("source"),

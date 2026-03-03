@@ -74,6 +74,7 @@ class IndexFactorRepository(BaseFactorRepository):
             domain_factor = self.get_factor_entity()(name=primary_key,
                 group=kwargs.get('group', 'index'),
                 subgroup=kwargs.get('subgroup', 'daily'),
+                frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market_data'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
