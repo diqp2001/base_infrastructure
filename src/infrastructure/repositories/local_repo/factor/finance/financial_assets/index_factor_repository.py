@@ -53,11 +53,12 @@ class IndexFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
 
-    def _create_or_get(self, primary_key: str, **kwargs):
+    def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         """
         Get or create an index factor with dependency resolution.
         
         Args:
+            entity_cls: The entity class (not used but required for interface consistency)
             primary_key: Factor name identifier
             **kwargs: Additional parameters for factor creation
             
