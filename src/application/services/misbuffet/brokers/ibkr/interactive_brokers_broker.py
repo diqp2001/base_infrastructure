@@ -12,6 +12,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any, Callable
 
 from ibapi.contract import Contract
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo  # Python 3.9+
 
 from .IBTWSClient import IBTWSClient
 from .contract_resolver import ContractResolver
@@ -717,6 +719,9 @@ class InteractiveBrokersBroker(BaseBroker):
         Returns:
             List of bar objects with OHLCV data
         """
+        self.validate_end_date_within_6_months(end_date_time)
+        end_date_time = self.format_ib_datetime(end_date_time)
+
         if not self.ib_connection or not self.ib_connection.is_connected():
             return []
         
@@ -727,56 +732,7 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.info(f"Requesting historical data for {contract.symbol} "
                            f"({duration_str}, {bar_size_setting})")
             resolved_contract = contract
-            # # Fix Issues #3 and #5: Use contract resolver for proper contract resolution
-            # if not hasattr(self, 'contract_resolver'):
-            #     self.contract_resolver = ContractResolver(self.ib_connection)
             
-            # # Resolve contract appropriately based on type
-            # if contract.secType == "FUT":
-            #     self.logger.info(
-            #         f"🔍 Resolving futures contract for historical data: {contract.symbol} on {contract.exchange}"
-            #     )
-            #     resolved_contract = self.contract_resolver.resolve_front_future(
-            #         contract.symbol, contract.exchange
-            #     )
-            #     if not resolved_contract:
-            #         self.logger.error(
-            #             f"❌ Failed to resolve futures contract for historical data: {contract.symbol}"
-            #         )
-            #         return []
-            #     else:
-            #         self.logger.info(
-            #             f"✅ Successfully resolved futures contract: {resolved_contract.localSymbol} "
-            #             f"(conId: {resolved_contract.conId}, exchange: {resolved_contract.exchange})"
-            #         )
-
-            # elif contract.secType == "IND":
-            #     # 🔴 CRITICAL: indices must NOT be resolved
-            #     self.logger.info(
-            #         f"📌 Using index contract directly (no resolution): {contract.symbol}"
-            #     )
-            #     resolved_contract = contract
-
-            # else:
-            #     self.logger.info(
-            #         f"🔍 Resolving stock contract for historical data: {contract.symbol}"
-            #     )
-            #     resolved_contract = self.contract_resolver.resolve_stock(
-            #         contract.symbol,
-            #         contract.exchange,
-            #         getattr(contract, 'primaryExchange', '')
-            #     )
-            #     if not resolved_contract:
-            #         self.logger.warning(
-            #             f"⚠️  Failed to resolve contract for historical data: {contract.symbol}, using fallback"
-            #         )
-            #         resolved_contract = contract
-            #     else:
-            #         self.logger.info(
-            #             f"✅ Successfully resolved stock contract: {resolved_contract.symbol}"
-            #         )
-
-            # Request historical data with resolved contract
             self.ib_connection.request_historical_data(
                 req_id=req_id,
                 contract=resolved_contract,
@@ -841,6 +797,82 @@ class InteractiveBrokersBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
             return []
+    
+    def validate_end_date_within_6_months(self,date_time, tz="US/Eastern"):
+        """
+        Ensures end_date_time is within the last 6 months from today.
+        
+        Raises:
+            ValueError if date is in the future
+            ValueError if date is older than 6 months
+        """
+
+        if not date_time:
+            return  # Empty means "now" → always valid
+
+        # Parse input
+        if isinstance(date_time, str):
+            try:
+                dt = datetime.fromisoformat(date_time)
+            except ValueError:
+                raise ValueError("Unsupported datetime string format")
+        elif isinstance(date_time, datetime):
+            dt = date_time
+        else:
+            raise TypeError("end_date_time must be datetime, str, or None")
+
+        # Attach timezone if naive
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo(tz))
+
+        # Convert to UTC
+        dt_utc = dt.astimezone(timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+
+        # Check future
+        if dt_utc > now_utc:
+            raise ValueError("end_date_time cannot be in the future.")
+
+        # Approximate 6 months = 182 days
+        six_months_ago = now_utc.replace(microsecond=0) - timedelta(days=182)
+
+        if dt_utc < six_months_ago:
+            raise ValueError("end_date_time must be within the last 6 months.")
+
+        return
+    def format_ib_datetime(self,date_time=None, tz="US/Eastern"):
+        """
+        Format datetime for IBKR historical data request.
+        
+        Returns:
+            String in IB UTC format: 'yyyymmdd-hh:mm:ss'
+            or "" for current time
+        """
+        
+        if not date_time:
+            return ""  # IB interprets empty as "now"
+        
+        # If string already provided, try parsing
+        if isinstance(date_time, str):
+            try:
+                # Try ISO format first
+                dt = datetime.fromisoformat(date_time)
+            except ValueError:
+                raise ValueError("Unsupported datetime string format")
+        elif isinstance(date_time, datetime):
+            dt = date_time
+        else:
+            raise TypeError("end_date_time must be datetime, str, or None")
+
+        # If naive datetime → assume provided timezone
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo(tz))
+
+        # Convert to UTC
+        dt_utc = dt.astimezone(timezone.utc)
+
+        # Return IB UTC format (IMPORTANT: dash between date and time)
+        return dt_utc.strftime("%Y%m%d-%H:%M:%S")
     
     def get_contract_details(self, contract: Contract, timeout: int = 10) -> List[Dict[str, Any]]:
         """

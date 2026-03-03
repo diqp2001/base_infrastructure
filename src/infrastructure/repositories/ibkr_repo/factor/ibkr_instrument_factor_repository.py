@@ -207,16 +207,12 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
         """
         try:
             timestamp = timestamp or datetime.now()
-            date_obj = timestamp
+            date_obj = instrument.date
+
             
-            tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str)
+            tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str,end_date_time=date_obj)
                 
-            # else:
-            #     factor_mapping = self.tick_mapper.get_factor_mapping(factor.name)
-            #     if not factor_mapping:
-            #         print(f"No factor mapping found for tick type {factor.name}")
-            #         return None
-            #     tick_value = self.ib_client.get_market_data_snapshot(contract = contract,generic_tick_list=factor_mapping[0].value)
+            
                 
             return tick_value
             

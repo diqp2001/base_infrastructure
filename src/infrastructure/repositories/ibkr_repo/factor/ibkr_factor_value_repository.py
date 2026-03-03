@@ -93,19 +93,19 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         
         # Map frequency strings to tolerance in seconds
         frequency_tolerance_map = {
-            'second': 1,          # 1 second tolerance
-            'minute': 60,         # 1 minute tolerance  
-            'min': 60,            # 1 minute tolerance (abbreviated)
-            'hourly': 3600,       # 1 hour tolerance
-            'hour': 3600,         # 1 hour tolerance
-            'daily': 86400,       # 1 day tolerance (24 hours)
-            'day': 86400,         # 1 day tolerance
-            'weekly': 604800,     # 1 week tolerance (7 days)
-            'week': 604800,       # 1 week tolerance
-            'monthly': 2592000,   # 30 days tolerance (approx 1 month)
-            'month': 2592000,     # 30 days tolerance
-            'yearly': 31536000,   # 365 days tolerance (1 year)
-            'year': 31536000,     # 365 days tolerance
+            'second': 1/2,          # 1 second tolerance
+            'minute': 60/2,         # 1 minute tolerance  
+            'min': 60/2,            # 1 minute tolerance (abbreviated)
+            'hourly': 3600/2,       # 1 hour tolerance
+            'hour': 3600/2,         # 1 hour tolerance
+            'daily': 86400/2,       # 1 day tolerance (24 hours)
+            'day': 86400/2,         # 1 day tolerance
+            'weekly': 86400*3,     # 1 week tolerance (7 days)
+            'week': 86400*3,       # 1 week tolerance
+            'monthly': 86400*3,   # 30 days tolerance (approx 1 month)
+            'month': 86400*3,     # 30 days tolerance
+            'yearly': 86400*3,   # 365 days tolerance (1 year)
+            'year': 86400*3,     # 365 days tolerance
         }
         
         return frequency_tolerance_map.get(frequency_lower, 86400)  # Default to 1 day
@@ -351,46 +351,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return existing
             
             # 2. Get factor dependencies from the factor class definition
-            dependencies = self._get_factor_dependencies(factor_entity)
+            dependencies = self._get_factor_dependencies_from_db(factor_entity.id)
             
             if dependencies:
-                # CASE 1: Factor has dependencies - resolve dependencies first, then calculate
-                print(f"Factor {factor_entity.name} has dependencies: {list(dependencies.keys())}")
+                # Factor has dependencies - call calculate function
+                print(f"Factor {factor_entity.name} has {len(dependencies)} dependencies - using calculate function")
                 
-                # 3. Resolve all dependencies recursively from IBKR
-                resolved_dependencies = {}
-                for dep_name, dep_factor_info in dependencies.items():
-                    dep_value = self._resolve_factor_dependency_from_ibkr(
-                        dep_factor_info,
-                        financial_asset_entity,
-                        time_date,
-                        **kwargs
-                    )
-                    if dep_value is not None:
-                        resolved_dependencies[dep_name] = dep_value
-                    else:
-                        print(f"Warning: Could not resolve dependency {dep_name} for factor {factor_entity.name}")
-                
-                # 4. Call the factor's calculate method with resolved dependencies
-                calculated_value = self._call_factor_calculate_method(
-                    factor=factor_entity,
-                    financial_asset_entity=financial_asset_entity,
-                    dependency_values=resolved_dependencies,
-                    **kwargs
+                factor_value = self._handle_factor_with_dependencies(
+                    factor_entity, dependencies, entity_id, bar_date, bar_data
                 )
+                return factor_value
+
                 
-                if calculated_value is None:
-                    print(f"Factor calculation failed for {factor_entity.name}")
-                    return None
-            
-                # 5. Create and store the factor value
-                factor_value = FactorValue(
-                    id=None,  # Let database generate
-                    factor_id=factor_id,
-                    entity_id=entity_id,
-                    date=date_obj,
-                    value=str(calculated_value)  # Convert to string for storage
-                )
                 
             else:
                 # CASE 2: No dependencies - fetch directly from IBKR using optimized bulk data pattern
@@ -413,12 +385,14 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 bar_size_setting = kwargs.get('bar_size_setting', '1 day')
                 
                 # Convert time_date string to datetime object for _fetch_bulk_historical_data
-                target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+                
+                target_date_fetch = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") + timedelta(seconds=self._calculate_date_tolerance_seconds(factor_entity)) 
+                target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") 
                 
                 # Use the optimized bulk historical data fetching pattern from get_or_create_batch
                 bulk_ibkr_data = self._fetch_bulk_historical_data(
                     symbol=symbol,
-                    target_date=target_date,
+                    target_date=target_date_fetch,
                     asset=financial_asset_entity,
                     what_to_show=what_to_show,
                     duration_str=duration_str,
@@ -956,22 +930,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 if existing_dep_value:
                     # Use existing value from database
                     dependency_values[param_name] = float(existing_dep_value.value)
-                # else:
-                #     # Try to extract from current bar data if it's a simple factor
-                #     extracted_value = self._extract_simple_factor_from_bar(bar_data, independent_factor)
-                #     if extracted_value is not None:
-                #         dependency_values[param_name] = extracted_value
-                        
-                #         # Store the dependency value in database for future use
-                #         dep_factor_value = FactorValue(
-                #             id=None,
-                #             factor_id=independent_factor_id,
-                #             entity_id=entity_id,
-                #             date=dependency_date,
-                #             value=str(extracted_value)
-                #         )
-                #         if self.local_repo:
-                #             self.local_repo.add(dep_factor_value)
+                
                 else:
                     # Try to _create_or_get the factor value missing at the right dependency_date
                     try:
