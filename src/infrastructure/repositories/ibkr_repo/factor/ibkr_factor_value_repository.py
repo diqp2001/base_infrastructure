@@ -74,6 +74,42 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     def entity_class(self):
         return FactorValue
     
+    def _calculate_date_tolerance_seconds(self, factor_entity: Factor) -> int:
+        """
+        Calculate date matching tolerance in seconds based on factor frequency.
+        
+        Args:
+            factor_entity: Factor domain entity with frequency property
+            
+        Returns:
+            Tolerance in seconds for date matching
+        """
+        frequency = getattr(factor_entity, 'frequency', None)
+        
+        if not frequency:
+            return 86400  # Default to 1 day if no frequency specified
+        
+        frequency_lower = frequency.lower()
+        
+        # Map frequency strings to tolerance in seconds
+        frequency_tolerance_map = {
+            'second': 1,          # 1 second tolerance
+            'minute': 60,         # 1 minute tolerance  
+            'min': 60,            # 1 minute tolerance (abbreviated)
+            'hourly': 3600,       # 1 hour tolerance
+            'hour': 3600,         # 1 hour tolerance
+            'daily': 86400,       # 1 day tolerance (24 hours)
+            'day': 86400,         # 1 day tolerance
+            'weekly': 604800,     # 1 week tolerance (7 days)
+            'week': 604800,       # 1 week tolerance
+            'monthly': 2592000,   # 30 days tolerance (approx 1 month)
+            'month': 2592000,     # 30 days tolerance
+            'yearly': 31536000,   # 365 days tolerance (1 year)
+            'year': 31536000,     # 365 days tolerance
+        }
+        
+        return frequency_tolerance_map.get(frequency_lower, 86400)  # Default to 1 day
+    
     def get_or_create_factor_value_with_ticks(
         self, 
         symbol_or_name: str, 
@@ -401,9 +437,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if not bar_date:
                             continue
                         
-                        # Check if this bar matches our target date (allow some tolerance)
+                        # Check if this bar matches our target date (allow frequency-based tolerance)
+                        tolerance_seconds = self._calculate_date_tolerance_seconds(factor_entity)
                         date_diff = abs((bar_date - target_date).total_seconds())
-                        if date_diff <= 86400:  # Within 1 day tolerance
+                        if date_diff <= tolerance_seconds:
                             
                             # Extract factor value from bar using the same pattern
                             factor_value = self._extract_factor_value_from_bar(
