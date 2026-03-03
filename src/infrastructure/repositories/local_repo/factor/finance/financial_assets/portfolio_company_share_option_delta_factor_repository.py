@@ -100,9 +100,11 @@ class PortfolioCompanyShareOptionDeltaFactorRepository(BaseFactorRepository):
                     
                     dependency_config = dependency[1]
                     dependency_entity = repo._create_or_get(
+                            entity_class,
                             primary_key=dependency_config.get("name"),
                             group=dependency_config.get("group"),
                             subgroup=dependency_config.get("subgroup"),
+                            frequency=dependency_config.get("frequency", "1d"),
                             data_type=dependency_config.get("data_type"),
                             factor_type=dependency_config.get("factor_type"),
                             source=dependency_config.get("source"),

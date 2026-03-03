@@ -98,6 +98,7 @@ class FuturePriceReturnFactorRepository(BaseFactorRepository):
                     
                     dependency_config = dependency[1]
                     dependency_entity = repo._create_or_get(
+                            entity_class,
                             primary_key=dependency_config.get("name"),
                             group=dependency_config.get("group"),
                             subgroup=dependency_config.get("subgroup"),
