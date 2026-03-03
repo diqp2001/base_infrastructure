@@ -11,8 +11,10 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     
 "open": {
         "class": IndexFutureFactor, 
+        "name": "open",
         "group": "price",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level open price",
         "dependencies": [],
@@ -20,8 +22,10 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     },
     "high": {
         "class": IndexFutureFactor, 
+        "name": "high",
         "group": "price",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level high price",
         "dependencies": [],
@@ -29,8 +33,10 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     },
     "low": {
         "class": IndexFutureFactor, 
+        "name": "low",
         "group": "price",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level low price",
         "dependencies": [],
@@ -38,8 +44,10 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     },
     "close": {
         "class": IndexFutureFactor, 
+        "name": "close",
         "group": "price",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level close price",
         "dependencies": [],
@@ -47,8 +55,10 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
     },
     "volume": {
         "class": IndexFutureFactor, 
+        "name": "volume",
         "group": "price",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level traded volume",
         "dependencies": [],
@@ -60,6 +70,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "name": "return_open",
         "group": "return",
         "subgroup": "minutes",
+        "frequency": "1m",
         "data_type": "numeric",
         "description": "Minute-level open price return",
         "dependencies": {
@@ -93,6 +104,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "name": "return_daily",
         "group": "return",
         "subgroup": "daily",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Daily price return",
         "dependencies": {
@@ -126,6 +138,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "name": "return_weekly",
         "group": "return",
         "subgroup": "weekly",
+        "frequency": "1w",
         "data_type": "numeric",
         "description": "Weekly price return",
         "dependencies": {
@@ -159,6 +172,7 @@ FUTURE_INDEX_LIBRARY: Dict[str, Dict] = {
         "name": "return_monthly",
         "group": "return",
         "subgroup": "monthly",
+        "frequency": "1mth",
         "data_type": "numeric",
         "description": "Monthly price return",
         "dependencies": {
