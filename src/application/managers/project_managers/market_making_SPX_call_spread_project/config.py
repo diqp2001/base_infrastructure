@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
@@ -27,8 +28,8 @@ DEFAULT_CONFIG = {
     # Project settings
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
-    'universe' : {Index: ["SPX"],IndexFuture: ["ESZ6"]},
-    'target_factor':{Index: ["SPX"],IndexFuture: ["ESZ6"]},
+    'universe' : {Index: ["SPX"],IndexFuture: ["ESZ6"],IndexFutureOption: ["EW"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
+    'target_factor':{Index: ["SPX"],IndexFuture: ["ESZ6"],IndexFutureOption: ["EW"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
     # SPX Configuration
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',
@@ -88,13 +89,10 @@ DEFAULT_CONFIG = {
         
         # Future return factors (daily, weekly, monthly)
         FACTOR_LIBRARY["future_index_library"]["return_daily"],
-        FACTOR_LIBRARY["future_index_library"]["return_weekly"],
-        FACTOR_LIBRARY["future_index_library"]["return_monthly"],
         
         # Index return factors (daily, weekly, monthly)
         FACTOR_LIBRARY["index_library"]["return_daily"],
-        FACTOR_LIBRARY["index_library"]["return_weekly"],
-        FACTOR_LIBRARY["index_library"]["return_monthly"],
+        FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
     ],
 
     
@@ -112,27 +110,27 @@ def get_config() -> Dict[str, Any]:
     """Get the current configuration."""
     return DEFAULT_CONFIG.copy()
 
-def get_spx_contract_config() -> Dict[str, Any]:
-    """Get SPX-specific contract configuration."""
-    return {
-        'symbol': DEFAULT_CONFIG['underlying_symbol'],
-        'exchange': DEFAULT_CONFIG['underlying_exchange'],
-        'currency': DEFAULT_CONFIG['underlying_currency'],
-        'sec_type': 'IND',  # Index
-        'multiplier': 100,
-    }
+# def get_spx_contract_config() -> Dict[str, Any]:
+#     """Get SPX-specific contract configuration."""
+#     return {
+#         'symbol': DEFAULT_CONFIG['underlying_symbol'],
+#         'exchange': DEFAULT_CONFIG['underlying_exchange'],
+#         'currency': DEFAULT_CONFIG['underlying_currency'],
+#         'sec_type': 'IND',  # Index
+#         'multiplier': 100,
+#     }
 
-def get_option_chain_config() -> Dict[str, Any]:
-    """Get option chain configuration for SPX options."""
-    return {
-        'symbol': 'SPX',
-        'exchange': 'CBOE', 
-        'currency': 'USD',
-        'sec_type': 'OPT',
-        'multiplier': 100,
-        'dte_range': DEFAULT_CONFIG['default_dte_range'],
-        'delta_range': DEFAULT_CONFIG['default_delta_range'],
-    }
+# def get_option_chain_config() -> Dict[str, Any]:
+#     """Get option chain configuration for SPX options."""
+#     return {
+#         'symbol': 'SPX',
+#         'exchange': 'CBOE', 
+#         'currency': 'USD',
+#         'sec_type': 'OPT',
+#         'multiplier': 100,
+#         'dte_range': DEFAULT_CONFIG['default_dte_range'],
+#         'delta_range': DEFAULT_CONFIG['default_delta_range'],
+#     }
 
 def get_trading_config() -> Dict[str, Any]:
     """Get trading configuration."""

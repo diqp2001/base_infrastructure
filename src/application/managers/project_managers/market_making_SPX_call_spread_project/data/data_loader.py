@@ -350,37 +350,37 @@ class DataLoader:
                 'timestamp': datetime.now().isoformat(),
             }
     
-    def _verify_spx_future_entity(self) -> Dict[str, Any]:
-        """
-        Verify SPX future entity exists and create if necessary.
+    # def _verify_spx_future_entity(self) -> Dict[str, Any]:
+    #     """
+    #     Verify SPX future entity exists and create if necessary.
         
-        Returns:
-            Dict with verification status
-        """
-        try:
-            # Create SPX future entity using FinancialAssetService
-            from datetime import date
-            year='26'
-            months = ['H','M','U','Z']
-            month = months[0]
-            spx_future = self.financial_asset_service._create_or_get(
-                symbol=f'ES{month}{year}',
-                underlying_asset='SPX',
-                expiry_date=date(2025, 12, 31),  # Default expiry
-                contract_size='$250 × Index',
-                exchange='CBOE',
-                currency='USD'
-            )
+    #     Returns:
+    #         Dict with verification status
+    #     """
+    #     try:
+    #         # Create SPX future entity using FinancialAssetService
+    #         from datetime import date
+    #         year='26'
+    #         months = ['H','M','U','Z']
+    #         month = months[0]
+    #         spx_future = self.financial_asset_service._create_or_get(
+    #             symbol=f'ES{month}{year}',
+    #             underlying_asset='SPX',
+    #             expiry_date=date(2025, 12, 31),  # Default expiry
+    #             contract_size='$250 × Index',
+    #             exchange='CBOE',
+    #             currency='USD'
+    #         )
             
-            if spx_future:
-                self.logger.info("✅ SPX future entity verified/created")
-                return {'status': 'verified', 'entity': 'spx_future'}
-            else:
-                return {'status': 'failed', 'error': 'Could not create SPX future entity'}
+    #         if spx_future:
+    #             self.logger.info("✅ SPX future entity verified/created")
+    #             return {'status': 'verified', 'entity': 'spx_future'}
+    #         else:
+    #             return {'status': 'failed', 'error': 'Could not create SPX future entity'}
                 
-        except Exception as e:
-            self.logger.error(f"Error verifying SPX future entity: {e}")
-            return {'status': 'error', 'error': str(e)}
+    #     except Exception as e:
+    #         self.logger.error(f"Error verifying SPX future entity: {e}")
+    #         return {'status': 'error', 'error': str(e)}
     
     def _count_spx_data_records(self) -> int:
         """
