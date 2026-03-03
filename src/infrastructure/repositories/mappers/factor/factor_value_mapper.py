@@ -35,10 +35,16 @@ class FactorValueMapper:
     @staticmethod
     def to_orm(domain_entity: FactorValueEntity) -> FactorValueModel:
         """Convert domain entity to ORM model."""
-        return FactorValueModel(
-            id=domain_entity.id,
-            factor_id=domain_entity.factor_id,
-            entity_id=domain_entity.entity_id,
-            date=domain_entity.date,
-            value=domain_entity.value
-        )
+        # Only set id if it exists (not None), let database auto-increment otherwise
+        model_kwargs = {
+            'factor_id': domain_entity.factor_id,
+            'entity_id': domain_entity.entity_id,
+            'date': domain_entity.date,
+            'value': domain_entity.value
+        }
+        
+        # Only include id if it's not None to allow auto-increment
+        if domain_entity.id is not None:
+            model_kwargs['id'] = domain_entity.id
+            
+        return FactorValueModel(**model_kwargs)
