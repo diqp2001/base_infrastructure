@@ -49,34 +49,13 @@ class IndexFutureOptionRepository(OptionsRepository, IndexFutureOptionPort):
     # Index Future Option-specific queries
     # ------------------------------------------------------------------
 
-    def get_by_symbol(self, symbol: str) -> Optional[IndexFutureOption]:
-        """
-        Fetch an Index Future Option by index symbol.
-        
-        Args:
-            index_symbol: The underlying index symbol (e.g., 'SPX', 'NDX')
-            
-        Returns:
-            IndexFutureOption entity or None if not found
-        """
-        try:
-            option = (
-                self.session.query(self.model_class)
-                .filter(self.model_class.symbol == symbol)
-                .first()
-            )
-            return self.mapper.to_domain(option) if option else None
-        except Exception as e:
-            logger.error(f"Error retrieving index future option by index symbol {symbol}: {e}")
-            return None
-
-    def get_by_strike_and_index(self, index_symbol: str,strike_price: float) -> Optional[IndexFutureOption]:
+    def get_by_strike_and_index(self, index_symbol: str, strike_price: float) -> Optional[IndexFutureOption]:
         """
         Fetch an Index Future Option by strike price and index symbol.
         
         Args:
-            strike_price: The strike price
             index_symbol: The underlying index symbol
+            strike_price: The strike price
             
         Returns:
             IndexFutureOption entity or None if not found
@@ -119,3 +98,80 @@ class IndexFutureOptionRepository(OptionsRepository, IndexFutureOptionPort):
         except Exception as e:
             logger.error(f"Error retrieving index future option by symbol {symbol}: {e}")
             return None
+
+    def get_by_index_symbol(self, index_symbol: str) -> list:
+        """
+        Get index future options by underlying index symbol.
+        
+        Args:
+            index_symbol: The underlying index symbol (e.g., 'SPX', 'NDX', 'RUT')
+            
+        Returns:
+            List of IndexFutureOption entities for the underlying index
+        """
+        try:
+            options = (
+                self.session.query(self.model_class)
+                .filter(self.model_class.index_symbol == index_symbol)
+                .all()
+            )
+            return [self.mapper.to_domain(option) for option in options]
+        except Exception as e:
+            logger.error(f"Error retrieving index future options by index symbol {index_symbol}: {e}")
+            return []
+
+    def get_by_symbol_and_strike(self, symbol: str, strike_price: float) -> Optional[IndexFutureOption]:
+        """Get index future option by symbol and strike price."""
+        try:
+            option = (
+                self.session.query(self.model_class)
+                .filter(
+                    self.model_class.symbol == symbol,
+                    self.model_class.strike_price == strike_price
+                )
+                .first()
+            )
+            return self.mapper.to_domain(option) if option else None
+        except Exception as e:
+            logger.error(f"Error retrieving index future option by symbol {symbol} and strike {strike_price}: {e}")
+            return None
+
+    def get_all(self) -> list:
+        """Get all index future options."""
+        try:
+            options = self.session.query(self.model_class).all()
+            return [self.mapper.to_domain(option) for option in options]
+        except Exception as e:
+            logger.error(f"Error retrieving all index future options: {e}")
+            return []
+
+    def update(self, entity: IndexFutureOption) -> Optional[IndexFutureOption]:
+        """Update index future option entity."""
+        try:
+            model = self.session.query(self.model_class).filter(self.model_class.id == entity.id).first()
+            if model:
+                updated_model = self.mapper.to_orm(entity)
+                for key, value in updated_model.__dict__.items():
+                    if not key.startswith('_'):
+                        setattr(model, key, value)
+                self.session.commit()
+                return self.mapper.to_domain(model)
+            return None
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error updating index future option: {e}")
+            return None
+
+    def delete(self, entity_id: int) -> bool:
+        """Delete index future option entity."""
+        try:
+            model = self.session.query(self.model_class).filter(self.model_class.id == entity_id).first()
+            if model:
+                self.session.delete(model)
+                self.session.commit()
+                return True
+            return False
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error deleting index future option {entity_id}: {e}")
+            return False
