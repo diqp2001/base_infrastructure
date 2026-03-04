@@ -13,6 +13,7 @@ USAGE:
     python comprehensive_market_data_examples.py test     # Run access level test pipeline only
     python comprehensive_market_data_examples.py ticks    # Run comprehensive tick access test only
     python comprehensive_market_data_examples.py conid    # Test get_by_conid function with example CONIDs
+    python comprehensive_market_data_examples.py esz6     # Test ESZ6 options & futures prices
 
 ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
@@ -2758,6 +2759,209 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # The user can call disconnect_from_ib() explicitly when done
             pass
 
+    def get_esz6_options_futures_prices(self, timeout: int = 30) -> Dict[str, Any]:
+        """
+        Get options and futures prices for ESZ6 (E-mini S&P 500 December 2026).
+        
+        This function retrieves:
+        1. ESZ6 futures contract details and current price
+        2. Available options contracts on ESZ6 (if any)
+        3. Market data for both futures and options
+        
+        Args:
+            timeout: Timeout in seconds for requests
+            
+        Returns:
+            Dictionary containing futures and options data for ESZ6
+            
+        Example:
+            result = examples.get_esz6_options_futures_prices(timeout=20)
+        """
+        logger.info(f"\n=== ESZ6 Options & Futures Prices ===")
+        
+        if not self.connected:
+            logger.info("Connecting to IB...")
+            self.ib_broker.connect()
+        
+        result = {
+            'status': 'success',
+            'symbol': 'ESZ6',
+            'timestamp': datetime.now().isoformat(),
+            'futures_data': None,
+            'options_data': [],
+            'error_messages': []
+        }
+        
+        try:
+            # 1. Create ESZ6 futures contract
+            logger.info("📊 Creating ESZ6 futures contract...")
+            esz6_contract = Contract()
+            esz6_contract.symbol = "ES"
+            esz6_contract.secType = "FUT"
+            esz6_contract.exchange = "CME"
+            esz6_contract.currency = "USD"
+            esz6_contract.lastTradeDateOrContractMonth = "202612"  # December 2026
+            esz6_contract.multiplier = "50"
+            esz6_contract.tradingClass = "ES"
+            
+            # 2. Get ESZ6 futures contract details
+            logger.info("🔍 Fetching ESZ6 contract details...")
+            futures_details = self.ib_broker.get_contract_details(esz6_contract, timeout=timeout)
+            
+            if futures_details:
+                result['futures_data'] = {
+                    'contract_details': futures_details,
+                    'market_data': None,
+                    'status': 'found'
+                }
+                
+                # Log basic contract info
+                if len(futures_details) > 0:
+                    detail = futures_details[0]
+                    logger.info(f"✅ Found ESZ6 contract:")
+                    logger.info(f"  Contract: {detail.get('contract_summary', {}).get('localSymbol', 'ESZ26')}")
+                    logger.info(f"  Exchange: {detail.get('contract_summary', {}).get('exchange', 'CME')}")
+                    logger.info(f"  Last Trading Date: {detail.get('contract_summary', {}).get('lastTradeDateOrContractMonth', '202612')}")
+                    logger.info(f"  Multiplier: {detail.get('contract_summary', {}).get('multiplier', '50')}")
+                    
+                    # 3. Get current market data for ESZ6
+                    logger.info("💰 Fetching ESZ6 current market data...")
+                    try:
+                        market_data = self.ib_broker.get_market_data_snapshot(
+                            esz6_contract,
+                            timeout=timeout
+                        )
+                        
+                        if market_data:
+                            result['futures_data']['market_data'] = market_data
+                            logger.info(f"✅ ESZ6 Market Data Retrieved:")
+                            if 'bid' in market_data:
+                                logger.info(f"  Bid: {market_data.get('bid', 'N/A')}")
+                            if 'ask' in market_data:
+                                logger.info(f"  Ask: {market_data.get('ask', 'N/A')}")
+                            if 'last' in market_data:
+                                logger.info(f"  Last: {market_data.get('last', 'N/A')}")
+                            if 'volume' in market_data:
+                                logger.info(f"  Volume: {market_data.get('volume', 'N/A')}")
+                        else:
+                            logger.warning("⚠️ No market data available for ESZ6")
+                            result['futures_data']['market_data'] = {'status': 'no_data'}
+                            
+                    except Exception as market_error:
+                        logger.error(f"❌ Error fetching ESZ6 market data: {market_error}")
+                        result['futures_data']['market_data'] = {'status': 'error', 'message': str(market_error)}
+                        result['error_messages'].append(f"Market data error: {market_error}")
+            else:
+                logger.warning("⚠️ No contract details found for ESZ6")
+                result['futures_data'] = {'status': 'not_found', 'message': 'ESZ6 contract not found'}
+                result['error_messages'].append("ESZ6 contract not found")
+            
+            # 4. Search for options on ESZ6
+            logger.info("🔍 Searching for options contracts on ESZ6...")
+            
+            # Note: Options on futures typically use the underlying futures contract
+            # For ES futures, options would be on the same contract structure
+            option_search_patterns = [
+                # Try different option contract patterns
+                {"secType": "FOP", "exchange": "CME", "symbol": "ES", "lastTradeDateOrContractMonth": "202612"},
+                {"secType": "OPT", "exchange": "CME", "symbol": "ESZ6"},
+                {"secType": "OPT", "exchange": "GLOBEX", "symbol": "ES"}
+            ]
+            
+            options_found = False
+            
+            for i, pattern in enumerate(option_search_patterns):
+                try:
+                    logger.info(f"  Pattern {i+1}: Searching for {pattern['secType']} options...")
+                    
+                    # Create option search contract
+                    option_search = Contract()
+                    option_search.symbol = pattern["symbol"]
+                    option_search.secType = pattern["secType"]
+                    option_search.exchange = pattern["exchange"]
+                    option_search.currency = "USD"
+                    if "lastTradeDateOrContractMonth" in pattern:
+                        option_search.lastTradeDateOrContractMonth = pattern["lastTradeDateOrContractMonth"]
+                    
+                    # Get contract details for options
+                    option_details = self.ib_broker.get_contract_details(option_search, timeout=timeout//3)
+                    
+                    if option_details and len(option_details) > 0:
+                        logger.info(f"    ✅ Found {len(option_details)} option contracts with pattern {i+1}")
+                        options_found = True
+                        
+                        # Add first few options to result (limit to avoid overwhelming output)
+                        for j, opt_detail in enumerate(option_details[:5]):  # Limit to first 5 options
+                            option_data = {
+                                'pattern': i+1,
+                                'contract_detail': opt_detail,
+                                'market_data': None
+                            }
+                            
+                            # Try to get market data for this option
+                            try:
+                                opt_contract = Contract()
+                                opt_summary = opt_detail.get('contract_summary', {})
+                                opt_contract.conId = opt_summary.get('conId')
+                                opt_contract.symbol = opt_summary.get('symbol', pattern['symbol'])
+                                opt_contract.secType = pattern['secType']
+                                opt_contract.exchange = pattern['exchange']
+                                opt_contract.currency = "USD"
+                                
+                                if opt_contract.conId:
+                                    opt_market_data = self.ib_broker.get_market_data_snapshot(
+                                        opt_contract, timeout=5
+                                    )
+                                    if opt_market_data:
+                                        option_data['market_data'] = opt_market_data
+                                        
+                            except Exception as opt_market_error:
+                                logger.debug(f"Could not get market data for option {j}: {opt_market_error}")
+                                option_data['market_data'] = {'status': 'error', 'message': str(opt_market_error)}
+                            
+                            result['options_data'].append(option_data)
+                            
+                        # Log summary of found options
+                        logger.info(f"    Added {min(len(option_details), 5)} options to result")
+                        if len(option_details) > 5:
+                            logger.info(f"    (Total {len(option_details)} options available - showing first 5)")
+                    else:
+                        logger.info(f"    🟡 No options found with pattern {i+1}")
+                        
+                except Exception as option_error:
+                    logger.debug(f"  Error searching options pattern {i+1}: {option_error}")
+                    result['error_messages'].append(f"Options search pattern {i+1}: {option_error}")
+            
+            if not options_found:
+                logger.info("🟡 No options contracts found for ESZ6")
+                result['options_data'] = []
+                result['error_messages'].append("No options found - options on ES futures may require special permissions or may not be available for this expiry")
+            
+            # 5. Summary
+            futures_status = "✅" if result['futures_data'] and result['futures_data']['status'] == 'found' else "❌"
+            options_count = len(result['options_data'])
+            options_status = "✅" if options_count > 0 else "🟡"
+            
+            logger.info(f"\n📋 Summary:")
+            logger.info(f"  {futures_status} ESZ6 Futures: {result['futures_data']['status'] if result['futures_data'] else 'not found'}")
+            logger.info(f"  {options_status} ESZ6 Options: {options_count} contracts found")
+            
+            if result['error_messages']:
+                logger.info(f"  ⚠️ Errors: {len(result['error_messages'])} issues encountered")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error retrieving ESZ6 options/futures data: {e}")
+            result['status'] = 'error'
+            result['error_messages'].append(f"General error: {str(e)}")
+            return result
+        
+        finally:
+            # Note: We don't disconnect here to allow for multiple calls
+            # The user can call disconnect_from_ib() explicitly when done
+            pass
+
 
 def main():
     """
@@ -2816,6 +3020,59 @@ def main():
                     print(f"  ⚠️ Contract not found: {result.get('message', 'No details')}")
             
             return
+        elif sys.argv[1] == 'esz6':
+            # Test get_esz6_options_futures_prices function
+            examples = ComprehensiveIBMarketDataExamples()
+            
+            print("\n=== Testing ESZ6 Options & Futures Prices ===")
+            print("Note: Requires active IB connection, futures permissions, and market data subscriptions")
+            
+            result = examples.get_esz6_options_futures_prices(timeout=30)
+            
+            if result['status'] == 'success':
+                print(f"\n✅ ESZ6 Data Retrieved Successfully")
+                
+                # Display futures data
+                if result['futures_data'] and result['futures_data']['status'] == 'found':
+                    print(f"\n📊 ESZ6 Futures:")
+                    futures_market = result['futures_data']['market_data']
+                    if futures_market and futures_market.get('last'):
+                        print(f"  Last Price: {futures_market['last']}")
+                        print(f"  Bid/Ask: {futures_market.get('bid', 'N/A')} / {futures_market.get('ask', 'N/A')}")
+                        if 'volume' in futures_market:
+                            print(f"  Volume: {futures_market['volume']}")
+                    else:
+                        print(f"  Status: Contract found but no current market data")
+                else:
+                    print(f"\n❌ ESZ6 Futures: Not found or error")
+                
+                # Display options data
+                options_count = len(result['options_data'])
+                if options_count > 0:
+                    print(f"\n📋 ESZ6 Options: Found {options_count} contracts")
+                    for i, option in enumerate(result['options_data'][:3], 1):  # Show first 3
+                        opt_detail = option['contract_detail']
+                        opt_summary = opt_detail.get('contract_summary', {})
+                        print(f"  Option {i}: {opt_summary.get('localSymbol', 'N/A')}")
+                        if option['market_data'] and isinstance(option['market_data'], dict) and option['market_data'].get('last'):
+                            print(f"    Price: {option['market_data']['last']}")
+                    if options_count > 3:
+                        print(f"  ... and {options_count - 3} more options")
+                else:
+                    print(f"\n🟡 ESZ6 Options: No options contracts found")
+                
+                # Display any errors
+                if result['error_messages']:
+                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    for error in result['error_messages'][:3]:  # Show first 3 errors
+                        print(f"  - {error}")
+                    if len(result['error_messages']) > 3:
+                        print(f"  ... and {len(result['error_messages']) - 3} more issues")
+                        
+            elif result['status'] == 'error':
+                print(f"❌ Error retrieving ESZ6 data: {result.get('error_messages', ['Unknown error'])[0]}")
+            
+            return
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
@@ -2823,6 +3080,7 @@ def main():
             print("  python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test")
             print("  python comprehensive_market_data_examples.py ticks        # Run comprehensive tick access test")
             print("  python comprehensive_market_data_examples.py conid        # Test get_by_conid function with example CONIDs")
+            print("  python comprehensive_market_data_examples.py esz6         # Test ESZ6 options & futures prices")
             print("  python comprehensive_market_data_examples.py help         # Show this help")
             return
     else:
