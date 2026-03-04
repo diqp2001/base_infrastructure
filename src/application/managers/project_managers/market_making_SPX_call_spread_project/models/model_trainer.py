@@ -415,29 +415,8 @@ class ModelTrainer:
         universe = self.config.get('universe', {})
         for entity_class, tickers_list in universe.items():
             for ticker_item in tickers_list:
-                # Handle both string format (legacy) and dictionary format (new for IndexFutureOption)
-                if isinstance(ticker_item, dict):
-                    # New format: {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "C"}
-                    # For IndexFutureOption, we need to create entity with specific parameters
-                    if entity_class.__name__ == 'IndexFutureOption':
-                        # Use the entity creation service with option parameters
-                        entity_config = {
-                            'entity_class': entity_class,
-                            'entity_symbol': ticker_item['symbol'],
-                            'strike_price': ticker_item.get('strike_price'),
-                            'expiry': ticker_item.get('expiry'),  
-                            'option_type': ticker_item.get('option_type'),
-                            'source': 'config'
-                        }
-                        entity = self.data_loader.market_data_history_service.market_data_service._create_or_get(entity_config)
-                    else:
-                        # For other entity types with dict format, use symbol field
-                        ticker = ticker_item.get('symbol', ticker_item.get('name', str(ticker_item)))
-                        entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker, entity_class)
-                else:
-                    # Legacy string format: "EW" or "SPX"
-                    ticker = ticker_item
-                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker, entity_class)
+                # Use the refactored market_data_service method to handle both dictionary and string formats
+                entity = self.data_loader.market_data_history_service.market_data_service.create_entity_from_ticker_item(ticker_item, entity_class)
                 
                 if entity:
                     entities.append(entity)
