@@ -334,7 +334,47 @@ class EntityService:
             for entity_data in entities_data:
                 try:
                     entity_symbol = entity_data.get('entity_symbol') or entity_data.get('symbol')
-                    entity = ibkr_repository._create_or_get(entity_symbol, **entity_data)
+                    
+                    # Special handling for IndexFutureOption which requires option parameters
+                    if entity_cls.__name__ == 'IndexFutureOption':
+                        if isinstance(entity_symbol, dict):
+                            # Handle dictionary format
+                            symbol = entity_symbol.get('symbol')
+                            strike_price = entity_symbol.get('strike_price')
+                            expiry = entity_symbol.get('expiry')
+                            option_type = entity_symbol.get('option_type')
+                            
+                            if not all([symbol, strike_price, expiry, option_type]):
+                                print(f"IndexFutureOption requires symbol, strike_price, expiry, and option_type. Got: {entity_symbol}")
+                                continue
+                            
+                            entity = ibkr_repository._create_or_get(
+                                symbol=symbol,
+                                strike_price=float(strike_price),
+                                expiry=expiry,
+                                option_type=option_type,
+                                **{k: v for k, v in entity_data.items() if k not in ['entity_symbol', 'symbol', 'strike_price', 'expiry', 'option_type']}
+                            )
+                        elif isinstance(entity_symbol, str):
+                            # Handle string format - get option parameters from entity_data
+                            strike_price = entity_data.get('strike_price')
+                            expiry = entity_data.get('expiry')
+                            option_type = entity_data.get('option_type')
+                            
+                            entity = ibkr_repository._create_or_get(
+                                symbol=entity_symbol,
+                                strike_price=float(strike_price) if strike_price else None,
+                                expiry=expiry,
+                                option_type=option_type,
+                                **{k: v for k, v in entity_data.items() if k not in ['entity_symbol', 'symbol', 'strike_price', 'expiry', 'option_type']}
+                            )
+                        else:
+                            print(f"Invalid entity_symbol type for IndexFutureOption: {type(entity_symbol)}")
+                            continue
+                    else:
+                        # Standard handling for other entity types
+                        entity = ibkr_repository._create_or_get(entity_symbol, **entity_data)
+                    
                     if entity:
                         results.append(entity)
                 except Exception as e:
@@ -355,7 +395,7 @@ class EntityService:
 
         Args:
             entity_cls: Entity class to create/get
-            entity_symbol: Symbol (unique identifier)
+            entity_symbol: Symbol (unique identifier) or dict for complex entities like IndexFutureOption
             entity_id: Optional entity ID
             **kwargs: Additional parameters
 
@@ -370,8 +410,45 @@ class EntityService:
                 print(f"No IBKR repository available for {entity_cls.__name__}")
                 return None
 
-            # Get entity information from IBKR API
-            entity = ibkr_repository._create_or_get(entity_symbol,**kwargs)
+            # Special handling for IndexFutureOption which requires option parameters
+            if entity_cls.__name__ == 'IndexFutureOption':
+                if isinstance(entity_symbol, dict):
+                    # Handle dictionary format: {'symbol': 'EW4', 'strike_price': 6050.0, 'expiry': '20260320', 'option_type': 'C'}
+                    symbol = entity_symbol.get('symbol')
+                    strike_price = entity_symbol.get('strike_price')
+                    expiry = entity_symbol.get('expiry')
+                    option_type = entity_symbol.get('option_type')
+                    
+                    if not all([symbol, strike_price, expiry, option_type]):
+                        print(f"IndexFutureOption requires symbol, strike_price, expiry, and option_type. Got: {entity_symbol}")
+                        return None
+                    
+                    entity = ibkr_repository._create_or_get(
+                        symbol=symbol,
+                        strike_price=float(strike_price),
+                        expiry=expiry,
+                        option_type=option_type,
+                        **kwargs
+                    )
+                elif isinstance(entity_symbol, str):
+                    # Handle string format (legacy) - try to get from kwargs
+                    strike_price = kwargs.get('strike_price')
+                    expiry = kwargs.get('expiry')
+                    option_type = kwargs.get('option_type')
+                    
+                    entity = ibkr_repository._create_or_get(
+                        symbol=entity_symbol,
+                        strike_price=float(strike_price) if strike_price else None,
+                        expiry=expiry,
+                        option_type=option_type,
+                        **{k: v for k, v in kwargs.items() if k not in ['strike_price', 'expiry', 'option_type']}
+                    )
+                else:
+                    print(f"Invalid entity_symbol type for IndexFutureOption: {type(entity_symbol)}")
+                    return None
+            else:
+                # Standard handling for other entity types
+                entity = ibkr_repository._create_or_get(entity_symbol, **kwargs)
 
             return entity
 
