@@ -223,6 +223,51 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         }
         return multiplier_map.get(underlying_symbol, '50')
     
+    def _get_underlying_future_details(self, underlying_symbol: str, option_expiry: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        Get the underlying future symbol and expiry for options.
+        
+        Args:
+            underlying_symbol: Root symbol like 'ES', 'RTY'
+            option_expiry: Option expiry in YYYYMMDD format
+            
+        Returns:
+            Tuple of (future_symbol, future_expiry) or (None, None) if not determinable
+        """
+        try:
+            # Convert option expiry to determine the corresponding future contract
+            # For December 2026 options (20261218), the underlying future is ESZ6 (December 2026)
+            
+            if option_expiry and len(option_expiry) >= 6:
+                year = int(option_expiry[:4])
+                month = int(option_expiry[4:6])
+                
+                # Map month to future contract month code
+                month_codes = {
+                    1: 'F', 2: 'G', 3: 'H', 4: 'J', 5: 'K', 6: 'M',
+                    7: 'N', 8: 'Q', 9: 'U', 10: 'V', 11: 'X', 12: 'Z'
+                }
+                
+                month_code = month_codes.get(month)
+                if month_code:
+                    # Year digit (last digit of year)
+                    year_digit = year % 10
+                    
+                    # Build future symbol: ES + month_code + year_digit (e.g., ESZ6)
+                    future_symbol = f"{underlying_symbol}{month_code}{year_digit}"
+                    
+                    # Future expiry is typically the third Friday of the month
+                    # For December 2026, that would be around 20261218
+                    future_expiry = option_expiry  # Use same expiry for now
+                    
+                    return future_symbol, future_expiry
+            
+            return None, None
+            
+        except Exception as e:
+            print(f"Error determining underlying future details: {e}")
+            return None, None
+
     def build_future_contract_from_local_symbol(self,local_symbol: str) -> Contract:
         """
         Converts IBKR local_symbol like 'ESZ6'
@@ -286,14 +331,25 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             contract.symbol = underlying_symbol
             contract.secType = "FOP"  # Future Option
             contract.exchange = self._get_option_exchange(underlying_symbol)
-            contract.currency = "USD" 
-            contract.localSymbol ='ESZ6 C6850'
+            contract.currency = "USD"
             contract.strike = strike_price
             contract.right = option_type  # 'C' or 'P'
-            contract.lastTradeDateOrContractMonth = expiry  # Use actual option expiry
             contract.tradingClass = underlying_symbol  # Set trading class to underlying
             contract.multiplier = self._get_option_multiplier(underlying_symbol)
             contract.includeExpired = True
+            
+            # Generate proper local symbol and expiry based on IBKR format
+            future_symbol, future_expiry = self._get_underlying_future_details(underlying_symbol, expiry)
+            if future_symbol and future_expiry:
+                # Format: "ESZ6 C6850" (future_symbol + space + option_type + strike)
+                contract.localSymbol = f"{future_symbol} {option_type}{int(strike_price)}"
+                # Use the underlying future's expiry, not the option expiry
+                contract.lastTradeDateOrContractMonth = future_expiry
+            else:
+                # Fallback to direct expiry if we can't determine future details
+                contract.lastTradeDateOrContractMonth = expiry
+                # Don't set localSymbol if we can't generate it properly
+                contract.localSymbol = ""
             
             return contract
         except Exception as e:
