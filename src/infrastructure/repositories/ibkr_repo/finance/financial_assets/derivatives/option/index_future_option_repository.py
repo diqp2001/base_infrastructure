@@ -162,6 +162,67 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         # Remove month/year suffix
         return ''.join(c for c in symbol if c.isalpha())[:2]
     
+    def _get_underlying_root_symbol(self, symbol: str) -> str:
+        """
+        Convert future symbol to underlying root symbol for options.
+        
+        Args:
+            symbol: Future symbol like 'ESZ6', 'EW4', or already root like 'ES'
+            
+        Returns:
+            Underlying root symbol for options (e.g., 'ES', 'RTY')
+        """
+        # Symbol mapping for common futures to their option underlying
+        symbol_map = {
+            'EW': 'RTY',     # E-mini Russell 2000 (EW future -> RTY options)
+            'ES': 'ES',      # E-mini S&P 500  
+            'NQ': 'NQ',      # E-mini NASDAQ
+            'RTY': 'RTY',    # Already correct
+            'YM': 'YM',      # E-mini Dow
+        }
+        
+        # Extract the root symbol (remove month/year codes)
+        root = self._extract_underlying_symbol(symbol)
+        
+        # Map to correct options symbol
+        return symbol_map.get(root, root)
+    
+    def _get_option_exchange(self, underlying_symbol: str) -> str:
+        """
+        Get the appropriate exchange for futures options based on underlying.
+        
+        Args:
+            underlying_symbol: Root symbol like 'ES', 'RTY'
+            
+        Returns:
+            Exchange code for the options
+        """
+        exchange_map = {
+            'ES': 'CME',     # E-mini S&P 500 options
+            'NQ': 'CME',     # E-mini NASDAQ options
+            'RTY': 'CME',    # E-mini Russell 2000 options
+            'YM': 'CBOT',    # E-mini Dow options
+        }
+        return exchange_map.get(underlying_symbol, 'CME')
+    
+    def _get_option_multiplier(self, underlying_symbol: str) -> str:
+        """
+        Get the contract multiplier for futures options.
+        
+        Args:
+            underlying_symbol: Root symbol like 'ES', 'RTY'
+            
+        Returns:
+            Multiplier as string
+        """
+        multiplier_map = {
+            'ES': '50',      # E-mini S&P 500 options
+            'NQ': '20',      # E-mini NASDAQ options  
+            'RTY': '50',     # E-mini Russell 2000 options
+            'YM': '5',       # E-mini Dow options
+        }
+        return multiplier_map.get(underlying_symbol, '50')
+    
     def build_future_contract_from_local_symbol(self,local_symbol: str) -> Contract:
         """
         Converts IBKR local_symbol like 'ESZ6'
@@ -208,7 +269,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         Fetch option contract from IBKR API.
         
         Args:
-            symbol: Option symbol (e.g., 'ES', 'NQ')
+            symbol: Future symbol (e.g., 'ESZ6', 'EW4') or underlying root (e.g., 'ES', 'RTY')
             strike_price: Strike price
             expiry: Expiry date (YYYYMMDD format)
             option_type: 'C' for call, 'P' for put
@@ -218,14 +279,20 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         """
         try:
             contract = Contract()
-            contract.symbol = symbol
-            contract.tradingClass = self._extract_underlying_symbol(symbol)
+            
+            # Convert future symbol to underlying root for options
+            underlying_symbol = self._get_underlying_root_symbol(symbol)
+            
+            contract.symbol = underlying_symbol
             contract.secType = "FOP"  # Future Option
-            contract.exchange = "CME"
+            contract.exchange = self._get_option_exchange(underlying_symbol)
+            contract.currency = "USD" 
             contract.strike = strike_price
             contract.right = option_type  # 'C' or 'P'
+            contract.lastTradeDateOrContractMonth = expiry  # Use actual option expiry
+            contract.tradingClass = underlying_symbol  # Set trading class to underlying
+            contract.multiplier = self._get_option_multiplier(underlying_symbol)
             contract.includeExpired = True
-            contract.lastTradeDateOrContractMonth = self.build_future_contract_from_local_symbol(symbol)
             
             return contract
         except Exception as e:
