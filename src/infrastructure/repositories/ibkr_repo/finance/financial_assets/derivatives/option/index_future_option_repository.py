@@ -51,7 +51,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
     def model_class(self):
         return self.mapper.model_class
 
-    def _create_or_get(self, symbol: str, strike_price: float = None, expiry: str = None, option_type: str = None) -> Optional[IndexFutureOption]:
+    def _create_or_get(self, symbol, strike_price: float = None, expiry: str = None, option_type: str = None) -> Optional[IndexFutureOption]:
         """
         Get or create an index future option by symbol and parameters using IBKR API.
         
@@ -65,6 +65,17 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             IndexFutureOption entity or None if creation/retrieval failed
         """
         try:
+            # Validate that symbol is not a dictionary (common error)
+            if isinstance(symbol, dict):
+                print(f"Error: symbol parameter cannot be a dictionary. Received: {symbol}")
+                print("This indicates the entity service is not properly extracting the symbol from configuration.")
+                return None
+            
+            # Ensure symbol is a string
+            if not isinstance(symbol, str):
+                print(f"Error: symbol must be a string, got {type(symbol)}: {symbol}")
+                return None
+            
             # 1. Check local repository first
             existing = self.local_repo.get_by_symbol(symbol)
             if existing:
