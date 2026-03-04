@@ -28,8 +28,26 @@ DEFAULT_CONFIG = {
     # Project settings
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
-    'universe' : {IndexFutureOption: ["EW"],Index: ["SPX"],IndexFuture: ["ESZ6"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
-    'target_factor':{IndexFutureOption: ["EW"],Index: ["SPX"],IndexFuture: ["ESZ6"]},#{Index: ["SPX"],IndexFuture: ["ESZ6"],Index: ["DJL"],IndexFuture: ["MYMZ6"]},
+    'universe' : {
+        IndexFutureOption: [
+            # Russell 2000 (EW) ATM options - March 2026 expiry
+            {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "C"},  # ATM Call
+            {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "P"},  # ATM Put
+            # Additional strikes for spread strategies
+            {"symbol": "EW", "strike_price": 2200.0, "expiry": "20260320", "option_type": "C"},  # OTM Call
+            {"symbol": "EW", "strike_price": 2300.0, "expiry": "20260320", "option_type": "C"},  # ITM Call
+        ],
+        Index: ["SPX"],
+        IndexFuture: ["ESZ6"]
+    },
+    'target_factor': {
+        IndexFutureOption: [
+            {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "C"},  # ATM Call
+            {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "P"},  # ATM Put
+        ],
+        Index: ["SPX"],
+        IndexFuture: ["ESZ6"]
+    },
     # SPX Configuration
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',
