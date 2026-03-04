@@ -12,6 +12,7 @@ USAGE:
     python comprehensive_market_data_examples.py          # Run all examples
     python comprehensive_market_data_examples.py test     # Run access level test pipeline only
     python comprehensive_market_data_examples.py ticks    # Run comprehensive tick access test only
+    python comprehensive_market_data_examples.py conid    # Test get_by_conid function with example CONIDs
 
 ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
@@ -2639,6 +2640,130 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         return tick_test_results
 
+    def get_by_conid(self, conid: int, get_market_data: bool = True, timeout: int = 15) -> Dict[str, Any]:
+        """
+        Get contract details and optionally market data by Contract Identifier (CONID).
+        
+        Args:
+            conid: Interactive Brokers Contract Identifier
+            get_market_data: If True, also fetch current market data snapshot
+            timeout: Timeout in seconds for requests
+            
+        Returns:
+            Dictionary containing contract details and optionally market data
+            
+        Example:
+            # Get contract details only
+            result = examples.get_by_conid(123456789, get_market_data=False)
+            
+            # Get contract details and market data
+            result = examples.get_by_conid(123456789, get_market_data=True)
+        """
+        logger.info(f"\n=== Get by CONID: {conid} ===")
+        
+        if not self.connected:
+            logger.info("Connecting to IB...")
+            self.connect_to_ib()
+            
+        if not self.connected:
+            logger.error("Failed to connect to IB. Cannot fetch data by CONID.")
+            return {
+                'status': 'error',
+                'message': 'Failed to connect to Interactive Brokers',
+                'conid': conid
+            }
+        
+        try:
+            # Create a contract with the specified CONID
+            contract = Contract()
+            contract.conId = conid
+            
+            # First, get contract details to fully populate the contract
+            logger.info(f"📋 Fetching contract details for CONID {conid}...")
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=timeout)
+            
+            result = {
+                'status': 'success',
+                'conid': conid,
+                'contract_details': contract_details,
+                'market_data': None,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            if contract_details:
+                logger.info(f"✅ Found contract details for CONID {conid}")
+                
+                # Log basic contract info
+                if len(contract_details) > 0:
+                    detail = contract_details[0]
+                    logger.info(f"  Symbol: {detail.get('symbol', 'N/A')}")
+                    logger.info(f"  Exchange: {detail.get('exchange', 'N/A')}")
+                    logger.info(f"  Currency: {detail.get('currency', 'N/A')}")
+                    logger.info(f"  Security Type: {detail.get('sec_type', 'N/A')}")
+                    
+                    # If market data is requested, fetch it using the first contract detail
+                    if get_market_data:
+                        logger.info(f"📊 Fetching market data for CONID {conid}...")
+                        
+                        try:
+                            # Create a proper contract from the details for market data request
+                            market_contract = Contract()
+                            market_contract.conId = conid
+                            market_contract.symbol = detail.get('symbol', '')
+                            market_contract.secType = detail.get('sec_type', '')
+                            market_contract.exchange = detail.get('exchange', '')
+                            market_contract.currency = detail.get('currency', 'USD')
+                            
+                            # Get market data snapshot
+                            market_data = self.ib_broker.get_market_data_snapshot(
+                                market_contract, 
+                                timeout=timeout
+                            )
+                            
+                            if market_data:
+                                result['market_data'] = market_data
+                                logger.info(f"✅ Market data retrieved for CONID {conid}")
+                                
+                                # Log key market data points
+                                if 'bid' in market_data:
+                                    logger.info(f"  Bid: {market_data.get('bid', 'N/A')}")
+                                if 'ask' in market_data:
+                                    logger.info(f"  Ask: {market_data.get('ask', 'N/A')}")
+                                if 'last' in market_data:
+                                    logger.info(f"  Last: {market_data.get('last', 'N/A')}")
+                                if 'volume' in market_data:
+                                    logger.info(f"  Volume: {market_data.get('volume', 'N/A')}")
+                            else:
+                                logger.warning(f"⚠️ No market data available for CONID {conid}")
+                                result['market_data'] = {'status': 'no_data', 'message': 'Market data not available'}
+                                
+                        except Exception as market_data_error:
+                            logger.error(f"❌ Error fetching market data for CONID {conid}: {market_data_error}")
+                            result['market_data'] = {
+                                'status': 'error', 
+                                'message': f'Market data error: {str(market_data_error)}'
+                            }
+            else:
+                logger.warning(f"⚠️ No contract details found for CONID {conid}")
+                result['status'] = 'not_found'
+                result['message'] = f'No contract found for CONID {conid}'
+                
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error fetching data for CONID {conid}: {e}")
+            return {
+                'status': 'error',
+                'message': f'Error: {str(e)}',
+                'conid': conid,
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        finally:
+            # Note: We don't disconnect here to allow for multiple calls
+            # The user can call disconnect_from_ib() explicitly when done
+            pass
+
 
 def main():
     """
@@ -2668,12 +2793,42 @@ def main():
             examples = ComprehensiveIBMarketDataExamples()
             results = examples.test_comprehensive_tick_access()
             return results
+        elif sys.argv[1] == 'conid':
+            # Test get_by_conid function with example CONIDs
+            examples = ComprehensiveIBMarketDataExamples()
+            
+            # Example CONIDs (these are real Interactive Brokers CONIDs)
+            test_conids = [
+                265598,    # AAPL (Apple Inc.)
+                756733,    # SPY (SPDR S&P 500 ETF)
+                270639     # MSFT (Microsoft Corp.)
+            ]
+            
+            print("\n=== Testing get_by_conid function ===")
+            print("Note: Requires active IB connection and market data permissions")
+            
+            for conid in test_conids:
+                print(f"\nTesting CONID: {conid}")
+                result = examples.get_by_conid(conid, get_market_data=True, timeout=10)
+                
+                if result['status'] == 'success' and result['contract_details']:
+                    detail = result['contract_details'][0]
+                    print(f"  ✅ {detail.get('symbol', 'N/A')} ({detail.get('sec_type', 'N/A')}) on {detail.get('exchange', 'N/A')}")
+                    if result.get('market_data') and 'last' in result['market_data']:
+                        print(f"     Last Price: {result['market_data']['last']}")
+                elif result['status'] == 'error':
+                    print(f"  ❌ Error: {result.get('message', 'Unknown error')}")
+                elif result['status'] == 'not_found':
+                    print(f"  ⚠️ Contract not found: {result.get('message', 'No details')}")
+            
+            return
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
             print("  python comprehensive_market_data_examples.py test         # Run access level test pipeline") 
             print("  python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test")
             print("  python comprehensive_market_data_examples.py ticks        # Run comprehensive tick access test")
+            print("  python comprehensive_market_data_examples.py conid        # Test get_by_conid function with example CONIDs")
             print("  python comprehensive_market_data_examples.py help         # Show this help")
             return
     else:
