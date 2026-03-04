@@ -287,6 +287,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             contract.secType = "FOP"  # Future Option
             contract.exchange = self._get_option_exchange(underlying_symbol)
             contract.currency = "USD" 
+            contract.localSymbol ='ESZ6 C6850'
             contract.strike = strike_price
             contract.right = option_type  # 'C' or 'P'
             contract.lastTradeDateOrContractMonth = expiry  # Use actual option expiry

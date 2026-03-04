@@ -2663,15 +2663,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         if not self.connected:
             logger.info("Connecting to IB...")
-            self.connect_to_ib()
+            self.ib_broker.connect()
             
-        if not self.connected:
-            logger.error("Failed to connect to IB. Cannot fetch data by CONID.")
-            return {
-                'status': 'error',
-                'message': 'Failed to connect to Interactive Brokers',
-                'conid': conid
-            }
+        
         
         try:
             # Create a contract with the specified CONID

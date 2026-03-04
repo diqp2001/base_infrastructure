@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # results_market_access = ibkr_service.test_comprehensive_market_access()
     # results = ibkr_service.test_comprehensive_tick_access()
     # print("")
-    #ibkr_service.run_all_examples()
+    #ibkr_service.get_by_conid(745214300)
     MarketMakingSPXCallSpreadProjectManager().run()
 
 
