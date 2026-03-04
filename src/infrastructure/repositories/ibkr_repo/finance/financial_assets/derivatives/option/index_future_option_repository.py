@@ -157,7 +157,10 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
     def delete(self, entity_id: int) -> bool:
         """Delete index future option entity (delegates to local repository)."""
         return self.local_repo.delete(entity_id)
-
+    def _extract_underlying_symbol(self, symbol: str) -> str:
+        """Extract underlying symbol from future symbol (e.g., 'ESZ25' -> 'ES')."""
+        # Remove month/year suffix
+        return ''.join(c for c in symbol if c.isalpha())[:2]
     def _fetch_option_contract(self, symbol: str, strike_price: float, expiry: str, option_type: str) -> Optional[Contract]:
         """
         Fetch option contract from IBKR API.
@@ -174,6 +177,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         try:
             contract = Contract()
             contract.symbol = symbol
+            contract.tradingClass = self._extract_underlying_symbol(symbol)
             contract.secType = "FOP"  # Future Option
             contract.exchange = "CME"
             contract.currency = "USD"
