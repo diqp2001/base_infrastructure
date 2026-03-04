@@ -414,9 +414,35 @@ class ModelTrainer:
         entities = []
         universe = self.config.get('universe', {})
         for entity_class, tickers_list in universe.items():
-                for ticker in tickers_list:
-                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker,entity_class)
+            for ticker_item in tickers_list:
+                # Handle both string format (legacy) and dictionary format (new for IndexFutureOption)
+                if isinstance(ticker_item, dict):
+                    # New format: {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "C"}
+                    # For IndexFutureOption, we need to create entity with specific parameters
+                    if entity_class.__name__ == 'IndexFutureOption':
+                        # Use the entity creation service with option parameters
+                        entity_config = {
+                            'entity_class': entity_class,
+                            'entity_symbol': ticker_item['symbol'],
+                            'strike_price': ticker_item.get('strike_price'),
+                            'expiry': ticker_item.get('expiry'),  
+                            'option_type': ticker_item.get('option_type'),
+                            'source': 'config'
+                        }
+                        entity = self.data_loader.market_data_history_service.market_data_service._create_or_get(entity_config)
+                    else:
+                        # For other entity types with dict format, use symbol field
+                        ticker = ticker_item.get('symbol', ticker_item.get('name', str(ticker_item)))
+                        entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker, entity_class)
+                else:
+                    # Legacy string format: "EW" or "SPX"
+                    ticker = ticker_item
+                    entity = self.data_loader.market_data_history_service.market_data_service._get_entity_by_ticker(ticker, entity_class)
+                
+                if entity:
                     entities.append(entity)
+                else:
+                    print(f"⚠️  Failed to create/get entity for {ticker_item} (class: {entity_class.__name__})")
         factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups,entities,date)
         
         print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
