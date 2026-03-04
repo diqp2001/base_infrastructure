@@ -70,18 +70,35 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             if existing:
                 return existing
             
-            # 2. Fetch from IBKR API
+            # 2. Handle case where option parameters are not provided
+            # This happens when called from factor creation pipelines
+            if not strike_price or not expiry or not option_type:
+                print(f"Warning: Option parameters not provided for {symbol}. Cannot create IBKR option contract without strike_price, expiry, and option_type.")
+                print(f"Available parameters: strike_price={strike_price}, expiry={expiry}, option_type={option_type}")
+                
+                # Try to find any existing option for this symbol in local repo
+                existing_options = self.local_repo.get_by_index_symbol(self._resolve_underlying_index(symbol))
+                if existing_options:
+                    print(f"Found {len(existing_options)} existing options for underlying {self._resolve_underlying_index(symbol)}")
+                    # Return the first available option as fallback
+                    return existing_options[0]
+                
+                # If no existing options, we cannot proceed without parameters
+                print(f"No existing options found for {symbol} and insufficient parameters to create new option")
+                return None
+            
+            # 3. Fetch from IBKR API with full parameters
             contract = self._fetch_option_contract(symbol, strike_price, expiry, option_type)
             if not contract:
                 return None
                 
-            # 3. Get contract details from IBKR
+            # 4. Get contract details from IBKR
             contract_details_list = self._fetch_contract_details(contract)
             if not contract_details_list:
                 return None
             contract_detail = self.get_contract_by_local_symbol(contract_details_list, symbol)
             
-            # 4. Apply IBKR-specific rules and convert to domain entity
+            # 5. Apply IBKR-specific rules and convert to domain entity
             entity = self._contract_to_domain(contract, contract_detail)
             if not entity:
                 return None
