@@ -160,12 +160,10 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             return existing
         
         try:
-            # Get next available ID
-            next_id = self._get_next_available_id()
-            
-            # Create new factor value entity
+            # Create new factor value entity without manual ID assignment
+            # Let the database auto-increment handle ID generation
             factor_value = FactorValue(
-                id=next_id,
+                id=None,  # Let database auto-increment handle ID generation
                 factor_id=factor_id,
                 entity_id=entity_id,
                 date=date,
