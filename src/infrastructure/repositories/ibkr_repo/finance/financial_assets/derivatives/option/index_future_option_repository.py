@@ -161,6 +161,48 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         """Extract underlying symbol from future symbol (e.g., 'ESZ25' -> 'ES')."""
         # Remove month/year suffix
         return ''.join(c for c in symbol if c.isalpha())[:2]
+    
+    def build_future_contract_from_local_symbol(self,local_symbol: str) -> Contract:
+        """
+        Converts IBKR local_symbol like 'ESZ6'
+        into a properly formatted IBKR FUT Contract.
+        """
+        MONTH_CODES = {
+        "F": "01",  # January
+        "G": "02",  # February
+        "H": "03",  # March
+        "J": "04",  # April
+        "K": "05",  # May
+        "M": "06",  # June
+        "N": "07",  # July
+        "Q": "08",  # August
+        "U": "09",  # September
+        "V": "10",  # October
+        "X": "11",  # November
+        "Z": "12",  # December
+    }
+        # Extract parts
+        root_symbol = local_symbol[:-2]
+        month_code = local_symbol[-2]
+        year_digit = local_symbol[-1]
+
+        if month_code not in MONTH_CODES:
+            raise ValueError(f"Invalid month code: {month_code}")
+
+        # Robust year handling (works across decades)
+        current_year = datetime.utcnow().year
+        current_decade = (current_year // 10) * 10
+        year = current_decade + int(year_digit)
+
+        # If decoded year is in the past, assume next decade
+        if year < current_year - 1:
+            year += 10
+
+        expiry = f"{year}{MONTH_CODES[month_code]}"
+
+        
+
+        return expiry
     def _fetch_option_contract(self, symbol: str, strike_price: float, expiry: str, option_type: str) -> Optional[Contract]:
         """
         Fetch option contract from IBKR API.
@@ -180,11 +222,10 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             contract.tradingClass = self._extract_underlying_symbol(symbol)
             contract.secType = "FOP"  # Future Option
             contract.exchange = "CME"
-            contract.currency = "USD"
             contract.strike = strike_price
-            contract.lastTradeDateOrContractMonth = expiry
             contract.right = option_type  # 'C' or 'P'
             contract.includeExpired = True
+            contract.lastTradeDateOrContractMonth = self.build_future_contract_from_local_symbol(symbol)
             
             return contract
         except Exception as e:
