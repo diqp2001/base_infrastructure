@@ -14,21 +14,31 @@ class IndexFutureOptionFactor(OptionFactor):
         name: str,
         group: str,
         subgroup: Optional[str] = None,
+        frequency: Optional[str] = None,
         data_type: Optional[str] = None,
         source: Optional[str] = None,
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        strike_price: Optional[float] = None,
+        multiplier: Optional[int] = None,
+        index_symbol: Optional[str] = None,
 
     ):
         super().__init__(
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,
             factor_id=factor_id,
         )
+        
+        # Index future option specific attributes
+        self.strike_price = strike_price
+        self.multiplier = multiplier
+        self.index_symbol = index_symbol
 
     def calculate_index_future_option_value(
         self,
