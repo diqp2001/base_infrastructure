@@ -13,14 +13,8 @@ class OptionRhoFactor(OptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Rho",
-            group="Option Greek",
-            subgroup="Rho",
-            data_type="float",
-            source="model",
-            definition="Sensitivity of option value to interest rate changes.",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
 
     def calculate_rho(

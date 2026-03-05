@@ -5,7 +5,6 @@ from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
 from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
-from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 
 
 class PortfolioCompanyShareOptionMapper:
@@ -26,7 +25,7 @@ class PortfolioCompanyShareOptionMapper:
         )
 
         # Convert string to OptionType enum
-        option_type = OptionType.CALL if model.option_type.upper() == 'CALL' else OptionType.PUT
+        option_type = model.option_type
 
         return PortfolioCompanyShareOptionModel(
             id=model.id,

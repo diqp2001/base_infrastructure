@@ -12,13 +12,7 @@ class OptionThetaFactor(OptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Theta",
-            group="Option Greek",
-            subgroup="Theta",
-            data_type="float",
-            source="model",
-            definition="Sensitivity of option value to time value",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
     

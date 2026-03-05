@@ -33,11 +33,11 @@ class IndexFutureOptionMapper:
             return None
 
         # Create the domain entity 
-        domain_entity = self.entity_class(
+        domain_entity = DomainIndexFutureOption(
             id=orm_obj.id,
             name=orm_obj.name if hasattr(orm_obj, 'name') else None,
             symbol=orm_obj.symbol,
-            option_type=orm_obj.option_type.value if hasattr(orm_obj, 'option_type') and orm_obj.option_type else None,
+            option_type=orm_obj.option_type if hasattr(orm_obj, 'option_type') else None,
             strike_price=float(orm_obj.strike_price) if orm_obj.strike_price is not None else None,
             multiplier=float(orm_obj.multiplier) if orm_obj.multiplier is not None else 1.0,
             index_symbol=orm_obj.index_symbol,
@@ -52,7 +52,7 @@ class IndexFutureOptionMapper:
     def to_orm(self,domain_obj: DomainIndexFutureOption) -> ORMIndexFutureOption:
         """Convert domain IndexFutureOption entity to ORM model."""
         
-        orm_obj = self.model_class
+        orm_obj = ORMIndexFutureOption()
 
         # Basic identification
         orm_obj.symbol = domain_obj.symbol
@@ -61,11 +61,9 @@ class IndexFutureOptionMapper:
         # Option-specific fields
         if hasattr(domain_obj, 'option_type') and domain_obj.option_type:
             # Convert string to enum if needed
-            from src.infrastructure.models.finance.financial_assets.derivative.options import OptionType
             if isinstance(domain_obj.option_type, str):
-                orm_obj.option_type = OptionType(domain_obj.option_type.lower())
-            else:
                 orm_obj.option_type = domain_obj.option_type
+            
         
         # Index future option specific fields
         orm_obj.strike_price = Decimal(str(domain_obj.strike_price)) if domain_obj.strike_price is not None else None

@@ -14,14 +14,8 @@ class IndexFutureOptionPriceFactor(IndexFutureOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Index Future Option Price",
-            group="Index Future Option Factor",
-            subgroup="Price",
-            data_type="float",
-            source="model",
-            definition="Theoretical index future option price calculated using Black-Scholes model.",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
 
     def calculate_price(

@@ -6,8 +6,6 @@ Includes IndexFutureOption class that inherits from Option.
 from typing import Optional
 from datetime import date
 from decimal import Decimal
-
-from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 from .option import Option
 
 
@@ -25,7 +23,7 @@ class IndexFutureOption(Option):
             currency_id: Optional[int] = None,
             underlying_asset_id: Optional[int] = None,
             exchange_id: Optional[int] = None,
-            option_type: Optional[OptionType] = None,
+            option_type: Optional[str] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
             strike_price: Optional[Decimal] = None,

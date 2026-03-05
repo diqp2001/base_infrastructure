@@ -14,14 +14,8 @@ class OptionGammaFactor(OptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Option Gamma",
-            group="Option Greek",
-            subgroup="Gamma",
-            data_type="float",
-            source="model",
-            definition="Rate of change of Delta with respect to underlying price.",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
     def calculate_gamma(
             self,

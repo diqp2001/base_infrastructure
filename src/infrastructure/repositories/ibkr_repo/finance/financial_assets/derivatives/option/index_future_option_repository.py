@@ -399,7 +399,12 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             # Apply IBKR-specific business rules and create domain entity
             underlying_index = self._resolve_underlying_index(contract.symbol)
             multiplier = contract_details.get('multiplier', '50')  # Default to 50 for ES options
-            
+            # Determine option type
+            option_type = None
+            if contract.right == "C":
+                option_type = "CALL"
+            elif contract.right == "P":
+                option_type = "PUT"
             # Get or create currency and exchange dependencies
             currency = self._get_or_create_currency(contract_details.get("currency", "USD"), f"{contract_details.get('currency', 'USD')} Currency")
             exchange = self._get_or_create_exchange(contract_details.get("exchange", "CME"))
@@ -415,6 +420,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
                 strike_price=Decimal(str(contract.strike)),
                 multiplier=Decimal(str(multiplier)),
                 index_symbol=underlying_index,
+                option_type=option_type,
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")

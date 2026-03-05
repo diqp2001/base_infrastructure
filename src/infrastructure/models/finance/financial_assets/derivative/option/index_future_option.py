@@ -3,7 +3,7 @@ ORM model for Index Future Options - separate from src.domain entity to avoid me
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
-from src.infrastructure.models.finance.financial_assets.derivative.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from sqlalchemy.orm import relationship
 
 class IndexFutureOptionModel(OptionsModel):

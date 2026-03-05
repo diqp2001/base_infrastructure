@@ -2,7 +2,6 @@ from datetime import date
 from typing import Optional
 
 from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
-from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 
 
 class CompanyShareOption(Option):
@@ -17,7 +16,7 @@ class CompanyShareOption(Option):
             symbol: Optional[str],
             currency_id: Optional[int] = None,
             underlying_asset_id: Optional[int] = None,
-            option_type: Optional[OptionType] = None,
+            option_type: Optional[str] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
             

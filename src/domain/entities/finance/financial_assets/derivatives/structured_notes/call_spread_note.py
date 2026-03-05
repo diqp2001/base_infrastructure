@@ -1,10 +1,9 @@
 from decimal import Decimal
 from datetime import date
 
-from domain.entities.finance.financial_assets.derivatives.derivative_leg import DerivativeLeg
-from domain.entities.finance.financial_assets.derivatives.option.option import Option
-from domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
-from domain.entities.finance.financial_assets.financial_asset import FinancialAsset
+from src.domain.entities.finance.financial_assets.derivatives.derivative_leg import DerivativeLeg
+from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
+from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 from .structured_note import StructuredNote
 
@@ -23,8 +22,7 @@ class CallSpreadNote(StructuredNote):
         start_date: date,
         end_date: date,
     ):
-        assert long_call.option_type == OptionType.CALL
-        assert short_call.option_type == OptionType.CALL
+        
 
         legs = [
             DerivativeLeg(long_call, Decimal("1")),

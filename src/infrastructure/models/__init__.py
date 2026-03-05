@@ -51,7 +51,7 @@ from src.infrastructure.models.finance.financial_assets.etf_share import ETFShar
 
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel
-from src.infrastructure.models.finance.financial_assets.derivative.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel

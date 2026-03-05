@@ -8,8 +8,6 @@ from datetime import date
 from decimal import Decimal
 from dataclasses import dataclass
 from enum import Enum
-
-from src.domain.entities.finance.financial_assets.derivatives.option.option_type import OptionType
 from ..derivative import Derivative
 
 
@@ -26,7 +24,7 @@ class Option(Derivative):
             symbol: Optional[str],
             currency_id: Optional[int] = None,
             underlying_asset_id: Optional[int] = None,
-            option_type: Optional[OptionType] = None,
+            option_type: Optional[str] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
             

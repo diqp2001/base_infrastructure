@@ -8,9 +8,7 @@ from src.infrastructure.models import ModelBase as Base
 import enum
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
-class OptionType(enum.Enum):
-    CALL = "call"
-    PUT = "put"
+
 
 
 class OptionsModel(DerivativeModel):
@@ -22,7 +20,7 @@ class OptionsModel(DerivativeModel):
 
     id = Column(Integer, ForeignKey("derivatives.id"), primary_key=True)
     
-    option_type = Column(SQLEnum(OptionType), nullable=False)
+    option_type = Column(String(50), nullable=True)
     
     __mapper_args__ = {
     "polymorphic_identity": "option",

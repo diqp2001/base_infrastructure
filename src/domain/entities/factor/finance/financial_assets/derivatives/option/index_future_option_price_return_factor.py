@@ -13,14 +13,8 @@ class IndexFutureOptionPriceReturnFactor(IndexFutureOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Index Future Option Price Return",
-            group="Index Future Option Factor",
-            subgroup="Price Return",
-            data_type="float",
-            source="calculated",
-            definition="Price return of index future option calculated as percentage change in option value.",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
 
     def calculate_price_return(

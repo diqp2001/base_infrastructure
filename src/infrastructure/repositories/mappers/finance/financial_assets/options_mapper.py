@@ -8,7 +8,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.finance.financial_assets.derivatives.option.option import Option as DomainOptions
-from src.infrastructure.models.finance.financial_assets.derivative.options import OptionsModel as ORMOptions
+from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel as ORMOptions
 
 
 class OptionsMapper:

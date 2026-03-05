@@ -13,14 +13,8 @@ class IndexFutureOptionDeltaFactor(IndexFutureOptionFactor):
         **kwargs,
     ):
         super().__init__(
-            name="Index Future Option Delta",
-            group="Index Future Option Greek",
-            subgroup="Delta",
-            data_type="float",
-            source="model",
-            definition="Rate of change of index future option value with respect to underlying index level.",
             factor_id=factor_id,
-            **kwargs,
+            **kwargs
         )
 
     def calculate_delta(
