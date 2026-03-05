@@ -25,7 +25,8 @@ class OptionsModel(DerivativeModel):
     option_type = Column(SQLEnum(OptionType), nullable=False)
     
     __mapper_args__ = {
-    "polymorphic_identity": "option",
-}
+        "polymorphic_identity": "option",
+        "inherit_condition": id == DerivativeModel.id,  # 🔥 REQUIRED for proper inheritance
+    }
     def __repr__(self):
         return f"<Options(id={self.id}, symbol={self.symbol})>"

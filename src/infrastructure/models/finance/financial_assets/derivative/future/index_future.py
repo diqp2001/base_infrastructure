@@ -23,7 +23,8 @@ class IndexFutureModel(FutureModel):
     
     
     __mapper_args__ = {
-    "polymorphic_identity": "index_future",
-}
+        "polymorphic_identity": "index_future",
+        "inherit_condition": id == FutureModel.id,  # 🔥 REQUIRED for proper inheritance
+    }
     def __repr__(self):
         return f"<Futures(id={self.id}, symbol={self.symbol}>"

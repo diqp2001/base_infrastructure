@@ -26,8 +26,9 @@ class FutureModel(DerivativeModel):
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="futures") 
     
     __mapper_args__ = {
-    "polymorphic_identity": "future",
-}
+        "polymorphic_identity": "future",
+        "inherit_condition": id == DerivativeModel.id,  # 🔥 REQUIRED for proper inheritance
+    }
 
     def __repr__(self):
         return f"<Futures(id={self.id}, symbol={self.symbol}>"

@@ -24,6 +24,7 @@ class IndexFutureOptionModel(OptionsModel):
     
     __mapper_args__ = {
         "polymorphic_identity": "index_future_option",
+        "inherit_condition": id == OptionsModel.id,  # 🔥 REQUIRED for proper inheritance
     }
 
     def __repr__(self):
