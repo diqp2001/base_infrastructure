@@ -26,14 +26,14 @@ class IndexFutureOptionMapper:
     def model_class(self):
         return ORMIndexFutureOption
     
-    @staticmethod
-    def to_domain(orm_obj: ORMIndexFutureOption) -> Optional[DomainIndexFutureOption]:
+    
+    def to_domain(self,orm_obj: ORMIndexFutureOption) -> Optional[DomainIndexFutureOption]:
         """Convert ORM IndexFutureOption model to domain IndexFutureOption entity."""
         if not orm_obj:
             return None
 
         # Create the domain entity 
-        domain_entity = DomainIndexFutureOption(
+        domain_entity = self.entity_class(
             id=orm_obj.id,
             name=orm_obj.name if hasattr(orm_obj, 'name') else None,
             symbol=orm_obj.symbol,
@@ -44,16 +44,15 @@ class IndexFutureOptionMapper:
             currency_id=orm_obj.currency_id if hasattr(orm_obj, 'currency_id') else None,
             exchange_id=orm_obj.exchange_id if hasattr(orm_obj, 'exchange_id') else None,
             underlying_asset_id=orm_obj.underlying_asset_id if hasattr(orm_obj, 'underlying_asset_id') else None,
-            expiration_date=orm_obj.expiration_date if hasattr(orm_obj, 'expiration_date') else None,
-        )
+            )
 
         return domain_entity
 
-    @staticmethod
-    def to_orm(domain_obj: DomainIndexFutureOption) -> ORMIndexFutureOption:
+    
+    def to_orm(self,domain_obj: DomainIndexFutureOption) -> ORMIndexFutureOption:
         """Convert domain IndexFutureOption entity to ORM model."""
         
-        orm_obj = ORMIndexFutureOption()
+        orm_obj = self.model_class
 
         # Basic identification
         orm_obj.symbol = domain_obj.symbol
@@ -77,8 +76,7 @@ class IndexFutureOptionMapper:
         orm_obj.currency_id = domain_obj.currency_id if hasattr(domain_obj, 'currency_id') else None
         orm_obj.exchange_id = domain_obj.exchange_id if hasattr(domain_obj, 'exchange_id') else None
         orm_obj.underlying_asset_id = domain_obj.underlying_asset_id if hasattr(domain_obj, 'underlying_asset_id') else None
-        orm_obj.expiration_date = domain_obj.expiration_date if hasattr(domain_obj, 'expiration_date') else None
-
+        
         return orm_obj
 
     @staticmethod

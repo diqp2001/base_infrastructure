@@ -31,19 +31,19 @@ DEFAULT_CONFIG = {
     'universe' : {
         IndexFutureOption: [
             # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
-            {"symbol": "ES", "strike_price": 6860.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
-            {"symbol": "ES", "strike_price": 6860.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
             # Additional strikes for spread strategies
-            {"symbol": "ES", "strike_price": 6900.0, "expiry": "20261218", "option_type": "C"},  # OTM Call
-            {"symbol": "ES", "strike_price": 6820.0, "expiry": "20261218", "option_type": "C"},  # ITM Call
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # OTM Call
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ITM Call 'future: ESZ6 option type: C strike:6850'
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]
     },
     'target_factor': {
         IndexFutureOption: [
-            {"symbol": "ES", "strike_price": 6860.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
-            {"symbol": "ES", "strike_price": 6860.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
+            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]

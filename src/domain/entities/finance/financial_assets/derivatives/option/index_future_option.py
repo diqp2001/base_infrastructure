@@ -24,6 +24,7 @@ class IndexFutureOption(Option):
             symbol: Optional[str],
             currency_id: Optional[int] = None,
             underlying_asset_id: Optional[int] = None,
+            exchange_id: Optional[int] = None,
             option_type: Optional[OptionType] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
@@ -45,3 +46,4 @@ class IndexFutureOption(Option):
         self.strike_price = strike_price
         self.multiplier = multiplier  # Contract multiplier (e.g., 100 for SPX)
         self.index_symbol = index_symbol  # Underlying index symbol (e.g., SPX, NDX)
+        self.exchange_id = exchange_id
