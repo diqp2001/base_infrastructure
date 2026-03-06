@@ -3,22 +3,27 @@ CompanyShareFactor Mapper - Mapper for CompanyShareFactor domain entities and OR
 """
 
 from typing import Optional
-from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
-from src.infrastructure.models.factor.factor import FactorModel
+from src.infrastructure.models.factor.factor import  CompanyShareFactorModel
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
+from .base_factor_mapper import BaseFactorMapper
 
 
 class CompanyShareFactorMapper(BaseFactorMapper):
     """Mapper for CompanyShareFactor domain entity and ORM model conversion."""
+    @property
+    def discriminator(self):
+        return 'company_share'
     
     def get_factor_model(self):
-        return FactorModel
+        return CompanyShareFactorModel
     
     def get_factor_entity(self):
         return CompanyShareFactor
-
+    @property
+    def model_class(self):
+        return CompanyShareFactorModel
     @staticmethod
-    def to_domain(orm_model: Optional[FactorModel]) -> Optional[CompanyShareFactor]:
+    def to_domain(orm_model: Optional[CompanyShareFactorModel]) -> Optional[CompanyShareFactor]:
         """Convert ORM model to CompanyShareFactor domain entity."""
         if not orm_model:
             return None
@@ -35,9 +40,9 @@ class CompanyShareFactorMapper(BaseFactorMapper):
         )
 
     @staticmethod
-    def to_orm(domain_entity: CompanyShareFactor) -> FactorModel:
+    def to_orm(domain_entity: CompanyShareFactor) -> CompanyShareFactorModel:
         """Convert CompanyShareFactor domain entity to ORM model."""
-        return FactorModel(
+        return CompanyShareFactorModel(
             id=domain_entity.id,
             name=domain_entity.name,
             group=domain_entity.group,

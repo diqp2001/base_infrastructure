@@ -82,6 +82,7 @@ class IndexFutureOptionPriceReturnFactorRepository(BaseFactorRepository):
                 name=primary_key,
                 group=kwargs.get('group', 'index_future_option'),
                 subgroup=kwargs.get('subgroup', 'return'),
+                frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market_data'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')

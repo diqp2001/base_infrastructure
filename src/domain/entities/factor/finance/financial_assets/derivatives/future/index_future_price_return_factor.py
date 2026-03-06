@@ -1,9 +1,7 @@
 from __future__ import annotations
 from typing import Optional
-import math
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor
-from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor
 
 
 class IndexFuturePriceReturnFactor(IndexFutureFactor):

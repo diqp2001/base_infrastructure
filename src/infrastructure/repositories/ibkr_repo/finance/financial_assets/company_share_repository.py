@@ -96,7 +96,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         
 
 
-    def _create_or_get(self, symbol: str) -> Optional[CompanyShare]:
+    def _create_or_get(self, symbol: str=None,**kwargs) -> Optional[CompanyShare]:
         """
         Get or create a company share by symbol using IBKR API.
         
@@ -108,12 +108,12 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         """
         try:
             # 1. Check local repository first
-            existing = self.local_repo.get_by_ticker(symbol)
+            existing = self.local_repo.get_by_symbol(symbol)
             if existing:
-                return existing[0] if isinstance(existing, list) else existing
+                return existing
             
             # 2. Fetch from IBKR API
-            contract = self._fetch_contract(symbol)
+            contract = self._fetch_contract(symbol,**kwargs)
             if not contract:
                 return None
                 

@@ -81,13 +81,7 @@ class IndexFactorRepository(BaseFactorRepository):
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
                 )
             
-            # # Use sequential ID generation if factor doesn't have an ID
-            # if not hasattr(domain_factor, 'id') or domain_factor.id is None:
-            #     next_id = self._get_next_available_factor_id()
-            #     domain_factor.id = next_id
             
-            # Use FactorMapper to convert domain entity to ORM model
-            # This ensures entity_type is properly set
             orm_factor = self._to_model(domain_factor)
             
             self.session.add(orm_factor)

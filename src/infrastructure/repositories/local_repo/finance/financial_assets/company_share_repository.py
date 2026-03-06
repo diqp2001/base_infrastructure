@@ -465,8 +465,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             print(f"Warning: Could not determine next available company share ID: {str(e)}")
             return 1  # Default to 1 if query fails
 
-    def _create_or_get(self, ticker: str, exchange_id: int = None, 
-                                    company_id: Optional[int] = None, 
+    def _create_or_get(self, symbol: str, exchange_id: int = None,  currency: str = 'USD',
                                     start_date=None, end_date=None,
                                     company_name: Optional[str] = None,
                                     sector: Optional[str] = None, 
@@ -496,16 +495,16 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             CompanyShareEntity: Created or existing entity
         """
         # Check if entity already exists by ticker (unique identifier)
-        existing_share = self.get_by_ticker(ticker)
-        if existing_share:
-            return existing_share[0] if isinstance(existing_share, list) else existing_share
+        existing_ = self.get_by_symbol(symbol)
+        if existing_:
+            return existing_
         
         # Resolve dependencies if not provided
         if exchange_id is None:
-            exchange_id = self._resolve_exchange_dependency(ticker, exchange_name)
+            exchange_id = self._resolve_exchange_dependency(symbol, exchange_name)
         
         if company_id is None:
-            company_id = self._resolve_company_dependency(ticker, company_name, industry_name, country_name)
+            company_id = self._resolve_company_dependency(symbol, company_name, industry_name, country_name)
         
         try:
             # Generate next available ID if not provided
@@ -514,7 +513,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             # Create new company share entity
             new_share = CompanyShareEntity(
                 id=next_id,
-                ticker=ticker,
+                ticker=symbol,
                 exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
                 company_id=company_id or 1,   # Default to 1 if resolution fails
                 start_date=start_date,
@@ -531,7 +530,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             return self.add(new_share)
             
         except Exception as e:
-            print(f"Error creating company share for {ticker}: {str(e)}")
+            print(f"Error creating company share for {symbol}: {str(e)}")
             return None
     
     def _resolve_exchange_dependency(self, ticker: str, exchange_name: Optional[str] = None) -> int:
@@ -646,7 +645,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                 exchange_id = exchange.id if exchange else 1
             
             # Use the existing _create_or_get method
-            return self._create_or_get(ticker=ticker, exchange_id=exchange_id, company_id=company_id)
+            return self._create_or_get(symbol=ticker, exchange_id=exchange_id, company_id=company_id)
             
         except Exception as e:
             logger.error(f"Error in get_or_create for company share {ticker}: {e}")

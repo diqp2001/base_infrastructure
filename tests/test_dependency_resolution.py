@@ -81,7 +81,7 @@ def test_dependency_resolution():
         company_share_repo = CompanyShareRepository(database_service.session)
         
         spx_share = company_share_repo._create_or_get(
-            ticker='SPX',
+            symbol='SPX',
             company_name='Standard & Poor\'s Corporation',
             exchange_name='CBOE',
             country_name='United States',

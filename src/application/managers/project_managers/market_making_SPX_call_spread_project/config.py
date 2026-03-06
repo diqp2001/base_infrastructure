@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
@@ -29,13 +30,12 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
+        CompanyShare: ["AAPL","IBM"],
         IndexFutureOption: [
             # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
             {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
-            # Additional strikes for spread strategies
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # OTM Call
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ITM Call 'future: ESZ6 option type: C strike:6850'
+            {"symbol": "ESZ6 P6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+              # ITM Call 'future: ESZ6 option type: C strike:6850'
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]
@@ -43,7 +43,7 @@ DEFAULT_CONFIG = {
     'target_factor': {
         IndexFutureOption: [
             {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            {"symbol": "ESZ6 P6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]
@@ -111,6 +111,7 @@ DEFAULT_CONFIG = {
         # Index return factors (daily, weekly, monthly)
         FACTOR_LIBRARY["index_library"]["return_daily"],
         FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
+        FACTOR_LIBRARY["company_share_library"]["return_daily"]
     ],
 
     
@@ -159,3 +160,54 @@ def get_trading_config() -> Dict[str, Any]:
         'commission_per_contract': DEFAULT_CONFIG['commission_per_contract'],
         'trading_hours': DEFAULT_CONFIG['trading_hours'],
     }
+
+
+#sp500
+# CompanyShare = [
+# "AAPL","ABBV","ABNB","ABT","ACGL","ACN","ADBE","ADI","ADM","ADP","ADSK",
+# "AEE","AEP","AES","AFL","AIG","AIZ","AJG","AKAM","ALB","ALGN","ALL","AMAT",
+# "AMD","AME","AMGN","AMP","AMT","AMZN","ANET","ANSS","AON","APA","APD","APH",
+# "APTV","ARE","ATO","AVB","AVGO","AVY","AXP","AZO","BA","BAC","BALL","BAX",
+# "BBWI","BBY","BDX","BEN","BF.B","BG","BIIB","BK","BKNG","BKR","BLK","BMY",
+# "BR","BRK.B","BSX","BWA","C","CAG","CAH","CARR","CAT","CB","CBOE","CBRE",
+# "CCI","CCL","CDNS","CDW","CE","CEG","CF","CFG","CHD","CHRW","CHTR","CI",
+# "CINF","CL","CLX","CMA","CMCSA","CME","CMG","CMI","CMS","CNC","CNP","COF",
+# "COO","COP","COST","CPB","CPRT","CPT","CRL","CRM","CSCO","CSGP","CSX","CTAS",
+# "CTLT","CTRA","CTSH","CTVA","CVS","CVX","D","DAL","DD","DE","DFS","DG",
+# "DGX","DHI","DHR","DIS","DLR","DLTR","DOV","DOW","DPZ","DRI","DTE","DUK",
+# "DVA","DVN","DXCM","EA","EBAY","ECL","ED","EFX","EG","EIX","EL","ELV","EMN",
+# "EMR","ENPH","EOG","EPAM","EQIX","EQR","EQT","ES","ESS","ETN","ETR","EVRG",
+# "EW","EXC","EXPD","EXPE","EXR","F","FANG","FAST","FCX","FDS","FDX","FE",
+# "FFIV","FI","FICO","FIS","FITB","FLT","FMC","FOX","FOXA","FRT","FTNT","FTV",
+# "GD","GE","GEHC","GEN","GILD","GIS","GL","GLW","GM","GNRC","GOOG","GOOGL",
+# "GPC","GPN","GRMN","GS","GWW","HAL","HAS","HBAN","HCA","HD","HES","HIG",
+# "HII","HLT","HOLX","HON","HPE","HPQ","HRL","HSIC","HST","HSY","HUM","HWM",
+# "IBM","ICE","IDXX","IEX","IFF","ILMN","INCY","INTC","INTU","INVH","IP","IPG",
+# "IQV","IR","IRM","ISRG","IT","ITW","IVZ","J","JBHT","JBL","JCI","JKHY","JNJ",
+# "JNPR","JPM","K","KDP","KEY","KEYS","KHC","KIM","KLAC","KMB","KMI","KMX",
+# "KO","KR","KVUE","L","LDOS","LEN","LH","LHX","LIN","LKQ","LLY","LMT","LNT",
+# "LOW","LRCX","LULU","LVS","LW","LYB","LYV","MA","MAA","MAR","MAS","MCD",
+# "MCHP","MCK","MCO","MDLZ","MDT","MET","META","MGM","MHK","MKC","MKTX","MLM",
+# "MMC","MMM","MNST","MO","MOS","MPC","MPWR","MRK","MRNA","MRO","MS","MSCI",
+# "MSFT","MSI","MTB","MTCH","MTD","MU","NCLH","NDAQ","NDSN","NEE","NEM","NFLX",
+# "NI","NKE","NOC","NOW","NRG","NSC","NTAP","NTRS","NUE","NVDA","NVR","NWS",
+# "NWSA","NXPI","O","ODFL","OKE","OMC","ON","ORCL","ORLY","OTIS","OXY","PANW",
+# "PARA","PAYC","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PFG","PG","PGR",
+# "PH","PHM","PKG","PLD","PM","PNC","PNR","PNW","PODD","POOL","PPG","PPL",
+# "PRU","PSA","PSX","PTC","PWR","PYPL","QCOM","QRVO","RCL","REG","REGN","RF",
+# "RHI","RJF","RL","RMD","ROK","ROL","ROP","ROST","RSG","RTX","RVTY","SBAC",
+# "SBUX","SCHW","SHW","SJM","SLB","SNA","SNPS","SO","SPG","SPGI","SRE","STE",
+# "STLD","STT","STX","STZ","SWK","SWKS","SYF","SYK","SYY","T","TAP","TDG","TDY",
+# "TECH","TEL","TER","TFC","TFX","TGT","TJX","TMO","TMUS","TPR","TRGP","TRMB",
+# "TROW","TRV","TSCO","TSLA","TSN","TT","TTWO","TXN","TXT","TYL","UAL","UBER",
+# "UDR","UHS","ULTA","UNH","UNP","UPS","URI","USB","V","VICI","VLO","VMC","VRSK",
+# "VRSN","VRTX","VTR","VTRS","VZ","WAB","WAT","WBA","WBD","WDAY","WDC","WEC",
+# "WELL","WFC","WHR","WM","WMB","WMT","WRB","WRK","WST","WTW","WY","WYNN","XEL",
+# "XOM","XRAY","XYL","YUM","ZBH","ZBRA","ZTS"
+# ]
+# #DOW
+# CompanyShare = [
+# "AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
+# "GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
+# "MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
+# ]
