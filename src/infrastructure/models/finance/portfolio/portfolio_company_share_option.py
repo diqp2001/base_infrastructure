@@ -1,24 +1,29 @@
 """
-Infrastructure model for portfolio company share options - SQLAlchemy model matching domain entity
+ORM model for PortfolioCompanyShareOptions - separate from src.domain entity to avoid metaclass conflicts.
 """
-from datetime import date
-from typing import Optional
 
-from sqlalchemy import Column, Integer, Date, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime, Text
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-
 from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 
 
-class PortfolioCompanyShareOptionModel(Base):
+class PortfolioCompanyShareOptionModel(OptionsModel):
     """
-    SQLAlchemy model for portfolio company share options.
-    Maps to domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option.PortfolioCompanyShareOption
-    
-    Contains only basic identification and date parameters as requested.
+    SQLAlchemy ORM model for Portfolio Company Share Options.
+    Completely separate from src.domain entity to avoid metaclass conflicts.
     """
     __tablename__ = 'portfolio_company_share_options'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, ForeignKey("options.id"), primary_key=True)
     
-    name = Column(String(200), nullable=False, index=True)
+    # Additional fields specific to portfolio company share options can be added here
+    # For example: strike_price, expiration_date, contract_size, etc.
+    
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option",
+    }
+    
+    def __repr__(self):
+        return f"<PortfolioCompanyShareOption(id={self.id}, symbol={self.symbol})>"

@@ -53,6 +53,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_delta_factor_repository import IndexFutureOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.options_factor_repository import OptionsFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_return_factor_repository import CompanyShareOptionPriceReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_return_factor_repository import PortfolioCompanyShareOptionPriceReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_delta_factor_repository import PortfolioCompanyShareOptionDeltaFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_factor_repository import PortfolioCompanyShareOptionPriceFactorRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.portfolio_company_share_option_repository import PortfolioCompanyShareOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
@@ -176,9 +180,13 @@ class RepositoryFactory:
                 'index_future_option_delta_factor': IndexFutureOptionDeltaFactorRepository(self.session, factory=self),
                 'option_factor': OptionsFactorRepository(self.session, factory=self),
                 'company_share_option_price_return_factor': CompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
+                'portfolio_company_share_option_price_return_factor': PortfolioCompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
+                'portfolio_company_share_option_delta_factor': PortfolioCompanyShareOptionDeltaFactorRepository(self.session, factory=self),
+                'portfolio_company_share_option_price_factor': PortfolioCompanyShareOptionPriceFactorRepository(self.session, factory=self),
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
+                'portfolio_company_share_option': PortfolioCompanyShareOptionRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
                 'bond': BondRepository(self.session, factory=self),

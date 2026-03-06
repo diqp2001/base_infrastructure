@@ -16,8 +16,8 @@ from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_c
 class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioCompanyShareOptionPort):
     """Repository for portfolio company share option entities with basic CRUD operations"""
     
-    def __init__(self, session: Session):
-        super().__init__(session)
+    def __init__(self, session: Session, factory=None):
+        super().__init__(session, factory=factory)
         self.mapper = PortfolioCompanyShareOptionMapper()
     
     @property
