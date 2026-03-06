@@ -115,8 +115,7 @@ class IndustryRepository(GeographicRepository, IndustryPort):
                 id=next_id,
                 name=name,
                 sector_id=1,  # Default sector ID
-                description=description or "",
-                key_metrics=[]  # Empty list for key metrics
+                description=description or ""
             )
             
             # Convert to ORM model and add to database

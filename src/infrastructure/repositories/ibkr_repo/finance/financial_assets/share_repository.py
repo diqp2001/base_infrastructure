@@ -165,16 +165,11 @@ class IBKRShareRepository(IBKRFinancialAssetRepository, SharePort):
             
             return Share(
                 id=None,  # Let database generate
-                ticker=contract.symbol,
+                name=contract.symbol,  # Use symbol as name
+                symbol=contract.symbol,
                 exchange_id=self._resolve_exchange_id(contract.exchange),
-                company_id=self._resolve_company_id(contract.symbol),
                 start_date=None,
-                end_date=None,
-                # IBKR-specific fields
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                ibkr_trading_class=getattr(contract, 'tradingClass', ''),
-                ibkr_primary_exchange=getattr(contract, 'primaryExchange', '')
+                end_date=None
             )
         except Exception as e:
             print(f"Error converting IBKR share contract to domain entity: {e}")
