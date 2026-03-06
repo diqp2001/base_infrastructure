@@ -16,13 +16,12 @@ class IndustryMapper:
     @staticmethod
     def to_domain(orm_obj: ORMIndustry) -> DomainIndustry:
         """Convert ORM model to domain entity."""
-        # Create domain entity with correct constructor parameters: (id, name, sector_id, description, key_metrics)
+        # Create domain entity with correct constructor parameters: (id, name, sector_id, description)
         domain_entity = DomainIndustry(
             id=orm_obj.id,
             name=orm_obj.name,
             sector_id=orm_obj.sector_id,
-            description=getattr(orm_obj, 'description', ''),
-            key_metrics=[]  # Default empty list for key metrics
+            description=getattr(orm_obj, 'description', '')
         )
         
         return domain_entity
