@@ -52,6 +52,7 @@ from src.infrastructure.models.finance.financial_assets.etf_share import ETFShar
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
@@ -104,7 +105,7 @@ def ensure_models_registered():
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'PortfolioModel','PortfolioDerivativeModel',
         'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'HoldingModel',
-        'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel'
+        'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel'
     }
     
     missing = required_models - set(registered)
@@ -132,7 +133,7 @@ __all__ = [
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
     'ShareModel', 'CompanyShareModel', 'ETFShareModel',
-    'BondModel', 'OptionsModel', 'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 
