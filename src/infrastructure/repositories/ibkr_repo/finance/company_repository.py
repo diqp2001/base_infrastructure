@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+from datetime import datetime
 from typing import Optional, List
 
 from ibapi.contract import Contract, ContractDetails
@@ -69,7 +70,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
                 return None
                 
             # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_company_domain(contract, contract_details_list)
+            entity = self._contract_to_domain(contract, contract_details_list)
             if not entity:
                 return None
                 
@@ -80,45 +81,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             print(f"Error in IBKR get_or_create for company {symbol_or_name}: {e}")
             return None
         
-    def get_or_create_factor_value(self, symbol_or_name: str, factor_id: str, time) -> Optional[Company]:
-        """
-        Get or create a company by symbol or name using IBKR API.
-        
-        Args:
-            symbol_or_name: Stock symbol or company name
-            
-        Returns:
-            Company entity or None if creation/retrieval failed
-        """
-        try:
-            # 1. Check local repository first
-            entity = self.local_repo.get_by_name(symbol_or_name)
-            
-            list_of_value = self.factory.factor_value_local_repo.get_all_dates_by_id_entity_id(factor_id,entity.id)
-            #if time selected is in list_of_value return the existing facor value
-            if existing:
-                return existing
-            # 2. Fetch company info via stock contract from IBKR API
-            contract = self._fetch_stock_contract(symbol_or_name)
-            if not contract:
-                return None
-                
-            # 3. Get contract details from IBKR
-            contract_details_list = self._fetch_contract_details(contract)
-            if not contract_details_list:
-                return None
-                
-            # 4. Apply IBKR-specific rules and convert to domain entity
-            entity = self._contract_to_company_domain(contract, contract_details_list)
-            if not entity:
-                return None
-                
-            # 5. Delegate persistence to local repository
-            return self.local_repo.add(entity)
-            
-        except Exception as e:
-            print(f"Error in IBKR get_or_create for company {symbol_or_name}: {e}")
-            return None
+    
 
 
     def get_by_name(self, name: str) -> Optional[Company]:
@@ -202,7 +165,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             print(f"Error fetching IBKR contract details: {e}")
             return None
 
-    def _contract_to_company_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Company]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[Company]:
         """
         Convert IBKR contract and details to domain entity using real API data.
         
@@ -218,28 +181,19 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             contract_details = contract_details_list[0] if contract_details_list else {}
             
             company_name = contract_details.get('long_name', f"{contract.symbol} Inc.")
-            industry_info = self._resolve_industry_info(contract_details)
+            country = self._get_or_create_country(self._get_country_for_company(symbol))
+            industry = self._get_or_create_industry(self._get_industry_for_industry(symbol))
             
-            return Company(
+            return self.entity_class(
                 id=None,  # Let database generate
                 name=company_name,
                 legal_name=company_name,
-                ticker_symbol=contract.symbol,
-                country_id=self._resolve_country_id(contract),
-                industry_id=industry_info['industry_id'],
-                sector_id=industry_info['sector_id'],
-                founded_year=None,  # Would need separate data source
-                employee_count=None,  # Would need separate data source
-                market_cap=None,  # Would need market data
-                description=f"{company_name} is a publicly traded company",
-                # IBKR-specific fields
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_primary_exchange=getattr(contract, 'primaryExchange', ''),
-                ibkr_industry=contract_details.get('industry', ''),
-                ibkr_category=contract_details.get('category', ''),
-                ibkr_time_zone=contract_details.get('time_zone_id', ''),
-                ibkr_trading_hours=contract_details.get('trading_hours', ''),
-                ibkr_liquid_hours=contract_details.get('liquid_hours', '')
+                symbol=contract.symbol,
+                country_id = country.id,
+                industry_id=industry.id,
+                start_date=datetime.now()
+               
+                
             )
         except Exception as e:
             print(f"Error converting IBKR contract to company domain entity: {e}")

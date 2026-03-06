@@ -5,6 +5,7 @@ This repository handles data acquisition and normalization from the IBKR API,
 applying IBKR-specific business rules before delegating persistence to the local repository.
 """
 
+import os
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
@@ -210,27 +211,20 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             ContractDetails object or None if not found
         """
         try:
-            # This would involve an actual IBKR API call
-            # For now, return a mock object to demonstrate the pattern
-            # In real implementation, use self.ibkr.reqContractDetails()
+            # Use the broker's get_contract_details method (like in reference implementation)
+            contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
-            contract_details = ContractDetails()
-            contract_details.contract = contract
-            # Set additional details that come from IBKR
-            contract_details.marketName = "Stock Market"
-            contract_details.minTick = 0.01  # Typical for stocks
-            contract_details.priceMagnifier = 1
-            contract_details.orderTypes = "LMT,MKT,STP,TRAIL"
-            contract_details.longName = f"{contract.symbol} Inc."
-            contract_details.industry = "Technology"
-            contract_details.category = "Common Stock"
-            
-            return contract_details
+            if contract_details and len(contract_details) > 0:
+                return contract_details
+            else:
+                print(f"No contract details received for {contract.symbol}")
+                return None
+                
         except Exception as e:
-            print(f"Error fetching IBKR contract details: {e}")
+            print(f"Error fetching IBKR index contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details: ContractDetails) -> Optional[CompanyShare]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[CompanyShare]:
         """
         Convert IBKR contract and details directly to domain entity.
         
@@ -241,22 +235,100 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         Returns:
             CompanyShare domain entity or None if conversion failed
         """
+        
         try:
-            # Apply IBKR-specific business rules and create domain entity
-            # Note: IBKR-specific metadata (contract_id, trading_class, etc.) 
-            # can be stored separately or via repository metadata if needed
-            return CompanyShare(
+            # Use the first contract details result
+            contract_details = contract_details_list[0] if contract_details_list else {}
+            
+            # Extract data from IBKR API response
+            symbol = contract.symbol
+            name = contract_details.get('long_name', f"{symbol} Index")
+            currency_iso_code =  contract_details.get('currency')
+            # Get or create USD currency for indices (most indices are USD-denominated)
+            currency = self._get_or_create_currency(iso_code = currency_iso_code)
+            exchange=self._get_or_create_exchange(contract_details.get("exchange")),
+            company=self._get_or_create_company(contract.symbol, contract_details),
+            
+            return self.entity_class(
                 id=None,  # Let database generate
-                symbol=contract.symbol,
-                exchange_id=self._resolve_exchange_id(contract.exchange, contract_details),
-                company_id=self._resolve_company_id(contract.symbol, contract_details),
-                start_date=None,  # Will be set based on IBKR data
-                end_date=None     # Active securities don't have end dates
+                name=name,
+                symbol=symbol,
+                currency_id=currency.id,
+                exchange_id=exchange.id,
+                company_id=company.id,
             )
         except Exception as e:
-            print(f"Error converting IBKR contract to domain entity: {e}")
+            print(f"Error converting IBKR index contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None
-
+    def _get_or_create_company(self, name: str):
+        """
+        
+        """
+        try:
+            # Try factory's exchange repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'company_ibkr_repo'):
+                company_repo = self.factory.company_ibkr_repo
+                if company_repo:
+                    company = company_repo._create_or_get(name)
+                    if company:
+                        return company
+            
+           
+                    
+        except Exception as e:
+            print(f"Error getting or creating exchange {name}: {e}_{os.path.abspath(__file__)}")
+            # Return minimal exchange as last resort   
+    def _get_or_create_exchange(self, exchange_code: str):
+        """
+        Get or create an exchange using factory or exchange repository if available.
+        Falls back to direct exchange creation if no dependencies are provided.
+        
+        Args:
+            exchange_code: Exchange code (e.g., 'CME', 'GLOBEX', 'NYSE')
+            
+        Returns:
+            Exchange domain entity
+        """
+        try:
+            # Try factory's exchange repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'exchange_ibkr_repo'):
+                exchange_repo = self.factory.exchange_ibkr_repo
+                if exchange_repo:
+                    exchange = exchange_repo._create_or_get(exchange_code)
+                    if exchange:
+                        return exchange
+            
+           
+                    
+        except Exception as e:
+            print(f"Error getting or creating exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
+            # Return minimal exchange as last resort
+        
+    def _get_or_create_currency(self, iso_code: str, name: str = None) :
+        """
+        Get or create a currency using factory or currency repository if available.
+        Falls back to direct currency creation if no dependencies are provided.
+        
+        Args:
+            iso_code: Currency ISO code (e.g., 'USD', 'EUR')
+            name: Currency name (e.g., 'US Dollar')
+            
+        Returns:
+            Currency domain entity
+        """
+        try:
+            # Try factory's currency repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'currency_ibkr_repo'):
+                currency_repo = self.factory.currency_ibkr_repo
+                if currency_repo:
+                    currency = currency_repo._create_or_get(iso_code)
+                    if currency:
+                        return currency
+            
+            
+        except Exception as e:
+            print(f"Error getting or creating currency {iso_code}: {e}_{os.path.abspath(__file__)}")
+            # Return minimal currency as last resort
     def _apply_ibkr_symbol_rules(self, contract: Contract, original_symbol: str) -> Contract:
         """Apply IBKR-specific symbol resolution and exchange rules."""
         # Handle special cases for IBKR
