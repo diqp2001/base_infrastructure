@@ -245,7 +245,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             # Apply IBKR-specific business rules and create domain entity
             return CompanyShare(
                 id=None,  # Let database generate
-                ticker=contract.symbol,
+                symbol=contract.symbol,
                 exchange_id=self._resolve_exchange_id(contract.exchange, contract_details),
                 company_id=self._resolve_company_id(contract.symbol, contract_details),
                 start_date=None,  # Will be set based on IBKR data
