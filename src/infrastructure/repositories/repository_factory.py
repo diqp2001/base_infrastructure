@@ -52,6 +52,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_price_factor_repository import IndexFutureOptionPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_delta_factor_repository import IndexFutureOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.options_factor_repository import OptionsFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_return_factor_repository import CompanyShareOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
@@ -62,6 +63,7 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_
 from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.index_future_repository import IndexFutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IndexFutureOptionRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.company_share_option_repository import CompanyShareOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
@@ -173,8 +175,10 @@ class RepositoryFactory:
                 'index_future_option_price_factor': IndexFutureOptionPriceFactorRepository(self.session, factory=self),
                 'index_future_option_delta_factor': IndexFutureOptionDeltaFactorRepository(self.session, factory=self),
                 'option_factor': OptionsFactorRepository(self.session, factory=self),
+                'company_share_option_price_return_factor': CompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
+                'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
                 'bond': BondRepository(self.session, factory=self),

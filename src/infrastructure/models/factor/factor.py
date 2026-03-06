@@ -125,3 +125,16 @@ class PortfolioCompanyShareOptionDeltaFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "portfolio_company_share_option_delta_factor"
     }
+
+
+# Company Share Option Factor Models
+class CompanyShareOptionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_factor"
+    }
+
+
+class CompanyShareOptionPriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_price_return_factor"
+    }
