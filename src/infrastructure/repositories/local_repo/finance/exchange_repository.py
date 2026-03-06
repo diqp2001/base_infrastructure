@@ -219,10 +219,10 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
             exchange = ExchangeEntity(
                 id=next_id,
                 name=name,
-                legal_name=legal_name or "",
+                legal_name=legal_name or name,
                 country_id=country_id,
-                start_date=start_date or "",
-                end_date=end_date or ""
+                start_date=start_date or date.today(),
+                end_date=end_date
             )
 
             return self.add(exchange)
