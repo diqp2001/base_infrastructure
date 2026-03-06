@@ -126,6 +126,13 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         ).all()
         return [self._to_domain(share) for share in shares]
 
+    def get_by_symbol(self, symbol: str) -> Optional[CompanyShareEntity]:
+        """Retrieve CompanyShare record by symbol (aligns with domain entity)."""
+        share = self.session.query(CompanyShareModel).filter(
+            CompanyShareModel.symbol == symbol
+        ).first()
+        return self._to_domain(share) if share else None
+
     def get_by_company_id(self, company_id: int) -> List[CompanyShareEntity]:
         """
         Retrieve CompanyShare records by company_id.
@@ -233,7 +240,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         for data in company_dicts:
             domain_share = CompanyShareEntity(
                 id=data.get('id'),
-                ticker=data['ticker'],
+                symbol=data['ticker'],  # Map ticker to symbol for domain entity
                 exchange_id=data['exchange_id'],
                 company_id=data['company_id'],
                 start_date=data['start_date'],
@@ -340,7 +347,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             # Use OpenFIGI data if available, otherwise use defaults
             company_share = CompanyShareEntity(
                 id=None,  # Let database generate
-                ticker=ticker,
+                symbol=ticker,  # Map ticker to symbol for domain entity
                 exchange_id=openfigi_data.get('exchange_id', 1),  # Default to ID 1
                 company_id=openfigi_data.get('company_id', 1),   # Default to ID 1
                 start_date=openfigi_data.get('start_date'),
@@ -513,7 +520,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             # Create new company share entity
             new_share = CompanyShareEntity(
                 id=next_id,
-                ticker=symbol,
+                symbol=symbol,
                 exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
                 company_id=company_id or 1,   # Default to 1 if resolution fails
                 start_date=start_date,
