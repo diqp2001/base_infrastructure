@@ -127,7 +127,7 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
             name: Company name
             legal_name: Legal name (optional, will default to name if not provided)
             country_id: Country ID (optional, will use default if not provided)
-            industry_id: Industry ID (optional)
+            industry_id: Industry ID (optional, will use default if not provided)
             
         Returns:
             Domain company entity or None if creation failed
@@ -143,6 +143,12 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
                 country_local_repo = self.factory.country_local_repo
                 default_country = country_local_repo._create_or_get(name="Global", iso_code="GL")
                 country_id = default_country.id if default_country else 1
+            
+            # Get or create industry dependency if not provided
+            if not industry_id:
+                industry_local_repo = self.factory.industry_local_repo
+                default_industry = industry_local_repo._create_or_get(name="Technology", description="Technology sector")
+                industry_id = default_industry.id if default_industry else 1
             
             # Set default legal name
             if not legal_name:
@@ -198,7 +204,7 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
             name: Company name (unique identifier)
             legal_name: Legal name (defaults to name if not provided)
             country_id: Country ID (defaults to 1 - USA)
-            industry_id: Industry ID (defaults to 1 - Technology)
+            industry_id: Industry ID (defaults to 1 - Technology, will create if needed)
             start_date: Start date (defaults to current date)
             
         Returns:
@@ -210,6 +216,12 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
             return existing_companies[0] if existing_companies else None
         
         try:
+            # Ensure industry exists - create default if ID 1 doesn't exist
+            if industry_id == 1:
+                industry_local_repo = self.factory.industry_local_repo
+                default_industry = industry_local_repo._create_or_get(name="Technology", description="Technology sector")
+                industry_id = default_industry.id if default_industry else 1
+            
             # Get next available ID
             next_id = self._get_next_available_company_id()
             

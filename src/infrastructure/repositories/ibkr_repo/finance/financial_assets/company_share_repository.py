@@ -243,20 +243,15 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         """
         try:
             # Apply IBKR-specific business rules and create domain entity
+            # Note: IBKR-specific metadata (contract_id, trading_class, etc.) 
+            # can be stored separately or via repository metadata if needed
             return CompanyShare(
                 id=None,  # Let database generate
                 symbol=contract.symbol,
                 exchange_id=self._resolve_exchange_id(contract.exchange, contract_details),
                 company_id=self._resolve_company_id(contract.symbol, contract_details),
                 start_date=None,  # Will be set based on IBKR data
-                end_date=None,    # Active securities don't have end dates
-                # Additional IBKR-specific fields can be stored as metadata
-                ibkr_contract_id=getattr(contract, 'conId', None),
-                ibkr_local_symbol=getattr(contract, 'localSymbol', ''),
-                ibkr_trading_class=getattr(contract, 'tradingClass', ''),
-                ibkr_long_name=getattr(contract_details, 'longName', ''),
-                ibkr_industry=getattr(contract_details, 'industry', ''),
-                ibkr_category=getattr(contract_details, 'category', '')
+                end_date=None     # Active securities don't have end dates
             )
         except Exception as e:
             print(f"Error converting IBKR contract to domain entity: {e}")
