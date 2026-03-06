@@ -163,8 +163,12 @@ class ExchangeRepository(BaseLocalRepository, ExchangePort):
             if not legal_name:
                 legal_name = name
             
+            # Get next available ID
+            next_id = self._get_next_available_exchange_id()
+            
             # Create new exchange
             new_exchange = ExchangeEntity(
+                id=next_id,
                 name=name,
                 legal_name=legal_name,
                 country_id=country_id,

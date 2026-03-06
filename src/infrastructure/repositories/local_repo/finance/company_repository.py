@@ -148,8 +148,12 @@ class CompanyRepository(BaseLocalRepository, CompanyPort):
             if not legal_name:
                 legal_name = name
             
+            # Get next available ID
+            next_id = self._get_next_available_company_id()
+            
             # Create new company
             new_company = CompanyEntity(
+                id=next_id,
                 name=name,
                 legal_name=legal_name,
                 country_id=country_id,
