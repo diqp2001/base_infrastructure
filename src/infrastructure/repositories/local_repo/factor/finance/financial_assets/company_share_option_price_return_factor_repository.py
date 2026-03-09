@@ -53,3 +53,71 @@ class CompanyShareOptionPriceReturnFactorRepository(BaseFactorRepository):
     def _to_infra(self, entity):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
+    
+    def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
+        """
+        Get or create an company_share future price return factor with dependency resolution.
+        
+        Args:
+            primary_key: Factor name identifier
+            **kwargs: Additional parameters for factor creation
+            
+        Returns:
+            Factor entity or None if creation failed
+        """
+        try:
+            # Check existing by primary identifier (factor name)
+            existing = self.get_by_all(
+                name=primary_key,
+                group=kwargs.get('group', 'return'),
+                factor_type=kwargs.get('factor_type', 'company_share_price_return_factor')
+            )
+            if existing:
+                return self._to_entity(existing)
+            
+            domain_factor = self.get_factor_entity()(
+                name=primary_key,
+                group=kwargs.get('group', 'return'),
+                subgroup=kwargs.get('subgroup', 'daily'),
+                frequency=kwargs.get('frequency', '1d'),
+                data_type=kwargs.get('data_type', 'numeric'),
+                source=kwargs.get('source', 'calculated'),
+                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+            )
+            
+            # Use FactorMapper to convert domain entity to ORM model
+            # This ensures entity_type is properly set
+            orm_factor = self._to_model(domain_factor)
+            
+            self.session.add(orm_factor)
+            #create_or_get dependencies
+            if kwargs.get('dependencies'):
+                dependencies = kwargs.get('dependencies')
+                for dependency in dependencies.items():
+                    entity_class = dependency[1].get('class')
+                    repo = self.factory.get_local_repository(entity_class)
+                    
+                    dependency_config = dependency[1]
+                    dependency_entity = repo._create_or_get(
+                            entity_class,
+                            primary_key=dependency_config.get("name"),
+                            group=dependency_config.get("group"),
+                            subgroup=dependency_config.get("subgroup"),
+                            frequency=dependency_config.get("frequency", "1d"),
+                            data_type=dependency_config.get("data_type"),
+                            factor_type=dependency_config.get("factor_type"),
+                            source=dependency_config.get("source"),
+                            definition=dependency_config.get("definition"),)
+
+
+                    repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
+                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag = dependency_config.get("parameters").get("lag"))
+ 
+            
+            self.session.commit()
+            if orm_factor:
+                return self._to_entity(orm_factor)
+            
+        except Exception as e:
+            print(f"Error in get_or_create company_share price return factor {primary_key}: {e}")
+            return None

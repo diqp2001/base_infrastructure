@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 # Local repositories
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_factor_repository import CompanyShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
@@ -224,6 +225,7 @@ class RepositoryFactory:
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
                 'portfolio_company_share_option': PortfolioCompanyShareOptionRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
+                'company_share_factor': CompanyShareFactorRepository(self.session, factory=self),
                 'currency': CurrencyRepository(self.session, factory=self),
                 'bond': BondRepository(self.session, factory=self),
                 'index': IndexRepository(self.session, factory=self),

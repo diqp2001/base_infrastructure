@@ -1,7 +1,9 @@
 from __future__ import annotations
 from typing import Optional
 
-from .portfolio_holding_factor import PortfolioHoldingFactor
+from src.domain.entities.factor.finance.holding.portfolio_holding_factor import PortfolioHoldingFactor
+
+
 
 
 class PortfolioCompanyShareHoldingFactor(PortfolioHoldingFactor):

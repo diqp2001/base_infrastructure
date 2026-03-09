@@ -1,25 +1,23 @@
-
 from __future__ import annotations
 from typing import Optional
 
-from .holding_factor import HoldingFactor
+from src.domain.entities.factor.finance.holding.holding_factor import HoldingFactor
 
 
 class PortfolioHoldingFactor(HoldingFactor):
     """
-    Factor for holdings inside a portfolio.
-
-    Identification-only. Values like weights, returns, exposure live elsewhere.
+    Domain entity representing a factor for any asset held inside a container
+    (portfolio, book, strategy, account).
     """
 
     def __init__(
         self,
         name: str,
-        group: str = "holding",
-        subgroup: Optional[str] = "portfolio",
-        data_type: Optional[str] = "identifier",
-        source: Optional[str] = "portfolio_management",
-        definition: Optional[str] = "Holding within a portfolio",
+        group: str,
+        subgroup: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+        definition: Optional[str] = None,
         factor_id: Optional[int] = None,
     ):
         super().__init__(

@@ -8,6 +8,9 @@ for company shares using IBKR data.
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
+from src.infrastructure.repositories.mappers.factor.company_share_factor_mapper import CompanyShareFactorMapper
+from src.domain.ports.factor.company_share_factor_port import CompanyShareFactorPort
+from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -16,11 +19,10 @@ from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping impo
 # Forward references for type hints
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_share_repository import IBKRCompanyShareRepository
     from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 
 
-class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
+class IBKRCompanyShareFactorRepository(BaseIBKRFactorRepository, CompanyShareFactorPort):
     """
     IBKR Company Share Factor Repository.
     
@@ -32,23 +34,22 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
     4. Map to Company Share Factor Values
     """
 
-    def __init__(
-        self, 
-        ibkr_client, 
-        local_factor_value_repo,
-        company_share_repo: 'IBKRCompanyShareRepository'
-    ):
+    def __init__(self, ibkr_client, factory=None):
         """
-        Initialize IBKR Company Share Factor Repository.
+        Initialize IBKR Index Factor Repository.
         
         Args:
             ibkr_client: Interactive Brokers API client
-            local_factor_value_repo: Local repository for factor value persistence
-            company_share_repo: IBKR company share repository for entity resolution
+            factory: Repository factory for dependency injection (optional)
         """
-        super().__init__(ibkr_client, local_factor_value_repo)
-        self.company_share_repo = company_share_repo
-
+        super().__init__(ibkr_client)
+        self.factory = factory
+        self.mapper =  CompanyShareFactorMapper()
+        if self.factory:
+            self.local_repo = self.factory._local_repositories.get('company_share_factor')
+    @property
+    def entity_class(self):
+        return self.local_repo.get_factor_entity()
     def get_or_create_factor_value_with_ticks(
         self, 
         symbol_or_name: str, 
@@ -83,7 +84,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
                 return self.get_or_create_factor_value(symbol_or_name, factor_id, time)
             
             # 1. Get or create company share entity first
-            company_share = self.company_share_repo.get_or_create(symbol_or_name)
+            company_share = self.local_repo.get_or_create(symbol_or_name)
             if not company_share:
                 print(f"Could not find or create company share for {symbol_or_name}")
                 return None
@@ -169,7 +170,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
             print(f"Error creating factor value from tick data: {e}")
             return None
 
-    def _create_or_get(self, symbol_or_name: str, factor_id: int, time: str) -> Optional[FactorValue]:
+    def _create_or_get(self, name: str,**kwargs) -> Optional[FactorValue]:
         """
         Get or create a factor value for a company by symbol or name using IBKR API.
         
@@ -182,42 +183,21 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
             FactorValue entity or None if creation/retrieval failed
         """
         try:
-            if not self._validate_factor_value_data(factor_id, 1, time):  # Entity ID validated later
-                return None
-                
-            # 1. Get or create company share entity first
-            company_share = self.company_share_repo._create_or_get(symbol_or_name)
-            if not company_share:
-                print(f"Could not find or create company share for {symbol_or_name}")
-                return None
             
-            # 2. Check if factor value already exists for this date
-            existing = self._check_existing_factor_value(factor_id, company_share.id, time)
-            if existing:
-                return existing
             
-            # 3. Fetch company info via stock contract from IBKR API
-            contract = self._fetch_contract_for_symbol(symbol_or_name)
-            if not contract:
-                return None
-                
-            # 4. Get contract details from IBKR
-            contract_details = self._fetch_contract_details(contract)
-            if not contract_details:
-                return None
-                
-            # 5. Apply IBKR-specific rules and convert to factor value
-            factor_value = self._contract_to_factor_value(contract, contract_details, factor_id, company_share.id, time)
-            if not factor_value:
-                return None
-                
-            # 6. Delegate persistence to local repository
-            return self.local_repo.add(factor_value)
             
-        except Exception as e:
-            print(f"Error in IBKR get_or_create_factor_value for company {symbol_or_name}: {e}")
+            # Persist to local database
+            if self.local_repo:
+                created_factor = self.local_repo._create_or_get(primary_key=name, **kwargs)
+                if created_factor:
+                    return created_factor
+            
+            print(f"Failed to create index factor: {name}")
             return None
-
+                
+        except Exception as e:
+            print(f"Error in get_or_create for company_share factor {name}: {e}")
+            return None
     def get_company_share_factors_by_symbol(self, symbol: str) -> List[FactorValue]:
         """
         Get all factor values for a company share by symbol.
@@ -230,7 +210,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
         """
         try:
             # Get the company share entity
-            company_share = self.company_share_repo.get_or_create(symbol)
+            company_share = self.local_repo.get_or_create(symbol)
             if not company_share:
                 return []
             
@@ -262,7 +242,7 @@ class IBKRCompanyShareFactorRepository(IBKRFactorValueRepository):
         """
         try:
             # Get the company share entity
-            company_share = self.company_share_repo.get_or_create(symbol)
+            company_share = self.local_repo.get_or_create(symbol)
             if not company_share:
                 return []
             

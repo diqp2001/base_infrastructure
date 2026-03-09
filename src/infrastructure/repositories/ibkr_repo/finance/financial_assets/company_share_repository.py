@@ -18,10 +18,6 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financia
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
 
-# Forward reference for type hints
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
 
 
 class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort):
@@ -242,7 +238,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             
             # Extract data from IBKR API response
             symbol = contract.symbol
-            name = contract_details.get('long_name', f"{symbol} Index")
+            name = contract_details.get('long_name', f"{symbol}")
             currency_iso_code =  contract_details.get('currency')
             # Get or create USD currency for indices (most indices are USD-denominated)
             currency = self._get_or_create_currency(iso_code = currency_iso_code)
