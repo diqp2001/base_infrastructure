@@ -118,6 +118,8 @@ from src.infrastructure.repositories.ibkr_repo.finance.country_repository import
 from src.infrastructure.repositories.ibkr_repo.finance.continent_repository import IBKRContinentRepository
 from src.infrastructure.repositories.ibkr_repo.finance.exchange_repository import IBKRExchangeRepository
 from src.infrastructure.repositories.ibkr_repo.finance.company_repository import IBKRCompanyRepository
+from src.infrastructure.repositories.ibkr_repo.finance.industry_repository import IBKRIndustryRepository
+from src.infrastructure.repositories.ibkr_repo.finance.sector_repository import IBKRSectorRepository
 
 
 class RepositoryFactory:
@@ -398,6 +400,14 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'company': IBKRCompanyRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'industry': IBKRIndustryRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'sector': IBKRSectorRepository(
                     ibkr_client=client,
                     factory=self
                 )
@@ -978,3 +988,13 @@ class RepositoryFactory:
     def company_ibkr_repo(self):
         """Get company repository for dependency injection."""
         return self._ibkr_repositories.get('company')
+
+    @property
+    def industry_ibkr_repo(self):
+        """Get industry repository for dependency injection."""
+        return self._ibkr_repositories.get('industry')
+
+    @property
+    def sector_ibkr_repo(self):
+        """Get sector repository for dependency injection."""
+        return self._ibkr_repositories.get('sector')

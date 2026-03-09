@@ -181,19 +181,17 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             contract_details = contract_details_list[0] if contract_details_list else {}
             
             company_name = contract_details.get('long_name', f"{contract.symbol} Inc.")
-            country = self._get_or_create_country(self._get_country_for_company(symbol))
-            industry = self._get_or_create_industry(self._get_industry_for_industry(symbol))
+            country = self._get_or_create_country(self._get_country_for_company(contract.symbol))
+            industry = self._get_or_create_industry(self._get_industry_for_symbol(contract.symbol))
             
             return self.entity_class(
                 id=None,  # Let database generate
                 name=company_name,
                 legal_name=company_name,
-                symbol=contract.symbol,
-                country_id = country.id,
+                country_id=country.id,
                 industry_id=industry.id,
-                start_date=datetime.now()
-               
-                
+                start_date=datetime.now(),
+                end_date=None
             )
         except Exception as e:
             print(f"Error converting IBKR contract to company domain entity: {e}")
@@ -280,3 +278,118 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
                 companies.append(company)
         
         return companies
+
+    def _get_or_create_country(self, name: str) -> Optional:
+        """
+        Get or create a country using factory country repository.
+        
+        Args:
+            name: Country name (e.g., 'United States')
+            
+        Returns:
+            Country domain entity
+        """
+        try:
+            # Try factory's country repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'country_ibkr_repo'):
+                country_repo = self.factory.country_ibkr_repo
+                if country_repo:
+                    country = country_repo._create_or_get(name)
+                    if country:
+                        return country
+            
+            # Fallback: use local country repository directly
+            if self.factory and hasattr(self.factory, 'country_local_repo'):
+                country_local_repo = self.factory.country_local_repo
+                return country_local_repo.get_or_create(
+                    name=name,
+                    iso_code=self._get_iso_code_for_country(name),
+                    continent_id=1  # Default to North America
+                )
+            
+        except Exception as e:
+            print(f"Error getting or creating country {name}: {e}")
+            return None
+
+    def _get_or_create_industry(self, name: str) -> Optional:
+        """
+        Get or create an industry using factory industry repository.
+        
+        Args:
+            name: Industry name (e.g., 'Technology Hardware & Equipment')
+            
+        Returns:
+            Industry domain entity
+        """
+        try:
+            # Try factory's industry repository first (preferred approach)
+            if self.factory and hasattr(self.factory, 'industry_ibkr_repo'):
+                industry_repo = self.factory.industry_ibkr_repo
+                if industry_repo:
+                    industry = industry_repo._create_or_get(name)
+                    if industry:
+                        return industry
+            
+            # Fallback: use local industry repository directly
+            if self.factory and hasattr(self.factory, 'industry_local_repo'):
+                industry_local_repo = self.factory.industry_local_repo
+                return industry_local_repo.get_or_create(
+                    name=name,
+                    description=f"{name} industry"
+                )
+            
+        except Exception as e:
+            print(f"Error getting or creating industry {name}: {e}")
+            return None
+
+    def _get_country_for_company(self, symbol: str) -> str:
+        """Get country for a company based on its stock symbol."""
+        # Most symbols traded on US exchanges are US companies unless otherwise indicated
+        # In a real implementation, this would use IBKR contract details
+        symbol_country_map = {
+            'ASML': 'Netherlands',
+            'NESN': 'Switzerland',
+            'SAP': 'Germany',
+            'NVO': 'Denmark',
+            'TSM': 'Taiwan',
+            'BABA': 'China',
+            'TM': 'Japan',
+            'SONY': 'Japan',
+            'BP': 'United Kingdom',
+            'RDS-A': 'United Kingdom',
+        }
+        return symbol_country_map.get(symbol, 'United States')  # Default to US
+
+    def _get_industry_for_symbol(self, symbol: str) -> str:
+        """Get industry classification for a stock symbol."""
+        industry_map = {
+            'AAPL': 'Technology Hardware & Equipment',
+            'MSFT': 'Software',
+            'GOOGL': 'Interactive Media & Services',
+            'AMZN': 'Internet & Direct Marketing Retail',
+            'TSLA': 'Automobiles',
+            'NVDA': 'Semiconductors & Semiconductor Equipment',
+            'META': 'Interactive Media & Services',
+            'JPM': 'Banks',
+            'JNJ': 'Pharmaceuticals',
+            'V': 'Data Processing & Outsourced Services',
+            'IBM': 'IT Services'
+        }
+        return industry_map.get(symbol, 'Technology Hardware & Equipment')  # Default industry
+
+    def _get_iso_code_for_country(self, country_name: str) -> str:
+        """Map country name to ISO code."""
+        country_iso_map = {
+            'United States': 'US',
+            'Germany': 'DE',
+            'United Kingdom': 'GB',
+            'Japan': 'JP',
+            'Australia': 'AU',
+            'Canada': 'CA',
+            'Switzerland': 'CH',
+            'Netherlands': 'NL',
+            'Denmark': 'DK',
+            'Taiwan': 'TW',
+            'China': 'CN'
+        }
+        return country_iso_map.get(country_name, 'US')  # Default to US
