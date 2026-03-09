@@ -235,7 +235,6 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
             # Apply IBKR-specific business rules and create domain entity
             underlying_index = self._resolve_underlying_index(contract.symbol)
             contract_size = self._resolve_contract_size(contract.symbol)
-            tick_size = contract_details.get('min_tick', 0.25)
             
             # Get or create currency and exchange dependencies
             currency = self._get_or_create_currency(contract_details.get("currency") , f"{contract_details.get("currency")} Currency")

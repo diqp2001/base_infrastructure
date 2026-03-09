@@ -71,15 +71,7 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             print(f"Error retrieving index by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def exists_by_ticker(self, ticker: str) -> bool:
-        """Check if financial asset exists by ticker."""
-        try:
-            return self.session.query(self.model_class).filter(
-                self.model_class.ticker == ticker
-            ).first() is not None
-        except Exception as e:
-            print(f"Error checking existence by ticker {ticker}: {e}")
-            return False
+    
 
     def get_by_exchange(self, exchange_id: int) -> List[EntityType]:
         """Get all financial assets for a specific exchange."""

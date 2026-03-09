@@ -5,6 +5,16 @@ Mapper for converting between Factor domain entities and ORM models.
 from abc import abstractmethod
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor as CompanyShareOptionFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor import IndexFutureOptionFactor as IndexFutureOptionFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor as PortfolioCompanyShareOptionFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor as CompanyShareFactorEntity
+from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import PortfolioCompanyShareFactor as PortfolioCompanyShareFactorEntity
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
+from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
+from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
     FactorModel as Factormodel
@@ -105,11 +115,22 @@ ENTITY_FACTOR_MAPPING = {
     ],
     
     Share: [
-        ShareFactorEntity,
-        ShareMomentumFactorEntity,
-        ShareTechnicalFactorEntity,
-        ShareTargetFactorEntity,
-        ShareVolatilityFactorEntity
+        ShareFactorEntity
+    ],
+    CompanyShare: [
+        CompanyShareFactorEntity
+    ],
+    IndexFutureOption: [
+        IndexFutureOptionFactorEntity
+    ],
+    CompanyShareOption: [
+        CompanyShareOptionFactorEntity
+    ],
+    PortfolioCompanyShareOption: [
+        PortfolioCompanyShareOptionFactorEntity
+    ],
+    PortfolioCompanyShare: [
+        PortfolioCompanyShareFactorEntity
     ],
     
     Bond: [

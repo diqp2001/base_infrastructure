@@ -16,12 +16,11 @@ class ShareModel(FinancialAssetModel):
     """
     __tablename__ = 'shares'
 
-    exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
+    
     # Primary key is also foreign key to parent
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     
     
-    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="shares") 
     __mapper_args__ = {
     "polymorphic_identity": "share",
 }

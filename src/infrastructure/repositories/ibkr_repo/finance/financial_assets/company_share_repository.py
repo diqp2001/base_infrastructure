@@ -30,7 +30,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
     """
 
-    def __init__(self, ibkr_client, factory=None, mapper: CompanyShareMapper = None):
+    def __init__(self, ibkr_client, factory=None):
         """
         Initialize IBKR Company Share Repository.
         
@@ -43,12 +43,12 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
         
         self.factory = factory
         self.local_repo = self.factory.company_share_local_repo
-        self.mapper = mapper or CompanyShareMapper()
+        self.mapper = CompanyShareMapper()
 
     @property
     def entity_class(self):
         """Return the domain entity class for CompanyShare."""
-        return CompanyShare
+        return self.mapper.entity_class
 
     # Factor-related methods (delegated to factor repository)
     
@@ -246,8 +246,8 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             currency_iso_code =  contract_details.get('currency')
             # Get or create USD currency for indices (most indices are USD-denominated)
             currency = self._get_or_create_currency(iso_code = currency_iso_code)
-            exchange=self._get_or_create_exchange(contract_details.get("exchange")),
-            company=self._get_or_create_company(contract.symbol, contract_details),
+            exchange=self._get_or_create_exchange(contract_details.get("exchange"))
+            company=self._get_or_create_company(contract.symbol)
             
             return self.entity_class(
                 id=None,  # Let database generate

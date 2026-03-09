@@ -279,7 +279,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
         
         return companies
 
-    def _get_or_create_country(self, name: str) -> Optional:
+    def _get_or_create_country(self, name: str):
         """
         Get or create a country using factory country repository.
         
@@ -311,7 +311,7 @@ class IBKRCompanyRepository(BaseIBKRRepository, CompanyPort):
             print(f"Error getting or creating country {name}: {e}")
             return None
 
-    def _get_or_create_industry(self, name: str) -> Optional:
+    def _get_or_create_industry(self, name: str):
         """
         Get or create an industry using factory industry repository.
         

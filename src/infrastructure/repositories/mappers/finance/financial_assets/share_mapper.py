@@ -20,7 +20,6 @@ class ShareMapper:
             id=orm_obj.id,
             name=orm_obj.name,
             symbol=orm_obj.symbol,
-            exchange_id=orm_obj.exchange_id,
             start_date=orm_obj.start_date,
             end_date=orm_obj.end_date
         )
@@ -33,14 +32,12 @@ class ShareMapper:
                 asset_type='share',  # Set polymorphic identity
                 name=domain_obj.name,
                 symbol=domain_obj.symbol,
-                exchange_id=domain_obj.exchange_id
             )
         
         # Map basic fields
         orm_obj.id = domain_obj.id
         orm_obj.name = domain_obj.name
         orm_obj.symbol = domain_obj.symbol
-        orm_obj.exchange_id = domain_obj.exchange_id
         orm_obj.start_date = domain_obj.start_date
         orm_obj.end_date = domain_obj.end_date
         

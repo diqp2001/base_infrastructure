@@ -93,52 +93,7 @@ class ShareRepository(FinancialAssetRepository,SharePort):
             print(f"Error retrieving share by ticker {ticker}: {e}")
             return None
     
-    def get_or_create(self, ticker: str, name: str = None, exchange_id: int = None, 
-                      company_id: int = None, **kwargs) -> Optional[ShareEntity]:
-        """
-        Get or create a share by ticker with dependency resolution.
-        
-        Args:
-            ticker: Share ticker symbol
-            name: Share name (optional, will default if not provided)
-            exchange_id: Exchange ID (optional, will use default if not provided)
-            company_id: Company ID (optional)
-            **kwargs: Additional fields for the share
-            
-        Returns:
-            Share entity or None if creation failed
-        """
-        try:
-            # First try to get existing share
-            existing = self.get_by_ticker(ticker)
-            if existing:
-                return existing
-            
-            # Create new share if it doesn't exist
-            print(f"Creating new share: {ticker}")
-            
-            # Set default values
-            if not name:
-                name = f"Share {ticker.upper()}"
-            
-            if not exchange_id:
-                # Get or create a default exchange
-                exchange_local_repo = self.factory.exchange_local_repo
-                default_exchange = exchange_local_repo.get_or_create("NASDAQ", name="NASDAQ")
-                exchange_id = default_exchange.id if default_exchange else 1
-            
-            new_share = ShareEntity(
-                id=None,
-                name=name,
-                symbol=ticker.upper(),
-                exchange_id=exchange_id
-            )
-            
-            return self.add(new_share)
-            
-        except Exception as e:
-            print(f"Error in get_or_create for share {ticker}: {e}")
-            return None
+    
     
     def add(self, share: ShareEntity) -> ShareEntity:
         """Add a new share to the database."""

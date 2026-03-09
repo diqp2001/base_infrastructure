@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 # Local repositories
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
 from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
@@ -283,6 +284,10 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'share_factor': IBKRShareFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_factor': IBKRCompanyShareFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),

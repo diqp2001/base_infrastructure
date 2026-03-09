@@ -17,20 +17,21 @@ from src.infrastructure.repositories.mappers.finance.financial_assets.company_sh
 
 
 class CompanyShareRepository(ShareRepository,CompanySharePort):
-    def __init__(self, session: Session, factory=None, mapper: CompanyShareMapper = None):
+    def __init__(self, session: Session, factory=None):
         # Properly call parent constructor with session
         super().__init__(session,factory)
-        self.mapper = mapper or CompanyShareMapper()
+        self.mapper = CompanyShareMapper()
     
     @property  
     def model_class(self):
         """Return the SQLAlchemy model class for CompanyShare."""
-        return CompanyShareModel
+        return self.mapper.model_class
     
     @property
     def entity_class(self):
         """Return the domain entity class for CompanyShare."""
-        return CompanyShareEntity
+        return self.mapper.entity_class
+
 
     def _to_entity(self, infra_share: CompanyShareModel) -> CompanyShareEntity:
         """Convert an infrastructure CompanyShare to a domain CompanyShare using mapper."""
@@ -60,13 +61,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         ).first()
         return self._to_domain(share)
 
-    def exists_by_ticker(self, ticker: str) -> bool:
-        """
-        Check if a CompanyShare exists in the database by ticker.
-        """
-        return self.session.query(CompanyShareModel).filter(
-            CompanyShareModel.ticker == ticker
-        ).first() is not None
+    
 
     def add(self, domain_share: CompanyShareEntity) -> CompanyShareEntity:
         """
@@ -74,8 +69,8 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         Checks if share already exists by ticker to prevent duplicates.
         """
         # Check if the share already exists by ticker
-        if self.exists_by_ticker(domain_share.ticker):
-            existing_share = self.get_by_ticker(domain_share.ticker)
+        if self.get_by_symbol(domain_share.symbol):
+            existing_share = self.get_by_symbol(domain_share.symbol)
             if existing_share:
                 return existing_share[0]  # Return first match
 

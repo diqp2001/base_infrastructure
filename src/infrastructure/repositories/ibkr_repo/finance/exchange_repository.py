@@ -189,7 +189,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
         ibkr_exchanges = {
             'NYSE': {
                 'name': 'New York Stock Exchange',
-                'country_id': 1,  # USA
+                'country_name': "United States",
                 'timezone': 'America/New_York',
                 'currency': 'USD',
                 'market_open': time(9, 30),
@@ -200,7 +200,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'NASDAQ': {
                 'name': 'NASDAQ Stock Market',
-                'country_id': 1,  # USA
+                'country_name': "United States",
                 'timezone': 'America/New_York',
                 'currency': 'USD',
                 'market_open': time(9, 30),
@@ -211,7 +211,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'SMART': {
                 'name': 'IBKR Smart Routing',
-                'country_id': 1,  # USA (primary)
+                'country_name': "United States",
                 'timezone': 'America/New_York',
                 'currency': 'USD',
                 'market_open': time(9, 30),
@@ -222,7 +222,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'ARCA': {
                 'name': 'NYSE Arca',
-                'country_id': 1,  # USA
+                'country_name': "United States",
                 'timezone': 'America/New_York',
                 'currency': 'USD',
                 'market_open': time(9, 30),
@@ -233,7 +233,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'LSE': {
                 'name': 'London Stock Exchange',
-                'country_id': 2,  # UK
+                'country_name': "United Kingdom",
                 'timezone': 'Europe/London',
                 'currency': 'GBP',
                 'market_open': time(8, 0),
@@ -244,7 +244,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'TSE': {
                 'name': 'Toronto Stock Exchange',
-                'country_id': 3,  # Canada
+                'country_name': "Canada",
                 'timezone': 'America/Toronto',
                 'currency': 'CAD',
                 'market_open': time(9, 30),
@@ -255,7 +255,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'CME': {
                 'name': 'Chicago Mercantile Exchange',
-                'country_id': 1,  # USA
+                
                 'country_name': "United States",
                 'timezone': 'America/Chicago',
                 'currency': 'USD',
@@ -267,7 +267,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'GLOBEX': {
                 'name': 'CME Globex',
-                'country_id': 1,  # USA
+                'country_name': "United States",
                 'timezone': 'America/Chicago',
                 'currency': 'USD',
                 'market_open': time(17, 0),
@@ -278,7 +278,7 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
             },
             'IDEALPRO': {
                 'name': 'IBKR Forex Exchange',
-                'country_id': 1,  # USA (IBKR primary)
+                'country_name': "United States",
                 'timezone': 'America/New_York',
                 'currency': 'USD',
                 'market_open': time(0, 0),   # 24/7 forex

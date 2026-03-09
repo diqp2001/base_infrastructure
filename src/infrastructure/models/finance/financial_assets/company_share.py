@@ -20,12 +20,13 @@ class CompanyShareModel(FinancialAssetModel):
     
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
-    
+    currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
     
     __mapper_args__ = {
         "polymorphic_identity": "company_share",
     }
     # Relationships
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="company_shares")
     company = relationship("src.infrastructure.models.finance.company.CompanyModel", back_populates="company_shares")
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_shares") 
     portfolio_company_share_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_company_share_holding.PortfolioCompanyShareHoldingModel", back_populates="company_shares") 
