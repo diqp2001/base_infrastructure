@@ -76,6 +76,14 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_return_factor_repository import PortfolioCompanyShareOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_delta_factor_repository import PortfolioCompanyShareOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_factor_repository import PortfolioCompanyShareOptionPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_factor_repository import PortfolioCompanyShareOptionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_delta_factor_repository import ETFSharePortfolioCompanyShareOptionDeltaFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_factor_repository import ETFSharePortfolioCompanyShareOptionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_price_factor_repository import ETFSharePortfolioCompanyShareOptionPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_price_return_factor_repository import ETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_delta_factor_repository import CompanyShareOptionDeltaFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_factor_repository import CompanyShareOptionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_factor_repository import CompanyShareOptionPriceFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.portfolio_company_share_option_repository import PortfolioCompanyShareOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
@@ -98,6 +106,18 @@ from src.infrastructure.repositories.local_repo.finance.exchange_repository impo
 # IBKR repositories
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_portfolio_company_share_option_factor_repository import IBKRPortfolioCompanyShareOptionFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_delta_factor_repository import IBKRETFSharePortfolioCompanyShareOptionDeltaFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_factor_repository import IBKRETFSharePortfolioCompanyShareOptionFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_price_factor_repository import IBKRETFSharePortfolioCompanyShareOptionPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_price_return_factor_repository import IBKRETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_delta_factor_repository import IBKRCompanyShareOptionDeltaFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_factor_repository import IBKRCompanyShareOptionFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_gamma_factor_repository import IBKRCompanyShareOptionGammaFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_price_factor_repository import IBKRCompanyShareOptionPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_price_return_factor_repository import IBKRCompanyShareOptionPriceReturnFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_rho_factor_repository import IBKRCompanyShareOptionRhoFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_vega_factor_repository import IBKRCompanyShareOptionVegaFactorRepository
 
 # IBKR Factor repositories
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_continent_factor_repository import IBKRContinentFactorRepository
@@ -207,6 +227,14 @@ class RepositoryFactory:
                 'portfolio_company_share_option_price_return_factor': PortfolioCompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
                 'portfolio_company_share_option_delta_factor': PortfolioCompanyShareOptionDeltaFactorRepository(self.session, factory=self),
                 'portfolio_company_share_option_price_factor': PortfolioCompanyShareOptionPriceFactorRepository(self.session, factory=self),
+                'portfolio_company_share_option_factor': PortfolioCompanyShareOptionFactorRepository(self.session, factory=self),
+                'etf_share_portfolio_company_share_option_delta_factor': ETFSharePortfolioCompanyShareOptionDeltaFactorRepository(self.session, factory=self),
+                'etf_share_portfolio_company_share_option_factor': ETFSharePortfolioCompanyShareOptionFactorRepository(self.session, factory=self),
+                'etf_share_portfolio_company_share_option_price_factor': ETFSharePortfolioCompanyShareOptionPriceFactorRepository(self.session, factory=self),
+                'etf_share_portfolio_company_share_option_price_return_factor': ETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
+                'company_share_option_delta_factor': CompanyShareOptionDeltaFactorRepository(self.session, factory=self),
+                'company_share_option_factor': CompanyShareOptionFactorRepository(self.session, factory=self),
+                'company_share_option_price_factor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
                 # New factor repositories
                 'portfolio_factor': PortfolioFactorRepository(self.session, factory=self),
                 'portfolio_company_share_correlation_factor': PortfolioCompanyShareCorrelationFactorRepository(self.session, factory=self),
@@ -330,6 +358,54 @@ class RepositoryFactory:
                     factory=self
                 ),
                 'company_share_price_return_factor': IBKRCompanySharePriceReturnFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'portfolio_company_share_option_factor': IBKRPortfolioCompanyShareOptionFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'etf_share_portfolio_company_share_option_delta_factor': IBKRETFSharePortfolioCompanyShareOptionDeltaFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'etf_share_portfolio_company_share_option_factor': IBKRETFSharePortfolioCompanyShareOptionFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'etf_share_portfolio_company_share_option_price_factor': IBKRETFSharePortfolioCompanyShareOptionPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'etf_share_portfolio_company_share_option_price_return_factor': IBKRETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_delta_factor': IBKRCompanyShareOptionDeltaFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_factor': IBKRCompanyShareOptionFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_gamma_factor': IBKRCompanyShareOptionGammaFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_price_factor': IBKRCompanyShareOptionPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_price_return_factor': IBKRCompanyShareOptionPriceReturnFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_rho_factor': IBKRCompanyShareOptionRhoFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_vega_factor': IBKRCompanyShareOptionVegaFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -1136,3 +1212,157 @@ class RepositoryFactory:
     def portfolio_company_share_correlation_factor_ibkr_repo(self):
         """Get portfolio_company_share_correlation_factor repository for dependency injection."""
         return self._ibkr_repositories.get('portfolio_company_share_correlation_factor')
+
+    # New Local repository properties
+    @property
+    def portfolio_company_share_option_factor_local_repo(self):
+        """Get portfolio_company_share_option_factor repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_option_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_delta_factor_local_repo(self):
+        """Get etf_share_portfolio_company_share_option_delta_factor repository for dependency injection."""
+        return self._local_repositories.get('etf_share_portfolio_company_share_option_delta_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_factor_local_repo(self):
+        """Get etf_share_portfolio_company_share_option_factor repository for dependency injection."""
+        return self._local_repositories.get('etf_share_portfolio_company_share_option_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_price_factor_local_repo(self):
+        """Get etf_share_portfolio_company_share_option_price_factor repository for dependency injection."""
+        return self._local_repositories.get('etf_share_portfolio_company_share_option_price_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_price_return_factor_local_repo(self):
+        """Get etf_share_portfolio_company_share_option_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('etf_share_portfolio_company_share_option_price_return_factor')
+
+    @property
+    def company_share_option_delta_factor_local_repo(self):
+        """Get company_share_option_delta_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_delta_factor')
+
+    @property
+    def company_share_option_factor_local_repo(self):
+        """Get company_share_option_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_factor')
+
+    @property
+    def company_share_option_price_factor_local_repo(self):
+        """Get company_share_option_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_price_factor')
+
+    # New IBKR repository properties
+    @property
+    def portfolio_company_share_option_factor_ibkr_repo(self):
+        """Get portfolio_company_share_option_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('portfolio_company_share_option_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_delta_factor_ibkr_repo(self):
+        """Get etf_share_portfolio_company_share_option_delta_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_delta_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_factor_ibkr_repo(self):
+        """Get etf_share_portfolio_company_share_option_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_price_factor_ibkr_repo(self):
+        """Get etf_share_portfolio_company_share_option_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_price_factor')
+
+    @property
+    def etf_share_portfolio_company_share_option_price_return_factor_ibkr_repo(self):
+        """Get etf_share_portfolio_company_share_option_price_return_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_price_return_factor')
+
+    @property
+    def company_share_option_delta_factor_ibkr_repo(self):
+        """Get company_share_option_delta_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_delta_factor')
+
+    @property
+    def company_share_option_factor_ibkr_repo(self):
+        """Get company_share_option_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_factor')
+
+    @property
+    def company_share_option_gamma_factor_ibkr_repo(self):
+        """Get company_share_option_gamma_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_gamma_factor')
+
+    @property
+    def company_share_option_price_factor_ibkr_repo(self):
+        """Get company_share_option_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_price_factor')
+
+    @property
+    def company_share_option_price_return_factor_ibkr_repo(self):
+        """Get company_share_option_price_return_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_price_return_factor')
+
+    @property
+    def company_share_option_rho_factor_ibkr_repo(self):
+        """Get company_share_option_rho_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_rho_factor')
+
+    @property
+    def company_share_option_vega_factor_ibkr_repo(self):
+        """Get company_share_option_vega_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_vega_factor')
+
+    # Missing properties for already registered repositories
+    @property
+    def company_share_factor_local_repo(self):
+        """Get company_share_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_factor')
+
+    @property
+    def company_share_price_return_factor_local_repo(self):
+        """Get company_share_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_price_return_factor')
+
+    @property
+    def company_share_option_local_repo(self):
+        """Get company_share_option repository for dependency injection."""
+        return self._local_repositories.get('company_share_option')
+
+    @property
+    def portfolio_company_share_option_local_repo(self):
+        """Get portfolio_company_share_option repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_option')
+
+    @property
+    def company_share_option_price_return_factor_local_repo(self):
+        """Get company_share_option_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_price_return_factor')
+
+    @property
+    def portfolio_company_share_option_price_return_factor_local_repo(self):
+        """Get portfolio_company_share_option_price_return_factor repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_option_price_return_factor')
+
+    @property
+    def portfolio_company_share_option_delta_factor_local_repo(self):
+        """Get portfolio_company_share_option_delta_factor repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_option_delta_factor')
+
+    @property
+    def portfolio_company_share_option_price_factor_local_repo(self):
+        """Get portfolio_company_share_option_price_factor repository for dependency injection."""
+        return self._local_repositories.get('portfolio_company_share_option_price_factor')
+
+    # Missing IBKR properties for already registered repositories
+    @property
+    def company_share_factor_ibkr_repo(self):
+        """Get company_share_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_factor')
+
+    @property
+    def company_share_price_return_factor_ibkr_repo(self):
+        """Get company_share_price_return_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_price_return_factor')

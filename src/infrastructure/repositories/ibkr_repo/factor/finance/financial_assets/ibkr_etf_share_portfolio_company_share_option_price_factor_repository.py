@@ -1,0 +1,239 @@
+"""
+IBKR ETF Share Portfolio Company Share Option Price Factor Repository - Retrieval and creation of ETF share portfolio company share option price factors via IBKR.
+"""
+
+from typing import Optional, List
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_portfolio_company_share_option.etf_share_portfolio_company_share_option_price_factor import EtfSharePortfolioCompanyShareOptionPriceFactor
+from src.domain.ports.factor.etf_share_portfolio_company_share_option_price_factor_port import EtfSharePortfolioCompanyShareOptionPriceFactorPort
+from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
+
+
+class IBKREtfSharePortfolioCompanyShareOptionPriceFactorRepository(BaseIBKRFactorRepository, EtfSharePortfolioCompanyShareOptionPriceFactorPort):
+    """
+    IBKR implementation for EtfSharePortfolioCompanyShareOptionPrice factor acquisition and local delegation.
+    """
+
+    def __init__(self, ibkr_client, factory=None):
+        """Initialize IBKR ETF Share Portfolio Company Share Option Price Factor Repository."""
+        super().__init__(ibkr_client, factory)
+        self.factory = factory
+        if self.factory:
+            self.local_repo = self.factory._local_repositories.get('etf_share_portfolio_company_share_option_price_factor')
+
+    @property
+    def entity_class(self):
+        return self.local_repo.get_factor_entity()
+    
+
+    def _create_or_get(self, name: str, **kwargs):
+        """
+        Get or create an ETF share portfolio company share option price factor.
+        
+        Args:
+            name: Factor name
+            group: Factor group (default: "price")
+            subgroup: Factor subgroup (default: "etf_portfolio_option")
+            
+        Returns:
+            EtfSharePortfolioCompanyShareOptionPriceFactor entity from database or newly created
+        """
+        try:
+            # Enhance with IBKR-specific pricing data
+            enhanced_kwargs = self._enhance_with_ibkr_pricing_data(name, **kwargs)
+            
+            # Persist to local database
+            if self.local_repo:
+                created_factor = self.local_repo._create_or_get(primary_key=name, **enhanced_kwargs)
+                if created_factor:
+                    return created_factor
+            
+            print(f"Failed to create ETF share portfolio company share option price factor: {name}")
+            return None
+                
+        except Exception as e:
+            print(f"Error in get_or_create for ETF share portfolio company share option price factor {name}: {e}")
+            return None
+
+    def _enhance_with_ibkr_pricing_data(self, primary_key: str, **kwargs) -> dict:
+        """
+        Enhance factor creation parameters with IBKR-specific pricing data for ETF share portfolios.
+        
+        Args:
+            primary_key: Factor name
+            **kwargs: Original parameters
+            
+        Returns:
+            Enhanced parameters dictionary with pricing metadata
+        """
+        enhanced = kwargs.copy()
+        
+        # Add IBKR-specific enhancements if available
+        if 'source' not in enhanced:
+            enhanced['source'] = 'ibkr_api'
+        
+        if 'definition' not in enhanced:
+            enhanced['definition'] = f'IBKR ETF Share Portfolio Company Share Option Price factor: {primary_key}'
+        
+        # Add pricing-specific metadata
+        if 'pricing_model' not in enhanced:
+            enhanced['pricing_model'] = 'black_scholes'
+        
+        if 'price_type' not in enhanced:
+            enhanced['price_type'] = self._infer_price_type(primary_key)
+        
+        # Add underlying ETF mapping if not provided
+        if 'underlying_etf' not in enhanced:
+            enhanced['underlying_etf'] = self._infer_underlying_etf(primary_key)
+        
+        # Add option-specific pricing attributes
+        if 'option_type' not in enhanced:
+            enhanced['option_type'] = self._infer_option_type(primary_key)
+            
+        if 'strike_price' not in enhanced:
+            enhanced['strike_price'] = self._infer_strike_price(primary_key)
+        
+        # Add ETF portfolio-specific pricing calculation metadata
+        enhanced['calculation_frequency'] = enhanced.get('calculation_frequency', 'real_time')
+        enhanced['volatility_source'] = enhanced.get('volatility_source', 'implied')
+        enhanced['interest_rate_source'] = enhanced.get('interest_rate_source', 'risk_free')
+        enhanced['etf_correlation_model'] = enhanced.get('etf_correlation_model', 'historical')
+        enhanced['dividend_yield_handling'] = enhanced.get('dividend_yield_handling', 'etf_weighted')
+        enhanced['nav_tracking_adjustment'] = enhanced.get('nav_tracking_adjustment', True)
+        enhanced['creation_redemption_impact'] = enhanced.get('creation_redemption_impact', True)
+        enhanced['liquidity_premium_adjustment'] = enhanced.get('liquidity_premium_adjustment', True)
+        enhanced['bid_ask_spread_modeling'] = enhanced.get('bid_ask_spread_modeling', 'dynamic')
+        
+        return enhanced
+
+    def _infer_price_type(self, factor_name: str) -> str:
+        """
+        Infer price type from factor name.
+        
+        Args:
+            factor_name: Factor name to analyze
+            
+        Returns:
+            Price type (bid, ask, mid, theoretical, etc.)
+        """
+        factor_upper = factor_name.upper()
+        
+        if 'BID' in factor_upper:
+            return 'bid'
+        elif 'ASK' in factor_upper:
+            return 'ask'
+        elif 'MID' in factor_upper:
+            return 'mid'
+        elif 'THEO' in factor_upper or 'THEORETICAL' in factor_upper:
+            return 'theoretical'
+        elif 'MARK' in factor_upper:
+            return 'mark'
+        elif 'LAST' in factor_upper:
+            return 'last'
+        else:
+            return 'mid'  # Default to mid price
+
+    def _infer_underlying_etf(self, factor_name: str) -> Optional[str]:
+        """
+        Infer underlying ETF symbol from factor name.
+        
+        Args:
+            factor_name: Factor name to analyze
+            
+        Returns:
+            ETF symbol or None if cannot be inferred
+        """
+        factor_upper = factor_name.upper()
+        
+        # Common ETF patterns
+        if 'SPY' in factor_upper:
+            return 'SPY'
+        elif 'QQQ' in factor_upper:
+            return 'QQQ'
+        elif 'IWM' in factor_upper:
+            return 'IWM'
+        elif 'XLF' in factor_upper:
+            return 'XLF'
+        elif 'XLE' in factor_upper:
+            return 'XLE'
+        elif 'XLK' in factor_upper:
+            return 'XLK'
+        elif 'XLV' in factor_upper:
+            return 'XLV'
+        elif 'REIT' in factor_upper:
+            return 'VNQ'
+        elif 'BOND' in factor_upper:
+            return 'BND'
+        elif 'GOLD' in factor_upper:
+            return 'GLD'
+        elif 'VIX' in factor_upper:
+            return 'VXX'
+        else:
+            return 'SPY'  # Default to SPY
+
+    def _infer_option_type(self, factor_name: str) -> str:
+        """
+        Infer option type (call/put) from factor name.
+        
+        Args:
+            factor_name: Factor name to analyze
+            
+        Returns:
+            Option type ('call' or 'put')
+        """
+        factor_upper = factor_name.upper()
+        
+        if 'PUT' in factor_upper or 'P' in factor_upper.split('_')[-1:]:
+            return 'put'
+        elif 'CALL' in factor_upper or 'C' in factor_upper.split('_')[-1:]:
+            return 'call'
+        else:
+            return 'call'  # Default to call option
+
+    def _infer_strike_price(self, factor_name: str) -> Optional[float]:
+        """
+        Infer strike price from factor name if present.
+        
+        Args:
+            factor_name: Factor name to analyze
+            
+        Returns:
+            Strike price as float or None if cannot be inferred
+        """
+        import re
+        
+        # Look for numeric patterns that might be strike prices
+        price_patterns = re.findall(r'(\d+\.?\d*)', factor_name)
+        
+        if price_patterns:
+            try:
+                # Return the first numeric value found as potential strike
+                return float(price_patterns[0])
+            except ValueError:
+                pass
+        
+        return None
+
+    # Port interface implementation - delegated to local repository
+    def get_by_id(self, entity_id: int) -> Optional[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.get_by_id(entity_id) if self.local_repo else None
+
+    def get_by_name(self, name: str) -> Optional[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.get_by_name(name) if self.local_repo else None
+
+    def get_by_underlying_symbol(self, underlying_symbol: str) -> List[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.get_by_underlying_symbol(underlying_symbol) if self.local_repo else []
+
+    def get_by_date_range(self, start_date: str, end_date: str) -> List[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.get_by_date_range(start_date, end_date) if self.local_repo else []
+
+    def get_all(self) -> List[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.get_all() if self.local_repo else []
+
+    def add(self, entity: EtfSharePortfolioCompanyShareOptionPriceFactor) -> Optional[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.add(entity) if self.local_repo else None
+
+    def update(self, entity: EtfSharePortfolioCompanyShareOptionPriceFactor) -> Optional[EtfSharePortfolioCompanyShareOptionPriceFactor]:
+        return self.local_repo.update(entity) if self.local_repo else None
+
+    def delete(self, entity_id: int) -> bool:
+        return self.local_repo.delete(entity_id) if self.local_repo else False
