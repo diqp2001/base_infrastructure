@@ -1,10 +1,10 @@
 import math
 from typing import Optional
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_portfolio_company_share_option.etf_share_portfolio_company_share_option_factor import ETFSharePortfolioCompanyShareOptionFactor
 
 
-class ETFSharePortfolioCompanyShareOptionDeltaFactor(PortfolioCompanyShareOptionFactor):
+class ETFSharePortfolioCompanyShareOptionDeltaFactor(ETFSharePortfolioCompanyShareOptionFactor):
     """Delta factor associated with portfolio company share options."""
 
     def __init__(
