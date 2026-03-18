@@ -9,21 +9,27 @@ class PortfolioCompanyShareOptionPriceReturnFactor(PortfolioCompanyShareOptionFa
 
     def __init__(
         self,
+        name: str,
+        group: str,
+        subgroup: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+        definition: Optional[str] = None,
         factor_id: Optional[int] = None,
         **kwargs,
     ):
         super().__init__(
-            name="Portfolio Company Share Option Price Return",
-            group="Portfolio Company Share Option Factor",
-            subgroup="Price Return",
-            data_type="float",
-            source="calculated",
-            definition="Price return of portfolio company share option calculated as percentage change in option value.",
+            name=name,
+            group=group,
+            subgroup=subgroup,
+            data_type=data_type,
+            source=source,
+            definition=definition,
             factor_id=factor_id,
             **kwargs,
         )
 
-    def calculate_price_return(
+    def calculate(
         self,
         current_price: float,
         previous_price: float,

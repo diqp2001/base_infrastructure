@@ -17,9 +17,13 @@ class CompanyShareOptionModel(OptionsModel):
     __tablename__ = 'company_share_options'
 
     id = Column(Integer, ForeignKey("options.id"), primary_key=True)
+    exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     
-    # Additional fields specific to company share options can be added here
-    # For example: strike_price, expiration_date, contract_size, etc.
+    # Index future option specific fields
+    strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
+    multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
+    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options") 
+    
     
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option",

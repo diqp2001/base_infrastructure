@@ -5,7 +5,7 @@ from typing import List, Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
 
 
-class PortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
+class ETFSharePortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
     """Price factor associated with portfolio company share options."""
 
     def __init__(

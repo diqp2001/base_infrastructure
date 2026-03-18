@@ -1,12 +1,16 @@
-import math
+from __future__ import annotations
 from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
+class ETFSharePortfolioCompanyShareOptionFactor(OptionFactor):
+    """
+    Factor for options whose underlying is a portfolio composed
+    of company shares (equities).
 
-class OptionGammaFactor(OptionFactor):
-    """Gamma factor associated with a company share option."""
+    Identification-only factor.
+    """
 
     def __init__(
         self,
@@ -29,18 +33,3 @@ class OptionGammaFactor(OptionFactor):
             factor_id=factor_id,
             **kwargs,
         )
-    def calculate(
-            self,
-            S: float,
-            K: float,
-            r: float,
-            sigma: float,
-            T: float,
-        ) -> Optional[float]:
-
-
-            d1, d2 = self._d1_d2(S, K, r, sigma, T)
-            if d1 is None:
-                return None
-
-            return self._norm_pdf(d1) / (S * sigma * math.sqrt(T))
