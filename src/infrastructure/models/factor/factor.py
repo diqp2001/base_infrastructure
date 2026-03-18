@@ -138,3 +138,59 @@ class CompanyShareOptionPriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_price_return_factor"
     }
+
+
+# Additional Company Share Option Factor Models
+class CompanyShareOptionDeltaFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_delta_factor"
+    }
+
+
+class CompanyShareOptionGammaFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_gamma_factor"
+    }
+
+
+class CompanyShareOptionPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_price_factor"
+    }
+
+
+class CompanyShareOptionRhoFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_rho_factor"
+    }
+
+
+class CompanyShareOptionVegaFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_vega_factor"
+    }
+
+
+# ETF Share Portfolio Company Share Option Factor Models
+class ETFSharePortfolioCompanyShareOptionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_option_factor"
+    }
+
+
+class ETFSharePortfolioCompanyShareOptionDeltaFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_option_delta_factor"
+    }
+
+
+class ETFSharePortfolioCompanyShareOptionPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_option_price_factor"
+    }
+
+
+class ETFSharePortfolioCompanyShareOptionPriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_option_price_return_factor"
+    }
