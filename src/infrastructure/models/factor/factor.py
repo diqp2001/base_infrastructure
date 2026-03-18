@@ -194,3 +194,15 @@ class ETFSharePortfolioCompanyShareOptionPriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "etf_share_portfolio_company_share_option_price_return_factor"
     }
+
+
+class ETFSharePortfolioCompanyShareFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_factor"
+    }
+
+
+class ETFSharePortfolioCompanySharePriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_portfolio_company_share_price_return_factor"
+    }
