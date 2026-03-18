@@ -71,9 +71,8 @@ class IndexFutureOptionFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'index_future_option'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 frequency=kwargs.get('frequency', '1d'),
-                factor_type=kwargs.get('factor_type', 'option'),
-                data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data')
+                factor_type=kwargs.get('factor_type', 'index_future_option_factor'),
+                
             )
             if existing:
                 return self._to_entity(existing)
