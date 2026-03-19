@@ -31,3 +31,6 @@ class PortfolioCompanyShareHoldingWeightFactor(PortfolioCompanyShareHoldingFacto
             definition=definition,
             factor_id=factor_id,
         )
+        
+        #calculate function meeded taking in parameter total portfolio value
+        # and holding value
