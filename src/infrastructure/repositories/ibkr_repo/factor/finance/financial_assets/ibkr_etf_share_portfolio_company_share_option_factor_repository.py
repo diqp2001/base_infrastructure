@@ -3,12 +3,11 @@ IBKR ETF Share Portfolio Company Share Option Factor Repository - Retrieval and 
 """
 
 from typing import Optional, List
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_portfolio_company_share_option.etf_share_portfolio_company_share_option_factor import EtfSharePortfolioCompanyShareOptionFactor
-from src.domain.ports.factor.etf_share_portfolio_company_share_option_factor_port import EtfSharePortfolioCompanyShareOptionFactorPort
+from src.domain.ports.factor.etf_share_portfolio_company_share_option_factor_port import ETFSharePortfolioCompanyShareOptionFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 
-class IBKREtfSharePortfolioCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, EtfSharePortfolioCompanyShareOptionFactorPort):
+class IBKRETFSharePortfolioCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, ETFSharePortfolioCompanyShareOptionFactorPort):
     """
     IBKR implementation for EtfSharePortfolioCompanyShareOption factor acquisition and local delegation.
     """
@@ -215,25 +214,25 @@ class IBKREtfSharePortfolioCompanyShareOptionFactorRepository(BaseIBKRFactorRepo
         return None
 
     # Port interface implementation - delegated to local repository
-    def get_by_id(self, entity_id: int) -> Optional[EtfSharePortfolioCompanyShareOptionFactor]:
+    def get_by_id(self, entity_id: int):
         return self.local_repo.get_by_id(entity_id) if self.local_repo else None
 
-    def get_by_name(self, name: str) -> Optional[EtfSharePortfolioCompanyShareOptionFactor]:
+    def get_by_name(self, name: str):
         return self.local_repo.get_by_name(name) if self.local_repo else None
 
-    def get_by_underlying_symbol(self, underlying_symbol: str) -> List[EtfSharePortfolioCompanyShareOptionFactor]:
+    def get_by_underlying_symbol(self, underlying_symbol: str):
         return self.local_repo.get_by_underlying_symbol(underlying_symbol) if self.local_repo else []
 
-    def get_by_date_range(self, start_date: str, end_date: str) -> List[EtfSharePortfolioCompanyShareOptionFactor]:
+    def get_by_date_range(self, start_date: str, end_date: str):
         return self.local_repo.get_by_date_range(start_date, end_date) if self.local_repo else []
 
-    def get_all(self) -> List[EtfSharePortfolioCompanyShareOptionFactor]:
+    def get_all(self):
         return self.local_repo.get_all() if self.local_repo else []
 
-    def add(self, entity: EtfSharePortfolioCompanyShareOptionFactor) -> Optional[EtfSharePortfolioCompanyShareOptionFactor]:
+    def add(self, entity):
         return self.local_repo.add(entity) if self.local_repo else None
 
-    def update(self, entity: EtfSharePortfolioCompanyShareOptionFactor) -> Optional[EtfSharePortfolioCompanyShareOptionFactor]:
+    def update(self, entity):
         return self.local_repo.update(entity) if self.local_repo else None
 
     def delete(self, entity_id: int) -> bool:

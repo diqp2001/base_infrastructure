@@ -4,10 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 from enum import Enum
 
-from src.domain.entities.finance.portfolio.portfolio import Portfolio
-from src.domain.entities.finance.holding.holding import Holding
-from src.domain.entities.finance.exchange import Exchange
-from src.domain.entities.finance.financial_assets.currency import Currency
+
 
 
 class TransactionType(Enum):
@@ -38,20 +35,20 @@ class Transaction:
     def __init__(
         self,
         id: int,
-        portfolio: Portfolio,
-        holding: Holding,
+        portfolio_id: int,
+        holding_id: int,
+        order_id: int,
         date: datetime,
-        entity: object,  # The entity with which the transaction was made
         transaction_type: TransactionType,
         transaction_id: str,
         account_id: str,
         trade_date: date,
         value_date: date,
         settlement_date: date,
-        currency: Currency,
         status: TransactionStatus,
         spread: float,
-        exchange: Optional[Exchange] = None,
+        currency_id: int,
+        exchange_id: int,
         external_transaction_id: Optional[str] = None,
     ):
         """
@@ -75,20 +72,20 @@ class Transaction:
         :param external_transaction_id: Optional external system transaction ID
         """
         self.id = id
-        self.portfolio = portfolio
-        self.holding = holding
+        self.portfolio_id = portfolio_id
+        self.holding_id = holding_id
+        self.order_id = order_id
         self.date = date
-        self.entity = entity
         self.transaction_type = transaction_type
         self.transaction_id = transaction_id
         self.account_id = account_id
         self.trade_date = trade_date
         self.value_date = value_date
         self.settlement_date = settlement_date
-        self.currency = currency
+        self.currency = currency_id
         self.status = status
         self.spread = spread
-        self.exchange = exchange
+        self.exchange_id = exchange_id
         self.external_transaction_id = external_transaction_id
 
     def is_settled(self) -> bool:

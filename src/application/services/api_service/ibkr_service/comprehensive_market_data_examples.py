@@ -2640,7 +2640,303 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             pass
         
         return tick_test_results
+    
+    def test_account_access(self):
+        """
+        Comprehensive test function that tests IBKR account data access.
 
+        This function tests:
+        - Account summary (cash, net liquidation, margin, etc.)
+        - Portfolio positions
+        - Account values consistency
+        - Multi-account support
+
+        Returns:
+            Dict: Comprehensive summary of account access test results
+        """
+
+        logger.info("\n🏦 === ACCOUNT ACCESS TEST ===")
+        logger.info("=" * 70)
+
+        account_results = {
+            'connection_status': {'tested': False, 'status': 'unknown', 'details': ''},
+            'account_summary': {'tested': False, 'status': 'unknown', 'details': '', 'data': {}},
+            'positions': {'tested': False, 'status': 'unknown', 'details': '', 'count': 0},
+            'account_values': {'tested': False, 'status': 'unknown', 'details': '', 'keys': []},
+            'multi_account': {'tested': False, 'status': 'unknown', 'details': '', 'accounts_found': []},
+            'test_summary': {
+                'total_tests': 0,
+                'passed': 0,
+                'failed': 0,
+                'partial': 0,
+                'start_time': datetime.now(),
+                'end_time': None,
+                'duration': None
+            },
+            'recommendations': []
+        }
+
+        # ---------------------------
+        # Connection
+        # ---------------------------
+        try:
+            if not self.connected:
+                if not self.ib_broker.connect():
+                    account_results['connection_status'] = {
+                        'tested': True,
+                        'status': 'failed',
+                        'details': 'Cannot connect to IB Gateway/TWS'
+                    }
+                    return self._generate_account_summary(account_results)
+
+            account_results['connection_status'] = {
+                'tested': True,
+                'status': 'success',
+                'details': 'Connected to IBKR'
+            }
+            logger.info("✅ Connected to IBKR")
+
+        except Exception as e:
+            account_results['connection_status'] = {
+                'tested': True,
+                'status': 'error',
+                'details': f'Connection error: {str(e)[:100]}'
+            }
+            return self._generate_account_summary(account_results)
+
+        ib = self.ib_broker # assuming ib_insync instance
+        account_summary = self._get_account_summary()
+        positions = self._get_positions()
+        # ---------------------------
+        # Test 1: Account Summary
+        # ---------------------------
+        logger.info("\n💰 Testing Account Summary...")
+        try:
+            summary = self.accountSummary()
+
+            if summary:
+                extracted = {item.tag: item.value for item in summary}
+
+                account_results['account_summary'] = {
+                    'tested': True,
+                    'status': 'success',
+                    'details': f"Retrieved {len(summary)} summary fields",
+                    'data': {
+                        'NetLiquidation': extracted.get('NetLiquidation'),
+                        'AvailableFunds': extracted.get('AvailableFunds'),
+                        'BuyingPower': extracted.get('BuyingPower'),
+                        'CashBalance': extracted.get('TotalCashValue')
+                    }
+                }
+                logger.info(f"✅ Account summary retrieved ({len(summary)} fields)")
+            else:
+                account_results['account_summary'] = {
+                    'tested': True,
+                    'status': 'failed',
+                    'details': 'Empty account summary response'
+                }
+
+        except Exception as e:
+            account_results['account_summary'] = {
+                'tested': True,
+                'status': 'error',
+                'details': str(e)[:100]
+            }
+
+        # ---------------------------
+        # Test 2: Positions
+        # ---------------------------
+        logger.info("\n📊 Testing Positions...")
+        try:
+            positions = self.positions()
+
+            account_results['positions'] = {
+                'tested': True,
+                'status': 'success' if positions else 'partial',
+                'details': f"{len(positions)} positions retrieved",
+                'count': len(positions)
+            }
+
+            logger.info(f"✅ Positions retrieved: {len(positions)}")
+
+        except Exception as e:
+            account_results['positions'] = {
+                'tested': True,
+                'status': 'error',
+                'details': str(e)[:100],
+                'count': 0
+            }
+
+        # ---------------------------
+        # Test 3: Account Values
+        # ---------------------------
+        logger.info("\n📋 Testing Account Values...")
+        try:
+            values = ib.accountValues()
+
+            keys = list(set([v.tag for v in values]))
+
+            account_results['account_values'] = {
+                'tested': True,
+                'status': 'success' if values else 'failed',
+                'details': f"{len(values)} values retrieved",
+                'keys': keys[:10]  # limit output
+            }
+
+            logger.info(f"✅ Account values retrieved: {len(values)}")
+
+        except Exception as e:
+            account_results['account_values'] = {
+                'tested': True,
+                'status': 'error',
+                'details': str(e)[:100],
+                'keys': []
+            }
+
+        # ---------------------------
+        # Test 4: Multi-account detection
+        # ---------------------------
+        logger.info("\n🏢 Testing Multi-Account Access...")
+        try:
+            accounts = self.managedAccounts()
+
+            account_results['multi_account'] = {
+                'tested': True,
+                'status': 'success',
+                'details': f"{len(accounts)} account(s) detected",
+                'accounts_found': accounts
+            }
+
+            logger.info(f"✅ Accounts detected: {accounts}")
+
+        except Exception as e:
+            account_results['multi_account'] = {
+                'tested': True,
+                'status': 'error',
+                'details': str(e)[:100],
+                'accounts_found': []
+            }
+
+        # ---------------------------
+        # Final Summary
+        # ---------------------------
+        account_results['test_summary']['end_time'] = datetime.now()
+        account_results['test_summary']['duration'] = (
+            account_results['test_summary']['end_time'] -
+            account_results['test_summary']['start_time']
+        )
+
+        # Count results
+        for section in ['account_summary', 'positions', 'account_values', 'multi_account']:
+            account_results['test_summary']['total_tests'] += 1
+            status = account_results[section]['status']
+
+            if status == 'success':
+                account_results['test_summary']['passed'] += 1
+            elif status == 'partial':
+                account_results['test_summary']['partial'] += 1
+            else:
+                account_results['test_summary']['failed'] += 1
+
+        # Recommendations
+        if account_results['account_summary']['status'] != 'success':
+            account_results['recommendations'].append("Check IBKR account data permissions")
+
+        if account_results['positions']['count'] == 0:
+            account_results['recommendations'].append("No positions found - verify portfolio is funded")
+
+        if account_results['multi_account']['status'] != 'success':
+            account_results['recommendations'].append("Multi-account access may be restricted")
+
+        return self._generate_account_summary(account_results)
+
+
+    def _generate_account_summary(self, results: dict) -> dict:
+        """
+        Generate final formatted summary for account access test.
+        """
+
+        summary = results['test_summary']
+
+        # Compute totals safely
+        total = summary['total_tests']
+        passed = summary['passed']
+        failed = summary['failed']
+        partial = summary['partial']
+
+        success_rate = (passed / total * 100) if total > 0 else 0
+
+        logger.info("\n📊 === ACCOUNT ACCESS SUMMARY ===")
+        logger.info("=" * 70)
+        logger.info(f"Total Tests   : {total}")
+        logger.info(f"✅ Passed     : {passed}")
+        logger.info(f"❌ Failed     : {failed}")
+        logger.info(f"⚠️ Partial    : {partial}")
+        logger.info(f"📈 Success %  : {success_rate:.2f}%")
+        logger.info(f"⏱ Duration   : {summary['duration']}")
+
+        # Log key account info if available
+        acc_summary = results.get('account_summary', {}).get('data', {})
+        if acc_summary:
+            logger.info("\n💰 Account Snapshot:")
+            for k, v in acc_summary.items():
+                logger.info(f"   {k}: {v}")
+
+        # Recommendations
+        if results['recommendations']:
+            logger.info("\n💡 Recommendations:")
+            for rec in results['recommendations']:
+                logger.info(f" - {rec}")
+
+        return results
+    
+    def _get_account_summary(self):
+        """
+        Extract account summary from IBTWSClient internal state.
+        """
+
+        ib = self.ib_broker.ib_connection
+
+        if not ib.account_summary:
+            return None
+
+        # Normalize structure
+        summary = {
+            key: {
+                'value': float(value['value']),
+                'currency': value['currency'],
+                'account': value['account']
+            }
+            for key, value in ib.account_summary.items()
+        }
+
+        return summary
+    
+    def _get_positions(self):
+        """
+        Extract positions from IBTWSClient.
+        """
+
+        ib = self.ib_broker.ib_connection
+
+        if not ib.positions:
+            return []
+
+        normalized_positions = []
+
+        for pos in ib.positions:
+            try:
+                normalized_positions.append({
+                    'symbol': getattr(pos.contract, 'symbol', None),
+                    'secType': getattr(pos.contract, 'secType', None),
+                    'currency': getattr(pos.contract, 'currency', None),
+                    'position': pos.position,
+                    'avgCost': pos.avgCost
+                })
+            except Exception:
+                continue
+
+        return normalized_positions
     def get_by_conid(self, conid: int, get_market_data: bool = True, timeout: int = 15) -> Dict[str, Any]:
         """
         Get contract details and optionally market data by Contract Identifier (CONID).
