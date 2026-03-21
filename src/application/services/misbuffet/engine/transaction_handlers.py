@@ -1,25 +1,45 @@
 """
 Transaction handler implementations for QuantConnect Lean Engine Python implementation.
 Handles order processing and execution for backtesting and live trading.
+
+Enhanced with domain entity integration for Account, Order, and Transaction persistence.
+Provides hybrid approach maintaining legacy trading engine compatibility while adding
+proper business logic and data persistence through repository pattern.
 """
 
 import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set
+from datetime import datetime, timedelta, date
+from typing import Dict, List, Optional, Set, TYPE_CHECKING
 from decimal import Decimal
 from enum import Enum
 
 from .interfaces import ITransactionHandler, IAlgorithm, IBrokerage
 from .enums import ComponentState
 
-# Import from common module
+# Import from common module (for trading engine compatibility)
 from ..common import (
-    Order, OrderTicket, OrderEvent, OrderFill, OrderStatus, OrderType,
+    Order as LegacyOrder, OrderTicket, OrderEvent, OrderFill, OrderStatus, OrderType,
     OrderDirection, Symbol, Security
 )
+
+# Import new domain entities for persistence
+from src.domain.entities.finance.account import Account, AccountType, AccountStatus
+from src.domain.entities.finance.order.order import (
+    Order as DomainOrder, OrderType as DomainOrderType, 
+    OrderSide, OrderStatus as DomainOrderStatus
+)
+from src.domain.entities.finance.transaction.transaction import (
+    Transaction, TransactionType, TransactionStatus
+)
+
+# Import repository ports for dependency injection
+if TYPE_CHECKING:
+    from src.domain.ports.finance.account_port import AccountPort
+    from src.domain.ports.finance.order.order_port import OrderPort
+    from src.domain.ports.finance.transaction.transaction_port import TransactionPort
 
 
 class TransactionHandlerMode(Enum):
@@ -32,22 +52,36 @@ class TransactionHandlerMode(Enum):
 class BaseTransactionHandler(ITransactionHandler, ABC):
     """Base class for all transaction handler implementations."""
     
-    def __init__(self):
-        """Initialize the base transaction handler."""
+    def __init__(self, account_repo=None, order_repo=None, transaction_repo=None, default_account_id: str = "DEFAULT_ACCOUNT"):
+        """Initialize the base transaction handler with repository dependencies."""
         self._algorithm: Optional[IAlgorithm] = None
         self._brokerage: Optional[IBrokerage] = None
         self._state = ComponentState.CREATED
         self._lock = threading.RLock()
         self._logger = logging.getLogger(self.__class__.__name__)
         
-        # Order tracking
-        self._orders: Dict[int, Order] = {}
+        # Repository dependencies (injected)
+        self._account_repo: Optional['AccountPort'] = account_repo
+        self._order_repo: Optional['OrderPort'] = order_repo
+        self._transaction_repo: Optional['TransactionPort'] = transaction_repo
+        
+        # Default account configuration
+        self._default_account_id = default_account_id
+        self._default_account: Optional[Account] = None
+        
+        # Legacy order tracking (for trading engine compatibility)
+        self._orders: Dict[int, LegacyOrder] = {}
         self._order_tickets: Dict[int, OrderTicket] = {}
         self._order_events: List[OrderEvent] = []
         self._next_order_id = 1
         
+        # Domain entity tracking
+        self._domain_orders: Dict[int, DomainOrder] = {}
+        self._domain_order_to_legacy_id_mapping: Dict[int, int] = {}  # domain_id -> legacy_id
+        self._legacy_to_domain_id_mapping: Dict[int, int] = {}  # legacy_id -> domain_id
+        
         # Processing queues
-        self._pending_orders: List[Order] = []
+        self._pending_orders: List[LegacyOrder] = []
         self._order_fills: List[OrderEvent] = []
         
         # Metrics
@@ -56,7 +90,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         self._cancelled_orders = 0
         self._rejected_orders = 0
         
-        self._logger.info(f"Initialized {self.__class__.__name__}")
+        self._logger.info(f"Initialized {self.__class__.__name__} with repository support")
     
     def initialize(self, algorithm: IAlgorithm, brokerage: Optional[IBrokerage]) -> None:
         """Initialize the transaction handler with algorithm and brokerage."""
@@ -72,6 +106,9 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                 
                 self._logger.info("Initializing transaction handler")
                 
+                # Initialize default account if repositories are available
+                self._initialize_default_account()
+                
                 # Initialize specific components
                 self._initialize_specific()
                 
@@ -83,7 +120,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._state = ComponentState.ERROR
             raise
     
-    def process_order(self, order: Order) -> bool:
+    def process_order(self, order: LegacyOrder) -> bool:
         """Process an order for execution."""
         try:
             with self._lock:
@@ -104,6 +141,9 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                 self._orders[order.id] = order
                 self._total_orders += 1
                 
+                # Persist order as domain entity if repositories available
+                self._persist_order(order)
+                
                 # Create order ticket
                 ticket = self._create_order_ticket(order)
                 self._order_tickets[order.id] = ticket
@@ -118,7 +158,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._logger.error(f"Error processing order {order.id}: {e}")
             return False
     
-    def get_open_orders(self, symbol: Optional[Symbol] = None) -> List[Order]:
+    def get_open_orders(self, symbol: Optional[Symbol] = None) -> List[LegacyOrder]:
         """Get all open orders, optionally filtered by symbol."""
         try:
             with self._lock:
@@ -160,6 +200,10 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                     self._logger.warning(f"Cannot cancel order in status: {order.status}")
                     return False
                 
+                # Update domain order status before cancellation
+                order.status = OrderStatus.CANCEL_PENDING
+                self._update_domain_order_status(order)
+                
                 # Cancel order specific to implementation
                 return self._cancel_order_specific(order)
                 
@@ -167,7 +211,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._logger.error(f"Error cancelling order {order_id}: {e}")
             return False
     
-    def update_order(self, order: Order) -> bool:
+    def update_order(self, order: LegacyOrder) -> bool:
         """Update an existing order."""
         try:
             with self._lock:
@@ -181,6 +225,9 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                 if existing_order.status not in [OrderStatus.NEW, OrderStatus.SUBMITTED]:
                     self._logger.warning(f"Cannot update order in status: {existing_order.status}")
                     return False
+                
+                # Update domain order status
+                self._update_domain_order_status(order)
                 
                 # Update order specific to implementation
                 return self._update_order_specific(order)
@@ -199,7 +246,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         except Exception as e:
             self._logger.error(f"Error handling fills: {e}")
     
-    def get_order_by_id(self, order_id: int) -> Optional[Order]:
+    def get_order_by_id(self, order_id: int) -> Optional[LegacyOrder]:
         """Get an order by its ID."""
         with self._lock:
             return self._orders.get(order_id)
@@ -228,17 +275,17 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         pass
     
     @abstractmethod
-    def _process_order_specific(self, order: Order) -> bool:
+    def _process_order_specific(self, order: LegacyOrder) -> bool:
         """Process order specific to implementation. Must be implemented by subclasses."""
         pass
     
     @abstractmethod
-    def _cancel_order_specific(self, order: Order) -> bool:
+    def _cancel_order_specific(self, order: LegacyOrder) -> bool:
         """Cancel order specific to implementation. Must be implemented by subclasses."""
         pass
     
     @abstractmethod
-    def _update_order_specific(self, order: Order) -> bool:
+    def _update_order_specific(self, order: LegacyOrder) -> bool:
         """Update order specific to implementation. Must be implemented by subclasses."""
         pass
     
@@ -250,7 +297,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         self._next_order_id += 1
         return order_id
     
-    def _validate_order(self, order: Order) -> bool:
+    def _validate_order(self, order: LegacyOrder) -> bool:
         """Validate an order before processing."""
         try:
             # Basic validation
@@ -277,7 +324,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._logger.error(f"Error validating order: {e}")
             return False
     
-    def _create_order_ticket(self, order: Order) -> OrderTicket:
+    def _create_order_ticket(self, order: LegacyOrder) -> OrderTicket:
         """Create an order ticket for the order."""
         try:
             ticket = OrderTicket(
@@ -296,7 +343,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._logger.error(f"Error creating order ticket: {e}")
             raise
     
-    def _reject_order(self, order: Order, reason: str) -> None:
+    def _reject_order(self, order: LegacyOrder, reason: str) -> None:
         """Reject an order with the given reason."""
         try:
             order.status = OrderStatus.INVALID
@@ -326,14 +373,14 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             self._logger.error(f"Error rejecting order: {e}")
     
     def _process_fill(self, fill_event: OrderEvent) -> None:
-        """Process an order fill event."""
+        """Process an order fill event with domain entity integration."""
         try:
             order = self._orders.get(fill_event.order_id)
             if not order:
                 self._logger.warning(f"Order not found for fill: {fill_event.order_id}")
                 return
             
-            # Update order status
+            # Update legacy order status
             order.status = fill_event.status
             
             # Track fills
@@ -345,6 +392,9 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
             # Store fill event
             self._order_events.append(fill_event)
             
+            # Integrate with domain entities if repositories available
+            self._integrate_fill_with_entities(order, fill_event)
+            
             # Notify algorithm
             if self._algorithm:
                 self._algorithm.on_order_event(fill_event)
@@ -354,7 +404,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         except Exception as e:
             self._logger.error(f"Error processing fill: {e}")
     
-    def _create_fill_event(self, order: Order, fill_price: Decimal, 
+    def _create_fill_event(self, order: LegacyOrder, fill_price: Decimal, 
                           fill_quantity: int, message: str = "") -> OrderEvent:
         """Create a fill event for an order."""
         try:
@@ -376,14 +426,249 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
         except Exception as e:
             self._logger.error(f"Error creating fill event: {e}")
             raise
+    
+    # New methods for entity integration
+    
+    def _initialize_default_account(self) -> None:
+        """Initialize or retrieve the default trading account."""
+        try:
+            if not self._account_repo:
+                self._logger.warning("No account repository available - using in-memory account tracking")
+                return
+            
+            # Try to get existing account
+            self._default_account = self._account_repo.get_by_account_id(self._default_account_id)
+            
+            if not self._default_account:
+                # Create default account
+                self._default_account = Account(
+                    id=0,  # Will be set by repository
+                    account_id=self._default_account_id,
+                    account_type=AccountType.MARGIN,
+                    status=AccountStatus.ACTIVE,
+                    base_currency_id=1,  # USD
+                    created_at=datetime.now()
+                )
+                
+                # Add to repository
+                self._default_account = self._account_repo.add(self._default_account)
+                self._logger.info(f"Created default account: {self._default_account_id}")
+            else:
+                self._logger.info(f"Using existing default account: {self._default_account_id}")
+                
+        except Exception as e:
+            self._logger.error(f"Error initializing default account: {e}")
+    
+    def _create_domain_order_from_legacy(self, legacy_order: LegacyOrder) -> Optional[DomainOrder]:
+        """Convert legacy order to domain order entity."""
+        try:
+            if not self._order_repo:
+                return None
+            
+            # Map order types
+            order_type_mapping = {
+                OrderType.MARKET: DomainOrderType.MARKET,
+                OrderType.LIMIT: DomainOrderType.LIMIT,
+                OrderType.STOP_MARKET: DomainOrderType.STOP,
+                OrderType.STOP_LIMIT: DomainOrderType.STOP_LIMIT
+            }
+            
+            # Map order sides
+            side_mapping = {
+                OrderDirection.BUY: OrderSide.BUY,
+                OrderDirection.SELL: OrderSide.SELL
+            }
+            
+            # Map order status
+            status_mapping = {
+                OrderStatus.NEW: DomainOrderStatus.PENDING,
+                OrderStatus.SUBMITTED: DomainOrderStatus.SUBMITTED,
+                OrderStatus.PARTIAL_FILLED: DomainOrderStatus.PARTIALLY_FILLED,
+                OrderStatus.FILLED: DomainOrderStatus.FILLED,
+                OrderStatus.CANCELED: DomainOrderStatus.CANCELLED,
+                OrderStatus.INVALID: DomainOrderStatus.REJECTED
+            }
+            
+            domain_order = DomainOrder(
+                id=0,  # Will be set by repository
+                portfolio_id=1,  # Default portfolio
+                holding_id=1,  # Default holding
+                order_type=order_type_mapping.get(legacy_order.order_type, DomainOrderType.MARKET),
+                side=side_mapping.get(legacy_order.direction, OrderSide.BUY),
+                quantity=float(abs(legacy_order.quantity)),
+                created_at=legacy_order.created_time,
+                status=status_mapping.get(legacy_order.status, DomainOrderStatus.PENDING),
+                account_id=self._default_account_id,
+                price=legacy_order.limit_price,
+                stop_price=legacy_order.stop_price,
+                filled_quantity=float(legacy_order.quantity_filled),
+                average_fill_price=legacy_order.average_fill_price if legacy_order.average_fill_price > 0 else None,
+                time_in_force="GTC",
+                external_order_id=legacy_order.id
+            )
+            
+            return domain_order
+            
+        except Exception as e:
+            self._logger.error(f"Error creating domain order: {e}")
+            return None
+    
+    def _persist_order(self, legacy_order: LegacyOrder) -> Optional[DomainOrder]:
+        """Persist legacy order as domain entity."""
+        try:
+            if not self._order_repo:
+                return None
+            
+            domain_order = self._create_domain_order_from_legacy(legacy_order)
+            if not domain_order:
+                return None
+            
+            # Save to repository
+            persisted_order = self._order_repo.add(domain_order)
+            if persisted_order:
+                # Update mappings
+                self._domain_orders[persisted_order.id] = persisted_order
+                self._domain_order_to_legacy_id_mapping[persisted_order.id] = legacy_order.id
+                self._legacy_to_domain_id_mapping[legacy_order.id] = persisted_order.id
+                
+                self._logger.debug(f"Persisted order {legacy_order.id} as domain entity {persisted_order.id}")
+            
+            return persisted_order
+            
+        except Exception as e:
+            self._logger.error(f"Error persisting order: {e}")
+            return None
+    
+    def _create_transaction_from_fill(self, legacy_order: LegacyOrder, fill_event: OrderEvent) -> Optional[Transaction]:
+        """Create transaction entity from order fill."""
+        try:
+            if not self._transaction_repo or not fill_event.is_fill():
+                return None
+            
+            # Get corresponding domain order
+            domain_order_id = self._legacy_to_domain_id_mapping.get(legacy_order.id)
+            if not domain_order_id:
+                # Try to persist the order first
+                domain_order = self._persist_order(legacy_order)
+                domain_order_id = domain_order.id if domain_order else 1
+            
+            # Map transaction type from order type
+            transaction_type_mapping = {
+                OrderType.MARKET: TransactionType.MARKET_ORDER,
+                OrderType.LIMIT: TransactionType.LIMIT_ORDER,
+                OrderType.STOP_MARKET: TransactionType.STOP_ORDER,
+                OrderType.STOP_LIMIT: TransactionType.STOP_LIMIT_ORDER
+            }
+            
+            transaction_id = f"{legacy_order.id}_{fill_event.time.strftime('%Y%m%d_%H%M%S')}"
+            
+            transaction = Transaction(
+                id=0,  # Will be set by repository
+                portfolio_id=1,  # Default portfolio
+                holding_id=1,  # Default holding  
+                order_id=domain_order_id,
+                date=fill_event.time,
+                transaction_type=transaction_type_mapping.get(legacy_order.order_type, TransactionType.MARKET_ORDER),
+                transaction_id=transaction_id,
+                account_id=self._default_account_id,
+                trade_date=fill_event.time.date(),
+                value_date=fill_event.time.date(),
+                settlement_date=fill_event.time.date(),
+                status=TransactionStatus.EXECUTED if fill_event.status == OrderStatus.FILLED else TransactionStatus.PARTIALLY_FILLED,
+                spread=0.0,  # Could be calculated from slippage
+                currency_id=1,  # USD
+                exchange_id=1,  # Default exchange
+                external_transaction_id=f"FILL_{fill_event.order_id}_{fill_event.time.timestamp()}"
+            )
+            
+            return transaction
+            
+        except Exception as e:
+            self._logger.error(f"Error creating transaction: {e}")
+            return None
+    
+    def _persist_transaction(self, transaction: Transaction) -> Optional[Transaction]:
+        """Persist transaction entity."""
+        try:
+            if not self._transaction_repo:
+                return None
+            
+            persisted_transaction = self._transaction_repo.add(transaction)
+            if persisted_transaction:
+                self._logger.debug(f"Persisted transaction {transaction.transaction_id}")
+            
+            return persisted_transaction
+            
+        except Exception as e:
+            self._logger.error(f"Error persisting transaction: {e}")
+            return None
+    
+    def _update_domain_order_status(self, legacy_order: LegacyOrder) -> None:
+        """Update domain order status to match legacy order."""
+        try:
+            if not self._order_repo:
+                return
+            
+            domain_order_id = self._legacy_to_domain_id_mapping.get(legacy_order.id)
+            if not domain_order_id:
+                return
+            
+            domain_order = self._domain_orders.get(domain_order_id)
+            if not domain_order:
+                domain_order = self._order_repo.get_by_id(domain_order_id)
+                if not domain_order:
+                    return
+            
+            # Map status
+            status_mapping = {
+                OrderStatus.NEW: DomainOrderStatus.PENDING,
+                OrderStatus.SUBMITTED: DomainOrderStatus.SUBMITTED,
+                OrderStatus.PARTIAL_FILLED: DomainOrderStatus.PARTIALLY_FILLED,
+                OrderStatus.FILLED: DomainOrderStatus.FILLED,
+                OrderStatus.CANCELED: DomainOrderStatus.CANCELLED,
+                OrderStatus.INVALID: DomainOrderStatus.REJECTED
+            }
+            
+            new_status = status_mapping.get(legacy_order.status)
+            if new_status and domain_order.status != new_status:
+                # Update domain order
+                domain_order.status = new_status
+                domain_order.filled_quantity = float(legacy_order.quantity_filled)
+                domain_order.average_fill_price = legacy_order.average_fill_price if legacy_order.average_fill_price > 0 else None
+                
+                # Persist changes
+                updated_order = self._order_repo.update(domain_order)
+                if updated_order:
+                    self._domain_orders[domain_order_id] = updated_order
+                    self._logger.debug(f"Updated domain order {domain_order_id} status to {new_status}")
+            
+        except Exception as e:
+            self._logger.error(f"Error updating domain order status: {e}")
+    
+    def _integrate_fill_with_entities(self, legacy_order: LegacyOrder, fill_event: OrderEvent) -> None:
+        """Integrate order fill with domain entities."""
+        try:
+            # Update domain order status
+            self._update_domain_order_status(legacy_order)
+            
+            # Create and persist transaction for the fill
+            if fill_event.is_fill():
+                transaction = self._create_transaction_from_fill(legacy_order, fill_event)
+                if transaction:
+                    persisted_transaction = self._persist_transaction(transaction)
+                    if persisted_transaction:
+                        self._logger.debug(f"Created transaction {persisted_transaction.transaction_id} for fill")
+                        
+        except Exception as e:
+            self._logger.error(f"Error integrating fill with entities: {e}")
 
 
 class BacktestingTransactionHandler(BaseTransactionHandler):
     """Transaction handler for backtesting with simulated execution."""
     
-    def __init__(self):
+    def __init__(self, account_repo=None, order_repo=None, transaction_repo=None, default_account_id: str = "BACKTEST_ACCOUNT"):
         """Initialize the backtesting transaction handler."""
-        super().__init__()
+        super().__init__(account_repo, order_repo, transaction_repo, default_account_id)
         self._simulation_thread: Optional[threading.Thread] = None
         self._shutdown_event = threading.Event()
         self._market_prices: Dict[Symbol, Decimal] = {}
@@ -632,9 +917,9 @@ class BacktestingTransactionHandler(BaseTransactionHandler):
 class BrokerageTransactionHandler(BaseTransactionHandler):
     """Transaction handler for live trading with brokerage integration."""
     
-    def __init__(self):
+    def __init__(self, account_repo=None, order_repo=None, transaction_repo=None, default_account_id: str = "LIVE_ACCOUNT"):
         """Initialize the brokerage transaction handler."""
-        super().__init__()
+        super().__init__(account_repo, order_repo, transaction_repo, default_account_id)
         self._order_monitoring_thread: Optional[threading.Thread] = None
         self._shutdown_event = threading.Event()
         
@@ -772,3 +1057,68 @@ class BrokerageTransactionHandler(BaseTransactionHandler):
             
         except Exception as e:
             self._logger.error(f"Error disposing brokerage transaction handler: {e}")
+
+
+class TransactionHandlerFactory:
+    """Factory for creating transaction handlers with repository dependencies."""
+    
+    @staticmethod
+    def create_backtesting_handler(account_repo=None, order_repo=None, transaction_repo=None, 
+                                 account_id: str = "BACKTEST_ACCOUNT") -> BacktestingTransactionHandler:
+        """Create a backtesting transaction handler with repository dependencies."""
+        return BacktestingTransactionHandler(account_repo, order_repo, transaction_repo, account_id)
+    
+    @staticmethod
+    def create_brokerage_handler(account_repo=None, order_repo=None, transaction_repo=None,
+                               account_id: str = "LIVE_ACCOUNT") -> BrokerageTransactionHandler:
+        """Create a brokerage transaction handler with repository dependencies."""
+        return BrokerageTransactionHandler(account_repo, order_repo, transaction_repo, account_id)
+    
+    @staticmethod
+    def create_handler_with_local_repositories(handler_type: str = "backtesting", 
+                                             session=None, factory=None) -> BaseTransactionHandler:
+        """
+        Create a transaction handler with local repository implementations.
+        
+        Args:
+            handler_type: Type of handler ("backtesting" or "brokerage")
+            session: SQLAlchemy session for repositories
+            factory: Repository factory instance
+            
+        Returns:
+            Configured transaction handler
+        """
+        if not session or not factory:
+            # Return handler without repository integration
+            if handler_type == "backtesting":
+                return BacktestingTransactionHandler()
+            else:
+                return BrokerageTransactionHandler()
+        
+        try:
+            # Import repository classes
+            from src.infrastructure.repositories.local_repo.finance.account_repository import AccountRepository
+            from src.infrastructure.repositories.local_repo.finance.order.order_repository import OrderRepository  
+            from src.infrastructure.repositories.local_repo.finance.transaction.transaction_repository import TransactionRepository
+            
+            # Create repository instances
+            account_repo = AccountRepository(session, factory)
+            order_repo = OrderRepository(session, factory)
+            transaction_repo = TransactionRepository(session, factory)
+            
+            # Create handler with repositories
+            if handler_type == "backtesting":
+                return BacktestingTransactionHandler(account_repo, order_repo, transaction_repo)
+            else:
+                return BrokerageTransactionHandler(account_repo, order_repo, transaction_repo)
+                
+        except ImportError as e:
+            # Fallback to handler without repositories
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not import repositories, creating handler without entity integration: {e}")
+            
+            if handler_type == "backtesting":
+                return BacktestingTransactionHandler()
+            else:
+                return BrokerageTransactionHandler()
