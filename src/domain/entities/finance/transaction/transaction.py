@@ -82,7 +82,7 @@ class Transaction:
         self.trade_date = trade_date
         self.value_date = value_date
         self.settlement_date = settlement_date
-        self.currency = currency_id
+        self.currency_id = currency_id
         self.status = status
         self.spread = spread
         self.exchange_id = exchange_id
