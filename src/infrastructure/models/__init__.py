@@ -82,6 +82,11 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
 
+# Account, Order, and Transaction models
+from src.infrastructure.models.finance.account import AccountModel
+from src.infrastructure.models.finance.order.order import OrderModel
+from src.infrastructure.models.finance.transaction.transaction import TransactionModel
+
 # Portfolio options
 
 
@@ -105,7 +110,8 @@ def ensure_models_registered():
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'PortfolioModel','PortfolioDerivativeModel',
         'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'HoldingModel',
-        'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel'
+        'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
+        'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
     missing = required_models - set(registered)
@@ -139,5 +145,6 @@ __all__ = [
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'AccountModel', 'OrderModel', 'TransactionModel',
     'ensure_models_registered'
 ]
