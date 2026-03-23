@@ -128,7 +128,7 @@ class IndexPort:
         pass
 
 ✅ 3. ORM MODEL
-
+*** needs to be added here : src\infrastructure\models\ __init__.py
 📁 src/infrastructure/models/financial_assets/index/index.py
 
 from sqlalchemy import Column, Integer, String

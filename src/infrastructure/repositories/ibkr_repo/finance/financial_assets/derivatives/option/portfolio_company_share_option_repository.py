@@ -13,13 +13,14 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import PortfolioCompanyShareOptionPort
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.options_repository import IBKROptionsRepository
+
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
-from src.infrastructure.repositories.mappers.finance.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
 
 
-class IBKRPortfolioCompanyShareOptionRepository(IBKROptionsRepository, PortfolioCompanyShareOptionPort):
+class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, PortfolioCompanyShareOptionPort):
     """
     IBKR implementation of PortfolioCompanyShareOptionPort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.

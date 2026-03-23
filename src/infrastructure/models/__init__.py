@@ -20,6 +20,7 @@ class ModelBase(DeclarativeBase):
 
 # Core geographical and organizational models (no dependencies)
 # Geographic models
+from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionModel
 from src.infrastructure.models.continent import ContinentModel
 from src.infrastructure.models.country import CountryModel
 from src.infrastructure.models.industry import IndustryModel
@@ -73,7 +74,6 @@ from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivativeModel
 from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShareModel
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.models.finance.instrument import InstrumentModel
@@ -90,7 +90,7 @@ from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 
 # Portfolio options
-
+PortfolioCompanyShareOptionModel
 
 
 
