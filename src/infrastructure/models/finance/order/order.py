@@ -15,7 +15,7 @@ class OrderModel(Base):
     quantity = Column(Float, nullable=False)
     created_at = Column(DateTime, nullable=False)
     status = Column(Enum(OrderStatus), nullable=False)
-    account_id = Column(String, ForeignKey('accounts.account_id'), nullable=False)
+    account_id = Column(Integer, ForeignKey('accounts.account_id'), nullable=False)
     price = Column(Float, nullable=True)
     stop_price = Column(Float, nullable=True)
     filled_quantity = Column(Float, nullable=False, default=0.0)

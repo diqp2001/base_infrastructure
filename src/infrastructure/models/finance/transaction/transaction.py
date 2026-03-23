@@ -14,7 +14,7 @@ class TransactionModel(Base):
     date = Column(DateTime, nullable=False)
     transaction_type = Column(Enum(TransactionType), nullable=False)
     transaction_id = Column(String, nullable=False)
-    account_id = Column(String, ForeignKey('accounts.account_id'), nullable=False)
+    account_id = Column(Integer, ForeignKey('accounts.account_id'), nullable=False)
     trade_date = Column(Date, nullable=False)
     value_date = Column(Date, nullable=False)
     settlement_date = Column(Date, nullable=False)
@@ -29,7 +29,7 @@ class TransactionModel(Base):
     holding = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel")
     order = relationship("src.infrastructure.models.finance.order.order.OrderModel", back_populates="transactions")
     account = relationship("src.infrastructure.models.finance.account.AccountModel", back_populates="transactions")
-    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel")
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="transactions")
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel")
     
     def __repr__(self):

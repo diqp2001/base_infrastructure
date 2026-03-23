@@ -23,7 +23,6 @@ class OptionsModel(DerivativeModel):
     option_type = Column(String(50), nullable=True)
     
     __mapper_args__ = {
-    "polymorphic_identity": "option",
-}
+    "polymorphic_identity": "option",}
     def __repr__(self):
         return f"<Options(id={self.id}, symbol={self.symbol})>"

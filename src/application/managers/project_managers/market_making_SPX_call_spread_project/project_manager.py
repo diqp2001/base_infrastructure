@@ -53,8 +53,6 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
         # Initialize required managers - use TEST config like test_project_backtest
         self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
         self.database_service.set_ext_db()
-        # Initialize core components
-        #self.factor_manager = FactorManager(self.database_service)
         # Backtesting components
         self.backtest_runner = BacktestRunner(self.database_service)
         self.algorithm = None

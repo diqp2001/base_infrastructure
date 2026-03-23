@@ -13,12 +13,13 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.options_repository import IBKROptionsRepository
+from src.domain.ports.finance.financial_assets.derivatives.option.ETF_share_portfolio_company_share_option_port import ETFSharePortfolioCompanyShareOptionPort
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOption
 from src.infrastructure.repositories.mappers.finance.financial_assets.etf_share_portfolio_company_share_option_mapper import ETFSharePortfolioCompanyShareOptionMapper
 
 
-class IBKRETFSharePortfolioCompanyShareOptionRepository(IBKROptionsRepository):
+class IBKRETFSharePortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository,ETFSharePortfolioCompanyShareOptionPort):
     """
     IBKR implementation for ETF Share Portfolio Company Share Option operations.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
