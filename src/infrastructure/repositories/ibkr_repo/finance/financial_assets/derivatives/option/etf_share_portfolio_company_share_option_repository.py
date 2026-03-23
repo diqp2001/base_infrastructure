@@ -186,9 +186,9 @@ class IBKRETFSharePortfolioCompanyShareOptionRepository(IBKRFinancialAssetReposi
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency_id=currency.id if currency else None,
+                currency_id=currency.id if currency and hasattr(currency, 'id') else None,
                 underlying_asset_id=None,  # Can be set later if needed
-                exchange_id=exchange.id if exchange else None,
+                exchange_id=exchange.id if exchange and hasattr(exchange, 'id') else None,
                 option_type=contract.right.lower() if hasattr(contract, 'right') else 'call',
                 strike_price=Decimal(str(contract.strike)) if hasattr(contract, 'strike') and contract.strike else None,
                 multiplier=int(contract.multiplier) if hasattr(contract, 'multiplier') and contract.multiplier else 100
