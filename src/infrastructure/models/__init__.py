@@ -48,12 +48,14 @@ from src.infrastructure.models.finance.financial_assets.equity import EquityMode
 from src.infrastructure.models.finance.financial_assets.share import ShareModel
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
 from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel
+from src.infrastructure.models.finance.financial_assets.etf_share_portfolio_company_share import ETFSharePortfolioCompanyShareModel
 
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
@@ -108,10 +110,10 @@ def ensure_models_registered():
     required_models = {
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
-        'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'PortfolioModel','PortfolioDerivativeModel',
-        'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'HoldingModel',
-        'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
-        'AccountModel', 'OrderModel', 'TransactionModel'
+        'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
+        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 
+        'HoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
+        'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
     missing = required_models - set(registered)
@@ -138,8 +140,9 @@ __all__ = [
     'ExchangeModel', 'CompanyModel',
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
-    'ShareModel', 'CompanyShareModel', 'ETFShareModel',
-    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
+    'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel',
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionModel', 
+    'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 

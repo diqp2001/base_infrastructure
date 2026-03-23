@@ -195,8 +195,8 @@ class IBKRETFSharePortfolioCompanyShareRepository(IBKRFinancialAssetRepository, 
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                exchange_id=exchange.id if exchange else None,
-                currency_id=currency.id if currency else None,
+                exchange_id=exchange.id if exchange and hasattr(exchange, 'id') else None,
+                currency_id=currency.id if currency and hasattr(currency, 'id') else None,
                 underlying_asset_id=None  # Can be set later if needed
             )
         except Exception as e:

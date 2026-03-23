@@ -184,7 +184,7 @@ class IBKRPortfolioCompanyShareOptionRepository(IBKROptionsRepository, Portfolio
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency_id=currency.id if currency else None,
+                currency_id=currency.id if currency and hasattr(currency, 'id') else None,
                 underlying_asset_id=None,  # Can be set later if needed
                 option_type=contract.right.lower() if hasattr(contract, 'right') else 'call'
             )
