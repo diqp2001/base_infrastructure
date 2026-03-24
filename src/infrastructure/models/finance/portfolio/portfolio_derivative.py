@@ -1,17 +1,16 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 
-from src.infrastructure.models import ModelBase as Base
-
-class PortfolioDerivativeModel(Base):
+class PortfolioDerivativeModel(PortfolioModel):
     """
     SQLAlchemy model for portfolio holdings.
     Maps to domain.entities.finance.holding.portfolio_holding.PortfolioHolding
     """
-    __tablename__ = 'portfolio_derivative'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    __tablename__ = 'portfolio_derivatives'
+    id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
 
-    # Portfolio identification
-    name = Column(String(200), nullable=False, index=True)
     
+    __mapper_args__ = {
+    "polymorphic_identity": "portfolio_derivative",}

@@ -9,7 +9,7 @@ import os
 from typing import Any, Optional, List
 from datetime import date, datetime
 from decimal import Decimal
-
+import re
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
@@ -84,19 +84,21 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             # 2. Handle case where option parameters are not provided
             # This happens when called from factor creation pipelines
             if not strike_price or not expiry or not option_type:
-                print(f"Warning: Option parameters not provided for {symbol}. Cannot create IBKR option contract without strike_price, expiry, and option_type.")
-                print(f"Available parameters: strike_price={strike_price}, expiry={expiry}, option_type={option_type}")
+                dict_list = self.parse_option_string(symbol)
                 
                 # Try to find any existing option for this symbol in local repo
-                existing_options = self.local_repo.get_by_index_symbol(self._resolve_underlying_index(symbol))
-                if existing_options:
-                    print(f"Found {len(existing_options)} existing options for underlying {self._resolve_underlying_index(symbol)}")
-                    # Return the first available option as fallback
-                    return existing_options[0]
+                # existing_options = self.local_repo.get_by_index_symbol(self._resolve_underlying_index(symbol))
+                # if existing_options:
+                #     print(f"Found {len(existing_options)} existing options for underlying {self._resolve_underlying_index(symbol)}")
+                #     # Return the first available option as fallback
+                #     return existing_options[0]
+                strike_price = dict_list["strike_price"]
+                expiry = dict_list["expiry"]
+                option_type = dict_list["option_type"]
+                symbol_underlying = dict_list["symbol"]
                 
-                # If no existing options, we cannot proceed without parameters
-                print(f"No existing options found for {symbol} and insufficient parameters to create new option")
-                return None
+                
+                
             
             # 3. Fetch from IBKR API with full parameters
             contract = self._fetch_option_contract(symbol, strike_price, expiry, option_type)
@@ -118,7 +120,49 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         except Exception as e:
             print(f"Error in IBKR get_or_create for option {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
-
+    def parse_option_string(self, option_str: str):
+        # Month code mapping (futures standard)
+        month_map = {
+            'H': 3,   # March
+            'M': 6,   # June
+            'U': 9,   # September
+            'Z': 12   # December
+        }
+        
+        # Regex to extract parts
+        # Example: ESZ6 C6850
+        pattern = r"([A-Z]+)([HMUZ])(\d)\s+([CP])(\d+)"
+        match = re.match(pattern, option_str)
+        
+        if not match:
+            raise ValueError(f"Invalid format: {option_str}")
+        
+        symbol, month_code, year_digit, option_type, strike = match.groups()
+        
+        # Convert strike
+        strike_price = int(strike)
+        
+        # Convert year
+        year_digit = int(year_digit)
+        if year_digit == 0:
+            year = 2030
+        elif year_digit == 1:
+            year = 2031
+        else:
+            year = 2020 + year_digit  # e.g. 6 -> 2026
+        
+        # Convert month
+        month = month_map[month_code]
+        
+        # Build expiry representation
+        expiry = f"{year}{month:02d}"
+        
+        return {
+            "symbol":symbol,
+            "strike_price": strike_price,
+            "option_type": option_type,
+            "expiry": expiry
+        }
     def get_contract_by_local_symbol(self, contract_details_list, symbol: str):
         return next(
             (contract for contract in contract_details_list

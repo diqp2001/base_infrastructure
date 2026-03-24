@@ -28,9 +28,8 @@ class ETFSharePortfolioCompanyShareModel(ShareModel):
 
     # Relationships
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="etf_share_portfolio_company_shares")
-    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel", back_populates="etf_share_portfolio_company_shares")
-    underlying_asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", foreign_keys=[underlying_asset_id],
-        back_populates="underlying_derivatives")
+    currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="etf_share_portfolio_company_shares")
+    underlying_asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", foreign_keys=[underlying_asset_id],back_populates="underlying_derivatives")
 
     def __repr__(self):
         return f"<ETFSharePortfolioCompanyShare(id={self.id}, symbol={self.symbol})>"

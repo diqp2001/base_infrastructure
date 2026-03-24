@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Union
 import pandas as pd
 import logging
+from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
 from src.application.services.misbuffet.common.data_types import Slice, TradeBar, Symbol
 from src.application.services.data.entities.entity_service import EntityService
@@ -50,6 +51,8 @@ class MarketDataService:
             
             # Get data for each symbol in the universe
             for entity_class, entities in universe.items():
+                if entity_class == IndexFutureOption:
+                    print("yes")
                 for entity in entities:
                     try:
                         point_in_time_data = self._get_point_in_time_data(

@@ -24,6 +24,10 @@ class HoldingModel(Base):
     end_date = Column(DateTime, nullable=True)
 
     # Relationships
-    asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel", back_populates="holdings")
-
+    asset = relationship("src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel",
+                         foreign_keys=[asset_id],
+                          back_populates="holdings")
+    orders = relationship("src.infrastructure.models.finance.order.order.OrderModel", foreign_keys="OrderModel.holding_id", back_populates="holdings")
+    __mapper_args__ = {
+    "polymorphic_identity": "holding",}
 

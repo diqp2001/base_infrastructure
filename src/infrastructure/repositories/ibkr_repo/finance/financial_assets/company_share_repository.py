@@ -128,7 +128,7 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}")
+            print(f"Error in IBKR _create_or_get for symbol {symbol}: {e}")
             return None
 
     def get_by_ticker(self, ticker: str) -> List[CompanyShare]:

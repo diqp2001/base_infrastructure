@@ -31,19 +31,19 @@ DEFAULT_CONFIG = {
     'version': '1.0.0',
     'universe' : {
         CompanyShare: ["AAPL","IBM"],
-        IndexFutureOption: [
-            # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
-            {"symbol": "ESZ6 P6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
-              # ITM Call 'future: ESZ6 option type: C strike:6850'
+        IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"
+            # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
+            # {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
+            # {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            #   # ITM Call 'future: ESZ6 option type: C strike:6850'
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]
     },
     'target_factor': {
         IndexFutureOption: [
-            {"symbol": "ESZ6 C6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
-            {"symbol": "ESZ6 P6850", "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
+            {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
         ],
         Index: ["SPX"],
         IndexFuture: ["ESZ6"]

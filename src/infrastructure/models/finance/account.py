@@ -16,8 +16,7 @@ class AccountModel(Base):
     
     # Relationships
     currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="accounts")
-    orders = relationship("src.infrastructure.models.finance.order.OrderModel", back_populates="account")
-    transactions = relationship("src.infrastructure.models.finance.transaction.TransactionModel", back_populates="account")
+    orders = relationship("src.infrastructure.models.finance.order.order.OrderModel", foreign_keys="OrderModel.account_id", back_populates="accounts")
     
     def __repr__(self):
         return f"<Account(id={self.id}, account_id={self.account_id}, type={self.account_type}, status={self.status})>"

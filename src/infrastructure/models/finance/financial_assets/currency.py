@@ -32,7 +32,6 @@ class CurrencyModel(FinancialAssetModel):
     # Relationships
     country = relationship("src.infrastructure.models.country.CountryModel", back_populates="currency")
     accounts = relationship("src.infrastructure.models.finance.account.AccountModel", foreign_keys="AccountModel.currency_id",back_populates="currency")
-    transactions = relationship("src.infrastructure.models.finance.transaction.transaction.TransactionModel", foreign_keys="TransactionModel.currency_id",back_populates="currency")
     indices = relationship("src.infrastructure.models.finance.financial_assets.index.IndexModel", foreign_keys="IndexModel.currency_id",back_populates="currency")
     derivatives = relationship("src.infrastructure.models.finance.financial_assets.derivative.derivatives.DerivativeModel",foreign_keys="DerivativeModel.currency_id", back_populates="currency")
     company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel",foreign_keys="CompanyShareModel.currency_id", back_populates="currency")

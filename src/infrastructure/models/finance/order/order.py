@@ -8,7 +8,6 @@ class OrderModel(Base):
     __tablename__ = 'orders'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
     holding_id = Column(Integer, ForeignKey('holdings.id'), nullable=False)
     order_type = Column(Enum(OrderType), nullable=False)
     side = Column(Enum(OrderSide), nullable=False)
@@ -24,10 +23,9 @@ class OrderModel(Base):
     external_order_id = Column(String, nullable=True)
     
     # Relationships
-    portfolio = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel")
-    holding = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel")
-    account = relationship("src.infrastructure.models.finance.account.AccountModel", back_populates="orders")
-    transactions = relationship("src.infrastructure.models.finance.transaction.TransactionModel", back_populates="order")
+    holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel",foreign_keys=[holding_id], back_populates="orders")#knows the portfolio
+    accounts = relationship("src.infrastructure.models.finance.account.AccountModel",foreign_keys=[account_id], back_populates="orders")
+    transactions = relationship("src.infrastructure.models.finance.transaction.transaction.TransactionModel", foreign_keys="TransactionModel.order_id", back_populates="order")
     
     def __repr__(self):
         return f"<Order(id={self.id}, side={self.side}, type={self.order_type}, status={self.status}, quantity={self.quantity})>"

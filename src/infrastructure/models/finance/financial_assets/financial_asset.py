@@ -33,8 +33,10 @@ class FinancialAssetModel(Base):
     }
     # Relationships
     instruments = relationship("src.infrastructure.models.finance.instrument.InstrumentModel", back_populates="asset", cascade="all, delete-orphan")
-    holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel", back_populates="asset")
-    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="financial_asset")
+    holdings = relationship("src.infrastructure.models.finance.holding.holding.HoldingModel",
+                            foreign_keys="HoldingModel.asset_id",
+                             back_populates="asset")
+    
     underlying_derivatives = relationship(
         "src.infrastructure.models.finance.financial_assets.derivative.derivatives.DerivativeModel",
         foreign_keys="DerivativeModel.underlying_asset_id",
