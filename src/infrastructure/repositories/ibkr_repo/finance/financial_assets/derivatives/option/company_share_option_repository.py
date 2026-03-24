@@ -44,24 +44,39 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         """Return the domain entity class for CompanyShareOption."""
         return CompanyShareOption
 
-    def _create_or_get(self, symbol: str = None, **kwargs) -> Optional[CompanyShareOption]:
+    def _create_or_get(self, symbol: str = None, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[CompanyShareOption]:
         """
-        Get or create a company share option by symbol using IBKR API.
+        Get or create a company share option by symbol and parameters using IBKR API.
         
         Args:
-            symbol: The option ticker symbol
+            symbol: The option symbol or ticker
+            strike_price: Strike price of the option (optional)
+            expiry: Expiry date (YYYYMMDD format, optional)
+            option_type: 'C' for call, 'P' for put (optional)
+            **kwargs: Additional parameters for customization
             
         Returns:
             CompanyShareOption entity or None if creation/retrieval failed
         """
         try:
+            # Validate that symbol is not a dictionary (common error)
+            if isinstance(symbol, dict):
+                print(f"Error: symbol parameter cannot be a dictionary. Received: {symbol}")
+                print("This indicates the entity service is not properly extracting the symbol from configuration.")
+                return None
+            
+            # Ensure symbol is a string
+            if not isinstance(symbol, str):
+                print(f"Error: symbol must be a string, got {type(symbol)}: {symbol}")
+                return None
+            
             # 1. Check local repository first
             existing = self.local_repo.get_by_symbol(symbol)
             if existing:
                 return existing
             
-            # 2. Fetch from IBKR API
-            contract = self._fetch_contract(symbol, **kwargs)
+            # 2. Fetch from IBKR API with enhanced parameters
+            contract = self._fetch_contract(symbol, strike_price=strike_price, expiry=expiry, option_type=option_type, **kwargs)
             if not contract:
                 return None
                 
@@ -79,7 +94,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             return self.local_repo.add(entity)
             
         except Exception as e:
-            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}")
+            print(f"Error in IBKR get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
     def get_by_id(self, option_id: int) -> Optional[CompanyShareOption]:
@@ -114,50 +129,64 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         """Delete company share option entity (delegates to local repository)."""
         return self.local_repo.delete(option_id)
 
-    def _fetch_contract(self, symbol: str, **kwargs) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[Contract]:
         """
-        Fetch contract from IBKR API.
+        Fetch contract from IBKR API with enhanced parameter handling.
         
         Args:
             symbol: Option ticker symbol or underlying symbol
+            strike_price: Strike price of the option
+            expiry: Expiry date (YYYYMMDD format)
+            option_type: 'C' for call, 'P' for put
+            **kwargs: Additional parameters
             
         Returns:
             IBKR Contract object or None if not found
         """
         try:
             contract = Contract()
-            contract.symbol = kwargs.get('underlying_symbol', symbol.split(' ')[0])
+            
+            # Enhanced symbol handling
+            underlying_symbol = kwargs.get('underlying_symbol', symbol.split(' ')[0] if ' ' in symbol else symbol)
+            contract.symbol = underlying_symbol
             contract.secType = "OPT"
             contract.exchange = kwargs.get('exchange', "SMART")  # IBKR smart routing
             contract.currency = kwargs.get('currency', "USD")
+            contract.includeExpired = kwargs.get('include_expired', True)
             
-            # Set option-specific fields if provided
-            if 'expiry' in kwargs:
-                contract.lastTradeDateOrContractMonth = kwargs['expiry']
-            if 'strike' in kwargs:
-                contract.strike = float(kwargs['strike'])
-            if 'right' in kwargs:
-                contract.right = kwargs['right']  # 'C' for call, 'P' for put
+            # Set option-specific fields with priority to direct parameters
+            if expiry or 'expiry' in kwargs:
+                contract.lastTradeDateOrContractMonth = expiry or kwargs['expiry']
+            if strike_price is not None or 'strike' in kwargs:
+                contract.strike = strike_price if strike_price is not None else float(kwargs['strike'])
+            if option_type or 'right' in kwargs:
+                contract.right = option_type or kwargs['right']  # 'C' for call, 'P' for put
             if 'multiplier' in kwargs:
                 contract.multiplier = str(kwargs['multiplier'])
             
+            # Set trading class for better identification
+            if 'trading_class' in kwargs:
+                contract.tradingClass = kwargs['trading_class']
+            else:
+                contract.tradingClass = underlying_symbol
+            
             return contract
         except Exception as e:
-            print(f"Error fetching IBKR option contract for {symbol}: {e}")
+            print(f"Error fetching IBKR option contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
+    def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
-        Fetch contract details from IBKR API.
+        Fetch contract details from IBKR API using broker method.
         
         Args:
             contract: IBKR Contract object
             
         Returns:
-            ContractDetails object or None if not found
+            List of contract details dictionaries or None if not found
         """
         try:
-            # Use the broker's get_contract_details method
+            # Use the broker's get_contract_details method (like in reference implementation)
             contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
             
             if contract_details and len(contract_details) > 0:
@@ -167,7 +196,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                 return None
                 
         except Exception as e:
-            print(f"Error fetching IBKR option contract details: {e}_{os.path.abspath(__file__)}")
+            print(f"Error fetching IBKR contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
     def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[CompanyShareOption]:
@@ -212,6 +241,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
     def _get_or_create_exchange(self, exchange_code: str):
         """
         Get or create an exchange using factory or exchange repository if available.
+        Falls back to direct exchange creation if no dependencies are provided.
         
         Args:
             exchange_code: Exchange code (e.g., 'CBOE', 'ISE', 'PHLX')
@@ -227,6 +257,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                     exchange = exchange_repo._create_or_get(exchange_code)
                     if exchange:
                         return exchange
+            
         except Exception as e:
             print(f"Error getting or creating exchange {exchange_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal exchange as last resort
@@ -234,6 +265,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
     def _get_or_create_currency(self, iso_code: str, name: str = None):
         """
         Get or create a currency using factory or currency repository if available.
+        Falls back to direct currency creation if no dependencies are provided.
         
         Args:
             iso_code: Currency ISO code (e.g., 'USD', 'EUR')
@@ -250,6 +282,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                     currency = currency_repo._create_or_get(iso_code)
                     if currency:
                         return currency
+            
         except Exception as e:
             print(f"Error getting or creating currency {iso_code}: {e}_{os.path.abspath(__file__)}")
             # Return minimal currency as last resort
