@@ -39,10 +39,7 @@ class CompanyShareOptionPriceReturnFactorMapper(BaseFactorMapper):
             data_type=orm_model.data_type,
             source=orm_model.source,
             definition=orm_model.definition,
-            factor_id=orm_model.id,
-            current_price=getattr(orm_model, 'current_price', None),
-            previous_price=getattr(orm_model, 'previous_price', None),
-            underlying_symbol=getattr(orm_model, 'underlying_symbol', None)
+            factor_id=orm_model.id
         )
     
     @classmethod
@@ -56,8 +53,5 @@ class CompanyShareOptionPriceReturnFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            discriminator=cls().discriminator,
-            current_price=getattr(domain_entity, 'current_price', None),
-            previous_price=getattr(domain_entity, 'previous_price', None),
-            underlying_symbol=getattr(domain_entity, 'underlying_symbol', None)
+            discriminator=cls().discriminator
         )

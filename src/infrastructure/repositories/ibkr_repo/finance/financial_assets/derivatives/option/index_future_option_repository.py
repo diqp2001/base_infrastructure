@@ -81,27 +81,14 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             if existing:
                 return existing
             
-            # 2. Handle case where option parameters are not provided
-            # This happens when called from factor creation pipelines
-            if not strike_price or not expiry or not option_type:
-                dict_list = self.parse_option_string(symbol)
+            
                 
-                # Try to find any existing option for this symbol in local repo
-                # existing_options = self.local_repo.get_by_index_symbol(self._resolve_underlying_index(symbol))
-                # if existing_options:
-                #     print(f"Found {len(existing_options)} existing options for underlying {self._resolve_underlying_index(symbol)}")
-                #     # Return the first available option as fallback
-                #     return existing_options[0]
-                strike_price = dict_list["strike_price"]
-                expiry = dict_list["expiry"]
-                option_type = dict_list["option_type"]
-                symbol_underlying = dict_list["symbol"]
                 
                 
                 
             
             # 3. Fetch from IBKR API with full parameters
-            contract = self._fetch_option_contract(symbol, strike_price, expiry, option_type)
+            contract = self._fetch_contract(symbol)
             if not contract:
                 return None
                 
@@ -353,7 +340,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         
 
         return expiry
-    def _fetch_option_contract(self, symbol: str, strike_price: float, expiry: str, option_type: str) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str) -> Optional[Contract]:
         """
         Fetch option contract from IBKR API.
         
@@ -368,7 +355,11 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
         """
         try:
             contract = Contract()
-            
+            dict_list = self.parse_option_string(symbol)
+            strike_price = dict_list["strike_price"]
+            expiry = dict_list["expiry"]
+            option_type = dict_list["option_type"]
+            symbol_underlying = dict_list["symbol"]
             # Convert future symbol to underlying root for options
             underlying_symbol = self._get_underlying_root_symbol(symbol)
             
@@ -595,7 +586,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
             # Use the broker's historical data method with optimized settings
             if hasattr(self.ib_broker, 'get_historical_data'):
                 # Create a lightweight contract for historical data request
-                contract = self._fetch_option_contract(symbol, entity.strike_price, None, 'C')  # Default call
+                contract = self._fetch_contract(symbol, entity.strike_price, None, 'C')  # Default call
                 if not contract:
                     return None
                     

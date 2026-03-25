@@ -39,12 +39,7 @@ class CompanyShareOptionRhoFactorMapper(BaseFactorMapper):
             data_type=orm_model.data_type,
             source=orm_model.source,
             definition=orm_model.definition,
-            factor_id=orm_model.id,
-            stock_price=getattr(orm_model, 'stock_price', None),
-            strike_price=getattr(orm_model, 'strike_price', None),
-            volatility=getattr(orm_model, 'volatility', None),
-            time_to_expiry=getattr(orm_model, 'time_to_expiry', None),
-            underlying_symbol=getattr(orm_model, 'underlying_symbol', None)
+            factor_id=orm_model.id
         )
     
     @classmethod

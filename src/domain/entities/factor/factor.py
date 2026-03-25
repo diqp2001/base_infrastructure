@@ -46,12 +46,6 @@ class Factor(ABC):
                 raise ValueError(f"Invalid frequency '{frequency}'. "f"Allowed values: {list(self.FREQUENCIES.keys())}")
         self.frequency = frequency
 
-    def describe(self) -> str:
-        return (
-            f"Factor[{self.id}] - {self.name}\n"
-            f"Group: {self.group}, Subgroup: {self.subgroup}\n"
-            f"Type: {self.data_type}, Source: {self.source}\n"
-            f"Definition: {self.definition}"
-        )
+    
 
 

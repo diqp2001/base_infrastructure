@@ -157,6 +157,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_r
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.index_future_repository import IBKRIndexFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IBKRIndexFutureOptionRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.company_share_option_repository import IBKRCompanyShareOptionRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.share_repository import IBKRShareRepository
@@ -493,6 +494,11 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
+                'company_share_option': IBKRCompanyShareOptionRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                
                 'company_share': IBKRCompanyShareRepository(
                     ibkr_client=client,
                     factory=self

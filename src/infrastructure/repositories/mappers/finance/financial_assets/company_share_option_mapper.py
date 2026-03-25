@@ -45,7 +45,8 @@ class CompanyShareOptionMapper:
             orm_obj.currency_id = domain_obj.currency_id
         if hasattr(domain_obj, 'underlying_asset_id'):
             orm_obj.underlying_asset_id = domain_obj.underlying_asset_id
-        
+        if hasattr(domain_obj, 'exchange_id'):
+            orm_obj.exchange_id = domain_obj.exchange_id
         # Map optional financial asset attributes
         if hasattr(domain_obj, 'name'):
             orm_obj.name = domain_obj.name

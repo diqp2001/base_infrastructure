@@ -39,10 +39,7 @@ class PortfolioCompanyShareOptionPriceReturnFactorMapper(BaseFactorMapper):
             data_type=orm_model.data_type,
             source=orm_model.source,
             definition=orm_model.definition,
-            factor_id=orm_model.id,
-            current_price=getattr(orm_model, 'current_price', None),
-            previous_price=getattr(orm_model, 'previous_price', None),
-            underlying_symbol=getattr(orm_model, 'underlying_symbol', None)
+            factor_id=orm_model.id
         )
     
     @classmethod

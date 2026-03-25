@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption as DomainCompanyShareOption
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel as ORMCompanyShareOption
-from src.infrastructure.repositories.mappers.finance.financial_assets.options_mapper import OptionsMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_option_mapper import CompanyShareOptionMapper
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.options_repository import OptionsRepository
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class CompanyShareOptionRepository(OptionsRepository):
     def __init__(self, session: Session, factory):
         """Initialize CompanyShareOptionRepository with database session."""
         super().__init__(session, factory)
-        self.mapper = OptionsMapper()
+        self.mapper = CompanyShareOptionMapper()
     
     @property
     def model_class(self):
@@ -96,7 +96,35 @@ class CompanyShareOptionRepository(OptionsRepository):
         except Exception as e:
             logger.error(f"Error in get_or_create for company share option {ticker or symbol}: {e}")
             return None
-
+    def add(self, option):
+        """
+        Add a single option to the database.
+        
+        :param option: Domain option entity to add
+        :return: The saved option entity with assigned ID
+        :raises: IntegrityError if option already exists
+        """
+        try:
+            # Convert domain entity to ORM model
+            orm_option = self.mapper.to_orm(option)
+            
+            # Add to session and flush to get the ID
+            self.session.add(orm_option)
+            self.session.flush()
+            
+            self.session.commit()
+            
+            
+            
+            return self.mapper.to_domain(orm_option)
+            
+        except IntegrityError as e:
+            self.session.rollback()
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error adding option {option}: {e}")
+            raise
     def get_by_company_share_id(self, company_share_id: int) -> List[DomainCompanyShareOption]:
         """
         Retrieve company share options by their underlying company share ID.

@@ -28,7 +28,7 @@ class MarketDataService:
         self.on_data_slice: Optional[Callable[[Slice], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
         
-    def create_data_slice(self, current_date: datetime, universe: List[str]) -> Slice:
+    def create_data_slice(self, current_date: datetime, universe: List[str],bar_size_setting,duration_str) -> Slice:
         """
         Create a data slice for the given date and universe.
         This is the main method called by the engine's _create_data_slice.
@@ -51,12 +51,11 @@ class MarketDataService:
             
             # Get data for each symbol in the universe
             for entity_class, entities in universe.items():
-                if entity_class == IndexFutureOption:
-                    print("yes")
+                
                 for entity in entities:
                     try:
                         point_in_time_data = self._get_point_in_time_data(
-                            entity,entity_class, current_date
+                            entity,entity_class, current_date,bar_size_setting,duration_str
                         )
 
                         
@@ -102,7 +101,7 @@ class MarketDataService:
             
         return slice_data
     
-    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime) -> Optional[pd.DataFrame]:
+    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting,duration_str) -> Optional[pd.DataFrame]:
         """
         Get point-in-time data for a specific ticker and date.
         Uses the factor data service to retrieve historical data.
@@ -138,7 +137,7 @@ class MarketDataService:
                     factors_data, entity_factor_class_input,
                     what_to_show="TRADES",
                     duration_str="1 D", 
-                    bar_size_setting="5 mins"
+                    bar_size_setting=bar_size_setting
                 )
                 
                 if created_factors:
@@ -156,8 +155,8 @@ class MarketDataService:
                     factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
-                        duration_str="6 M",
-                        bar_size_setting="1 day"
+                        duration_str=duration_str,#"1 D", 
+                        bar_size_setting=bar_size_setting#"1 day"
                     )
                     
                     # Build factor_data dictionary

@@ -366,6 +366,10 @@ class IBKRIndexFuturePriceReturnFactorRepository(BaseIBKRFactorRepository, Index
 
 7. it needs a FactorPort like IndexFuturePriceReturnFactorPort in src.domain.ports.factor
 
+8. 
+    all base factor of each domain entity needs to be added in ENTITY_FACTOR_MAPPING in src.infrastructure.repositories.mappers.factor.factor_mapper.py
+    a base factor is a factor that doesn't have a calculate function, and is considered the main factor for a certain entity . IndexFactorEntity is the base factor for entity domain Index, while IndexPriceReturnFactor isn't
+
 
 
 

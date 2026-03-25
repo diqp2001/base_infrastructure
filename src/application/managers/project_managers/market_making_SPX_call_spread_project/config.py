@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
@@ -30,23 +31,22 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanyShare: ["AAPL","IBM"],
+        CompanyShare: ["AAPL"],
+        CompanyShareOption: ["AAPL  281215C00260000"],
+
         IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"
             # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
             # {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
             # {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
             #   # ITM Call 'future: ESZ6 option type: C strike:6850'
         ],
-        Index: ["SPX"],
-        IndexFuture: ["ESZ6"]
+       # Index: ["SPX"],
+        #IndexFuture: ["ESZ6"]
     },
     'target_factor': {
-        IndexFutureOption: [
-            {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call
-            {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
-        ],
-        Index: ["SPX"],
-        IndexFuture: ["ESZ6"]
+        #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850",],
+        #Index: ["SPX"],
+        #IndexFuture: ["ESZ6"]
     },
     # SPX Configuration
     'underlying_symbol': 'SPX',
@@ -62,6 +62,7 @@ DEFAULT_CONFIG = {
     # Market Data Configuration
     'historical_data_duration': '6 M',  # 6 months of historical data
     'bar_size_setting': '5 mins',
+    'duration_str': '1 D',
     'option_data_duration': '30 D',  # 30 days of option data
     
     # Risk Management
@@ -83,8 +84,11 @@ DEFAULT_CONFIG = {
     },
     
     # Backtesting Configuration
-    'backtest_start': '2026-02-02 09:30:00',
-    'backtest_end': '2026-02-04 14:30:00',
+    # 'backtest_start': '2026-02-02 09:30:00',
+    # 'backtest_end': '2026-02-04 14:30:00',
+
+    'backtest_start': '2026-03-25 09:30:00',
+    'backtest_end': '2026-03-25 14:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,

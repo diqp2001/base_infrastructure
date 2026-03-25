@@ -286,7 +286,22 @@ class IBKRExchangeRepository(BaseIBKRRepository, ExchangePort):
                 'routing_type': 'IBKR_FX',
                 'smart_routing': True,
                 'order_types': ['LMT', 'MKT', 'STP', 'TRAIL']
-            }
+            },
+            "CBOE" :  {
+                        'name': 'Chicago Board Options Exchange',
+                        'country_name': "United States",
+                        'timezone': 'America/Chicago',  # Important: CBOE is Chicago, not NY
+                        'currency': 'USD',
+                        
+                        # Regular trading hours for options
+                        'market_open': time(8, 30),   # 9:30 ET
+                        'market_close': time(15, 0),  # 16:00 ET
+                        
+                        'routing_type': 'IBKR_OPTIONS',
+                        'smart_routing': True,
+                        
+                        'order_types': ['LMT', 'MKT', 'STP', 'STP LMT']
+                    }
         }
         
         return ibkr_exchanges.get(exchange_code.upper())

@@ -410,6 +410,8 @@ class MisbuffetEngine(BaseEngine):
         
         # Track universe of symbols the algorithm is interested in
         universe = getattr(self.algorithm, 'universe')
+        bar_size_setting = getattr(self.algorithm, 'bar_size_setting')
+        duration_str = getattr(self.algorithm, 'duration_str')
         # Configurable simulation loop - process data at specified intervals
         while current_date <= end_date:
             # Create data slice with real stock data for this date
@@ -421,7 +423,7 @@ class MisbuffetEngine(BaseEngine):
                     # Use MarketDataService to create the data slice
                     if hasattr(self.data_loader, 'market_data_service'):
                         data_slice = self.data_loader.market_data_service.create_data_slice(
-                            current_date, universe
+                            current_date, universe,bar_size_setting,duration_str
                         )
                     
                     

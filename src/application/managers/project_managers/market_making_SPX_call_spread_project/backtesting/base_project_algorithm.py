@@ -65,6 +65,8 @@ class Algorithm(QCAlgorithm):
         
         # Define universe and store Security objects
         self.universe = self.config['universe']
+        self.bar_size_setting = self.config['bar_size_setting']
+        self.duration_str = self.config['duration_str']
         self.my_securities = {}  # Dictionary to store Security objects by ticker for easy lookup
         
         """for ticker in self.universe:

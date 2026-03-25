@@ -6,6 +6,7 @@ applying IBKR-specific business rules before delegating persistence to the local
 """
 
 import os
+import re
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
@@ -44,7 +45,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         """Return the domain entity class for CompanyShareOption."""
         return CompanyShareOption
 
-    def _create_or_get(self, symbol: str = None, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[CompanyShareOption]:
+    def _create_or_get(self, symbol: str = None, **kwargs) -> Optional[CompanyShareOption]:
         """
         Get or create a company share option by symbol and parameters using IBKR API.
         
@@ -76,7 +77,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                 return existing
             
             # 2. Fetch from IBKR API with enhanced parameters
-            contract = self._fetch_contract(symbol, strike_price=strike_price, expiry=expiry, option_type=option_type, **kwargs)
+            contract = self._fetch_contract(symbol, **kwargs)
             if not contract:
                 return None
                 
@@ -129,7 +130,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         """Delete company share option entity (delegates to local repository)."""
         return self.local_repo.delete(option_id)
 
-    def _fetch_contract(self, symbol: str, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[Contract]:
+    def _fetch_contract(self, symbol: str,  **kwargs) -> Optional[Contract]:
         """
         Fetch contract from IBKR API with enhanced parameter handling.
         
@@ -147,10 +148,15 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             contract = Contract()
             
             # Enhanced symbol handling
+            dict_list = self.parse_option_string(symbol)
+            strike_price = dict_list["strike_price"]
+            expiry = dict_list["expiry"]
+            option_type = dict_list["option_type"]
+            symbol_underlying = dict_list["symbol"]
             underlying_symbol = kwargs.get('underlying_symbol', symbol.split(' ')[0] if ' ' in symbol else symbol)
             contract.symbol = underlying_symbol
             contract.secType = "OPT"
-            contract.exchange = kwargs.get('exchange', "SMART")  # IBKR smart routing
+            contract.exchange = "CBOE" #kwargs.get('exchange', "SMART")  # IBKR smart routing
             contract.currency = kwargs.get('currency', "USD")
             contract.includeExpired = kwargs.get('include_expired', True)
             
@@ -174,6 +180,46 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         except Exception as e:
             print(f"Error fetching IBKR option contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
+        
+    def parse_option_string(self, option_str: str):
+        """
+        Parse OCC/OPRA option string like:
+        AAPL  281215C00260000
+        """
+
+        # Remove extra spaces (important because AAPL has padding)
+        option_str = option_str.strip()
+
+        # Regex:
+        # symbol (letters)
+        # optional spaces
+        # YYMMDD
+        # C/P
+        # 8 digit strike
+        pattern = r"([A-Z]+)\s*(\d{2})(\d{2})(\d{2})([CP])(\d{8})"
+        match = re.match(pattern, option_str)
+
+        if not match:
+            raise ValueError(f"Invalid format: {option_str}")
+
+        symbol, year, month, day, option_type, strike = match.groups()
+
+        # Convert year (assume 20xx)
+        year = int(year)
+        year = 2000 + year
+
+        # Convert strike (divide by 1000)
+        strike_price = int(strike) / 1000
+
+        # Build expiry in IBKR format (YYYYMMDD)
+        expiry = f"{year}{month}{day}"
+
+        return {
+            "symbol": symbol,
+            "strike_price": strike_price,
+            "option_type": option_type,
+            "expiry": expiry
+        }
 
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
@@ -215,29 +261,47 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             contract_details = contract_details_list[0] if contract_details_list else {}
             
             # Extract data from IBKR API response
-            symbol = contract_details.get('symbol', contract.symbol)
+            symbol = contract_details.get('local_symbol', contract.symbol)
             name = contract_details.get('long_name', f"Company Share Option {symbol}")
             currency_iso_code = contract_details.get('currency', 'USD')
             
             # Get or create dependencies
             currency = self._get_or_create_currency(iso_code=currency_iso_code)
             exchange = self._get_or_create_exchange(contract_details.get("exchange"))
-            
+            underlying = self._get_or_create_underlying_company_share(contract_details.get('symbol'))
+            option_type = None
+            if contract.right == "C":
+                option_type = "CALL"
+            elif contract.right == "P":
+                option_type = "PUT"
             return self.entity_class(
                 id=None,  # Let database generate
                 name=name,
                 symbol=symbol,
-                currency_id=currency.id if currency and hasattr(currency, 'id') else None,
-                underlying_asset_id=None,  # Can be set later if needed
-                exchange_id=exchange.id if exchange and hasattr(exchange, 'id') else None,
-                option_type=contract.right.lower() if hasattr(contract, 'right') else 'call',
+                currency_id=currency.id ,
+                underlying_asset_id=underlying.id ,  # Can be set later if needed
+                exchange_id=exchange.id ,
+                option_type = option_type,
                 strike_price=Decimal(str(contract.strike)) if hasattr(contract, 'strike') and contract.strike else None,
                 multiplier=int(contract.multiplier) if hasattr(contract, 'multiplier') and contract.multiplier else 100
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")
             return None
-
+    def _get_or_create_underlying_company_share(self, symbol: str):
+        """
+        Get or create an underlying company_share using factory or company_share repository.
+        """
+        try:
+            if self.factory and hasattr(self.factory, 'company_share_ibkr_repo'):
+                company_share_repo = self.factory.company_share_ibkr_repo
+                if company_share_repo:
+                    company_share = company_share_repo._create_or_get(symbol)
+                    if company_share:
+                        return company_share
+            
+        except Exception as e:
+            print(f"Error getting or creating company_share {symbol}: {e}_{os.path.abspath(__file__)}")
     def _get_or_create_exchange(self, exchange_code: str):
         """
         Get or create an exchange using factory or exchange repository if available.
