@@ -14,7 +14,7 @@ class IndexFutureOptionPriceReturnFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'index_future_option_price_return_factor'
+        return 'index_future_option'
     
     @property
     def model_class(self):

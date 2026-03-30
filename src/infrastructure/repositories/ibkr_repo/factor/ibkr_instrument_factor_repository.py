@@ -209,8 +209,11 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             timestamp = timestamp or datetime.now()
             date_obj = instrument.date
 
-            
-            tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str,end_date_time=date_obj)
+            if what_to_show == "OPTION_IMPLIED_VOLATILITY":
+                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str,end_date_time=date_obj)
+            else:
+
+                tick_value = self.ib_client.get_historical_data(contract = contract,what_to_show=what_to_show,bar_size_setting=bar_size_setting,duration_str=duration_str,end_date_time=date_obj)
                 
             
                 

@@ -11,7 +11,9 @@ from .base_factor_mapper import BaseFactorMapper
 
 class ShareTechnicalFactorMapper(BaseFactorMapper):
     """Mapper for ShareTechnicalFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'share'
     def get_factor_model(self):
         return FactorModel
     

@@ -31,15 +31,14 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanyShare: ["AAPL"],
+        #CompanyShare: ["AAPL"],
         CompanyShareOption: ["AAPL  281215C00260000"],
 
-        IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"
-            # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
+        #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
+        # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
             # {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
             # {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
             #   # ITM Call 'future: ESZ6 option type: C strike:6850'
-        ],
        # Index: ["SPX"],
         #IndexFuture: ["ESZ6"]
     },
@@ -87,8 +86,8 @@ DEFAULT_CONFIG = {
     # 'backtest_start': '2026-02-02 09:30:00',
     # 'backtest_end': '2026-02-04 14:30:00',
 
-    'backtest_start': '2026-03-25 09:30:00',
-    'backtest_end': '2026-03-25 14:30:00',
+    'backtest_start': '2026-03-27 09:30:00',
+    'backtest_end': '2026-03-27 14:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
@@ -103,19 +102,21 @@ DEFAULT_CONFIG = {
     # Factors for modeling - only future_index_library and index_library factors
     'factors': [
         # Price factors from future_index_library
-        FACTOR_LIBRARY["future_index_library"]["open"],
-        FACTOR_LIBRARY["future_index_library"]["high"],
-        FACTOR_LIBRARY["future_index_library"]["low"],
-        FACTOR_LIBRARY["future_index_library"]["close"],
-        FACTOR_LIBRARY["future_index_library"]["volume"],
+        # FACTOR_LIBRARY["future_index_library"]["open"],
+        # FACTOR_LIBRARY["future_index_library"]["high"],
+        # FACTOR_LIBRARY["future_index_library"]["low"],
+        # FACTOR_LIBRARY["future_index_library"]["close"],
+        # FACTOR_LIBRARY["future_index_library"]["volume"],
         
-        # Future return factors (daily, weekly, monthly)
-        FACTOR_LIBRARY["future_index_library"]["return_daily"],
+        # # Future return factors (daily, weekly, monthly)
+        # FACTOR_LIBRARY["future_index_library"]["return_daily"],
         
-        # Index return factors (daily, weekly, monthly)
-        FACTOR_LIBRARY["index_library"]["return_daily"],
-        FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
-        FACTOR_LIBRARY["company_share_library"]["return_daily"]
+        # # Index return factors (daily, weekly, monthly)
+        # FACTOR_LIBRARY["index_library"]["return_daily"],
+        # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
+        FACTOR_LIBRARY["company_share_library"]["return_daily"],
+        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility"],
+        FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
     

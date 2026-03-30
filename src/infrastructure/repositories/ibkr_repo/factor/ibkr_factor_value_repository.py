@@ -5,11 +5,13 @@ This repository handles factor value data acquisition from IBKR API,
 implementing the pipelines for IBKR Contract → Instrument → Factor Values → Asset Factor Values.
 """
 
+from collections import defaultdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 import inspect
 from ibapi.contract import Contract
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import Tuple
 from src.domain.entities.finance.financial_assets.currency import Currency
 
 from src.dto.factor.factor_batch import FactorBatch
@@ -494,25 +496,48 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             created_factor_values = []
             
             # Group factors by symbol to optimize IBKR calls
-            symbol_factors = self._group_factors_by_symbol(factor_batch, financial_asset_entity)
-            
-            for symbol, factors in symbol_factors.items():
+            #symbol_factors = self._group_factors_by_symbol(factor_batch, financial_asset_entity)
+            symbol_group_factors  = self._group_factors_by_symbol_and_factor_group(factor_batch, financial_asset_entity)
+            for (symbol, factor_group), factors in symbol_group_factors.items():
                 try:
-                    # Make single IBKR historical data request for this symbol 
+                    what_to_show = self._resolve_what_to_show_from_group(
+                        factor_group
+                    )
+
                     bulk_ibkr_data = self._fetch_bulk_historical_data(
-                        symbol, time_date, financial_asset_entity, what_to_show, duration_str, bar_size_setting
-                    )#functionning
-                    #WE NEED TO IMPLEMENT A WAY THE CALCULATE FUNCTION IS CALLED AND BEFORE THAT THE FACTOR DEPENDENCY
+                        symbol,
+                        time_date,
+                        financial_asset_entity,
+                        what_to_show,
+                        duration_str,
+                        bar_size_setting
+                    )
                     if bulk_ibkr_data:
                         # Extract factor values for all factors from the bulk response
                         factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
                             bulk_ibkr_data, factors, entity_id
                         )
                         created_factor_values.extend(factor_values_from_bulk)
-                    
                 except Exception as e:
                     print(f"Error processing symbol {symbol} in batch: {e}")
                     continue
+            # for symbol, factors in symbol_factors.items():
+            #     try:
+            #         # Make single IBKR historical data request for this symbol 
+            #         bulk_ibkr_data = self._fetch_bulk_historical_data(
+            #             symbol, time_date, financial_asset_entity, what_to_show, duration_str, bar_size_setting
+            #         )#functionning
+                    
+            #         if bulk_ibkr_data:
+            #             # Extract factor values for all factors from the bulk response
+            #             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
+            #                 bulk_ibkr_data, factors, entity_id
+            #             )
+            #             created_factor_values.extend(factor_values_from_bulk)
+                    
+            #     except Exception as e:
+            #         print(f"Error processing symbol {symbol} in batch: {e}")
+            #         continue
 
             if not created_factor_values:
                 print("No factor values were created from bulk IBKR data")
@@ -526,8 +551,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 'processed_count': len(created_factor_values),
                 'original_batch_size': len(factor_batch),
                 'processing_timestamp': datetime.now().isoformat(),
-                'bulk_requests_made': len(symbol_factors),
-                'optimization_ratio': len(created_factor_values) / len(symbol_factors) if symbol_factors else 0
+                'bulk_requests_made': len(symbol_group_factors),
+                'optimization_ratio': len(created_factor_values) / len(symbol_group_factors) if symbol_group_factors else 0
             }
 
             return FactorValueBatch(
@@ -538,6 +563,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error in optimized get_or_create_batch: {e}")
             return None
+        
+    def _resolve_what_to_show_from_group(self, factor_group: str) -> str:
+        group_config = WHAT_TO_SHOW_MAP.get(factor_group, {})
+
+        primary = group_config.get("primary", "TRADES")
+
+        return primary
 
     def _process_factor_chunk(self, factor_chunk: FactorBatch) -> List[FactorValue]:
         """
@@ -656,7 +688,41 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error in batch persistence: {e}")
             return False
+    def _group_factors_by_symbol_and_factor_group(
+        self, 
+        factor_batch, 
+        financial_asset_entity: Any
+    ):
+        """
+        Group factors by (symbol, factor_group) to ensure consistent IBKR requests.
 
+        Returns:
+            Dict[(symbol, factor_group)] -> List[factors]
+        """
+        try:
+            symbol = (
+                getattr(financial_asset_entity, 'symbol', None) or
+                getattr(financial_asset_entity, 'ticker', None) or 
+                getattr(financial_asset_entity, 'name', None)
+            )
+
+            if not symbol:
+                print("Could not extract symbol from financial asset entity")
+                return {}
+
+            grouped = defaultdict(list)
+
+            for factor in factor_batch.factors:
+                factor_group = getattr(factor, 'group', 'unknown')
+
+                key = (symbol, factor_group)
+                grouped[key].append(factor)
+
+            return dict(grouped)
+
+        except Exception as e:
+            print(f"Error grouping factors by symbol and factor group: {e}")
+            return {}
     def _group_factors_by_symbol(self, factor_batch: FactorBatch, financial_asset_entity: Any) -> Dict[str, List[Any]]:
         """
         Group factors by symbol to optimize IBKR requests.
@@ -1872,3 +1938,83 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
             return None
+        
+WHAT_TO_SHOW_MAP = {
+
+    # =========================
+    # PRICE / RETURNS
+    # =========================
+    "price": {
+        "primary": "TRADES",
+        "fallback": "MIDPOINT"
+    },
+
+    
+
+    # =========================
+    # VOLATILITY
+    # =========================
+    "implied_volatility": {
+        "primary": "OPTION_IMPLIED_VOLATILITY"
+    },
+
+    "historical_volatility": {
+        "primary": "HISTORICAL_VOLATILITY"
+    },
+
+    # =========================
+    # MARKET MICROSTRUCTURE
+    # =========================
+    "bid": {
+        "primary": "BID"
+    },
+
+    "ask": {
+        "primary": "ASK"
+    },
+
+    "bid_ask": {
+        "primary": "BID_ASK"
+    },
+
+    "midpoint": {
+        "primary": "MIDPOINT"
+    },
+
+    # =========================
+    # ADJUSTED DATA
+    # =========================
+    "adjusted_price": {
+        "primary": "ADJUSTED_LAST"
+    },
+
+    # =========================
+    # RATES / FEES
+    # =========================
+    "fee_rate": {
+        "primary": "FEE_RATE"
+    },
+
+    # =========================
+    # YIELDS
+    # =========================
+    "yield": {
+        "primary": "YIELD_LAST",
+        "fallback": "YIELD_BID"
+    },
+
+    "yield_bid": {
+        "primary": "YIELD_BID"
+    },
+
+    "yield_ask": {
+        "primary": "YIELD_ASK"
+    },
+
+    # =========================
+    # SCHEDULE
+    # =========================
+    "schedule": {
+        "primary": "SCHEDULE"
+    }
+}

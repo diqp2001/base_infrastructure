@@ -199,7 +199,8 @@ class Slice:
     bars: TradeBars = field(default_factory=TradeBars)
     quote_bars: QuoteBars = field(default_factory=QuoteBars)
     ticks: Ticks = field(default_factory=Ticks)
-    
+    # bar_size_setting: Any  = field(default_factory=Any)
+    # duration_str: Any   = field(default_factory=Any)
     # Additional data
     splits: Dict[Symbol, Any] = field(default_factory=dict)
     dividends: Dict[Symbol, Any] = field(default_factory=dict)

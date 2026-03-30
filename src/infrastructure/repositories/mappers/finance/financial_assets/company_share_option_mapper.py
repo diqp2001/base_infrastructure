@@ -12,6 +12,9 @@ from src.infrastructure.models.finance.financial_assets.derivative.option.compan
 
 class CompanyShareOptionMapper:
     """Mapper for CompanyShareOption domain entity and ORM model."""
+    @property
+    def discriminator(self):
+        return 'company_share_option'
 
     @staticmethod
     def to_domain(orm_obj: ORMCompanyShareOption) -> DomainCompanyShareOption:

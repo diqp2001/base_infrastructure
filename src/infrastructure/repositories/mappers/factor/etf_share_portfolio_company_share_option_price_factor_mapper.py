@@ -14,7 +14,7 @@ class ETFSharePortfolioCompanyShareOptionPriceFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'etf_share_portfolio_company_share_option_price_factor'
+        return 'etf_share_portfolio_company_share_option'
     
     @property
     def model_class(self):

@@ -14,7 +14,7 @@ class CompanyShareOptionRhoFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'company_share_option_rho_factor'
+        return 'company_share_option'
     
     @property
     def model_class(self):

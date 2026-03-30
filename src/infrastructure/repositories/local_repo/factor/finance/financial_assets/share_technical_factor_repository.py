@@ -38,7 +38,7 @@ class ShareTechnicalFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return ShareTechnicalFactorMapper.to_orm(entity)
 
-    def get_or_create(self, primary_key: str, **kwargs):
+    def get_or_create(self,entity_cls, primary_key: str, **kwargs):
         """
         Get or create a share technical factor with dependency resolution.
         

@@ -10,7 +10,9 @@ from src.domain.entities.factor.finance.financial_assets.index.index_factor impo
 
 class IBKRIndexFactorMapper(BaseFactorMapper):
     """Mapper for IBKR IndexFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'index'
     def get_factor_model(self):
         return FactorModel
     

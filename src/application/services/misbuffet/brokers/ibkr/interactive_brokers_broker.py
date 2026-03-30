@@ -711,7 +711,7 @@ class InteractiveBrokersBroker(BaseBroker):
             end_date_time: End date/time in format "YYYYMMDD HH:mm:ss TMZ" or empty for now
             duration_str: Time span covered (e.g., "1 W", "1 M", "1 Y")
             bar_size_setting: Bar size (e.g., "1 day", "1 hour", "5 mins")
-            what_to_show: Data type ("TRADES", "MIDPOINT", "BID", "ASK", etc.)
+            what_to_show: Data type ("TRADES", "MIDPOINT", "BID", "ASK", etc.)OPTION_IMPLIED_VOLATILITY HISTORICAL_VOLATILITY
             use_rth: Whether to use regular trading hours only
             format_date: 1 for datetime string, 2 for Unix timestamp
             timeout: Request timeout in seconds

@@ -14,7 +14,7 @@ class CompanyShareOptionDeltaFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'company_share_option_delta_factor'
+        return 'company_share_option_delta'
     
     @property
     def model_class(self):

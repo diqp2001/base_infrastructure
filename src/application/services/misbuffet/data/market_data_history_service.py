@@ -506,7 +506,9 @@ class MarketDataHistoryService:
             return []
         
     def _create_or_get_factor_value_batch(self,factor_groups: Any, entities: Any, 
-                                date: Any, ) -> FactorValueBatch:
+                                date: Any,what_to_show: str = "TRADES", 
+                                duration_str: str = "1 D", 
+                                bar_size_setting: str = "5 mins" ) -> FactorValueBatch:
         factor_data = {}
         
         created_factors =[]
@@ -533,11 +535,12 @@ class MarketDataHistoryService:
                         'entity_id': entity.id,
                         'max_date': max_date.strftime("%Y-%m-%d %H:%M:%S")
                     })
+                    
         factor_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
-                        what_to_show="TRADES",
-                        duration_str="6 M",
-                        bar_size_setting="1 day"
+                        what_to_show=what_to_show,
+                        duration_str=duration_str,
+                        bar_size_setting=bar_size_setting
                     )
         for factor_value in factor_values:
                         # Find corresponding factor name

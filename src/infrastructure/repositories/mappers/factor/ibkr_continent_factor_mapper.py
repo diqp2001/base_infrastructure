@@ -10,7 +10,9 @@ from src.domain.entities.factor.continent_factor import ContinentFactor
 
 class IBKRContinentFactorMapper(BaseFactorMapper):
     """Mapper for IBKR ContinentFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'continent'
     def get_factor_model(self):
         return FactorModel
     

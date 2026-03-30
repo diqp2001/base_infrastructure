@@ -10,7 +10,9 @@ from src.domain.entities.factor.finance.financial_assets.currency_factor import 
 
 class IBKRCurrencyFactorMapper(BaseFactorMapper):
     """Mapper for IBKR CurrencyFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'currency'
     def get_factor_model(self):
         return FactorModel
     

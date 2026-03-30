@@ -10,7 +10,9 @@ from src.domain.entities.factor.country_factor import CountryFactor
 
 class IBKRCountryFactorMapper(BaseFactorMapper):
     """Mapper for IBKR CountryFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'country'
     def get_factor_model(self):
         return FactorModel
     

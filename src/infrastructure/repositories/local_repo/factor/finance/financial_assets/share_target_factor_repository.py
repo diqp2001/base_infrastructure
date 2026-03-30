@@ -38,7 +38,7 @@ class ShareTargetFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return ShareTargetFactorMapper.to_orm(entity)
 
-    def get_or_create(self, primary_key: str, **kwargs):
+    def get_or_create(self,entity_cls, primary_key: str, **kwargs):
         """
         Get or create a share target factor with dependency resolution.
         

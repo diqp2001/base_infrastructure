@@ -38,7 +38,7 @@ class SecurityFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return SecurityFactorMapper.to_orm(entity)
 
-    def get_or_create(self, primary_key: str, **kwargs):
+    def get_or_create(self,entity_cls, primary_key: str, **kwargs):
         """
         Get or create a security factor with dependency resolution.
         

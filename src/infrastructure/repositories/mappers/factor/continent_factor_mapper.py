@@ -11,7 +11,9 @@ from .base_factor_mapper import BaseFactorMapper
 
 class ContinentFactorMapper(BaseFactorMapper):
     """Mapper for ContinentFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'continent'
     def get_factor_model(self):
         return FactorModel
     

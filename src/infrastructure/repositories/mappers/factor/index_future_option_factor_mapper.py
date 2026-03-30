@@ -14,7 +14,7 @@ class IndexFutureOptionFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'index_future_option_factor'
+        return 'index_future_option'
     
     @property
     def model_class(self):

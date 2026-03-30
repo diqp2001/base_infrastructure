@@ -10,7 +10,9 @@ from src.domain.entities.factor.finance.financial_assets.equity_factor import Eq
 
 class IBKREquityFactorMapper(BaseFactorMapper):
     """Mapper for IBKR EquityFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'equity'
     def get_factor_model(self):
         return FactorModel
     

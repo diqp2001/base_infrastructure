@@ -53,7 +53,7 @@ class PortfolioCompanyShareOptionPriceFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return PortfolioCompanyShareOptionPriceFactorMapper.to_orm(entity)
 
-    def _create_or_get(self, primary_key: str, **kwargs):
+    def _create_or_get(self, entity_cls,primary_key: str, **kwargs):
         """
         Get or create a portfolio company share option price factor with dependency resolution.
         

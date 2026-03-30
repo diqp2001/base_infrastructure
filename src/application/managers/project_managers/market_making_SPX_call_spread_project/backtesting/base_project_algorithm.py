@@ -157,7 +157,7 @@ class Algorithm(QCAlgorithm):
             # Return empty DataFrame to trigger fallback logic
             return pd.DataFrame()
     
-    def on_data(self, data: Dict[str, Any]):
+    def on_data(self, data):
         """
         Main algorithm logic called on each data update.
         Enhanced to include data stage functionality and model training integration.

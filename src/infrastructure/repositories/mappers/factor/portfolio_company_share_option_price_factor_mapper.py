@@ -14,7 +14,7 @@ class PortfolioCompanyShareOptionPriceFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'portfolio_company_share_option_price_factor'
+        return 'portfolio_company_share_option'
     
     @property
     def model_class(self):

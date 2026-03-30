@@ -11,7 +11,9 @@ from .base_factor_mapper import BaseFactorMapper
 
 class CurrencyFactorMapper(BaseFactorMapper):
     """Mapper for CurrencyFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'currency'
     def get_factor_model(self):
         return FactorModel
     

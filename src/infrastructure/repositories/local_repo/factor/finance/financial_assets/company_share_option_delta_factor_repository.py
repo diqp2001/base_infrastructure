@@ -54,7 +54,7 @@ class CompanyShareOptionDeltaFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
 
-    def _create_or_get(self, primary_key: str, **kwargs):
+    def _create_or_get(self, entity_cls,primary_key: str, **kwargs):
         """
         Get or create a company share option delta factor with dependency resolution.
         

@@ -98,7 +98,8 @@ class MarketDataService:
         # Trigger callback if set
         if self.on_data_slice:
             self.on_data_slice(slice_data)
-            
+        slice_data.bar_size_setting = bar_size_setting
+        slice_data.duration_str = duration_str
         return slice_data
     
     def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting,duration_str) -> Optional[pd.DataFrame]:

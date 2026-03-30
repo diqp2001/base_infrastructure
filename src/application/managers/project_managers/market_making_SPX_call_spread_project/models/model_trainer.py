@@ -70,9 +70,11 @@ class ModelTrainer:
         if seeds is None:
             seeds = [42, 123]
         date = list(data.items())[0][1].time #date from data
+        bar_size_setting = data.bar_size_setting
+        duration_str = data.duration_str
         # Step 1: Prepare factor data (store in database, don't create tensors)
         print("\n📊 Step 1: Preparing factor-enhanced data...")
-        factor_data = self._prepare_factor_data(date)
+        factor_data = self._prepare_factor_data(date,bar_size_setting,duration_str)
         
         # Step 2: NEW - Apply comprehensive normalization and factor enhancement
         print("\n🔧 Step 2: Normalizing and enhancing factors...")
@@ -399,7 +401,7 @@ class ModelTrainer:
             print(f"  ⚠️  Error loading price data for {ticker}: {str(e)}")
             return None
     
-    def _prepare_factor_data(self,date) -> Dict[str, pd.DataFrame]:
+    def _prepare_factor_data(self,date,bar_size_setting,duration_str) -> Dict[str, pd.DataFrame]:
         """Prepare factor-enhanced data for all tickers using database-driven approach."""
         
         # Step 1: Ensure all factors exist in database (like backtestRunner)
@@ -422,7 +424,10 @@ class ModelTrainer:
                     entities.append(entity)
                 else:
                     print(f"⚠️  Failed to create/get entity for {ticker_item} (class: {entity_class.__name__})")
-        factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups,entities,date)
+        
+        factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups=factor_groups,
+                                                                                                     entities=entities,date=date
+                                                                                                ,duration_str=duration_str, bar_size_setting=bar_size_setting)
         
         print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data

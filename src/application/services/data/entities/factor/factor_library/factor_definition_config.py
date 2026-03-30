@@ -4,6 +4,7 @@ Factor definitions and parameters for Market Making SPX Call Spread Project
 
 from typing import Dict, List
 
+from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.option.company_share_option_library import COMPANY_SHARE_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.company_share_library import COMPANY_SHARE_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.option.future_index_option_library import FUTURE_INDEX_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.index_library import INDEX_LIBRARY
@@ -143,6 +144,7 @@ FACTOR_LIBRARY: Dict[str, Dict] = {
     "future_index_library": FUTURE_INDEX_LIBRARY,
     "index_library": INDEX_LIBRARY,
     "company_share_library":COMPANY_SHARE_LIBRARY,
+    "company_share_option_library":COMPANY_SHARE_OPTION_LIBRARY,
     "technical_library": TECHNICAL_LIBRARY,
     "volatility_library": VOLATILITY_LIBRARY,
     "market_library": MARKET_LIBRARY,

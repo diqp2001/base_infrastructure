@@ -10,7 +10,9 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 
 class IBKRCompanySharePriceReturnFactorMapper(BaseFactorMapper):
     """Mapper for IBKR CompanySharePriceReturnFactor domain entity and ORM model conversion."""
-    
+    @property
+    def discriminator(self):
+        return 'company_share'
     def get_factor_model(self):
         return FactorModel
     
