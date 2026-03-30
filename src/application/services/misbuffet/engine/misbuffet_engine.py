@@ -422,6 +422,7 @@ class MisbuffetEngine(BaseEngine):
 
                     # Use MarketDataService to create the data slice
                     if hasattr(self.data_loader, 'market_data_service'):
+                        #Error in get_or_create_batch_optimized: 'NoneType' object has no attribute 'factor_values'
                         data_slice = self.data_loader.market_data_service.create_data_slice(
                             current_date, universe,bar_size_setting,duration_str
                         )

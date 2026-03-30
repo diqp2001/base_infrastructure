@@ -11,10 +11,17 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
     
 
 
-    # ======================
-    # Minute Price Factors
-    # ======================
-
+    "implied_volatility": {
+        "class": CompanyShareFactor, 
+        "name": "close",
+        "group": "implied_volatility",
+        "subgroup": "minutes",
+        "frequency": "1m",
+        "data_type": "numeric",
+        "description": "Minute-level open volatility",
+        "dependencies": [],
+        "parameters": {}
+    },
     "open": {
         "class": CompanyShareFactor,
         "name": "open",

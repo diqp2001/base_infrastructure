@@ -78,7 +78,7 @@ class ModelTrainer:
         
         # Step 2: NEW - Apply comprehensive normalization and factor enhancement
         print("\n🔧 Step 2: Normalizing and enhancing factors...")
-        normalized_factor_data = self._normalize_and_enhance_factors(factor_data)
+        normalized_factor_data = self._normalize_and_enhance_factors()
         
         # Step 3: Create training tensors (separate step as requested)
         print("\n🔧 Step 3: Creating training tensors...")
@@ -203,6 +203,8 @@ class ModelTrainer:
                         'subgroup': factor_config.get('subgroup', 'default'),
                         'data_type': factor_config.get('data_type', 'numeric'),
                         'source': 'config',
+                        
+                        'frequency': factor_config.get('frequency'),
                         'definition': factor_config.get('definition', f'Factor {factor_name} from config'),
                         'factor_index': results['factors_created'],
                         'factor_future_start': datetime.now(),
@@ -414,20 +416,21 @@ class ModelTrainer:
         self.data_loader.market_data_history_service.set_frontier(date)
         factor_groups = results['config_factor_details']
         entities = []
+        
         universe = self.config.get('universe', {})
         for entity_class, tickers_list in universe.items():
             for ticker_item in tickers_list:
-                # Use the refactored market_data_service method to handle both dictionary and string formats
+                
                 entity = self.data_loader.market_data_history_service.market_data_service.create_entity_from_ticker_item(ticker_item, entity_class)
                 
                 if entity:
                     entities.append(entity)
-                else:
-                    print(f"⚠️  Failed to create/get entity for {ticker_item} (class: {entity_class.__name__})")
-        
+
         factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups=factor_groups,
-                                                                                                     entities=entities,date=date
-                                                                                                ,duration_str=duration_str, bar_size_setting=bar_size_setting)
+                                                                                                        entities=entities,date=date
+                                                                                                    ,duration_str=duration_str, bar_size_setting=bar_size_setting)
+        
+        
         
         print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data

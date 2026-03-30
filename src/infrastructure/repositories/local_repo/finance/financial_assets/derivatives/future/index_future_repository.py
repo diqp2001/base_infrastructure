@@ -88,39 +88,7 @@ class IndexFutureRepository(FutureRepository, IndexFuturePort):
             .filter(self.model_class.id == id)
             .one_or_none()
         )
-    # def get_or_create(self, symbol: str) -> Optional[IndexFuture]:
-    #     """
-    #     Get or create an index future by symbol.
-    #     Implementation of IndexFuturePort interface.
-        
-    #     Args:
-    #         symbol: The future symbol (e.g., 'ESZ25', 'NQH25')
-            
-    #     Returns:
-    #         IndexFuture entity or None if creation/retrieval failed
-    #     """
-    #     try:
-    #         # First try to get existing
-    #         existing = self.get_by_symbol(symbol)
-    #         if existing :
-    #             # Convert Future to IndexFuture entity
-    #             return existing
-            
-    #         # Create new index future with minimal parameters
-    #         future_entity = self._create_or_get(
-    #             symbol=symbol,
-    #             contract_name=f"{symbol} Index Future",
-    #             future_type="INDEX",
-    #             underlying_asset="INDEX",  # Default for index futures
-    #             exchange="CME",  # Default exchange
-    #             currency="USD",  # Default currency
-    #         )
-            
-    #         return self._future_to_index_future(future_entity) if future_entity else None
-    #     except Exception as e:
-    #         print(f"Error in get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
-    #         return None
-
+    
     
     
     

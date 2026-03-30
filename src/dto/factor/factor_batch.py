@@ -13,6 +13,7 @@ class FactorBatch:
     """
     factors: List[Factor]
     batch_size: Optional[int] = None
+    entity_ids: List[int] = None
     metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):

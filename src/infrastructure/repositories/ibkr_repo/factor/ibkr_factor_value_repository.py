@@ -482,12 +482,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
             # Extract metadata for bulk processing
             financial_asset_entity = factor_batch.metadata.get('financial_asset_entity')
-            entity_id = factor_batch.metadata.get('entity_id')
+           
             time_date = factor_batch.metadata.get('time_date', datetime.now())
             
-            if not financial_asset_entity or not entity_id:
-                print("Financial asset entity and entity_id required for IBKR batch processing")
-                return None
+            
             
             # Convert time to datetime if needed
             if isinstance(time_date, str):
@@ -495,49 +493,33 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             created_factor_values = []
             
-            # Group factors by symbol to optimize IBKR calls
-            #symbol_factors = self._group_factors_by_symbol(factor_batch, financial_asset_entity)
-            symbol_group_factors  = self._group_factors_by_symbol_and_factor_group(factor_batch, financial_asset_entity)
-            for (symbol, factor_group), factors in symbol_group_factors.items():
-                try:
-                    what_to_show = self._resolve_what_to_show_from_group(
-                        factor_group
-                    )
-
-                    bulk_ibkr_data = self._fetch_bulk_historical_data(
-                        symbol,
-                        time_date,
-                        financial_asset_entity,
-                        what_to_show,
-                        duration_str,
-                        bar_size_setting
-                    )
-                    if bulk_ibkr_data:
-                        # Extract factor values for all factors from the bulk response
-                        factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
-                            bulk_ibkr_data, factors, entity_id
+            for entity_id in factor_batch.entity_ids:
+                symbol_group_factors_frequency  = self._group_factors_by_symbol_factor_group_and_frequency(factor_batch, financial_asset_entity)
+                #symbol_group_factors  = self._group_factors_by_symbol_and_factor_group(factor_batch, financial_asset_entity)
+                for (symbol, factor_group,bar_size_setting), factors in symbol_group_factors_frequency.items():
+                    try:
+                        what_to_show = self._resolve_what_to_show_from_group(
+                            factor_group
                         )
-                        created_factor_values.extend(factor_values_from_bulk)
-                except Exception as e:
-                    print(f"Error processing symbol {symbol} in batch: {e}")
-                    continue
-            # for symbol, factors in symbol_factors.items():
-            #     try:
-            #         # Make single IBKR historical data request for this symbol 
-            #         bulk_ibkr_data = self._fetch_bulk_historical_data(
-            #             symbol, time_date, financial_asset_entity, what_to_show, duration_str, bar_size_setting
-            #         )#functionning
-                    
-            #         if bulk_ibkr_data:
-            #             # Extract factor values for all factors from the bulk response
-            #             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
-            #                 bulk_ibkr_data, factors, entity_id
-            #             )
-            #             created_factor_values.extend(factor_values_from_bulk)
-                    
-            #     except Exception as e:
-            #         print(f"Error processing symbol {symbol} in batch: {e}")
-            #         continue
+
+                        bulk_ibkr_data = self._fetch_bulk_historical_data(
+                            symbol,
+                            time_date,
+                            financial_asset_entity,
+                            what_to_show,
+                            duration_str,
+                            bar_size_setting
+                        )
+                        if bulk_ibkr_data:
+                            # Extract factor values for all factors from the bulk response
+                            factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
+                                bulk_ibkr_data, factors, entity_id
+                            )
+                            created_factor_values.extend(factor_values_from_bulk)
+                    except Exception as e:
+                        print(f"Error processing symbol {symbol} in batch: {e}")
+                        continue
+            
 
             if not created_factor_values:
                 print("No factor values were created from bulk IBKR data")
@@ -551,8 +533,6 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 'processed_count': len(created_factor_values),
                 'original_batch_size': len(factor_batch),
                 'processing_timestamp': datetime.now().isoformat(),
-                'bulk_requests_made': len(symbol_group_factors),
-                'optimization_ratio': len(created_factor_values) / len(symbol_group_factors) if symbol_group_factors else 0
             }
 
             return FactorValueBatch(
@@ -722,6 +702,47 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
         except Exception as e:
             print(f"Error grouping factors by symbol and factor group: {e}")
+            return {}
+
+    from collections import defaultdict
+
+
+    def _group_factors_by_symbol_factor_group_and_frequency(
+        self,
+        factor_batch,
+        financial_asset_entity: Any
+    ):
+        """
+        Group factors by (symbol, factor_group, frequency)
+        to ensure homogeneous IBKR historical requests.
+
+        Returns:
+            Dict[(symbol, factor_group, frequency)] -> List[factors]
+        """
+        try:
+            symbol = (
+                getattr(financial_asset_entity, "symbol", None)
+                or getattr(financial_asset_entity, "ticker", None)
+                or getattr(financial_asset_entity, "name", None)
+            )
+
+            if not symbol:
+                print("Could not extract symbol from financial asset entity")
+                return {}
+
+            grouped = defaultdict(list)
+
+            for factor in factor_batch.factors:
+                factor_group = getattr(factor, "group", "unknown")
+                frequency = getattr(factor, "frequency", "1d")
+                frequency_ibkr = factor.FREQUENCIES[frequency]["ibkr_label"]
+                key = (symbol, factor_group, frequency_ibkr)
+                grouped[key].append(factor)
+
+            return dict(grouped)
+
+        except Exception as e:
+            print(f"Error grouping factors by symbol/group/frequency: {e}")
             return {}
     def _group_factors_by_symbol(self, factor_batch: FactorBatch, financial_asset_entity: Any) -> Dict[str, List[Any]]:
         """
@@ -1293,30 +1314,42 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             from src.dto.factor.factor_batch import FactorBatch
             
             factors = []
+            result_batchs = []
             metadata = {}
+            unique_asset_classes = list({type(entity_data["financial_asset_entity"])for entity_data in entities_data if entity_data.get("financial_asset_entity")})
             
-            for entity_data in entities_data:
-                factor = entity_data.get('factor')
-                if factor:
-                    factors.append(factor)
-                
-                # Extract common metadata
-                if 'financial_asset_entity' in entity_data:
-                    metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
-                if 'entity_id' in entity_data:
-                    metadata['entity_id'] = entity_data['entity_id']
-                if 'time_date' in entity_data:
-                    metadata['time_date'] = entity_data['time_date']
+            for asset_class in unique_asset_classes:
+                factors = []
+                entity_ids = list({entity_data["entity_id"]for entity_data in entities_data if type(entity_data["financial_asset_entity"])==asset_class})
+                for entity_data in entities_data:
+                    if asset_class == type(entity_data['financial_asset_entity']):
+                        factor = entity_data.get('factor')
+                        if factor:
+                            factors.append(factor)
+                        
+                        if 'entity_id' in entity_data:
+                            metadata['entity_id'] = entity_data['entity_id']
+
+
+                        if 'time_date' in entity_data:
+                            metadata['time_date'] = entity_data['time_date']
+                        if 'financial_asset_entity' in entity_data:
+                            metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
+                    if not factors:
+                        print("No factors found in entities_data")
+                        return []
             
-            if not factors:
-                print("No factors found in entities_data")
-                return []
+                # Create FactorBatch and use optimized processing with configurable parameters
+                factor_batch = FactorBatch(factors=factors,entity_ids=entity_ids, metadata=metadata)
+                result_batch = self.get_or_create_batch(factor_batch, what_to_show, duration_str, bar_size_setting)
+                result_batchs.append(result_batch)
+
+            all_factor_values = []
+
+            for result_batch in result_batchs:
+                all_factor_values.extend(result_batch.factor_values)
             
-            # Create FactorBatch and use optimized processing with configurable parameters
-            factor_batch = FactorBatch(factors=factors, metadata=metadata)
-            result_batch = self.get_or_create_batch(factor_batch, what_to_show, duration_str, bar_size_setting)
-            
-            return result_batch.factor_values if result_batch else []
+            return all_factor_values
             
         except Exception as e:
             print(f"Error in get_or_create_batch_optimized: {e}")
