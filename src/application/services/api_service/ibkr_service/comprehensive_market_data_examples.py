@@ -14,6 +14,7 @@ USAGE:
     python comprehensive_market_data_examples.py ticks    # Run comprehensive tick access test only
     python comprehensive_market_data_examples.py conid    # Test get_by_conid function with example CONIDs
     python comprehensive_market_data_examples.py esz6     # Test ESZ6 options & futures prices
+    python comprehensive_market_data_examples.py volsurf  # Test volatility surface for AAPL stock options
 
 ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
@@ -3055,6 +3056,280 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # The user can call disconnect_from_ib() explicitly when done
             pass
 
+    def get_volatility_surface(self, symbol: str, sec_type: str = "STK", exchange: str = "SMART", 
+                             currency: str = "USD", get_implied_volatility: bool = True, 
+                             max_strikes: int = 20, max_expirations: int = 6, 
+                             timeout: int = 30) -> Dict[str, Any]:
+        """
+        Get volatility surface data for options on a given underlying security.
+        
+        This function creates a comprehensive volatility surface by:
+        1. Finding the underlying security contract details
+        2. Getting available options chains for the underlying
+        3. Fetching market data and implied volatility for option contracts
+        4. Organizing data by expiration dates and strike prices
+        5. Building a volatility surface structure
+        
+        Args:
+            symbol: Underlying security symbol (e.g., "AAPL", "SPY", "ES")
+            sec_type: Security type of underlying ("STK" for stocks, "FUT" for futures)
+            exchange: Exchange for underlying security
+            currency: Currency for contracts
+            get_implied_volatility: If True, fetch implied volatility data
+            max_strikes: Maximum number of strikes per expiration
+            max_expirations: Maximum number of expiration dates
+            timeout: Timeout in seconds for requests
+            
+        Returns:
+            Dictionary containing volatility surface data organized by expiration and strike
+            
+        Example:
+            # Get volatility surface for AAPL stock
+            result = examples.get_volatility_surface("AAPL", "STK", "SMART")
+            
+            # Get volatility surface for ES futures
+            result = examples.get_volatility_surface("ES", "FUT", "CME")
+        """
+        logger.info(f"\n=== Building Volatility Surface for {symbol} ===")
+        
+        if not self.connected:
+            logger.info("Connecting to IB...")
+            self.ib_broker.connect()
+            
+        result = {
+            'status': 'success',
+            'symbol': symbol,
+            'sec_type': sec_type,
+            'exchange': exchange,
+            'currency': currency,
+            'timestamp': datetime.now().isoformat(),
+            'underlying_data': None,
+            'options_chains': {},
+            'volatility_surface': {},
+            'summary_stats': {},
+            'error_messages': []
+        }
+        
+        try:
+            # 1. Create and validate underlying contract
+            logger.info(f"📋 Creating underlying contract for {symbol}...")
+            underlying_contract = Contract()
+            underlying_contract.symbol = symbol
+            underlying_contract.secType = sec_type
+            underlying_contract.exchange = exchange
+            underlying_contract.currency = currency
+            
+            # For futures, we may need to specify contract month
+            if sec_type == "FUT":
+                # Use nearest month as default - this can be enhanced
+                current_date = datetime.now()
+                contract_month = f"{current_date.year}{current_date.month:02d}"
+                underlying_contract.lastTradeDateOrContractMonth = contract_month
+            
+            # 2. Get underlying contract details
+            logger.info(f"🔍 Fetching underlying contract details...")
+            underlying_details = self.ib_broker.get_contract_details(underlying_contract, timeout=timeout)
+            
+            if not underlying_details:
+                result['status'] = 'error'
+                result['error_messages'].append(f'Could not find underlying contract for {symbol}')
+                return result
+            
+            result['underlying_data'] = underlying_details[0] if underlying_details else None
+            logger.info(f"✅ Found underlying: {symbol}")
+            
+            # 3. Get underlying market data for reference price
+            underlying_price = None
+            try:
+                logger.info(f"📊 Fetching underlying market data...")
+                underlying_market_data = self.ib_broker.get_market_data_snapshot(
+                    underlying_contract, timeout=timeout
+                )
+                
+                if underlying_market_data:
+                    underlying_price = underlying_market_data.get('last') or underlying_market_data.get('mark') or underlying_market_data.get('mid')
+                    result['underlying_data']['market_data'] = underlying_market_data
+                    logger.info(f"  Underlying price: {underlying_price}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get underlying market data: {e}")
+                result['error_messages'].append(f'Underlying market data error: {str(e)}')
+            
+            # 4. Search for options contracts
+            logger.info(f"🔎 Searching for options on {symbol}...")
+            options_contract = Contract()
+            options_contract.symbol = symbol
+            options_contract.secType = "OPT"
+            options_contract.exchange = "SMART"
+            options_contract.currency = currency
+            
+            # Get all available options contracts
+            options_details = self.ib_broker.get_contract_details(options_contract, timeout=timeout)
+            
+            if not options_details:
+                result['status'] = 'partial'
+                result['error_messages'].append(f'No options found for {symbol}')
+                logger.warning(f"⚠️ No options contracts found for {symbol}")
+                return result
+                
+            logger.info(f"📈 Found {len(options_details)} options contracts")
+            
+            # 5. Organize options by expiration date and strike
+            options_by_expiry = {}
+            for option_detail in options_details[:100]:  # Limit to prevent overload
+                try:
+                    expiry = option_detail.get('expiry', 'unknown')
+                    strike = float(option_detail.get('strike', 0))
+                    right = option_detail.get('right', '')
+                    
+                    if expiry not in options_by_expiry:
+                        options_by_expiry[expiry] = {'calls': {}, 'puts': {}}
+                    
+                    if right == 'C':
+                        options_by_expiry[expiry]['calls'][strike] = option_detail
+                    elif right == 'P':
+                        options_by_expiry[expiry]['puts'][strike] = option_detail
+                        
+                except (ValueError, KeyError) as e:
+                    continue
+            
+            result['options_chains'] = options_by_expiry
+            logger.info(f"📊 Organized options into {len(options_by_expiry)} expiration dates")
+            
+            # 6. Build volatility surface by fetching market data for key options
+            if get_implied_volatility:
+                logger.info(f"🌊 Building volatility surface...")
+                vol_surface = {}
+                processed_count = 0
+                
+                # Process limited number of expirations
+                for expiry in sorted(list(options_by_expiry.keys()))[:max_expirations]:
+                    vol_surface[expiry] = {'calls': {}, 'puts': {}}
+                    expiry_data = options_by_expiry[expiry]
+                    
+                    # Process calls
+                    call_strikes = sorted(list(expiry_data['calls'].keys()))
+                    selected_call_strikes = call_strikes[:max_strikes//2] if len(call_strikes) > max_strikes//2 else call_strikes
+                    
+                    for strike in selected_call_strikes:
+                        if processed_count >= 50:  # Limit total requests to prevent timeout
+                            break
+                            
+                        try:
+                            option_detail = expiry_data['calls'][strike]
+                            
+                            # Create option contract for market data
+                            option_contract = Contract()
+                            option_contract.symbol = symbol
+                            option_contract.secType = "OPT"
+                            option_contract.exchange = option_detail.get('exchange', 'SMART')
+                            option_contract.currency = currency
+                            option_contract.lastTradeDateOrContractMonth = expiry
+                            option_contract.strike = strike
+                            option_contract.right = 'C'
+                            
+                            # Get option market data
+                            option_market_data = self.ib_broker.get_market_data_snapshot(
+                                option_contract, timeout=5
+                            )
+                            
+                            if option_market_data:
+                                vol_surface[expiry]['calls'][strike] = {
+                                    'contract_details': option_detail,
+                                    'market_data': option_market_data,
+                                    'implied_vol': option_market_data.get('impliedVol'),
+                                    'delta': option_market_data.get('delta'),
+                                    'gamma': option_market_data.get('gamma'),
+                                    'theta': option_market_data.get('theta'),
+                                    'vega': option_market_data.get('vega')
+                                }
+                                processed_count += 1
+                                
+                        except Exception as e:
+                            logger.warning(f"⚠️ Error processing call option {strike}: {e}")
+                            continue
+                    
+                    # Process puts
+                    put_strikes = sorted(list(expiry_data['puts'].keys()), reverse=True)
+                    selected_put_strikes = put_strikes[:max_strikes//2] if len(put_strikes) > max_strikes//2 else put_strikes
+                    
+                    for strike in selected_put_strikes:
+                        if processed_count >= 50:  # Limit total requests
+                            break
+                            
+                        try:
+                            option_detail = expiry_data['puts'][strike]
+                            
+                            # Create option contract for market data
+                            option_contract = Contract()
+                            option_contract.symbol = symbol
+                            option_contract.secType = "OPT"
+                            option_contract.exchange = option_detail.get('exchange', 'SMART')
+                            option_contract.currency = currency
+                            option_contract.lastTradeDateOrContractMonth = expiry
+                            option_contract.strike = strike
+                            option_contract.right = 'P'
+                            
+                            # Get option market data
+                            option_market_data = self.ib_broker.get_market_data_snapshot(
+                                option_contract, timeout=5
+                            )
+                            
+                            if option_market_data:
+                                vol_surface[expiry]['puts'][strike] = {
+                                    'contract_details': option_detail,
+                                    'market_data': option_market_data,
+                                    'implied_vol': option_market_data.get('impliedVol'),
+                                    'delta': option_market_data.get('delta'),
+                                    'gamma': option_market_data.get('gamma'),
+                                    'theta': option_market_data.get('theta'),
+                                    'vega': option_market_data.get('vega')
+                                }
+                                processed_count += 1
+                                
+                        except Exception as e:
+                            logger.warning(f"⚠️ Error processing put option {strike}: {e}")
+                            continue
+                
+                result['volatility_surface'] = vol_surface
+                logger.info(f"✅ Built volatility surface with {processed_count} option data points")
+                
+                # 7. Calculate summary statistics
+                all_ivs = []
+                for expiry_data in vol_surface.values():
+                    for option_type_data in expiry_data.values():
+                        for strike_data in option_type_data.values():
+                            iv = strike_data.get('implied_vol')
+                            if iv is not None and iv > 0:
+                                all_ivs.append(iv)
+                
+                if all_ivs:
+                    result['summary_stats'] = {
+                        'total_options_processed': processed_count,
+                        'total_expirations': len(vol_surface),
+                        'avg_implied_vol': sum(all_ivs) / len(all_ivs),
+                        'min_implied_vol': min(all_ivs),
+                        'max_implied_vol': max(all_ivs),
+                        'underlying_price': underlying_price
+                    }
+                    logger.info(f"📈 Average implied volatility: {result['summary_stats']['avg_implied_vol']:.2%}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error building volatility surface for {symbol}: {e}")
+            return {
+                'status': 'error',
+                'message': f'Error: {str(e)}',
+                'symbol': symbol,
+                'timestamp': datetime.now().isoformat(),
+                'error_messages': [str(e)]
+            }
+        
+        finally:
+            # Note: We don't disconnect here to allow for multiple calls
+            # The user can call disconnect_from_ib() explicitly when done
+            pass
+
     def get_esz6_options_futures_prices(self, timeout: int = 30) -> Dict[str, Any]:
         """
         Get options and futures prices for ESZ6 (E-mini S&P 500 December 2026).
@@ -3268,6 +3543,7 @@ def main():
         python comprehensive_market_data_examples.py test          # Run access level test pipeline
         python comprehensive_market_data_examples.py comprehensive # Run comprehensive market access test
         python comprehensive_market_data_examples.py ticks         # Run comprehensive tick access test
+        python comprehensive_market_data_examples.py volsurf       # Test volatility surface for AAPL stock options
         python comprehensive_market_data_examples.py help          # Show help
     """
     import sys
@@ -3369,6 +3645,82 @@ def main():
                 print(f"❌ Error retrieving ESZ6 data: {result.get('error_messages', ['Unknown error'])[0]}")
             
             return
+        elif sys.argv[1] == 'volsurf':
+            # Test get_volatility_surface function
+            examples = ComprehensiveIBMarketDataExamples()
+            
+            print("\n=== Testing Volatility Surface for AAPL ===")
+            print("Note: Requires active IB connection, options permissions, and market data subscriptions")
+            
+            result = examples.get_volatility_surface("AAPL", "STK", "SMART", "USD", 
+                                                   get_implied_volatility=True, 
+                                                   max_strikes=10, max_expirations=3, 
+                                                   timeout=30)
+            
+            if result['status'] == 'success':
+                print(f"\n✅ Volatility Surface Built Successfully for {result['symbol']}")
+                
+                # Display underlying data
+                if result['underlying_data'] and result['underlying_data'].get('market_data'):
+                    underlying_price = result['underlying_data']['market_data'].get('last')
+                    print(f"\n📊 Underlying ({result['symbol']}):")
+                    print(f"  Current Price: ${underlying_price}" if underlying_price else "  Price: Not available")
+                
+                # Display options chains summary
+                total_chains = len(result['options_chains'])
+                print(f"\n📈 Options Chains: {total_chains} expirations found")
+                
+                # Display volatility surface summary
+                if result.get('summary_stats'):
+                    stats = result['summary_stats']
+                    print(f"\n🌊 Volatility Surface Summary:")
+                    print(f"  Options Processed: {stats.get('total_options_processed', 0)}")
+                    print(f"  Expirations: {stats.get('total_expirations', 0)}")
+                    print(f"  Avg Implied Vol: {stats.get('avg_implied_vol', 0):.2%}")
+                    print(f"  Vol Range: {stats.get('min_implied_vol', 0):.2%} - {stats.get('max_implied_vol', 0):.2%}")
+                
+                # Display sample volatility data
+                if result.get('volatility_surface'):
+                    print(f"\n📋 Sample Volatility Data:")
+                    sample_count = 0
+                    for expiry, expiry_data in list(result['volatility_surface'].items())[:2]:
+                        print(f"\n  Expiry: {expiry}")
+                        
+                        # Show sample calls
+                        calls = expiry_data.get('calls', {})
+                        if calls:
+                            print(f"    Calls:")
+                            for strike, call_data in list(calls.items())[:3]:
+                                iv = call_data.get('implied_vol')
+                                if iv:
+                                    print(f"      Strike ${strike}: IV {iv:.2%}")
+                                    sample_count += 1
+                        
+                        # Show sample puts  
+                        puts = expiry_data.get('puts', {})
+                        if puts:
+                            print(f"    Puts:")
+                            for strike, put_data in list(puts.items())[:3]:
+                                iv = put_data.get('implied_vol')
+                                if iv:
+                                    print(f"      Strike ${strike}: IV {iv:.2%}")
+                                    sample_count += 1
+                        
+                        if sample_count >= 10:  # Limit output
+                            break
+                
+                # Display any error messages
+                if result.get('error_messages'):
+                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    for error in result['error_messages'][:3]:  # Show first 3 errors
+                        print(f"  - {error}")
+                        
+            elif result['status'] == 'error':
+                print(f"❌ Error building volatility surface: {result.get('message', 'Unknown error')}")
+            elif result['status'] == 'partial':
+                print(f"🟡 Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
+            
+            return
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
@@ -3377,6 +3729,7 @@ def main():
             print("  python comprehensive_market_data_examples.py ticks        # Run comprehensive tick access test")
             print("  python comprehensive_market_data_examples.py conid        # Test get_by_conid function with example CONIDs")
             print("  python comprehensive_market_data_examples.py esz6         # Test ESZ6 options & futures prices")
+            print("  python comprehensive_market_data_examples.py volsurf      # Test volatility surface for AAPL stock options")
             print("  python comprehensive_market_data_examples.py help         # Show this help")
             return
     else:
