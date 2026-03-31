@@ -33,15 +33,19 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
     def calculate(
         self,
         S: float,          # underlying price
-        K: float,          # strike
-        r: float,          # risk-free rate
-        sigma: float,      # volatility
-        T: float,          # time to maturity in years
+                 
+        sigma: float, 
+        r: float = 0.01,      # risk-free rate
+        T: float = 1,          # time to maturity in years
+        K: float = None,          # strike
         option_type: str = "call",
     ) -> Optional[float]:
         """
         Calculate the theoretical option price using Black-Scholes formula.
         """
+        if K == None:
+            K = S
+
         d1, d2 = self._d1_d2(S, K, r, sigma, T)
         if d1 is None or d2 is None:
             return None
@@ -55,82 +59,82 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
     
       
 
-    def calculate_price_sde(
-        self,
-        S: float,
-        K: float,
-        r: float,
-        sigma: float,
-        T: float,
-        option_type: str = "call",
-        n_paths: int = 10000,
-    ) -> Optional[float]:
-        """
-        Calculate option price using Monte Carlo simulation from Black-Scholes SDE:
-        dS = r * S * dt + sigma * S * dW
-        """
-        if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
-            return None
+    # def calculate_price_sde(
+    #     self,
+    #     S: float,
+    #     K: float,
+    #     r: float,
+    #     sigma: float,
+    #     T: float,
+    #     option_type: str = "call",
+    #     n_paths: int = 10000,
+    # ) -> Optional[float]:
+    #     """
+    #     Calculate option price using Monte Carlo simulation from Black-Scholes SDE:
+    #     dS = r * S * dt + sigma * S * dW
+    #     """
+    #     if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
+    #         return None
 
-        payoffs: List[float] = []
-        for _ in range(n_paths):
-            # Simulate end-of-period price
-            z = random.gauss(0, 1)
-            ST = S * math.exp((r - 0.5 * sigma**2) * T + sigma * math.sqrt(T) * z)
-            if option_type.lower() == "call":
-                payoff = max(ST - K, 0)
-            else:
-                payoff = max(K - ST, 0)
-            payoffs.append(payoff)
+    #     payoffs: List[float] = []
+    #     for _ in range(n_paths):
+    #         # Simulate end-of-period price
+    #         z = random.gauss(0, 1)
+    #         ST = S * math.exp((r - 0.5 * sigma**2) * T + sigma * math.sqrt(T) * z)
+    #         if option_type.lower() == "call":
+    #             payoff = max(ST - K, 0)
+    #         else:
+    #             payoff = max(K - ST, 0)
+    #         payoffs.append(payoff)
 
-        discounted_payoff = math.exp(-r * T) * sum(payoffs) / n_paths
-        return discounted_payoff
+    #     discounted_payoff = math.exp(-r * T) * sum(payoffs) / n_paths
+    #     return discounted_payoff
 
-    def calculate_price_pde(
-        self,
-        S: float,
-        K: float,
-        r: float,
-        sigma: float,
-        T: float,
-        option_type: str = "call",
-        S_max: Optional[float] = None,
-        M: int = 100,      # price steps
-        N: int = 100,      # time steps
-    ) -> Optional[float]:
-        """
-        Calculate option price using finite difference method (explicit) from Black-Scholes PDE:
-        ∂V/∂t + 0.5*sigma^2*S^2*∂²V/∂S² + r*S*∂V/∂S - r*V = 0
-        """
-        if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
-            return None
+    # def calculate_price_pde(
+    #     self,
+    #     S: float,
+    #     K: float,
+    #     r: float,
+    #     sigma: float,
+    #     T: float,
+    #     option_type: str = "call",
+    #     S_max: Optional[float] = None,
+    #     M: int = 100,      # price steps
+    #     N: int = 100,      # time steps
+    # ) -> Optional[float]:
+    #     """
+    #     Calculate option price using finite difference method (explicit) from Black-Scholes PDE:
+    #     ∂V/∂t + 0.5*sigma^2*S^2*∂²V/∂S² + r*S*∂V/∂S - r*V = 0
+    #     """
+    #     if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
+    #         return None
 
-        S_max = S_max or 2 * K
-        dt = T / N
-        dS = S_max / M
+    #     S_max = S_max or 2 * K
+    #     dt = T / N
+    #     dS = S_max / M
 
-        # Initialize asset prices and option values
-        grid = [[0.0 for _ in range(M + 1)] for _ in range(N + 1)]
-        S_values = [i * dS for i in range(M + 1)]
+    #     # Initialize asset prices and option values
+    #     grid = [[0.0 for _ in range(M + 1)] for _ in range(N + 1)]
+    #     S_values = [i * dS for i in range(M + 1)]
 
-        # Terminal condition
-        for i in range(M + 1):
-            if option_type.lower() == "call":
-                grid[N][i] = max(S_values[i] - K, 0)
-            else:
-                grid[N][i] = max(K - S_values[i], 0)
+    #     # Terminal condition
+    #     for i in range(M + 1):
+    #         if option_type.lower() == "call":
+    #             grid[N][i] = max(S_values[i] - K, 0)
+    #         else:
+    #             grid[N][i] = max(K - S_values[i], 0)
 
-        # Backward induction
-        for j in reversed(range(N)):
-            for i in range(1, M):
-                delta = (grid[j + 1][i + 1] - grid[j + 1][i - 1]) / (2 * dS)
-                gamma = (grid[j + 1][i + 1] - 2 * grid[j + 1][i] + grid[j + 1][i - 1]) / (dS ** 2)
-                grid[j][i] = grid[j + 1][i] + dt * (0.5 * sigma**2 * S_values[i]**2 * gamma + r * S_values[i] * delta - r * grid[j + 1][i])
+    #     # Backward induction
+    #     for j in reversed(range(N)):
+    #         for i in range(1, M):
+    #             delta = (grid[j + 1][i + 1] - grid[j + 1][i - 1]) / (2 * dS)
+    #             gamma = (grid[j + 1][i + 1] - 2 * grid[j + 1][i] + grid[j + 1][i - 1]) / (dS ** 2)
+    #             grid[j][i] = grid[j + 1][i] + dt * (0.5 * sigma**2 * S_values[i]**2 * gamma + r * S_values[i] * delta - r * grid[j + 1][i])
 
-            # Boundary conditions
-            grid[j][0] = 0 if option_type.lower() == "call" else K * math.exp(-r * dt * (N - j))
-            grid[j][M] = S_max - K * math.exp(-r * dt * (N - j)) if option_type.lower() == "call" else 0
+    #         # Boundary conditions
+    #         grid[j][0] = 0 if option_type.lower() == "call" else K * math.exp(-r * dt * (N - j))
+    #         grid[j][M] = S_max - K * math.exp(-r * dt * (N - j)) if option_type.lower() == "call" else 0
 
-        # Interpolate to find price at S
-        i = int(S / dS)
-        return grid[0][i]
+    #     # Interpolate to find price at S
+    #     i = int(S / dS)
+    #     return grid[0][i]

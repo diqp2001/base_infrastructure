@@ -71,6 +71,7 @@ class CompanyShareOptionPriceFactorRepository(BaseFactorRepository):
                 name=primary_key,
                 group=kwargs.get('group', 'company_share_option'),
                 subgroup=kwargs.get('subgroup', 'price'),
+                frequency=kwargs.get('frequency', '1d'),
                 factor_type=kwargs.get('factor_type', 'price'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market')

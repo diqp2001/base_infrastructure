@@ -3532,6 +3532,80 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # Note: We don't disconnect here to allow for multiple calls
             # The user can call disconnect_from_ib() explicitly when done
             pass
+    def vol_surf(self):
+        # Test get_volatility_surface function
+            
+            
+            print("\n=== Testing Volatility Surface for AAPL ===")
+            print("Note: Requires active IB connection, options permissions, and market data subscriptions")
+            
+            result = self.get_volatility_surface("AAPL", "STK", "SMART", "USD", 
+                                                   get_implied_volatility=True, 
+                                                   max_strikes=10, max_expirations=3, 
+                                                   timeout=30)
+            
+            if result['status'] == 'success':
+                print(f"\n✅ Volatility Surface Built Successfully for {result['symbol']}")
+                
+                # Display underlying data
+                if result['underlying_data'] and result['underlying_data'].get('market_data'):
+                    underlying_price = result['underlying_data']['market_data'].get('last')
+                    print(f"\n📊 Underlying ({result['symbol']}):")
+                    print(f"  Current Price: ${underlying_price}" if underlying_price else "  Price: Not available")
+                
+                # Display options chains summary
+                total_chains = len(result['options_chains'])
+                print(f"\n📈 Options Chains: {total_chains} expirations found")
+                
+                # Display volatility surface summary
+                if result.get('summary_stats'):
+                    stats = result['summary_stats']
+                    print(f"\n🌊 Volatility Surface Summary:")
+                    print(f"  Options Processed: {stats.get('total_options_processed', 0)}")
+                    print(f"  Expirations: {stats.get('total_expirations', 0)}")
+                    print(f"  Avg Implied Vol: {stats.get('avg_implied_vol', 0):.2%}")
+                    print(f"  Vol Range: {stats.get('min_implied_vol', 0):.2%} - {stats.get('max_implied_vol', 0):.2%}")
+                
+                # Display sample volatility data
+                if result.get('volatility_surface'):
+                    print(f"\n📋 Sample Volatility Data:")
+                    sample_count = 0
+                    for expiry, expiry_data in list(result['volatility_surface'].items())[:2]:
+                        print(f"\n  Expiry: {expiry}")
+                        
+                        # Show sample calls
+                        calls = expiry_data.get('calls', {})
+                        if calls:
+                            print(f"    Calls:")
+                            for strike, call_data in list(calls.items())[:3]:
+                                iv = call_data.get('implied_vol')
+                                if iv:
+                                    print(f"      Strike ${strike}: IV {iv:.2%}")
+                                    sample_count += 1
+                        
+                        # Show sample puts  
+                        puts = expiry_data.get('puts', {})
+                        if puts:
+                            print(f"    Puts:")
+                            for strike, put_data in list(puts.items())[:3]:
+                                iv = put_data.get('implied_vol')
+                                if iv:
+                                    print(f"      Strike ${strike}: IV {iv:.2%}")
+                                    sample_count += 1
+                        
+                        if sample_count >= 10:  # Limit output
+                            break
+                
+                # Display any error messages
+                if result.get('error_messages'):
+                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    for error in result['error_messages'][:3]:  # Show first 3 errors
+                        print(f"  - {error}")
+                        
+            elif result['status'] == 'error':
+                print(f"❌ Error building volatility surface: {result.get('message', 'Unknown error')}")
+            elif result['status'] == 'partial':
+                print(f"🟡 Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
 
 
 def main():
@@ -3736,6 +3810,8 @@ def main():
         # Run all examples
         examples = ComprehensiveIBMarketDataExamples()
         examples.run_all_examples()
+
+
 
 
 

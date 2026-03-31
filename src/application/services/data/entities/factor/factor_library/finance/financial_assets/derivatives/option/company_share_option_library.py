@@ -3,6 +3,8 @@
 from datetime import timedelta
 from typing import Dict, List
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_factor import CompanyShareOptionPriceFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_return_factor import CompanyShareOptionPriceReturnFactor
 
@@ -72,6 +74,40 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Minute-level traded volume",
         "dependencies": [],
+        "parameters": {}
+    },
+    "option_price": {
+        "class": CompanyShareOptionPriceFactor,
+        "name": "option_price",
+        "group": "price",
+        "subgroup": "minutes",
+        "frequency": "1m",
+        "data_type": "numeric",
+        "description": "Minute-level open price return",
+        "dependencies": {
+                        "close": {
+                    "class": CompanyShareFactor,
+                    "name": "close",
+                    "group": "price",
+                    "subgroup": "minutes",
+                    "frequency": "1m",
+                    "data_type": "numeric",
+                    "description": "Minute-level close price",
+                    "dependencies": {},
+                    "parameters": {}
+                },
+                        "implied_volatility": {
+                    "class": CompanyShareFactor, 
+                    "name": "implied_volatility",
+                    "group": "implied_volatility",
+                    "subgroup": "minutes",
+                    "frequency": "1m",
+                    "data_type": "numeric",
+                    "description": "Minute-level open volatility",
+                    "dependencies": [],
+                    "parameters": {}
+                },
+        },
         "parameters": {}
     },
 

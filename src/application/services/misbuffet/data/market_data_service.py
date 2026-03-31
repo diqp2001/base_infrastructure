@@ -309,51 +309,6 @@ class MarketDataService:
                 self.logger.warning("entity_class and entity_symbol are required")
                 return None
             
-            # Special handling for IndexFutureOption - requires option parameters
-            if entity_class.__name__ == 'IndexFutureOption':
-                strike_price = entity_config.get('strike_price')
-                expiry = entity_config.get('expiry')
-                option_type = entity_config.get('option_type')
-                
-                if not strike_price or not expiry or not option_type:
-                    self.logger.warning(f"IndexFutureOption requires strike_price, expiry, and option_type. Got: {entity_config}")
-                    return None
-                
-                # Use IBKR repository if available for options
-                if hasattr(self.entity_service, 'repository_factory'):
-                    try:
-                        # Get the IBKR repository for IndexFutureOption
-                        ibkr_repo = getattr(self.entity_service.repository_factory, 'index_future_option_ibkr_repo', None)
-                        if ibkr_repo:
-                            entity = ibkr_repo._create_or_get(
-                                symbol=entity_symbol,
-                                strike_price=float(strike_price),
-                                expiry=expiry,
-                                option_type=option_type
-                            )
-                            if entity:
-                                self.logger.info(f"Created/retrieved IndexFutureOption via IBKR: {entity_symbol} strike={strike_price} expiry={expiry} type={option_type}")
-                                return entity
-                        
-                        # Fallback to local repository
-                        local_repo = getattr(self.entity_service.repository_factory, 'index_future_option_local_repo', None)
-                        if local_repo:
-                            entity = local_repo._create_or_get(
-                                symbol=entity_symbol,
-                                strike_price=float(strike_price),
-                                expiry=expiry,
-                                option_type=option_type
-                            )
-                            if entity:
-                                self.logger.info(f"Created/retrieved IndexFutureOption via local: {entity_symbol} strike={strike_price} expiry={expiry} type={option_type}")
-                                return entity
-                    
-                    except Exception as e:
-                        self.logger.warning(f"Error creating IndexFutureOption with specific parameters: {e}")
-                        
-                # Final fallback - log the issue but don't create incomplete entity
-                self.logger.warning(f"Failed to create IndexFutureOption {entity_symbol} with required parameters")
-                return None
             
             # Standard entity creation for non-option entities
             # Remove entity_class from kwargs to avoid passing it twice

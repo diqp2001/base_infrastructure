@@ -86,6 +86,7 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
     # Minute Return Factors
     # ======================
 
+    
     "return_open": {
         "class": CompanySharePriceReturnFactor,
         "name": "return_open",

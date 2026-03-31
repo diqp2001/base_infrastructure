@@ -146,12 +146,7 @@ class ModelTrainer:
                 results['config_factor_details'] = factor_results['factor_details']
                 print(f"    🔗 Created {factor_results['factors_created']} factors from config")
             
-            # Create target factors for specified tickers
-            # target_config = self.config.get('target_factor', {})
-            # if target_config:
-            #     results['target_factors_created'] = self._create_target_factors(
-            #         target_config, tickers, overwrite
-            #     )
+            
             
             print(f"✅ Factor population complete: {results['factors_created']} batch factors created in {len(results['factor_batches'])} batches, {results.get('config_factors_created', 0)} config factors created, {results['factors_skipped']} skipped")
             return results
@@ -426,9 +421,7 @@ class ModelTrainer:
                 if entity:
                     entities.append(entity)
 
-        factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups=factor_groups,
-                                                                                                        entities=entities,date=date
-                                                                                                    ,duration_str=duration_str, bar_size_setting=bar_size_setting)
+        factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups=factor_groups,entities=entities,date=date,duration_str=duration_str, bar_size_setting=bar_size_setting)
         
         
         

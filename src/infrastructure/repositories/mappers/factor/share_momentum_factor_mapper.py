@@ -49,5 +49,5 @@ class ShareMomentumFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            entity_type='share_momentum'
+            
         )

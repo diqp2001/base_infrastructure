@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     'version': '1.0.0',
     'universe' : {
         CompanyShare: ["AAPL"],
-        #CompanyShareOption: ["AAPL  281215C00260000"],
+        CompanyShareOption: ["AAPL  281215C00260000"],
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
         # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
@@ -115,8 +115,8 @@ DEFAULT_CONFIG = {
         # FACTOR_LIBRARY["index_library"]["return_daily"],
         # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
         #FACTOR_LIBRARY["company_share_library"]["return_daily"],
-        FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
-        # FACTOR_LIBRARY["company_share_option_library"]["implied_volatility"],
+        #FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
+        FACTOR_LIBRARY["company_share_option_library"]["option_price"],
         #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
