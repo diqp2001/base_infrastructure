@@ -1154,58 +1154,193 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if not independent_factor_related_entity_key:
                 return entity_id  # If no key specified, use original entity
             
-            # Get the financial asset entity
+            # Special case: if key is 'id', return the entity_id itself
+            if independent_factor_related_entity_key == 'id':
+                print(f"Factor dependency requests entity ID itself: returning {entity_id}")
+                return entity_id
+                
+            # Get the financial asset entity to determine its type
             financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
             if not financial_asset_entity:
                 print(f"Could not find financial asset entity with ID {entity_id}")
-                return None
+                return entity_id  # Return original instead of None for safety
             
-            # Extract all attribute names and values from the financial asset entity
+            # Get the corresponding SQLAlchemy model class using factory repositories
+            model_class = self._get_model_class_from_entity(financial_asset_entity)
+            if not model_class:
+                print(f"Could not determine model class for entity {entity_id} with asset_type {getattr(financial_asset_entity, 'asset_type', 'unknown')}")
+                return entity_id
+                
+            print(f"Resolved model class: {model_class.__name__} for entity {entity_id}")
+            
+            # Get all relationship fields from the model class (including inherited ones)
+            relationship_fields = self._get_model_relationship_fields(model_class)
+            print(f"Available relationship fields for {model_class.__name__}: {relationship_fields}")
+            
+            # Query the database using the correct model class
+            model_instance = self.session.query(model_class).filter(model_class.id == entity_id).first()
+            if not model_instance:
+                print(f"Could not find model instance for entity {entity_id}")
+                return entity_id
+                
+            # Create entity attributes dict from model instance
             entity_attributes = {}
-            for attr_name in dir(financial_asset_entity):
-                if not attr_name.startswith('_') and not callable(getattr(financial_asset_entity, attr_name)):
+            for field_name in relationship_fields:
+                if hasattr(model_instance, field_name):
                     try:
-                        attr_value = getattr(financial_asset_entity, attr_name)
-                        entity_attributes[attr_name] = attr_value
+                        field_value = getattr(model_instance, field_name)
+                        entity_attributes[field_name] = field_value
                         
-                        # Also check with _id suffix (common pattern for foreign keys)
-                        if attr_name.endswith('_id'):
-                            base_name = attr_name[:-3]  # Remove '_id' suffix
-                            entity_attributes[base_name] = attr_value
+                        # Also check with _id suffix removed (e.g., underlying_asset_id -> underlying_asset)
+                        if field_name.endswith('_id'):
+                            base_name = field_name[:-3]
+                            entity_attributes[base_name] = field_value
                             
                     except Exception as attr_error:
                         # Skip attributes that can't be accessed
                         continue
+                        
+            print(f"Entity attributes extracted: {entity_attributes}")
             
-            # Check for direct attribute match
-            if independent_factor_related_entity_key in entity_attributes:
-                dependent_entity_id = entity_attributes[independent_factor_related_entity_key]
-                if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
-                    print(f"Found dependent entity ID {dependent_entity_id} for key '{independent_factor_related_entity_key}'")
-                    return dependent_entity_id
+            # Apply matching strategies in order of preference
+            resolved_id = self._apply_matching_strategies(entity_attributes, independent_factor_related_entity_key, entity_id)
             
-            # Check for attribute match with _id suffix
-            key_with_id_suffix = f"{independent_factor_related_entity_key}_id"
-            if key_with_id_suffix in entity_attributes:
-                dependent_entity_id = entity_attributes[key_with_id_suffix]
-                if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
-                    print(f"Found dependent entity ID {dependent_entity_id} for key '{key_with_id_suffix}'")
-                    return dependent_entity_id
-            
-            # Check for partial key matches (case insensitive)
-            for attr_name, attr_value in entity_attributes.items():
-                if (independent_factor_related_entity_key.lower() in attr_name.lower() and 
-                    isinstance(attr_value, int) and attr_value > 0):
-                    print(f"Found partial match: dependent entity ID {attr_value} for key '{independent_factor_related_entity_key}' matched attribute '{attr_name}'")
-                    return attr_value
-            
-            print(f"No matching attribute found for independent_factor_related_entity_key '{independent_factor_related_entity_key}' in entity {entity_id}")
-            print(f"Available attributes: {list(entity_attributes.keys())}")
-            return None
+            if resolved_id != entity_id:
+                print(f"Successfully resolved dependent entity ID {resolved_id} for key '{independent_factor_related_entity_key}'")
+            else:
+                print(f"No matching attribute found for key '{independent_factor_related_entity_key}', using original entity_id {entity_id}")
+                
+            return resolved_id
             
         except Exception as e:
             print(f"Error resolving dependent entity ID for key '{independent_factor_related_entity_key}': {e}")
+            return entity_id  # Return original instead of None for safety
+            
+    def _get_model_class_from_entity(self, financial_asset_entity) -> Optional[type]:
+        """
+        Get SQLAlchemy model class from domain entity using factory repositories.
+        
+        This replaces hardcoded asset_type mappings by using the factory's repository
+        discovery mechanism.
+        
+        Args:
+            financial_asset_entity: Domain entity instance
+            
+        Returns:
+            SQLAlchemy model class or None if not found
+        """
+        try:
+            # Get the entity class type
+            entity_class = type(financial_asset_entity)
+            
+            # Use factory to find the corresponding repository
+            repository = self.factory.get_repository_by_entity_class(entity_class)
+            if repository and hasattr(repository, 'model_class'):
+                model_class = repository.model_class
+                print(f"Found model class {model_class.__name__} for entity class {entity_class.__name__} via factory")
+                return model_class
+                
+            # Fallback: try to get asset_type and use hardcoded mapping
+            if hasattr(financial_asset_entity, 'asset_type'):
+                asset_type = financial_asset_entity.asset_type
+                print(f"Using asset_type '{asset_type}' for fallback mapping")
+                return self._get_fallback_model_mapping().get(asset_type)
+            
             return None
+            
+        except Exception as e:
+            print(f"Error getting model class from entity: {e}")
+            return None
+            
+    def _get_fallback_model_mapping(self) -> Dict[str, type]:
+        """
+        Fallback hardcoded mapping from asset_type to SQLAlchemy model class.
+        Used only when factory repository discovery fails.
+        """
+        from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
+        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        from src.infrastructure.models.finance.financial_assets.index import IndexModel
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
+        from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
+        
+        return {
+            'derivative': DerivativeModel,
+            'company_share': CompanyShareModel,
+            'index': IndexModel,
+            'company_share_option': CompanyShareOptionModel,
+            'currency': CurrencyModel,
+        }
+    
+    def _get_model_relationship_fields(self, model_class: type) -> List[str]:
+        """
+        Get all foreign key relationship fields for a given model class.
+        
+        This method traverses the inheritance hierarchy to find all relationship
+        fields, including those inherited from parent classes.
+        
+        Args:
+            model_class: SQLAlchemy model class
+            
+        Returns:
+            List of field names that represent relationships to other entities
+        """
+        relationship_fields = []
+        
+        # Get all classes in the Method Resolution Order (MRO) to handle inheritance
+        for cls in model_class.__mro__:
+            if hasattr(cls, '__table__'):
+                print(f"Checking columns in class: {cls.__name__}")
+                
+                for column in cls.__table__.columns:
+                    field_name = column.name
+                    
+                    # Check if it's a foreign key or the 'id' field
+                    if column.foreign_keys or field_name == 'id':
+                        if field_name not in relationship_fields:
+                            relationship_fields.append(field_name)
+                            print(f"  Added relationship field: {field_name} from {cls.__name__}")
+                            
+        return relationship_fields
+        
+    def _apply_matching_strategies(self, entity_attributes: Dict[str, Any], 
+                                 independent_factor_related_entity_key: str, 
+                                 entity_id: int) -> int:
+        """
+        Apply multiple matching strategies to find the dependent entity ID.
+        
+        Args:
+            entity_attributes: Dict of attribute names to values from model instance
+            independent_factor_related_entity_key: Key to match
+            entity_id: Original entity ID (used as fallback)
+            
+        Returns:
+            Resolved dependent entity ID
+        """
+        # Strategy 1: Direct match
+        if independent_factor_related_entity_key in entity_attributes:
+            value = entity_attributes[independent_factor_related_entity_key]
+            if isinstance(value, int) and value > 0:
+                print(f"Strategy 1 (direct match): Found {value} for key '{independent_factor_related_entity_key}'")
+                return value
+        
+        # Strategy 2: Match with _id suffix added
+        key_with_id_suffix = f"{independent_factor_related_entity_key}_id"
+        if key_with_id_suffix in entity_attributes:
+            value = entity_attributes[key_with_id_suffix]
+            if isinstance(value, int) and value > 0:
+                print(f"Strategy 2 (with _id suffix): Found {value} for key '{key_with_id_suffix}'")
+                return value
+        
+        # Strategy 3: Partial matching (case insensitive)
+        for attr_name, attr_value in entity_attributes.items():
+            if (independent_factor_related_entity_key.lower() in attr_name.lower() and 
+                isinstance(attr_value, int) and attr_value > 0):
+                print(f"Strategy 3 (partial match): Found {attr_value} for key '{independent_factor_related_entity_key}' in attribute '{attr_name}'")
+                return attr_value
+        
+        # Strategy 4: Fallback to original entity_id
+        print(f"All matching strategies failed, using original entity_id {entity_id}")
+        return entity_id
 
     def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
         """
