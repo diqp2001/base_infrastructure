@@ -1134,78 +1134,136 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error handling factor with dependencies {factor.name}: {e}")
             return None
 
+    def _get_asset_type_to_model_mapping(self):
+        """
+        Create mapping from asset_type to SQLAlchemy model class.
+        This enables generic entity resolution for any financial asset type.
+        """
+        from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
+        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        from src.infrastructure.models.finance.financial_assets.index import IndexModel
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
+        from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
+        from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+        
+        return {
+            'derivative': DerivativeModel,
+            'company_share': CompanyShareModel,
+            'index': IndexModel,
+            'company_share_option': CompanyShareOptionModel,
+            'currency': CurrencyModel,
+            # Add more mappings as needed
+        }
+    
+    def _get_model_relationship_fields(self, model_class):
+        """
+        Get all foreign key relationship fields for a given model class.
+        Returns a list of field names that represent relationships to other entities.
+        """
+        relationship_fields = []
+        
+        if hasattr(model_class, '__table__'):
+            for column in model_class.__table__.columns:
+                # Check if it's a foreign key
+                if column.foreign_keys:
+                    relationship_fields.append(column.name)
+                # Also include 'id' as it can be a dependency target
+                elif column.name == 'id':
+                    relationship_fields.append(column.name)
+        
+        return relationship_fields
+    
     def _resolve_dependent_entity_id(self, entity_id: int, independent_factor_related_entity_key: str) -> Optional[int]:
         """
-        Resolve the dependent entity ID based on the independent factor related entity key.
+        Generic resolver for dependent entity IDs that works with any financial asset type.
         
         This method implements the core logic requested:
-        1. Get financial asset related entity and id name
-        2. Find id name that matches independent_factor_related_entity_key  
-        3. Find the dependent_entity_id after matching
+        1. Get financial asset entity and identify its type
+        2. Map to appropriate SQLAlchemy model based on asset_type
+        3. Query the model directly to get relationship field values
+        4. Find the dependent_entity_id after matching the key
         
         Args:
             entity_id: The original entity ID
-            independent_factor_related_entity_key: Key to match against entity attributes (e.g., "underlying_asset_id")
+            independent_factor_related_entity_key: Key to match against relationship fields (e.g., "underlying_asset_id", "currency_id")
             
         Returns:
-            Resolved dependent entity ID or None if no match found
+            Resolved dependent entity ID or original entity_id if no match found
         """
         try:
             if not independent_factor_related_entity_key:
                 return entity_id  # If no key specified, use original entity
             
-            # Get the financial asset entity
+            # Special case: if key is 'id', return the original entity_id
+            if independent_factor_related_entity_key == 'id':
+                return entity_id
+            
+            # Get the financial asset entity to determine its type
             financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
             if not financial_asset_entity:
                 print(f"Could not find financial asset entity with ID {entity_id}")
-                return None
+                return entity_id  # Return original ID as fallback
             
-            # Extract all attribute names and values from the financial asset entity
-            entity_attributes = {}
-            for attr_name in dir(financial_asset_entity):
-                if not attr_name.startswith('_') and not callable(getattr(financial_asset_entity, attr_name)):
-                    try:
-                        attr_value = getattr(financial_asset_entity, attr_name)
-                        entity_attributes[attr_name] = attr_value
-                        
-                        # Also check with _id suffix (common pattern for foreign keys)
-                        if attr_name.endswith('_id'):
-                            base_name = attr_name[:-3]  # Remove '_id' suffix
-                            entity_attributes[base_name] = attr_value
-                            
-                    except Exception as attr_error:
-                        # Skip attributes that can't be accessed
-                        continue
+            # Get the asset type to determine which model to query
+            asset_type = getattr(financial_asset_entity, 'asset_type', None)
+            if not asset_type:
+                print(f"Could not determine asset_type for entity {entity_id}")
+                return entity_id
             
-            # Check for direct attribute match
-            if independent_factor_related_entity_key in entity_attributes:
-                dependent_entity_id = entity_attributes[independent_factor_related_entity_key]
+            print(f"Resolving dependency for entity {entity_id} of type '{asset_type}' with key '{independent_factor_related_entity_key}'")
+            
+            # Get the appropriate model class for this asset type
+            asset_type_mapping = self._get_asset_type_to_model_mapping()
+            model_class = asset_type_mapping.get(asset_type)
+            
+            if not model_class:
+                print(f"No model mapping found for asset_type '{asset_type}'")
+                return entity_id
+            
+            # Query the specific model directly to get relationship fields
+            model_instance = self.session.query(model_class).filter(model_class.id == entity_id).first()
+            if not model_instance:
+                print(f"Could not find {model_class.__name__} instance with ID {entity_id}")
+                return entity_id
+            
+            # Get all relationship fields for this model
+            relationship_fields = self._get_model_relationship_fields(model_class)
+            print(f"Available relationship fields for {asset_type}: {relationship_fields}")
+            
+            # Try direct match with the independent_factor_related_entity_key
+            if hasattr(model_instance, independent_factor_related_entity_key):
+                dependent_entity_id = getattr(model_instance, independent_factor_related_entity_key)
                 if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
-                    print(f"Found dependent entity ID {dependent_entity_id} for key '{independent_factor_related_entity_key}'")
+                    print(f"✅ Found dependent entity ID {dependent_entity_id} for key '{independent_factor_related_entity_key}'")
                     return dependent_entity_id
             
-            # Check for attribute match with _id suffix
-            key_with_id_suffix = f"{independent_factor_related_entity_key}_id"
-            if key_with_id_suffix in entity_attributes:
-                dependent_entity_id = entity_attributes[key_with_id_suffix]
-                if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
-                    print(f"Found dependent entity ID {dependent_entity_id} for key '{key_with_id_suffix}'")
-                    return dependent_entity_id
+            # Try match with _id suffix if not already present
+            if not independent_factor_related_entity_key.endswith('_id'):
+                key_with_suffix = f"{independent_factor_related_entity_key}_id"
+                if hasattr(model_instance, key_with_suffix):
+                    dependent_entity_id = getattr(model_instance, key_with_suffix)
+                    if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
+                        print(f"✅ Found dependent entity ID {dependent_entity_id} for key '{key_with_suffix}'")
+                        return dependent_entity_id
             
-            # Check for partial key matches (case insensitive)
-            for attr_name, attr_value in entity_attributes.items():
-                if (independent_factor_related_entity_key.lower() in attr_name.lower() and 
-                    isinstance(attr_value, int) and attr_value > 0):
-                    print(f"Found partial match: dependent entity ID {attr_value} for key '{independent_factor_related_entity_key}' matched attribute '{attr_name}'")
-                    return attr_value
+            # Try partial matching (case insensitive)
+            for field_name in relationship_fields:
+                if independent_factor_related_entity_key.lower() in field_name.lower():
+                    if hasattr(model_instance, field_name):
+                        dependent_entity_id = getattr(model_instance, field_name)
+                        if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
+                            print(f"✅ Found partial match: dependent entity ID {dependent_entity_id} for key '{independent_factor_related_entity_key}' matched field '{field_name}'")
+                            return dependent_entity_id
             
-            print(f"No matching attribute found for independent_factor_related_entity_key '{independent_factor_related_entity_key}' in entity {entity_id}")
-            print(f"Available attributes: {list(entity_attributes.keys())}")
-            return None
+            print(f"❌ No matching relationship field found for key '{independent_factor_related_entity_key}' in {asset_type} entity {entity_id}")
+            print(f"Available fields were: {relationship_fields}")
+            return entity_id  # Return original entity_id as fallback
             
         except Exception as e:
-            print(f"Error resolving dependent entity ID for key '{independent_factor_related_entity_key}': {e}")
-            return None
+            print(f"❌ Error resolving dependent entity ID for key '{independent_factor_related_entity_key}': {e}")
+            import traceback
+            traceback.print_exc()
+            return entity_id  # Return original entity_id as fallback
 
     def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
         """
