@@ -1158,13 +1158,31 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
             if not financial_asset_entity:
                 print(f"Could not find financial asset entity with ID {entity_id}")
-                return None
+                return entity_id  # Fallback to original entity_id
             
-            # Extract all attribute names and values from the financial asset entity
+            # For derivatives, specifically check the derivatives table for underlying_asset_id
+            if independent_factor_related_entity_key == 'underlying_asset_id':
+                try:
+                    from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
+                    
+                    # Query the derivatives table directly to get underlying_asset_id
+                    derivative = self.session.query(DerivativeModel).filter(DerivativeModel.id == entity_id).first()
+                    if derivative and hasattr(derivative, 'underlying_asset_id'):
+                        underlying_asset_id = derivative.underlying_asset_id
+                        if isinstance(underlying_asset_id, int) and underlying_asset_id > 0:
+                            print(f"Found underlying_asset_id {underlying_asset_id} for derivative entity {entity_id}")
+                            return underlying_asset_id
+                except Exception as db_error:
+                    print(f"Error querying derivatives table for entity {entity_id}: {db_error}")
+            
+            # Extract safe attribute names and values from the financial asset entity
             entity_attributes = {}
-            for attr_name in dir(financial_asset_entity):
-                if not attr_name.startswith('_') and not callable(getattr(financial_asset_entity, attr_name)):
-                    try:
+            
+            # Use safe predefined attributes to avoid NotImplementedError
+            safe_attributes = ['id', 'name', 'symbol', 'start_date', 'end_date']
+            for attr_name in safe_attributes:
+                try:
+                    if hasattr(financial_asset_entity, attr_name):
                         attr_value = getattr(financial_asset_entity, attr_name)
                         entity_attributes[attr_name] = attr_value
                         
@@ -1173,9 +1191,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             base_name = attr_name[:-3]  # Remove '_id' suffix
                             entity_attributes[base_name] = attr_value
                             
-                    except Exception as attr_error:
-                        # Skip attributes that can't be accessed
-                        continue
+                except Exception as attr_error:
+                    # Skip attributes that can't be accessed
+                    continue
             
             # Check for direct attribute match
             if independent_factor_related_entity_key in entity_attributes:
@@ -1201,11 +1219,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             print(f"No matching attribute found for independent_factor_related_entity_key '{independent_factor_related_entity_key}' in entity {entity_id}")
             print(f"Available attributes: {list(entity_attributes.keys())}")
-            return None
+            return entity_id  # Fallback to original entity_id
             
         except Exception as e:
             print(f"Error resolving dependent entity ID for key '{independent_factor_related_entity_key}': {e}")
-            return None
+            return entity_id  # Fallback to original entity_id
 
     def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
         """
