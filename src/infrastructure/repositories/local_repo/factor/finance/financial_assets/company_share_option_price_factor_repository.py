@@ -108,14 +108,14 @@ class CompanyShareOptionPriceFactorRepository(BaseFactorRepository):
                             subgroup=dependency_config.get("subgroup"),
                             frequency=dependency_config.get("frequency", "1d"),
                             data_type=dependency_config.get("data_type"),
-                            factor_type=dependency_config.get("factor_type"),
                             source=dependency_config.get("source"),
                             definition=dependency_config.get("definition"),)
 
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
-                    lag = dependency_config.get("parameters", {}).get("lag") if dependency_config.get("parameters") else None
-                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag=lag)
+                    #lag = dependency_config.get("parameters", {}).get("lag") if dependency_config.get("parameters") else None
+                    parameters = dependency_config.get("parameters", {})if dependency_config.get("parameters") else None
+                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), parameters=parameters)
  
             
             self.session.commit()

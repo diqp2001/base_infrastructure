@@ -101,7 +101,7 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
         ).count()
         return count > 0
     
-    def _create_or_get(self, independent_factor, dependent_factor, lag=None) -> Optional[FactorDependency]:
+    def _create_or_get(self, independent_factor, dependent_factor, parameters=None) -> Optional[FactorDependency]:
         """
         Create or get a factor dependency relationship.
         
@@ -120,7 +120,7 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             
             if not independent_factor_id or not dependent_factor_id:
                 return None
-            
+            #independent_factor_entity_id or lag loop parameters
             
                 # Fetch existing dependency
             existing_model = self.session.query(FactorDependencyModel).filter(
