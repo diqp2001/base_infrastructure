@@ -1019,7 +1019,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         'independent_factor_id': dep.independent_factor_id,
                         'independent_factor': independent_factor,
                         'dependency_id': dep.id,
-                        'lag': dep.lag
+                        'lag': dep.lag,
+                        'independent_factor_related_entity_key': dep.independent_factor_related_entity_key
                     })
             
             return dependency_info
@@ -1066,12 +1067,14 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 # First try to get the dependency value from the database
                 date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
-                #get entity dependent entity
-                self.factory.financial_asset_local_repo.get_by_id(entity_id)
-                # get financial asset related entity and id name, find id name that match independent_factor_related_entity_key
-                # find the dependent_entity_id after matching
-                #existing_dep_value = self._check_existing_factor_value(independent_factor_id, independent_entity_id, date_str)
-                existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
+                
+                # Get financial asset related entity and id name, find id name that match independent_factor_related_entity_key
+                # Find the dependent_entity_id after matching
+                dependent_entity_id = self._resolve_dependent_entity_id(entity_id, independent_factor_related_entity_key)
+                if dependent_entity_id is None:
+                    dependent_entity_id = entity_id  # Fall back to original entity_id if no match found
+                
+                existing_dep_value = self._check_existing_factor_value(independent_factor_id, dependent_entity_id, date_str)
                 
                 if existing_dep_value:
                     # Use existing value from database
@@ -1080,21 +1083,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 else:
                     # Try to _create_or_get the factor value missing at the right dependency_date
                     try:
-                        
-                        
-                        # Use _create_or_get to generate the missing dependency factor value
-                        #independent_entity = self.factory.financial_asset_local_repo.get_by_id(independent_entity_id)
-                        # dependency_factor_value = self._create_or_get(
-                        #     entity_symbol=None,
-                        #     factor=independent_factor,
-                        #     entity=independent_entity,
-                        #     date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
-                        # )
-                        entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                        # Use the resolved dependent entity ID for creating missing dependency
+                        dependent_entity = self.factory.financial_asset_local_repo.get_by_id(dependent_entity_id)
                         dependency_factor_value = self._create_or_get(
                             entity_symbol=None,
                             factor=independent_factor,
-                            entity=entity,
+                            entity=dependent_entity,
                             date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
                         )
                         
@@ -1138,6 +1132,79 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
         except Exception as e:
             print(f"Error handling factor with dependencies {factor.name}: {e}")
+            return None
+
+    def _resolve_dependent_entity_id(self, entity_id: int, independent_factor_related_entity_key: str) -> Optional[int]:
+        """
+        Resolve the dependent entity ID based on the independent factor related entity key.
+        
+        This method implements the core logic requested:
+        1. Get financial asset related entity and id name
+        2. Find id name that matches independent_factor_related_entity_key  
+        3. Find the dependent_entity_id after matching
+        
+        Args:
+            entity_id: The original entity ID
+            independent_factor_related_entity_key: Key to match against entity attributes (e.g., "underlying_asset_id")
+            
+        Returns:
+            Resolved dependent entity ID or None if no match found
+        """
+        try:
+            if not independent_factor_related_entity_key:
+                return entity_id  # If no key specified, use original entity
+            
+            # Get the financial asset entity
+            financial_asset_entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+            if not financial_asset_entity:
+                print(f"Could not find financial asset entity with ID {entity_id}")
+                return None
+            
+            # Extract all attribute names and values from the financial asset entity
+            entity_attributes = {}
+            for attr_name in dir(financial_asset_entity):
+                if not attr_name.startswith('_') and not callable(getattr(financial_asset_entity, attr_name)):
+                    try:
+                        attr_value = getattr(financial_asset_entity, attr_name)
+                        entity_attributes[attr_name] = attr_value
+                        
+                        # Also check with _id suffix (common pattern for foreign keys)
+                        if attr_name.endswith('_id'):
+                            base_name = attr_name[:-3]  # Remove '_id' suffix
+                            entity_attributes[base_name] = attr_value
+                            
+                    except Exception as attr_error:
+                        # Skip attributes that can't be accessed
+                        continue
+            
+            # Check for direct attribute match
+            if independent_factor_related_entity_key in entity_attributes:
+                dependent_entity_id = entity_attributes[independent_factor_related_entity_key]
+                if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
+                    print(f"Found dependent entity ID {dependent_entity_id} for key '{independent_factor_related_entity_key}'")
+                    return dependent_entity_id
+            
+            # Check for attribute match with _id suffix
+            key_with_id_suffix = f"{independent_factor_related_entity_key}_id"
+            if key_with_id_suffix in entity_attributes:
+                dependent_entity_id = entity_attributes[key_with_id_suffix]
+                if isinstance(dependent_entity_id, int) and dependent_entity_id > 0:
+                    print(f"Found dependent entity ID {dependent_entity_id} for key '{key_with_id_suffix}'")
+                    return dependent_entity_id
+            
+            # Check for partial key matches (case insensitive)
+            for attr_name, attr_value in entity_attributes.items():
+                if (independent_factor_related_entity_key.lower() in attr_name.lower() and 
+                    isinstance(attr_value, int) and attr_value > 0):
+                    print(f"Found partial match: dependent entity ID {attr_value} for key '{independent_factor_related_entity_key}' matched attribute '{attr_name}'")
+                    return attr_value
+            
+            print(f"No matching attribute found for independent_factor_related_entity_key '{independent_factor_related_entity_key}' in entity {entity_id}")
+            print(f"Available attributes: {list(entity_attributes.keys())}")
+            return None
+            
+        except Exception as e:
+            print(f"Error resolving dependent entity ID for key '{independent_factor_related_entity_key}': {e}")
             return None
 
     def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
