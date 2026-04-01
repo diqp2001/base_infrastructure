@@ -1160,11 +1160,15 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print(f"Could not find financial asset entity with ID {entity_id}")
                 return None
             
-            # Extract all attribute names and values from the financial asset entity
+            # Extract safe attributes from the financial asset entity
             entity_attributes = {}
-            for attr_name in dir(financial_asset_entity):
-                if not attr_name.startswith('_') and not callable(getattr(financial_asset_entity, attr_name)):
-                    try:
+            
+            # Safe attributes that we know exist on all financial assets
+            safe_attributes = ['id', 'name', 'symbol', 'start_date', 'end_date']
+            
+            for attr_name in safe_attributes:
+                try:
+                    if hasattr(financial_asset_entity, attr_name):
                         attr_value = getattr(financial_asset_entity, attr_name)
                         entity_attributes[attr_name] = attr_value
                         
@@ -1172,10 +1176,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if attr_name.endswith('_id'):
                             base_name = attr_name[:-3]  # Remove '_id' suffix
                             entity_attributes[base_name] = attr_value
-                            
-                    except Exception as attr_error:
-                        # Skip attributes that can't be accessed
-                        continue
+                except Exception as attr_error:
+                    # Skip attributes that can't be accessed
+                    continue
+            
+            # For derivatives, check if we have underlying_asset_id
+            if hasattr(financial_asset_entity, 'underlying_asset_id'):
+                try:
+                    underlying_asset_id = getattr(financial_asset_entity, 'underlying_asset_id')
+                    entity_attributes['underlying_asset_id'] = underlying_asset_id
+                    entity_attributes['underlying_asset'] = underlying_asset_id
+                except Exception:
+                    pass
             
             # Check for direct attribute match
             if independent_factor_related_entity_key in entity_attributes:
