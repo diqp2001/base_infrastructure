@@ -516,6 +516,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 bulk_ibkr_data, factors, entity_id
                             )
                             created_factor_values.extend(factor_values_from_bulk)
+                        else:
+                            factor_values_from_bulk = self._extract_factor_values(
+                                 factors, entity_id, symbol,
+                            time_date,
+                            financial_asset_entity,
+                            what_to_show,
+                            duration_str,
+                            bar_size_setting
+                            )
+                            created_factor_values.extend(factor_values_from_bulk)
                     except Exception as e:
                         print(f"Error processing symbol {symbol} in batch: {e}")
                         continue
@@ -851,6 +861,49 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error creating contract for {symbol}: {e}")
             return None
+    
+
+
+    def _extract_factor_values(self,factors: List[Any], entity_id: int,time_date,
+                            financial_asset_entity,
+                            what_to_show,
+                            duration_str,
+                            bar_size_setting) -> List[FactorValue]:
+        """
+        
+        """
+        try:
+            factor_values = []
+            
+            
+            for factor in factors:
+                    # Check if factor value already exists
+                    existing = self._check_existing_factor_value(factor.id, entity_id, time_date)
+                    if existing:
+                        factor_values.append(existing)
+                        continue
+                    
+                    # NEW: Check if factor has dependencies in the database
+                    dependencies = self._get_factor_dependencies_from_db(factor.id)
+                    
+                    if dependencies:
+                        # Factor has dependencies - call calculate function
+                        print(f"Factor {factor.name} has {len(dependencies)} dependencies - using calculate function")
+                        
+                        calculated_factor_value = self._handle_factor_with_dependencies(
+                            factor, dependencies, entity_id
+                        )
+                        
+                        if calculated_factor_value:
+                            factor_values.append(calculated_factor_value)
+                            
+                    
+                
+            return factor_values
+            
+        except Exception as e:
+            print(f"Error extracting factor values from bulk data: {e}")
+            return []
 
     def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]], 
                                             factors: List[Any], entity_id: int) -> List[FactorValue]:
@@ -976,7 +1029,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return []
 
     def _handle_factor_with_dependencies(self, factor: Any, dependencies: List[Dict[str, Any]], 
-                                       entity_id: int, bar_date: datetime, bar_data: Dict[str, Any]) -> Optional[FactorValue]:
+                                       entity_id: int, bar_date: datetime=None, bar_data: Dict[str, Any]=None) -> Optional[FactorValue]:
         """
         Handle factor calculation when factor has dependencies.
         
@@ -1001,6 +1054,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 independent_factor = dep_info['independent_factor']
                 independent_factor_id = dep_info['independent_factor_id']
                 lag = dep_info.get('lag')
+                independent_factor_related_entity_key = dep_info.get('independent_factor_related_entity_key')
                 
                 # Determine parameter name based on factor type and dependency position
                 param_name = self._get_dependency_parameter_name(factor, i, len(sorted_dependencies), independent_factor)
@@ -1012,6 +1066,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 # First try to get the dependency value from the database
                 date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
+                #get entity dependent entity
+                self.factory.financial_asset_local_repo.get_by_id(entity_id)
+                # get financial asset related entity and id name, find id name that match independent_factor_related_entity_key
+                # find the dependent_entity_id after matching
+                #existing_dep_value = self._check_existing_factor_value(independent_factor_id, independent_entity_id, date_str)
                 existing_dep_value = self._check_existing_factor_value(independent_factor_id, entity_id, date_str)
                 
                 if existing_dep_value:
@@ -1024,6 +1083,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         
                         
                         # Use _create_or_get to generate the missing dependency factor value
+                        #independent_entity = self.factory.financial_asset_local_repo.get_by_id(independent_entity_id)
+                        # dependency_factor_value = self._create_or_get(
+                        #     entity_symbol=None,
+                        #     factor=independent_factor,
+                        #     entity=independent_entity,
+                        #     date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
+                        # )
                         entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
                         dependency_factor_value = self._create_or_get(
                             entity_symbol=None,

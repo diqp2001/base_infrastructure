@@ -75,7 +75,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             updates = {
                 'dependent_factor_id': entity.dependent_factor_id,
                 'independent_factor_id': entity.independent_factor_id,
-                'lag': entity.lag
+                'lag': entity.lag,
+                'independent_factor_related_entity_key': entity.independent_factor_related_entity_key
             }
             updated_model = super().update(entity.id, updates)
             return FactorDependencyMapper.model_to_entity(updated_model) if updated_model else None
@@ -101,7 +102,7 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
         ).count()
         return count > 0
     
-    def _create_or_get(self, independent_factor, dependent_factor, parameters=None) -> Optional[FactorDependency]:
+    def _create_or_get(self, independent_factor, dependent_factor, lag=None,independent_factor_related_entity_key=None ) -> Optional[FactorDependency]:
         """
         Create or get a factor dependency relationship.
         
@@ -127,7 +128,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
                 and_(
                     FactorDependencyModel.dependent_factor_id == dependent_factor_id,
                     FactorDependencyModel.independent_factor_id == independent_factor_id,
-                    FactorDependencyModel.lag == lag
+                    FactorDependencyModel.lag == lag,
+                    FactorDependencyModel.independent_factor_related_entity_key == independent_factor_related_entity_key
                 )
             ).first()
             if existing_model:
@@ -137,7 +139,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             dependency_entity = FactorDependency(
                 dependent_factor_id=dependent_factor_id,
                 independent_factor_id=independent_factor_id,
-                lag=lag
+                lag=lag,
+                independent_factor_related_entity_key=independent_factor_related_entity_key
             )
             
             return self.add(dependency_entity)

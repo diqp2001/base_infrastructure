@@ -6,7 +6,7 @@ Domain entity for factor dependencies - pure domain logic without infrastructure
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -22,7 +22,7 @@ class FactorDependency:
     independent_factor_id: int
     id: Optional[int] = None
     lag: Optional[timedelta] = None
-    independent_factor_entity_id: int = None # it can be it the dependent entity, or a related entity
+    independent_factor_related_entity_key: Any = None # it can be it the dependent entity, or a related entity 
     
     def __post_init__(self):
         """Validate the factor dependency relationship."""

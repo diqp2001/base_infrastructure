@@ -2,7 +2,7 @@
 Infrastructure model for factor dependency.
 SQLAlchemy model for domain FactorDependency entity.
 """
-from sqlalchemy import Column, Integer, ForeignKey, Interval
+from sqlalchemy import Column, Integer, ForeignKey, Interval, String
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
@@ -14,6 +14,7 @@ class FactorDependencyModel(Base):
     dependent_factor_id = Column(Integer, ForeignKey('factors.id'), nullable=False)
     independent_factor_id = Column(Integer, ForeignKey('factors.id'), nullable=False)
     lag = Column(Interval, nullable=True)  # Time lag for dependency resolution
+    independent_factor_related_entity_key = Column(String, nullable=True) #"underlying_asset_id"
     
     # Relationships to FactorModel
     dependent_factor = relationship(
@@ -32,4 +33,5 @@ class FactorDependencyModel(Base):
         return (f"<FactorDependency(id={self.id}, "
                 f"dependent_factor_id={self.dependent_factor_id}, "
                 f"independent_factor_id={self.independent_factor_id}, "
-                f"lag={self.lag})>")
+                f"lag={self.lag})>,"
+                f"independent_factor_related_entity_key={self.independent_factor_related_entity_key})>")
