@@ -88,7 +88,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 },
                         "implied_volatility": {
                     "class": CompanyShareFactor, 
-                    "name": "implied_volatility",
+                    "name": "close",#needs to be close open volume or
                     "group": "implied_volatility",
                     "subgroup": "minutes",
                     "frequency": "1m",

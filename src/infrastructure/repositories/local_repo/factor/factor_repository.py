@@ -187,11 +187,20 @@ class FactorRepository(BaseFactorRepository, FactorPort):
     # Required by FactorPort
     # ----------------------------
 
-    def get_by_id(self, factor_id: int) -> Optional[Factor]:
-        model = self.session.query(FactorModel).filter(
-            FactorModel.id == factor_id
-        ).first()
-        return self._to_entity(model)
+    def get_by_id(self, id: int) -> Optional[Factor]:
+        # model = self.session.query(FactorModel).filter(
+        #     FactorModel.id == id
+        # ).first()
+        # return self._to_entity(model)
+        try:
+            model = self.session.query(self.model_class).filter(
+                self.model_class.id == id
+            ).first()
+            repo = self.factory._local_repositories.get(model.factor_type)
+            return repo.mapper.to_domain(model) if model else None
+        except Exception as e:
+            print(f"Error retrieving {self.model_class.__name__} by id {id}: {e}")
+            return None
 
     def get_by_name(self, name: str) -> Optional[Factor]:
         model = self.session.query(FactorModel).filter(

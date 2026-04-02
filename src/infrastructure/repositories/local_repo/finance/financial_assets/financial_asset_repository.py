@@ -54,7 +54,8 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             model = self.session.query(self.model_class).filter(
                 self.model_class.id == id
             ).first()
-            return self.mapper.to_domain(model) if model else None
+            repo = self.factory._local_repositories.get(model.asset_type)
+            return repo.mapper.to_domain(model) if model else None
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by id {id}: {e}")
             return None

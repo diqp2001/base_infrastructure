@@ -56,8 +56,37 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
             price = K * math.exp(-r * T) * self._norm_cdf(-d2) - S * self._norm_cdf(-d1)
 
         return price
-    
-      
+    def _norm_cdf(self, x: float) -> float:
+        """
+        Standard normal cumulative distribution function.
+        """
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+    def _d1_d2(
+        self,
+        S: float,
+        K: float,
+        r: float,
+        sigma: float,
+        T: float
+    ) :
+        """
+        Compute Black-Scholes d1 and d2.
+        """
+        if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
+            return None, None
+
+        try:
+            d1 = (
+                math.log(S / K)
+                + (r + 0.5 * sigma ** 2) * T
+            ) / (sigma * math.sqrt(T))
+
+            d2 = d1 - sigma * math.sqrt(T)
+
+            return d1, d2
+
+        except (ValueError, ZeroDivisionError):
+            return None, None
 
     # def calculate_price_sde(
     #     self,

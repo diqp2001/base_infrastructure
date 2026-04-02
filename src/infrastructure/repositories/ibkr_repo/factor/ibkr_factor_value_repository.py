@@ -95,20 +95,17 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         
         # Map frequency strings to tolerance in seconds
         frequency_tolerance_map = {
-            'second': 1/2,          # 1 second tolerance
-            'minute': 60/2,         # 1 minute tolerance  
-            'min': 60/2,            # 1 minute tolerance (abbreviated)
-            'hourly': 3600/2,       # 1 hour tolerance
-            'hour': 3600/2,         # 1 hour tolerance
-            'daily': 86400/2,       # 1 day tolerance (24 hours)
-            'day': 86400/2,         # 1 day tolerance
-            'weekly': 86400*3,     # 1 week tolerance (7 days)
-            'week': 86400*3,       # 1 week tolerance
-            'monthly': 86400*3,   # 30 days tolerance (approx 1 month)
-            'month': 86400*3,     # 30 days tolerance
-            'yearly': 86400*3,   # 365 days tolerance (1 year)
-            'year': 86400*3,     # 365 days tolerance
-        }
+    '1s': 1 / 2,            # ±0.5 second
+    '5s': 5 / 2,            # ±2.5 seconds
+    '1m': 60 / 2,           # ±30 seconds
+    '5m': 300 / 2,          # ±150 seconds
+    '15m': 900 / 2,         # ±450 seconds
+    '1h': 3600 / 2,         # ±30 minutes
+    '1d': 86400 / 2,        # ±12 hours
+    '1w': 604800 / 2,       # ±3.5 days
+    '1mth': 2592000 / 2,    # ±15 days
+    '1y': 31536000 / 2,     # ±182.5 days
+}
         
         return frequency_tolerance_map.get(frequency_lower, 86400)  # Default to 1 day
     
@@ -360,7 +357,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print(f"Factor {factor_entity.name} has {len(dependencies)} dependencies - using calculate function")
                 
                 factor_value = self._handle_factor_with_dependencies(
-                    factor_entity, dependencies, entity_id, bar_date, bar_data
+                    factor_entity, dependencies, entity_id, bar_date, bar_data,**kwargs
                 )
                 return factor_value
 
@@ -382,7 +379,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     return None
                 
                 # Get configurable parameters with defaults from get_or_create_batch pattern
-                what_to_show = kwargs.get('what_to_show', 'TRADES')
+                what_to_show = self._resolve_what_to_show_from_group(factor_entity.group)
                 duration_str = kwargs.get('duration_str', '1 M')
                 bar_size_setting = kwargs.get('bar_size_setting', '1 day')
                 
@@ -892,7 +889,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         print(f"Factor {factor.name} has {len(dependencies)} dependencies - using calculate function")
                         
                         calculated_factor_value = self._handle_factor_with_dependencies(
-                            factor=factor, dependencies=dependencies, entity_id=entity_id,bar_date=time_date
+                            factor=factor, dependencies=dependencies, entity_id=entity_id,bar_date=time_date,
+                            what_to_show=what_to_show,duration_str=duration_str,bar_size_setting=bar_size_setting
                         )
                         
                         if calculated_factor_value:
@@ -1031,7 +1029,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return []
 
     def _handle_factor_with_dependencies(self, factor: Any, dependencies: List[Dict[str, Any]], 
-                                       entity_id: int, bar_date: datetime=None, bar_data: Dict[str, Any]=None) -> Optional[FactorValue]:
+                                       entity_id: int, bar_date: datetime=None, bar_data: Dict[str, Any]=None,**kwargs) -> Optional[FactorValue]:
         """
         Handle factor calculation when factor has dependencies.
         
@@ -1090,7 +1088,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             entity_symbol=None,
                             factor=independent_factor,
                             entity=dependent_entity,
-                            date=dependency_date.strftime("%Y-%m-%d %H:%M:%S")
+                            date=dependency_date.strftime("%Y-%m-%d %H:%M:%S"),**kwargs
                         )
                         
                         if dependency_factor_value:
@@ -1167,35 +1165,32 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return entity_id  # Return original instead of None for safety
             
             # Get the corresponding SQLAlchemy model class using factory repositories
-            model_class = self._get_model_class_from_entity(financial_asset_entity)
-            if not model_class:
-                print(f"Could not determine model class for entity {entity_id} with asset_type {getattr(financial_asset_entity, 'asset_type', 'unknown')}")
-                return entity_id
+            # model_class = self._get_model_class_from_entity(financial_asset_entity)
+            # if not model_class:
+            #     print(f"Could not determine model class for entity {entity_id} with asset_type {getattr(financial_asset_entity, 'asset_type', 'unknown')}")
+            #     return entity_id
                 
-            print(f"Resolved model class: {model_class.__name__} for entity {entity_id}")
+            # print(f"Resolved model class: {model_class.__name__} for entity {entity_id}")
             
-            # Get all relationship fields from the model class (including inherited ones)
-            relationship_fields = self._get_model_relationship_fields(model_class)
-            print(f"Available relationship fields for {model_class.__name__}: {relationship_fields}")
+            # # Get all relationship fields from the model class (including inherited ones)
+            # relationship_fields = self._get_model_relationship_fields(model_class)
+            # print(f"Available relationship fields for {model_class.__name__}: {relationship_fields}")
             
             # Query the database using the correct model class
-            model_instance = self.session.query(model_class).filter(model_class.id == entity_id).first()
-            if not model_instance:
-                print(f"Could not find model instance for entity {entity_id}")
-                return entity_id
+            # model_instance = self.session.query(model_class).filter(model_class.id == entity_id).first()
+            # if not model_instance:
+            #     print(f"Could not find model instance for entity {entity_id}")
+            #     return entity_id
                 
             # Create entity attributes dict from model instance
             entity_attributes = {}
-            for field_name in relationship_fields:
-                if hasattr(model_instance, field_name):
+            for field_name,field_value in financial_asset_entity.__dict__.items():
+                if independent_factor_related_entity_key== field_name:
                     try:
-                        field_value = getattr(model_instance, field_name)
-                        entity_attributes[field_name] = field_value
                         
-                        # Also check with _id suffix removed (e.g., underlying_asset_id -> underlying_asset)
-                        if field_name.endswith('_id'):
-                            base_name = field_name[:-3]
-                            entity_attributes[base_name] = field_value
+                        resolved_id = field_value
+                        break
+                        
                             
                     except Exception as attr_error:
                         # Skip attributes that can't be accessed
@@ -1203,13 +1198,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         
             print(f"Entity attributes extracted: {entity_attributes}")
             
-            # Apply matching strategies in order of preference
-            resolved_id = self._apply_matching_strategies(entity_attributes, independent_factor_related_entity_key, entity_id)
+            # # Apply matching strategies in order of preference
+            # resolved_id = self._apply_matching_strategies(entity_attributes, independent_factor_related_entity_key, entity_id)
             
-            if resolved_id != entity_id:
-                print(f"Successfully resolved dependent entity ID {resolved_id} for key '{independent_factor_related_entity_key}'")
-            else:
-                print(f"No matching attribute found for key '{independent_factor_related_entity_key}', using original entity_id {entity_id}")
+            # if resolved_id != entity_id:
+            #     print(f"Successfully resolved dependent entity ID {resolved_id} for key '{independent_factor_related_entity_key}'")
+            # else:
+            #     print(f"No matching attribute found for key '{independent_factor_related_entity_key}', using original entity_id {entity_id}")
                 
             return resolved_id
             
@@ -1600,8 +1595,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             metadata['entity_id'] = entity_data['entity_id']
 
 
-                        if 'time_date' in entity_data:
-                            metadata['time_date'] = entity_data['time_date']
+                        if 'max_date' in entity_data:
+                            metadata['time_date'] = entity_data['max_date']
                         if 'financial_asset_entity' in entity_data:
                             metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
                     if not factors:

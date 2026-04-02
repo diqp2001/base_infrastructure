@@ -62,7 +62,7 @@ class ModelTrainer:
         Returns:
             Complete training results
         """
-        print("🚀 Starting complete spatiotemporal training pipeline...")
+        print("🚀 Starting complete  training pipeline...")
         
         # if tickers is None:
         #     tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
