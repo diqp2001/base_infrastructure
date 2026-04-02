@@ -25,9 +25,13 @@ class CompanyShareOptionMapper:
             symbol=getattr(orm_obj, 'symbol', None),
             currency_id=getattr(orm_obj, 'currency_id', None),
             underlying_asset_id=getattr(orm_obj, 'underlying_asset_id', None),
+            exchange_id=getattr(orm_obj, 'exchange_id', None),
             option_type=getattr(orm_obj, 'option_type', None),
             start_date=getattr(orm_obj, 'start_date', None),
-            end_date=getattr(orm_obj, 'end_date', None)
+            end_date=getattr(orm_obj, 'end_date', None),
+            strike_price=getattr(orm_obj, 'strike_price', None),
+            multiplier=getattr(orm_obj, 'multiplier', None),
+            expiry=getattr(orm_obj, 'expiry', None)
         )
         
         return domain_entity
@@ -50,6 +54,12 @@ class CompanyShareOptionMapper:
             orm_obj.underlying_asset_id = domain_obj.underlying_asset_id
         if hasattr(domain_obj, 'exchange_id'):
             orm_obj.exchange_id = domain_obj.exchange_id
+        if hasattr(domain_obj, 'strike_price'):
+            orm_obj.strike_price = domain_obj.strike_price
+        if hasattr(domain_obj, 'multiplier'):
+            orm_obj.multiplier = domain_obj.multiplier
+        if hasattr(domain_obj, 'expiry'):
+            orm_obj.expiry = domain_obj.expiry
         # Map optional financial asset attributes
         if hasattr(domain_obj, 'name'):
             orm_obj.name = domain_obj.name

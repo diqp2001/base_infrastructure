@@ -283,7 +283,8 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                 exchange_id=exchange.id ,
                 option_type = option_type,
                 strike_price=Decimal(str(contract.strike)) if hasattr(contract, 'strike') and contract.strike else None,
-                multiplier=int(contract.multiplier) if hasattr(contract, 'multiplier') and contract.multiplier else 100
+                multiplier=int(contract.multiplier) if hasattr(contract, 'multiplier') and contract.multiplier else 100,
+                expiry=contract.lastTradeDateOrContractMonth if hasattr(contract, 'lastTradeDateOrContractMonth') and contract.lastTradeDateOrContractMonth else None
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")
