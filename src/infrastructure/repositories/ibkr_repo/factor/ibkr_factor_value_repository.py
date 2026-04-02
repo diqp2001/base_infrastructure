@@ -518,12 +518,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             created_factor_values.extend(factor_values_from_bulk)
                         else:
                             factor_values_from_bulk = self._extract_factor_values(
-                                 factors, entity_id, symbol,
-                            time_date,
-                            financial_asset_entity,
-                            what_to_show,
-                            duration_str,
-                            bar_size_setting
+                                 factors=factors, 
+                                 entity_id=entity_id, 
+                            time_date=time_date,
+                            financial_asset_entity=financial_asset_entity,
+                            what_to_show=what_to_show,
+                            duration_str=duration_str,
+                            bar_size_setting=bar_size_setting
                             )
                             created_factor_values.extend(factor_values_from_bulk)
                     except Exception as e:
@@ -878,7 +879,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             for factor in factors:
                     # Check if factor value already exists
-                    existing = self._check_existing_factor_value(factor.id, entity_id, time_date)
+                    existing = self._check_existing_factor_value(factor.id, entity_id, time_date.strftime("%Y-%m-%d %H:%M:%S"))
                     if existing:
                         factor_values.append(existing)
                         continue
@@ -891,7 +892,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         print(f"Factor {factor.name} has {len(dependencies)} dependencies - using calculate function")
                         
                         calculated_factor_value = self._handle_factor_with_dependencies(
-                            factor, dependencies, entity_id
+                            factor=factor, dependencies=dependencies, entity_id=entity_id,bar_date=time_date
                         )
                         
                         if calculated_factor_value:
@@ -955,7 +956,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 print(f"Factor {factor.name} has {len(dependencies)} dependencies - using calculate function")
                                 
                                 calculated_factor_value = self._handle_factor_with_dependencies(
-                                    factor, dependencies, entity_id, bar_date, bar_data
+                                    factor=factor, dependencies=dependencies, entity_id=entity_id, bar_date=bar_date, bar_data=bar_data
                                 )
                                 
                                 if calculated_factor_value:
@@ -1046,19 +1047,19 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             # Sort dependencies by lag to ensure consistent ordering (highest lag first = start_price)
-            sorted_dependencies = sorted(dependencies, key=lambda x: x.get('lag', timedelta(0)), reverse=True)
+            #sorted_dependencies = sorted(dependencies, key=lambda x: x.get('lag', timedelta(0)), reverse=True)
             
             # Resolve dependency values with proper parameter names
             dependency_values = {}
             
-            for i, dep_info in enumerate(sorted_dependencies):
+            for i, dep_info in enumerate(dependencies):
                 independent_factor = dep_info['independent_factor']
                 independent_factor_id = dep_info['independent_factor_id']
                 lag = dep_info.get('lag')
                 independent_factor_related_entity_key = dep_info.get('independent_factor_related_entity_key')
                 
                 # Determine parameter name based on factor type and dependency position
-                param_name = self._get_dependency_parameter_name(factor, i, len(sorted_dependencies), independent_factor)
+                param_name = self._get_dependency_parameter_name(factor, i, len(dependencies), independent_factor)
                 
                 # Calculate the adjusted date considering the lag
                 dependency_date = bar_date
