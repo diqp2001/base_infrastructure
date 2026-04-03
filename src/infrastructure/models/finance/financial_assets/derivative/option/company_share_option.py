@@ -22,6 +22,7 @@ class CompanyShareOptionModel(OptionsModel):
     # Index future option specific fields
     strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
     multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
+    expiry = Column(String(20), nullable=True)
     exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options") 
     
     
