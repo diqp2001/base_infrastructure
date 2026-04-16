@@ -29,8 +29,10 @@ class Algorithm(QCAlgorithm):
     Implements systematic spread trading with risk management.
     """
     
-    def __init__(self):
-        """Initialize the algorithm."""
+    def __init__(self, repository_factory=None):
+        """Initialize the algorithm with optional repository factory."""
+        super().__init__(repository_factory=repository_factory)
+        
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Algorithm components
@@ -54,11 +56,29 @@ class Algorithm(QCAlgorithm):
         self.daily_pnl = 0
         self.total_trades = 0
         self.performance_history = []
+        
+        # SPX-specific portfolio tracking
+        self.spx_portfolio_name = "SPX_Call_Spread_Portfolio"
     
     def initialize(self):
         """Initialize the algorithm following MyAlgorithm pattern."""
         # Call parent initialization first
         super().initialize()
+        
+        # Register the SPX trading portfolio with repository
+        if self.repository_factory:
+            initial_capital = getattr(self, 'initial_capital', 100000.0)
+            portfolio_entity = self.register_portfolio(
+                name=self.spx_portfolio_name,
+                initial_cash=initial_capital,
+                portfolio_type="SPX_SPREAD_BACKTEST"
+            )
+            if portfolio_entity:
+                self.log("✅ SPX portfolio registered with repository system")
+            else:
+                self.warning("⚠️ Failed to register SPX portfolio")
+        else:
+            self.warning("⚠️ No repository factory available - portfolio tracking disabled")
         
         # Load configuration
         self.config = get_config()
@@ -335,7 +355,7 @@ class Algorithm(QCAlgorithm):
         entry_eval: Dict[str, Any],
         data: Dict[str, Any]
     ):
-        """Execute a spread trade."""
+        """Enhanced spread trade execution with repository tracking."""
         try:
             # Calculate position size
             position_size = entry_eval.get('recommended_position_size', 1)
@@ -352,7 +372,19 @@ class Algorithm(QCAlgorithm):
                 self.logger.warning(f"Insufficient capital for trade: need {required_capital}, have {self.cash}")
                 return
             
-            # Create position record
+            # Execute QC orders for the spread legs
+            long_option_ticket = self.market_order(
+                opportunity.get('long_option_symbol', 'SPX'), 
+                position_size,
+                tag="SPX_SPREAD_LONG"
+            )
+            short_option_ticket = self.market_order(
+                opportunity.get('short_option_symbol', 'SPX'), 
+                -position_size,
+                tag="SPX_SPREAD_SHORT"
+            )
+            
+            # Create position record with repository integration
             position_id = f"spread_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             position = {
                 'id': position_id,
@@ -371,6 +403,8 @@ class Algorithm(QCAlgorithm):
                 'expiry_date': opportunity.get('expiry_date'),
                 'required_capital': required_capital,
                 'current_value': 0,
+                'long_order_id': long_option_ticket.order_id if long_option_ticket else None,
+                'short_order_id': short_option_ticket.order_id if short_option_ticket else None,
             }
             
             # Add position to portfolio
@@ -378,7 +412,13 @@ class Algorithm(QCAlgorithm):
             self.cash -= required_capital
             self.total_trades += 1
             
+            # Repository tracking is handled automatically in the enhanced market_order method
+            
             self.logger.info(f"✅ Executed {position['type']} spread: {position['strikes']}, size: {position_size}")
+            
+            # Log repository integration status
+            if self.repository_factory and self._current_portfolio_entity:
+                self.logger.info(f"📊 Order tracking enabled via portfolio: {self._current_portfolio_entity.id}")
             
         except Exception as e:
             self.logger.error(f"Error executing spread trade: {e}")
@@ -500,11 +540,27 @@ class Algorithm(QCAlgorithm):
         
         # Event handlers are inherited from QCAlgorithm base class
     
+    def set_factory(self, repository_factory):
+        """Enhanced factory injection for market making algorithm."""
+        self.set_repository_factory(repository_factory)
+        
+        # Validate required repositories are available
+        required_repos = ['portfolio', 'order', 'transaction', 'holding']
+        missing_repos = []
+        
+        for repo_name in required_repos:
+            if not hasattr(repository_factory, f'{repo_name}_local_repo') or getattr(repository_factory, f'{repo_name}_local_repo') is None:
+                missing_repos.append(repo_name)
+        
+        if missing_repos:
+            self.warning(f"Missing repositories in factory: {missing_repos}")
+        else:
+            self.log("✅ All required repositories available in factory")
+    
     def set_factor_manager(self, factor_manager):
         """Inject factor manager from the BacktestRunner."""
         self.factor_manager = factor_manager
         self.log("✅ Factor manager injected successfully")
-        
     
     def set_trainer(self, trainer):
         """Inject  trainer from the BacktestRunner."""

@@ -28,6 +28,8 @@ from src.infrastructure.repositories.local_repo.finance.financial_statements.inc
 from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.cash_flow_statement_repository import CashFlowStatementRepository
 from src.infrastructure.repositories.local_repo.finance.market_data_repository import MarketDataRepository
+from src.infrastructure.repositories.local_repo.finance.order.order_repository import OrderRepository
+from src.infrastructure.repositories.local_repo.finance.transaction.transaction_repository import TransactionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
@@ -294,7 +296,10 @@ class RepositoryFactory:
                 'balance_sheet': BalanceSheetRepository(self.session, factory=self),
                 'cash_flow_statement': CashFlowStatementRepository(self.session, factory=self),
                 # Market data repository
-                'market_data': MarketDataRepository(self.session, factory=self)
+                'market_data': MarketDataRepository(self.session, factory=self),
+                # Order and transaction repositories
+                'order': OrderRepository(self.session, factory=self),
+                'transaction': TransactionRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -1124,6 +1129,16 @@ class RepositoryFactory:
     def market_data_local_repo(self):
         """Get market_data repository for dependency injection."""
         return self._local_repositories.get('market_data')
+    
+    @property
+    def order_local_repo(self):
+        """Get order repository for dependency injection."""
+        return self._local_repositories.get('order')
+    
+    @property
+    def transaction_local_repo(self):
+        """Get transaction repository for dependency injection."""
+        return self._local_repositories.get('transaction')
     
     @property
     def future_price_return_factor_local_repo(self):

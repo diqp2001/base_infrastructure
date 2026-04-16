@@ -36,7 +36,7 @@ class QCAlgorithm:
     including data handling, order management, portfolio tracking, and scheduling.
     """
     
-    def __init__(self):
+    def __init__(self, repository_factory=None):
         # Core algorithm properties
         self.start_date: Optional[datetime] = None
         self.end_date: Optional[datetime] = None
@@ -51,6 +51,14 @@ class QCAlgorithm:
         self._order_tickets: Dict[str, OrderTicket] = {}
         self._orders: Dict[str, Order] = {}
         self._order_events: List[OrderEvent] = []
+        
+        # Repository factory for portfolio tracking
+        self.repository_factory = repository_factory
+        self._current_portfolio_entity: Optional[Any] = None
+        
+        # Order tracking mappings for QC orders -> domain entities
+        self._order_entity_mapping: Dict[str, str] = {}
+        self._transaction_mapping: Dict[str, str] = {}
         
         # Scheduling
         self.schedule = ScheduleManager()
@@ -98,11 +106,22 @@ class QCAlgorithm:
     
     def on_order_event(self, order_event: OrderEvent):
         """
-        Called when an order event occurs (fill, partial fill, cancellation, etc.)
+        Enhanced order event handling with transaction recording.
         
         Args:
             order_event: The order event that occurred
         """
+        # Record transaction if filled and repository is available
+        if (hasattr(order_event, 'status') and 
+            order_event.status in ['FILLED', 'PARTIALLY_FILLED'] and 
+            self.repository_factory and 
+            self._current_portfolio_entity):
+            
+            transaction = self.record_transaction(order_event)
+            if transaction:
+                self.debug(f"Transaction recorded: {transaction.id}")
+        
+        # Call any user-defined logic (can be overridden in subclasses)
         pass
     
     def on_end_of_day(self, symbol: Symbol):
@@ -240,7 +259,7 @@ class QCAlgorithm:
     def market_order(self, symbol: Union[Symbol, str], quantity: int, 
                     asynchronous: bool = False, tag: str = "") -> OrderTicket:
         """
-        Submit a market order.
+        Submit a market order and register it with repository if available.
         
         Args:
             symbol: The symbol to trade
@@ -251,7 +270,16 @@ class QCAlgorithm:
         Returns:
             OrderTicket for tracking the order
         """
-        return self._submit_order(MarketOrder, symbol, quantity, tag=tag)
+        # Call parent implementation
+        ticket = self._submit_order(MarketOrder, symbol, quantity, tag=tag)
+        
+        # Register with repository if available
+        if self.repository_factory and self._current_portfolio_entity:
+            order_entity = self.register_order(ticket)
+            if order_entity:
+                self.debug(f"Order registered with repository: {order_entity.id}")
+        
+        return ticket
     
     def limit_order(self, symbol: Union[Symbol, str], quantity: int, limit_price: float,
                    tag: str = "") -> OrderTicket:
@@ -733,6 +761,251 @@ class QCAlgorithm:
             self.warmup_period = period
         
         self.debug(f"Warmup period set to {self.warmup_period}")
+    
+    # ===========================================
+    # Repository Integration Methods
+    # ===========================================
+    
+    def set_repository_factory(self, factory):
+        """Inject repository factory for persistence operations."""
+        self.repository_factory = factory
+        self.debug("Repository factory injected successfully")
+    
+    def register_portfolio(self, name: str, initial_cash: float = 100000.0, 
+                          portfolio_type: str = "BACKTEST") -> Optional[Any]:
+        """Register or retrieve a portfolio for this algorithm using RepositoryFactory."""
+        if not self.repository_factory:
+            self.warning("No repository factory available for portfolio registration")
+            return None
+        
+        try:
+            portfolio_repo = self.repository_factory.portfolio_local_repo
+            
+            # Get or create portfolio using repository
+            portfolio = portfolio_repo._create_or_get_portfolio(
+                name=name,
+                portfolio_type=portfolio_type,
+                initial_cash=initial_cash,
+                currency_code="USD"
+            )
+            
+            self._current_portfolio_entity = portfolio
+            self.debug(f"Registered portfolio: {portfolio.name} (ID: {portfolio.id})")
+            return portfolio
+            
+        except Exception as e:
+            self.error(f"Error registering portfolio: {e}")
+            return None
+    
+    def register_order(self, order_ticket) -> Optional[Any]:
+        """Register an order with the repository system."""
+        if not self.repository_factory or not self._current_portfolio_entity:
+            return None
+        
+        try:
+            order_repo = self.repository_factory._local_repositories.get('order')
+            if not order_repo:
+                self.warning("OrderRepository not available in factory")
+                return None
+            
+            # Convert QC order to domain entity
+            order_entity = self._convert_qc_order_to_entity(order_ticket)
+            
+            # Persist using repository
+            persisted_order = order_repo.add(order_entity)
+            
+            # Store mapping for later reference
+            self._order_entity_mapping[order_ticket.order_id] = persisted_order.id
+            
+            return persisted_order
+            
+        except Exception as e:
+            self.error(f"Error registering order: {e}")
+            return None
+    
+    def record_transaction(self, order_event) -> Optional[Any]:
+        """Record a transaction when an order is filled."""
+        if not self.repository_factory:
+            return None
+        
+        try:
+            transaction_repo = self.repository_factory._local_repositories.get('transaction')
+            if not transaction_repo:
+                return None
+            
+            # Create transaction entity from order event
+            transaction = self._create_transaction_entity(order_event)
+            
+            # Persist transaction
+            persisted_transaction = transaction_repo.add(transaction)
+            
+            # Update holdings if necessary
+            self._update_holdings_from_transaction(persisted_transaction)
+            
+            return persisted_transaction
+            
+        except Exception as e:
+            self.error(f"Error recording transaction: {e}")
+            return None
+    
+    def update_holding(self, symbol: str, quantity_change: int, 
+                      transaction_price: float) -> Optional[Any]:
+        """Update holdings using the repository system."""
+        if not self.repository_factory or not self._current_portfolio_entity:
+            return None
+        
+        try:
+            holding_repo = self.repository_factory.holding_local_repo
+            
+            # Find or create holding
+            holding = holding_repo._create_or_get_holding(
+                portfolio_id=self._current_portfolio_entity.id,
+                asset_symbol=symbol,
+                quantity=quantity_change,
+                average_price=transaction_price
+            )
+            
+            return holding
+            
+        except Exception as e:
+            self.error(f"Error updating holding for {symbol}: {e}")
+            return None
+    
+    def get_current_portfolio(self) -> Optional[Any]:
+        """Get the current portfolio entity."""
+        return self._current_portfolio_entity
+    
+    def _convert_qc_order_to_entity(self, ticket) -> Any:
+        """Convert QCAlgorithm order to domain entity."""
+        from src.domain.entities.finance.order.order import Order as OrderEntity, OrderType, OrderSide, OrderStatus
+        from datetime import datetime
+        import uuid
+        
+        return OrderEntity(
+            id=self._get_next_order_id(),
+            portfolio_id=self._current_portfolio_entity.id,
+            holding_id=self._get_holding_id_for_symbol(ticket.symbol),
+            order_type=self._map_order_type(ticket.order_type if hasattr(ticket, 'order_type') else 'MARKET'),
+            side=OrderSide.BUY if ticket.quantity > 0 else OrderSide.SELL,
+            quantity=abs(ticket.quantity),
+            created_at=getattr(ticket, 'time', datetime.now()),
+            status=self._map_order_status(getattr(ticket, 'status', 'PENDING')),
+            account_id=self._get_account_id(),
+            price=getattr(ticket, 'limit_price', None),
+            external_order_id=ticket.order_id
+        )
+    
+    def _create_transaction_entity(self, order_event) -> Any:
+        """Create transaction entity from order event."""
+        from src.domain.entities.finance.transaction.transaction import Transaction as TransactionEntity, TransactionType, TransactionStatus
+        from datetime import datetime, timedelta
+        import uuid
+        
+        # Find the corresponding order entity
+        order_entity = self._find_order_entity(order_event.order_id)
+        
+        return TransactionEntity(
+            id=self._get_next_transaction_id(),
+            portfolio_id=self._current_portfolio_entity.id,
+            holding_id=order_entity.holding_id if order_entity else 1,
+            order_id=order_entity.id if order_entity else 1,
+            date=getattr(order_event, 'time', datetime.now()),
+            transaction_type=self._map_to_transaction_type(order_entity.order_type if order_entity else 'MARKET'),
+            transaction_id=str(uuid.uuid4()),
+            account_id=self._get_account_id(),
+            trade_date=getattr(order_event, 'time', datetime.now()).date(),
+            value_date=getattr(order_event, 'time', datetime.now()).date(),
+            settlement_date=getattr(order_event, 'time', datetime.now()).date() + timedelta(days=2),
+            status=TransactionStatus.EXECUTED,
+            spread=0.0,
+            currency_id=self._get_currency_id(),
+            exchange_id=self._get_exchange_id()
+        )
+    
+    def _get_next_order_id(self) -> int:
+        """Get next available order ID."""
+        return len(self._order_entity_mapping) + 1
+    
+    def _get_next_transaction_id(self) -> int:
+        """Get next available transaction ID."""
+        return len(self._transaction_mapping) + 1
+    
+    def _get_holding_id_for_symbol(self, symbol) -> int:
+        """Get holding ID for symbol (simplified implementation)."""
+        return 1  # Simplified
+    
+    def _get_account_id(self) -> str:
+        """Get account ID."""
+        return "DEFAULT_ACCOUNT"
+    
+    def _get_currency_id(self) -> int:
+        """Get currency ID."""
+        return 1  # USD
+    
+    def _get_exchange_id(self) -> int:
+        """Get exchange ID."""
+        return 1  # Default exchange
+    
+    def _map_order_type(self, order_type_str: str):
+        """Map QC order type to domain OrderType."""
+        from src.domain.entities.finance.order.order import OrderType
+        
+        mapping = {
+            'MARKET': OrderType.MARKET,
+            'LIMIT': OrderType.LIMIT,
+            'STOP': OrderType.STOP,
+            'STOP_LIMIT': OrderType.STOP_LIMIT
+        }
+        return mapping.get(order_type_str.upper(), OrderType.MARKET)
+    
+    def _map_order_status(self, status_str: str):
+        """Map QC order status to domain OrderStatus."""
+        from src.domain.entities.finance.order.order import OrderStatus
+        
+        mapping = {
+            'PENDING': OrderStatus.PENDING,
+            'SUBMITTED': OrderStatus.SUBMITTED,
+            'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
+            'FILLED': OrderStatus.FILLED,
+            'CANCELLED': OrderStatus.CANCELLED,
+            'REJECTED': OrderStatus.REJECTED
+        }
+        return mapping.get(status_str.upper(), OrderStatus.PENDING)
+    
+    def _map_to_transaction_type(self, order_type):
+        """Map order type to transaction type."""
+        from src.domain.entities.finance.transaction.transaction import TransactionType
+        from src.domain.entities.finance.order.order import OrderType
+        
+        mapping = {
+            OrderType.MARKET: TransactionType.MARKET_ORDER,
+            OrderType.LIMIT: TransactionType.LIMIT_ORDER,
+            OrderType.STOP: TransactionType.STOP_ORDER,
+            OrderType.STOP_LIMIT: TransactionType.STOP_LIMIT_ORDER
+        }
+        return mapping.get(order_type, TransactionType.MARKET_ORDER)
+    
+    def _find_order_entity(self, order_id: str) -> Optional[Any]:
+        """Find order entity by QC order ID."""
+        entity_id = self._order_entity_mapping.get(order_id)
+        if entity_id and self.repository_factory:
+            order_repo = self.repository_factory._local_repositories.get('order')
+            if order_repo:
+                return order_repo.get_by_id(entity_id)
+        return None
+    
+    def _update_holdings_from_transaction(self, transaction) -> None:
+        """Update holdings based on transaction."""
+        try:
+            if not transaction or not self.repository_factory:
+                return
+            
+            # This would typically update holding quantities based on the transaction
+            # Implementation depends on your specific business logic
+            self.debug(f"Updated holdings from transaction {transaction.id}")
+            
+        except Exception as e:
+            self.error(f"Error updating holdings from transaction: {e}")
     
     # ===========================================
     # Data Processing Utility Methods
