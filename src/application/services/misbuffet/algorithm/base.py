@@ -6,6 +6,7 @@ import uuid
 import pandas as pd
 
 from .symbol import Symbol, SymbolProperties
+from .unified_portfolio_manager import UnifiedPortfolioManager
 from .enums import (
     SecurityType, Resolution, OrderType, OrderStatus, OrderDirection,
     DataNormalizationMode, LogLevel
@@ -52,11 +53,19 @@ class QCAlgorithm:
         self._orders: Dict[str, Order] = {}
         self._order_events: List[OrderEvent] = []
         
-        # Repository factory for portfolio tracking
+        # Unified Portfolio Management System
         self.repository_factory = repository_factory
-        self._current_portfolio_entity: Optional[Any] = None
+        self._unified_portfolio_manager: Optional[UnifiedPortfolioManager] = None
         
-        # Order tracking mappings for QC orders -> domain entities
+        # Initialize unified portfolio manager if repository factory is available
+        if repository_factory:
+            self._unified_portfolio_manager = UnifiedPortfolioManager(
+                repository_factory=repository_factory, 
+                logger=self.logger
+            )
+        
+        # Legacy mappings (deprecated - will be removed)
+        self._current_portfolio_entity: Optional[Any] = None
         self._order_entity_mapping: Dict[str, str] = {}
         self._transaction_mapping: Dict[str, str] = {}
         
@@ -259,7 +268,7 @@ class QCAlgorithm:
     def market_order(self, symbol: Union[Symbol, str], quantity: int, 
                     asynchronous: bool = False, tag: str = "") -> OrderTicket:
         """
-        Submit a market order and register it with repository if available.
+        Submit a market order with unified portfolio management integration.
         
         Args:
             symbol: The symbol to trade
@@ -270,14 +279,14 @@ class QCAlgorithm:
         Returns:
             OrderTicket for tracking the order
         """
-        # Call parent implementation
+        # Submit the order
         ticket = self._submit_order(MarketOrder, symbol, quantity, tag=tag)
         
-        # Register with repository if available
-        if self.repository_factory and self._current_portfolio_entity:
+        # Register with unified portfolio manager if available
+        if self._unified_portfolio_manager:
             order_entity = self.register_order(ticket)
             if order_entity:
-                self.debug(f"Order registered with repository: {order_entity.id}")
+                self.debug(f"✅ Order registered with unified portfolio system: {order_entity.id}")
         
         return ticket
     
@@ -767,86 +776,68 @@ class QCAlgorithm:
     # ===========================================
     
     def set_repository_factory(self, factory):
-        """Inject repository factory for persistence operations."""
+        """Inject repository factory for unified portfolio management."""
         self.repository_factory = factory
+        
+        # Initialize unified portfolio manager
+        if factory and not self._unified_portfolio_manager:
+            self._unified_portfolio_manager = UnifiedPortfolioManager(
+                repository_factory=factory, 
+                logger=self.logger
+            )
+            self.debug("✅ Unified portfolio management system initialized")
+        
         self.debug("Repository factory injected successfully")
     
     def register_portfolio(self, name: str, initial_cash: float = 100000.0, 
                           portfolio_type: str = "BACKTEST") -> Optional[Any]:
-        """Register or retrieve a portfolio for this algorithm using RepositoryFactory."""
-        if not self.repository_factory:
-            self.warning("No repository factory available for portfolio registration")
+        """
+        Register portfolio using unified portfolio management system.
+        
+        This replaces dual portfolio tracking with a single system using domain entities.
+        """
+        if not self._unified_portfolio_manager:
+            self.warning("No unified portfolio manager available")
             return None
         
-        try:
-            portfolio_repo = self.repository_factory.portfolio_local_repo
+        # Use unified portfolio manager
+        portfolio = self._unified_portfolio_manager.register_portfolio(
+            name=name,
+            initial_cash=initial_cash,
+            portfolio_type=portfolio_type
+        )
+        
+        if portfolio:
+            # Update QCAlgorithm's portfolio cash to sync with domain entity
+            self.portfolio.cash = initial_cash
+            self.portfolio.total_portfolio_value = initial_cash
             
-            # Get or create portfolio using repository
-            portfolio = portfolio_repo._create_or_get_portfolio(
-                name=name,
-                portfolio_type=portfolio_type,
-                initial_cash=initial_cash,
-                currency_code="USD"
-            )
-            
+            # Store reference for legacy compatibility
             self._current_portfolio_entity = portfolio
-            self.debug(f"Registered portfolio: {portfolio.name} (ID: {portfolio.id})")
-            return portfolio
             
-        except Exception as e:
-            self.error(f"Error registering portfolio: {e}")
-            return None
+        return portfolio
     
     def register_order(self, order_ticket) -> Optional[Any]:
-        """Register an order with the repository system."""
-        if not self.repository_factory or not self._current_portfolio_entity:
+        """Register an order using unified portfolio management system."""
+        if not self._unified_portfolio_manager:
             return None
         
-        try:
-            order_repo = self.repository_factory._local_repositories.get('order')
-            if not order_repo:
-                self.warning("OrderRepository not available in factory")
-                return None
-            
-            # Convert QC order to domain entity
-            order_entity = self._convert_qc_order_to_entity(order_ticket)
-            
-            # Persist using repository
-            persisted_order = order_repo.add(order_entity)
-            
-            # Store mapping for later reference
-            self._order_entity_mapping[order_ticket.order_id] = persisted_order.id
-            
-            return persisted_order
-            
-        except Exception as e:
-            self.error(f"Error registering order: {e}")
-            return None
+        # Use unified portfolio manager
+        return self._unified_portfolio_manager.register_order(order_ticket)
     
     def record_transaction(self, order_event) -> Optional[Any]:
-        """Record a transaction when an order is filled."""
-        if not self.repository_factory:
+        """Record a transaction using unified portfolio management system."""
+        if not self._unified_portfolio_manager:
             return None
         
-        try:
-            transaction_repo = self.repository_factory._local_repositories.get('transaction')
-            if not transaction_repo:
-                return None
-            
-            # Create transaction entity from order event
-            transaction = self._create_transaction_entity(order_event)
-            
-            # Persist transaction
-            persisted_transaction = transaction_repo.add(transaction)
-            
-            # Update holdings if necessary
-            self._update_holdings_from_transaction(persisted_transaction)
-            
-            return persisted_transaction
-            
-        except Exception as e:
-            self.error(f"Error recording transaction: {e}")
-            return None
+        # Use unified portfolio manager
+        transaction = self._unified_portfolio_manager.record_transaction(order_event)
+        
+        if transaction:
+            # Sync QCAlgorithm portfolio values with unified system
+            self._sync_portfolio_values()
+        
+        return transaction
     
     def update_holding(self, symbol: str, quantity_change: int, 
                       transaction_price: float) -> Optional[Any]:
@@ -872,7 +863,9 @@ class QCAlgorithm:
             return None
     
     def get_current_portfolio(self) -> Optional[Any]:
-        """Get the current portfolio entity."""
+        """Get the current portfolio entity from unified portfolio manager."""
+        if self._unified_portfolio_manager:
+            return self._unified_portfolio_manager.get_current_portfolio()
         return self._current_portfolio_entity
     
     def _convert_qc_order_to_entity(self, ticket) -> Any:
@@ -1006,6 +999,92 @@ class QCAlgorithm:
             
         except Exception as e:
             self.error(f"Error updating holdings from transaction: {e}")
+
+    # ===========================================
+    # Unified Portfolio Management Methods
+    # ===========================================
+    
+    def get_unified_portfolio_value(self) -> float:
+        """
+        Get total portfolio value from unified portfolio management system.
+        
+        This is the single source of truth for portfolio value using domain entities.
+        """
+        if not self._unified_portfolio_manager:
+            # Fallback to QCAlgorithm's built-in portfolio
+            return float(self.portfolio.total_portfolio_value)
+        
+        return float(self._unified_portfolio_manager.get_portfolio_value())
+
+    def get_unified_positions(self) -> List[Dict[str, Any]]:
+        """
+        Get all active positions from unified portfolio management system.
+        
+        Returns positions using domain entities instead of custom tracking.
+        """
+        if not self._unified_portfolio_manager:
+            return []
+        
+        return self._unified_portfolio_manager.get_active_positions()
+
+    def get_unified_orders_summary(self) -> Dict[str, Any]:
+        """Get orders summary from unified portfolio management system."""
+        if not self._unified_portfolio_manager:
+            return {}
+        
+        return self._unified_portfolio_manager.get_orders_summary()
+
+    def get_unified_transactions_summary(self) -> Dict[str, Any]:
+        """Get transactions summary from unified portfolio management system."""
+        if not self._unified_portfolio_manager:
+            return {}
+        
+        return self._unified_portfolio_manager.get_transactions_summary()
+
+    def get_unified_portfolio_state(self) -> Dict[str, Any]:
+        """
+        Get complete portfolio state from unified management system.
+        
+        This provides a comprehensive view using domain entities and repositories.
+        """
+        if not self._unified_portfolio_manager:
+            # Fallback to basic QCAlgorithm data
+            return {
+                'portfolio_value': float(self.portfolio.total_portfolio_value),
+                'cash': float(self.portfolio.cash),
+                'warning': 'Using fallback QCAlgorithm data - unified portfolio manager not available'
+            }
+        
+        return self._unified_portfolio_manager.get_unified_state()
+
+    def _sync_portfolio_values(self):
+        """
+        Synchronize QCAlgorithm portfolio values with unified portfolio manager.
+        
+        This ensures consistency between the built-in portfolio and domain entities.
+        """
+        if not self._unified_portfolio_manager:
+            return
+        
+        try:
+            # Get unified portfolio value
+            unified_value = self._unified_portfolio_manager.get_portfolio_value()
+            
+            # Update QCAlgorithm portfolio to match
+            self.portfolio.total_portfolio_value = float(unified_value)
+            
+            # Update cash balance (simplified)
+            cash_balance = self._unified_portfolio_manager._get_cash_balance()
+            self.portfolio.cash = float(cash_balance)
+            
+            self.debug(f"✅ Portfolio values synchronized: ${float(unified_value):,.2f}")
+            
+        except Exception as e:
+            self.error(f"❌ Portfolio synchronization failed: {e}")
+
+    def is_unified_portfolio_enabled(self) -> bool:
+        """Check if unified portfolio management is available and enabled."""
+        return self._unified_portfolio_manager is not None
     
     # ===========================================
     # Data Processing Utility Methods

@@ -43,6 +43,8 @@ class Algorithm(QCAlgorithm):
         
         # Algorithm state
         self.initialized = False
+        
+        # Legacy state tracking (will be deprecated in favor of unified portfolio manager)
         self.portfolio_value = 0
         self.cash = 0
         self.positions = {}
@@ -279,9 +281,20 @@ class Algorithm(QCAlgorithm):
             return {'success': False, 'error': str(e)}
     
     def _update_portfolio_value(self, data: Dict[str, Any]):
-        """Update portfolio value based on current market data."""
+        """
+        Update portfolio value using unified portfolio management system.
+        
+        Replaces custom tracking with domain entities for accurate portfolio tracking.
+        """
         try:
-            # Calculate position values
+            # Use unified portfolio manager if available
+            if self.is_unified_portfolio_enabled():
+                # Get unified portfolio value directly from domain entities
+                self.portfolio_value = self.get_unified_portfolio_value()
+                self.log(f"📊 Portfolio value (unified): ${self.portfolio_value:,.2f}")
+                return
+            
+            # Legacy calculation as fallback
             total_position_value = 0
             
             for position_id, position in self.positions.items():
@@ -291,6 +304,7 @@ class Algorithm(QCAlgorithm):
             
             # Update portfolio value
             self.portfolio_value = self.cash + total_position_value
+            self.log(f"📊 Portfolio value (legacy): ${self.portfolio_value:,.2f}")
             
         except Exception as e:
             self.logger.error(f"Error updating portfolio value: {e}")
@@ -519,8 +533,27 @@ class Algorithm(QCAlgorithm):
             self.logger.error(f"Error logging daily summary: {e}")
     
     def get_algorithm_state(self) -> Dict[str, Any]:
-        """Get current algorithm state."""
+        """
+        Get current algorithm state using unified portfolio management.
+        
+        Returns comprehensive state using domain entities where available.
+        """
         try:
+            # Use unified portfolio state if available
+            if self.is_unified_portfolio_enabled():
+                unified_state = self.get_unified_portfolio_state()
+                unified_state.update({
+                    'initialized': self.initialized,
+                    'total_trades': self.total_trades,
+                    'daily_pnl': self.daily_pnl,
+                    'performance_history': self.performance_history[-10:],
+                    'portfolio_management': 'unified',
+                    'orders_summary': self.get_unified_orders_summary(),
+                    'transactions_summary': self.get_unified_transactions_summary()
+                })
+                return unified_state
+            
+            # Legacy state as fallback
             return {
                 'initialized': self.initialized,
                 'portfolio_value': self.portfolio_value,
@@ -529,7 +562,8 @@ class Algorithm(QCAlgorithm):
                 'total_trades': self.total_trades,
                 'daily_pnl': self.daily_pnl,
                 'active_positions': list(self.positions.keys()),
-                'performance_history': self.performance_history[-10:],  # Last 10 days
+                'performance_history': self.performance_history[-10:],
+                'portfolio_management': 'legacy'
             }
             
         except Exception as e:
@@ -537,6 +571,7 @@ class Algorithm(QCAlgorithm):
             return {
                 'error': str(e),
                 'initialized': self.initialized,
+                'portfolio_management': 'error'
             }
         
         # Event handlers are inherited from QCAlgorithm base class
