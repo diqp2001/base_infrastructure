@@ -534,7 +534,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
 
             # Batch persist all factor values to database
-            self._batch_persist_factor_values(created_factor_values)
+            #self._batch_persist_factor_values(created_factor_values)
 
             # Create result batch with metadata
             result_metadata = {

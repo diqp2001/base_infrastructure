@@ -78,7 +78,7 @@ class ModelTrainer:
         
         # Step 2: NEW - Apply comprehensive normalization and factor enhancement
         print("\n🔧 Step 2: Normalizing and enhancing factors...")
-        normalized_factor_data = self._normalize_and_enhance_factors()
+        #normalized_factor_data = self._normalize_and_enhance_factors()
         
         # Step 3: Create training tensors (separate step as requested)
         print("\n🔧 Step 3: Creating training tensors...")
@@ -86,20 +86,20 @@ class ModelTrainer:
         
         # Step 4: Train models
         print("\n🚀 Step 4: Training spatiotemporal models...")
-        training_results = self._train_models(normalized_factor_data, model_type)
+        #training_results = self._train_models(normalized_factor_data, model_type)
         
         # Step 5: Evaluate performance
         print("\n📈 Step 5: Evaluating model performance...")
-        performance_summary = self._evaluate_model_performance(training_results)
+        #performance_summary = self._evaluate_model_performance(training_results)
         
         # Compile final results
         final_results = {
             'tickers': tickers,
             'model_type': model_type,
-            'factor_data_summary': self._summarize_factor_data(factor_data),
+            #'factor_data_summary': self._summarize_factor_data(factor_data),
             #'tensor_data_summary': self._summarize_tensor_data(tensor_data),
-            'training_results': training_results,
-            'performance_summary': performance_summary,
+            #'training_results': training_results,
+            #'performance_summary': performance_summary,
             'training_completed': datetime.now().isoformat(),
             'factors_stored_in_database': True  # Indicating database-driven approach
         }
@@ -107,7 +107,7 @@ class ModelTrainer:
         print(f"\n✅ Complete training pipeline finished!")
         print(f"   📊 Processed {len(tickers)} tickers")
         print(f"   🧠 Trained {len(seeds)} model ensembles")
-        print(f"   📈 Overall performance: {performance_summary.get('overall_score', 'N/A')}")
+        #print(f"   📈 Overall performance: {performance_summary.get('overall_score', 'N/A')}")
         
         return final_results
     
@@ -425,7 +425,7 @@ class ModelTrainer:
         
         
         
-        print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
+        #print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data
     
     def _normalize_and_enhance_factors(self, factor_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
