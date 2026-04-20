@@ -29,9 +29,9 @@ class Algorithm(QCAlgorithm):
     Implements systematic spread trading with risk management.
     """
     
-    def __init__(self, repository_factory=None):
-        """Initialize the algorithm with optional repository factory."""
-        super().__init__(repository_factory=repository_factory)
+    def __init__(self):
+        """Initialize the algorithm with EntityService integration."""
+        super().__init__()
         
         self.logger = logging.getLogger(self.__class__.__name__)
         
@@ -67,8 +67,8 @@ class Algorithm(QCAlgorithm):
         # Call parent initialization first
         super().initialize()
         
-        # Register the SPX trading portfolio with repository
-        if self.repository_factory:
+        # Register the SPX trading portfolio with EntityService
+        if self._entity_service:
             initial_capital = getattr(self, 'initial_capital', 100000.0)
             portfolio_entity = self.register_portfolio(
                 name=self.spx_portfolio_name,
@@ -77,11 +77,11 @@ class Algorithm(QCAlgorithm):
             )
             if portfolio_entity:
                 self.portfolio_entity = portfolio_entity
-                self.log("✅ SPX portfolio registered with repository system")
+                self.log("✅ SPX portfolio registered with EntityService system")
             else:
                 self.warning("⚠️ Failed to register SPX portfolio")
         else:
-            self.warning("⚠️ No repository factory available - portfolio tracking disabled")
+            self.warning("⚠️ No EntityService available - portfolio tracking disabled")
         
         # Load configuration
         self.config = get_config()
@@ -287,11 +287,11 @@ class Algorithm(QCAlgorithm):
         Replaces custom tracking with domain entities for accurate portfolio tracking.
         """
         try:
-            # Use unified portfolio manager if available
+            # Use unified portfolio manager via EntityService if available
             if self.is_unified_portfolio_enabled():
                 # Get unified portfolio value directly from domain entities
                 self.portfolio_value = self.get_unified_portfolio_value()
-                self.log(f"📊 Portfolio value (unified): ${self.portfolio_value:,.2f}")
+                self.log(f"📊 Portfolio value (unified via EntityService): ${self.portfolio_value:,.2f}")
                 return
             
             # Legacy calculation as fallback
@@ -431,9 +431,9 @@ class Algorithm(QCAlgorithm):
             
             self.logger.info(f"✅ Executed {position['type']} spread: {position['strikes']}, size: {position_size}")
             
-            # Log repository integration status
-            if self.repository_factory and self._current_portfolio_entity:
-                self.logger.info(f"📊 Order tracking enabled via portfolio: {self._current_portfolio_entity.id}")
+            # Log EntityService integration status
+            if self._entity_service and self._current_portfolio_entity:
+                self.logger.info(f"📊 Order tracking enabled via EntityService portfolio: {self._current_portfolio_entity.id}")
             
         except Exception as e:
             self.logger.error(f"Error executing spread trade: {e}")
@@ -576,22 +576,24 @@ class Algorithm(QCAlgorithm):
         
         # Event handlers are inherited from QCAlgorithm base class
     
-    def set_factory(self, repository_factory):
-        """Enhanced factory injection for market making algorithm."""
-        self.set_repository_factory(repository_factory)
+    def set_entity_service(self, entity_service):
+        """Enhanced EntityService injection for market making algorithm."""
+        super().set_entity_service(entity_service)
         
-        # Validate required repositories are available
-        required_repos = ['portfolio', 'order', 'transaction', 'holding']
-        missing_repos = []
-        
-        for repo_name in required_repos:
-            if not hasattr(repository_factory, f'{repo_name}_local_repo') or getattr(repository_factory, f'{repo_name}_local_repo') is None:
-                missing_repos.append(repo_name)
-        
-        if missing_repos:
-            self.warning(f"Missing repositories in factory: {missing_repos}")
-        else:
-            self.log("✅ All required repositories available in factory")
+        # Validate required repositories are available through EntityService
+        if entity_service and entity_service.repository_factory:
+            required_repos = ['portfolio', 'order', 'transaction', 'holding']
+            missing_repos = []
+            
+            factory = entity_service.repository_factory
+            for repo_name in required_repos:
+                if not hasattr(factory, f'{repo_name}_local_repo') or getattr(factory, f'{repo_name}_local_repo') is None:
+                    missing_repos.append(repo_name)
+            
+            if missing_repos:
+                self.warning(f"Missing repositories in EntityService factory: {missing_repos}")
+            else:
+                self.log("✅ All required repositories available through EntityService")
     
     def set_factor_manager(self, factor_manager):
         """Inject factor manager from the BacktestRunner."""

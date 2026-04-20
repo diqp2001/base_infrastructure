@@ -263,6 +263,13 @@ class BacktestRunner:
             
             if self.model_trainer:
                 algorithm.set_trainer(self.model_trainer)
+                # Inject EntityService from ModelTrainer's DataLoader
+                if hasattr(self.model_trainer, 'data_loader') and hasattr(self.model_trainer.data_loader, 'financial_asset_service'):
+                    entity_service = self.model_trainer.data_loader.financial_asset_service
+                    algorithm.set_entity_service(entity_service)
+                    self.logger.info("✅ EntityService injected into algorithm from ModelTrainer")
+                else:
+                    self.logger.warning("⚠️ EntityService not found in ModelTrainer's data loader")
                 self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
             else:
                 self.logger.warning("⚠️ Model trainer is None")
