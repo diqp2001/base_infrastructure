@@ -71,7 +71,7 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(name =primary_key,
-                                       group=kwargs.get('group', 'price'),
+                                       group=kwargs.get('group'),
                                        subgroup=kwargs.get('subgroup'),
                 frequency=kwargs.get('frequency'),
                 factor_type=kwargs.get('factor_type', 'company_share_factor'))

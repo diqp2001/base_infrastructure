@@ -74,6 +74,7 @@ class Algorithm(QCAlgorithm):
                 portfolio_type="SPX_SPREAD_BACKTEST"
             )
             if portfolio_entity:
+                self.portfolio_entity = portfolio_entity
                 self.log("✅ SPX portfolio registered with repository system")
             else:
                 self.warning("⚠️ Failed to register SPX portfolio")

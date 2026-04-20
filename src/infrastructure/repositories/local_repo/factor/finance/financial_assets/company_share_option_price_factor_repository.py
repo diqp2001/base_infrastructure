@@ -71,8 +71,8 @@ class CompanyShareOptionPriceFactorRepository(BaseFactorRepository):
                 name=primary_key,
                 group=kwargs.get('group', 'company_share_option'),
                 subgroup=kwargs.get('subgroup', 'price'),
-                frequency=kwargs.get('frequency', '1d'),
-                factor_type=kwargs.get('factor_type', 'price'),
+                frequency=kwargs.get('frequency'),
+                factor_type=kwargs.get('factor_type', 'company_share_option_price_factor'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'market')
             )
@@ -140,18 +140,31 @@ class CompanyShareOptionPriceFactorRepository(BaseFactorRepository):
         try:
             FactorModel = self.get_factor_model()
 
-            query = self.session.query(FactorModel).filter(
+            query = self.session.query(FactorModel)
+
+            # Mandatory filters
+            query = query.filter(
                 FactorModel.name == name,
                 FactorModel.group == group,
-                FactorModel.factor_type == factor_type,
-                FactorModel.subgroup == subgroup,
-                FactorModel.frequency == frequency,
-                FactorModel.data_type == data_type,
-                FactorModel.source == source,
             )
 
-            factor = query.first()
-            return factor
+            # Optional filters
+            if factor_type is not None:
+                query = query.filter(FactorModel.factor_type == factor_type)
+
+            if subgroup is not None:
+                query = query.filter(FactorModel.subgroup == subgroup)
+
+            if frequency is not None:
+                query = query.filter(FactorModel.frequency == frequency)
+
+            if data_type is not None:
+                query = query.filter(FactorModel.data_type == data_type)
+
+            if source is not None:
+                query = query.filter(FactorModel.source == source)
+
+            return query.first()
 
         except Exception as e:
             print(f"Error retrieving company share option price factor by all attributes: {e}")
