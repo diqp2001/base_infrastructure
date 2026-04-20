@@ -37,7 +37,7 @@ class QCAlgorithm:
     including data handling, order management, portfolio tracking, and scheduling.
     """
     
-    def __init__(self, repository_factory=None):
+    def __init__(self):
         # Core algorithm properties
         self.start_date: Optional[datetime] = None
         self.end_date: Optional[datetime] = None
@@ -54,15 +54,8 @@ class QCAlgorithm:
         self._order_events: List[OrderEvent] = []
         
         # Unified Portfolio Management System
-        self.repository_factory = repository_factory
+        self._entity_service = None
         self._unified_portfolio_manager: Optional[UnifiedPortfolioManager] = None
-        
-        # Initialize unified portfolio manager if repository factory is available
-        if repository_factory:
-            self._unified_portfolio_manager = UnifiedPortfolioManager(
-                repository_factory=repository_factory, 
-                logger=self.logger
-            )
         
         # Legacy mappings (deprecated - will be removed)
         self._current_portfolio_entity: Optional[Any] = None
@@ -120,10 +113,10 @@ class QCAlgorithm:
         Args:
             order_event: The order event that occurred
         """
-        # Record transaction if filled and repository is available
+        # Record transaction if filled and EntityService is available
         if (hasattr(order_event, 'status') and 
             order_event.status in ['FILLED', 'PARTIALLY_FILLED'] and 
-            self.repository_factory and 
+            self._entity_service and 
             self._current_portfolio_entity):
             
             transaction = self.record_transaction(order_event)
@@ -775,19 +768,24 @@ class QCAlgorithm:
     # Repository Integration Methods
     # ===========================================
     
-    def set_repository_factory(self, factory):
-        """Inject repository factory for unified portfolio management."""
-        self.repository_factory = factory
+    def set_entity_service(self, entity_service):
+        """Inject EntityService for unified portfolio management."""
+        self._entity_service = entity_service
         
-        # Initialize unified portfolio manager
-        if factory and not self._unified_portfolio_manager:
+        # Initialize unified portfolio manager with repository factory from EntityService
+        if entity_service and entity_service.repository_factory and not self._unified_portfolio_manager:
             self._unified_portfolio_manager = UnifiedPortfolioManager(
-                repository_factory=factory, 
+                repository_factory=entity_service.repository_factory, 
                 logger=self.logger
             )
-            self.debug("✅ Unified portfolio management system initialized")
+            self.debug("✅ Unified portfolio management system initialized via EntityService")
         
-        self.debug("Repository factory injected successfully")
+        self.debug("EntityService injected successfully")
+        
+    @property
+    def repository_factory(self):
+        """Access repository factory through EntityService."""
+        return self._entity_service.repository_factory if self._entity_service else None
     
     def register_portfolio(self, name: str, initial_cash: float = 100000.0, 
                           portfolio_type: str = "BACKTEST") -> Optional[Any]:
@@ -841,12 +839,12 @@ class QCAlgorithm:
     
     def update_holding(self, symbol: str, quantity_change: int, 
                       transaction_price: float) -> Optional[Any]:
-        """Update holdings using the repository system."""
-        if not self.repository_factory or not self._current_portfolio_entity:
+        """Update holdings using the EntityService and repository system."""
+        if not self._entity_service or not self._current_portfolio_entity:
             return None
         
         try:
-            holding_repo = self.repository_factory.holding_local_repo
+            holding_repo = self._entity_service.repository_factory.holding_local_repo
             
             # Find or create holding
             holding = holding_repo._create_or_get_holding(
@@ -981,8 +979,8 @@ class QCAlgorithm:
     def _find_order_entity(self, order_id: str) -> Optional[Any]:
         """Find order entity by QC order ID."""
         entity_id = self._order_entity_mapping.get(order_id)
-        if entity_id and self.repository_factory:
-            order_repo = self.repository_factory._local_repositories.get('order')
+        if entity_id and self._entity_service:
+            order_repo = self._entity_service.repository_factory._local_repositories.get('order')
             if order_repo:
                 return order_repo.get_by_id(entity_id)
         return None
@@ -990,7 +988,7 @@ class QCAlgorithm:
     def _update_holdings_from_transaction(self, transaction) -> None:
         """Update holdings based on transaction."""
         try:
-            if not transaction or not self.repository_factory:
+            if not transaction or not self._entity_service:
                 return
             
             # This would typically update holding quantities based on the transaction
