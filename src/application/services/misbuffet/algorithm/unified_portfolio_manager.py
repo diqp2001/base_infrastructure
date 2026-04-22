@@ -54,7 +54,7 @@ class UnifiedPortfolioManager:
         portfolio_type: str = "BACKTEST"
     ) -> Optional[Portfolio]:
         """
-        Register or retrieve a portfolio entity.
+        Register or retrieve a portfolio entity (legacy method).
         
         Args:
             name: Portfolio name
@@ -83,6 +83,101 @@ class UnifiedPortfolioManager:
         except Exception as e:
             if self.logger:
                 self.logger.error(f"❌ Portfolio registration failed: {e}")
+            return None
+
+    def register_portfolio_with_config(
+        self, 
+        portfolio_config: Optional[Dict[str, Any]] = None,
+        name: str = None,
+        initial_cash: float = None,
+        portfolio_type: str = None
+    ) -> Optional[Portfolio]:
+        """
+        Enhanced portfolio registration that creates main portfolio + sub-portfolios from config.
+        
+        Args:
+            portfolio_config: Full portfolio configuration dict with sub-portfolios
+            name: Portfolio name (fallback)
+            initial_cash: Initial cash (fallback)
+            portfolio_type: Portfolio type (fallback)
+            
+        Returns:
+            Main portfolio entity or None if registration failed
+        """
+        try:
+            # Determine main portfolio parameters
+            if portfolio_config:
+                main_name = portfolio_config.get('name', name or 'Default_Portfolio')
+                main_cash = portfolio_config.get('initial_cash', initial_cash or 100000.0)
+                main_type = portfolio_config.get('portfolio_type', portfolio_type or 'BACKTEST')
+                main_currency = portfolio_config.get('currency_code', 'USD')
+                sub_portfolios_config = portfolio_config.get('sub_portfolios', [])
+            else:
+                # Fallback to individual parameters
+                main_name = name or 'Default_Portfolio'
+                main_cash = initial_cash or 100000.0
+                main_type = portfolio_type or 'BACKTEST'
+                main_currency = 'USD'
+                sub_portfolios_config = []
+            
+            # Create main portfolio
+            main_portfolio = self.portfolio_repo._create_or_get(
+                name=main_name,
+                portfolio_type=main_type,
+                initial_cash=main_cash,
+                currency_code=main_currency
+            )
+            
+            if not main_portfolio:
+                if self.logger:
+                    self.logger.error(f"❌ Failed to create main portfolio: {main_name}")
+                return None
+            
+            self._current_portfolio_entity = main_portfolio
+            
+            if self.logger:
+                self.logger.info(f"✅ Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
+            
+            # Create sub-portfolios
+            created_sub_portfolios = []
+            for sub_config in sub_portfolios_config:
+                try:
+                    sub_name = sub_config.get('name', f"{main_name}_Sub")
+                    sub_cash = sub_config.get('initial_cash', main_cash)
+                    sub_type = sub_config.get('portfolio_type', main_type)
+                    sub_currency = sub_config.get('currency_code', main_currency)
+                    sub_portfolio_type = sub_config.get('type', 'general')  # company_share, derivative, etc.
+                    
+                    # Create sub-portfolio
+                    sub_portfolio = self.portfolio_repo._create_or_get(
+                        name=sub_name,
+                        portfolio_type=sub_type,
+                        initial_cash=sub_cash,
+                        currency_code=sub_currency,
+                        parent_portfolio_id=main_portfolio.id  # Link to main portfolio
+                    )
+                    
+                    if sub_portfolio:
+                        created_sub_portfolios.append(sub_portfolio)
+                        if self.logger:
+                            self.logger.info(f"✅ Sub-portfolio created: {sub_portfolio.name} (Type: {sub_portfolio_type})")
+                    else:
+                        if self.logger:
+                            self.logger.warning(f"⚠️ Failed to create sub-portfolio: {sub_name}")
+                            
+                except Exception as sub_e:
+                    if self.logger:
+                        self.logger.error(f"❌ Error creating sub-portfolio {sub_config.get('name', 'unknown')}: {sub_e}")
+                    continue
+            
+            if self.logger:
+                self.logger.info(f"✅ Portfolio registration complete: {main_portfolio.name} + {len(created_sub_portfolios)} sub-portfolios")
+            
+            return main_portfolio
+            
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"❌ Enhanced portfolio registration failed: {e}")
             return None
 
     def get_current_portfolio(self) -> Optional[Portfolio]:

@@ -787,19 +787,28 @@ class QCAlgorithm:
         """Access repository factory through EntityService."""
         return self._entity_service.repository_factory if self._entity_service else None
     
-    def register_portfolio(self, name: str, initial_cash: float = 100000.0, 
-                          portfolio_type: str = "BACKTEST") -> Optional[Any]:
+    def register_portfolio(self, portfolio_config: Dict[str, Any] = None, 
+                          name: str = None, initial_cash: float = None, 
+                          portfolio_type: str = None) -> Optional[Any]:
         """
         Register portfolio using unified portfolio management system.
         
-        This replaces dual portfolio tracking with a single system using domain entities.
+        Can accept either a portfolio_config dict (new enhanced way) or individual 
+        parameters (legacy compatibility).
+        
+        Args:
+            portfolio_config: Full portfolio configuration dict with sub-portfolios
+            name: Portfolio name (legacy)
+            initial_cash: Initial cash (legacy)
+            portfolio_type: Portfolio type (legacy)
         """
         if not self._unified_portfolio_manager:
             self.warning("No unified portfolio manager available")
             return None
         
-        # Use unified portfolio manager
-        portfolio = self._unified_portfolio_manager.register_portfolio(
+        # Use enhanced register_portfolio method that handles config dict
+        portfolio = self._unified_portfolio_manager.register_portfolio_with_config(
+            portfolio_config=portfolio_config,
             name=name,
             initial_cash=initial_cash,
             portfolio_type=portfolio_type
@@ -807,8 +816,9 @@ class QCAlgorithm:
         
         if portfolio:
             # Update QCAlgorithm's portfolio cash to sync with domain entity
-            self.portfolio.cash = initial_cash
-            self.portfolio.total_portfolio_value = initial_cash
+            cash_amount = initial_cash or (portfolio_config.get('initial_cash', 100000.0) if portfolio_config else 100000.0)
+            self.portfolio.cash = cash_amount
+            self.portfolio.total_portfolio_value = cash_amount
             
             # Store reference for legacy compatibility
             self._current_portfolio_entity = portfolio

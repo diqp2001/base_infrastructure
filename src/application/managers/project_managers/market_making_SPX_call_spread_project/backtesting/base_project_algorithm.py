@@ -76,15 +76,11 @@ class Algorithm(QCAlgorithm):
         portfolio_config = self.config.get('Portfolio', {})
         self.spx_portfolio_name = portfolio_config.get('name', 'SPX_Call_Spread_Portfolio')
 
-        # Register the SPX trading portfolio with EntityService
+        # Register the SPX trading portfolio with EntityService using full config
         if self._entity_service:
-            initial_cash = portfolio_config.get('initial_cash', 1000000)
-            portfolio_type = portfolio_config.get('portfolio_type', 'BACKTEST')
-            
+            # Pass entire portfolio config to enable creation of main + sub-portfolios
             portfolio_entity = self.register_portfolio(
-                name=self.spx_portfolio_name,
-                initial_cash=initial_cash,
-                portfolio_type=portfolio_type
+                portfolio_config=portfolio_config
             )
             if portfolio_entity:
                 self.portfolio_entity = portfolio_entity
