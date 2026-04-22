@@ -69,7 +69,7 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
             return True
         return False
 
-    def get_or_create(self, container_id: int, asset_id: Optional[int] = None, 
+    def _create_or_get(self, container_id: int, asset_id: Optional[int] = None, 
                       quantity: Optional[float] = None, **kwargs) -> Optional[Holding]:
         """
         Get or create a holding with dependency resolution.

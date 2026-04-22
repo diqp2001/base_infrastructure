@@ -67,6 +67,11 @@ class Algorithm(QCAlgorithm):
         # Call parent initialization first
         super().initialize()
         
+        
+        
+        # Load configuration
+        self.config = get_config()
+
         # Register the SPX trading portfolio with EntityService
         if self._entity_service:
             initial_capital = getattr(self, 'initial_capital', 100000.0)
@@ -82,9 +87,6 @@ class Algorithm(QCAlgorithm):
                 self.warning("⚠️ Failed to register SPX portfolio")
         else:
             self.warning("⚠️ No EntityService available - portfolio tracking disabled")
-        
-        # Load configuration
-        self.config = get_config()
         
         # Define universe and store Security objects
         self.universe = self.config['universe']

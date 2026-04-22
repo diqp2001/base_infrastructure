@@ -149,7 +149,7 @@ class UnifiedPortfolioManager:
             transaction_entity = self._convert_event_to_transaction(order_event, domain_order_id)
             
             # Persist transaction
-            persisted_transaction = self.transaction_repo.add(transaction_entity)
+            persisted_transaction = self.transaction_repo.add(transaction_entity) #_create_or_get
             
             # Update holdings based on transaction
             self._update_holdings_from_transaction(persisted_transaction)
