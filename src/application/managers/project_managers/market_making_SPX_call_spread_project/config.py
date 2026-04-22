@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.domain.entities.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHolding
+from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHolding
+from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
+from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from src.domain.entities.finance.portfolio.portfolio_derivative import PortfolioDerivative
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
@@ -120,8 +128,43 @@ DEFAULT_CONFIG = {
         #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
-    
-    
+    "Portfolio": {
+        "name": "SPX_Call_Spread_Portfolio",
+        "initial_cash": 1000000,
+        "currency_code": "USD",
+        "portfolio_type": "BACKTEST",
+
+        "class": Portfolio,
+        "holding_class": PortfolioHolding,
+
+        "sub_portfolios": [
+            {
+                "type": "company_share",
+                "name": "SPX_Call_Spread_PortfolioCompanyShare",
+                "initial_cash": 1000000,
+                "currency_code": "USD",
+                "portfolio_type": "BACKTEST",
+
+                "class": PortfolioCompanyShare,
+                "holding_class": PortfolioCompanyShareHolding,
+
+                "sub_portfolios": []
+            },
+            {
+                "type": "derivative",
+                "name": "SPX_Call_Spread_PortfolioCompanyShareOption",
+                "initial_cash": 1000000,
+                "currency_code": "USD",
+                "portfolio_type": "BACKTEST",
+
+                "class": PortfolioCompanyShareOption,
+                "holding_class": PortfolioCompanyShareOptionHolding,
+
+                "sub_portfolios": []
+            }
+        ]
+    }
+    ,
     # MLflow tracking
     'mlflow_experiment_name': 'market_making_spx_call_spread',
     'mlflow_tracking_uri': './mlruns',

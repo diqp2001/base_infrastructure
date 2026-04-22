@@ -46,51 +46,7 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-        if not entity:
-            return None
         
-        return PortfolioModel(
-            name=entity.name,
-            portfolio_type=entity.portfolio_type.value if entity.portfolio_type else "STANDARD",
-            initial_cash=float(entity.initial_cash) if entity.initial_cash else 100000.0,
-            currency=entity.currency or "USD",
-            inception_date=entity.inception_date,
-            owner_id=entity.owner_id,
-            manager_id=entity.manager_id,
-            account_number=entity.account_number,
-            cash_balance=float(entity.holdings.cash_balance) if entity.holdings else 0.0,
-            total_value=float(entity.holdings.total_value) if entity.holdings else 0.0,
-            total_return=float(entity.statistics.total_return) if entity.statistics else 0.0,
-            total_return_percent=float(entity.statistics.total_return_percent) if entity.statistics else 0.0,
-            max_drawdown=float(entity.statistics.max_drawdown) if entity.statistics else 0.0,
-            high_water_mark=float(entity.statistics.high_water_mark) if entity.statistics else 0.0,
-            volatility=float(entity.statistics.volatility) if entity.statistics else None,
-            sharpe_ratio=float(entity.statistics.sharpe_ratio) if entity.statistics else None,
-            beta=float(entity.statistics.beta) if entity.statistics else None,
-            alpha=float(entity.statistics.alpha) if entity.statistics else None,
-            var_95=float(entity.statistics.var_95) if entity.statistics else None,
-            tracking_error=float(entity.statistics.tracking_error) if entity.statistics else None,
-            win_rate=float(entity.statistics.win_rate) if entity.statistics else 0.0,
-            total_trades=entity.statistics.total_trades if entity.statistics else 0,
-            winning_trades=entity.statistics.winning_trades if entity.statistics else 0,
-            losing_trades=entity.statistics.losing_trades if entity.statistics else 0,
-            risk_tolerance=entity.risk_tolerance.value if entity.risk_tolerance else "MODERATE",
-            investment_strategy=entity.investment_strategy,
-            rebalancing_frequency=entity.rebalancing_frequency,
-            benchmark_id=entity.benchmark_id,
-            is_active=entity.is_active,
-            is_paper_trading=entity.is_paper_trading,
-            management_fee_rate=float(entity.management_fee_rate) if entity.management_fee_rate else 0.0,
-            performance_fee_rate=float(entity.performance_fee_rate) if entity.performance_fee_rate else 0.0,
-            total_fees_paid=float(entity.total_fees_paid) if entity.total_fees_paid else 0.0,
-            created_at=entity.created_at,
-            updated_at=entity.updated_at,
-            last_rebalance_date=entity.last_rebalance_date,
-            last_valuation_date=entity.last_valuation_date,
-            backtest_id=entity.backtest_id,
-            backtest_start_date=entity.backtest_start_date,
-            backtest_end_date=entity.backtest_end_date
-        )
     
     def get_all(self) -> List[PortfolioEntity]:
         """Retrieve all Portfolio records."""

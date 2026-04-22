@@ -248,7 +248,7 @@ class OrderRepository(BaseLocalRepository, OrderPort):
         """
         try:
             # 1. Create transaction if order is executed
-            if order.status == OrderStatus.FILLED or (order.filled_quantity > 0 and order.filled_quantity >= order.quantity):
+            if order.status == order.status.FILLED or (order.filled_quantity > 0 and order.filled_quantity >= order.quantity):
                 logger.info(f"Order {order.id} is executed, creating associated transaction")
                 self._create_transaction_for_order(order, **kwargs)
             
@@ -331,7 +331,7 @@ class OrderRepository(BaseLocalRepository, OrderPort):
         except Exception as e:
             logger.error(f"Error creating holding for order {order.id}: {str(e)}")
     
-    def _map_order_to_transaction_type(self, order_type: 'OrderType') -> 'TransactionType':
+    def _map_order_to_transaction_type(self, order_type):
         """
         Map order type to transaction type.
         
