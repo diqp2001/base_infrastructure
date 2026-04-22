@@ -83,6 +83,8 @@ from src.infrastructure.models.finance.holding.holding import HoldingModel
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
+from src.infrastructure.models.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHoldingModel
+from src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHoldingModel
 
 # Account, Order, and Transaction models
 from src.infrastructure.models.finance.account import AccountModel
@@ -112,7 +114,7 @@ def ensure_models_registered():
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
         'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 
-        'HoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
+        'HoldingModel', 'PortfolioDerivativeHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
         'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
@@ -147,7 +149,7 @@ __all__ = [
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
     'ensure_models_registered'
 ]

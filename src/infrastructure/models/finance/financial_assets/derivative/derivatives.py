@@ -25,6 +25,13 @@ class DerivativeModel(FinancialAssetModel):
         back_populates="underlying_derivatives"
     )
     currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="derivatives")
+    
+    # ONE derivative → MANY portfolio_derivative_holdings
+    portfolio_derivative_holdings = relationship(
+        "src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding.PortfolioDerivativeHoldingModel",
+        back_populates="derivative"
+    )
+    
     __mapper_args__ = {
     "polymorphic_identity": "derivative",
     "inherit_condition": id == FinancialAssetModel.id,  # 🔥 REQUIRED
