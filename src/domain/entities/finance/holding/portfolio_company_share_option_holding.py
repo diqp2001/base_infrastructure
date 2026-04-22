@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from domain.entities.finance.holding.position import Position
+from src.domain.entities.finance.holding.position import Position
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption

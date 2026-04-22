@@ -12,66 +12,55 @@ from src.infrastructure.models.finance.order.order import OrderModel as ORMOrder
 class OrderMapper:
     """Mapper for Order domain entity and ORM model."""
 
-    @staticmethod
-    def to_domain(orm_obj: ORMOrder) -> DomainOrder:
-        """Convert ORM model to domain entity."""
-        domain_entity = DomainOrder(
-            id=orm_obj.id,
-            portfolio_id=orm_obj.portfolio_id,
-            holding_id=orm_obj.holding_id,
-            order_type=orm_obj.order_type,
-            side=orm_obj.side,
-            quantity=orm_obj.quantity,
-            created_at=orm_obj.created_at,
-            status=orm_obj.status,
-            account_id=orm_obj.account_id,
-            price=orm_obj.price,
-            stop_price=orm_obj.stop_price,
-            filled_quantity=orm_obj.filled_quantity,
-            average_fill_price=orm_obj.average_fill_price,
-            time_in_force=orm_obj.time_in_force,
-            external_order_id=orm_obj.external_order_id
-        )
-        
-        return domain_entity
+    @property
+    def discriminator(self):
+        return "order"
 
-    @staticmethod
-    def to_orm(domain_obj: DomainOrder, orm_obj: Optional[ORMOrder] = None) -> ORMOrder:
+    @property
+    def model_class(self):
+        return ORMOrder
+
+    def get_entity(self):
+        return DomainOrder
+
+    def to_domain(self, orm_model: Optional[ORMOrder]) -> Optional[DomainOrder]:
+        """Convert ORM model to domain entity."""
+        if not orm_model:
+            return None
+            
+        return DomainOrder(
+            id=orm_model.id,
+            portfolio_id=0,  # TODO: Resolve from holding relationship
+            holding_id=orm_model.holding_id,
+            order_type=orm_model.order_type,
+            side=orm_model.side,
+            quantity=orm_model.quantity,
+            created_at=orm_model.created_at,
+            status=orm_model.status,
+            account_id=orm_model.account_id,
+            price=orm_model.price,
+            stop_price=orm_model.stop_price,
+            filled_quantity=orm_model.filled_quantity,
+            average_fill_price=orm_model.average_fill_price,
+            time_in_force=orm_model.time_in_force,
+            external_order_id=orm_model.external_order_id
+        )
+
+    def to_orm(self, entity: DomainOrder) -> ORMOrder:
         """Convert domain entity to ORM model."""
-        if orm_obj is None:
-            orm_obj = ORMOrder(
-                portfolio_id=domain_obj.portfolio_id,
-                holding_id=domain_obj.holding_id,
-                order_type=domain_obj.order_type,
-                side=domain_obj.side,
-                quantity=domain_obj.quantity,
-                created_at=domain_obj.created_at,
-                status=domain_obj.status,
-                account_id=domain_obj.account_id,
-                price=domain_obj.price,
-                stop_price=domain_obj.stop_price,
-                filled_quantity=domain_obj.filled_quantity,
-                average_fill_price=domain_obj.average_fill_price,
-                time_in_force=domain_obj.time_in_force,
-                external_order_id=domain_obj.external_order_id
-            )
-        
-        # Map basic fields
-        if domain_obj.id is not None:
-            orm_obj.id = domain_obj.id
-        orm_obj.portfolio_id = domain_obj.portfolio_id
-        orm_obj.holding_id = domain_obj.holding_id
-        orm_obj.order_type = domain_obj.order_type
-        orm_obj.side = domain_obj.side
-        orm_obj.quantity = domain_obj.quantity
-        orm_obj.created_at = domain_obj.created_at
-        orm_obj.status = domain_obj.status
-        orm_obj.account_id = domain_obj.account_id
-        orm_obj.price = domain_obj.price
-        orm_obj.stop_price = domain_obj.stop_price
-        orm_obj.filled_quantity = domain_obj.filled_quantity
-        orm_obj.average_fill_price = domain_obj.average_fill_price
-        orm_obj.time_in_force = domain_obj.time_in_force
-        orm_obj.external_order_id = domain_obj.external_order_id
-        
-        return orm_obj
+        return ORMOrder(
+            id=entity.id,
+            holding_id=entity.holding_id,
+            order_type=entity.order_type,
+            side=entity.side,
+            quantity=entity.quantity,
+            created_at=entity.created_at,
+            status=entity.status,
+            account_id=entity.account_id,
+            price=entity.price,
+            stop_price=entity.stop_price,
+            filled_quantity=entity.filled_quantity,
+            average_fill_price=entity.average_fill_price,
+            time_in_force=entity.time_in_force,
+            external_order_id=entity.external_order_id
+        )
