@@ -65,8 +65,8 @@ class UnifiedPortfolioManager:
             Portfolio entity or None if registration failed
         """
         try:
-            # Use repository to get or create portfolio
-            portfolio = self.portfolio_repo._create_or_get_portfolio(
+            # Use standardized repository method to get or create portfolio
+            portfolio = self.portfolio_repo._create_or_get(
                 name=name,
                 portfolio_type=portfolio_type,
                 initial_cash=initial_cash,
@@ -92,6 +92,9 @@ class UnifiedPortfolioManager:
     def register_order(self, order_ticket) -> Optional[Order]:
         """
         Register an order from QCAlgorithm order ticket.
+        Uses enhanced _create_or_get method with cascading relationships:
+        - Creates inactive holding for the order
+        - If order is executed (FILLED), creates associated transaction
         
         Args:
             order_ticket: QCAlgorithm OrderTicket
@@ -105,19 +108,26 @@ class UnifiedPortfolioManager:
             return None
             
         try:
-            # Convert QC order ticket to domain entity
-            order_entity = self._convert_ticket_to_order(order_ticket)
+            # Extract parameters for enhanced _create_or_get method
+            order_params = self._extract_order_params(order_ticket)
             
-            # Persist using repository
-            persisted_order = self.order_repo.add(order_entity)
+            # Use enhanced repository method with cascading relationships
+            persisted_order = self.order_repo._create_or_get(
+                external_order_id=str(order_ticket.order_id),
+                portfolio_id=self._current_portfolio_entity.id,
+                **order_params
+            )
             
-            # Store mapping for future reference
-            self._order_ticket_mapping[order_ticket.order_id] = persisted_order.id
+            if persisted_order:
+                # Store mapping for future reference
+                self._order_ticket_mapping[order_ticket.order_id] = persisted_order.id
+                
+                if self.logger:
+                    self.logger.info(f"✅ Order registered with cascading relationships: {persisted_order.id}")
+                
+                return persisted_order
             
-            if self.logger:
-                self.logger.info(f"✅ Order registered: {persisted_order.id}")
-            
-            return persisted_order
+            return None
             
         except Exception as e:
             if self.logger:
@@ -127,6 +137,9 @@ class UnifiedPortfolioManager:
     def record_transaction(self, order_event) -> Optional[Transaction]:
         """
         Record a transaction when an order is filled.
+        Uses enhanced _create_or_get method with cascading relationships:
+        - Updates holding status (activate/deactivate) based on transaction
+        - Creates/gets account associated with transaction
         
         Args:
             order_event: QCAlgorithm OrderEvent
@@ -145,17 +158,23 @@ class UnifiedPortfolioManager:
                     self.logger.warning(f"No domain order found for QC order {order_event.order_id}")
                 return None
             
-            # Create transaction entity
-            transaction_entity = self._convert_event_to_transaction(order_event, domain_order_id)
+            # Extract transaction parameters
+            transaction_params = self._extract_transaction_params(order_event, domain_order_id)
             
-            # Persist transaction
-            persisted_transaction = self.transaction_repo.add(transaction_entity) #_create_or_get
+            # Generate unique transaction ID
+            import uuid
+            transaction_id = f"TXN_{order_event.order_id}_{uuid.uuid4().hex[:8]}"
             
-            # Update holdings based on transaction
-            self._update_holdings_from_transaction(persisted_transaction)
+            # Use enhanced repository method with cascading relationships
+            persisted_transaction = self.transaction_repo._create_or_get(
+                transaction_id=transaction_id,
+                order_id=int(domain_order_id),
+                portfolio_id=self._current_portfolio_entity.id,
+                **transaction_params
+            )
             
-            if self.logger:
-                self.logger.info(f"✅ Transaction recorded: {persisted_transaction.id}")
+            if self.logger and persisted_transaction:
+                self.logger.info(f"✅ Transaction recorded with cascading relationships: {persisted_transaction.id}")
             
             return persisted_transaction
             
@@ -291,58 +310,61 @@ class UnifiedPortfolioManager:
 
     # Private helper methods
 
-    def _convert_ticket_to_order(self, ticket) -> Order:
-        """Convert QCAlgorithm OrderTicket to domain Order entity."""
-        # Get or create holding for this asset
-        holding_id = self._get_or_create_holding_for_symbol(ticket.symbol)
+    def _extract_order_params(self, ticket) -> Dict[str, Any]:
+        """Extract order parameters from QCAlgorithm OrderTicket for enhanced _create_or_get."""
+        return {
+            'order_type': self._map_order_type(getattr(ticket, 'order_type', 'MARKET')),
+            'side': OrderSide.BUY if ticket.quantity > 0 else OrderSide.SELL,
+            'quantity': abs(ticket.quantity),
+            'created_at': getattr(ticket, 'time', datetime.now()),
+            'status': self._map_order_status(getattr(ticket, 'status', 'PENDING')),
+            'account_id': self._get_account_id(),
+            'symbol': getattr(ticket, 'symbol', 'UNKNOWN'),
+            'price': getattr(ticket, 'limit_price', None),
+            'stop_price': getattr(ticket, 'stop_price', None),
+            'filled_quantity': getattr(ticket, 'quantity_filled', 0.0),
+            'average_fill_price': getattr(ticket, 'average_fill_price', None),
+            'time_in_force': getattr(ticket, 'time_in_force', None)
+        }
+
+    def _extract_transaction_params(self, order_event, domain_order_id: str) -> Dict[str, Any]:
+        """Extract transaction parameters from QCAlgorithm OrderEvent for enhanced _create_or_get."""
+        event_time = getattr(order_event, 'time', datetime.now())
         
-        return Order(
-            id=self._get_next_order_id(),
-            portfolio_id=self._current_portfolio_entity.id,
-            holding_id=holding_id,
-            order_type=self._map_order_type(getattr(ticket, 'order_type', 'MARKET')),
-            side=OrderSide.BUY if ticket.quantity > 0 else OrderSide.SELL,
-            quantity=abs(ticket.quantity),
-            created_at=getattr(ticket, 'time', datetime.now()),
-            status=self._map_order_status(getattr(ticket, 'status', 'PENDING')),
-            account_id=self._get_account_id(),
-            external_order_id=ticket.order_id
-        )
+        return {
+            'date': event_time,
+            'transaction_type': TransactionType.MARKET_ORDER,  # Could be enhanced based on order type
+            'account_id': self._get_account_id(),
+            'trade_date': event_time.date(),
+            'value_date': event_time.date(),
+            'settlement_date': event_time.date(),
+            'status': TransactionStatus.EXECUTED,
+            'spread': 0.0,
+            'currency_id': 1,  # USD
+            'exchange_id': 1,  # Default exchange
+            'external_transaction_id': getattr(order_event, 'transaction_id', None),
+            'side': 'BUY' if getattr(order_event, 'quantity', 0) > 0 else 'SELL',
+            'quantity': abs(getattr(order_event, 'quantity', 0)),
+            'symbol': getattr(order_event, 'symbol', 'UNKNOWN')
+        }
 
-    def _convert_event_to_transaction(self, order_event, domain_order_id: str) -> Transaction:
-        """Convert QCAlgorithm OrderEvent to domain Transaction entity."""
-        return Transaction(
-            id=self._get_next_transaction_id(),
-            portfolio_id=self._current_portfolio_entity.id,
-            holding_id=1,  # Would be retrieved from the order
-            order_id=int(domain_order_id),
-            date=getattr(order_event, 'time', datetime.now()),
-            transaction_type=TransactionType.MARKET_ORDER,  # Simplified
-            transaction_id=f"TXN_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            account_id=self._get_account_id(),
-            trade_date=getattr(order_event, 'time', datetime.now()).date(),
-            value_date=getattr(order_event, 'time', datetime.now()).date(),
-            settlement_date=getattr(order_event, 'time', datetime.now()).date(),
-            status=TransactionStatus.EXECUTED,
-            spread=0.0,
-            currency_id=1,  # USD
-            exchange_id=1   # Default exchange
-        )
-
-    def _update_holdings_from_transaction(self, transaction: Transaction):
-        """Update holding quantities based on executed transaction."""
+    def get_enhanced_holdings(self, include_inactive: bool = False) -> List[Holding]:
+        """Get enhanced holdings with cascading relationships already established."""
+        if not self._current_portfolio_entity:
+            return []
+            
         try:
-            # Find the holding
-            holding = self.holding_repo.get_by_id(transaction.holding_id)
-            if holding:
-                # Update position quantity (simplified logic)
-                # In practice, this would involve more complex position management
-                if self.logger:
-                    self.logger.info(f"✅ Holdings updated from transaction {transaction.id}")
-                    
+            holdings = self.holding_repo.get_by_portfolio_id(self._current_portfolio_entity.id)
+            
+            if include_inactive:
+                return holdings
+            else:
+                return [h for h in holdings if h.is_active()]
+                
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Holdings update failed: {e}")
+                self.logger.error(f"❌ Enhanced holdings retrieval failed: {e}")
+            return []
 
     def _calculate_holding_market_value(self, holding: Holding) -> Decimal:
         """Calculate market value of a holding."""
@@ -406,6 +428,72 @@ class UnifiedPortfolioManager:
             'REJECTED': OrderStatus.REJECTED
         }
         return mapping.get(status_str.upper(), OrderStatus.PENDING)
+    
+    def demonstrate_cascading_workflow(self, symbol: str, quantity: float) -> Dict[str, Any]:
+        """
+        Demonstrate the complete cascading workflow from order to position.
+        This method shows how the enhanced repositories work together.
+        
+        Args:
+            symbol: Trading symbol
+            quantity: Order quantity
+            
+        Returns:
+            Dictionary showing the cascading creation process
+        """
+        if not self._current_portfolio_entity:
+            return {'error': 'No portfolio registered'}
+            
+        workflow_log = []
+        
+        try:
+            # Step 1: Create order (creates inactive holding)
+            workflow_log.append("Step 1: Creating order with cascading relationships...")
+            order = self.create_order_with_cascading_relationships(symbol, quantity)
+            if not order:
+                return {'error': 'Failed to create order', 'workflow_log': workflow_log}
+            
+            workflow_log.append(f"✅ Created order {order.id} for {symbol}")
+            
+            # Step 2: Simulate order execution by creating transaction
+            workflow_log.append("Step 2: Creating transaction (simulating order fill)...")
+            transaction = self.create_transaction_with_cascading_relationships(
+                order_id=order.id,
+                symbol=symbol,
+                quantity=quantity,
+                side='BUY' if quantity > 0 else 'SELL'
+            )
+            
+            if transaction:
+                workflow_log.append(f"✅ Created transaction {transaction.id} (holding updated)")
+            
+            # Step 3: Get the resulting holding with position
+            workflow_log.append("Step 3: Retrieving enhanced holding with position...")
+            holdings = self.get_enhanced_holdings(include_inactive=True)
+            relevant_holding = next((h for h in holdings if hasattr(h, 'asset') and 
+                                   self._get_asset_symbol(h.asset) == symbol), None)
+            
+            if relevant_holding:
+                workflow_log.append(f"✅ Found holding {relevant_holding.id} with position")
+            
+            return {
+                'success': True,
+                'workflow_log': workflow_log,
+                'created_objects': {
+                    'order_id': order.id if order else None,
+                    'transaction_id': transaction.id if transaction else None,
+                    'holding_id': relevant_holding.id if relevant_holding else None
+                },
+                'cascading_effects': [
+                    'Order created inactive holding',
+                    'Transaction activated holding and updated quantities',
+                    'Holding has associated position and asset dependencies'
+                ]
+            }
+            
+        except Exception as e:
+            workflow_log.append(f"❌ Error in cascading workflow: {e}")
+            return {'error': str(e), 'workflow_log': workflow_log}
 
     def get_unified_state(self) -> Dict[str, Any]:
         """
