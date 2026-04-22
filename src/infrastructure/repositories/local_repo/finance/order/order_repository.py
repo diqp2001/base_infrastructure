@@ -146,31 +146,54 @@ class OrderRepository(BaseLocalRepository, OrderPort):
             self.session.rollback()
             return False
     
-    def _create_or_get(self, **kwargs) -> Optional[OrderEntity]:
+    def _create_or_get(self, external_order_id: str = None, **kwargs) -> Optional[OrderEntity]:
         """
         Create order entity if it doesn't exist, otherwise return existing.
+        Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
         
         Args:
-            **kwargs: Order parameters
+            external_order_id: External order identifier (unique, optional)
+            **kwargs: Additional order parameters
+                - portfolio_id: Portfolio ID (optional)
+                - holding_id: Holding ID (optional)
+                - order_type: OrderType enum (default: MARKET)
+                - side: OrderSide enum (default: BUY)
+                - quantity: Order quantity (default: 0.0)
+                - created_at: Creation timestamp (default: now)
+                - status: OrderStatus enum (default: PENDING)
+                - account_id: Account identifier (optional)
+                - price: Order price (optional)
+                - stop_price: Stop price (optional)
+                - filled_quantity: Filled quantity (default: 0.0)
+                - average_fill_price: Average fill price (optional)
+                - time_in_force: Time in force (optional)
             
         Returns:
-            OrderEntity: Created or existing order
+            OrderEntity: Created or existing order entity
+            
+        Raises:
+            DatabaseError: If database operation fails
+            ValidationError: If required parameters are invalid
         """
         try:
-            # Check if entity already exists by external_order_id if provided
-            external_order_id = kwargs.get('external_order_id')
+            # Step 1: Check if entity already exists by unique identifier
             if external_order_id:
-                existing = self.get_by_external_order_id(external_order_id)
-                if existing:
-                    return existing
+                existing_order = self.get_by_external_order_id(external_order_id)
+                if existing_order:
+                    logger.debug(f"Order {external_order_id} already exists, returning existing entity")
+                    return existing_order
+            
+            # Step 2: Create new entity if not found
+            logger.info(f"Creating new order: {external_order_id or 'auto-generated'}")
             
             # Get next available ID
             next_id = self._get_next_available_id()
             
-            # Create new order entity
+            # Import required enums
             from src.domain.entities.finance.order.order import OrderType, OrderSide, OrderStatus
             
-            order = OrderEntity(
+            # Create domain entity
+            new_order = OrderEntity(
                 id=next_id,
                 portfolio_id=kwargs.get('portfolio_id'),
                 holding_id=kwargs.get('holding_id'),
@@ -188,9 +211,19 @@ class OrderRepository(BaseLocalRepository, OrderPort):
                 external_order_id=external_order_id
             )
             
-            # Add to database
-            return self.add(order)
+            # Step 3: Convert to ORM model and persist
+            order_model = self.mapper.to_orm(new_order)
+            
+            self.session.add(order_model)
+            self.session.commit()
+            
+            # Step 4: Convert back to domain entity with database ID
+            persisted_entity = self.mapper.to_domain(order_model)
+            
+            logger.info(f"Successfully created order {external_order_id or 'auto-generated'} with ID {persisted_entity.id}")
+            return persisted_entity
             
         except Exception as e:
-            logger.error(f"Error creating order: {e}")
-            return None
+            self.session.rollback()
+            logger.error(f"Error creating/getting order {external_order_id or 'auto-generated'}: {str(e)}")
+            raise

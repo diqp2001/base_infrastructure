@@ -209,53 +209,86 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         Returns:
             Portfolio entity or None if creation failed
         """
-        return self._create_or_get_portfolio(name, portfolio_type, initial_cash, currency_code, owner_id)
+        return self._create_or_get(name, portfolio_type=portfolio_type, 
+                                  initial_cash=initial_cash, currency=currency_code, 
+                                  owner_id=owner_id)
 
-    def _create_or_get_portfolio(self, name: str, portfolio_type: str = "STANDARD",
-                                initial_cash: float = 100000.0, currency: str = "USD",
-                                owner_id: Optional[int] = None) -> PortfolioEntity:
+    def _create_or_get(self, name: str, **kwargs) -> Optional[PortfolioEntity]:
         """
         Create portfolio entity if it doesn't exist, otherwise return existing.
-        Follows the same pattern as other repositories' _create_or_get_* methods.
+        Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
         
         Args:
             name: Portfolio name (unique identifier)
-            portfolio_type: Type of portfolio (STANDARD, RETIREMENT, BACKTEST, etc.)
-            initial_cash: Initial cash amount
-            currency: Portfolio currency
-            owner_id: Owner ID
+            **kwargs: Additional portfolio parameters
+                - portfolio_type: Type of portfolio (default: "STANDARD")
+                - initial_cash: Initial cash amount (default: 100000.0)
+                - currency: Portfolio currency (default: "USD")
+                - owner_id: Owner ID (optional)
+                - inception_date: Portfolio inception date (default: today)
+                - created_at: Creation timestamp (default: now)
             
         Returns:
-            PortfolioEntity: Created or existing portfolio
+            PortfolioEntity: Created or existing portfolio entity
+            
+        Raises:
+            DatabaseError: If database operation fails
+            ValidationError: If required parameters are invalid
         """
-        # Check if entity already exists by name (unique identifier)
-        if self.exists_by_name(name):
-            return self.get_by_name(name)
-        
         try:
-            # Create new portfolio entity
+            # Step 1: Check if entity already exists by unique identifier
+            existing_portfolio = self.get_by_name(name)
+            if existing_portfolio:
+                logger.debug(f"Portfolio {name} already exists, returning existing entity")
+                return existing_portfolio
+            
+            # Step 2: Create new entity if not found
+            logger.info(f"Creating new portfolio: {name}")
+            
+            # Handle defaults
+            portfolio_type = kwargs.get('portfolio_type', "STANDARD")
+            initial_cash = kwargs.get('initial_cash', 100000.0)
+            currency = kwargs.get('currency', "USD")
+            owner_id = kwargs.get('owner_id')
+            inception_date = kwargs.get('inception_date', date.today())
+            created_at = kwargs.get('created_at', datetime.now())
+            
+            # Import and handle enum
+            from src.domain.entities.finance.portfolio.portfolio import PortfolioType
             portfolio_type_enum = PortfolioType.STANDARD
             try:
                 portfolio_type_enum = PortfolioType(portfolio_type)
             except ValueError:
+                logger.warning(f"Invalid portfolio type {portfolio_type}, using STANDARD")
                 pass
             
-            portfolio = PortfolioEntity(
+            # Create domain entity
+            new_portfolio = PortfolioEntity(
                 name=name,
                 portfolio_type=portfolio_type_enum,
                 initial_cash=Decimal(str(initial_cash)),
                 currency=currency,
                 owner_id=owner_id,
-                inception_date=date.today(),
-                created_at=datetime.now()
+                inception_date=inception_date,
+                created_at=created_at
             )
             
-            # Add to database
-            return self.add(portfolio)
+            # Step 3: Convert to ORM model and persist
+            portfolio_model = self.mapper.to_orm(new_portfolio)
+            
+            self.session.add(portfolio_model)
+            self.session.commit()
+            
+            # Step 4: Convert back to domain entity with database ID
+            persisted_entity = self.mapper.to_domain(portfolio_model)
+            
+            logger.info(f"Successfully created portfolio {name} with ID {persisted_entity.id}")
+            return persisted_entity
             
         except Exception as e:
-            print(f"Error creating portfolio {name}: {str(e)}")
-            return None
+            self.session.rollback()
+            logger.error(f"Error creating/getting portfolio {name}: {str(e)}")
+            raise
     
     # Standard CRUD interface
     def create(self, entity: PortfolioEntity) -> PortfolioEntity:

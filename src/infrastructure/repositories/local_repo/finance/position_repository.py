@@ -16,6 +16,10 @@ from src.infrastructure.repositories.local_repo.base_repository import BaseLocal
 from src.infrastructure.repositories.mappers.finance.position_mapper import PositionMapper
 from src.domain.ports.finance.position_port import PositionPort
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class PositionRepository(BaseLocalRepository, PositionPort):
     """Repository for managing Position entities."""
@@ -24,6 +28,7 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or PositionMapper()
+        self.logger = logger
     
     @property
     def model_class(self):
@@ -220,34 +225,50 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             print(f"Warning: Could not determine next available position ID: {str(e)}")
             return 1  # Default to 1 if query fails
     
-    def _create_or_get_position(self, portfolio_id: int, symbol: str, asset_type: str = "EQUITY",
-                               quantity: float = 0, average_cost: float = 0,
-                               asset_id: int = None) -> PositionEntity:
+    def _create_or_get(self, portfolio_id: int, symbol: str, **kwargs) -> Optional[PositionEntity]:
         """
         Create position entity if it doesn't exist, otherwise return existing.
-        Follows the same pattern as other repositories' _create_or_get_* methods.
+        Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
         
         Args:
-            portfolio_id: Portfolio ID
-            symbol: Asset symbol
-            asset_type: Type of asset
-            quantity: Position quantity
-            average_cost: Average cost per unit
-            asset_id: Asset ID reference
+            portfolio_id: Portfolio ID (primary identifier component)
+            symbol: Asset symbol (primary identifier component)
+            **kwargs: Additional position parameters
+                - asset_type: Type of asset (default: "EQUITY")
+                - quantity: Position quantity (default: 0)
+                - average_cost: Average cost per unit (default: 0)
+                - current_price: Current market price (default: average_cost)
+                - asset_id: Asset ID reference (optional)
             
         Returns:
-            PositionEntity: Created or existing position
+            PositionEntity: Created or existing position entity
+            
+        Raises:
+            DatabaseError: If database operation fails
+            ValidationError: If required parameters are invalid
         """
-        # Check if entity already exists
-        if self.exists_position(portfolio_id, symbol):
-            return self.get_by_portfolio_and_symbol(portfolio_id, symbol)
-        
         try:
+            # Step 1: Check if entity already exists by composite unique key
+            existing_position = self.get_by_portfolio_and_symbol(portfolio_id, symbol)
+            if existing_position:
+                self.logger.debug(f"Position {symbol} for portfolio {portfolio_id} already exists, returning existing entity")
+                return existing_position
+            
+            # Step 2: Create new entity if not found
+            self.logger.info(f"Creating new position: {symbol} for portfolio {portfolio_id}")
+            
+            # Handle defaults
+            asset_type = kwargs.get('asset_type', "EQUITY")
+            quantity = kwargs.get('quantity', 0)
+            average_cost = kwargs.get('average_cost', 0)
+            current_price = kwargs.get('current_price', average_cost)
+            asset_id = kwargs.get('asset_id')
+            
             # Get next available ID
             next_id = self._get_next_available_position_id()
             
-            # Create new position entity
-            position = PositionEntity(
+            # Create domain entity
+            new_position = PositionEntity(
                 id=next_id,
                 portfolio_id=portfolio_id,
                 asset_id=asset_id or next_id,
@@ -255,15 +276,25 @@ class PositionRepository(BaseLocalRepository, PositionPort):
                 symbol=symbol.upper(),
                 quantity=Decimal(str(quantity)),
                 average_cost=Decimal(str(average_cost)),
-                current_price=Decimal(str(average_cost))  # Start with cost as price
+                current_price=Decimal(str(current_price))
             )
             
-            # Add to database
-            return self.add(position)
+            # Step 3: Convert to ORM model and persist
+            position_model = self.mapper.to_orm(new_position)
+            
+            self.session.add(position_model)
+            self.session.commit()
+            
+            # Step 4: Convert back to domain entity with database ID
+            persisted_entity = self.mapper.to_domain(position_model)
+            
+            self.logger.info(f"Successfully created position {symbol} for portfolio {portfolio_id} with ID {persisted_entity.id}")
+            return persisted_entity
             
         except Exception as e:
-            print(f"Error creating position {symbol} for portfolio {portfolio_id}: {str(e)}")
-            return None
+            self.session.rollback()
+            self.logger.error(f"Error creating/getting position {symbol} for portfolio {portfolio_id}: {str(e)}")
+            raise
     
     def get_portfolio_value(self, portfolio_id: int) -> Decimal:
         """Get total market value of all positions in a portfolio."""
@@ -326,8 +357,8 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             quantity = quantity or 0
             average_cost = average_cost or 0
             
-            # Create new position using the existing _create_or_get_position method
-            return self._create_or_get_position(
+            # Create new position using the standardized _create_or_get method
+            return self._create_or_get(
                 portfolio_id=portfolio_id,
                 symbol=symbol,
                 asset_type=asset_type,

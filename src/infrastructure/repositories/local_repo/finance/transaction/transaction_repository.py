@@ -150,27 +150,51 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
     def _create_or_get(self, transaction_id: str, **kwargs) -> Optional[TransactionEntity]:
         """
         Create transaction entity if it doesn't exist, otherwise return existing.
+        Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
         
         Args:
             transaction_id: Transaction identifier (unique)
             **kwargs: Additional transaction parameters
+                - portfolio_id: Portfolio ID (optional)
+                - holding_id: Holding ID (optional) 
+                - order_id: Order ID (optional)
+                - date: Transaction date (default: now)
+                - transaction_type: TransactionType enum (default: MARKET_ORDER)
+                - account_id: Account identifier (optional)
+                - trade_date: Trade date (default: today)
+                - value_date: Value date (default: today)
+                - settlement_date: Settlement date (default: today)
+                - status: TransactionStatus enum (default: PENDING)
+                - spread: Transaction spread (default: 0.0)
+                - currency_id: Currency ID (default: 1)
+                - exchange_id: Exchange ID (default: 1)
+                - external_transaction_id: External transaction ID (optional)
             
         Returns:
-            TransactionEntity: Created or existing transaction
+            TransactionEntity: Created or existing transaction entity
+            
+        Raises:
+            DatabaseError: If database operation fails
+            ValidationError: If required parameters are invalid
         """
         try:
-            # Check if entity already exists by transaction_id
-            existing = self.get_by_transaction_id(transaction_id)
-            if existing:
-                return existing
+            # Step 1: Check if entity already exists by unique identifier
+            existing_transaction = self.get_by_transaction_id(transaction_id)
+            if existing_transaction:
+                logger.debug(f"Transaction {transaction_id} already exists, returning existing entity")
+                return existing_transaction
+            
+            # Step 2: Create new entity if not found
+            logger.info(f"Creating new transaction: {transaction_id}")
             
             # Get next available ID
             next_id = self._get_next_available_id()
             
-            # Create new transaction entity
+            # Import required enums
             from src.domain.entities.finance.transaction.transaction import TransactionType, TransactionStatus
             
-            transaction = TransactionEntity(
+            # Create domain entity
+            new_transaction = TransactionEntity(
                 id=next_id,
                 portfolio_id=kwargs.get('portfolio_id'),
                 holding_id=kwargs.get('holding_id'),
@@ -189,9 +213,19 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
                 external_transaction_id=kwargs.get('external_transaction_id')
             )
             
-            # Add to database
-            return self.add(transaction)
+            # Step 3: Convert to ORM model and persist
+            transaction_model = self.mapper.to_orm(new_transaction)
+            
+            self.session.add(transaction_model)
+            self.session.commit()
+            
+            # Step 4: Convert back to domain entity with database ID
+            persisted_entity = self.mapper.to_domain(transaction_model)
+            
+            logger.info(f"Successfully created transaction {transaction_id} with ID {persisted_entity.id}")
+            return persisted_entity
             
         except Exception as e:
-            logger.error(f"Error creating transaction {transaction_id}: {e}")
-            return None
+            self.session.rollback()
+            logger.error(f"Error creating/getting transaction {transaction_id}: {str(e)}")
+            raise
