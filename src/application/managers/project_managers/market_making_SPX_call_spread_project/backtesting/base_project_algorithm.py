@@ -59,8 +59,8 @@ class Algorithm(QCAlgorithm):
         self.total_trades = 0
         self.performance_history = []
         
-        # SPX-specific portfolio tracking
-        self.spx_portfolio_name = "SPX_Call_Spread_Portfolio"
+        # SPX-specific portfolio tracking (will be set from config)
+        self.spx_portfolio_name = None
     
     def initialize(self):
         """Initialize the algorithm following MyAlgorithm pattern."""
@@ -71,14 +71,20 @@ class Algorithm(QCAlgorithm):
         
         # Load configuration
         self.config = get_config()
+        
+        # Set portfolio name from config
+        portfolio_config = self.config.get('Portfolio', {})
+        self.spx_portfolio_name = portfolio_config.get('name', 'SPX_Call_Spread_Portfolio')
 
         # Register the SPX trading portfolio with EntityService
         if self._entity_service:
-            initial_capital = getattr(self, 'initial_capital', 100000.0)
+            initial_cash = portfolio_config.get('initial_cash', 1000000)
+            portfolio_type = portfolio_config.get('portfolio_type', 'BACKTEST')
+            
             portfolio_entity = self.register_portfolio(
                 name=self.spx_portfolio_name,
-                initial_cash=initial_capital,
-                portfolio_type="SPX_SPREAD_BACKTEST"
+                initial_cash=initial_cash,
+                portfolio_type=portfolio_type
             )
             if portfolio_entity:
                 self.portfolio_entity = portfolio_entity
