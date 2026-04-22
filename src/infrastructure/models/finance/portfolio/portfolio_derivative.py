@@ -1,16 +1,26 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Text
+from sqlalchemy import Column, Integer, ForeignKey, Date
 from sqlalchemy.orm import relationship
 
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 
+
 class PortfolioDerivativeModel(PortfolioModel):
     """
-    SQLAlchemy model for portfolio holdings.
-    Maps to domain.entities.finance.holding.portfolio_holding.PortfolioHolding
+    SQLAlchemy model for portfolio derivative.
+    Maps to domain.entities.finance.portfolio.portfolio_derivative.PortfolioDerivative
     """
     __tablename__ = 'portfolio_derivatives'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
+    
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)
 
+    # ONE portfolio_derivative → MANY portfolio_derivative_holdings
+    portfolio_derivative_holdings = relationship(
+        "src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding.PortfolioDerivativeHoldingModel", 
+        back_populates="portfolio_derivative"
+    )
     
     __mapper_args__ = {
-    "polymorphic_identity": "portfolio_derivative",}
+        "polymorphic_identity": "portfolio_derivative",
+    }
