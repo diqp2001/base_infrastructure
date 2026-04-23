@@ -448,3 +448,114 @@ class PortfolioService:
             self.database_service.session.rollback()
             print(f"Error deleting portfolio: {e}")
             return False
+
+    def calculate_total_value(self) -> Dict[str, Any]:
+        """
+        Calculate total value across all portfolios, holdings, orders, transactions, and accounts.
+        
+        This function aggregates values from:
+        - All portfolios (cash + market value)
+        - All holdings (current market value)
+        - All orders (pending order values)
+        - All transactions (executed transaction values)
+        - All accounts (cash balances)
+        
+        :return: Dictionary containing total value breakdown and summary
+        """
+        try:
+            result = {
+                'total_value': 0.0,
+                'portfolios': {'count': 0, 'total_value': 0.0, 'cash': 0.0, 'market_value': 0.0},
+                'holdings': {'count': 0, 'total_market_value': 0.0},
+                'orders': {'count': 0, 'total_pending_value': 0.0},
+                'transactions': {'count': 0, 'total_executed_value': 0.0},
+                'accounts': {'count': 0, 'total_cash_balance': 0.0},
+                'calculation_timestamp': datetime.now().isoformat()
+            }
+            
+            # Calculate portfolio values
+            portfolios = self.list_portfolios()
+            for portfolio in portfolios:
+                portfolio_value = self.calculate_portfolio_value(portfolio['id'])
+                if portfolio_value:
+                    result['portfolios']['total_value'] += portfolio_value.get('total_portfolio_value', 0.0)
+                    result['portfolios']['cash'] += portfolio_value.get('current_cash', 0.0)
+                    result['portfolios']['market_value'] += portfolio_value.get('total_market_value', 0.0)
+            result['portfolios']['count'] = len(portfolios)
+            
+            # Calculate holdings values
+            holdings_query = """
+            SELECT COUNT(*) as count, SUM(COALESCE(market_value, 0)) as total_market_value
+            FROM positions 
+            WHERE status = 'open'
+            """
+            holdings_result = self.database_service.session.execute(holdings_query).fetchone()
+            if holdings_result:
+                result['holdings']['count'] = holdings_result[0] or 0
+                result['holdings']['total_market_value'] = float(holdings_result[1] or 0)
+            
+            # Calculate orders values (assuming orders table exists with pending orders)
+            try:
+                orders_query = """
+                SELECT COUNT(*) as count, SUM(COALESCE(quantity * COALESCE(price, 0), 0)) as total_pending_value
+                FROM orders 
+                WHERE status IN ('PENDING', 'SUBMITTED', 'PARTIALLY_FILLED')
+                """
+                orders_result = self.database_service.session.execute(orders_query).fetchone()
+                if orders_result:
+                    result['orders']['count'] = orders_result[0] or 0
+                    result['orders']['total_pending_value'] = float(orders_result[1] or 0)
+            except Exception:
+                # Orders table might not exist, set defaults
+                result['orders']['count'] = 0
+                result['orders']['total_pending_value'] = 0.0
+            
+            # Calculate transactions values (assuming transactions table exists)
+            try:
+                transactions_query = """
+                SELECT COUNT(*) as count, SUM(COALESCE(spread, 0)) as total_executed_value
+                FROM transactions 
+                WHERE status = 'EXECUTED'
+                """
+                transactions_result = self.database_service.session.execute(transactions_query).fetchone()
+                if transactions_result:
+                    result['transactions']['count'] = transactions_result[0] or 0
+                    result['transactions']['total_executed_value'] = float(transactions_result[1] or 0)
+            except Exception:
+                # Transactions table might not exist, set defaults
+                result['transactions']['count'] = 0
+                result['transactions']['total_executed_value'] = 0.0
+            
+            # Calculate accounts values (assuming accounts table exists)
+            try:
+                accounts_query = """
+                SELECT COUNT(*) as count, SUM(COALESCE(current_cash, 0)) as total_cash_balance
+                FROM accounts 
+                WHERE status = 'ACTIVE'
+                """
+                accounts_result = self.database_service.session.execute(accounts_query).fetchone()
+                if accounts_result:
+                    result['accounts']['count'] = accounts_result[0] or 0
+                    result['accounts']['total_cash_balance'] = float(accounts_result[1] or 0)
+            except Exception:
+                # Accounts table might not exist, use portfolio cash as fallback
+                result['accounts']['count'] = 0
+                result['accounts']['total_cash_balance'] = result['portfolios']['cash']
+            
+            # Calculate total value
+            result['total_value'] = (
+                result['portfolios']['total_value'] +
+                result['orders']['total_pending_value'] +
+                result['transactions']['total_executed_value'] +
+                result['accounts']['total_cash_balance']
+            )
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error calculating total value: {e}")
+            return {
+                'error': str(e),
+                'total_value': 0.0,
+                'calculation_timestamp': datetime.now().isoformat()
+            }
