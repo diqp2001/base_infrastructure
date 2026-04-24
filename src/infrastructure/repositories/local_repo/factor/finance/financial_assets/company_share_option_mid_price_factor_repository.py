@@ -6,7 +6,7 @@ Local repository for CompanyShareOptionMidPriceFactor operations.
 
 from sqlalchemy.orm import Session
 from typing import Optional, List
-
+from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor import CompanyShareOptionMidPriceFactor
 from src.domain.ports.factor.company_share_option_mid_price_factor_port import CompanyShareOptionMidPriceFactorPort
 from src.infrastructure.repositories.mappers.factor.company_share_option_mid_price_factor_mapper import CompanyShareOptionMidPriceFactorMapper
@@ -28,36 +28,78 @@ class CompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceFacto
     def model_class(self):
         return self.mapper.model_class
 
-    def _create_or_get(self, name: str, **kwargs) -> Optional[CompanyShareOptionMidPriceFactor]:
+    def _create_or_get(self,entity_cls, primary_key: str, **kwargs) -> Optional[CompanyShareOptionMidPriceFactor]:
         """Create new factor or get existing one."""
         try:
-            existing = self.get_by_name(name)
-            if existing:
-                return existing
 
-            entity = CompanyShareOptionMidPriceFactor(
-                name=name,
-                group=kwargs.get("group", "price"),
-                subgroup=kwargs.get("subgroup", "mid_price_true"),
-                frequency=kwargs.get("frequency"),
-                data_type=kwargs.get("data_type", "decimal"),
-                source=kwargs.get("source", "multiple"),
-                definition=kwargs.get("definition", "True mid price calculated from multiple data sources with outlier filtering"),
-                outlier_threshold=kwargs.get("outlier_threshold", 2.0),
-                min_sources=kwargs.get("min_sources", 2),
+            existing = self.get_by_all(
+                name=primary_key,
+                group=kwargs.get('group', 'company_share_option'),
+                subgroup=kwargs.get('subgroup', 'price'),
+                frequency=kwargs.get('frequency'),
+                factor_type=kwargs.get('factor_type', 'company_share_option_mid_price_factor'),
+                data_type=kwargs.get('data_type', 'numeric'),
+                source=kwargs.get('source', 'market')
             )
+            if existing:
+                return self._to_entity(existing)
 
-            orm_obj = self.mapper.to_orm(entity)
-            self.session.add(orm_obj)
+            domain_factor = self.get_factor_entity()(
+                name=primary_key,
+                group=kwargs.get('group', 'company_share_option'),
+                subgroup=kwargs.get('subgroup', 'price'),
+                frequency=kwargs.get('frequency'),
+                data_type=kwargs.get('data_type', 'numeric'),
+                source=kwargs.get('source', 'market'),
+                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+            )
+            # Use FactorMapper to convert domain entity to ORM model
+            orm_factor = self._to_model(domain_factor)
+            
+            self.session.add(orm_factor)
+
+            #create_or_get dependencies
+            if kwargs.get('dependencies'):
+                dependencies = kwargs.get('dependencies')
+                for dependency in dependencies.items():
+                    entity_class = dependency[1].get('class')
+                    repo = self.factory.get_local_repository(entity_class)
+                    
+                    dependency_config = dependency[1]
+                    dependency_entity = repo._create_or_get(
+                            entity_class,
+                            primary_key=dependency_config.get("name"),
+                            group=dependency_config.get("group"),
+                            subgroup=dependency_config.get("subgroup"),
+                            frequency=dependency_config.get("frequency"),
+                            data_type=dependency_config.get("data_type"),
+                            source=dependency_config.get("source"),
+                            definition=dependency_config.get("definition"),)
+
+
+                    repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
+                    lag = dependency_config.get("parameters", {}).get("lag",None) if dependency_config.get("parameters") else None
+                    independent_factor_related_entity_key = dependency_config.get("parameters", {}).get("independent_factor_related_entity_key",None) if dependency_config.get("parameters") else None
+                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag = lag, independent_factor_related_entity_key=independent_factor_related_entity_key )
+ 
+            
             self.session.commit()
-
-            return self.mapper.to_domain(orm_obj)
+            if orm_factor:
+                return self._to_entity(orm_factor)
+            
 
         except Exception as e:
-            print(f"Error creating/getting CompanyShareOptionMidPriceFactor {name}: {e}")
+            print(f"Error creating/getting CompanyShareOptionMidPriceFactor {primary_key}: {e}")
             self.session.rollback()
             return None
+        
 
+    def _to_entity(self, infra_obj):
+        """Convert ORM model to domain entity."""
+        return self.mapper.to_domain(infra_obj)
+    def _to_model(self, entity):
+        """Convert domain entity to ORM model."""
+        return self.mapper.to_orm(entity)
     def get_by_name(self, name: str) -> Optional[CompanyShareOptionMidPriceFactor]:
         """Get factor by name."""
         obj = self.session.query(self.model_class)\

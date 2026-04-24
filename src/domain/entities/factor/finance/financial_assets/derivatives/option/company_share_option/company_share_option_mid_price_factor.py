@@ -75,13 +75,23 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         
         if len(filtered_prices) < self.min_sources:
             return None
+        if len(filtered_prices) == self.min_sources:
 
-        valid_prices = self._remove_outliers(filtered_prices)
+            valid_prices = self._remove_outliers(filtered_prices)
+            
+            if not valid_prices:
+                return None
+
+            return self._calculate_average_price(valid_prices)
         
-        if not valid_prices:
-            return None
+        elif len(filtered_prices) > self.min_sources:
 
-        return self._calculate_average_price(valid_prices)
+            valid_prices = self._remove_outliers(filtered_prices)
+            
+            if not valid_prices:
+                return None
+
+            return self._calculate_median_price(valid_prices)
 
     def _filter_same_group_subgroup(self, source_prices: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter prices that match the same group and subgroup."""
@@ -124,6 +134,22 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         """Calculate the average price from valid prices."""
         total = sum(price['price'] for price in prices)
         return total / len(prices)
+
+
+    def _calculate_median_price(self, prices: List[Dict[str, Any]]) -> Decimal:
+        """Calculate the median price from valid prices."""
+        sorted_prices = sorted(price['price'] for price in prices)
+        n = len(sorted_prices)
+        
+        if n == 0:
+            raise ValueError("Cannot compute median of empty price list")
+        
+        mid = n // 2
+
+        if n % 2 == 1:
+            return sorted_prices[mid]
+        else:
+            return (sorted_prices[mid - 1] + sorted_prices[mid]) / Decimal(2)
 
     def get_dependencies(self) -> List[str]:
         """

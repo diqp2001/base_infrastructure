@@ -3,6 +3,7 @@
 from datetime import timedelta
 from typing import Dict, List
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor import CompanyShareOptionMidPriceFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_factor import CompanyShareOptionPriceFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
@@ -108,6 +109,29 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 #     "dependencies": [],
                 #     "parameters": {"independent_factor_entity_id":"currency_id"}
                 # },
+        },
+        "parameters": {}
+    },
+    "option_mid_price": {
+        "class": CompanyShareOptionMidPriceFactor,
+        "name": "option_mid_price",
+        "group": "price",
+        "subgroup": "minutes",
+        "frequency": "1m",
+        "data_type": "numeric",
+        "description": "Minute-level mid price return",
+        "dependencies": {
+                        "mid": {
+                    "class": CompanyShareFactor,
+                    "name": "mid",
+                    "group": "price",
+                    "subgroup": "minutes",
+                    "frequency": "1m",
+                    "data_type": "numeric",
+                    "dependencies": {},
+                    "parameters": {"independent_factor_related_entity_key":"underlying_asset_id"}
+                },
+                  
         },
         "parameters": {}
     },
