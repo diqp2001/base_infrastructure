@@ -147,11 +147,37 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
         total = sum(price['price'] for price in prices)
         return total / len(prices)
 
+    def get_dependency_requirements(self) -> 'DependencyRequirements':
+        """
+        Define dynamic dependency requirements for this factor.
+        
+        Returns:
+            DependencyRequirements for dynamic resolution at calculation time
+        """
+        from src.domain.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+        
+        return DependencyRequirements(
+            required_groups=["price"],
+            required_subgroups=["mid_price", "close", "last"],  # Accept mid_price, close, or last price
+            min_sources=self.min_sources,
+            max_sources=5,  # Limit to top 5 sources for performance
+            max_age_days=1,  # Only use data from today or yesterday
+            preferred_sources=["ibkr", "fmp", "yahoo", "alpha_vantage", "quandl"],
+            fallback_strategies=[
+                "use_close_if_no_mid",  # Use close price if mid price unavailable
+                "single_source_ok",     # Allow single source if others unavailable
+                "use_older_data"        # Allow older data if recent unavailable
+            ],
+            allow_single_source=True,   # Enable for fallback
+            allow_older_data=True,      # Enable for fallback
+            frequency_compatibility=["1m", "5m", "15m", "1h", "1d"]  # Compatible frequencies
+        )
+
     def get_dependencies(self) -> List[str]:
         """
-        Return list of factor dependencies.
+        Legacy method for backward compatibility.
         
-        This factor depends on multiple price sources for the same entity.
+        Returns static list of dependencies for existing code that expects this format.
         """
         return [
             f"company_share_price_{source}" 
