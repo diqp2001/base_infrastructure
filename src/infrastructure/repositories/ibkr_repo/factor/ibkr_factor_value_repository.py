@@ -985,7 +985,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _get_factor_dependencies_from_db(self, factor_id: int) -> List[Dict[str, Any]]:
         """
-        Get factor dependencies from the database.
+        Get factor dependencies using new dynamic dependency resolution.
+        
+        This method now checks if the factor supports dynamic dependencies first,
+        falling back to static database dependencies for backward compatibility.
         
         Args:
             factor_id: ID of the factor to check for dependencies
@@ -997,6 +1000,55 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if not self.factory:
                 return []
             
+            # Get the factor entity to check for dynamic dependency support
+            factor_entity = self.factory.factor_local_repo.get_by_id(factor_id)
+            if not factor_entity:
+                return []
+            
+            # Check if factor supports dynamic dependencies
+            if hasattr(factor_entity, 'get_dependency_requirements'):
+                print(f"Factor {factor_entity.name} supports dynamic dependencies - using dynamic resolver")
+                return self._get_dynamic_dependencies(factor_entity)
+            
+            # Fallback to static database dependencies for backward compatibility
+            print(f"Factor {factor_entity.name} using static database dependencies")
+            return self._get_static_dependencies_from_db(factor_id)
+            
+        except Exception as e:
+            print(f"Error getting factor dependencies for factor {factor_id}: {e}")
+            return []
+
+    def _get_dynamic_dependencies(self, factor_entity) -> List[Dict[str, Any]]:
+        """
+        Get dynamic dependencies for a factor that supports dynamic resolution.
+        
+        Args:
+            factor_entity: Factor entity with get_dependency_requirements method
+            
+        Returns:
+            List of dynamically resolved dependency information
+        """
+        try:
+            # Note: Dynamic resolution happens at calculation time in _handle_factor_with_dependencies
+            # This method just indicates that the factor supports dynamic resolution
+            print(f"Factor {factor_entity.name} marked for dynamic dependency resolution")
+            return [{'dynamic_resolution_required': True, 'factor': factor_entity}]
+            
+        except Exception as e:
+            print(f"Error preparing dynamic dependencies for {factor_entity.name}: {e}")
+            return []
+
+    def _get_static_dependencies_from_db(self, factor_id: int) -> List[Dict[str, Any]]:
+        """
+        Get static dependencies from database (legacy method).
+        
+        Args:
+            factor_id: ID of the factor to check for dependencies
+            
+        Returns:
+            List of static dependency information dictionaries
+        """
+        try:
             # Get factor dependency repository from factory
             factor_dependency_repo = self.factory.factor_dependency_local_repo
             if not factor_dependency_repo:
@@ -1019,19 +1071,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         'independent_factor': independent_factor,
                         'dependency_id': dep.id,
                         'lag': dep.lag,
-                        'independent_factor_related_entity_key': dep.independent_factor_related_entity_key
+                        'independent_factor_related_entity_key': dep.independent_factor_related_entity_key,
+                        'static_dependency': True
                     })
             
             return dependency_info
             
         except Exception as e:
-            print(f"Error getting factor dependencies from database for factor {factor_id}: {e}")
+            print(f"Error getting static factor dependencies from database for factor {factor_id}: {e}")
             return []
 
     def _handle_factor_with_dependencies(self, factor: Any, dependencies: List[Dict[str, Any]], 
                                        entity_id: int, bar_date: datetime=None, bar_data: Dict[str, Any]=None,**kwargs) -> Optional[FactorValue]:
         """
         Handle factor calculation when factor has dependencies.
+        
+        Enhanced to support both dynamic and static dependency resolution.
         
         Args:
             factor: Factor entity with dependencies
@@ -1044,6 +1099,118 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             Calculated FactorValue or None if calculation failed
         """
         try:
+            # Check if this factor requires dynamic dependency resolution
+            if dependencies and dependencies[0].get('dynamic_resolution_required'):
+                return self._handle_dynamic_factor_dependencies(factor, entity_id, bar_date, **kwargs)
+            
+            # Handle static dependencies (original logic)
+            return self._handle_static_factor_dependencies(factor, dependencies, entity_id, bar_date, bar_data, **kwargs)
+            
+        except Exception as e:
+            print(f"Error handling factor with dependencies {factor.name}: {e}")
+            return None
+
+    def _handle_dynamic_factor_dependencies(self, factor: Any, entity_id: int, bar_date: datetime, **kwargs) -> Optional[FactorValue]:
+        """
+        Handle factor calculation using dynamic dependency resolution.
+        
+        Args:
+            factor: Factor entity with get_dependency_requirements method
+            entity_id: Entity ID for the factor value
+            bar_date: Date of the bar data
+            **kwargs: Additional parameters
+            
+        Returns:
+            Calculated FactorValue or None if calculation failed
+        """
+        try:
+            print(f"Using dynamic dependency resolution for factor {factor.name}")
+            
+            # Get dependency requirements from factor
+            requirements = factor.get_dependency_requirements()
+            
+            # Get entity for dependency resolution
+            entity = self.factory.financial_asset_local_repo.get_by_id(entity_id)
+            if not entity:
+                print(f"Could not find entity {entity_id} for dynamic dependency resolution")
+                return None
+            
+            # Initialize dynamic dependency resolver
+            from src.application.services.factor.dynamic_dependency_resolver import DynamicDependencyResolver
+            resolver = DynamicDependencyResolver(self.factory)
+            
+            # Discover available dependencies at calculation date
+            available_dependencies = resolver.discover_dependencies(
+                requirements=requirements,
+                entity=entity,
+                target_date=bar_date
+            )
+            
+            if not available_dependencies:
+                print(f"No dependencies found for factor {factor.name} at {bar_date}")
+                return None
+            
+            # Resolve dependency values
+            dependency_values = resolver.resolve_values(
+                dependencies=available_dependencies,
+                target_date=bar_date,
+                entity_id=entity_id
+            )
+            
+            if not dependency_values:
+                print(f"Could not resolve dependency values for factor {factor.name}")
+                return None
+            
+            print(f"Resolved {len(dependency_values)} dynamic dependencies for {factor.name}")
+            
+            # Call the factor's calculate method with resolved dependencies
+            calculated_value = self._call_factor_calculate_method(factor=factor, dependency_values=dependency_values)
+            
+            if calculated_value is None:
+                print(f"Factor calculation returned None for {factor.name}")
+                return None
+            
+            # Create and store the factor value
+            factor_value = FactorValue(
+                id=None,
+                factor_id=factor.id,
+                entity_id=entity_id,
+                date=bar_date,
+                value=str(calculated_value)
+            )
+            
+            # Store in database
+            if self.local_repo:
+                stored_value = self.local_repo.add(factor_value)
+                if stored_value:
+                    print(f"Successfully calculated and stored dynamic factor value for {factor.name}: {calculated_value}")
+                    return stored_value
+            
+            return factor_value
+            
+        except Exception as e:
+            print(f"Error in dynamic dependency resolution for {factor.name}: {e}")
+            return None
+
+    def _handle_static_factor_dependencies(self, factor: Any, dependencies: List[Dict[str, Any]], 
+                                          entity_id: int, bar_date: datetime, bar_data: Dict[str, Any]=None, **kwargs) -> Optional[FactorValue]:
+        """
+        Handle factor calculation using static database dependencies (original logic).
+        
+        Args:
+            factor: Factor entity with dependencies
+            dependencies: List of static dependency information
+            entity_id: Entity ID for the factor value
+            bar_date: Date of the bar data
+            bar_data: IBKR bar data for resolving simple dependencies
+            **kwargs: Additional parameters
+            
+        Returns:
+            Calculated FactorValue or None if calculation failed
+        """
+        try:
+            print(f"Using static dependency resolution for factor {factor.name}")
+            
             # Sort dependencies by lag to ensure consistent ordering (highest lag first = start_price)
             #sorted_dependencies = sorted(dependencies, key=lambda x: x.get('lag', timedelta(0)), reverse=True)
             
