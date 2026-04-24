@@ -154,7 +154,7 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
         Returns:
             DependencyRequirements for dynamic resolution at calculation time
         """
-        from src.domain.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+        from src.application.services.data.entities.factor.dynamic_dependency_requirements import DependencyRequirements
         
         return DependencyRequirements(
             required_groups=["price"],

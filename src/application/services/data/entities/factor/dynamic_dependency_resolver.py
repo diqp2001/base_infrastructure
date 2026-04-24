@@ -1,5 +1,5 @@
 """
-src/application/services/factor/dynamic_dependency_resolver.py
+src/application/services/data/entities/factor/dynamic_dependency_resolver.py
 
 Application service for resolving factor dependencies dynamically at calculation time.
 """
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, date
 from collections import defaultdict
 import logging
 
-from src.domain.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+from src.application.services.data.entities.factor.dynamic_dependency_requirements import DependencyRequirements
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.factor import Factor
 

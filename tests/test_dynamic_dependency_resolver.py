@@ -9,8 +9,8 @@ from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from src.domain.entities.factor.dynamic_dependency_requirements import DependencyRequirements
-from src.application.services.factor.dynamic_dependency_resolver import DynamicDependencyResolver
+from src.application.services.data.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+from src.application.services.data.entities.factor.dynamic_dependency_resolver import DynamicDependencyResolver
 from src.domain.entities.factor.factor_value import FactorValue
 
 
