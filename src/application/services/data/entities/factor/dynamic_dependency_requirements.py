@@ -1,5 +1,5 @@
 """
-src/domain/entities/factor/dynamic_dependency_requirements.py
+src/application/services/data/entities/factor/dynamic_dependency_requirements.py
 
 Domain entity for defining dynamic dependency requirements for factors.
 """

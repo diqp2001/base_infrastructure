@@ -1136,7 +1136,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
             
             # Initialize dynamic dependency resolver
-            from src.application.services.factor.dynamic_dependency_resolver import DynamicDependencyResolver
+            from src.application.services.data.entities.factor.dynamic_dependency_resolver import DynamicDependencyResolver
             resolver = DynamicDependencyResolver(self.factory)
             
             # Discover available dependencies at calculation date
