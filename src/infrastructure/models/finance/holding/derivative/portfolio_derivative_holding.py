@@ -25,7 +25,7 @@ class PortfolioDerivativeHoldingModel(PortfolioHoldingsModel):
     )
 
     derivative = relationship(
-        "src.infrastructure.models.finance.financial_assets.derivative.derivative.DerivativeModel",
+        "src.infrastructure.models.finance.financial_assets.derivative.derivatives.DerivativeModel",
         back_populates="portfolio_derivative_holdings"
     )
 
