@@ -1,0 +1,55 @@
+"""
+Mapper for PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor domain entity and ORM model conversion.
+"""
+
+from typing import Optional
+
+from src.infrastructure.models.factor.factor import PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_cox_ross_rubinstein_price_factor import PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor
+from .base_factor_mapper import BaseFactorMapper
+
+
+class PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorMapper(BaseFactorMapper):
+    """Mapper for PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor domain entity and ORM model conversion."""
+    
+    @property
+    def discriminator(self):
+        return 'portfolio_company_share_option'
+    
+    @property
+    def model_class(self):
+        return PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel
+    
+    def get_factor_model(self):
+        return PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel
+    
+    def get_factor_entity(self):
+        return PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor
+    
+    def to_domain(self, orm_model: Optional[PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel]) -> Optional[PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor]:
+        """Convert ORM model to PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor domain entity."""
+        if not orm_model:
+            return None
+        
+        return PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor(
+            name=orm_model.name,
+            group=orm_model.group,
+            subgroup=orm_model.subgroup,
+            frequency=orm_model.frequency,
+            data_type=orm_model.data_type,
+            source=orm_model.source,
+            definition=orm_model.definition,
+            factor_id=orm_model.id
+        )
+    
+    def to_orm(self, domain_entity: PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor) -> PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel:
+        """Convert PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactor domain entity to ORM model."""
+        return PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel(
+            name=domain_entity.name,
+            group=domain_entity.group,
+            subgroup=domain_entity.subgroup,
+            frequency=domain_entity.frequency,
+            data_type=domain_entity.data_type,
+            source=domain_entity.source,
+            definition=domain_entity.definition
+        )

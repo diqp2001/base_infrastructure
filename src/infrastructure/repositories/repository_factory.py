@@ -88,6 +88,16 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_delta_factor_repository import CompanyShareOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_factor_repository import CompanyShareOptionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_factor_repository import CompanyShareOptionPriceFactorRepository
+
+# Advanced Options Pricing Model Repositories - Local
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_black_scholes_merton_price_factor_repository import CompanyShareOptionBlackScholesMertonPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_cox_ross_rubinstein_price_factor_repository import CompanyShareOptionCoxRossRubinsteinPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_heston_price_factor_repository import CompanyShareOptionHestonPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_hull_white_price_factor_repository import CompanyShareOptionHullWhitePriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_sabr_price_factor_repository import CompanyShareOptionSABRPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_bates_price_factor_repository import CompanyShareOptionBatesPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_dupire_local_volatility_price_factor_repository import CompanyShareOptionDupireLocalVolatilityPriceFactorRepository
+
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.portfolio_company_share_option_repository import PortfolioCompanyShareOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
@@ -124,6 +134,15 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.i
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_price_return_factor_repository import IBKRCompanyShareOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_rho_factor_repository import IBKRCompanyShareOptionRhoFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_vega_factor_repository import IBKRCompanyShareOptionVegaFactorRepository
+
+# Advanced Options Pricing Model Repositories - IBKR
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_black_scholes_merton_price_factor_repository import IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_cox_ross_rubinstein_price_factor_repository import IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_heston_price_factor_repository import IBKRCompanyShareOptionHestonPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_hull_white_price_factor_repository import IBKRCompanyShareOptionHullWhitePriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_sabr_price_factor_repository import IBKRCompanyShareOptionSABRPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_bates_price_factor_repository import IBKRCompanyShareOptionBatesPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_dupire_local_volatility_price_factor_repository import IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository
 
 # IBKR Factor repositories
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_continent_factor_repository import IBKRContinentFactorRepository
@@ -259,6 +278,16 @@ class RepositoryFactory:
                 'company_share_option_gamma_factor': CompanyShareOptionGammaFactorRepository(self.session, factory=self),
                 'company_share_option_rho_factor': CompanyShareOptionRhoFactorRepository(self.session, factory=self),
                 'company_share_option_vega_factor': CompanyShareOptionVegaFactorRepository(self.session, factory=self),
+                
+                # Advanced Options Pricing Model Repositories
+                'company_share_option_black_scholes_merton_price_factor': CompanyShareOptionBlackScholesMertonPriceFactorRepository(self.session, factory=self),
+                'company_share_option_cox_ross_rubinstein_price_factor': CompanyShareOptionCoxRossRubinsteinPriceFactorRepository(self.session, factory=self),
+                'company_share_option_heston_price_factor': CompanyShareOptionHestonPriceFactorRepository(self.session, factory=self),
+                'company_share_option_hull_white_price_factor': CompanyShareOptionHullWhitePriceFactorRepository(self.session, factory=self),
+                'company_share_option_sabr_price_factor': CompanyShareOptionSABRPriceFactorRepository(self.session, factory=self),
+                'company_share_option_bates_price_factor': CompanyShareOptionBatesPriceFactorRepository(self.session, factory=self),
+                'company_share_option_dupire_local_volatility_price_factor': CompanyShareOptionDupireLocalVolatilityPriceFactorRepository(self.session, factory=self),
+                
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
@@ -429,6 +458,37 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
+                
+                # Advanced Options Pricing Model Repositories - IBKR
+                'company_share_option_black_scholes_merton_price_factor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_cox_ross_rubinstein_price_factor': IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_heston_price_factor': IBKRCompanyShareOptionHestonPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_hull_white_price_factor': IBKRCompanyShareOptionHullWhitePriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_sabr_price_factor': IBKRCompanyShareOptionSABRPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_bates_price_factor': IBKRCompanyShareOptionBatesPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                'company_share_option_dupire_local_volatility_price_factor': IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository(
+                    ibkr_client=client,
+                    factory=self
+                ),
+                
                 'currency_factor': IBKRCurrencyFactorRepository(
                     ibkr_client=client,
                     factory=self
@@ -1237,6 +1297,42 @@ class RepositoryFactory:
         """Get company_share_option_vega_factor repository for dependency injection."""
         return self._local_repositories.get('company_share_option_vega_factor')
 
+    # Advanced Options Pricing Model Repository Properties
+    @property
+    def company_share_option_black_scholes_merton_price_factor_local_repo(self):
+        """Get company_share_option_black_scholes_merton_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_black_scholes_merton_price_factor')
+    
+    @property
+    def company_share_option_cox_ross_rubinstein_price_factor_local_repo(self):
+        """Get company_share_option_cox_ross_rubinstein_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_cox_ross_rubinstein_price_factor')
+    
+    @property
+    def company_share_option_heston_price_factor_local_repo(self):
+        """Get company_share_option_heston_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_heston_price_factor')
+    
+    @property
+    def company_share_option_hull_white_price_factor_local_repo(self):
+        """Get company_share_option_hull_white_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_hull_white_price_factor')
+    
+    @property
+    def company_share_option_sabr_price_factor_local_repo(self):
+        """Get company_share_option_sabr_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_sabr_price_factor')
+    
+    @property
+    def company_share_option_bates_price_factor_local_repo(self):
+        """Get company_share_option_bates_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_bates_price_factor')
+    
+    @property
+    def company_share_option_dupire_local_volatility_price_factor_local_repo(self):
+        """Get company_share_option_dupire_local_volatility_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_option_dupire_local_volatility_price_factor')
+
     # New IBKR repository properties
     @property
     def portfolio_factor_ibkr_repo(self):
@@ -1369,6 +1465,42 @@ class RepositoryFactory:
     def company_share_option_vega_factor_ibkr_repo(self):
         """Get company_share_option_vega_factor repository for dependency injection."""
         return self._ibkr_repositories.get('company_share_option_vega_factor')
+
+    # Advanced Options Pricing Model IBKR Repository Properties
+    @property
+    def company_share_option_black_scholes_merton_price_factor_ibkr_repo(self):
+        """Get company_share_option_black_scholes_merton_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_black_scholes_merton_price_factor')
+    
+    @property
+    def company_share_option_cox_ross_rubinstein_price_factor_ibkr_repo(self):
+        """Get company_share_option_cox_ross_rubinstein_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_cox_ross_rubinstein_price_factor')
+    
+    @property
+    def company_share_option_heston_price_factor_ibkr_repo(self):
+        """Get company_share_option_heston_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_heston_price_factor')
+    
+    @property
+    def company_share_option_hull_white_price_factor_ibkr_repo(self):
+        """Get company_share_option_hull_white_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_hull_white_price_factor')
+    
+    @property
+    def company_share_option_sabr_price_factor_ibkr_repo(self):
+        """Get company_share_option_sabr_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_sabr_price_factor')
+    
+    @property
+    def company_share_option_bates_price_factor_ibkr_repo(self):
+        """Get company_share_option_bates_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_bates_price_factor')
+    
+    @property
+    def company_share_option_dupire_local_volatility_price_factor_ibkr_repo(self):
+        """Get company_share_option_dupire_local_volatility_price_factor repository for dependency injection."""
+        return self._ibkr_repositories.get('company_share_option_dupire_local_volatility_price_factor')
 
     # Missing properties for already registered repositories
     @property

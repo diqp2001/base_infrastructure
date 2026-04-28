@@ -127,6 +127,48 @@ class PortfolioCompanyShareOptionDeltaFactorModel(FactorModel):
     }
 
 
+class PortfolioCompanyShareOptionBlackScholesMertonPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_black_scholes_merton_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionCoxRossRubinsteinPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_cox_ross_rubinstein_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionHestonPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_heston_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionHullWhitePriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_hull_white_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionSABRPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_sabr_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionBatesPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_bates_price_factor"
+    }
+
+
+class PortfolioCompanyShareOptionDupireLocalVolatilityPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "portfolio_company_share_option_dupire_local_volatility_price_factor"
+    }
+
+
 # Company Share Option Factor Models
 class CompanyShareOptionFactorModel(FactorModel):
     __mapper_args__ = {
@@ -218,4 +260,47 @@ class CompanyShareMidPriceFactorModel(FactorModel):
 class CompanyShareOptionMidPriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_mid_price_factor"
+    }
+
+
+# Advanced Options Pricing Models for Company Share Options
+class CompanyShareOptionBlackScholesMertonPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_black_scholes_merton_price_factor"
+    }
+
+
+class CompanyShareOptionCoxRossRubinsteinPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_cox_ross_rubinstein_price_factor"
+    }
+
+
+class CompanyShareOptionHestonPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_heston_price_factor"
+    }
+
+
+class CompanyShareOptionHullWhitePriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_hull_white_price_factor"
+    }
+
+
+class CompanyShareOptionSABRPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_sabr_price_factor"
+    }
+
+
+class CompanyShareOptionBatesPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_bates_price_factor"
+    }
+
+
+class CompanyShareOptionDupireLocalVolatilityPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_dupire_local_volatility_price_factor"
     }
