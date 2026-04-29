@@ -86,9 +86,9 @@ This document provides a comprehensive inventory of all SQLAlchemy models in the
 | Model | File | Mapper Status |
 |-------|------|---------------|
 | `PortfolioModel` | `finance/portfolio/portfolio.py` | ✅ Implemented |
-| `PortfolioCompanyShareModel` | `finance/portfolio/portfolio_company_share.py` | ✅ Implemented |
-| `PortfolioCompanyShareOptionModel` | `finance/portfolio/portfolio_company_share_option.py` | ✅ Implemented |
-| `PortfolioDerivativeModel` | `finance/portfolio/portfolio_derivative.py` | ✅ Implemented |
+| `CompanySharePortfolioModel` | `finance/portfolio/portfolio_company_share.py` | ✅ Implemented |
+| `CompanyShareOptionPortfolioModel` | `finance/portfolio/portfolio_company_share_option.py` | ✅ Implemented |
+| `DerivativePortfolioModel` | `finance/portfolio/portfolio_derivative.py` | ✅ Implemented |
 | `HoldingModel` | `finance/holding/holding.py` | ✅ Implemented |
 | `PortfolioHoldingsModel` | `finance/holding/portfolio_holding.py` | ✅ Implemented |
 | `PortfolioCompanyShareHoldingModel` | `finance/holding/portfolio_company_share_holding.py` | ✅ Implemented |
@@ -148,8 +148,8 @@ This document provides a comprehensive inventory of all SQLAlchemy models in the
 17. `ForwardContractModel` - Forward contracts
 18. `SwapModel` - Swap contracts
 19. `SwapLegModel` - Individual swap legs
-20. `PortfolioCompanyShareModel` - Portfolio share allocations
-21. `PortfolioDerivativeModel` - Portfolio derivative positions
+20. `CompanySharePortfolioModel` - Portfolio share allocations
+21. `DerivativePortfolioModel` - Portfolio derivative positions
 22. `SecurityHoldingModel` - Security holdings
 23. `FinancialAssetTimeSeriesModel` - Asset time series
 24. `StockTimeSeriesModel` - Stock time series
@@ -202,8 +202,8 @@ This document provides a comprehensive inventory of all SQLAlchemy models in the
 - `BalanceSheetModel` (balance sheets)
 - `IncomeStatementModel` (income statements)
 - `CashFlowStatementModel` (cash flow statements)
-- `PortfolioCompanyShareModel` (portfolio shares)
-- `PortfolioDerivativeModel` (portfolio derivatives)
+- `CompanySharePortfolioModel` (portfolio shares)
+- `DerivativePortfolioModel` (portfolio derivatives)
 - `SymbolModel` (trading symbols)
 
 ### Phase 5: Backtesting & Enums (8 mappers)

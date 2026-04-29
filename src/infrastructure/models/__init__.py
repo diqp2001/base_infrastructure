@@ -114,7 +114,7 @@ def ensure_models_registered():
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
-        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel', 'PortfolioCompanyShareOptionModel', 'PortfolioCompanyShareOptionDerivativeModel', 
+        'PortfolioModel','DerivativePortfolioModel', 'CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'PortfolioCompanyShareOptionDerivativeModel', 
         'HoldingModel', 'PortfolioDerivativeHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
         'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
