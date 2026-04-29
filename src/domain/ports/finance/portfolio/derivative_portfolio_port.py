@@ -1,5 +1,5 @@
 from typing import List, Optional
-from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
+from src.domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
 
 
 class DerivativePortfolioPort:

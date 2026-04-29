@@ -2,9 +2,9 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, date
 from src.infrastructure.models.finance.portfolio.portfolio_company_share import CompanySharePortfolioModel
-from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 from src.infrastructure.repositories.mappers.finance.portfolio.portfolio_company_share_mapper import CompanySharePortfolioMapper
-from domain.ports.finance.portfolio.company_share_portfolio_port import CompanySharePortfolioPort
+from src.domain.ports.finance.portfolio.company_share_portfolio_port import CompanySharePortfolioPort
 
 
 class CompanySharePortfolioRepository(CompanySharePortfolioPort):

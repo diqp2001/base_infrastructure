@@ -5,7 +5,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 
 from typing import Optional
 
-from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio as DomainPortfolioDerivative
+from src.domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio as DomainPortfolioDerivative
 from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel as ORMPortfolioDerivative
 
 

@@ -1,8 +1,8 @@
 from typing import List, Optional
-from domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
+from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
 
 
-class CompanyShareOptionPortPortfolio:
+class CompanyShareOptionPortfolioPort:
 
     def get_by_id(self, id: int) -> Optional[CompanyShareOptionPortfolio]:
         pass

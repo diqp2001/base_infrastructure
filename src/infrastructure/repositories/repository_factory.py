@@ -19,9 +19,9 @@ from src.infrastructure.repositories.local_repo.geographic.sector_repository imp
 from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
 from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
-from infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_repository import CompanySharePortfolioRepository
-from infrastructure.repositories.local_repo.finance.portfolio.company_share_option_portfolio_repository import CompanyShareOptionPortfolioRepository
-from infrastructure.repositories.local_repo.finance.portfolio.derivative_portfolio_repository import DerivativePortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_repository import CompanySharePortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_option_portfolio_repository import CompanyShareOptionPortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio.derivative_portfolio_repository import DerivativePortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.portfolio_holding_repository import PortfolioHoldingRepository
@@ -321,9 +321,6 @@ class RepositoryFactory:
                 'portfolio': PortfolioRepository(self.session, factory=self),
                 'company': CompanyRepository(self.session, factory=self),
 
-                'portfolio_company_share': CompanySharePortfolioRepository(self.session, factory=self),
-                'portfolio_company_share_option': CompanyShareOptionPortfolioRepository(self.session, factory=self),
-                'portfolio_derivative': DerivativePortfolioRepository(self.session, factory=self),
                 # Holding repositories
                 'holding': HoldingRepository(self.session, factory=self),
                 'portfolio_holding': PortfolioHoldingRepository(self.session, factory=self),

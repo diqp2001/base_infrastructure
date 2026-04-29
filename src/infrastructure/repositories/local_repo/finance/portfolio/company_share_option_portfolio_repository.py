@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, date
-from domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
-from domain.ports.finance.portfolio.company_share_option_portfolio_port import CompanyShareOptionPortPortfolio
+from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
+from src.domain.ports.finance.portfolio.company_share_option_portfolio_port import CompanyShareOptionPortfolioPort
 from src.infrastructure.repositories.mappers.finance.portfolio.portfolio_company_share_option_mapper import CompanyShareOptionPortfolioMapper
 
 
-class CompanyShareOptionPortfolioRepository(CompanyShareOptionPortPortfolio):
+class CompanyShareOptionPortfolioRepository(CompanyShareOptionPortfolioPort):
 
     def __init__(self, session: Session, factory=None):
         self.session = session

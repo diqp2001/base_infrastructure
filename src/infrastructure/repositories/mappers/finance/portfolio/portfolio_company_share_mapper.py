@@ -6,7 +6,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio as DomainPortfolioCompanyShare
+from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio as DomainPortfolioCompanyShare
 from src.infrastructure.models.finance.portfolio.portfolio_company_share import CompanySharePortfolioModel as ORMPortfolioCompanyShare
 
 

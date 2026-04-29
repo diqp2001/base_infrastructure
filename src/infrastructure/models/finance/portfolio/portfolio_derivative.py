@@ -7,7 +7,7 @@ from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 class DerivativePortfolioModel(PortfolioModel):
     """
     SQLAlchemy model for portfolio derivative.
-    Maps to domain.entities.finance.portfolio.portfolio_derivative.PortfolioDerivative
+    Maps to domain.entities.finance.portfolio.derivative_portfolio.DerivativePortfolio
     """
     __tablename__ = 'portfolio_derivatives'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
