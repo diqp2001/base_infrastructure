@@ -21,7 +21,7 @@ class ExchangeModel(Base):
     index_future_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option.IndexFutureOptionModel", back_populates="exchange")
     company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option.CompanyShareOptionModel", back_populates="exchange")
     etf_share_portfolio_company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option.ETFSharePortfolioCompanyShareOptionModel", back_populates="exchange")
-    portfolio_company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option.PortfolioCompanyShareOptionModel", back_populates="exchange")
+    portfolio_company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option.PortfolioCompanyShareOptionDerivativeModel", back_populates="exchange")
     etf_share_portfolio_company_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share_portfolio_company_share.ETFSharePortfolioCompanyShareModel", back_populates="exchange")
     
     

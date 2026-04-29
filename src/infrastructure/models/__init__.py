@@ -20,7 +20,7 @@ class ModelBase(DeclarativeBase):
 
 # Core geographical and organizational models (no dependencies)
 # Geographic models
-from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionDerivativeModel
 from src.infrastructure.models.continent import ContinentModel
 from src.infrastructure.models.country import CountryModel
 from src.infrastructure.models.industry import IndustryModel
@@ -56,7 +56,7 @@ from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
-from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionDerivativeModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
@@ -92,7 +92,7 @@ from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 
 # Portfolio options
-PortfolioCompanyShareOptionModel
+PortfolioCompanyShareOptionDerivativeModel
 
 
 
@@ -113,9 +113,9 @@ def ensure_models_registered():
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
-        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 
+        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionDerivativeModel', 
         'HoldingModel', 'PortfolioDerivativeHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
-        'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
+        'ETFSharePortfolioCompanyShareOptionDerivativeModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
     missing = required_models - set(registered)
@@ -143,11 +143,11 @@ __all__ = [
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
     'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel',
-    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionModel', 
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionDerivativeModel', 
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
-    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionModel', 'SecurityHoldingModel', 
+    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
