@@ -6,7 +6,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionDerivativeModel
 from src.domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import PortfolioCompanyShareOptionPort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.mappers.finance.financial_assets.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
@@ -23,7 +23,7 @@ class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioC
     @property
     def model_class(self):
         """Return the SQLAlchemy model class for PortfolioCompanyShareOption."""
-        return PortfolioCompanyShareOptionModel
+        return PortfolioCompanyShareOptionDerivativeModel
     
     @property
     def entity_class(self):
@@ -32,35 +32,35 @@ class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioC
 
     def get_by_id(self, option_id: int) -> Optional[PortfolioCompanyShareOptionEntity]:
         """Get an option by ID"""
-        model = self.session.query(PortfolioCompanyShareOptionModel).filter_by(id=option_id).first()
+        model = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(id=option_id).first()
         return self.mapper.to_entity(model) if model else None
 
     def get_all(self) -> List[PortfolioCompanyShareOptionEntity]:
         """Get all options"""
-        models = self.session.query(PortfolioCompanyShareOptionModel).all()
+        models = self.session.query(PortfolioCompanyShareOptionDerivativeModel).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def get_by_underlying_id(self, underlying_id: int) -> List[PortfolioCompanyShareOptionEntity]:
         """Get all options for a specific underlying asset"""
-        models = self.session.query(PortfolioCompanyShareOptionModel).filter_by(underlying_id=underlying_id).all()
+        models = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(underlying_id=underlying_id).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def get_by_company_id(self, company_id: int) -> List[PortfolioCompanyShareOptionEntity]:
         """Get all options for a specific company"""
-        models = self.session.query(PortfolioCompanyShareOptionModel).filter_by(company_id=company_id).all()
+        models = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(company_id=company_id).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def get_by_expiration_date(self, expiration_date: date) -> List[PortfolioCompanyShareOptionEntity]:
         """Get all options expiring on a specific date"""
-        models = self.session.query(PortfolioCompanyShareOptionModel).filter_by(expiration_date=expiration_date).all()
+        models = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(expiration_date=expiration_date).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def get_active_options(self, company_id: int = None) -> List[PortfolioCompanyShareOptionEntity]:
         """Get active options (no end_date or end_date in future)"""
         from datetime import datetime
-        query = self.session.query(PortfolioCompanyShareOptionModel).filter(
-            (PortfolioCompanyShareOptionModel.end_date.is_(None)) | 
-            (PortfolioCompanyShareOptionModel.end_date > date.today())
+        query = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter(
+            (PortfolioCompanyShareOptionDerivativeModel.end_date.is_(None)) | 
+            (PortfolioCompanyShareOptionDerivativeModel.end_date > date.today())
         )
         if company_id:
             query = query.filter_by(company_id=company_id)
@@ -70,7 +70,7 @@ class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioC
 
     def get_by_option_type(self, option_type: str) -> List[PortfolioCompanyShareOptionEntity]:
         """Get options by type (CALL or PUT)"""
-        models = self.session.query(PortfolioCompanyShareOptionModel).filter_by(option_type=option_type).all()
+        models = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(option_type=option_type).all()
         return [self.mapper.to_entity(model) for model in models]
 
     def save(self, option: PortfolioCompanyShareOptionEntity) -> PortfolioCompanyShareOptionEntity:
@@ -83,7 +83,7 @@ class PortfolioCompanyShareOptionRepository(FinancialAssetRepository, PortfolioC
 
     def delete(self, option_id: int) -> bool:
         """Delete an option by ID"""
-        model = self.session.query(PortfolioCompanyShareOptionModel).filter_by(id=option_id).first()
+        model = self.session.query(PortfolioCompanyShareOptionDerivativeModel).filter_by(id=option_id).first()
         if model:
             self.session.delete(model)
             self.session.commit()

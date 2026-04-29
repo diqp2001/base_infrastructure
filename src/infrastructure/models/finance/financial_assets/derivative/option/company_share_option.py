@@ -23,7 +23,8 @@ class CompanyShareOptionModel(OptionsModel):
     strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
     multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
     expiry = Column(String(20), nullable=True)
-    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options") 
+    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options")
+    portfolio_company_share_option_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_company_share_option_holding.PortfolioCompanyShareOptionHoldingModel", back_populates="company_share_option") 
     
     
     __mapper_args__ = {
