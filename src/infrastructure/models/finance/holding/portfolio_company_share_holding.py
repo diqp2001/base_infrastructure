@@ -16,7 +16,7 @@ class PortfolioCompanyShareHoldingModel(HoldingModel):
     portfolio_company_share_id = Column(Integer, ForeignKey('portfolio_company_shares.id'), nullable=False)
 
     # Relationships
-    portfolio_company_shares = relationship("src.infrastructure.models.finance.portfolio.portfolio_company_share.PortfolioCompanyShareModel", back_populates="portfolio_company_share_holdings")
+    portfolio_company_shares = relationship("src.infrastructure.models.finance.portfolio.portfolio_company_share.CompanySharePortfolioModel", back_populates="portfolio_company_share_holdings")
     company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="portfolio_company_share_holdings")
 
     __mapper_args__ = {
