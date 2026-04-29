@@ -4,7 +4,7 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionCoxRossRubinstein_PriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
     """Cox-Ross-Rubinstein binomial tree price factor for company share options."""
 
     def __init__(

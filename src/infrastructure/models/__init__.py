@@ -56,7 +56,7 @@ from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
-from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionDerivativeModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
@@ -115,7 +115,7 @@ def ensure_models_registered():
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
         'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionDerivativeModel', 
         'HoldingModel', 'PortfolioDerivativeHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
-        'ETFSharePortfolioCompanyShareOptionDerivativeModel', 'AccountModel', 'OrderModel', 'TransactionModel'
+        'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
     missing = required_models - set(registered)
@@ -143,7 +143,7 @@ __all__ = [
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
     'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel',
-    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionDerivativeModel', 
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionModel', 
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
