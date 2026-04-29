@@ -74,6 +74,7 @@ from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivativeModel
 from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShareModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.models.finance.instrument import InstrumentModel
@@ -113,7 +114,7 @@ def ensure_models_registered():
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
-        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel','PortfolioCompanyShareOptionDerivativeModel', 
+        'PortfolioModel','PortfolioDerivativeModel', 'PortfolioCompanyShareModel', 'PortfolioCompanyShareOptionModel', 'PortfolioCompanyShareOptionDerivativeModel', 
         'HoldingModel', 'PortfolioDerivativeHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
         'ETFSharePortfolioCompanyShareOptionDerivativeModel', 'AccountModel', 'OrderModel', 'TransactionModel'
     }
@@ -147,7 +148,7 @@ __all__ = [
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
-    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel','PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
+    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel', 'PortfolioCompanyShareOptionModel', 'PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
