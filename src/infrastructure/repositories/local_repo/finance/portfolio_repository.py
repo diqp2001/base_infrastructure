@@ -29,11 +29,12 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or PortfolioMapper()
-    
+    @property
+    def entity_class(self):
+        return self.mapper.entity_class
     @property
     def model_class(self):
-        """Return the SQLAlchemy model class for Portfolio."""
-        return PortfolioModel
+        return self.mapper.model_class
     
     def _to_entity(self, model: PortfolioModel) -> PortfolioEntity:
         """Convert infrastructure model to domain entity."""
@@ -58,14 +59,14 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         model = self.session.query(PortfolioModel).filter(
             PortfolioModel.id == portfolio_id
         ).first()
-        return self._to_entity(model)
+        return self._to_entity(model)    if model else None
     
     def get_by_name(self, name: str) -> Optional[PortfolioEntity]:
         """Retrieve a portfolio by name."""
         model = self.session.query(PortfolioModel).filter(
             PortfolioModel.name == name
         ).first()
-        return self._to_entity(model)
+        return self._to_entity(model)     if model else None
     
     def get_by_backtest_id(self, backtest_id: str) -> List[PortfolioEntity]:
         """Retrieve portfolios by backtest ID."""
@@ -209,24 +210,14 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             inception_date = kwargs.get('inception_date', date.today())
             created_at = kwargs.get('created_at', datetime.now())
             
-            # Import and handle enum
-            from src.domain.entities.finance.portfolio.portfolio import PortfolioType
-            portfolio_type_enum = PortfolioType.STANDARD
-            try:
-                portfolio_type_enum = PortfolioType(portfolio_type)
-            except ValueError:
-                logger.warning(f"Invalid portfolio type {portfolio_type}, using STANDARD")
-                pass
+            
             
             # Create domain entity
-            new_portfolio = PortfolioEntity(
+            new_portfolio = self.entity_class(
+                id=None,
                 name=name,
-                portfolio_type=portfolio_type_enum,
-                initial_cash=Decimal(str(initial_cash)),
-                currency=currency,
-                owner_id=owner_id,
-                inception_date=inception_date,
-                created_at=created_at
+                start_date=getattr(kwargs, 'inception_date', date.today()),
+            end_date=getattr(kwargs, 'end_date', None)
             )
             
             # Step 3: Convert to ORM model and persist

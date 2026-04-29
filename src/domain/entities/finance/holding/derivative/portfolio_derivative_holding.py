@@ -4,7 +4,7 @@ from typing import Optional
 
 from domain.entities.finance.financial_assets.derivatives.derivative import Derivative
 from domain.entities.finance.holding.position import Position
-from domain.entities.finance.portfolio.portfolio_derivative import PortfolioDerivative
+from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 
 
@@ -18,7 +18,7 @@ class PortfolioDerivativeHolding(PortfolioHolding):
         self,
         id: int,
         asset: Derivative,
-        portfolio: PortfolioDerivative,
+        portfolio: DerivativePortfolio,
         position: Position,
         start_date: datetime,
         end_date: Optional[datetime] = None,

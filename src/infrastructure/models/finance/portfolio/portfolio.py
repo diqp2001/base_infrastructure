@@ -13,11 +13,9 @@ class PortfolioModel(Base):
     __tablename__ = "portfolios"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-
     name = Column(String(200), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    portfolio_type = Column(String(50), nullable=False, default="STANDARD")
-    backtest_id = Column(String(100), nullable=True, index=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)
 
     # ONE portfolio → MANY positions
     positions = relationship("src.infrastructure.models.finance.position.PositionModel",back_populates="portfolios",cascade="all, delete-orphan")

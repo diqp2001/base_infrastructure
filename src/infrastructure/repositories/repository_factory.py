@@ -19,6 +19,9 @@ from src.infrastructure.repositories.local_repo.geographic.sector_repository imp
 from src.infrastructure.repositories.local_repo.geographic.industry_repository import IndustryRepository
 from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+from infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_repository import CompanySharePortfolioRepository
+from infrastructure.repositories.local_repo.finance.portfolio.company_share_option_portfolio_repository import CompanyShareOptionPortfolioRepository
+from infrastructure.repositories.local_repo.finance.portfolio.derivative_portfolio_repository import DerivativePortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.portfolio_holding_repository import PortfolioHoldingRepository
@@ -98,7 +101,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_bates_price_factor_repository import CompanyShareOptionBatesPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_dupire_local_volatility_price_factor_repository import CompanyShareOptionDupireLocalVolatilityPriceFactorRepository
 
-from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.portfolio_company_share_option_repository import PortfolioCompanyShareOptionRepository
+
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.cash_repository import CashRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.commodity_repository import CommodityRepository
@@ -291,7 +294,9 @@ class RepositoryFactory:
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
-                'portfolio_company_share_option': PortfolioCompanyShareOptionRepository(self.session, factory=self),
+                'portfolio_company_share_option': CompanyShareOptionPortfolioRepository(self.session, factory=self),
+                'portfolio_company_share': CompanySharePortfolioRepository(self.session, factory=self),
+                'portfolio_derivative': DerivativePortfolioRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'company_share_factor': CompanyShareFactorRepository(self.session, factory=self),
                 'company_share_price_return_factor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
@@ -315,6 +320,10 @@ class RepositoryFactory:
                 'position': PositionRepository(self.session, factory=self),
                 'portfolio': PortfolioRepository(self.session, factory=self),
                 'company': CompanyRepository(self.session, factory=self),
+
+                'portfolio_company_share': CompanySharePortfolioRepository(self.session, factory=self),
+                'portfolio_company_share_option': CompanyShareOptionPortfolioRepository(self.session, factory=self),
+                'portfolio_derivative': DerivativePortfolioRepository(self.session, factory=self),
                 # Holding repositories
                 'holding': HoldingRepository(self.session, factory=self),
                 'portfolio_holding': PortfolioHoldingRepository(self.session, factory=self),

@@ -5,17 +5,19 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 
 from typing import Optional
 
-from src.domain.entities.finance.portfolio.portfolio_derivative import PortfolioDerivative as DomainPortfolioDerivative
-from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivativeModel as ORMPortfolioDerivative
+from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio as DomainPortfolioDerivative
+from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel as ORMPortfolioDerivative
 
 
-class PortfolioDerivativeMapper:
+class DerivativePortfolioMapper:
     """Mapper for PortfolioDerivative domain entity and ORM model."""
 
     @property
     def discriminator(self):
-        return "portfolio_derivative"
-
+        return "derivative_portfolio"
+    @property
+    def entity_class(self):
+        return DomainPortfolioDerivative
     @property
     def model_class(self):
         return ORMPortfolioDerivative
@@ -23,23 +25,25 @@ class PortfolioDerivativeMapper:
     def get_entity(self):
         return DomainPortfolioDerivative
 
-    def to_domain(self, orm_model: Optional[ORMPortfolioDerivative]) -> Optional[DomainPortfolioDerivative]:
+    def to_domain(self,orm_obj):
         """Convert ORM model to domain entity."""
-        if not orm_model:
-            return None
-
-        return DomainPortfolioDerivative(
-            id=orm_model.id,
-            name=orm_model.name,
-            start_date=orm_model.start_date,
-            end_date=orm_model.end_date,
+        return self.entity_class(
+            id=orm_obj.id,
+            name=orm_obj.name,
+            start_date=getattr(orm_obj, 'start_date', None),
+            end_date=getattr(orm_obj, 'end_date', None)
         )
 
-    def to_orm(self, entity: DomainPortfolioDerivative) -> ORMPortfolioDerivative:
+    def to_orm(self,domain_obj, orm_obj = None):
         """Convert domain entity to ORM model."""
-        return ORMPortfolioDerivative(
-            id=entity.id,
-            name=entity.name,
-            start_date=entity.start_date,
-            end_date=entity.end_date,
-        )
+        if orm_obj is None:
+            orm_obj = self.model_class(
+                name=domain_obj.name,
+                start_date=getattr(domain_obj, 'start_date', None),
+            end_date=getattr(domain_obj, 'end_date', None)
+                
+            )
+        
+        
+            
+        return orm_obj

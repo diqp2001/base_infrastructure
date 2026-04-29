@@ -7,7 +7,7 @@ from src.domain.entities.finance.financial_assets.share.company_share.company_sh
 from .portfolio import Portfolio
 
 
-class PortfolioCompanyShare(Portfolio):
+class CompanySharePortfolio(Portfolio):
     """
     Portfolio composed exclusively of company shares (equities).
 

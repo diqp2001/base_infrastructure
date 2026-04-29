@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import  Optional
 
 from .portfolio import Portfolio
 
 
-class PortfolioCompanyShareOption(Portfolio):
+class DerivativePortfolio(Portfolio):
     """
-    Portfolio composed exclusively of company share options.
+    Portfolio composed exclusively Derivative.
 
     Identification-only entity.
     Position sizing, allocation, and analytics are handled elsewhere.

@@ -5,7 +5,7 @@ from typing import Optional
 from src.domain.entities.finance.holding.position import Position
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption
+from domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
 
 
 class PortfolioCompanyShareOptionHolding(PortfolioHolding):
@@ -17,7 +17,7 @@ class PortfolioCompanyShareOptionHolding(PortfolioHolding):
         self,
         id: int,
         asset: CompanyShareOption,
-        portfolio: PortfolioCompanyShareOption,
+        portfolio: CompanyShareOptionPortfolio,
         position: Position,
         start_date: datetime,
         end_date: Optional[datetime] = None,

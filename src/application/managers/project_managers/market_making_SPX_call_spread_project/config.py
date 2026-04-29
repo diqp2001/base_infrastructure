@@ -11,8 +11,8 @@ from src.domain.entities.finance.holding.portfolio_company_share_option_holding 
 from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHolding
 from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
-from src.domain.entities.finance.portfolio.portfolio_derivative import PortfolioDerivative
+from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -145,7 +145,7 @@ DEFAULT_CONFIG = {
                 "currency_code": "USD",
                 "portfolio_type": "BACKTEST",
 
-                "class": PortfolioCompanyShare,
+                "class": CompanySharePortfolio,
                 "holding_class": PortfolioCompanyShareHolding,
 
                 "sub_portfolios": []

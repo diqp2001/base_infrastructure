@@ -13,7 +13,7 @@ from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
-from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
@@ -129,7 +129,7 @@ ENTITY_FACTOR_MAPPING = {
     PortfolioCompanyShareOption: [
         PortfolioCompanyShareOptionFactorEntity
     ],
-    PortfolioCompanyShare: [
+    CompanySharePortfolio: [
         PortfolioCompanyShareFactorEntity
     ],
     

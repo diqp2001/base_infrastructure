@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 
 
-class PortfolioCompanyShareOptionModel(PortfolioModel):
+class CompanyShareOptionPortfolioModel(PortfolioModel):
     """
     SQLAlchemy model for portfolio company share option.
     Maps to domain.entities.finance.portfolio.portfolio_company_share_option.PortfolioCompanyShareOption
@@ -12,8 +12,7 @@ class PortfolioCompanyShareOptionModel(PortfolioModel):
     __tablename__ = 'portfolio_company_share_options'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
     
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=True)
+    
 
     # ONE portfolio_company_share_option → MANY portfolio_company_share_option_holdings
     portfolio_company_share_option_holdings = relationship(

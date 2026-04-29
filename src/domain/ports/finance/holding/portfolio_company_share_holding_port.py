@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
-from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 
 
 class PortfolioCompanyShareHoldingPort(ABC):

@@ -147,14 +147,11 @@ class UnifiedPortfolioManager:
                     sub_type = sub_config.get('portfolio_type', main_type)
                     sub_currency = sub_config.get('currency_code', main_currency)
                     sub_portfolio_type = sub_config.get('type', 'general')  # company_share, derivative, etc.
-                    
+                    repo = self.repository_factory.get_local_repository(sub_config['class'])
                     # Create sub-portfolio
-                    sub_portfolio = self.portfolio_repo._create_or_get(
+                    sub_portfolio = repo._create_or_get(
                         name=sub_name,
-                        portfolio_type=sub_type,
-                        initial_cash=sub_cash,
-                        currency_code=sub_currency,
-                        parent_portfolio_id=main_portfolio.id  # Link to main portfolio
+                        #parent_portfolio_id=main_portfolio.id  # Link to main portfolio #link is made by holding
                     )
                     
                     if sub_portfolio:

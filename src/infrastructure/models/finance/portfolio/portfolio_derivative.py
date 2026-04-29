@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 
 
-class PortfolioDerivativeModel(PortfolioModel):
+class DerivativePortfolioModel(PortfolioModel):
     """
     SQLAlchemy model for portfolio derivative.
     Maps to domain.entities.finance.portfolio.portfolio_derivative.PortfolioDerivative
@@ -12,8 +12,7 @@ class PortfolioDerivativeModel(PortfolioModel):
     __tablename__ = 'portfolio_derivatives'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
     
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=True)
+    
 
     # ONE portfolio_derivative → MANY portfolio_derivative_holdings
     portfolio_derivative_holdings = relationship(

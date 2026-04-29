@@ -17,7 +17,7 @@ from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_c
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_price_return_factor import PortfolioCompanyShareOptionPriceReturnFactor
 
 # Infrastructure imports
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import CompanyShareOptionPortfolioModel
 from src.infrastructure.models import ModelBase
 from infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.portfolio_company_share_option_repository import PortfolioCompanyShareOptionRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_return_factor_repository import PortfolioCompanyShareOptionPriceReturnFactorRepository
@@ -187,7 +187,7 @@ class TestPortfolioCompanyShareOptionInfrastructure(unittest.TestCase):
     
     def test_portfolio_company_share_option_model_creation(self):
         """Test creating PortfolioCompanyShareOptionModel."""
-        model = PortfolioCompanyShareOptionModel(
+        model = CompanyShareOptionPortfolioModel(
             name="Test Portfolio Option",
             symbol="TEST_PF_OPT",
             option_type="CALL"
@@ -201,7 +201,7 @@ class TestPortfolioCompanyShareOptionInfrastructure(unittest.TestCase):
         """Test creating PortfolioCompanyShareOptionRepository."""
         repo = PortfolioCompanyShareOptionRepository(self.session, factory=self.factory)
         
-        self.assertEqual(repo.model_class, PortfolioCompanyShareOptionModel)
+        self.assertEqual(repo.model_class, CompanyShareOptionPortfolioModel)
         self.assertEqual(repo.entity_class, PortfolioCompanyShareOption)
         self.assertIsInstance(repo.mapper, PortfolioCompanyShareOptionMapper)
     
@@ -223,7 +223,7 @@ class TestPortfolioCompanyShareOptionMappers(unittest.TestCase):
     
     def test_portfolio_company_share_option_mapper_to_entity(self):
         """Test mapping from model to domain entity."""
-        model = PortfolioCompanyShareOptionModel(
+        model = CompanyShareOptionPortfolioModel(
             id=1,
             name="Test Portfolio Option",
             symbol="TEST_PF_OPT",
@@ -255,7 +255,7 @@ class TestPortfolioCompanyShareOptionMappers(unittest.TestCase):
         
         model = self.option_mapper.to_model(entity)
         
-        self.assertIsInstance(model, PortfolioCompanyShareOptionModel)
+        self.assertIsInstance(model, CompanyShareOptionPortfolioModel)
         self.assertEqual(model.id, 1)
         self.assertEqual(model.name, "Test Portfolio Option")
         self.assertEqual(model.symbol, "TEST_PF_OPT")

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from src.domain.entities.finance.portfolio.portfolio_company_share import PortfolioCompanyShare
+from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 from src.domain.entities.finance.holding.portfolio_company_share_holding import (
     PortfolioCompanyShareHolding
 )
@@ -25,7 +25,7 @@ class PortfolioCompanyShareHoldingMapper:
       
 
         # Placeholder PortfolioCompanyShare asset
-        asset = PortfolioCompanyShare(
+        asset = CompanySharePortfolio(
             id=model.asset_id,
             name=model.name,
             start_date=model.start_date,

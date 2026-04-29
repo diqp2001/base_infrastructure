@@ -6,17 +6,19 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOption as DomainPortfolioCompanyShareOption
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel as ORMPortfolioCompanyShareOption
+from domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio as DomainPortfolioCompanyShareOption
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import CompanyShareOptionPortfolioModel as ORMPortfolioCompanyShareOption
 
 
-class PortfolioCompanyShareOptionMapper:
+class CompanyShareOptionPortfolioMapper:
     """Mapper for PortfolioCompanyShareOption domain entity and ORM model."""
 
     @property
     def discriminator(self):
-        return "portfolio_company_share_option"
-
+        return "company_share_option_portfolio"
+    @property
+    def entity_class(self):
+        return DomainPortfolioCompanyShareOption
     @property
     def model_class(self):
         return ORMPortfolioCompanyShareOption
@@ -24,23 +26,25 @@ class PortfolioCompanyShareOptionMapper:
     def get_entity(self):
         return DomainPortfolioCompanyShareOption
 
-    def to_domain(self, orm_model: Optional[ORMPortfolioCompanyShareOption]) -> Optional[DomainPortfolioCompanyShareOption]:
+    def to_domain(self,orm_obj):
         """Convert ORM model to domain entity."""
-        if not orm_model:
-            return None
-
-        return DomainPortfolioCompanyShareOption(
-            id=orm_model.id,
-            name=orm_model.name,
-            start_date=orm_model.start_date if hasattr(orm_model, 'start_date') else None,
-            end_date=orm_model.end_date if hasattr(orm_model, 'end_date') else None,
+        return self.entity_class(
+            id=orm_obj.id,
+            name=orm_obj.name,
+            start_date=getattr(orm_obj, 'start_date', None),
+            end_date=getattr(orm_obj, 'end_date', None)
         )
 
-    def to_orm(self, entity: DomainPortfolioCompanyShareOption) -> ORMPortfolioCompanyShareOption:
+    def to_orm(self,domain_obj, orm_obj = None):
         """Convert domain entity to ORM model."""
-        return ORMPortfolioCompanyShareOption(
-            id=entity.id,
-            name=entity.name,
-            start_date=entity.start_date,
-            end_date=entity.end_date,
-        )
+        if orm_obj is None:
+            orm_obj = self.model_class(
+                name=domain_obj.name,
+                start_date=getattr(domain_obj, 'start_date', None),
+            end_date=getattr(domain_obj, 'end_date', None)
+                
+            )
+        
+        
+            
+        return orm_obj

@@ -72,9 +72,9 @@ from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg
 
 # Portfolio and holdings (depends on all asset types)
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
-from src.infrastructure.models.finance.portfolio.portfolio_derivative import PortfolioDerivativeModel
-from src.infrastructure.models.finance.portfolio.portfolio_company_share import PortfolioCompanyShareModel
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import PortfolioCompanyShareOptionModel
+from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share import CompanySharePortfolioModel
+from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import CompanyShareOptionPortfolioModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.models.finance.instrument import InstrumentModel
@@ -148,7 +148,7 @@ __all__ = [
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
-    'PortfolioModel','PortfolioDerivativeModel','PortfolioCompanyShareModel', 'PortfolioCompanyShareOptionModel', 'PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
+    'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
