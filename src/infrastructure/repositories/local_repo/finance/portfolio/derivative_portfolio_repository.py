@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, date
-from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
-from domain.ports.finance.portfolio.derivative_portfolio_port import DerivativePortfolioPort
+from src.domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
+from src.domain.ports.finance.portfolio.derivative_portfolio_port import DerivativePortfolioPort
 from src.infrastructure.repositories.mappers.finance.portfolio.portfolio_derivative_mapper import DerivativePortfolioMapper
 
 

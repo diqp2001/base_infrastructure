@@ -7,7 +7,7 @@ from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 class CompanyShareOptionPortfolioModel(PortfolioModel):
     """
     SQLAlchemy model for portfolio company share option.
-    Maps to domain.entities.finance.portfolio.portfolio_company_share_option.PortfolioCompanyShareOption
+    Maps to domain.entities.finance.portfolio.company_share_option_portfolio.CompanyShareOptionPortfolio
     """
     __tablename__ = 'portfolio_company_share_options'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
