@@ -5,7 +5,7 @@ from typing import Optional
 
 from src.domain.entities.finance.holding.holding import Holding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 from src.infrastructure.models.finance.holding.holding import (
     HoldingModel
 )

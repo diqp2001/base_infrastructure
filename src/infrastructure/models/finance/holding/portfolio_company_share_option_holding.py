@@ -4,12 +4,11 @@ from sqlalchemy.orm import relationship
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 
 
-class PortfolioCompanyShareOptionHoldingModel(PortfolioHoldingsModel):
+class CompanyShareOptionPortfolioHoldingModel(PortfolioHoldingsModel):
     """
     SQLAlchemy model for portfolio company share option holding.
-    Maps to domain.entities.finance.holding.portfolio_company_share_option_holding.PortfolioCompanyShareOptionHolding
     """
-    __tablename__ = 'portfolio_company_share_option_holdings'
+    __tablename__ = 'company_share_option_portfolio_holdings'
     id = Column(Integer, ForeignKey("portfolio_holdings.id"), primary_key=True)
 
     # Foreign key to portfolio company share option
@@ -21,14 +20,14 @@ class PortfolioCompanyShareOptionHoldingModel(PortfolioHoldingsModel):
     # Relationships
     portfolio_company_share_option = relationship(
         "src.infrastructure.models.finance.portfolio.portfolio_company_share_option.CompanyShareOptionPortfolioModel",
-        back_populates="portfolio_company_share_option_holdings"
+        back_populates="company_share_option_portfolio_holdings"
     )
 
     company_share_option = relationship(
         "src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option.CompanyShareOptionModel",
-        back_populates="portfolio_company_share_option_holdings"
+        back_populates="company_share_option_portfolio_holdings"
     )
 
     __mapper_args__ = {
-        "polymorphic_identity": "portfolio_company_share_option_holding",
+        "polymorphic_identity": "company_share_option_portfolio_holdings",
     }

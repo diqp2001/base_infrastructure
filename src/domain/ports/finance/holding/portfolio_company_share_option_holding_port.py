@@ -1,5 +1,5 @@
 from typing import List, Optional
-from src.domain.entities.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHolding
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding
 
 
 class PortfolioCompanyShareOptionHoldingPort:

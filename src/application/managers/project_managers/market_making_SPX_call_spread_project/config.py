@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
-from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
-from src.domain.entities.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHolding
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding
 from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHolding
-from src.domain.entities.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHolding
+from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
-from domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
+from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+from src.domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -146,7 +146,7 @@ DEFAULT_CONFIG = {
                 "portfolio_type": "BACKTEST",
 
                 "class": CompanySharePortfolio,
-                "holding_class": PortfolioCompanyShareHolding,
+                "holding_class": CompanySharePortfolioHolding,
 
                 "sub_portfolios": []
             },
@@ -157,7 +157,7 @@ DEFAULT_CONFIG = {
                 "currency_code": "USD",
                 "portfolio_type": "BACKTEST",
 
-                "class": PortfolioCompanyShareOption,
+                "class": CompanySharePortfolioOption,
                 "holding_class": PortfolioCompanyShareOptionHolding,
 
                 "sub_portfolios": []

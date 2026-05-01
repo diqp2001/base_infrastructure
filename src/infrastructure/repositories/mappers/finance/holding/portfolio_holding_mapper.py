@@ -1,8 +1,8 @@
 from typing import Optional
 
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.holding.portfolio_company_share_holding import (
-    PortfolioCompanyShareHolding
+from src.domain.entities.finance.holding.company_share_portfolio_holding import (
+    CompanySharePortfolioHolding
 )
 
 from src.infrastructure.models.finance.holding.portfolio_holding import (
@@ -33,7 +33,7 @@ class PortfolioHoldingMapper:
 
         # --- Company Share Holding specialization ---------------------------
         if model.holding_type == "company_share":
-            return PortfolioCompanyShareHolding(
+            return CompanySharePortfolioHolding(
                 id=model.id,
                 asset=asset,
                 container=portfolio,
@@ -55,7 +55,7 @@ class PortfolioHoldingMapper:
     def to_model(self, entity: PortfolioHoldingsModel) -> PortfolioHoldingsModel:
         """Convert PortfolioHolding entity to PortfolioHoldingModel"""
 
-        holding_type = "company_share" if isinstance(entity, PortfolioCompanyShareHolding) else "generic"
+        holding_type = "company_share" if isinstance(entity, CompanySharePortfolioHolding) else "generic"
 
         return PortfolioHoldingsModel(
             id=entity.id,

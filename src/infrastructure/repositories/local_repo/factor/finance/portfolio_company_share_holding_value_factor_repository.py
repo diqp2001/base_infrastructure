@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.domain.entities.factor.finance.holding.portfolio_company_share_holding_value_factor import PortfolioCompanyShareHoldingValueFactor
+from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_value_factor import PortfolioCompanyShareHoldingValueFactor
 
 
 class PortfolioCompanyShareHoldingValueFactorRepository(BaseFactorRepository):

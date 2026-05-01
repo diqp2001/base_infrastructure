@@ -25,7 +25,7 @@ from src.infrastructure.repositories.local_repo.finance.portfolio.derivative_por
 from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.portfolio_holding_repository import PortfolioHoldingRepository
-from src.infrastructure.repositories.local_repo.finance.holding.portfolio_company_share_holding_repository import PortfolioCompanyShareHoldingRepository
+from infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_holding_repository import CompanySharePortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.financial_statement_repository import FinancialStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.income_statement_repository import IncomeStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
@@ -294,9 +294,9 @@ class RepositoryFactory:
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
-                'portfolio_company_share_option': CompanyShareOptionPortfolioRepository(self.session, factory=self),
-                'portfolio_company_share': CompanySharePortfolioRepository(self.session, factory=self),
-                'portfolio_derivative': DerivativePortfolioRepository(self.session, factory=self),
+                'company_share_option_portfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
+                'company_share_portfolio': CompanySharePortfolioRepository(self.session, factory=self),
+                'derivative_portfolio': DerivativePortfolioRepository(self.session, factory=self),
                 'company_share': CompanyShareRepository(self.session, factory=self),
                 'company_share_factor': CompanyShareFactorRepository(self.session, factory=self),
                 'company_share_price_return_factor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
@@ -324,7 +324,7 @@ class RepositoryFactory:
                 # Holding repositories
                 'holding': HoldingRepository(self.session, factory=self),
                 'portfolio_holding': PortfolioHoldingRepository(self.session, factory=self),
-                'portfolio_company_share_holding': PortfolioCompanyShareHoldingRepository(self.session, factory=self),
+                'company_share_portfolio_holding': CompanySharePortfolioHoldingRepository(self.session, factory=self),
                 # Financial statement repositories
                 'financial_statement': FinancialStatementRepository(self.session, factory=self),
                 'income_statement': IncomeStatementRepository(self.session, factory=self),

@@ -5,8 +5,8 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 
 from typing import Optional
 
-from src.domain.entities.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHolding as DomainEntity
-from src.infrastructure.models.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHoldingModel as ORMModel
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding as DomainEntity
+from src.infrastructure.models.finance.holding.portfolio_company_share_option_holding import CompanyShareOptionPortfolioHoldingModel as ORMModel
 
 
 class PortfolioCompanyShareOptionHoldingMapper:

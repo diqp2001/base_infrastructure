@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 
 
-class PortfolioCompanyShareOptionPort(ABC):
+class CompanyShareOptionPortfolioPort(ABC):
     """Port interface for PortfolioCompanyShareOption entity operations following repository pattern."""
     
     # @abstractmethod

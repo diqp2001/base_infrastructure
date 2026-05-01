@@ -4,7 +4,7 @@ Mapper for converting between portfolio company share option domain entities and
 from typing import Optional
 
 from src.infrastructure.models.finance.financial_assets.derivative.option.portfolio_company_share_option import PortfolioCompanyShareOptionDerivativeModel
-from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 
 
 

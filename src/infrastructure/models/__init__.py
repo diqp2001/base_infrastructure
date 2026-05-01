@@ -83,8 +83,8 @@ from src.infrastructure.models.finance.instrument import InstrumentModel
 from src.infrastructure.models.finance.holding.holding import HoldingModel
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import PortfolioCompanyShareHoldingModel
-from src.infrastructure.models.finance.holding.portfolio_company_share_option_holding import PortfolioCompanyShareOptionHoldingModel
+from src.infrastructure.models.finance.holding.portfolio_company_share_holding import CompanySharePortfolioHoldingModel
+from src.infrastructure.models.finance.holding.portfolio_company_share_option_holding import CompanyShareOptionPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHoldingModel
 
 # Account, Order, and Transaction models
@@ -150,7 +150,7 @@ __all__ = [
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'PortfolioCompanyShareOptionDerivativeModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'PortfolioCompanyShareHoldingModel', 'PortfolioCompanyShareOptionHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
     'ensure_models_registered'
 ]

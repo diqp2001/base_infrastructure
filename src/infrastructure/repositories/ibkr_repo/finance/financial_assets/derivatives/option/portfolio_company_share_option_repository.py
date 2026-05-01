@@ -14,13 +14,13 @@ from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
-from src.domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import PortfolioCompanyShareOptionPort
+from src.domain.ports.finance.financial_assets.derivatives.option.portfolio_company_share_option_port import CompanyShareOptionPortfolioPort
 
-from src.domain.entities.finance.financial_assets.derivatives.option.portfolio_company_share_option import PortfolioCompanyShareOption
+from domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 from src.infrastructure.repositories.mappers.finance.financial_assets.portfolio_company_share_option_mapper import PortfolioCompanyShareOptionMapper
 
 
-class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, PortfolioCompanyShareOptionPort):
+class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShareOptionPortfolioPort):
     """
     IBKR implementation of PortfolioCompanyShareOptionPort.
     Handles data acquisition from Interactive Brokers API and delegates persistence to local repository.
@@ -43,9 +43,9 @@ class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, Po
     @property
     def entity_class(self):
         """Return the domain entity class for PortfolioCompanyShareOption."""
-        return PortfolioCompanyShareOption
+        return CompanySharePortfolioOption
 
-    def _create_or_get(self, symbol: str = None, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[PortfolioCompanyShareOption]:
+    def _create_or_get(self, symbol: str = None, strike_price: float = None, expiry: str = None, option_type: str = None, **kwargs) -> Optional[CompanySharePortfolioOption]:
         """
         Get or create a portfolio company share option by symbol and parameters using IBKR API.
         
@@ -98,19 +98,19 @@ class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, Po
             print(f"Error in IBKR get_or_create for symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def get_by_id(self, option_id: int) -> Optional[PortfolioCompanyShareOption]:
+    def get_by_id(self, option_id: int) -> Optional[CompanySharePortfolioOption]:
         """Get portfolio company share option by ID (delegates to local repository)."""
         return self.local_repo.get_by_id(option_id)
 
-    def get_all(self) -> List[PortfolioCompanyShareOption]:
+    def get_all(self) -> List[CompanySharePortfolioOption]:
         """Get all portfolio company share options (delegates to local repository)."""
         return self.local_repo.get_all()
 
-    def add(self, entity: PortfolioCompanyShareOption) -> Optional[PortfolioCompanyShareOption]:
+    def add(self, entity: CompanySharePortfolioOption) -> Optional[CompanySharePortfolioOption]:
         """Add portfolio company share option entity (delegates to local repository)."""
         return self.local_repo.add(entity)
 
-    def update(self, entity: PortfolioCompanyShareOption) -> PortfolioCompanyShareOption:
+    def update(self, entity: CompanySharePortfolioOption) -> CompanySharePortfolioOption:
         """Update portfolio company share option entity (delegates to local repository)."""
         return self.local_repo.update(entity)
 
@@ -188,7 +188,7 @@ class IBKRPortfolioCompanyShareOptionRepository(IBKRFinancialAssetRepository, Po
             print(f"Error fetching IBKR contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[PortfolioCompanyShareOption]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[CompanySharePortfolioOption]:
         """
         Convert IBKR contract and details directly to domain entity.
         
