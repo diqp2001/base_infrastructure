@@ -20,7 +20,7 @@ class PortfolioCompanyShareOptionHoldingModel(PortfolioHoldingsModel):
 
     # Relationships
     portfolio_company_share_option = relationship(
-        "src.infrastructure.models.finance.portfolio.portfolio_company_share_option.PortfolioCompanyShareOptionModel",
+        "src.infrastructure.models.finance.portfolio.portfolio_company_share_option.CompanyShareOptionPortfolioModel",
         back_populates="portfolio_company_share_option_holdings"
     )
 
