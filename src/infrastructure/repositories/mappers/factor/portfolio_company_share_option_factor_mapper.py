@@ -5,7 +5,7 @@ Mapper for PortfolioCompanyShareOptionFactor domain entity and ORM model convers
 from typing import Optional
 
 from src.infrastructure.models.factor.factor import PortfolioCompanyShareOptionFactorModel
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor
 from .base_factor_mapper import BaseFactorMapper
 
 
