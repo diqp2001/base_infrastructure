@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Optional
 
-from .company_share_portfolio_holding_factor import PortfolioCompanyShareHoldingFactor
+from .company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
 
 
-class PortfolioCompanyShareHoldingWeightFactor(PortfolioCompanyShareHoldingFactor):
+class CompanySharePortfolioHoldingWeightFactor(CompanySharePortfolioHoldingFactor):
     """
     Factor representing the weight of a company share within a PortfolioCompanyShare.
 

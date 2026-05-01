@@ -6,7 +6,7 @@ from src.domain.entities.factor.finance.holding.portfolio_holding_factor import 
 
 
 
-class PortfolioCompanyShareHoldingFactor(PortfolioHoldingFactor):
+class CompanySharePortfolioHoldingFactor(PortfolioHoldingFactor):
     """
     Factor for holdings of company shares inside a PortfolioCompanyShare.
 
