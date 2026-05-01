@@ -8,9 +8,9 @@ from src.domain.entities.finance.holding.portfolio_holding import PortfolioHoldi
 from domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
 
 
-class PortfolioCompanyShareOptionHolding(PortfolioHolding):
+class CompanyShareOptionPortfolioHolding(PortfolioHolding):
     """
-    CompanyShareOption held inside a PortfolioCompanyShareOption.
+    CompanyShareOption held inside a CompanyShareOptionPortfolio.
     """
 
     def __init__(
