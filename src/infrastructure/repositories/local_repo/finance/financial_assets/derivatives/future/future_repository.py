@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from src.domain.ports.finance.financial_assets.derivatives.future.future_port import FuturePort
-from src.infrastructure.repositories.mappers.finance.financial_assets.future_mapper import FutureMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.future.future_mapper import FutureMapper
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
     FinancialAssetRepository
 )

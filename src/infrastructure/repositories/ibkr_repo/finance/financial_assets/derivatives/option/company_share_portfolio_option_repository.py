@@ -17,7 +17,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financia
 from src.domain.ports.finance.financial_assets.derivatives.option.company_share_portfolio_option_port import CompanySharePortfolioOptionPort
 
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
-from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_portfolio_option_mapper import CompanySharePortfolioOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.option.company_share_portfolio_option_mapper import CompanySharePortfolioOptionMapper
 
 
 class IBKRCompanySharePortfolioOptionRepository(IBKRFinancialAssetRepository, CompanySharePortfolioOptionPort):

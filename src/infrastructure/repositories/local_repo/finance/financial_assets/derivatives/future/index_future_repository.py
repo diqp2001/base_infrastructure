@@ -11,7 +11,7 @@ from src.domain.entities.finance.financial_assets.derivatives.future.future impo
 )
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
-from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_mapper import IndexFutureMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.future.index_future_mapper import IndexFutureMapper
 
 class IndexFutureRepository(FutureRepository, IndexFuturePort):
     """

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.ports.finance.financial_assets.derivatives.option.index_future_option_port import IndexFutureOptionPort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.options_repository import OptionsRepository
-from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_option_mapper import IndexFutureOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.option.index_future_option_mapper import IndexFutureOptionMapper
 
 logger = logging.getLogger(__name__)
 

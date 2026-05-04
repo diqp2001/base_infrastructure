@@ -17,7 +17,7 @@ from ibapi.common import TickerId
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.ports.finance.financial_assets.derivatives.option.company_share_option_port import CompanyShareOptionPort
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
-from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_option_mapper import CompanyShareOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.option.company_share_option_mapper import CompanyShareOptionMapper
 
 
 class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShareOptionPort):

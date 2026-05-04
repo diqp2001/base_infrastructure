@@ -3,7 +3,7 @@
 # Existing business entity mappers
 from .company_mapper import CompanyMapper
 from .instrument_mapper import InstrumentMapper
-from .financial_assets.company_share_portfolio_option_mapper import CompanySharePortfolioOptionMapper
+from .financial_assets.derivatives.option.company_share_portfolio_option_mapper import CompanySharePortfolioOptionMapper
 from .exchange_mapper import ExchangeMapper
 from .portfolio_mapper import PortfolioMapper
 

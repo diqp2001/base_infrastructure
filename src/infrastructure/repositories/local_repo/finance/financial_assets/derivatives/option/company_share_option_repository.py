@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption as DomainCompanyShareOption
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel as ORMCompanyShareOption
-from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_option_mapper import CompanyShareOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.option.company_share_option_mapper import CompanyShareOptionMapper
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.options_repository import OptionsRepository
 
 logger = logging.getLogger(__name__)

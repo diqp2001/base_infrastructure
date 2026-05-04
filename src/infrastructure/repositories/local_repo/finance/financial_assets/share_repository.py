@@ -6,7 +6,7 @@ from src.domain.ports.finance.financial_assets.share.share_port import SharePort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.share import ShareModel as ShareModel
 from src.domain.entities.finance.financial_assets.share.share import Share as ShareEntity
-from src.infrastructure.repositories.mappers.finance.financial_assets.share_mapper import ShareMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.share.share_mapper import ShareMapper
 
 
 class ShareRepository(FinancialAssetRepository,SharePort):
@@ -61,7 +61,7 @@ class ShareRepository(FinancialAssetRepository,SharePort):
         Returns:
             List of enhanced share entities
         """
-        from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
+        from infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
         
         enhanced_entities = []
         

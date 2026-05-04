@@ -16,7 +16,7 @@ from ibapi.common import TickerId
 from src.domain.ports.finance.financial_assets.share.company_share.company_share_port import CompanySharePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
-from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
 
 
 

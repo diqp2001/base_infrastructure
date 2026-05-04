@@ -13,7 +13,7 @@ import re
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_option_mapper import IndexFutureOptionMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.option.index_future_option_mapper import IndexFutureOptionMapper
 from src.domain.ports.finance.financial_assets.derivatives.option.index_future_option_port import IndexFutureOptionPort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption

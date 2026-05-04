@@ -3,7 +3,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from src.infrastructure.repositories.mappers.finance.financial_assets.derivative_mapper import DerivativeMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.derivative_mapper import DerivativeMapper
 from src.domain.ports.finance.financial_assets.derivatives.derivative_port import DerivativePort
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 

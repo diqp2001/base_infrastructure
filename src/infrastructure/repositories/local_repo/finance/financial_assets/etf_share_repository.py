@@ -7,7 +7,7 @@ from src.domain.ports.finance.financial_assets.share.etf_share_port import ETFSh
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel as ETFShareModel
 from src.domain.entities.finance.financial_assets.share.etf_share import ETFShare as ETFShareEntity
-from src.infrastructure.repositories.mappers.finance.financial_assets.etf_share_mapper import ETFShareMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.share.etf_share_mapper import ETFShareMapper
 class ETFShareRepository(FinancialAssetRepository, ETFSharePort):
     """Local repository for ETF share model"""
     

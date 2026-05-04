@@ -7,7 +7,7 @@ from src.domain.ports.finance.financial_assets.derivatives.swap_port import Swap
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel as SwapModel
 from src.domain.entities.finance.financial_assets.derivatives.swap import Swap as SwapEntity
-from src.infrastructure.repositories.mappers.finance.financial_assets.swap_mapper import SwapMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.swap_mapper import SwapMapper
 
 class SwapRepository(FinancialAssetRepository, SwapPort):
     """Local repository for swap model"""

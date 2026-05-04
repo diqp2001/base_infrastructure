@@ -13,7 +13,7 @@ from src.domain.ports.finance.financial_assets.share.company_share.company_share
 from src.infrastructure.repositories.local_repo.finance.financial_assets.share_repository import ShareRepository
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel as CompanyShareModel
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare as CompanyShareEntity
-from src.infrastructure.repositories.mappers.finance.financial_assets.company_share_mapper import CompanyShareMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
 
 
 class CompanyShareRepository(ShareRepository,CompanySharePort):

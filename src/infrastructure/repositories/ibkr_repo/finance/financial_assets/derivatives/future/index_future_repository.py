@@ -13,7 +13,7 @@ from decimal import Decimal
 from ibapi.contract import Contract, ContractDetails
 from ibapi.common import TickerId
 
-from src.infrastructure.repositories.mappers.finance.financial_assets.index_future_mapper import IndexFutureMapper
+from src.infrastructure.repositories.mappers.finance.financial_assets.derivatives.future.index_future_mapper import IndexFutureMapper
 from src.domain.ports.finance.financial_assets.derivatives.future.index_future_port import IndexFuturePort
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.financial_asset_repository import IBKRFinancialAssetRepository
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
