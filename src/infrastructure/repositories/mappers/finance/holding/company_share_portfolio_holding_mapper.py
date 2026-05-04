@@ -1,18 +1,26 @@
 from typing import Optional
 
-from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
-from domain.entities.finance.holding.company_share_portfolio_holding import (
+from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+from src.domain.entities.finance.holding.company_share_portfolio_holding import (
     CompanySharePortfolioHolding
 )
 
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import (
-    CompanySharePortfolioHoldingModel
+from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
+    CompanySharePortfolioHoldingModel 
 )
 
 
-class PortfolioCompanyShareHoldingMapper:
+class CompanySharePortfolioHoldingMapper:
     """Mapper for converting between PortfolioCompanyShareHolding entities and models"""
+    @property
+    def discriminator(self):
+        return "company_share_portfolio_holding"
 
+    @property
+    def model_class(self):
+        return CompanySharePortfolioHoldingModel
+
+    
     def to_entity(
         self,
         model: Optional[CompanySharePortfolioHoldingModel],

@@ -2,12 +2,12 @@ from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from sqlalchemy.orm import relationship
 
-class PortfolioCompanyShareOptionDerivativeModel(OptionsModel):
+class CompanySharePortfolioOptionModel(OptionsModel):
     """
     SQLAlchemy ORM model for Index Future Options.
     Completely separate from src.domain entity to avoid metaclass conflicts.
     """
-    __tablename__ = 'portfolio_company_share_option_derivatives'
+    __tablename__ = 'company_share_portfolio_option'
 
     id = Column(Integer, ForeignKey("options.id"), primary_key=True)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)

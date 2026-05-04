@@ -2,7 +2,7 @@
 
 
 from datetime import datetime
-from domain.entities.finance.holding.position import Position
+from src.domain.entities.finance.holding.position import Position
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.holding.holding import Holding

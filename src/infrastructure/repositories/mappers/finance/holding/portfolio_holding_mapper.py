@@ -1,6 +1,5 @@
 from typing import Optional
 
-from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.holding.company_share_portfolio_holding import (
     CompanySharePortfolioHolding
 )
@@ -12,7 +11,15 @@ from src.infrastructure.models.finance.holding.portfolio_holding import (
 
 class PortfolioHoldingMapper:
     """Mapper for converting between portfolio holding entities and models"""
+    @property
+    def discriminator(self):
+        return "portfolio_holding"
 
+    @property
+    def model_class(self):
+        return PortfolioHoldingsModel
+
+    
     def to_entity(self, model: Optional[PortfolioHoldingsModel]) -> Optional[PortfolioHoldingsModel]:
         """Convert PortfolioHoldingModel to PortfolioHolding entity"""
         if not model:

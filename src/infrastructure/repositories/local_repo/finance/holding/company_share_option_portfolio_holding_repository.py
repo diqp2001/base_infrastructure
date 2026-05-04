@@ -1,17 +1,17 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding
-from src.domain.ports.finance.holding.portfolio_company_share_option_holding_port import PortfolioCompanyShareOptionHoldingPort
-from src.infrastructure.repositories.mappers.finance.holding.portfolio_company_share_option_holding_mapper import PortfolioCompanyShareOptionHoldingMapper
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHolding
+from src.domain.ports.finance.holding.company_share_option_portfolio_holding_port import CompanyShareOptionPortfolioHoldingPort
+from src.infrastructure.repositories.mappers.finance.holding.company_share_option_portfolio_holding_mapper import CompanyShareOptionPortfolioHoldingMapper
 
 
-class PortfolioCompanyShareOptionHoldingRepository(PortfolioCompanyShareOptionHoldingPort):
+class CompanyShareOptionPortfolioHoldingRepository(CompanyShareOptionPortfolioHoldingPort):
 
     def __init__(self, session: Session, factory=None):
         self.session = session
         self.factory = factory
-        self.mapper = PortfolioCompanyShareOptionHoldingMapper()
+        self.mapper = CompanyShareOptionPortfolioHoldingMapper()
 
     @property
     def entity_class(self):
@@ -24,7 +24,7 @@ class PortfolioCompanyShareOptionHoldingRepository(PortfolioCompanyShareOptionHo
     # -------------------------
     # CREATE OR GET
     # -------------------------
-    def _create_or_get(self, portfolio_id: int, asset_id: int, **kwargs) -> Optional[PortfolioCompanyShareOptionHolding]:
+    def _create_or_get(self, portfolio_id: int, asset_id: int, **kwargs) -> Optional[CompanyShareOptionPortfolioHolding]:
 
         try:
             existing = self.get_by_portfolio_and_asset(portfolio_id, asset_id)
@@ -33,7 +33,7 @@ class PortfolioCompanyShareOptionHoldingRepository(PortfolioCompanyShareOptionHo
 
             # In practice, you'd need to create the entity with proper relationships
             # This is a simplified example
-            entity = PortfolioCompanyShareOptionHolding(
+            entity = CompanyShareOptionPortfolioHolding(
                 id=None,
                 asset=None,  # Would resolve CompanyShareOption by asset_id
                 portfolio=None,  # Would resolve PortfolioCompanyShareOption by portfolio_id
@@ -56,36 +56,36 @@ class PortfolioCompanyShareOptionHoldingRepository(PortfolioCompanyShareOptionHo
     # -------------------------
     # STANDARD METHODS
     # -------------------------
-    def get_by_portfolio_and_asset(self, portfolio_id: int, asset_id: int) -> Optional[PortfolioCompanyShareOptionHolding]:
+    def get_by_portfolio_and_asset(self, portfolio_id: int, asset_id: int) -> Optional[CompanyShareOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.portfolio_company_share_option_id == portfolio_id)\
             .filter(self.model_class.company_share_option_id == asset_id)\
             .one_or_none()
         return self.mapper.to_domain(obj)
 
-    def get_by_id(self, id: int) -> Optional[PortfolioCompanyShareOptionHolding]:
+    def get_by_id(self, id: int) -> Optional[CompanyShareOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.id == id)\
             .one_or_none()
         return self.mapper.to_domain(obj)
 
-    def get_by_portfolio_id(self, portfolio_id: int) -> List[PortfolioCompanyShareOptionHolding]:
+    def get_by_portfolio_id(self, portfolio_id: int) -> List[CompanyShareOptionPortfolioHolding]:
         objs = self.session.query(self.model_class)\
             .filter(self.model_class.portfolio_company_share_option_id == portfolio_id)\
             .all()
         return [self.mapper.to_domain(o) for o in objs]
 
-    def get_all(self) -> List[PortfolioCompanyShareOptionHolding]:
+    def get_all(self) -> List[CompanyShareOptionPortfolioHolding]:
         objs = self.session.query(self.model_class).all()
         return [self.mapper.to_domain(o) for o in objs]
 
-    def add(self, entity: PortfolioCompanyShareOptionHolding) -> Optional[PortfolioCompanyShareOptionHolding]:
+    def add(self, entity: CompanyShareOptionPortfolioHolding) -> Optional[CompanyShareOptionPortfolioHolding]:
         obj = self.mapper.to_orm(entity)
         self.session.add(obj)
         self.session.commit()
         return self.mapper.to_domain(obj)
 
-    def update(self, entity: PortfolioCompanyShareOptionHolding) -> Optional[PortfolioCompanyShareOptionHolding]:
+    def update(self, entity: CompanyShareOptionPortfolioHolding) -> Optional[CompanyShareOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.id == entity.id)\
             .one_or_none()

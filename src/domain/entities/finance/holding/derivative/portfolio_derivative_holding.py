@@ -9,7 +9,7 @@ from src.domain.entities.finance.holding.portfolio_holding import PortfolioHoldi
 
 
 
-class PortfolioDerivativeHolding(PortfolioHolding):
+class DerivativePortfolioHolding(PortfolioHolding):
     """
     Derivative held inside a PortfolioDerivativeHolding.
     """

@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime, date
 from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
 from src.domain.ports.finance.portfolio.company_share_option_portfolio_port import CompanyShareOptionPortfolioPort
-from src.infrastructure.repositories.mappers.finance.portfolio.portfolio_company_share_option_mapper import CompanyShareOptionPortfolioMapper
+from src.infrastructure.repositories.mappers.finance.portfolio.company_share_option_portfolio_mapper import CompanyShareOptionPortfolioMapper
 
 
 class CompanyShareOptionPortfolioRepository(CompanyShareOptionPortfolioPort):

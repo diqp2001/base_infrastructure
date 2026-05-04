@@ -3,20 +3,20 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from src.domain.ports.finance.holding.portfolio_company_share_holding_port import CompanySharePortfolioHoldingPort
+from src.domain.ports.finance.holding.company_share_portfolio_holding_port import CompanySharePortfolioHoldingPort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
-from src.infrastructure.models.finance.holding.portfolio_company_share_holding import CompanySharePortfolioHoldingModel
-from src.infrastructure.repositories.mappers.finance.holding.portfolio_company_share_holding_mapper import PortfolioCompanyShareHoldingMapper
+from infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
+from src.infrastructure.repositories.mappers.finance.holding.company_share_portfolio_holding_mapper import CompanySharePortfolioHoldingMapper
 
 
 class CompanySharePortfolioHoldingRepository(BaseLocalRepository, CompanySharePortfolioHoldingPort):
     """Repository for portfolio company share holding entities"""
     
-    def __init__(self, session: Session, factory,mapper: PortfolioCompanyShareHoldingMapper = None):
+    def __init__(self, session: Session, factory,mapper: CompanySharePortfolioHoldingMapper = None):
         self.session = session
         self.factory = factory
-        self.mapper = mapper or PortfolioCompanyShareHoldingMapper()
+        self.mapper = mapper or CompanySharePortfolioHoldingMapper()
 
     def get_by_id(self, holding_id: int) -> Optional[CompanySharePortfolioHoldingModel]:
         """Get a portfolio company share holding by ID"""

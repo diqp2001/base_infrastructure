@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
-from src.domain.entities.finance.portfolio.portfolio import Portfolio
-from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 
 
 class PortfolioHoldingPort(ABC):

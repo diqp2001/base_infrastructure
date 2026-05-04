@@ -8,7 +8,7 @@ from datetime import datetime
 
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding
-from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHolding
+from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import DerivativePortfolioHolding
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio

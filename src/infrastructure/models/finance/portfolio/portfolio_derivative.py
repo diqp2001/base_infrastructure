@@ -9,7 +9,7 @@ class DerivativePortfolioModel(PortfolioModel):
     SQLAlchemy model for portfolio derivative.
     Maps to domain.entities.finance.portfolio.derivative_portfolio.DerivativePortfolio
     """
-    __tablename__ = 'portfolio_derivatives'
+    __tablename__ = 'derivative_portfolios'
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
     
     
@@ -17,9 +17,9 @@ class DerivativePortfolioModel(PortfolioModel):
     # ONE portfolio_derivative → MANY portfolio_derivative_holdings
     portfolio_derivative_holdings = relationship(
         "src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding.PortfolioDerivativeHoldingModel", 
-        back_populates="portfolio_derivative"
+        back_populates="derivative_portfolios"
     )
     
     __mapper_args__ = {
-        "polymorphic_identity": "portfolio_derivative",
+        "polymorphic_identity": "derivative_portfolios",
     }

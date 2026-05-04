@@ -2,10 +2,10 @@
 
 from .option_port import OptionPort
 from .company_share_option_port import CompanyShareOptionPort
-from .portfolio_company_share_option_port import CompanyShareOptionPortfolioPort
+from .company_share_portfolio_option_port import CompanySharePortfolioOptionPort
 
 __all__ = [
     "OptionPort",
     "CompanyShareOptionPort",
-    "CompanyShareOptionPortfolioPort",
+    "CompanySharePortfolioOptionPort",
 ]
