@@ -52,10 +52,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_value_factor_repository import PortfolioCompanyShareValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_variance_factor_repository import PortfolioCompanyShareVarianceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding_factor_repository import HoldingFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_factor_repository import PortfolioCompanyShareHoldingFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_quantity_factor_repository import PortfolioCompanyShareHoldingQuantityFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_value_factor_repository import PortfolioCompanyShareHoldingValueFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_weight_factor_repository import PortfolioCompanyShareHoldingWeightFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_factor_repository import CompanySharePortfolioHoldingFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_quantity_factor_repository import CompanySharePortfolioHoldingQuantityFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_value_factor_repository import CompanySharePortfolioHoldingValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio_company_share_holding_weight_factor_repository import CompanySharePortfolioHoldingWeightFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio_holding_factor_repository import PortfolioHoldingFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_gamma_factor_repository import CompanyShareOptionGammaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_rho_factor_repository import CompanyShareOptionRhoFactorRepository
@@ -273,10 +273,10 @@ class RepositoryFactory:
                 'portfolio_company_share_value_factor': PortfolioCompanyShareValueFactorRepository(self.session, factory=self),
                 'portfolio_company_share_variance_factor': PortfolioCompanyShareVarianceFactorRepository(self.session, factory=self),
                 'holding_factor': HoldingFactorRepository(self.session, factory=self),
-                'portfolio_company_share_holding_factor': PortfolioCompanyShareHoldingFactorRepository(self.session, factory=self),
-                'portfolio_company_share_holding_quantity_factor': PortfolioCompanyShareHoldingQuantityFactorRepository(self.session, factory=self),
-                'portfolio_company_share_holding_value_factor': PortfolioCompanyShareHoldingValueFactorRepository(self.session, factory=self),
-                'portfolio_company_share_holding_weight_factor': PortfolioCompanyShareHoldingWeightFactorRepository(self.session, factory=self),
+                'portfolio_company_share_holding_factor': CompanySharePortfolioHoldingFactorRepository(self.session, factory=self),
+                'portfolio_company_share_holding_quantity_factor': CompanySharePortfolioHoldingQuantityFactorRepository(self.session, factory=self),
+                'portfolio_company_share_holding_value_factor': CompanySharePortfolioHoldingValueFactorRepository(self.session, factory=self),
+                'portfolio_company_share_holding_weight_factor': CompanySharePortfolioHoldingWeightFactorRepository(self.session, factory=self),
                 'portfolio_holding_factor': PortfolioHoldingFactorRepository(self.session, factory=self),
                 'company_share_option_gamma_factor': CompanyShareOptionGammaFactorRepository(self.session, factory=self),
                 'company_share_option_rho_factor': CompanyShareOptionRhoFactorRepository(self.session, factory=self),

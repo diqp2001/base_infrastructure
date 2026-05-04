@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Optional
 
-from .company_share_portfolio_holding_factor import PortfolioCompanyShareHoldingFactor
+from .company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
 
 
-class PortfolioCompanyShareHoldingQuantityFactor(PortfolioCompanyShareHoldingFactor):
+class CompanySharePortfolioHoldingQuantityFactor(CompanySharePortfolioHoldingFactor):
     """
     Factor representing the number of shares held in a portfolio for a specific company share.
     

@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_weight_factor import PortfolioCompanyShareHoldingWeightFactor
+from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_weight_factor import CompanySharePortfolioHoldingWeightFactor
 
 
-class PortfolioCompanyShareHoldingWeightFactorRepository(BaseFactorRepository):
+class CompanySharePortfolioHoldingWeightFactorRepository(BaseFactorRepository):
     """Repository for Portfolio Company Share Holding Weight factor entities with CRUD operations."""
     
     def __init__(self, session: Session, factory=None):
@@ -21,7 +21,7 @@ class PortfolioCompanyShareHoldingWeightFactorRepository(BaseFactorRepository):
         return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return PortfolioCompanyShareHoldingWeightFactor
+        return CompanySharePortfolioHoldingWeightFactor
 
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()
