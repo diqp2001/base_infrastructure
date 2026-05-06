@@ -24,7 +24,7 @@ class CompanySharePortfolioHoldingMapper:
     def to_entity(
         self,
         model: Optional[CompanySharePortfolioHoldingModel],
-    ) -> Optional[CompanySharePortfolioHoldingModel]:
+    ) -> Optional[CompanySharePortfolioHolding]:
         """Convert PortfolioCompanyShareHoldingModel to domain entity"""
         if not model:
             return None
