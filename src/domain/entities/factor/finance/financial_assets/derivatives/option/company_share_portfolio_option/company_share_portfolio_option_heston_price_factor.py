@@ -2,10 +2,10 @@ import math
 import random
 from typing import Optional
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class PortfolioCompanyShareOptionHestonPriceFactor(PortfolioCompanyShareOptionFactor):
+class CompanySharePortfolioOptionHestonPriceFactor(CompanySharePortfolioOptionFactor):
     """Heston stochastic volatility price factor for portfolio company share options."""
 
     def __init__(
@@ -213,72 +213,9 @@ class PortfolioCompanyShareOptionHestonPriceFactor(PortfolioCompanyShareOptionFa
         except (ValueError, ZeroDivisionError, OverflowError):
             return None
 
-    def calculate_volatility_surface_fit(
-        self,
-        market_prices: dict,  # {(K, T): market_price}
-        S0: float,            # current portfolio level
-        r: float,             # risk-free rate
-        q: float = 0.0,       # dividend yield
-        initial_guess: dict = None,
-    ) -> dict:
-        """
-        Calibrate Heston parameters to fit market option prices.
-        
-        This is a simplified implementation for demonstration purposes.
-        """
-        if initial_guess is None:
-            initial_guess = {
-                "v0": 0.04,      # 20% initial volatility
-                "kappa": 2.0,    # mean reversion speed
-                "theta": 0.04,   # long-term variance
-                "xi": 0.3,       # vol of vol
-                "rho": -0.5      # correlation
-            }
-
-        # This would typically use optimization methods like differential evolution
-        # For now, return the initial guess as a placeholder
-        return initial_guess
-
     def feller_condition_check(self, kappa: float, theta: float, xi: float) -> bool:
         """
         Check if Feller condition is satisfied: 2*kappa*theta >= xi^2
         This ensures the volatility process doesn't reach zero.
         """
         return 2 * kappa * theta >= xi * xi
-
-    def calculate_moment_generating_function(
-        self,
-        u: complex,
-        S: float,
-        r: float,
-        T: float,
-        v0: float,
-        kappa: float,
-        theta: float,
-        xi: float,
-        rho: float,
-        q: float = 0.0,
-    ) -> complex:
-        """
-        Calculate the moment generating function for portfolio returns under Heston.
-        """
-        try:
-            # This is the same as the characteristic function calculation
-            d = math.sqrt((rho * xi * u * 1j - kappa) ** 2 + xi ** 2 * (u * 1j + u ** 2))
-            g = (kappa - rho * xi * u * 1j - d) / (kappa - rho * xi * u * 1j + d)
-            
-            # Avoid numerical issues
-            if abs(g) >= 1:
-                return 0
-            
-            # MGF components
-            C = (r - q) * u * 1j * T + (kappa * theta / (xi ** 2)) * (
-                (kappa - rho * xi * u * 1j - d) * T - 2 * math.log((1 - g * math.exp(-d * T)) / (1 - g))
-            )
-            
-            D = ((kappa - rho * xi * u * 1j - d) / (xi ** 2)) * (1 - math.exp(-d * T)) / (1 - g * math.exp(-d * T))
-            
-            return math.exp(C + D * v0 + u * 1j * math.log(S))
-
-        except (ValueError, ZeroDivisionError, OverflowError):
-            return 0

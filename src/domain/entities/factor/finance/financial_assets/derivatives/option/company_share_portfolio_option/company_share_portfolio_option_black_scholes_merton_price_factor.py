@@ -2,10 +2,10 @@ import math
 from typing import Optional
 import numpy as np
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class PortfolioCompanyShareOptionBlackScholesMertonPriceFactor(PortfolioCompanyShareOptionFactor):
+class CompanySharePortfolioOptionBlackScholesMertonPriceFactor(CompanySharePortfolioOptionFactor):
     """Black-Scholes-Merton price factor for portfolio company share options with dividend yield."""
 
     def __init__(
