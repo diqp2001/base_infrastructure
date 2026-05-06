@@ -4,7 +4,7 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
-class PortfolioCompanyShareOptionFactor(OptionFactor):
+class CompanySharePortfolioOptionFactor(OptionFactor):
     """
     Factor for options whose underlying is a portfolio composed
     of company shares (equities).

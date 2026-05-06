@@ -3,11 +3,11 @@ import random
 from typing import Optional
 import numpy as np
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class PortfolioCompanyShareOptionBatesPriceFactor(PortfolioCompanyShareOptionFactor):
-    """Bates model (Heston with jump diffusion) price factor for portfolio company share options with correlation and jumps."""
+class CompanySharePortfolioOptionBatesPriceFactor(CompanySharePortfolioOptionFactor):
+    """Bates model (Heston with jump diffusion) price factor for company share portfolio options with correlation and jumps."""
 
     def __init__(
         self,

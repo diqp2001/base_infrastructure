@@ -2,11 +2,11 @@ import math
 import random
 from typing import List, Optional
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class PortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
-    """Price factor associated with portfolio company share options."""
+class CompanySharePortfolioOptionPriceFactor(CompanySharePortfolioOptionFactor):
+    """Price factor associated with company share portfolio options."""
 
     def __init__(
         self,
@@ -42,7 +42,7 @@ class PortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
         multiplier: int = 100,        # contract multiplier
     ) -> Optional[float]:
         """
-        Calculate the theoretical portfolio company share option price using Black-Scholes formula.
+        Calculate the theoretical company share portfolio option price using Black-Scholes formula.
         """
         if stock_price <= 0 or strike_price <= 0 or volatility <= 0 or time_to_expiry <= 0:
             return None
@@ -76,7 +76,7 @@ class PortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
         n_paths: int = 10000,
     ) -> Optional[float]:
         """
-        Calculate portfolio company share option price using Monte Carlo simulation.
+        Calculate company share portfolio option price using Monte Carlo simulation.
         """
         if stock_price <= 0 or strike_price <= 0 or volatility <= 0 or time_to_expiry <= 0:
             return None
@@ -111,7 +111,7 @@ class PortfolioCompanyShareOptionPriceFactor(PortfolioCompanyShareOptionFactor):
         steps: int = 100,
     ) -> Optional[float]:
         """
-        Calculate portfolio company share option price using binomial tree model.
+        Calculate company share portfolio option price using binomial tree model.
         """
         if stock_price <= 0 or strike_price <= 0 or volatility <= 0 or time_to_expiry <= 0 or steps <= 0:
             return None

@@ -1,11 +1,11 @@
 import math
 from typing import Optional
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class PortfolioCompanyShareOptionDeltaFactor(PortfolioCompanyShareOptionFactor):
-    """Delta factor associated with portfolio company share options."""
+class CompanySharePortfolioOptionDeltaFactor(CompanySharePortfolioOptionFactor):
+    """Delta factor associated with company share portfolio options."""
 
     def __init__(
         self,
@@ -41,7 +41,7 @@ class PortfolioCompanyShareOptionDeltaFactor(PortfolioCompanyShareOptionFactor):
         multiplier: int = 100,        # contract multiplier
     ) -> Optional[float]:
         """
-        Calculate delta for portfolio company share options using Black-Scholes model.
+        Calculate delta for company share portfolio options using Black-Scholes model.
         """
         if stock_price <= 0 or strike_price <= 0 or volatility <= 0 or time_to_expiry <= 0:
             return None
@@ -77,7 +77,7 @@ class PortfolioCompanyShareOptionDeltaFactor(PortfolioCompanyShareOptionFactor):
         Calculate dollar delta (delta * stock price * multiplier).
         Represents the dollar change in option value for a 1 point move in the stock.
         """
-        delta = self.calculate_delta(
+        delta = self.calculate(
             stock_price, strike_price, risk_free_rate, volatility,
             time_to_expiry, option_type, dividend_yield, multiplier
         )
@@ -107,7 +107,7 @@ class PortfolioCompanyShareOptionDeltaFactor(PortfolioCompanyShareOptionFactor):
         Returns:
             Number of hedge instrument shares needed per option contract
         """
-        delta = self.calculate_delta(
+        delta = self.calculate(
             stock_price, strike_price, risk_free_rate, volatility,
             time_to_expiry, option_type, dividend_yield, multiplier
         )
