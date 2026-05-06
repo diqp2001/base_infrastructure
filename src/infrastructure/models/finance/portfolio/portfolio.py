@@ -19,12 +19,11 @@ class PortfolioModel(Base):
 
     # ONE portfolio → MANY positions
     positions = relationship("src.infrastructure.models.finance.position.PositionModel",back_populates="portfolios",cascade="all, delete-orphan")
-    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="portfolio")
-    security_holdings = relationship("src.infrastructure.models.finance.holding.security_holding.SecurityHoldingModel", back_populates="portfolio")
-    #portfolio_statistics = relationship("src.infrastructure.models.finance.portfolio.portfolio_statistics.PortfolioStatisticsModel", back_populates="portfolio", cascade="all, delete-orphan")
-    securities = relationship("src.infrastructure.models.finance.financial_assets.security.SecurityModel", back_populates="portfolio")
+    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="portfolios")
+    security_holdings = relationship("src.infrastructure.models.finance.holding.security_holding.SecurityHoldingModel", back_populates="portfolios")
+    securities = relationship("src.infrastructure.models.finance.financial_assets.security.SecurityModel", back_populates="portfolios")
     __mapper_args__ = {
-    "polymorphic_identity": "portfolio",}
+    "polymorphic_identity": "portfolios",}
     def __repr__(self):
         return (
             f"<Portfolio(id={self.id}, name={self.name}, "

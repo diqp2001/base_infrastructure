@@ -5,7 +5,7 @@ Repository class for IndexFuturePriceReturnFactor entities.
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.future.index.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

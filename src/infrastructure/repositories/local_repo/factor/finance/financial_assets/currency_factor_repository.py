@@ -3,7 +3,7 @@ Repository class for Currency factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.currency_factor_mapper import CurrencyFactorMapper
+from infrastructure.repositories.mappers.currency_factor_mapper import CurrencyFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

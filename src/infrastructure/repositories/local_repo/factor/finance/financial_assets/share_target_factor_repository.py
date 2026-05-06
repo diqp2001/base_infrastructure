@@ -3,7 +3,7 @@ Repository class for ShareTarget factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.share_target_factor_mapper import ShareTargetFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_target_factor_mapper import ShareTargetFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

@@ -3,7 +3,7 @@ Repository class for Security factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.security_factor_mapper import SecurityFactorMapper
+from infrastructure.repositories.mappers.security_factor_mapper import SecurityFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

@@ -25,7 +25,7 @@ def test_imports():
         print("✅ IndexFuturePriceReturnFactorModel imported successfully")
         
         # Test mapper import
-        from src.infrastructure.repositories.mappers.factor.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
+        from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.future.index.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
         print("✅ IndexFuturePriceReturnFactorMapper imported successfully")
         
         # Test local repository import
@@ -79,7 +79,7 @@ def test_entity_creation():
 def test_mapper_functionality():
     """Test that the mapper works correctly."""
     try:
-        from src.infrastructure.repositories.mappers.factor.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
+        from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.future.index.index_future_price_return_factor_mapper import IndexFuturePriceReturnFactorMapper
         from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor import IndexFuturePriceReturnFactor
         
         mapper = IndexFuturePriceReturnFactorMapper()

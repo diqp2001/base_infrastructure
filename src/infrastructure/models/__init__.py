@@ -73,7 +73,7 @@ from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg
 # Portfolio and holdings (depends on all asset types)
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel
-from infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolioModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
@@ -83,8 +83,8 @@ from src.infrastructure.models.finance.instrument import InstrumentModel
 from src.infrastructure.models.finance.holding.holding import HoldingModel
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
-from infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
-from infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
+from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
+from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHoldingModel
 
 # Account, Order, and Transaction models

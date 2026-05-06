@@ -5,7 +5,7 @@ Repository class for Company Share Option Delta factor entities.
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.company_share_option_delta_factor_mapper import CompanyShareOptionDeltaFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_delta_factor_mapper import CompanyShareOptionDeltaFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

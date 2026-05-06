@@ -3,7 +3,7 @@ Repository class for FinancialAsset factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.financial_asset_factor_mapper import FinancialAssetFactorMapper
+from infrastructure.repositories.mappers.financial_asset_factor_mapper import FinancialAssetFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

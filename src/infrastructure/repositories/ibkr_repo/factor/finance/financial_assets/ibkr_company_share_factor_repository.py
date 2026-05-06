@@ -8,7 +8,7 @@ for company shares using IBKR data.
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
-from src.infrastructure.repositories.mappers.factor.company_share_factor_mapper import CompanyShareFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_factor_mapper import CompanyShareFactorMapper
 from src.domain.ports.factor.company_share_factor_port import CompanyShareFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository

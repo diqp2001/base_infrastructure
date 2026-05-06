@@ -4,7 +4,7 @@ from typing import Optional
 from ..portfolio_factor import PortfolioFactor
 
 
-class PortfolioCompanyShareFactor(PortfolioFactor):
+class CompanySharePortfolioFactor(PortfolioFactor):
     """
     Domain entity representing a portfolio factor specific to
     portfolios composed of company shares (equities).

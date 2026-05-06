@@ -3,13 +3,11 @@ from typing import Optional, List
 from decimal import Decimal
 import math
 
-from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import (
-    PortfolioCompanyShareFactor
-)
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 
 
-class PortfolioCompanyShareVarianceFactor(PortfolioCompanyShareFactor):
+class CompanySharePortfolioVarianceFactor(CompanySharePortfolioFactor):
     """
     Factor representing the variance of company share returns within a portfolio.
 

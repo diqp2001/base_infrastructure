@@ -3,7 +3,7 @@ Repository class for Derivative factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.derivative_factor_mapper import DerivativeFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.derivative_factor_mapper import DerivativeFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

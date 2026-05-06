@@ -4,7 +4,7 @@ Repository class for Index Future Option Delta factor entities.
 
 from typing import Optional
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.index_future_option_delta_factor_mapper import IndexFutureOptionDeltaFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_delta_factor_mapper import IndexFutureOptionDeltaFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

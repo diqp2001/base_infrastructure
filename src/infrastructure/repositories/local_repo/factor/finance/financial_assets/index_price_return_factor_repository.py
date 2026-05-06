@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.index.index_price_return_factor_mapper import IndexPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

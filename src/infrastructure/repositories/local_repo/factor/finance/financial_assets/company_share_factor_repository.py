@@ -6,7 +6,7 @@ import logging
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from src.infrastructure.repositories.mappers.factor.company_share_factor_mapper import CompanyShareFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_factor_mapper import CompanyShareFactorMapper
 from src.infrastructure.models.factor.factor import FactorModel
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
 from src.domain.ports.factor.company_share_factor_port import CompanyShareFactorPort

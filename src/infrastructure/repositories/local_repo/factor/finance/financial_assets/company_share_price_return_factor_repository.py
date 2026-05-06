@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.company_share_price_return_factor_mapper import CompanySharePriceReturnFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_price_return_factor_mapper import CompanySharePriceReturnFactorMapper
 from src.infrastructure.models.factor.factor import FactorModel
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_price_return_factor import CompanySharePriceReturnFactor
 from src.domain.ports.factor.company_share_price_return_factor_port import CompanySharePriceReturnFactorPort

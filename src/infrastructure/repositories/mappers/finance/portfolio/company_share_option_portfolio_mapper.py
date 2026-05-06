@@ -6,8 +6,8 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio as DomainPortfolioCompanyShareOption
-from src.infrastructure.models.finance.portfolio.portfolio_company_share_option import CompanyShareOptionPortfolioModel as ORMPortfolioCompanyShareOption
+from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio as DomainCompanyShareOptionPortfolio
+from src.infrastructure.models.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolioModel as ORMCompanyShareOptionPortfolio
 
 
 class CompanyShareOptionPortfolioMapper:
@@ -18,13 +18,13 @@ class CompanyShareOptionPortfolioMapper:
         return "company_share_option_portfolio"
     @property
     def entity_class(self):
-        return DomainPortfolioCompanyShareOption
+        return DomainCompanyShareOptionPortfolio
     @property
     def model_class(self):
-        return ORMPortfolioCompanyShareOption
+        return ORMCompanyShareOptionPortfolio
 
     def get_entity(self):
-        return DomainPortfolioCompanyShareOption
+        return DomainCompanyShareOptionPortfolio
 
     def to_domain(self,orm_obj):
         """Convert ORM model to domain entity."""

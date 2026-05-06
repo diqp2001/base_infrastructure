@@ -7,9 +7,9 @@ from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor as CompanyShareOptionFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor import IndexFutureOptionFactor as IndexFutureOptionFactorEntity
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.portfolio_company_share_option.portfolio_company_share_option_factor import PortfolioCompanyShareOptionFactor as PortfolioCompanyShareOptionFactorEntity
+from domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor as CompanyShareOptionPortfolioFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor as CompanyShareFactorEntity
-from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import PortfolioCompanyShareFactor as PortfolioCompanyShareFactorEntity
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor as CompanySharePortfolioFactorEntity
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
@@ -127,10 +127,10 @@ ENTITY_FACTOR_MAPPING = {
         CompanyShareOptionFactorEntity
     ],
     CompanySharePortfolioOption: [
-        PortfolioCompanyShareOptionFactorEntity
+        CompanyShareOptionPortfolioFactorEntity
     ],
     CompanySharePortfolio: [
-        PortfolioCompanyShareFactorEntity
+        CompanySharePortfolioFactorEntity
     ],
     
     Bond: [

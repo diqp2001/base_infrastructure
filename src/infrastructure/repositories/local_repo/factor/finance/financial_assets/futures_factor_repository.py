@@ -5,7 +5,7 @@ Repository class for Futures factor entities.
 from typing import Optional
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.future_factor_mapper import FutureFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.future.future_factor_mapper import FutureFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

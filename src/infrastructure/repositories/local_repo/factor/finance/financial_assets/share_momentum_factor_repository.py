@@ -3,7 +3,7 @@ Repository class for ShareMomentum factor entities.
 """
 
 from sqlalchemy.orm import Session
-from src.infrastructure.repositories.mappers.factor.share_momentum_factor_mapper import ShareMomentumFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_momentum_factor_mapper import ShareMomentumFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 

@@ -8,7 +8,7 @@ applying IBKR-specific business rules before delegating persistence to local rep
 from typing import Optional, List, Dict, Any
 from datetime import date
 
-from src.infrastructure.repositories.mappers.factor.index_future_option_price_return_factor_mapper import IndexFutureOptionPriceReturnFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_price_return_factor_mapper import IndexFutureOptionPriceReturnFactorMapper
 from src.domain.ports.factor.company_share_price_return_factor_port import CompanySharePriceReturnFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 

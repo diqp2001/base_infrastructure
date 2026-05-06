@@ -13,10 +13,10 @@ class CompanySharePortfolioHoldingModel(HoldingModel):
     
     id = Column(Integer, ForeignKey("holdings.id"), primary_key=True)
     asset_id = Column(Integer, ForeignKey('company_shares.id'), nullable=False)
-    portfolio_company_share_id = Column(Integer, ForeignKey('portfolio_company_shares.id'), nullable=False)
+    portfolio_company_share_id = Column(Integer, ForeignKey('company_shares_portfolio.id'), nullable=False)
 
     # Relationships
-    portfolio_company_shares = relationship("src.infrastructure.models.finance.portfolio.portfolio_company_share.CompanySharePortfolioModel", back_populates="company_share_portfolio_holdings")
+    portfolio_company_shares = relationship("src.infrastructure.models.finance.portfolio.company_share_portfolio.CompanySharePortfolioModel", back_populates="company_share_portfolio_holdings")
     company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="company_share_portfolio_holdings")
 
     __mapper_args__ = {

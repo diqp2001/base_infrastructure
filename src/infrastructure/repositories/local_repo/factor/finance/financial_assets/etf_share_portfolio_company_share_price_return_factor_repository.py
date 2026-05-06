@@ -5,7 +5,7 @@ Repository class for ETF Share Portfolio Company Share Price Return factor entit
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.etf_share_portfolio_company_share_price_return_factor_mapper import ETFSharePortfolioCompanySharePriceReturnFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.etf_share.etf_share_portfolio_company_share_price_return_factor_mapper import ETFSharePortfolioCompanySharePriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.domain.ports.factor.etf_share_portfolio_company_share_price_return_factor_port import ETFSharePortfolioCompanySharePriceReturnFactorPort
 from ...base_factor_repository import BaseFactorRepository

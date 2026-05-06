@@ -9,11 +9,9 @@ from sqlalchemy.orm import Session
 from src.infrastructure.models.finance.holding.holding import (
     HoldingModel
 )
-from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 
 from src.infrastructure.repositories.mappers.finance.holding.holding_mapper import HoldingMapper
 from src.domain.entities.finance.holding.holding import Holding
-from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 from src.domain.ports.finance.holding.holding_port import HoldingPort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 

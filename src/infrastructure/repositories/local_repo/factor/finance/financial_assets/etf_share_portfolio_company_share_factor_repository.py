@@ -5,7 +5,7 @@ Repository class for ETF Share Portfolio Company Share factor entities.
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.infrastructure.repositories.mappers.factor.etf_share_portfolio_company_share_factor_mapper import ETFSharePortfolioCompanyShareFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.etf_share.etf_share_portfolio_company_share_factor_mapper import ETFSharePortfolioCompanyShareFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.domain.ports.factor.etf_share_portfolio_company_share_factor_port import ETFSharePortfolioCompanyShareFactorPort
 from ...base_factor_repository import BaseFactorRepository

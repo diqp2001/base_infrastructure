@@ -47,15 +47,15 @@ from src.infrastructure.repositories.local_repo.factor.country_factor_repository
 
 # New Local Factor repositories
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.portfolio_factor_repository import PortfolioFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_correlation_factor_repository import PortfolioCompanyShareCorrelationFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_return_factor_repository import PortfolioCompanyShareReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_value_factor_repository import PortfolioCompanyShareValueFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_variance_factor_repository import PortfolioCompanyShareVarianceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_correlation_factor_repository import CompanySharePortfolioCorrelationFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_return_factor_repository import CompanySharePortfolioReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_value_factor_repository import CompanySharePortfolioValueFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_variance_factor_repository import CompanySharePortfolioVarianceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.holding_factor_repository import HoldingFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_holding_factor_repository import CompanySharePortfolioHoldingFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_holding_quantity_factor_repository import CompanySharePortfolioHoldingQuantityFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_holding_value_factor_repository import CompanySharePortfolioHoldingValueFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.portfolio_company_share_holding_weight_factor_repository import CompanySharePortfolioHoldingWeightFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_factor_repository import CompanySharePortfolioHoldingFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_quantity_factor_repository import CompanySharePortfolioHoldingQuantityFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_value_factor_repository import CompanySharePortfolioHoldingValueFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_weight_factor_repository import CompanySharePortfolioHoldingWeightFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.portfolio_holding_factor_repository import PortfolioHoldingFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_gamma_factor_repository import CompanyShareOptionGammaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_rho_factor_repository import CompanyShareOptionRhoFactorRepository
@@ -268,10 +268,10 @@ class RepositoryFactory:
                 'company_share_option_price_factor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
                 # New factor repositories
                 'portfolio_factor': PortfolioFactorRepository(self.session, factory=self),
-                'portfolio_company_share_correlation_factor': PortfolioCompanyShareCorrelationFactorRepository(self.session, factory=self),
-                'portfolio_company_share_return_factor': PortfolioCompanyShareReturnFactorRepository(self.session, factory=self),
-                'portfolio_company_share_value_factor': PortfolioCompanyShareValueFactorRepository(self.session, factory=self),
-                'portfolio_company_share_variance_factor': PortfolioCompanyShareVarianceFactorRepository(self.session, factory=self),
+                'portfolio_company_share_correlation_factor': CompanySharePortfolioCorrelationFactorRepository(self.session, factory=self),
+                'portfolio_company_share_return_factor': CompanySharePortfolioReturnFactorRepository(self.session, factory=self),
+                'portfolio_company_share_value_factor': CompanySharePortfolioValueFactorRepository(self.session, factory=self),
+                'portfolio_company_share_variance_factor': CompanySharePortfolioVarianceFactorRepository(self.session, factory=self),
                 'holding_factor': HoldingFactorRepository(self.session, factory=self),
                 'portfolio_company_share_holding_factor': CompanySharePortfolioHoldingFactorRepository(self.session, factory=self),
                 'portfolio_company_share_holding_quantity_factor': CompanySharePortfolioHoldingQuantityFactorRepository(self.session, factory=self),

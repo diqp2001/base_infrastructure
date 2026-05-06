@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import Optional, List
 from decimal import Decimal
 
-from src.domain.entities.factor.finance.portfolio.portfolio_company_share_factor.portfolio_company_share_factor import PortfolioCompanyShareFactor
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 
 
-class PortfolioCompanyShareValueFactor(PortfolioCompanyShareFactor):
+class CompanySharePortfolioValueFactor(CompanySharePortfolioFactor):
     """
     Factor representing the total value of all company share holdings in a portfolio.
     

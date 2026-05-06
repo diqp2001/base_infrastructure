@@ -9,7 +9,7 @@ from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
 from src.domain.ports.factor.company_share_mid_price_factor_port import CompanyShareMidPriceFactorPort
-from src.infrastructure.repositories.mappers.factor.company_share_mid_price_factor_mapper import CompanyShareMidPriceFactorMapper
+from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_mapper import CompanyShareMidPriceFactorMapper
 
 
 class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):

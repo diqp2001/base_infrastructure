@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.domain.ports.finance.holding.company_share_portfolio_holding_port import CompanySharePortfolioHoldingPort
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
-from infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
+from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 from src.infrastructure.repositories.mappers.finance.holding.company_share_portfolio_holding_mapper import CompanySharePortfolioHoldingMapper
 
 
