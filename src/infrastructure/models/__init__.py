@@ -84,7 +84,7 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
-from infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
+from src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
 
 # Account, Order, and Transaction models
 from src.infrastructure.models.finance.account import AccountModel
