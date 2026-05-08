@@ -213,41 +213,6 @@ class CompanyShareOptionVegaFactorModel(FactorModel):
     }
 
 
-# ETF Share Portfolio Company Share Option Factor Models
-class ETFSharePortfolioCompanyShareOptionFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_option_factor"
-    }
-
-
-class ETFSharePortfolioCompanyShareOptionDeltaFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_option_delta_factor"
-    }
-
-
-class ETFSharePortfolioCompanyShareOptionPriceFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_option_price_factor"
-    }
-
-
-class ETFSharePortfolioCompanyShareOptionPriceReturnFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_option_price_return_factor"
-    }
-
-
-class ETFSharePortfolioCompanyShareFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_factor"
-    }
-
-
-class ETFSharePortfolioCompanySharePriceReturnFactorModel(FactorModel):
-    __mapper_args__ = {
-        "polymorphic_identity": "etf_share_portfolio_company_share_price_return_factor"
-    }
 
 
 # Mid Price Factor Models

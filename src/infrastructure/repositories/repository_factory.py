@@ -514,7 +514,7 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
-                'portfolio_company_share_correlation_factor': IBKRCompanySharePortfolioCorrelationFactorRepository(
+                'company_share_portfolio_correlation_factor': IBKRCompanySharePortfolioCorrelationFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),
@@ -1128,9 +1128,9 @@ class RepositoryFactory:
         return self._local_repositories.get('portfolio_holding')
     
     @property
-    def portfolio_company_share_holding_local_repo(self):
+    def company_share_portfolio_holding_local_repo(self):
         """Get portfolio_company_share_holding repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_holding')
+        return self._local_repositories.get('company_share_portfolio_holding')
     
     @property
     def financial_statement_local_repo(self):
@@ -1200,24 +1200,24 @@ class RepositoryFactory:
         return self._local_repositories.get('portfolio_factor')
     
     @property
-    def portfolio_company_share_correlation_factor_local_repo(self):
+    def company_share_portfolio_correlation_factor_local_repo(self):
         """Get portfolio_company_share_correlation_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_correlation_factor')
+        return self._local_repositories.get('company_share_portfolio_correlation_factor')
     
     @property
-    def portfolio_company_share_return_factor_local_repo(self):
+    def company_share_portfolio_return_factor_local_repo(self):
         """Get portfolio_company_share_return_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_return_factor')
+        return self._local_repositories.get('company_share_portfolio_return_factor')
     
     @property
-    def portfolio_company_share_value_factor_local_repo(self):
+    def company_share_portfolio_value_factor_local_repo(self):
         """Get portfolio_company_share_value_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_value_factor')
+        return self._local_repositories.get('company_share_portfolio_value_factor')
     
     @property
-    def portfolio_company_share_variance_factor_local_repo(self):
+    def company_share_portfolio_variance_factor_local_repo(self):
         """Get portfolio_company_share_variance_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_variance_factor')
+        return self._local_repositories.get('company_share_portfolio_variance_factor')
     
     @property
     def holding_factor_local_repo(self):
@@ -1225,24 +1225,24 @@ class RepositoryFactory:
         return self._local_repositories.get('holding_factor')
     
     @property
-    def portfolio_company_share_holding_factor_local_repo(self):
+    def company_share_portfolio_holding_factor_local_repo(self):
         """Get portfolio_company_share_holding_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_holding_factor')
+        return self._local_repositories.get('company_share_portfolio_holding_factor')
     
     @property
-    def portfolio_company_share_holding_quantity_factor_local_repo(self):
+    def company_share_portfolio_holding_quantity_factor_local_repo(self):
         """Get portfolio_company_share_holding_quantity_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_holding_quantity_factor')
+        return self._local_repositories.get('company_share_portfolio_holding_quantity_factor')
     
     @property
-    def portfolio_company_share_holding_value_factor_local_repo(self):
+    def company_share_portfolio_holding_value_factor_local_repo(self):
         """Get portfolio_company_share_holding_value_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_holding_value_factor')
+        return self._local_repositories.get('company_share_portfolio_holding_value_factor')
     
     @property
-    def portfolio_company_share_holding_weight_factor_local_repo(self):
+    def company_share_portfolio_holding_weight_factor_local_repo(self):
         """Get portfolio_company_share_holding_weight_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_holding_weight_factor')
+        return self._local_repositories.get('company_share_portfolio_holding_weight_factor')
     
     @property
     def portfolio_holding_factor_local_repo(self):
@@ -1307,45 +1307,17 @@ class RepositoryFactory:
         return self._ibkr_repositories.get('portfolio_factor')
     
     @property
-    def portfolio_company_share_correlation_factor_ibkr_repo(self):
+    def company_share_portfolio_correlation_factor_ibkr_repo(self):
         """Get portfolio_company_share_correlation_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('portfolio_company_share_correlation_factor')
+        return self._ibkr_repositories.get('company_share_portfolio_correlation_factor')
 
     # New Local repository properties
     @property
-    def portfolio_company_share_option_factor_local_repo(self):
+    def company_share_portfolio_option_factor_local_repo(self):
         """Get portfolio_company_share_option_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_option_factor')
+        return self._local_repositories.get('company_share_portfolio_option_factor')
 
-    @property
-    def etf_share_portfolio_company_share_option_delta_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_option_delta_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_option_delta_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_option_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_option_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_price_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_option_price_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_option_price_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_price_return_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_option_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_option_price_return_factor')
-
-    @property
-    def etf_share_portfolio_company_share_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_factor')
-
-    @property
-    def etf_share_portfolio_company_share_price_return_factor_local_repo(self):
-        """Get etf_share_portfolio_company_share_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('etf_share_portfolio_company_share_price_return_factor')
+    
 
     @property
     def company_share_option_delta_factor_local_repo(self):
@@ -1364,39 +1336,11 @@ class RepositoryFactory:
 
     # New IBKR repository properties
     @property
-    def portfolio_company_share_option_factor_ibkr_repo(self):
+    def company_share_portfolio_option_factor_ibkr_repo(self):
         """Get portfolio_company_share_option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('portfolio_company_share_option_factor')
+        return self._ibkr_repositories.get('company_share_portfolio_option_factor')
 
-    @property
-    def etf_share_portfolio_company_share_option_delta_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_option_delta_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_delta_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_price_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_option_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_price_factor')
-
-    @property
-    def etf_share_portfolio_company_share_option_price_return_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_option_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_option_price_return_factor')
-
-    @property
-    def etf_share_portfolio_company_share_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_factor')
-
-    @property
-    def etf_share_portfolio_company_share_price_return_factor_ibkr_repo(self):
-        """Get etf_share_portfolio_company_share_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share_portfolio_company_share_price_return_factor')
+ 
 
     @property
     def company_share_option_delta_factor_ibkr_repo(self):
@@ -1486,9 +1430,9 @@ class RepositoryFactory:
         return self._local_repositories.get('company_share_option')
 
     @property
-    def portfolio_company_share_option_local_repo(self):
+    def company_share_portfolio_option_local_repo(self):
         """Get portfolio_company_share_option repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_option')
+        return self._local_repositories.get('company_share_portfolio_option')
 
     @property
     def company_share_option_price_return_factor_local_repo(self):
@@ -1496,19 +1440,19 @@ class RepositoryFactory:
         return self._local_repositories.get('company_share_option_price_return_factor')
 
     @property
-    def portfolio_company_share_option_price_return_factor_local_repo(self):
+    def company_share_portfolio_option_price_return_factor_local_repo(self):
         """Get portfolio_company_share_option_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_option_price_return_factor')
+        return self._local_repositories.get('company_share_portfolio_option_price_return_factor')
 
     @property
-    def portfolio_company_share_option_delta_factor_local_repo(self):
+    def company_share_portfolio_option_delta_factor_local_repo(self):
         """Get portfolio_company_share_option_delta_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_option_delta_factor')
+        return self._local_repositories.get('company_share_portfolio_option_delta_factor')
 
     @property
-    def portfolio_company_share_option_price_factor_local_repo(self):
+    def company_share_portfolio_option_price_factor_local_repo(self):
         """Get portfolio_company_share_option_price_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_company_share_option_price_factor')
+        return self._local_repositories.get('company_share_portfolio_option_price_factor')
 
     # Missing IBKR properties for already registered repositories
     @property

@@ -56,7 +56,6 @@ from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
-from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_portfolio_company_share_option import ETFSharePortfolioCompanyShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.derivatives import DerivativeModel
@@ -72,7 +71,7 @@ from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg
 
 # Portfolio and holdings (depends on all asset types)
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
-from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel
+from src.infrastructure.models.finance.portfolio.derivative_portfolio import DerivativePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolioModel
 from src.infrastructure.models.finance.position import PositionModel
@@ -85,7 +84,7 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
-from src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHoldingModel
+from infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
 
 # Account, Order, and Transaction models
 from src.infrastructure.models.finance.account import AccountModel
@@ -113,10 +112,10 @@ def ensure_models_registered():
     required_models = {
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
-        'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel', 
+        'ShareModel', 'CompanyShareModel',
         'PortfolioModel', 'CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 
         'HoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
-        'ETFSharePortfolioCompanyShareOptionModel', 'AccountModel', 'OrderModel', 'TransactionModel'
+         'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
     missing = required_models - set(registered)
@@ -143,14 +142,14 @@ __all__ = [
     'ExchangeModel', 'CompanyModel',
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
-    'ShareModel', 'CompanyShareModel', 'ETFShareModel', 'ETFSharePortfolioCompanyShareModel',
-    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFSharePortfolioCompanyShareOptionModel', 
+    'ShareModel', 'CompanyShareModel', 
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
     'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'PortfolioDerivativeHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
     'ensure_models_registered'
 ]

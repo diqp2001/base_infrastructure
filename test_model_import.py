@@ -7,15 +7,15 @@ sys.path.append('src')
 
 try:
     # Import the holding model
-    from src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding import PortfolioDerivativeHoldingModel
+    from infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
     print("✅ PortfolioDerivativeHoldingModel imported successfully")
     
     # Import the portfolio model
-    from src.infrastructure.models.finance.portfolio.portfolio_derivative import DerivativePortfolioModel
+    from infrastructure.models.finance.portfolio.derivative_portfolio import DerivativePortfolioModel
     print("✅ DerivativePortfolioModel imported successfully")
     
     # Check the relationship string
-    holding_model = PortfolioDerivativeHoldingModel
+    holding_model = DerivativePortfolioHoldingModel
     rel_property = holding_model.portfolio_derivative.property
     print(f"📝 Relationship string: {rel_property.argument}")
     

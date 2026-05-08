@@ -13,10 +13,8 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel as PortfolioModel
-from src.domain.entities.finance.portfolio.portfolio import (
-    Portfolio as PortfolioEntity
-)
+
+
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.infrastructure.repositories.mappers.finance.portfolio_mapper import PortfolioMapper
 from src.domain.ports.finance.portfolio.portfolio_port import PortfolioPort
@@ -36,59 +34,59 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
     def model_class(self):
         return self.mapper.model_class
     
-    def _to_entity(self, model: PortfolioModel) -> PortfolioEntity:
+    def _to_entity(self, model: model_class) -> entity_class:
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
         return self.mapper.to_domain(model)
     
-    def _to_model(self, entity: PortfolioEntity) -> PortfolioModel:
+    def _to_model(self, entity: entity_class) -> model_class:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
         return self.mapper.to_orm(entity)
         
     
-    def get_all(self) -> List[PortfolioEntity]:
+    def get_all(self) -> List[entity_class]:
         """Retrieve all Portfolio records."""
-        models = self.session.query(PortfolioModel).all()
+        models = self.session.query(self.model_class).all()
         return [self._to_entity(model) for model in models]
     
-    def get_by_id(self, portfolio_id: int) -> Optional[PortfolioEntity]:
+    def get_by_id(self, portfolio_id: int) -> Optional[entity_class]:
         """Retrieve a Portfolio by its ID."""
-        model = self.session.query(PortfolioModel).filter(
-            PortfolioModel.id == portfolio_id
+        model = self.session.query(self.model_class).filter(
+            self.model_class.id == portfolio_id
         ).first()
         return self._to_entity(model)    if model else None
     
-    def get_by_name(self, name: str) -> Optional[PortfolioEntity]:
+    def get_by_name(self, name: str) -> Optional[entity_class]:
         """Retrieve a portfolio by name."""
-        model = self.session.query(PortfolioModel).filter(
-            PortfolioModel.name == name
+        model = self.session.query(self.model_class).filter(
+            self.model_class.name == name
         ).first()
         return self._to_entity(model)     if model else None
     
-    def get_by_backtest_id(self, backtest_id: str) -> List[PortfolioEntity]:
+    def get_by_backtest_id(self, backtest_id: str) -> List[entity_class]:
         """Retrieve portfolios by backtest ID."""
-        models = self.session.query(PortfolioModel).filter(
-            PortfolioModel.backtest_id == backtest_id
+        models = self.session.query(self.model_class).filter(
+            self.model_class.backtest_id == backtest_id
         ).all()
         return [self._to_entity(model) for model in models]
     
-    def get_by_owner_id(self, owner_id: int) -> List[PortfolioEntity]:
+    def get_by_owner_id(self, owner_id: int) -> List[entity_class]:
         """Retrieve portfolios by owner ID."""
-        models = self.session.query(PortfolioModel).filter(
-            PortfolioModel.owner_id == owner_id
+        models = self.session.query(self.model_class).filter(
+            self.model_class.owner_id == owner_id
         ).all()
         return [self._to_entity(model) for model in models]
     
     def exists_by_name(self, name: str) -> bool:
         """Check if a Portfolio exists by name."""
-        return self.session.query(PortfolioModel).filter(
-            PortfolioModel.name == name
+        return self.session.query(self.model_class).filter(
+            self.model_class.name == name
         ).first() is not None
     
-    def add(self, entity: PortfolioEntity) -> PortfolioEntity:
+    def add(self, entity: entity_class) -> entity_class:
         """Add a new Portfolio entity to the database."""
         # Check for existing portfolio with same name
         if self.exists_by_name(entity.name):
@@ -101,10 +99,10 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         
         return self._to_entity(model)
     
-    def update(self, portfolio_id: int, **kwargs) -> Optional[PortfolioEntity]:
+    def update(self, portfolio_id: int, **kwargs) -> Optional[entity_class]:
         """Update an existing Portfolio record."""
-        model = self.session.query(PortfolioModel).filter(
-            PortfolioModel.id == portfolio_id
+        model = self.session.query(self.model_class).filter(
+            self.model_class.id == portfolio_id
         ).first()
         
         if not model:
@@ -119,8 +117,8 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
     
     def delete(self, portfolio_id: int) -> bool:
         """Delete a Portfolio record by ID."""
-        model = self.session.query(PortfolioModel).filter(
-            PortfolioModel.id == portfolio_id
+        model = self.session.query(self.model_class).filter(
+            self.model_class.id == portfolio_id
         ).first()
         
         if not model:
@@ -139,7 +137,7 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             int: Next available ID (defaults to 1 if no records exist)
         """
         try:
-            max_id_result = self.session.query(PortfolioModel.id).order_by(PortfolioModel.id.desc()).first()
+            max_id_result = self.session.query(self.model_class.id).order_by(self.model_class.id.desc()).first()
             
             if max_id_result:
                 return max_id_result[0] + 1
@@ -152,7 +150,7 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
     
     def get_or_create(self, name: str, portfolio_type: str = "STANDARD",
                      initial_cash: float = 100000.0, currency_code: str = "USD",
-                     owner_id: Optional[int] = None) -> Optional[PortfolioEntity]:
+                     owner_id: Optional[int] = None) -> Optional[entity_class]:
         """
         Get or create a portfolio with dependency resolution.
         
@@ -170,7 +168,7 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
                                   initial_cash=initial_cash, currency=currency_code, 
                                   owner_id=owner_id)
 
-    def _create_or_get(self, name: str, **kwargs) -> Optional[PortfolioEntity]:
+    def _create_or_get(self, name: str, **kwargs) -> Optional[entity_class]:
         """
         Create portfolio entity if it doesn't exist, otherwise return existing.
         Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
@@ -238,6 +236,6 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             raise
     
     # Standard CRUD interface
-    def create(self, entity: PortfolioEntity) -> PortfolioEntity:
+    def create(self, entity: entity_class) -> entity_class:
         """Create new portfolio entity in database (standard CRUD interface)."""
         return self.add(entity)

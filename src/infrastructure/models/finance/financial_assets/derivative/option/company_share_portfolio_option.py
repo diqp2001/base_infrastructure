@@ -7,7 +7,7 @@ class CompanySharePortfolioOptionModel(OptionsModel):
     SQLAlchemy ORM model for Index Future Options.
     Completely separate from src.domain entity to avoid metaclass conflicts.
     """
-    __tablename__ = 'company_share_portfolio_option'
+    __tablename__ = 'company_share_portfolio_options'
 
     id = Column(Integer, ForeignKey("options.id"), primary_key=True)
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
@@ -15,11 +15,11 @@ class CompanySharePortfolioOptionModel(OptionsModel):
     # Index future option specific fields
     strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
     multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
-    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="portfolio_company_share_options") 
+    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_portfolio_options") 
     
     __mapper_args__ = {
-        "polymorphic_identity": "portfolio_company_share_option",
+        "polymorphic_identity": "company_share_portfolio_options",
     }
 
     def __repr__(self):
-        return f"<IndexFutureOption(id={self.id}, symbol={self.symbol}, strike={self.strike_price})>"
+        return f"<CompanySharePortfolioOption(id={self.id}, symbol={self.symbol}, strike={self.strike_price})>"
