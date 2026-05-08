@@ -17,7 +17,7 @@ class CompanyShareOptionPortfolioModel(PortfolioModel):
     # ONE portfolio_company_share_option → MANY portfolio_company_share_option_holdings
     portfolio_company_share_option_holdings = relationship(
         "src.infrastructure.models.finance.holding.company_share_option_portfolio_holding.CompanyShareOptionPortfolioHoldingModel", 
-        back_populates="company_share_option_portfolios"
+        back_populates="portfolio_company_share_option"
     )
     
     __mapper_args__ = {
