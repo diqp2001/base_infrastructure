@@ -28,7 +28,7 @@ class CompanySharePortfolioOptionMapper:
             return None
 
         # Create placeholder underlying - in real implementation you'd load from repository
-        from domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+        from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
         
         underlying = CompanySharePortfolio(
             id=model.underlying_id,
