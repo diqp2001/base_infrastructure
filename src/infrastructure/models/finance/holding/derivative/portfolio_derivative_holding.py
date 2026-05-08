@@ -13,7 +13,7 @@ class PortfolioDerivativeHoldingModel(PortfolioHoldingsModel):
     id = Column(Integer, ForeignKey("portfolio_holdings.id"), primary_key=True)
 
     # Foreign key to portfolio derivative
-    portfolio_derivative_id = Column(Integer, ForeignKey("portfolio_derivatives.id"), nullable=False)
+    portfolio_derivative_id = Column(Integer, ForeignKey("derivative_portfolios.id"), nullable=False)
 
     # Foreign key to derivative asset
     derivative_id = Column(Integer, ForeignKey("derivatives.id"), nullable=False)
