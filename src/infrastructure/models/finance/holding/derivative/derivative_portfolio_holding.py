@@ -19,7 +19,7 @@ class DerivativePortfolioHoldingModel(PortfolioHoldingsModel):
     derivative_id = Column(Integer, ForeignKey("derivatives.id"), nullable=False)
 
     # Relationships
-    derivative_portfolios = relationship(
+    derivative_portfolio = relationship(
         "src.infrastructure.models.finance.portfolio.derivative_portfolio.DerivativePortfolioModel",
         back_populates="derivative_portfolio_holdings"
     )
