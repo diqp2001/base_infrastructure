@@ -81,7 +81,6 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
             raise
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error adding option {option}: {e}")
             raise
     # -------------------------
     # STANDARD METHODS
