@@ -9,10 +9,10 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 # Local repositories
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_price_return_factor_repository import IBKRCompanySharePriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_price_return_factor_repository import CompanySharePriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_factor_repository import CompanyShareFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_price_return_factor_repository import IBKRCompanySharePriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_price_return_factor_repository import CompanySharePriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_factor_repository import CompanyShareFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
 from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
@@ -36,7 +36,7 @@ from src.infrastructure.repositories.local_repo.finance.transaction.transaction_
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
 from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
@@ -57,49 +57,44 @@ from infrastructure.repositories.local_repo.factor.finance.holding.company_share
 from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_value_factor_repository import CompanySharePortfolioHoldingValueFactorRepository
 from infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_weight_factor_repository import CompanySharePortfolioHoldingWeightFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.portfolio_holding_factor_repository import PortfolioHoldingFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_gamma_factor_repository import CompanyShareOptionGammaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_rho_factor_repository import CompanyShareOptionRhoFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_vega_factor_repository import CompanyShareOptionVegaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_factor_repository import IndexFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_price_return_factor_repository import IndexPriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.future_price_return_factor_repository import FuturePriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_price_return_factor_repository import IndexFuturePriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor_repository import CompanyShareOptionGammaFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rho_factor_repository import CompanyShareOptionRhoFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vega_factor_repository import CompanyShareOptionVegaFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.index.index_factor_repository import IndexFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.index.index_price_return_factor_repository import IndexPriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.future_price_return_factor_repository import FuturePriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor_repository import IndexFuturePriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.equity_factor_repository import EquityFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.bond_factor_repository import BondFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivative_factor_repository import DerivativeFactorRepository
+from infrastructure.repositories.local_repo.factor.derivative_factor_repository import DerivativeFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.financial_asset_factor_repository import FinancialAssetFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.security_factor_repository import SecurityFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.futures_factor_repository import FuturesFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_factor_repository import IndexFutureFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_factor_repository import IndexFutureOptionFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_price_return_factor_repository import IndexFutureOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_price_factor_repository import IndexFutureOptionPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_option_delta_factor_repository import IndexFutureOptionDeltaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.options_factor_repository import OptionsFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_return_factor_repository import CompanyShareOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_return_factor_repository import PortfolioCompanyShareOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_delta_factor_repository import PortfolioCompanyShareOptionDeltaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_price_factor_repository import PortfolioCompanyShareOptionPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.portfolio_company_share_option_factor_repository import PortfolioCompanyShareOptionFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_delta_factor_repository import ETFSharePortfolioCompanyShareOptionDeltaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_factor_repository import ETFSharePortfolioCompanyShareOptionFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_price_factor_repository import ETFSharePortfolioCompanyShareOptionPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_option_price_return_factor_repository import ETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_factor_repository import ETFSharePortfolioCompanyShareFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.etf_share_portfolio_company_share_price_return_factor_repository import ETFSharePortfolioCompanySharePriceReturnFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_delta_factor_repository import CompanyShareOptionDeltaFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_factor_repository import CompanyShareOptionFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_price_factor_repository import CompanyShareOptionPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.futures_factor_repository import FuturesFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_factor_repository import IndexFutureFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_factor_repository import IndexFutureOptionFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_price_return_factor_repository import IndexFutureOptionPriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_price_factor_repository import IndexFutureOptionPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_delta_factor_repository import IndexFutureOptionDeltaFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.options_factor_repository import OptionsFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_return_factor_repository import CompanyShareOptionPriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_return_factor_repository import CompanySharePortfolioOptionPriceReturnFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_delta_factor_repository import CompanySharePortfolioOptionDeltaFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_factor_repository import CompanySharePortfolioOptionPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor_repository import CompanySharePortfolioOptionFactorRepository
+
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_delta_factor_repository import CompanyShareOptionDeltaFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor_repository import CompanyShareOptionFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_factor_repository import CompanyShareOptionPriceFactorRepository
 
 # Advanced Options Pricing Model Repositories - Local
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_black_scholes_merton_price_factor_repository import CompanyShareOptionBlackScholesMertonPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_cox_ross_rubinstein_price_factor_repository import CompanyShareOptionCoxRossRubinsteinPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_heston_price_factor_repository import CompanyShareOptionHestonPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_hull_white_price_factor_repository import CompanyShareOptionHullWhitePriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_sabr_price_factor_repository import CompanyShareOptionSABRPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_bates_price_factor_repository import CompanyShareOptionBatesPriceFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.company_share_option_dupire_local_volatility_price_factor_repository import CompanyShareOptionDupireLocalVolatilityPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_black_scholes_merton_price_factor_repository import CompanyShareOptionBlackScholesMertonPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_cox_ross_rubinstein_price_factor_repository import CompanyShareOptionCoxRossRubinsteinPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_price_factor_repository import CompanyShareOptionHestonPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor_repository import CompanyShareOptionHullWhitePriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_sabr_price_factor_repository import CompanyShareOptionSABRPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_bates_price_factor_repository import CompanyShareOptionBatesPriceFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_dupire_local_volatility_price_factor_repository import CompanyShareOptionDupireLocalVolatilityPriceFactorRepository
 
 
 from src.infrastructure.repositories.local_repo.finance.financial_assets.bond_repository import BondRepository
@@ -123,52 +118,46 @@ from src.infrastructure.repositories.local_repo.finance.exchange_repository impo
 # IBKR repositories
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_repository import IBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_portfolio_company_share_option_factor_repository import IBKRPortfolioCompanyShareOptionFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_delta_factor_repository import IBKRETFSharePortfolioCompanyShareOptionDeltaFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_factor_repository import IBKRETFSharePortfolioCompanyShareOptionFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_price_factor_repository import IBKRETFSharePortfolioCompanyShareOptionPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_option_price_return_factor_repository import IBKRETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_factor_repository import IBKRETFSharePortfolioCompanyShareFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_etf_share_portfolio_company_share_price_return_factor_repository import IBKRETFSharePortfolioCompanySharePriceReturnFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_delta_factor_repository import IBKRCompanyShareOptionDeltaFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_factor_repository import IBKRCompanyShareOptionFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_gamma_factor_repository import IBKRCompanyShareOptionGammaFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_price_factor_repository import IBKRCompanyShareOptionPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_price_return_factor_repository import IBKRCompanyShareOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_rho_factor_repository import IBKRCompanyShareOptionRhoFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_vega_factor_repository import IBKRCompanyShareOptionVegaFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_portfolio_option_factor_repository import IBKRPortfolioCompanyShareOptionFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_delta_factor_repository import IBKRCompanyShareOptionDeltaFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_factor_repository import IBKRCompanyShareOptionFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_gamma_factor_repository import IBKRCompanyShareOptionGammaFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_price_factor_repository import IBKRCompanyShareOptionPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_price_return_factor_repository import IBKRCompanyShareOptionPriceReturnFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_rho_factor_repository import IBKRCompanyShareOptionRhoFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_vega_factor_repository import IBKRCompanyShareOptionVegaFactorRepository
 
 # Advanced Options Pricing Model Repositories - IBKR
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_black_scholes_merton_price_factor_repository import IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_cox_ross_rubinstein_price_factor_repository import IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_heston_price_factor_repository import IBKRCompanyShareOptionHestonPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_hull_white_price_factor_repository import IBKRCompanyShareOptionHullWhitePriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_sabr_price_factor_repository import IBKRCompanyShareOptionSABRPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_bates_price_factor_repository import IBKRCompanyShareOptionBatesPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_option_dupire_local_volatility_price_factor_repository import IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_black_scholes_merton_price_factor_repository import IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_cox_ross_rubinstein_price_factor_repository import IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_heston_price_factor_repository import IBKRCompanyShareOptionHestonPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_hull_white_price_factor_repository import IBKRCompanyShareOptionHullWhitePriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_sabr_price_factor_repository import IBKRCompanyShareOptionSABRPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_bates_price_factor_repository import IBKRCompanyShareOptionBatesPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_dupire_local_volatility_price_factor_repository import IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository
 
 # IBKR Factor repositories
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_continent_factor_repository import IBKRContinentFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_country_factor_repository import IBKRCountryFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_factor_repository import IBKRIndexFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_price_return_factor_repository import IBKRIndexPriceReturnFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_price_return_factor_repository import IBKRIndexFuturePriceReturnFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.index.ibkr_index_factor_repository import IBKRIndexFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.index.ibkr_index_price_return_factor_repository import IBKRIndexPriceReturnFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.index_future.ibkr_index_future_price_return_factor_repository import IBKRIndexFuturePriceReturnFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_share_factor_repository import IBKRShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_currency_factor_repository import IBKRCurrencyFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_equity_factor_repository import IBKREquityFactorRepository
 
 # New IBKR Factor repositories
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_portfolio_factor_repository import IBKRPortfolioFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_portfolio_company_share_correlation_factor_repository import IBKRPortfolioCompanyShareCorrelationFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_company_share_portfolio_correlation_factor_repository import IBKRCompanySharePortfolioCorrelationFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_bond_factor_repository import IBKRBondFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_future_factor_repository import IBKRFutureFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_factor_repository import IBKRIndexFutureFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_option_factor_repository import IBKRIndexFutureOptionFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_option_price_return_factor_repository import IBKRIndexFutureOptionPriceReturnFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_option_price_factor_repository import IBKRIndexFutureOptionPriceFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_option_delta_factor_repository import IBKRIndexFutureOptionDeltaFactorRepository
-from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_option_factor_repository import IBKROptionFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.ibkr_future_factor_repository import IBKRFutureFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.index_future.ibkr_index_future_factor_repository import IBKRIndexFutureFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_factor_repository import IBKRIndexFutureOptionFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_price_return_factor_repository import IBKRIndexFutureOptionPriceReturnFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_price_factor_repository import IBKRIndexFutureOptionPriceFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_delta_factor_repository import IBKRIndexFutureOptionDeltaFactorRepository
+from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.ibkr_option_factor_repository import IBKROptionFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_financial_asset_factor_repository import IBKRFinancialAssetFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_security_factor_repository import IBKRSecurityFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.bond_repository import IBKRBondRepository
@@ -253,16 +242,11 @@ class RepositoryFactory:
                 'index_future_option_delta_factor': IndexFutureOptionDeltaFactorRepository(self.session, factory=self),
                 'option_factor': OptionsFactorRepository(self.session, factory=self),
                 'company_share_option_price_return_factor': CompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
-                'portfolio_company_share_option_price_return_factor': PortfolioCompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
-                'portfolio_company_share_option_delta_factor': PortfolioCompanyShareOptionDeltaFactorRepository(self.session, factory=self),
-                'portfolio_company_share_option_price_factor': PortfolioCompanyShareOptionPriceFactorRepository(self.session, factory=self),
-                'portfolio_company_share_option_factor': PortfolioCompanyShareOptionFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_option_delta_factor': ETFSharePortfolioCompanyShareOptionDeltaFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_option_factor': ETFSharePortfolioCompanyShareOptionFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_option_price_factor': ETFSharePortfolioCompanyShareOptionPriceFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_option_price_return_factor': ETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_factor': ETFSharePortfolioCompanyShareFactorRepository(self.session, factory=self),
-                'etf_share_portfolio_company_share_price_return_factor': ETFSharePortfolioCompanySharePriceReturnFactorRepository(self.session, factory=self),
+                'company_share_portfolio_option_price_return_factor': CompanySharePortfolioOptionPriceReturnFactorRepository(self.session, factory=self),
+                'company_portfolio_share_option_delta_factor': CompanySharePortfolioOptionDeltaFactorRepository(self.session, factory=self),
+                'company_portfolio_share_option_price_factor': CompanySharePortfolioOptionPriceFactorRepository(self.session, factory=self),
+                'company_portfolio_share_option_factor': CompanySharePortfolioOptionFactorRepository(self.session, factory=self),
+
                 'company_share_option_delta_factor': CompanyShareOptionDeltaFactorRepository(self.session, factory=self),
                 'company_share_option_factor': CompanyShareOptionFactorRepository(self.session, factory=self),
                 'company_share_option_price_factor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
@@ -412,30 +396,7 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
-                'etf_share_portfolio_company_share_option_delta_factor': IBKRETFSharePortfolioCompanyShareOptionDeltaFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'etf_share_portfolio_company_share_option_factor': IBKRETFSharePortfolioCompanyShareOptionFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'etf_share_portfolio_company_share_option_price_factor': IBKRETFSharePortfolioCompanyShareOptionPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'etf_share_portfolio_company_share_option_price_return_factor': IBKRETFSharePortfolioCompanyShareOptionPriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'etf_share_portfolio_company_share_factor': IBKRETFSharePortfolioCompanyShareFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'etf_share_portfolio_company_share_price_return_factor': IBKRETFSharePortfolioCompanySharePriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
+
                 'company_share_option_delta_factor': IBKRCompanyShareOptionDeltaFactorRepository(
                     ibkr_client=client,
                     factory=self
@@ -553,7 +514,7 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
-                'portfolio_company_share_correlation_factor': IBKRPortfolioCompanyShareCorrelationFactorRepository(
+                'portfolio_company_share_correlation_factor': IBKRCompanySharePortfolioCorrelationFactorRepository(
                     ibkr_client=client,
                     factory=self
                 ),

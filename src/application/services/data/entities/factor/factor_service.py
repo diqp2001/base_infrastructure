@@ -33,7 +33,7 @@ from src.domain.entities.finance.financial_assets.share.company_share.company_sh
 
 # Infrastructure repositories
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 
 # IBKR repositories and types

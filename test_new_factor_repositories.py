@@ -65,9 +65,9 @@ def test_ibkr_repositories():
     print("\nTesting IBKR Repositories...")
     try:
         from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_bond_factor_repository import IBKRBondFactorRepository
-        from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
-        from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_future_factor_repository import IBKRFutureFactorRepository
-        from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_option_factor_repository import IBKROptionFactorRepository
+        from infrastructure.repositories.ibkr_repo.factor.finance.ibkr_derivative_factor_repository import IBKRDerivativeFactorRepository
+        from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.ibkr_future_factor_repository import IBKRFutureFactorRepository
+        from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.ibkr_option_factor_repository import IBKROptionFactorRepository
         from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_financial_asset_factor_repository import IBKRFinancialAssetFactorRepository
         from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_security_factor_repository import IBKRSecurityFactorRepository
         

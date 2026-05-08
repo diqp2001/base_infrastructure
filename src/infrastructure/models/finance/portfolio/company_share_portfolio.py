@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
-
-
 from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models import ModelBase as Base
 
@@ -14,6 +12,6 @@ class CompanySharePortfolioModel(PortfolioModel):
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
 
     
-    portfolio_company_share_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_holding.CompanySharePortfolioHoldingModel", back_populates="company_share_portfolios")
+    company_share_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_holding.CompanySharePortfolioHoldingModel", back_populates="company_share_portfolios")
     __mapper_args__ = {
     "polymorphic_identity": "company_share_portfolios",}

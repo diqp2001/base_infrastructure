@@ -29,11 +29,11 @@ def test_imports():
         print("✅ IndexFuturePriceReturnFactorMapper imported successfully")
         
         # Test local repository import
-        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.index_future_price_return_factor_repository import IndexFuturePriceReturnFactorRepository
+        from infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor_repository import IndexFuturePriceReturnFactorRepository
         print("✅ IndexFuturePriceReturnFactorRepository (local) imported successfully")
         
         # Test IBKR repository import
-        from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_future_price_return_factor_repository import IBKRIndexFuturePriceReturnFactorRepository
+        from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.index_future.ibkr_index_future_price_return_factor_repository import IBKRIndexFuturePriceReturnFactorRepository
         print("✅ IBKRIndexFuturePriceReturnFactorRepository imported successfully")
         
         # Test factory import with new repositories

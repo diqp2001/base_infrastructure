@@ -19,7 +19,7 @@ def test_imports():
         print("✓ IndexFactor import successful")
         
         # Test IBKR IndexFactor Repository import
-        from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.ibkr_index_factor_repository import IBKRIndexFactorRepository
+        from infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.index.ibkr_index_factor_repository import IBKRIndexFactorRepository
         print("✓ IBKRIndexFactorRepository import successful")
         
         # Test repository factory

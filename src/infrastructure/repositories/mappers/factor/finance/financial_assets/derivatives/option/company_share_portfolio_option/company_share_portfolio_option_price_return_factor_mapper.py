@@ -3,7 +3,6 @@ Mapper for CompanySharePortfolioOptionPriceReturnFactor domain entity and ORM mo
 """
 
 from typing import Optional
-
 from src.infrastructure.models.factor.factor import CompanySharePortfolioOptionPriceReturnFactorModel
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_return_factor import CompanySharePortfolioOptionPriceReturnFactor
 from ......base_factor_mapper import BaseFactorMapper

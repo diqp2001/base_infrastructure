@@ -7,8 +7,8 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
-from src.domain.entities.finance.holding.company_share_option_portfolio_holding import PortfolioCompanyShareOptionHolding
-from src.domain.entities.finance.holding.derivative.portfolio_derivative_holding import DerivativePortfolioHolding
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHolding
+from src.domain.entities.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHolding
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
 from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
@@ -158,7 +158,7 @@ DEFAULT_CONFIG = {
                 "portfolio_type": "BACKTEST",
 
                 "class": CompanySharePortfolioOption,
-                "holding_class": PortfolioCompanyShareOptionHolding,
+                "holding_class": CompanyShareOptionPortfolioHolding,
 
                 "sub_portfolios": []
             }

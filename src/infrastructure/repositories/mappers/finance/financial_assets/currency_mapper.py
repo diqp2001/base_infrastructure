@@ -11,7 +11,6 @@ from decimal import Decimal
 
 from src.domain.entities.finance.financial_assets.currency import Currency as DomainCurrency
 from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel as ORMCurrency
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency_factor_repository import CurrencyFactorRepository
 
 
 class CurrencyMapper:

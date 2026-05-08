@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share_factor_repository import ShareFactorRepository
+from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.application.services.database_service.database_service import DatabaseService
 
 from src.domain.entities.finance.financial_assets.index.index import Index
