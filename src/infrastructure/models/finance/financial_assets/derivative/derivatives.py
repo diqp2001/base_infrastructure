@@ -26,9 +26,9 @@ class DerivativeModel(FinancialAssetModel):
     )
     currency = relationship("src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",foreign_keys=[currency_id], back_populates="derivatives")
     
-    # ONE derivative → MANY portfolio_derivative_holdings
-    portfolio_derivative_holdings = relationship(
-        "src.infrastructure.models.finance.holding.derivative.portfolio_derivative_holding.PortfolioDerivativeHoldingModel",
+    # ONE derivative → MANY derivative_portfolio_holdings
+    derivative_portfolio_holdings = relationship(
+        "src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding.DerivativePortfolioHoldingModel",
         back_populates="derivative"
     )
     
