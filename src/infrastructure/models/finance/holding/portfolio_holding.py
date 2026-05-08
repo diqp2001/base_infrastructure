@@ -16,6 +16,6 @@ class PortfolioHoldingsModel(HoldingModel):
     portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
 
     # Relationships
-    portfolio = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="portfolio_holdings")
+    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="portfolio_holdings")
     __mapper_args__ = {
     "polymorphic_identity": "portfolio_holdings",}

@@ -36,7 +36,6 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.crypto_repository import IBKRCryptoRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency_repository import IBKRCurrencyRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.index_future_repository import IBKRIndexFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.security_repository import IBKRSecurityRepository
@@ -49,7 +48,6 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.company
 from src.infrastructure.repositories.local_repo.finance.financial_assets.crypto_repository import CryptoRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_repository import EquityRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.index_future_repository import IndexFutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.security_repository import SecurityRepository

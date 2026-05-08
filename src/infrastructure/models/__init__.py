@@ -48,8 +48,6 @@ from src.infrastructure.models.finance.financial_assets.equity import EquityMode
 # Share-based assets (depends on exchange/company)
 from src.infrastructure.models.finance.financial_assets.share import ShareModel
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
-from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel
-from src.infrastructure.models.finance.financial_assets.etf_share_portfolio_company_share import ETFSharePortfolioCompanyShareModel
 
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel

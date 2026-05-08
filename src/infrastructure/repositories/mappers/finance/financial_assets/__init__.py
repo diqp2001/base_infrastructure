@@ -18,7 +18,6 @@ from .derivatives.derivative_mapper import DerivativeMapper
 from .cash_mapper import CashMapper
 from .commodity_mapper import CommodityMapper
 from .crypto_mapper import CryptoMapper
-from .share.etf_share_mapper import ETFShareMapper
 from .derivatives.option.options_mapper import OptionsMapper
 from .derivatives.forward_contract_mapper import ForwardContractMapper
 from .derivatives.swap_mapper import SwapMapper
@@ -41,7 +40,6 @@ __all__ = [
     "CashMapper",
     "CommodityMapper",
     "CryptoMapper",
-    "ETFShareMapper",
     "OptionsMapper",
     "ForwardContractMapper",
     "SwapMapper",

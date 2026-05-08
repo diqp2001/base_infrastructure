@@ -19,7 +19,7 @@ class PortfolioModel(Base):
 
     # ONE portfolio → MANY positions
     positions = relationship("src.infrastructure.models.finance.position.PositionModel",back_populates="portfolios",cascade="all, delete-orphan")
-    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="portfolio")
+    portfolio_holdings = relationship("src.infrastructure.models.finance.holding.portfolio_holding.PortfolioHoldingsModel", back_populates="portfolios")
     security_holdings = relationship("src.infrastructure.models.finance.holding.security_holding.SecurityHoldingModel", back_populates="portfolios")
     securities = relationship("src.infrastructure.models.finance.financial_assets.security.SecurityModel", back_populates="portfolios")
     __mapper_args__ = {

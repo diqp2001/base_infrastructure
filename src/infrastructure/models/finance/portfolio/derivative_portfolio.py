@@ -17,7 +17,7 @@ class DerivativePortfolioModel(PortfolioModel):
     # ONE portfolio_derivative → MANY portfolio_derivative_holdings
     portfolio_derivative_holdings = relationship(
         "src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding.DerivativePortfolioHoldingModel", 
-        back_populates="derivative_portfolio"
+        back_populates="derivative_portfolios"
     )
     
     __mapper_args__ = {

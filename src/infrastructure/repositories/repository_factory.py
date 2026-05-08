@@ -104,7 +104,6 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.company
 from src.infrastructure.repositories.local_repo.finance.financial_assets.crypto_repository import CryptoRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.currency_repository import CurrencyRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.equity_repository import EquityRepository
-from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.index_future_repository import IndexFutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IndexFutureOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.company_share_option_repository import CompanyShareOptionRepository
@@ -167,7 +166,6 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.crypto_repository import IBKRCryptoRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency_repository import IBKRCurrencyRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
-from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.index_future_repository import IBKRIndexFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IBKRIndexFutureOptionRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.company_share_option_repository import IBKRCompanyShareOptionRepository
@@ -290,8 +288,7 @@ class RepositoryFactory:
                 'crypto': CryptoRepository(self.session, factory=self),
                 'commodity': CommodityRepository(self.session, factory=self),  
                 'cash': CashRepository(self.session, factory=self),
-                'equity': EquityRepository(self.session, factory=self),
-                'etf_share': ETFShareRepository(self.session, factory=self),  
+                'equity': EquityRepository(self.session, factory=self), 
                 'share': ShareRepository(self.session, factory=self),
                 'security': SecurityRepository(self.session, factory=self),
                 'country': CountryRepository(self.session, factory=self),
@@ -563,10 +560,7 @@ class RepositoryFactory:
                     ibkr_client=client,
                     factory=self
                 ),
-                'etf_share': IBKRETFShareRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
+                
                 'share': IBKRShareRepository(
                     ibkr_client=client,
                     factory=self

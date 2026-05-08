@@ -23,12 +23,12 @@ class CompanyShareOptionModel(OptionsModel):
     strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
     multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
     expiry = Column(String(20), nullable=True)
-    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options")
-    company_share_option_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_option_portfolio_holding.CompanyShareOptionPortfolioHoldingModel", back_populates="company_share_option") 
+    exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options")
+    company_share_option_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_option_portfolio_holding.CompanyShareOptionPortfolioHoldingModel", back_populates="company_share_options") 
     
     
     __mapper_args__ = {
-        "polymorphic_identity": "company_share_option",
+        "polymorphic_identity": "company_share_options",
     }
     
     def __repr__(self):

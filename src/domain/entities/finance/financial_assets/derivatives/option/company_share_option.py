@@ -16,7 +16,7 @@ class CompanyShareOption(Option):
             symbol: Optional[str],
             currency_id: Optional[int] = None,
             
-            underlying_asset_id: Optional[int] = None,#ETFSharePortfolioCompanyShare
+            underlying_asset_id: Optional[int] = None,
             exchange_id: Optional[int] = None,
             option_type: Optional[str] = None,
             start_date: Optional[date] = None,

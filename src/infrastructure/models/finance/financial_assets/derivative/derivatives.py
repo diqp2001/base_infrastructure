@@ -29,11 +29,11 @@ class DerivativeModel(FinancialAssetModel):
     # ONE derivative → MANY derivative_portfolio_holdings
     derivative_portfolio_holdings = relationship(
         "src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding.DerivativePortfolioHoldingModel",
-        back_populates="derivative"
+        back_populates="derivatives"
     )
     
     __mapper_args__ = {
-    "polymorphic_identity": "derivative",
+    "polymorphic_identity": "derivatives",
     "inherit_condition": id == FinancialAssetModel.id,  # 🔥 REQUIRED
 }
 

@@ -23,10 +23,10 @@ class FutureModel(DerivativeModel):
     exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
     contract_size = Column(Integer, nullable=True)  # Contract multiplier/size
     
-    exchange = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="futures") 
+    exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="futures") 
     
     __mapper_args__ = {
-    "polymorphic_identity": "future",
+    "polymorphic_identity": "futures",
 }
 
     def __repr__(self):

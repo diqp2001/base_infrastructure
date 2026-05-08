@@ -15,13 +15,10 @@ class ExchangeModel(Base):
 
     # Relationships
     country = relationship("src.infrastructure.models.country.CountryModel", back_populates="exchanges")
-    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchange")
-    etf_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share.ETFShareModel", back_populates="exchange")
-    futures = relationship("src.infrastructure.models.finance.financial_assets.derivative.future.future.FutureModel", back_populates="exchange")
-    index_future_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option.IndexFutureOptionModel", back_populates="exchange")
-    company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option.CompanyShareOptionModel", back_populates="exchange")
-    etf_share_portfolio_company_shares = relationship("src.infrastructure.models.finance.financial_assets.etf_share_portfolio_company_share.ETFSharePortfolioCompanyShareModel", back_populates="exchange")
-    
+    company_shares = relationship("src.infrastructure.models.finance.financial_assets.company_share.CompanyShareModel", back_populates="exchanges")
+    futures = relationship("src.infrastructure.models.finance.financial_assets.derivative.future.future.FutureModel", back_populates="exchanges")
+    index_future_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option.IndexFutureOptionModel", back_populates="exchanges")
+    company_share_options = relationship("src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option.CompanyShareOptionModel", back_populates="exchanges")
     
     
     def __repr__(self):

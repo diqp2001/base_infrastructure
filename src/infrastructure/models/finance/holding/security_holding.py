@@ -33,7 +33,7 @@ class SecurityHoldingModel(Base):
     updated_at = Column(DateTime, nullable=True)
     
     # Relationships
-    portfolio = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="security_holdings")
+    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="security_holdings")
     
     def __repr__(self):
         return (

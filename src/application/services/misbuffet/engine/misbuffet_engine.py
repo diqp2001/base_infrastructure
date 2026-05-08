@@ -49,7 +49,6 @@ class MisbuffetEngineConfig:
             'options': 'Option',
             'currencies': 'Currency',
             'crypto': 'Crypto',
-            'etfs': 'ETFShare',
             'futures': 'Future'
         }
         
