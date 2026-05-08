@@ -151,7 +151,6 @@ class UnifiedPortfolioManager:
                     # Create sub-portfolio
                     sub_portfolio = repo._create_or_get(
                         name=sub_name,
-                        #parent_portfolio_id=main_portfolio.id  # Link to main portfolio #link is made by holding
                     )
                     
                     if sub_portfolio:

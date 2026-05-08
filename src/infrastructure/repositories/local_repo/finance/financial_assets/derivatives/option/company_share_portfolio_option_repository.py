@@ -2,9 +2,10 @@
 Repository for portfolio company share option entities
 """
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_portfolio_option import CompanySharePortfolioOptionModel
 from src.domain.ports.finance.financial_assets.derivatives.option.company_share_portfolio_option_port import CompanySharePortfolioOptionPort
@@ -21,15 +22,77 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
         self.mapper = CompanySharePortfolioOptionMapper()
     
     @property
-    def model_class(self):
-        """Return the SQLAlchemy model class for PortfolioCompanyShareOption."""
-        return CompanySharePortfolioOptionModel
-    
-    @property
     def entity_class(self):
-        """Return the domain entity class for PortfolioCompanyShareOption."""
-        return CompanySharePortfolioOptionEntity
+        return self.mapper.entity_class
+    @property
+    def model_class(self):
+        return self.mapper.model_class
+    # -------------------------
+    # CREATE OR GET
+    # -------------------------
+    def _create_or_get(self, name: str, **kwargs) -> Optional[CompanySharePortfolioOptionEntity]:
 
+        try:
+            existing = self.get_by_name(name)
+            if existing:
+                return existing
+
+            entity = self.entity_class(
+                id=None,
+                name=name,
+                start_date=kwargs.get("start_date", datetime.now()),
+                end_date=kwargs.get("end_date"),
+            )
+
+            orm_obj = self.mapper.to_orm(entity)
+
+            self.session.add(orm_obj)
+            self.session.commit()
+
+            return self.mapper.to_domain(orm_obj)
+
+        except Exception as e:
+            print(f"Error creating portfolio company share option {name}: {e}")
+            return None
+    def add(self, option):
+        """
+        Add a single option to the database.
+        
+        :param option: Domain option entity to add
+        :return: The saved option entity with assigned ID
+        :raises: IntegrityError if option already exists
+        """
+        try:
+            # Convert domain entity to ORM model
+            orm_option = self.mapper.to_orm(option)
+            
+            # Add to session and flush to get the ID
+            self.session.add(orm_option)
+            self.session.flush()
+            
+            self.session.commit()
+            
+            
+            
+            return self.mapper.to_domain(orm_option)
+            
+        except IntegrityError as e:
+            self.session.rollback()
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error adding option {option}: {e}")
+            raise
+    # -------------------------
+    # STANDARD METHODS
+    # -------------------------
+    
+    def get_by_name(self, name: str) -> Optional[CompanySharePortfolioOptionEntity]:
+        """Retrieve a portfolio by name."""
+        model = self.session.query(CompanySharePortfolioOptionModel).filter(
+            CompanySharePortfolioOptionModel.name == name
+        ).first()
+        return self.mapper.to_domain(model)  if model else None
     def get_by_id(self, option_id: int) -> Optional[CompanySharePortfolioOptionEntity]:
         """Get an option by ID"""
         model = self.session.query(CompanySharePortfolioOptionModel).filter_by(id=option_id).first()
