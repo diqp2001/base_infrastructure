@@ -38,14 +38,41 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
             if existing:
                 return existing
 
+            # Resolve currency_id from currency_code if not provided
+            currency_id = kwargs.get("currency_id")
+            if currency_id is None:
+                currency_code = kwargs.get("currency_code", "USD")
+                currency_local_repo = self.factory.currency_local_repo
+                currency = currency_local_repo.get_or_create(iso_code=currency_code)
+                currency_id = currency.asset_id if currency else 1  # Default to 1 if currency service fails
+            
+            # Set default underlying_asset_id if not provided (SPX index for SPX options)
+            underlying_asset_id = kwargs.get("underlying_asset_id")
+            if underlying_asset_id is None:
+                # For SPX options, try to get SPX index as underlying
+                if "SPX" in name.upper():
+                    try:
+                        from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
+                        index_repo = IndexRepository(self.session, self.factory)
+                        spx_index = index_repo.get_by_symbol("SPX")
+                        if spx_index:
+                            underlying_asset_id = spx_index.id
+                        else:
+                            underlying_asset_id = 1  # Default fallback
+                    except Exception as idx_e:
+                        logging.warning(f"Could not resolve SPX index as underlying: {idx_e}")
+                        underlying_asset_id = 1  # Default fallback
+                else:
+                    underlying_asset_id = 1  # Default fallback for non-SPX options
+
             # Create entity with proper fields based on domain entity constructor
             entity = self.entity_class(
                 id=None,
                 name=name,
-                symbol=kwargs.get("symbol"),
-                currency_id=kwargs.get("currency_id"),
-                underlying_asset_id=kwargs.get("underlying_asset_id"),
-                option_type=kwargs.get("option_type"),
+                symbol=kwargs.get("symbol", name),
+                currency_id=currency_id,
+                underlying_asset_id=underlying_asset_id,
+                option_type=kwargs.get("option_type", "CALL"),
                 start_date=kwargs.get("start_date", datetime.now().date()),
                 end_date=kwargs.get("end_date"),
             )
