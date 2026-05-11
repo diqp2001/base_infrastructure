@@ -151,6 +151,9 @@ class UnifiedPortfolioManager:
                     # Create sub-portfolio
                     sub_portfolio = repo._create_or_get(
                         name=sub_name,
+                        currency_code=sub_currency,
+                        initial_cash=sub_cash,
+                        portfolio_type=sub_type,
                     )
                     
                     if sub_portfolio:
