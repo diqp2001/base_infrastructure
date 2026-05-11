@@ -72,6 +72,7 @@ from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models.finance.portfolio.derivative_portfolio import DerivativePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolioModel
+from src.infrastructure.models.finance.portfolio.company_share_portfolio_option_portfolio import CompanySharePortfolioOptionPortfolioModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.models.finance.instrument import InstrumentModel
@@ -82,6 +83,7 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
+from src.infrastructure.models.finance.holding.company_share_portfolio_option_portfolio_holding import CompanySharePortfolioOptionPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
 
 # Account, Order, and Transaction models
@@ -111,8 +113,8 @@ def ensure_models_registered():
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel',
-        'PortfolioModel', 'CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 
-        'HoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
+        'PortfolioModel', 'CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionPortfolioModel',
+        'HoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'IndexFutureOptionModel', 'IndexFutureModel', 'OptionsModel', 'CompanyShareOptionModel',
          'AccountModel', 'OrderModel', 'TransactionModel'
     }
     
@@ -145,9 +147,9 @@ __all__ = [
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
-    'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel', 
+    'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel', 
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
     'ensure_models_registered'
 ]

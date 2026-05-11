@@ -15,6 +15,12 @@ class CompanySharePortfolioOptionModel(OptionsModel):
     strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
     multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
     
+    # Relationships
+    company_share_portfolio_option_portfolio_holdings = relationship(
+        "src.infrastructure.models.finance.holding.company_share_portfolio_option_portfolio_holding.CompanySharePortfolioOptionPortfolioHoldingModel",
+        back_populates="company_share_portfolio_options"
+    )
+    
     __mapper_args__ = {
         "polymorphic_identity": "company_share_portfolio_options",
     }
