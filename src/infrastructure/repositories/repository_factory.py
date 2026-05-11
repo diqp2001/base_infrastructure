@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 # Local repositories
+from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_option_portfolio_repository import CompanySharePortfolioOptionPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.company_share_portfolio_option_repository import CompanySharePortfolioOptionRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_price_return_factor_repository import IBKRCompanySharePriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_price_return_factor_repository import CompanySharePriceReturnFactorRepository
@@ -37,7 +38,7 @@ from src.infrastructure.repositories.local_repo.finance.transaction.transaction_
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import FinancialAssetRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
 from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
@@ -277,6 +278,7 @@ class RepositoryFactory:
                 'index_future': IndexFutureRepository(self.session, factory=self),
                 'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
                 'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
+                'company_share_portfolio_option_portfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
                 'company_share_option_portfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
                 'company_share_portfolio': CompanySharePortfolioRepository(self.session, factory=self),
                 'derivative_portfolio': DerivativePortfolioRepository(self.session, factory=self),
@@ -1428,7 +1430,10 @@ class RepositoryFactory:
     def company_share_portfolio_option_local_repo(self):
         """Get portfolio_company_share_option repository for dependency injection."""
         return self._local_repositories.get('company_share_portfolio_option')
-
+    @property
+    def company_share_portfolio_option_portfolio_local_repo(self):
+        """Get portfolio_company_share_option_portfolio repository for dependency injection."""
+        return self._local_repositories.get('company_share_portfolio_option_portfolio')
     @property
     def company_share_option_price_return_factor_local_repo(self):
         """Get company_share_option_price_return_factor repository for dependency injection."""

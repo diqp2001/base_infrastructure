@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.holding.company_share_portfolio_option_portfolio_holding import CompanySharePortfolioOptionPortfolioHolding
+from src.domain.entities.finance.portfolio.company_share_portfolio_option_portfolio import CompanySharePortfolioOptionPortfolio
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 from src.domain.entities.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHolding
 from src.domain.entities.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHolding
@@ -140,7 +142,7 @@ DEFAULT_CONFIG = {
         "sub_portfolios": [
             {
                 "type": "company_share",
-                "name": "SPX_Call_Spread_PortfolioCompanyShare",
+                "name": "SPX_Call_Spread_CompanyShare_Portfolio",
                 "initial_cash": 1000000,
                 "currency_code": "USD",
                 "portfolio_type": "BACKTEST",
@@ -152,13 +154,13 @@ DEFAULT_CONFIG = {
             },
             {
                 "type": "derivative",
-                "name": "SPX_Call_Spread_PortfolioCompanyShareOption",
+                "name": "SPX_Call_Spread_CompanyShare_Portfolio_Option_Portfolio",
                 "initial_cash": 1000000,
                 "currency_code": "USD",
                 "portfolio_type": "BACKTEST",
 
-                "class": CompanySharePortfolioOption,
-                "holding_class": CompanyShareOptionPortfolioHolding,
+                "class": CompanySharePortfolioOptionPortfolio,
+                "holding_class": CompanySharePortfolioOptionPortfolioHolding,
 
                 "sub_portfolios": []
             }
