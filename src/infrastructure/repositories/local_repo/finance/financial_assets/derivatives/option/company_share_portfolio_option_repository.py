@@ -47,7 +47,9 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
                 underlying_asset_id=kwargs.get("underlying_asset_id"),
                 option_type=kwargs.get("option_type"),
                 start_date=kwargs.get("start_date", datetime.now().date()),
-                end_date=kwargs.get("end_date"),
+                end_date=kwargs.get("end_date", None),
+                strike_price=kwargs.get("strike_price", None),
+                multiplier=kwargs.get("multiplier", None),
             )
 
             orm_obj = self.mapper.to_orm(entity)

@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Optional
-
+from decimal import Decimal
 from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
 
 
@@ -19,8 +19,11 @@ class CompanySharePortfolioOption(Option):
             option_type: Optional[str] = None,
             start_date: Optional[date] = None,
             end_date: Optional[date] = None,
+            strike_price: Optional[Decimal] = None, 
+            multiplier: Optional[int] = None,
             
         ):
 
         super().__init__(id=id, currency_id=currency_id, underlying_asset_id=underlying_asset_id, name=name, symbol=symbol, start_date=start_date, end_date=end_date, option_type=option_type)
-
+        self.strike_price = strike_price
+        self.multiplier = multiplier
