@@ -62,105 +62,7 @@ class FactorService(EntityService):
         """
         super().__init__(database_service, db_type)
         
-        # # Initialize additional factor-specific repositories
-        # self.base_factor_repository = self.local_repositories['base_factor']
-        # self.share_factor_repository = self.local_repositories['share_factor']
-        # self.company_share_repository = self.local_repositories['company_share']
         
-        # Initialize tick mapper for IBKR operations
-        # self.tick_mapper = IBKRTickFactorMapper()
-
-    # ========================================
-    # FACTOR CREATION METHODS (from FactorCreationService)
-    # ========================================
-    
-    def create_share_momentum_factor(
-        self,
-        name: str,
-        group: str = "momentum",
-        subgroup: str = "price",
-        definition: str = None,
-        momentum_type: str = "price_momentum",
-        period: int = 20
-    ) -> ShareMomentumFactor:
-        """Create a ShareMomentumFactor entity."""
-        return ShareMomentumFactor(
-            name=name,
-            group=group,
-            subgroup=subgroup,
-            data_type="float",
-            source="calculated",
-            definition=definition or f"{period}-period {momentum_type} momentum factor",
-            momentum_type=momentum_type,
-            period=period
-        )
-    
-    def create_share_technical_factor(
-        self,
-        name: str,
-        indicator_type: str = "SMA",
-        period: int = 20,
-        group: str = "technical",
-        subgroup: str = "trend",
-        definition: str = None
-    ) -> ShareTechnicalFactor:
-        """Create a ShareTechnicalFactor entity."""
-        return ShareTechnicalFactor(
-            name=name,
-            group=group,
-            subgroup=subgroup,
-            data_type="float",
-            source="calculated",
-            definition=definition or f"{period}-period {indicator_type} technical indicator",
-            indicator_type=indicator_type,
-            period=period
-        )
-    
-    def create_share_volatility_factor(
-        self,
-        name: str,
-        volatility_type: str = "historical",
-        period: int = 30,
-        annualization_factor: float = 252.0,
-        group: str = "volatility",
-        subgroup: str = "risk",
-        definition: str = None
-    ) -> ShareVolatilityFactor:
-        """Create a ShareVolatilityFactor entity."""
-        return ShareVolatilityFactor(
-            name=name,
-            group=group,
-            subgroup=subgroup,
-            data_type="float",
-            source="calculated",
-            definition=definition or f"{period}-period {volatility_type} volatility factor",
-            volatility_type=volatility_type,
-            period=period,
-            annualization_factor=annualization_factor
-        )
-    
-    def create_share_target_factor(
-        self,
-        name: str,
-        target_type: str = "returns",
-        forecast_horizon: int = 1,
-        is_scaled: bool = False,
-        group: str = "target",
-        subgroup: str = "prediction",
-        definition: str = None
-    ) -> ShareTargetFactor:
-        """Create a ShareTargetFactor entity."""
-        return ShareTargetFactor(
-            name=name,
-            group=group,
-            subgroup=subgroup,
-            data_type="float",
-            source="calculated",
-            definition=definition or f"{forecast_horizon}-period {target_type} target factor",
-            target_type=target_type,
-            forecast_horizon=forecast_horizon,
-            is_scaled=is_scaled
-        )
     
     def create_factor_from_config(self, config: Dict[str, Any]) -> Factor:
         """
@@ -176,47 +78,8 @@ class FactorService(EntityService):
         """
         factor_type = config.get('factor_type', '').lower()
         
-        if factor_type == 'share_momentum':
-            return self.create_share_momentum_factor(
-                name=config['name'],
-                group=config.get('group', 'momentum'),
-                subgroup=config.get('subgroup', 'price'),
-                definition=config.get('definition'),
-                momentum_type=config.get('momentum_type', 'price_momentum'),
-                period=config.get('period', 20)
-            )
-        elif factor_type == 'share_technical':
-            return self.create_share_technical_factor(
-                name=config['name'],
-                indicator_type=config.get('indicator_type', 'SMA'),
-                period=config.get('period', 20),
-                group=config.get('group', 'technical'),
-                subgroup=config.get('subgroup', 'trend'),
-                definition=config.get('definition')
-            )
-        elif factor_type == 'share_volatility':
-            return self.create_share_volatility_factor(
-                name=config['name'],
-                volatility_type=config.get('volatility_type', 'historical'),
-                period=config.get('period', 30),
-                annualization_factor=config.get('annualization_factor', 252.0),
-                group=config.get('group', 'volatility'),
-                subgroup=config.get('subgroup', 'risk'),
-                definition=config.get('definition')
-            )
-        elif factor_type == 'share_target':
-            return self.create_share_target_factor(
-                name=config['name'],
-                target_type=config.get('target_type', 'returns'),
-                forecast_horizon=config.get('forecast_horizon', 1),
-                is_scaled=config.get('is_scaled', False),
-                group=config.get('group', 'target'),
-                subgroup=config.get('subgroup', 'prediction'),
-                definition=config.get('definition')
-            )
-        else:
-            # Create base factor
-            return Factor(
+        
+        return Factor(
                 name=config['name'],
                 group=config.get('group', 'general'),
                 subgroup=config.get('subgroup'),
@@ -241,57 +104,6 @@ class FactorService(EntityService):
             print(f"Error persisting factor {factor.name}: {str(e)}")
             return None
     
-    def get_or_create_factor(self, config: Dict[str, Any]) -> Optional[Factor]:
-        """
-        Get existing factor by name or create new one if not found.
-        
-        Args:
-            config: Factor configuration dictionary (must include 'name')
-            
-        Returns:
-            Existing or newly created factor entity
-        """
-        factor_name = config.get('name')
-        if not factor_name:
-            return None
-        
-        # Try to get existing factor first
-        existing_factor = self.get_factor_by_name(factor_name)
-        if existing_factor:
-            return existing_factor
-        
-        # Create new factor if not found
-        factor = self.create_factor_from_config(config)
-        return self.persist_factor(factor)
-
-    # ========================================
-    # FACTOR DATA METHODS (from FactorDataService)
-    # ========================================
-    
-    def get_company_share_by_ticker(self, ticker: str) -> Optional[CompanyShare]:
-        """Get company share entity by ticker."""
-        try:
-            shares = self.company_share_repository.get_by_ticker(ticker)
-            return shares[0] if shares else None
-        except Exception as e:
-            print(f"Error getting company share by ticker {ticker}: {str(e)}")
-            return None
-    
-    def create_or_get_factor_db(self, name: str, group: str, subgroup: str, 
-                            data_type: str, source: str, definition: str) -> Optional[Factor]:
-        """Create or get factor using the standardized repository pattern."""
-        try:
-            return self.base_factor_repository._create_or_get(
-                name=name,
-                group=group,
-                subgroup=subgroup,
-                data_type=data_type,
-                source=source,
-                definition=definition
-            )
-        except Exception as e:
-            print(f"Error creating/getting factor {name}: {str(e)}")
-            return None
     
     def get_factor_by_name(self, name: str) -> Optional[Factor]:
         """Get factor entity by name."""
@@ -548,48 +360,9 @@ class FactorService(EntityService):
             print(f"Error in get_or_create_factor_from_tick_type for tick type {tick_type}: {e}")
             return None
     
-    def create_factor_from_volume_data(self, symbol: str, volume_value: int) -> Optional[Factor]:
-        """
-        Convenience method to create Volume factor from IBKR volume data.
-        
-        Args:
-            symbol: Stock symbol
-            volume_value: Volume value from IBKR
-            
-        Returns:
-            Volume Factor entity
-        """
-        contract_data = {'symbol': symbol, 'volume': volume_value}
-        return self.get_or_create_factor_from_tick_type(IBKRTickType.VOLUME, contract_data)
     
-    def create_factor_from_price_data(self, symbol: str, price_type: str = "LAST") -> Optional[Factor]:
-        """
-        Convenience method to create Price factors from IBKR price data.
-        
-        Args:
-            symbol: Stock symbol
-            price_type: Type of price (LAST, BID, ASK, CLOSE, etc.)
-            
-        Returns:
-            Price Factor entity
-        """
-        tick_type_map = {
-            "LAST": IBKRTickType.LAST_PRICE,
-            "BID": IBKRTickType.BID_PRICE,
-            "ASK": IBKRTickType.ASK_PRICE,
-            "CLOSE": IBKRTickType.CLOSE_PRICE,
-            "HIGH": IBKRTickType.HIGH,
-            "LOW": IBKRTickType.LOW,
-            "OPEN": IBKRTickType.OPEN_TICK
-        }
-        
-        tick_type = tick_type_map.get(price_type.upper())
-        if not tick_type:
-            print(f"Unsupported price type: {price_type}")
-            return None
-            
-        contract_data = {'symbol': symbol, 'price_type': price_type}
-        return self.get_or_create_factor_from_tick_type(tick_type, contract_data)
+    
+    
 
     # ========================================
     # IBKR FACTOR VALUE REPOSITORY METHODS
