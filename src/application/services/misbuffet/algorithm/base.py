@@ -1018,9 +1018,7 @@ class QCAlgorithm:
         
         This is the single source of truth for portfolio value using domain entities.
         """
-        if not self._unified_portfolio_manager:
-            # Fallback to QCAlgorithm's built-in portfolio
-            return float(self.portfolio.total_portfolio_value)
+        
         
         return float(self._unified_portfolio_manager.get_portfolio_value())
 

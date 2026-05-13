@@ -226,7 +226,7 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         """
         try:
             # Ensure Portfolio exists
-            from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+            from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repository import PortfolioRepository
             portfolio_repo = PortfolioRepository(self.session, self.factory)
             
             portfolio = portfolio_repo.get_by_id(container_id)

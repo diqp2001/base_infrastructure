@@ -72,7 +72,7 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
                 return self._to_entity(model)
             
             # Get or create portfolio dependency
-            from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+            from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repository import PortfolioRepository
             portfolio_repo = PortfolioRepository(self.session)
             portfolio = portfolio_repo.get_by_id(portfolio_id)
             if not portfolio:

@@ -277,36 +277,26 @@ class UnifiedPortfolioManager:
                 self.logger.error(f"❌ Transaction recording failed: {e}")
             return None
 
-    def get_portfolio_value(self) -> Decimal:
+    def get_portfolio_value(self):
         """
         Get current total portfolio value using domain entities.
         
         Returns:
             Total portfolio value including cash and holdings
         """
-        if not self._current_portfolio_entity:
-            return Decimal('0')
+        
             
         try:
-            # Get all active holdings for this portfolio
-            holdings = self.holding_repo.get_by_portfolio_id(self._current_portfolio_entity.id)
+            #with portfolio repo get holdings by portfolio id method that returns holding entities with positions and assets already linked
+            #with portfolio repo get total portfolio value method that calculates total value based on holdings and cash balance
+            portfolio_value =self.portfolio_repo.get_portfolio_value(self._current_portfolio_entity.id)
             
-            total_holdings_value = Decimal('0')
-            for holding in holdings:
-                if holding.is_active():
-                    # Calculate holding value (simplified - would use market prices in reality)
-                    holding_value = self._calculate_holding_market_value(holding)
-                    total_holdings_value += holding_value
-            
-            # Get cash balance (would be tracked via separate cash holding or portfolio attribute)
-            cash_balance = self._get_cash_balance()
-            
-            return total_holdings_value + cash_balance
+            return portfolio_value
             
         except Exception as e:
             if self.logger:
                 self.logger.error(f"❌ Portfolio value calculation failed: {e}")
-            return Decimal('0')
+            return None
 
     def get_active_positions(self) -> List[Dict[str, Any]]:
         """

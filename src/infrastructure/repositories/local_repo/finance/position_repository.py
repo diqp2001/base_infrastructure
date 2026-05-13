@@ -340,7 +340,7 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             # Resolve dependencies
             # Validate portfolio exists - get or create if needed
             if not portfolio_id:
-                from src.infrastructure.repositories.local_repo.finance.portfolio_repository import PortfolioRepository
+                from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repository import PortfolioRepository
                 portfolio_repo = PortfolioRepository(self.session)
                 default_portfolio = portfolio_repo.get_or_create("Default Portfolio")
                 portfolio_id = default_portfolio.id if default_portfolio else 1

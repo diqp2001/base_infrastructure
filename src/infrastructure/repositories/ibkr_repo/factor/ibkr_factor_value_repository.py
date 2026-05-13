@@ -517,11 +517,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             factor_values_from_bulk = self._extract_factor_values(
                                  factors=factors, 
                                  entity_id=entity_id, 
-                            time_date=time_date,
-                            financial_asset_entity=financial_asset_entity,
-                            what_to_show=what_to_show,
-                            duration_str=duration_str,
-                            bar_size_setting=bar_size_setting
+                                 time_date=time_date,
+                                 financial_asset_entity=financial_asset_entity,
+                                 what_to_show=what_to_show,
+                                 duration_str=duration_str,
+                                 bar_size_setting=bar_size_setting,
+                                 input_value=None
                             )
                             created_factor_values.extend(factor_values_from_bulk)
                     except Exception as e:
@@ -534,7 +535,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
 
             # Batch persist all factor values to database
-            self._batch_persist_factor_values(created_factor_values)
+            #self._batch_persist_factor_values(created_factor_values)
 
             # Create result batch with metadata
             result_metadata = {
@@ -872,8 +873,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             factor_values = []
-            
-            
+            created_factor_values = []
+
             for factor in factors:
                     # Check if factor value already exists
                     existing = self._check_existing_factor_value(factor.id, entity_id, time_date.strftime("%Y-%m-%d %H:%M:%S"))
@@ -895,9 +896,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         
                         if calculated_factor_value:
                             factor_values.append(calculated_factor_value)
-                            
+                            created_factor_values.append(calculated_factor_value)
+                    else:
+                        # Factor has no dependencies - extract directly from IBKR data
+                                factor_value = self._extract_factor_value_from_input(
+                                     factor, entity_id, time_date
+                                )
+                                
+                                if factor_value:
+                                    factor_values.append(factor_value)
+                                    created_factor_values.append(calculated_factor_value)
                     
-                
+            self._batch_persist_factor_values(created_factor_values)
             return factor_values
             
         except Exception as e:
@@ -925,7 +935,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """
         try:
             factor_values = []
-            
+            created_factor_values = []
             for bar_data in bulk_data:
                 try:
                     # Parse date from IBKR format
@@ -959,6 +969,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 
                                 if calculated_factor_value:
                                     factor_values.append(calculated_factor_value)
+                                    created_factor_values.append(calculated_factor_value)
                             else:
                                 # Factor has no dependencies - extract directly from IBKR data
                                 factor_value = self._extract_factor_value_from_bar(
@@ -967,6 +978,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 
                                 if factor_value:
                                     factor_values.append(factor_value)
+                                    created_factor_values.append(factor_value)
                                 
                         except Exception as factor_error:
                             print(f"Error extracting factor {factor.name} from bar {bar_date}: {factor_error}")
@@ -975,7 +987,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 except Exception as bar_error:
                     print(f"Error processing bar data: {bar_error}")
                     continue
-            
+            self._batch_persist_factor_values(created_factor_values)
             print(f"Extracted {len(factor_values)} factor values from {len(bulk_data)} bars for {len(factors)} factors")
             return factor_values
             
@@ -1179,12 +1191,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 value=str(calculated_value)
             )
             
-            # Store in database
-            if self.local_repo:
-                stored_value = self.local_repo.add(factor_value)
-                if stored_value:
-                    print(f"Successfully calculated and stored dynamic factor value for {factor.name}: {calculated_value}")
-                    return stored_value
+            
             
             return factor_value
             
@@ -1287,12 +1294,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 value=str(calculated_value)
             )
             
-            # Store in database
-            if self.local_repo:
-                stored_value = self.local_repo.add(factor_value)
-                if stored_value:
-                    print(f"Successfully calculated and stored factor value for {factor.name}: {calculated_value}")
-                    return stored_value
+            
             
             return factor_value
             
@@ -1670,7 +1672,41 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error parsing IBKR date {date_str}: {e}")
             return None
-
+    def _extract_factor_value_from_input(self,  factor: Any, 
+                                     entity_id: int, date: datetime, input_value: Any = None) -> Optional[FactorValue]:
+        """
+        Extract a single factor value from an IBKR bar.
+        
+        Args:
+            input_value: The input value to extract the factor value from (could be bar data or other structure)
+            factor: Factor entity to extract value for
+            entity_id: Entity ID for the factor value
+            date: Date for the factor value
+            
+        Returns:
+            FactorValue entity or None if extraction failed
+        """
+        try:
+            factor_name = factor.name.lower()
+            
+            
+            
+            value = input_value
+            if value is None:
+                return None
+            
+            # Create FactorValue entity
+            return FactorValue(
+                id=None,  # Let database generate
+                factor_id=factor.id,
+                entity_id=entity_id,
+                date=date,
+                value=str(value)
+            )
+            
+        except Exception as e:
+            print(f"Error extracting factor value from input: {e}")
+            return None
     def _extract_factor_value_from_bar(self, bar_data: Dict[str, Any], factor: Any, 
                                      entity_id: int, bar_date: datetime) -> Optional[FactorValue]:
         """
