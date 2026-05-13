@@ -346,5 +346,44 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         except Exception as e:
             self.logger.error(f"Error creating position for holding {holding.id}: {str(e)}")
 
+    def get_related_position(self, holding_id: int) -> Optional:
+        """
+        Get the position related to a specific holding.
+        
+        Args:
+            holding_id: The holding ID to get related position for
+            
+        Returns:
+            Position entity related to this holding or None if not found
+        """
+        try:
+            # First get the holding to understand its container_id and asset_id
+            holding = self.get_by_id(holding_id)
+            if not holding:
+                self.logger.warning(f"Holding {holding_id} not found")
+                return None
+            
+            # Import position repository
+            from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
+            
+            position_repo = PositionRepository(self.session, self.factory)
+            
+            # Get positions by portfolio (container_id) - there might be multiple positions in a portfolio
+            positions = position_repo.get_by_portfolio_id(holding.container_id)
+            
+            if not positions:
+                self.logger.info(f"No positions found for portfolio {holding.container_id} related to holding {holding_id}")
+                return None
+            
+            # For now, return the first position if multiple exist
+            # In a real system, you might want to match by asset or other criteria
+            position = positions[0]
+            self.logger.info(f"Retrieved position {position.id} for holding {holding_id}")
+            return position
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving position for holding {holding_id}: {str(e)}")
+            return None
+
 
 

@@ -235,6 +235,29 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             logger.error(f"Error creating/getting portfolio {name}: {str(e)}")
             raise
     
+    def get_related_holdings(self, portfolio_id: int) -> List:
+        """
+        Get all holdings related to a specific portfolio.
+        
+        Args:
+            portfolio_id: The portfolio ID to get holdings for
+            
+        Returns:
+            List of holding entities related to this portfolio
+        """
+        try:
+            from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
+            
+            holding_repo = HoldingRepository(self.session, self.factory)
+            holdings = holding_repo.get_by_container_id(portfolio_id)
+            
+            logger.info(f"Retrieved {len(holdings)} holdings for portfolio {portfolio_id}")
+            return holdings
+            
+        except Exception as e:
+            logger.error(f"Error retrieving holdings for portfolio {portfolio_id}: {str(e)}")
+            return []
+
     # Standard CRUD interface
     def create(self, entity: entity_class) -> entity_class:
         """Create new portfolio entity in database (standard CRUD interface)."""
