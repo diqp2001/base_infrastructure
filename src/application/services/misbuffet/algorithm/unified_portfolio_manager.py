@@ -27,25 +27,27 @@ class UnifiedPortfolioManager:
     using domain entities and repositories instead of custom tracking dictionaries.
     """
 
-    def __init__(self, repository_factory, logger=None):
+    def __init__(self, entity_service, market_data_service, logger=None):
         """
         Initialize the unified portfolio manager.
         
         Args:
-            repository_factory: Factory providing access to all repositories
+            entity_service: Service providing access to all repositories
+            market_data_service: Service for handling market data
             logger: Optional logger for debugging
         """
-        self.repository_factory = repository_factory
+        self.repository_factory = entity_service.repository_factory
+        self.market_data_service = market_data_service
         self.logger = logger
         self._current_portfolio_entity: Optional[Portfolio] = None
         self._order_ticket_mapping: Dict[str, str] = {}  # QC order_id -> domain order_id
         
         # Repository shortcuts
-        self.portfolio_repo = repository_factory.portfolio_local_repo
-        self.holding_repo = repository_factory.holding_local_repo
-        self.position_repo = repository_factory.position_local_repo
-        self.order_repo = repository_factory.order_local_repo
-        self.transaction_repo = repository_factory.transaction_local_repo
+        self.portfolio_repo = self.repository_factory.portfolio_local_repo
+        self.holding_repo = self.repository_factory.holding_local_repo
+        self.position_repo = self.repository_factory.position_local_repo
+        self.order_repo = self.repository_factory.order_local_repo
+        self.transaction_repo = self.repository_factory.transaction_local_repo
 
     def register_portfolio(
         self, 
