@@ -298,7 +298,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _create_or_get(
         self,
-         entity_symbol,
+         entity_symbol,primary_key=None,
         **kwargs
     ) -> Optional[FactorValue]:
         """

@@ -153,7 +153,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             print(f"Error getting factor value for factor {factor_id}, entity {entity_id}, date {date_str}: {e}")
             return None
     
-    def _create_or_get(self, entity_symbol, **kwargs) -> Optional[FactorValue]:
+    def _create_or_get(self, entity_symbol,primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
         Enhanced get_or_create function with automatic dependency resolution and local database integration.
         
@@ -179,9 +179,12 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             financial_asset_entity = kwargs.get('entity')
             time_date = kwargs.get('date', datetime.now())
             
-            if not factor_entity:
+            if not factor_entity or not factor_entity.id:
                 print("Factor entity is required for local factor value creation")
+
                 return None
+            
+                        
 
             # Get entity ID safely
             entity_id = getattr(financial_asset_entity, 'id') if financial_asset_entity else None

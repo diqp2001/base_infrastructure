@@ -253,11 +253,11 @@ class EntityService:
             print(
                 f"Error pulling {entity_cls.__name__} with symbol {entity_cls.id}: {e}"
             )
-    def _create_or_get(self, entity_cls ,name: str,
+    def _create_or_get(self, entity_cls ,name: str=None,
                             **kwargs) :
         try:
             repository = self.get_local_repository(entity_cls)
-            return repository._create_or_get(entity_cls,
+            return repository._create_or_get(entity_cls,name,
                             **kwargs)
 
 

@@ -83,6 +83,7 @@ class UnifiedPortfolioManager:
             if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
                 try:
                     portfolio_value_factor = self.market_data_service._create_or_get(
+                        entity_cls=PortfolioValueFactor,
                         factor_name=f"portfolio_value_{portfolio.name}",
                         factor_type="portfolio_value_factor",
                         entity_symbol=portfolio.name,
@@ -153,6 +154,7 @@ class UnifiedPortfolioManager:
                 initial_cash=main_cash,
                 currency_code=main_currency
             )
+
             
             if not main_portfolio:
                 if self.logger:
@@ -160,6 +162,27 @@ class UnifiedPortfolioManager:
                 return None
             
             self._current_portfolio_entity = main_portfolio
+            if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                try:
+                    portfolio_value_factor = self.market_data_service._create_or_get(
+                        entity_cls=PortfolioValueFactor,
+                        factor_name=f"portfolio_value_{main_portfolio.name}",
+                        factor_type="portfolio_value_factor",
+                        entity_symbol=main_portfolio.name,
+                        group="value",
+                        subgroup="portfolio",
+                        frequency="1d",
+                        data_type="numeric",
+                        source="calculated",
+                        definition=f"Portfolio value factor for {main_portfolio.name}"
+                    )
+                    
+                    if self.logger and portfolio_value_factor:
+                        self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
+                        
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"⚠️ Failed to create portfolio value factor: {e}")
             
             if self.logger:
                 self.logger.info(f"✅ Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
