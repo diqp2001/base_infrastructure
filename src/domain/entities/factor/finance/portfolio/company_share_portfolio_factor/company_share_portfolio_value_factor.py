@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, List
 from decimal import Decimal
 
+from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor
 from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 
@@ -37,36 +38,16 @@ class CompanySharePortfolioValueFactor(CompanySharePortfolioFactor):
             factor_id=factor_id,
         )
 
-    def calculate_portfolio_value(self, holdings: List[CompanySharePortfolioHolding], quantities: List[Decimal]) -> Decimal:
+    def calculate(self, holdings_values: List[FactorValue]) -> Decimal:
         """
-        Calculate the total portfolio value from a list of holdings and their corresponding quantities.
+        Calculate the total portfolio value by summing the values of all holdings. factor values of factor CompanySharePortfolioHoldingValueFactor
+        """
         
-        Args:
-            holdings: List of portfolio company share holdings
-            quantities: List of corresponding quantities for each holding (must be same length as holdings)
-            
-        Returns:
-            Total portfolio value (sum of all holding values)
-            
-        Raises:
-            ValueError: If holdings and quantities lists have different lengths
-                       or if any holding has no price information
-        """
-        if len(holdings) != len(quantities):
-            raise ValueError("Holdings and quantities lists must have the same length")
             
         total_value = Decimal('0')
         
-        for holding, quantity in zip(holdings, quantities):
-            if holding.asset.price is None:
-                raise ValueError(f"Holding {holding.id} has no price information")
-                
-            if quantity < 0:
-                raise ValueError(f"Quantity for holding {holding.id} cannot be negative")
-                
-            # Convert price to Decimal for precise calculation
-            price = Decimal(str(holding.asset.price))
-            holding_value = quantity * price
+        for holding_value in holdings_values:
+            
             total_value += holding_value
             
         return total_value

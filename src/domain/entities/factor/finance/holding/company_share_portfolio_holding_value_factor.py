@@ -1,6 +1,8 @@
 from __future__ import annotations
-from typing import Optional
+from typing import List, Optional
 from decimal import Decimal
+
+from src.domain.entities.factor.factor_value import FactorValue
 
 from .company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -36,27 +38,16 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
             factor_id=factor_id,
         )
 
-    def calculate_value(self, company_share: CompanyShare, quantity: Decimal) -> Decimal:
+    def calculate(self, positions_values: List[FactorValue]) -> Decimal:
         """
-        Calculate the total value of a holding given a company share and quantity.
-        
-        Args:
-            company_share: The company share object containing price information
-            quantity: Number of shares held (as Decimal for precision)
-            
-        Returns:
-            Total value of the holding (quantity × current price)
-            
-        Raises:
-            ValueError: If company share price is None or quantity is negative
+        Calculate the total portfolio value by summing the values of all holdings. factor values of factor CompanySharePortfolioHoldingValueFactor
         """
-        if company_share.price is None:
-            raise ValueError("Company share price cannot be None")
-            
-        if quantity < 0:
-            raise ValueError("Quantity cannot be negative")
-            
-        # Convert price to Decimal for precise calculation
-        price = Decimal(str(company_share.price))
         
-        return quantity * price
+            
+        total_value = Decimal('0')
+        
+        for position_value in positions_values:
+            
+            total_value += position_value
+            
+        return total_value
