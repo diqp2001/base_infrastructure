@@ -12,6 +12,8 @@ from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 
+from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
+from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.holding.holding import Holding
 from src.domain.entities.finance.holding.position import Position, PositionType
@@ -291,7 +293,13 @@ class UnifiedPortfolioManager:
         try:
             #with portfolio repo get holdings by portfolio id method that returns holding entities with positions and assets already linked
             #with portfolio repo get total portfolio value method that calculates total value based on holdings and cash balance
-            portfolio_value =self.portfolio_repo.get_portfolio_value(self._current_portfolio_entity.id)
+            
+            entity_config = {
+                "entity_class": FactorValue,
+                "entity": self._current_portfolio_entity,
+                "factor":PortfolioValueFactor
+            }
+            portfolio_value=self.market_data_service._create_or_get(entity_config)
             
             return portfolio_value
             

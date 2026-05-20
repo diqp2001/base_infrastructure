@@ -41,8 +41,8 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanyShare: ["AAPL"],
-        CompanyShareOption: ["AAPL  281215C00260000"],
+        CompanyShare: ["AAPL","MSFT","GOOGL","AMZN"],
+        #CompanyShareOption: ["AAPL  281215C00260000"],
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
         # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
@@ -124,9 +124,9 @@ DEFAULT_CONFIG = {
         # # Index return factors (daily, weekly, monthly)
         # FACTOR_LIBRARY["index_library"]["return_daily"],
         # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
-        #FACTOR_LIBRARY["company_share_library"]["return_daily"],
+        FACTOR_LIBRARY["company_share_library"]["return_daily"],
         #FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
-        FACTOR_LIBRARY["company_share_option_library"]["option_price"],
+        #FACTOR_LIBRARY["company_share_option_library"]["option_price"],
         #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
@@ -152,18 +152,18 @@ DEFAULT_CONFIG = {
 
                 "sub_portfolios": []
             },
-            {
-                "type": "derivative",
-                "name": "SPX_Call_Spread_CompanyShare_Portfolio_Option_Portfolio",
-                "initial_cash": 1000000,
-                "currency_code": "USD",
-                "portfolio_type": "BACKTEST",
+            # {
+            #     "type": "derivative",
+            #     "name": "SPX_Call_Spread_CompanyShare_Portfolio_Option_Portfolio",
+            #     "initial_cash": 1000000,
+            #     "currency_code": "USD",
+            #     "portfolio_type": "BACKTEST",
 
-                "class": CompanySharePortfolioOptionPortfolio,
-                "holding_class": CompanySharePortfolioOptionPortfolioHolding,
+            #     "class": CompanySharePortfolioOptionPortfolio,
+            #     "holding_class": CompanySharePortfolioOptionPortfolioHolding,
 
-                "sub_portfolios": []
-            }
+            #     "sub_portfolios": []
+            # }
         ]
     }
     ,
