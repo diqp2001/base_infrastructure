@@ -41,6 +41,10 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.future.futu
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor as IndexFutureFactorEntity
 
+# Import portfolio and holding value factors
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor as CompanySharePortfolioValueFactorEntity
+from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor as CompanySharePortfolioHoldingValueFactorEntity
+
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
 from src.domain.entities.country import Country
@@ -267,6 +271,16 @@ class FactorMapper:
                 **base_args,
                 
             )
+        elif factor_type == 'portfolio_company_share_value':
+            return CompanySharePortfolioValueFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'portfolio_company_share_holding_value':
+            return CompanySharePortfolioHoldingValueFactorEntity(
+                **base_args,
+                
+            )
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation
@@ -290,6 +304,49 @@ class FactorMapper:
         }
         
         
+        # Set factor_type based on domain entity type
+        if isinstance(domain_entity, CompanySharePortfolioValueFactorEntity):
+            base_data['factor_type'] = 'portfolio_company_share_value'
+        elif isinstance(domain_entity, CompanySharePortfolioHoldingValueFactorEntity):
+            base_data['factor_type'] = 'portfolio_company_share_holding_value'
+        else:
+            # Use existing logic or default
+            base_data['factor_type'] = 'generic'
+        
         # Default to base FactorModel for unknown types
         return Factormodel(**base_data)
+    
+    @staticmethod
+    def to_domain_portfolio_company_share_value_factor(orm_model):
+        """Convert portfolio company share value factor ORM model to domain entity."""
+        if not orm_model:
+            return None
+            
+        return CompanySharePortfolioValueFactorEntity(
+            name=orm_model.name,
+            group=orm_model.group,
+            subgroup=orm_model.subgroup,
+            frequency=orm_model.frequency,
+            data_type=orm_model.data_type,
+            source=orm_model.source,
+            definition=orm_model.definition,
+            factor_id=orm_model.id,
+        )
+    
+    @staticmethod
+    def to_domain_portfolio_company_share_holding_value_factor(orm_model):
+        """Convert portfolio company share holding value factor ORM model to domain entity."""
+        if not orm_model:
+            return None
+            
+        return CompanySharePortfolioHoldingValueFactorEntity(
+            name=orm_model.name,
+            group=orm_model.group,
+            subgroup=orm_model.subgroup,
+            frequency=orm_model.frequency,
+            data_type=orm_model.data_type,
+            source=orm_model.source,
+            definition=orm_model.definition,
+            factor_id=orm_model.id,
+        )
     
