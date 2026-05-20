@@ -39,48 +39,23 @@ class CompanySharePortfolioValueFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)
 
-    def get_or_create(self, entity_cls,primary_key: str, **kwargs):
-        """
-        Get or create a portfolio company share value factor with dependency resolution.
-        
-        Args:
-            primary_key: Factor name identifier
-            **kwargs: Additional parameters for factor creation
-            
-        Returns:
-            Factor entity or None if creation failed
-        """
-        try:
-            # Check existing by primary identifier (factor name)
-            existing = self.get_by_name(primary_key)
-            if existing:
-                return existing
-            
-            # Create new factor using enhanced _create_or_get method with dependencies
-            return self._create_or_get_with_dependencies(
-                name=primary_key,
-                group=kwargs.get('group', 'portfolio'),
-                subgroup=kwargs.get('subgroup', 'value'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'portfolio_analysis'),
-                definition=kwargs.get('definition', f'Portfolio company share value factor: {primary_key}'),
-                entity_type=kwargs.get('entity_type', 'portfolio_company_share_value'),
-                frequency=kwargs.get('frequency', '1d')
-            )
-            
-        except Exception as e:
-            print(f"Error in get_or_create for portfolio company share value factor {primary_key}: {e}")
-            return None
+    
 
-    def _create_or_get_with_dependencies(self, name: str, group: str, subgroup: str, 
-                                       data_type: str, source: str, definition: str, 
-                                       entity_type: str, frequency: str = '1d') -> CompanySharePortfolioValueFactor:
+    def _create_or_get (self, entity_symbol, **kwargs) -> CompanySharePortfolioValueFactor:
         """
         Enhanced create or get method with automatic dependency creation for portfolio value factors.
         
         Portfolio value depends on the sum of all holding values within the portfolio.
         """
         try:
+            name = kwargs.get("name")
+            group = kwargs.get("group")
+            subgroup = kwargs.get("subgroup")
+            data_type = kwargs.get("data_type")
+            source = kwargs.get("source")
+            definition = kwargs.get("definition")
+            entity_type = kwargs.get("entity_type")
+            frequency = kwargs.get("frequency", "1d")
             # 1. Create the main portfolio value factor
             orm_factor = self.session.query(self.get_factor_model()).filter(
                 self.get_factor_model().name == name

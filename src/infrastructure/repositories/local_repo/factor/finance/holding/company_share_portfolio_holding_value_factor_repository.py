@@ -38,42 +38,9 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository):
         """Convert domain entity to ORM model."""
         return FactorMapper.to_orm(entity)
 
-    def get_or_create(self,entity_cls, primary_key: str, **kwargs):
-        """
-        Get or create a portfolio company share holding value factor with dependency resolution.
-        
-        Args:
-            primary_key: Factor name identifier
-            **kwargs: Additional parameters for factor creation
-            
-        Returns:
-            Factor entity or None if creation failed
-        """
-        try:
-            # Check existing by primary identifier (factor name)
-            existing = self.get_by_name(primary_key)
-            if existing:
-                return existing
-            
-            # Create new factor using enhanced _create_or_get method with dependencies
-            return self._create_or_get_with_dependencies(
-                name=primary_key,
-                group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'value'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'portfolio_holding_analysis'),
-                definition=kwargs.get('definition', f'Portfolio company share holding value factor: {primary_key}'),
-                entity_type=kwargs.get('entity_type', 'portfolio_company_share_holding_value'),
-                frequency=kwargs.get('frequency', '1d')
-            )
-            
-        except Exception as e:
-            print(f"Error in get_or_create for portfolio company share holding value factor {primary_key}: {e}")
-            return None
+    
 
-    def _create_or_get_with_dependencies(self, name: str, group: str, subgroup: str, 
-                                       data_type: str, source: str, definition: str, 
-                                       entity_type: str, frequency: str = '1d') -> CompanySharePortfolioHoldingValueFactor:
+    def _create_or_get (self, entity_symbol, **kwargs) -> CompanySharePortfolioHoldingValueFactor:
         """
         Enhanced create or get method with automatic dependency creation for holding value factors.
         
@@ -81,6 +48,14 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository):
         """
         try:
             # 1. Create the main holding value factor
+            name = kwargs.get("name")
+            group = kwargs.get("group")
+            subgroup = kwargs.get("subgroup")
+            data_type = kwargs.get("data_type")
+            source = kwargs.get("source")
+            definition = kwargs.get("definition")
+            entity_type = kwargs.get("entity_type")
+            frequency = kwargs.get("frequency", "1d")
             orm_factor = self.session.query(self.get_factor_model()).filter(
                 self.get_factor_model().name == name
             ).first()
@@ -122,8 +97,34 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository):
                 }
             }
             
-            # Note: Dependencies would be created here when position factor classes exist
-            # For now, we're documenting the structure
+            # 3. Create dependency factors and relationships
+            for dependency in dependencies.items():
+                entity_class = dependency[1].get('class')
+                repo = self.factory.get_local_repository(entity_class)
+                
+                dependency_config = dependency[1]
+                dependency_entity = repo._create_or_get(
+                    entity_class,
+                    primary_key=dependency_config.get("name"),
+                    group=dependency_config.get("group"),
+                    subgroup=dependency_config.get("subgroup"),
+                    frequency=dependency_config.get("frequency", "1d"),
+                    data_type=dependency_config.get("data_type"),
+                    source=dependency_config.get("source"),
+                    definition=dependency_config.get("definition"),
+                )
+
+                # 4. Create factor dependency relationship
+                repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
+                lag = dependency_config.get("parameters", {}).get("lag", None) if dependency_config.get("parameters") else None
+                independent_factor_related_entity_key = dependency_config.get("parameters", {}).get("independent_factor_related_entity_key", None) if dependency_config.get("parameters") else None
+                
+                repo_factor_dependency._create_or_get(
+                    independent_factor=dependency_entity, 
+                    dependent_factor=self._to_entity(orm_factor), 
+                    lag=lag, 
+                    independent_factor_related_entity_key=independent_factor_related_entity_key
+                )
             
             self.session.commit()
             if orm_factor:
