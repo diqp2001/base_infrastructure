@@ -181,6 +181,12 @@ from src.infrastructure.repositories.ibkr_repo.finance.company_repository import
 from src.infrastructure.repositories.ibkr_repo.finance.industry_repository import IBKRIndustryRepository
 from src.infrastructure.repositories.ibkr_repo.finance.sector_repository import IBKRSectorRepository
 
+# New Position, Transaction, and Order factor repositories
+from src.infrastructure.repositories.local_repo.factor.finance.position.company_share_position_value_factor_repository import CompanySharePositionValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.transaction.company_share_transaction_value_factor_repository import CompanyShareTransactionValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.order.company_share_order_quantity_factor_repository import CompanyShareOrderQuantityFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.order.company_share_order_price_factor_repository import CompanyShareOrderPriceFactorRepository
+
 
 class RepositoryFactory:
     """
@@ -262,6 +268,13 @@ class RepositoryFactory:
                 'company_share_portfolio_holding_value_factor': CompanySharePortfolioHoldingValueFactorRepository(self.session, factory=self),
                 'company_share_portfolio_holding_weight_factor': CompanySharePortfolioHoldingWeightFactorRepository(self.session, factory=self),
                 'portfolio_holding_factor': PortfolioHoldingFactorRepository(self.session, factory=self),
+                
+                # Position, Transaction, and Order factor repositories
+                'company_share_position_value_factor': CompanySharePositionValueFactorRepository(self.session, factory=self),
+                'company_share_transaction_value_factor': CompanyShareTransactionValueFactorRepository(self.session, factory=self),
+                'company_share_order_quantity_factor': CompanyShareOrderQuantityFactorRepository(self.session, factory=self),
+                'company_share_order_price_factor': CompanyShareOrderPriceFactorRepository(self.session, factory=self),
+                
                 'company_share_option_gamma_factor': CompanyShareOptionGammaFactorRepository(self.session, factory=self),
                 'company_share_option_rho_factor': CompanyShareOptionRhoFactorRepository(self.session, factory=self),
                 'company_share_option_vega_factor': CompanyShareOptionVegaFactorRepository(self.session, factory=self),
@@ -1245,6 +1258,27 @@ class RepositoryFactory:
     def portfolio_holding_factor_local_repo(self):
         """Get portfolio_holding_factor repository for dependency injection."""
         return self._local_repositories.get('portfolio_holding_factor')
+    
+    # Position, Transaction, and Order factor repositories
+    @property
+    def company_share_position_value_factor_local_repo(self):
+        """Get company_share_position_value_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_position_value_factor')
+    
+    @property
+    def company_share_transaction_value_factor_local_repo(self):
+        """Get company_share_transaction_value_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_transaction_value_factor')
+    
+    @property
+    def company_share_order_quantity_factor_local_repo(self):
+        """Get company_share_order_quantity_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_order_quantity_factor')
+    
+    @property
+    def company_share_order_price_factor_local_repo(self):
+        """Get company_share_order_price_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_order_price_factor')
     
     @property
     def company_share_option_gamma_factor_local_repo(self):

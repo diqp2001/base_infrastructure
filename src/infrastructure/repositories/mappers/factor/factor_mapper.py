@@ -45,6 +45,12 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.future.inde
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor as CompanySharePortfolioValueFactorEntity
 from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor as CompanySharePortfolioHoldingValueFactorEntity
 
+# Import position, transaction, and order factors
+from src.domain.entities.factor.finance.position.company_share_position_value_factor import CompanySharePositionValueFactor as CompanySharePositionValueFactorEntity
+from src.domain.entities.factor.finance.transaction.company_share_transaction_value_factor import CompanyShareTransactionValueFactor as CompanyShareTransactionValueFactorEntity
+from src.domain.entities.factor.finance.order.company_share_order_quantity_factor import CompanyShareOrderQuantityFactor as CompanyShareOrderQuantityFactorEntity
+from src.domain.entities.factor.finance.order.company_share_order_price_factor import CompanyShareOrderPriceFactor as CompanyShareOrderPriceFactorEntity
+
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
 from src.domain.entities.country import Country
@@ -281,6 +287,26 @@ class FactorMapper:
                 **base_args,
                 
             )
+        elif factor_type == 'company_share_position_value_factor':
+            return CompanySharePositionValueFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'company_share_transaction_value_factor':
+            return CompanyShareTransactionValueFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'company_share_order_quantity_factor':
+            return CompanyShareOrderQuantityFactorEntity(
+                **base_args,
+                
+            )
+        elif factor_type == 'company_share_order_price_factor':
+            return CompanyShareOrderPriceFactorEntity(
+                **base_args,
+                
+            )
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation
@@ -309,6 +335,14 @@ class FactorMapper:
             base_data['factor_type'] = 'portfolio_company_share_value'
         elif isinstance(domain_entity, CompanySharePortfolioHoldingValueFactorEntity):
             base_data['factor_type'] = 'portfolio_company_share_holding_value'
+        elif isinstance(domain_entity, CompanySharePositionValueFactorEntity):
+            base_data['factor_type'] = 'company_share_position_value_factor'
+        elif isinstance(domain_entity, CompanyShareTransactionValueFactorEntity):
+            base_data['factor_type'] = 'company_share_transaction_value_factor'
+        elif isinstance(domain_entity, CompanyShareOrderQuantityFactorEntity):
+            base_data['factor_type'] = 'company_share_order_quantity_factor'
+        elif isinstance(domain_entity, CompanyShareOrderPriceFactorEntity):
+            base_data['factor_type'] = 'company_share_order_price_factor'
         else:
             # Use existing logic or default
             base_data['factor_type'] = 'generic'

@@ -269,3 +269,28 @@ class CompanyShareOptionDupireLocalVolatilityPriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_dupire_local_volatility_price_factor"
     }
+
+
+# Position, Transaction, and Order Factor Models
+class CompanySharePositionValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_position_value_factor"
+    }
+
+
+class CompanyShareTransactionValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_transaction_value_factor"
+    }
+
+
+class CompanyShareOrderQuantityFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_order_quantity_factor"
+    }
+
+
+class CompanyShareOrderPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_order_price_factor"
+    }
