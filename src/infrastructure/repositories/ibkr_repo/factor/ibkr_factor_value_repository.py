@@ -61,6 +61,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         self.factory = factory
         self.ibkr_instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
         self.tick_mapper = IBKRTickFactorMapper()
+        # Add recursion guard to prevent infinite dependency loops
+        self._dependency_creation_stack = set()
         
     @property 
     def local_repo(self):
@@ -326,6 +328,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print("Factor entity and financial asset entity are required")
                 return None
 
+            # Check for dependency loop protection
+            financial_asset_entity = kwargs.get('entity')
+            if financial_asset_entity:
+                entity_id = getattr(financial_asset_entity, 'id')
+                dependency_key = (factor_entity.id, entity_id, str(time_date))
+                if dependency_key in self._dependency_creation_stack:
+                    print(f"Detected dependency loop for factor {factor_entity.name} with entity {entity_id}. Skipping to prevent infinite recursion.")
+                    return None
+                self._dependency_creation_stack.add(dependency_key)
+            else:
+                dependency_key = None
+
             # Ensure time_date is a string
             if isinstance(time_date, date):
                 time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
@@ -446,6 +460,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
             return None
+        finally:
+            # Clean up dependency stack to prevent memory leaks
+            if dependency_key and dependency_key in self._dependency_creation_stack:
+                self._dependency_creation_stack.remove(dependency_key)
     
     def get_or_create_batch(self, factor_batch: FactorBatch, 
                            what_to_show: str = "TRADES", 

@@ -49,13 +49,21 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             return None
         
     def get_by_id(self, id: int) -> Optional[EntityType]:
-        """Get financial asset by ticker symbol."""
+        """Get financial asset by id."""
         try:
             model = self.session.query(self.model_class).filter(
                 self.model_class.id == id
             ).first()
+            if not model:
+                print(f"Could not find financial asset entity with ID {id}")
+                return None
+            
             repo = self.factory._local_repositories.get(model.asset_type)
-            return repo.mapper.to_domain(model) if model else None
+            if not repo:
+                print(f"Could not find repository for asset_type {model.asset_type}")
+                return None
+                
+            return repo.mapper.to_domain(model)
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by id {id}: {e}")
             return None
