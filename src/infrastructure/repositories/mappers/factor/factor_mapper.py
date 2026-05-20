@@ -51,6 +51,9 @@ from src.domain.entities.factor.finance.transaction.company_share_transaction_va
 from src.domain.entities.factor.finance.order.company_share_order_quantity_factor import CompanyShareOrderQuantityFactor as CompanyShareOrderQuantityFactorEntity
 from src.domain.entities.factor.finance.order.company_share_order_price_factor import CompanyShareOrderPriceFactor as CompanyShareOrderPriceFactorEntity
 
+# Import portfolio value factor
+from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor as PortfolioValueFactorEntity
+
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
 from src.domain.entities.country import Country
@@ -307,6 +310,11 @@ class FactorMapper:
                 **base_args,
                 
             )
+        elif factor_type == 'portfolio_value_factor':
+            return PortfolioValueFactorEntity(
+                **base_args,
+                
+            )
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation
@@ -343,6 +351,8 @@ class FactorMapper:
             base_data['factor_type'] = 'company_share_order_quantity_factor'
         elif isinstance(domain_entity, CompanyShareOrderPriceFactorEntity):
             base_data['factor_type'] = 'company_share_order_price_factor'
+        elif isinstance(domain_entity, PortfolioValueFactorEntity):
+            base_data['factor_type'] = 'portfolio_value_factor'
         else:
             # Use existing logic or default
             base_data['factor_type'] = 'generic'

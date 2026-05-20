@@ -52,6 +52,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.portfolio.portfol
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_correlation_factor_repository import CompanySharePortfolioCorrelationFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_return_factor_repository import CompanySharePortfolioReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_value_factor_repository import CompanySharePortfolioValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.portfolio_value_factor_repository import PortfolioValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_variance_factor_repository import CompanySharePortfolioVarianceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.holding_factor_repository import HoldingFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_factor_repository import CompanySharePortfolioHoldingFactorRepository
@@ -261,6 +262,7 @@ class RepositoryFactory:
                 'company_share_portfolio_correlation_factor': CompanySharePortfolioCorrelationFactorRepository(self.session, factory=self),
                 'company_share_portfolio_return_factor': CompanySharePortfolioReturnFactorRepository(self.session, factory=self),
                 'company_share_portfolio_value_factor': CompanySharePortfolioValueFactorRepository(self.session, factory=self),
+                'portfolio_value_factor': PortfolioValueFactorRepository(self.session, factory=self),
                 'company_share_portfolio_variance_factor': CompanySharePortfolioVarianceFactorRepository(self.session, factory=self),
                 'holding_factor': HoldingFactorRepository(self.session, factory=self),
                 'company_share_portfolio_holding_factor': CompanySharePortfolioHoldingFactorRepository(self.session, factory=self),
@@ -1223,6 +1225,11 @@ class RepositoryFactory:
     def company_share_portfolio_value_factor_local_repo(self):
         """Get portfolio_company_share_value_factor repository for dependency injection."""
         return self._local_repositories.get('company_share_portfolio_value_factor')
+    
+    @property
+    def portfolio_value_factor_local_repo(self):
+        """Get portfolio_value_factor repository for dependency injection."""
+        return self._local_repositories.get('portfolio_value_factor')
     
     @property
     def company_share_portfolio_variance_factor_local_repo(self):
