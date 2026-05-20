@@ -15,13 +15,13 @@ class CompanySharePortfolioValueFactorRepository(BaseFactorRepository):
     def __init__(self, session: Session, factory=None):
         super().__init__(session)
         self.factory = factory
-        self.mapper = FactorMapper()
+        self.mapper = FactorMapper() # Consider using a specific mapper for portfolio company share value factors if needed
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return PortfolioCompanyShareValueFactor
+        return self.mapper.get_factor_entity()
 
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()
@@ -31,11 +31,11 @@ class CompanySharePortfolioValueFactorRepository(BaseFactorRepository):
 
     def _to_entity(self, infra_obj):
         """Convert ORM model to domain entity."""
-        return FactorMapper.to_domain_portfolio_company_share_value_factor(infra_obj)
+        return self.mapper.to_domain_portfolio_company_share_value_factor(infra_obj)
     
     def _to_model(self, entity):
         """Convert domain entity to ORM model."""
-        return FactorMapper.to_orm(entity)
+        return self.mapper.to_orm(entity)
 
     def get_or_create(self, entity_cls,primary_key: str, **kwargs):
         """
