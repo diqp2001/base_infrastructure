@@ -77,6 +77,28 @@ class UnifiedPortfolioManager:
             
             self._current_portfolio_entity = portfolio
             
+            # Create portfolio value factor using market data service
+            if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                try:
+                    portfolio_value_factor = self.market_data_service._create_or_get(
+                        factor_name=f"portfolio_value_{portfolio.name}",
+                        factor_type="portfolio_value_factor",
+                        entity_symbol=portfolio.name,
+                        group="value",
+                        subgroup="portfolio",
+                        frequency="1d",
+                        data_type="numeric",
+                        source="calculated",
+                        definition=f"Portfolio value factor for {portfolio.name}"
+                    )
+                    
+                    if self.logger and portfolio_value_factor:
+                        self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
+                        
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"⚠️ Failed to create portfolio value factor: {e}")
+            
             if self.logger:
                 self.logger.info(f"✅ Portfolio registered: {portfolio.name} (ID: {portfolio.id})")
             
@@ -160,6 +182,35 @@ class UnifiedPortfolioManager:
                     
                     if sub_portfolio:
                         created_sub_portfolios.append(sub_portfolio)
+                        
+                        # Create sub-portfolio specific value factors
+                        if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                            try:
+                                # Determine factor type based on sub-portfolio type
+                                if sub_portfolio_type == 'company_share':
+                                    factor_type = "company_share_portfolio_value_factor"
+                                else:
+                                    factor_type = "portfolio_value_factor"
+                                
+                                sub_portfolio_value_factor = self.market_data_service._create_or_get(
+                                    factor_name=f"{sub_portfolio_type}_portfolio_value_{sub_portfolio.name}",
+                                    factor_type=factor_type,
+                                    entity_symbol=sub_portfolio.name,
+                                    group="value",
+                                    subgroup="portfolio",
+                                    frequency="1d",
+                                    data_type="numeric",
+                                    source="calculated",
+                                    definition=f"{sub_portfolio_type.title()} portfolio value factor for {sub_portfolio.name}"
+                                )
+                                
+                                if self.logger and sub_portfolio_value_factor:
+                                    self.logger.info(f"✅ Sub-portfolio value factor created: {sub_portfolio_value_factor.name}")
+                                    
+                            except Exception as factor_e:
+                                if self.logger:
+                                    self.logger.warning(f"⚠️ Failed to create sub-portfolio value factor: {factor_e}")
+                        
                         if self.logger:
                             self.logger.info(f"✅ Sub-portfolio created: {sub_portfolio.name} (Type: {sub_portfolio_type})")
                     else:
@@ -213,6 +264,47 @@ class UnifiedPortfolioManager:
                 portfolio_id=self._current_portfolio_entity.id,
                 **order_params
             )
+            
+            # Create order quantity and price factors using market data service
+            if persisted_order and self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                try:
+                    symbol = order_params.get('symbol', 'UNKNOWN')
+                    
+                    # Create order quantity factor
+                    order_quantity_factor = self.market_data_service._create_or_get(
+                        factor_name=f"order_quantity_{symbol}_{persisted_order.id}",
+                        factor_type="company_share_order_quantity_factor",
+                        entity_symbol=symbol,
+                        group="quantity",
+                        subgroup="order",
+                        frequency="1d",
+                        data_type="numeric",
+                        source="order",
+                        definition=f"Order quantity factor for {symbol}"
+                    )
+                    
+                    # Create order price factor
+                    order_price_factor = self.market_data_service._create_or_get(
+                        factor_name=f"order_price_{symbol}_{persisted_order.id}",
+                        factor_type="company_share_order_price_factor", 
+                        entity_symbol=symbol,
+                        group="price",
+                        subgroup="order",
+                        frequency="1d",
+                        data_type="numeric",
+                        source="order",
+                        definition=f"Order price factor for {symbol}"
+                    )
+                    
+                    if self.logger:
+                        if order_quantity_factor:
+                            self.logger.info(f"✅ Order quantity factor created: {order_quantity_factor.name}")
+                        if order_price_factor:
+                            self.logger.info(f"✅ Order price factor created: {order_price_factor.name}")
+                            
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"⚠️ Failed to create order factors: {e}")
             
             if persisted_order:
                 # Store mapping for future reference
@@ -269,6 +361,31 @@ class UnifiedPortfolioManager:
                 **transaction_params
             )
             
+            # Create transaction value factor using market data service
+            if persisted_transaction and self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                try:
+                    symbol = transaction_params.get('symbol', 'UNKNOWN')
+                    
+                    # Create transaction value factor
+                    transaction_value_factor = self.market_data_service._create_or_get(
+                        factor_name=f"transaction_value_{symbol}_{persisted_transaction.id}",
+                        factor_type="company_share_transaction_value_factor",
+                        entity_symbol=symbol,
+                        group="value",
+                        subgroup="transaction",
+                        frequency="1d",
+                        data_type="numeric",
+                        source="calculated",
+                        definition=f"Transaction value factor for {symbol}"
+                    )
+                    
+                    if self.logger and transaction_value_factor:
+                        self.logger.info(f"✅ Transaction value factor created: {transaction_value_factor.name}")
+                        
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"⚠️ Failed to create transaction value factor: {e}")
+            
             if self.logger and persisted_transaction:
                 self.logger.info(f"✅ Transaction recorded with cascading relationships: {persisted_transaction.id}")
             
@@ -316,6 +433,41 @@ class UnifiedPortfolioManager:
             
             for holding in holdings:
                 if holding.is_active() and holding.position.quantity != 0:
+                    # Create position and holding value factors for active positions
+                    if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+                        try:
+                            symbol = self._get_asset_symbol(holding.asset)
+                            
+                            # Create position value factor
+                            position_value_factor = self.market_data_service._create_or_get(
+                                factor_name=f"position_value_{symbol}_{holding.id}",
+                                factor_type="company_share_position_value_factor",
+                                entity_symbol=symbol,
+                                group="value",
+                                subgroup="position",
+                                frequency="1d",
+                                data_type="numeric",
+                                source="calculated",
+                                definition=f"Position value factor for {symbol}"
+                            )
+                            
+                            # Create holding value factor
+                            holding_value_factor = self.market_data_service._create_or_get(
+                                factor_name=f"holding_value_{symbol}_{holding.id}",
+                                factor_type="company_share_portfolio_holding_value_factor",
+                                entity_symbol=symbol,
+                                group="value", 
+                                subgroup="holding",
+                                frequency="1d",
+                                data_type="numeric",
+                                source="calculated",
+                                definition=f"Holding value factor for {symbol}"
+                            )
+                            
+                        except Exception as e:
+                            if self.logger:
+                                self.logger.warning(f"⚠️ Failed to create position/holding value factors: {e}")
+                    
                     position_data = {
                         'holding_id': holding.id,
                         'asset_id': holding.asset.id,
