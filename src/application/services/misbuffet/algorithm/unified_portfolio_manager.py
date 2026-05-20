@@ -164,19 +164,13 @@ class UnifiedPortfolioManager:
             self._current_portfolio_entity = main_portfolio
             if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
                 try:
-                    portfolio_value_factor = self.market_data_service._create_or_get(
-                        entity_cls=PortfolioValueFactor,
-                        factor_name=f"portfolio_value_{main_portfolio.name}",
-                        factor_type="portfolio_value_factor",
-                        entity_symbol=main_portfolio.name,
-                        group="value",
-                        subgroup="portfolio",
-                        frequency="1d",
-                        data_type="numeric",
-                        source="calculated",
-                        definition=f"Portfolio value factor for {main_portfolio.name}"
-                    )
-                    
+                    config = {"entity_class":PortfolioValueFactor,"factor_name":f"portfolio_value_{main_portfolio.name}",
+                        "factor_type":"portfolio_value_factor",
+                        "entity_symbol":main_portfolio.name,
+                        "group":"value",
+                        "subgroup":"portfolio",}
+                    portfolio_value_factor = self.market_data_service._create_or_get(config)
+                    self.portfolio_value_factor = portfolio_value_factor
                     if self.logger and portfolio_value_factor:
                         self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
                         
@@ -438,7 +432,7 @@ class UnifiedPortfolioManager:
                 "entity_class": FactorValue,
                 "entity": self._current_portfolio_entity,
                 "entity_symbol": self._current_portfolio_entity.name,
-                "factor":PortfolioValueFactor
+                "factor":self.portfolio_value_factor
             }
             portfolio_value=self.market_data_service._create_or_get(entity_config)
             

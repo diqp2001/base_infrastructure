@@ -20,9 +20,9 @@ class PortfolioValueFactor(PortfolioFactor):
         name: str,
         group: str = "value",
         subgroup: Optional[str] = "portfolio",
-        frequency: Optional[str] = "1d",
-        data_type: Optional[str] = "numeric",
-        source: Optional[str] = "calculated",
+        frequency: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
     ):
