@@ -96,8 +96,8 @@ DEFAULT_CONFIG = {
     # 'backtest_start': '2026-02-02 09:30:00',
     # 'backtest_end': '2026-02-04 14:30:00',
 
-    'backtest_start': '2026-04-02 09:30:00',
-    'backtest_end': '2026-04-02 11:30:00',
+    'backtest_start': '2026-05-19 09:30:00',
+    'backtest_end': '2026-05-19 10:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
