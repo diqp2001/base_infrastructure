@@ -257,7 +257,7 @@ class EntityService:
                             **kwargs) :
         try:
             repository = self.get_local_repository(entity_cls)
-            return repository._create_or_get(entity_cls,name,
+            return repository._create_or_get(entity_cls,
                             **kwargs)
 
 

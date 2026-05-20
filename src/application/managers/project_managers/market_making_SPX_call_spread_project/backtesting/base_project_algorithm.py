@@ -298,17 +298,17 @@ class Algorithm(QCAlgorithm):
                 self.log(f"📊 Portfolio value (unified via EntityService): ${self.portfolio_value:,.2f}")
                 return
             
-            # Legacy calculation as fallback
-            total_position_value = 0
+            # # Legacy calculation as fallback
+            # total_position_value = 0
             
-            for position_id, position in self.positions.items():
-                position_value = self._calculate_position_value(position, data)
-                position['current_value'] = position_value
-                total_position_value += position_value
+            # for position_id, position in self.positions.items():
+            #     position_value = self._calculate_position_value(position, data)
+            #     position['current_value'] = position_value
+            #     total_position_value += position_value
             
-            # Update portfolio value
-            self.portfolio_value = self.cash + total_position_value
-            self.log(f"📊 Portfolio value (legacy): ${self.portfolio_value:,.2f}")
+            # # Update portfolio value
+            # self.portfolio_value = self.cash + total_position_value
+            # self.log(f"📊 Portfolio value (legacy): ${self.portfolio_value:,.2f}")
             
         except Exception as e:
             self.logger.error(f"Error updating portfolio value: {e}")

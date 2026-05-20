@@ -297,6 +297,7 @@ class UnifiedPortfolioManager:
             entity_config = {
                 "entity_class": FactorValue,
                 "entity": self._current_portfolio_entity,
+                "entity_symbol": self._current_portfolio_entity.name,
                 "factor":PortfolioValueFactor
             }
             portfolio_value=self.market_data_service._create_or_get(entity_config)

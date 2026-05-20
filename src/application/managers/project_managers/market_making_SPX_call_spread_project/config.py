@@ -124,7 +124,7 @@ DEFAULT_CONFIG = {
         # # Index return factors (daily, weekly, monthly)
         # FACTOR_LIBRARY["index_library"]["return_daily"],
         # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
-        FACTOR_LIBRARY["company_share_library"]["return_daily"],
+        FACTOR_LIBRARY["company_share_library"]["return_daily_3"],
         #FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
         #FACTOR_LIBRARY["company_share_option_library"]["option_price"],
         #FACTOR_LIBRARY["company_share_option_library"]["open"]

@@ -510,7 +510,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             
             for entity_id in factor_batch.entity_ids:
                 symbol_group_factors_frequency  = self._group_factors_by_symbol_factor_group_and_frequency(factor_batch, financial_asset_entity)
-                #symbol_group_factors  = self._group_factors_by_symbol_and_factor_group(factor_batch, financial_asset_entity)
+                
                 for (symbol, factor_group,bar_size_setting), factors in symbol_group_factors_frequency.items():
                     try:
                         what_to_show = self._resolve_what_to_show_from_group(
@@ -1255,6 +1255,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 dependency_date = bar_date
                 if lag:
                     dependency_date = bar_date - lag
+                    while dependency_date.weekday() > 4:
+                        dependency_date -= timedelta(days=1)
                 
                 # First try to get the dependency value from the database
                 date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")

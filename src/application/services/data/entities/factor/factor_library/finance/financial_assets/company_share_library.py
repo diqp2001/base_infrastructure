@@ -156,6 +156,38 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
         },
         "parameters": {"period": "1D"}
     },
+    "return_daily_3": {
+        "class": CompanySharePriceReturnFactor,
+        "name": "return_daily",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Daily price return",
+        "dependencies": {
+            "start_price": {
+                "class": CompanyShareFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=5, hours=0, minutes=0)}
+            },
+            "end_price": {
+                "class": CompanyShareFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=1, hours=0, minutes=0)}
+            }
+        },
+        "parameters": {"period": "1D"}
+    },
 
     # ======================
     # Weekly Return Factors
