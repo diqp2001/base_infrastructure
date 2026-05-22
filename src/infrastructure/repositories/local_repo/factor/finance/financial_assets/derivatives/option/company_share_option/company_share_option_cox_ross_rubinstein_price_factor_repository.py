@@ -115,7 +115,7 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactorRepository(BaseFactorReposit
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
                     lag = dependency_config.get("parameters", {}).get("lag") if dependency_config.get("parameters") else None
-                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag=lag)
+                    repo_factor_dependency._create_or_get(independent_factor=dependency_entity, dependent_factor=self._to_entity(orm_factor), lag=lag, dependency_name=dependency[0])
 
             
             self.session.commit()

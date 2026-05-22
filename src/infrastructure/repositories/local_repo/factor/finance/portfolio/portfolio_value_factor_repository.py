@@ -92,7 +92,8 @@ class PortfolioValueFactorRepository(BaseFactorRepository, PortfolioValueFactorP
                         independent_factor=dependency_entity, 
                         dependent_factor=self._to_entity(orm_factor), 
                         lag=lag, 
-                        independent_factor_related_entity_key=independent_factor_related_entity_key
+                        independent_factor_related_entity_key=independent_factor_related_entity_key,
+                        dependency_name=dependency[0]
                     )
             
             self.session.commit()
