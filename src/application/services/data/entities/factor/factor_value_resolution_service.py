@@ -249,7 +249,8 @@ class FactorValueResolutionService:
                     'independent_factor_id': dependency.independent_factor_id,
                     'dependent_factor_id': dependency.dependent_factor_id,
                     'lag': dependency.lag,
-                    'dependency_entity': dependency
+                    'dependency_entity': dependency,
+                    'dependency_name': dependency.dependency_name
                 }
                 dependency_list.append(dependency_info)
             
@@ -275,8 +276,12 @@ class FactorValueResolutionService:
             
             for dependency in dependencies:
                 independent_factor_id = dependency['independent_factor_id']
-                
                 lag = dependency.get('lag')
+                dependency_name = dependency.get('dependency_name')
+                
+                # If no dependency name is specified, fall back to generic naming
+                if not dependency_name:
+                    dependency_name = f"factor_{independent_factor_id}_{lag}" if lag else f"factor_{independent_factor_id}"
                 
                 # Calculate dependency date with lag
                 dependency_date = target_date
@@ -293,8 +298,7 @@ class FactorValueResolutionService:
                 )
                 
                 if dependency_value:
-                    key = f"factor_{independent_factor_id}_{lag}"
-                    dependency_values[key] = self._convert_to_float(dependency_value.value)
+                    dependency_values[dependency_name] = self._convert_to_float(dependency_value.value)
                 else:
                     # Handle missing dependencies based on repository type
                     dependency_resolved = self._handle_missing_dependency(
@@ -302,11 +306,10 @@ class FactorValueResolutionService:
                     )
                     
                     if dependency_resolved:
-                        key = f"factor_{independent_factor_id}_{lag}"
-                        dependency_values[key] = self._convert_to_float(dependency_resolved.value)
+                        dependency_values[dependency_name] = self._convert_to_float(dependency_resolved.value)
                     else:
                         missing_dependencies.append(dependency["dependency_entity"])
-                        self.logger.error(f"Failed to resolve dependency factor {independent_factor_id} for {repository_type} repository")
+                        self.logger.error(f"Failed to resolve dependency factor {independent_factor_id} ('{dependency_name}') for {repository_type} repository")
             
             # If there are missing dependencies, flag error and do not assign 0
             if missing_dependencies:
@@ -515,7 +518,25 @@ class FactorValueResolutionService:
         try:
             if hasattr(factor_entity, 'calculate') and callable(getattr(factor_entity, 'calculate')):
                 calculate_method = getattr(factor_entity, 'calculate')
-                result = calculate_method(dependency_values, **kwargs)
+                
+                # Get function signature to determine how to call the method
+                import inspect
+                signature = inspect.signature(calculate_method)
+                method_params = list(signature.parameters.keys())
+                
+                # Prepare arguments for the calculate method
+                call_kwargs = {}
+                for param_name in method_params:
+                    if param_name in dependency_values:
+                        call_kwargs[param_name] = dependency_values[param_name]
+                
+                # Add any additional kwargs that match method parameters
+                for key, value in kwargs.items():
+                    if key in method_params:
+                        call_kwargs[key] = value
+                
+                # Call the calculate method with the prepared arguments
+                result = calculate_method(**call_kwargs)
                 
                 if result is not None:
                     return float(result)
@@ -529,6 +550,8 @@ class FactorValueResolutionService:
                 
         except Exception as e:
             self.logger.error(f"Error calling factor calculate method: {e}")
+            self.logger.error(f"Available dependencies: {list(dependency_values.keys())}")
+            self.logger.error(f"Factor: {factor_entity.name}")
             return None
     
     def _create_factor_value(

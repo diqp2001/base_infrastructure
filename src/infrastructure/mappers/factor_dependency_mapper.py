@@ -36,7 +36,8 @@ class FactorDependencyMapper:
             dependent_factor_id=model.dependent_factor_id,
             independent_factor_id=model.independent_factor_id,
             lag=model.lag,
-            independent_factor_related_entity_key=model.independent_factor_related_entity_key
+            independent_factor_related_entity_key=model.independent_factor_related_entity_key,
+            dependency_name=model.dependency_name
         )
     
     @staticmethod
@@ -55,7 +56,8 @@ class FactorDependencyMapper:
             dependent_factor_id=entity.dependent_factor_id,
             independent_factor_id=entity.independent_factor_id,
             lag=entity.lag,
-            independent_factor_related_entity_key=entity.independent_factor_related_entity_key
+            independent_factor_related_entity_key=entity.independent_factor_related_entity_key,
+            dependency_name=entity.dependency_name
         )
     
     @staticmethod
@@ -100,4 +102,5 @@ class FactorDependencyMapper:
         model.independent_factor_id = entity.independent_factor_id
         model.lag = entity.lag
         model.independent_factor_related_entity_key = entity.independent_factor_related_entity_key
+        model.dependency_name = entity.dependency_name
         return model
