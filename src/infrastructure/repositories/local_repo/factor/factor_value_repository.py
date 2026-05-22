@@ -283,9 +283,9 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                     dependency_values[dependency_key] = float(dependency_value.value)
                 else:
                     print(f"Could not resolve dependency factor {independent_factor_id} for date {dependency_date_str}")
-                    # Set default value for missing dependencies
-                    dependency_key = f"factor_{independent_factor_id}"
-                    dependency_values[dependency_key] = 0.0
+                    # Flag error instead of assigning 0.0
+                    print(f"Local repository cannot resolve missing dependency - failing calculation")
+                    return None
             
             # Call the factor's calculate method if it exists
             calculated_value = self._call_factor_calculate_method(factor, dependency_values, **kwargs)
@@ -348,7 +348,9 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 # Default calculation: sum of dependency values
                 if dependency_values:
                     return sum(dependency_values.values())
-                return 0.0
+                # Flag error instead of returning 0.0
+                print(f"No dependency values available for calculation")
+                return None
                 
         except Exception as e:
             print(f"Error in factor calculation for {factor.name}: {e}")
