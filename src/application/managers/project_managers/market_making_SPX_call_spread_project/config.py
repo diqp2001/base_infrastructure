@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanyShare: ["AAPL","MSFT","GOOGL","AMZN"],
+        CompanyShare: ["AAPL","MSFT"],
         #CompanyShareOption: ["AAPL  281215C00260000"],
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
