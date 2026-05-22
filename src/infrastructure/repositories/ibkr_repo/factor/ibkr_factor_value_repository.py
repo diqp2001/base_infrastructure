@@ -4,7 +4,7 @@ IBKR Factor Value Repository - Interactive Brokers implementation for FactorValu
 This repository handles factor value data acquisition from IBKR API,
 implementing the pipelines for IBKR Contract → Instrument → Factor Values → Asset Factor Values.
 """
-
+from zoneinfo import ZoneInfo
 from collections import defaultdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
@@ -409,16 +409,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             duration_str = kwargs.get('duration_str', '1 M')
             bar_size_setting = kwargs.get('bar_size_setting', '1 day')
             
-            # Convert time_date string to datetime object
-            target_date_fetch = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") + timedelta(
-                seconds=self._calculate_date_tolerance_seconds(factor_entity)
-            ) 
-            target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") 
+            target_date = self.get_effective_market_datetime(time_date=time_date,frequency=factor_entity.frequency)
+            
             
             # Fetch bulk historical data from IBKR
             bulk_ibkr_data = self._fetch_bulk_historical_data(
                 symbol=symbol,
-                target_date=target_date_fetch,
+                target_date=target_date,
                 asset=financial_asset_entity,
                 what_to_show=what_to_show,
                 duration_str=duration_str,
@@ -428,7 +425,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if not bulk_ibkr_data:
                 print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
                 return None
-            
+            target_date = target_date.replace(tzinfo=None)
             # Extract factor value from bulk data
             for bar_data in bulk_ibkr_data:
                 try:
@@ -2517,6 +2514,86 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
             return None
+        
+    def get_effective_market_datetime(self,
+    time_date: str,
+    frequency: str,
+    market_tz: str = "America/New_York",
+    market_open_hour: int = 10,
+    market_open_minute: int = 50,
+    delay_minutes: int = 15
+) -> datetime:
+        """
+        Convert a target date into a valid market datetime based on frequency.
+
+        Rules:
+        - Intraday frequencies always use a 15-minute delay from current time.
+        - Daily/weekly/monthly/yearly frequencies:
+            * If date is today -> now - 15 minutes
+            * If historical date -> use market-open reference time (10:50 AM)
+        - Weekends automatically roll back to Friday.
+        """
+
+        # Parse input datetime
+        target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+
+        # Timezone-aware current time
+        now = datetime.now(ZoneInfo(market_tz))
+
+        # Make target timezone aware
+        target_date = target_date.replace(tzinfo=ZoneInfo(market_tz))
+
+        # Supported frequencies
+        higher_timeframes = {"1d", "1w", "1mth", "1y"}
+        intraday_timeframes = {"1s", "5s", "1m", "5m", "15m", "1h"}
+
+        # -----------------------------
+        # INTRADAY FREQUENCIES
+        # -----------------------------
+        if frequency in intraday_timeframes:
+
+            # If target day is today -> current time minus delay
+            if target_date.date() == now.date():
+                effective_date = now - timedelta(minutes=delay_minutes)
+
+            else:
+                # Historical intraday date:
+                # keep original date but set reasonable market time
+                effective_date = target_date.replace(
+                    hour=market_open_hour,
+                    minute=market_open_minute,
+                    second=0,
+                    microsecond=0
+                )
+
+        # -----------------------------
+        # DAILY/WEEKLY/MONTHLY/YEARLY
+        # -----------------------------
+        elif frequency in higher_timeframes:
+
+            # If today -> now minus delay
+            if target_date.date() == now.date():
+                effective_date = now - timedelta(minutes=delay_minutes)
+
+            else:
+                # Historical date -> use 10:50 AM market time
+                effective_date = target_date.replace(
+                    hour=market_open_hour,
+                    minute=market_open_minute,
+                    second=0,
+                    microsecond=0
+                )
+
+        else:
+            raise ValueError(f"Unsupported frequency: {frequency}")
+
+        # -----------------------------------------
+        # Roll weekends backward to Friday
+        # -----------------------------------------
+        while effective_date.weekday() >= 5:
+            effective_date -= timedelta(days=1)
+
+        return effective_date
         
 WHAT_TO_SHOW_MAP = {
 

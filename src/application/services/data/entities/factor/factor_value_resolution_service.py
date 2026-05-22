@@ -9,7 +9,7 @@ Supports both local repository and IBKR repository integration.
 """
 
 from typing import Dict, List, Optional, Any, Set, Tuple
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import logging
 from decimal import Decimal
 
@@ -275,12 +275,15 @@ class FactorValueResolutionService:
             
             for dependency in dependencies:
                 independent_factor_id = dependency['independent_factor_id']
+                
                 lag = dependency.get('lag')
                 
                 # Calculate dependency date with lag
                 dependency_date = target_date
                 if lag:
                     dependency_date = target_date - lag
+                    while dependency_date.weekday() > 4:
+                        dependency_date -= timedelta(days=1)
                 
                 dependency_date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -290,7 +293,7 @@ class FactorValueResolutionService:
                 )
                 
                 if dependency_value:
-                    key = f"factor_{independent_factor_id}"
+                    key = f"factor_{independent_factor_id}_{lag}"
                     dependency_values[key] = self._convert_to_float(dependency_value.value)
                 else:
                     # Handle missing dependencies based on repository type
@@ -299,10 +302,10 @@ class FactorValueResolutionService:
                     )
                     
                     if dependency_resolved:
-                        key = f"factor_{independent_factor_id}"
+                        key = f"factor_{independent_factor_id}_{lag}"
                         dependency_values[key] = self._convert_to_float(dependency_resolved.value)
                     else:
-                        missing_dependencies.append(independent_factor_id)
+                        missing_dependencies.append(dependency["dependency_entity"])
                         self.logger.error(f"Failed to resolve dependency factor {independent_factor_id} for {repository_type} repository")
             
             # If there are missing dependencies, flag error and do not assign 0
@@ -742,8 +745,8 @@ class FactorValueResolutionService:
                         if not sample_entity:
                             sample_entity = entity_data.get('financial_asset_entity')
                         
-                        if 'max_date' in entity_data:
-                            time_date = entity_data['max_date']
+                        if 'time_date' in entity_data:
+                            time_date = entity_data['time_date']
                     
                     if factors and entity_ids and sample_entity:
                         # Create FactorBatch for this asset class

@@ -1,8 +1,9 @@
 # Factor Value Local Repository
 # Mirrors src/infrastructure/models/factor/factor_value.py
 
+import inspect
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
 
 from src.domain.ports.factor.factor_value_port import FactorValuePort
@@ -260,15 +261,31 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         try:
             # Resolve dependency factor values from local database
             dependency_values = {}
-            
-            for dependency in dependencies:
+            if hasattr(factor, 'calculate') and callable(getattr(factor, 'calculate')):
+                calculate_method = getattr(factor, 'calculate')
+
+                # Get function signature
+                signature = inspect.signature(calculate_method)
+
+                # Parameter names
+                parameter_names = list(signature.parameters.keys())
+                for parameter in parameter_names:
+                    dependency_values[parameter] = None  # Initialize with None
+
+
+            for i, dependency in enumerate(dependencies):#for dependency in dependencies:
+                independent_factor = dependency['independent_factor']
                 independent_factor_id = dependency['independent_factor_id']
                 lag = dependency.get('lag')
                 
+
+
                 # Calculate dependency date with lag
                 dependency_date = target_date
                 if lag:
                     dependency_date = target_date - lag
+                    while dependency_date.weekday() > 4:
+                        dependency_date -= timedelta(days=1)
                 
                 dependency_date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -279,7 +296,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 
                 if dependency_value:
                     # Use the factor name as key if available
-                    dependency_key = f"factor_{independent_factor_id}"
+                    dependency_key = f"factor_{independent_factor_id}_{lag}" if lag else f"factor_{independent_factor_id}"
                     dependency_values[dependency_key] = float(dependency_value.value)
                 else:
                     print(f"Could not resolve dependency factor {independent_factor_id} for date {dependency_date_str}")
@@ -312,6 +329,39 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         except Exception as e:
             print(f"Error handling factor with dependencies {factor.name}: {e}")
             return None
+    def _get_dependency_parameter_name(self, factor: Any, dependency_index: int, total_dependencies: int, independent_factor: Any) -> str:
+        """
+        Get the parameter name for a dependency based on factor type and dependency position.
+        
+        Args:
+            factor: The main factor requesting dependencies
+            dependency_index: Index of this dependency in sorted list (0=highest lag, 1=lower lag, etc.)
+            total_dependencies: Total number of dependencies
+            independent_factor: The independent factor entity
+            
+        Returns:
+            Parameter name to use for this dependency
+        """
+        try:
+            factor_name = getattr(factor, 'name', '').lower()
+            
+            # For return factors with 2 dependencies, map to start_price/end_price
+            if 'return' in factor_name and total_dependencies == 2:
+                if dependency_index == 0:  # Highest lag = start_price
+                    return 'start_price'
+                elif dependency_index == 1:  # Lower lag = end_price
+                    return 'end_price'
+            
+            # For other factors or different dependency counts, use factor name or generic names
+            if total_dependencies == 1:
+                return independent_factor.name
+            else:
+                # Multiple dependencies - use factor name with index
+                return f"{independent_factor.name}_{dependency_index}"
+            
+        except Exception as e:
+            print(f"Error determining parameter name: {e}")
+            return independent_factor.name if independent_factor else f"param_{dependency_index}"
 
     def _call_factor_calculate_method(self, factor: Any, dependency_values: Dict[str, float], **kwargs) -> Optional[float]:
         """
@@ -423,7 +473,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             print(f"Error in get_or_create for factor value {primary_key}: {e}")
             return None
     
-    def get_or_create_batch(self, factor_batch, **kwargs) -> Optional:
+    def get_or_create_batch(self, factor_batch, **kwargs):
         """
         Batch get or create factor values using FactorValueResolutionService.
         

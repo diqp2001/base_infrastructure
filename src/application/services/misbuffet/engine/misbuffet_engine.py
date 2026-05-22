@@ -393,8 +393,8 @@ class MisbuffetEngine(BaseEngine):
         """Run the actual simulation loop."""
         # Get date range from engine config
         engine_config = getattr(config, 'custom_config', {})
-        start_date = datetime.strptime(engine_config.get('start_date', datetime(2021, 1, 1)), "%Y-%m-%d %H:%M:%S")
-        end_date = datetime.strptime(engine_config.get('end_date', datetime(2022, 1, 1)), "%Y-%m-%d %H:%M:%S")
+        start_date = datetime.strptime(engine_config.get('start_date'), "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime(engine_config.get('end_date'), "%Y-%m-%d %H:%M:%S")
         
         # Get configurable time interval
         time_interval = self._get_time_interval(engine_config)
