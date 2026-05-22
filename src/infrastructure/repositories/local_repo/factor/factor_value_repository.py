@@ -420,3 +420,57 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         except Exception as e:
             print(f"Error in get_or_create for factor value {primary_key}: {e}")
             return None
+    
+    def get_or_create_batch(self, factor_batch, **kwargs) -> Optional:
+        """
+        Batch get or create factor values using FactorValueResolutionService.
+        
+        Args:
+            factor_batch: FactorBatch DTO containing factors to process
+            **kwargs: Additional parameters for batch processing
+            
+        Returns:
+            FactorValueBatch with resolved factor values or None if failed
+        """
+        try:
+            if not factor_batch or factor_batch.is_empty():
+                print("Cannot process empty factor batch")
+                return None
+            
+            print(f"Processing batch with {len(factor_batch.factors)} factors via resolution service")
+            return self.resolution_service.resolve_factor_values_batch(
+                factor_batch=factor_batch,
+                repository_type="local",
+                **kwargs
+            )
+            
+        except Exception as e:
+            print(f"Error in local repository batch processing: {e}")
+            return None
+    
+    def get_or_create_batch_optimized(self, entities_data, **kwargs):
+        """
+        Optimized batch method for EntityService integration.
+        
+        Args:
+            entities_data: List of dictionaries containing entity data for batch processing
+            **kwargs: Additional parameters for batch processing
+            
+        Returns:
+            List of resolved FactorValue entities
+        """
+        try:
+            if not entities_data:
+                print("Cannot process empty entities_data")
+                return []
+            
+            print(f"Processing optimized batch with {len(entities_data)} entities via resolution service")
+            return self.resolution_service.resolve_factor_values_optimized_batch(
+                entities_data=entities_data,
+                repository_type="local",
+                **kwargs
+            )
+            
+        except Exception as e:
+            print(f"Error in local repository optimized batch processing: {e}")
+            return []

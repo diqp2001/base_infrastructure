@@ -14,6 +14,8 @@ import logging
 from decimal import Decimal
 
 from src.domain.entities.factor.factor_value import FactorValue
+from src.dto.factor.factor_batch import FactorBatch
+from src.dto.factor.factor_value_batch import FactorValueBatch
 
 
 class FactorValueResolutionService:
@@ -443,3 +445,202 @@ class FactorValueResolutionService:
         except (ValueError, TypeError):
             self.logger.error(f"Error converting value to float: {value}")
             return 0.0
+    
+    def resolve_factor_values_batch(
+        self,
+        factor_batch: FactorBatch,
+        repository_type: str = "local",
+        **kwargs
+    ) -> Optional[FactorValueBatch]:
+        """
+        Batch resolution of factor values with dependency handling.
+        
+        This method processes multiple factors efficiently while maintaining
+        dependency resolution capabilities for each factor.
+        
+        Args:
+            factor_batch: FactorBatch DTO containing factors to process
+            repository_type: "local" or "ibkr" for repository selection
+            **kwargs: Additional parameters for batch processing
+            
+        Returns:
+            FactorValueBatch with resolved factor values or None if failed
+        """
+        try:
+            if factor_batch.is_empty():
+                self.logger.warning("Cannot process empty factor batch")
+                return None
+            
+            # Extract metadata
+            financial_asset_entity = factor_batch.metadata.get('financial_asset_entity')
+            time_date = factor_batch.metadata.get('time_date', datetime.now())
+            
+            # Convert time to datetime if needed
+            if isinstance(time_date, str):
+                time_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+            
+            resolved_factor_values = []
+            failed_resolutions = []
+            
+            # Process each entity_id in the batch
+            for entity_id in factor_batch.entity_ids:
+                # Process each factor for the current entity
+                for factor in factor_batch.factors:
+                    try:
+                        # Use the single factor resolution method for each factor
+                        factor_value = self.resolve_factor_value(
+                            factor_entity=factor,
+                            financial_asset_entity=financial_asset_entity,
+                            time_date=time_date,
+                            repository_type=repository_type,
+                            **kwargs
+                        )
+                        
+                        if factor_value:
+                            resolved_factor_values.append(factor_value)
+                        else:
+                            failed_resolutions.append({
+                                'factor_id': factor.id,
+                                'factor_name': factor.name,
+                                'entity_id': entity_id,
+                                'reason': 'Resolution failed'
+                            })
+                    
+                    except Exception as factor_error:
+                        self.logger.error(f"Error resolving factor {factor.name} for entity {entity_id}: {factor_error}")
+                        failed_resolutions.append({
+                            'factor_id': factor.id,
+                            'factor_name': factor.name,
+                            'entity_id': entity_id,
+                            'reason': str(factor_error)
+                        })
+            
+            # Create result metadata
+            result_metadata = {
+                'processed_count': len(resolved_factor_values),
+                'failed_count': len(failed_resolutions),
+                'original_batch_size': len(factor_batch.factors) * len(factor_batch.entity_ids),
+                'processing_timestamp': datetime.now().isoformat(),
+                'failed_resolutions': failed_resolutions
+            }
+            
+            if not resolved_factor_values:
+                self.logger.warning("No factor values were successfully resolved from batch")
+                return FactorValueBatch(
+                    factor_values=[],
+                    metadata=result_metadata
+                )
+            
+            self.logger.info(f"Successfully resolved {len(resolved_factor_values)} factor values from batch")
+            
+            return FactorValueBatch(
+                factor_values=resolved_factor_values,
+                metadata=result_metadata
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in batch factor value resolution: {e}")
+            return None
+        finally:
+            # Clear dependency stack after batch processing
+            self._dependency_creation_stack.clear()
+    
+    def resolve_factor_values_optimized_batch(
+        self,
+        entities_data: List[Dict[str, Any]],
+        repository_type: str = "local",
+        **kwargs
+    ) -> List[FactorValue]:
+        """
+        Optimized batch resolution for EntityService integration.
+        
+        This method provides an optimized interface for processing multiple
+        entities with their associated factors efficiently.
+        
+        Args:
+            entities_data: List of dictionaries containing entity data for batch processing
+                Expected format: [{'factor': Factor, 'entity_id': int, 'financial_asset_entity': Entity, ...}, ...]
+            repository_type: "local" or "ibkr" for repository selection  
+            **kwargs: Additional parameters for batch processing
+            
+        Returns:
+            List of resolved FactorValue entities
+        """
+        try:
+            if not entities_data:
+                self.logger.warning("Cannot process empty entities_data")
+                return []
+            
+            resolved_factor_values = []
+            
+            # Group entities by asset class for optimized processing
+            entities_by_asset_class = {}
+            for entity_data in entities_data:
+                financial_asset_entity = entity_data.get('financial_asset_entity')
+                if financial_asset_entity:
+                    asset_class = type(financial_asset_entity)
+                    if asset_class not in entities_by_asset_class:
+                        entities_by_asset_class[asset_class] = []
+                    entities_by_asset_class[asset_class].append(entity_data)
+            
+            # Process each asset class group
+            for asset_class, asset_entities in entities_by_asset_class.items():
+                try:
+                    # Extract factors and entity IDs for this asset class
+                    factors = []
+                    entity_ids = set()
+                    sample_entity = None
+                    time_date = datetime.now()
+                    
+                    for entity_data in asset_entities:
+                        factor = entity_data.get('factor')
+                        if factor:
+                            factors.append(factor)
+                        
+                        entity_id = entity_data.get('entity_id')
+                        if entity_id:
+                            entity_ids.add(entity_id)
+                        
+                        if not sample_entity:
+                            sample_entity = entity_data.get('financial_asset_entity')
+                        
+                        if 'max_date' in entity_data:
+                            time_date = entity_data['max_date']
+                    
+                    if factors and entity_ids and sample_entity:
+                        # Create FactorBatch for this asset class
+                        batch_metadata = {
+                            'financial_asset_entity': sample_entity,
+                            'time_date': time_date,
+                            'asset_class': asset_class.__name__
+                        }
+                        
+                        factor_batch = FactorBatch(
+                            factors=factors,
+                            entity_ids=list(entity_ids),
+                            metadata=batch_metadata
+                        )
+                        
+                        # Process the batch
+                        batch_result = self.resolve_factor_values_batch(
+                            factor_batch=factor_batch,
+                            repository_type=repository_type,
+                            **kwargs
+                        )
+                        
+                        if batch_result and batch_result.factor_values:
+                            resolved_factor_values.extend(batch_result.factor_values)
+                
+                except Exception as asset_class_error:
+                    self.logger.error(f"Error processing asset class {asset_class.__name__}: {asset_class_error}")
+                    continue
+            
+            self.logger.info(f"Optimized batch resolved {len(resolved_factor_values)} factor values")
+            return resolved_factor_values
+            
+        except Exception as e:
+            self.logger.error(f"Error in optimized batch resolution: {e}")
+            return []
+        finally:
+            # Clear dependency stack after batch processing
+            self._dependency_creation_stack.clear()

@@ -476,12 +476,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                            duration_str: str = "1 M", 
                            bar_size_setting: str = "1 day") -> Optional[FactorValueBatch]:
         """
-        Optimized batch get or create factor values leveraging IBKR bulk data responses.
+        Optimized batch get or create factor values with dependency resolution.
         
-        This method is redesigned to efficiently use IBKR bulk historical data:
-        1. Makes single IBKR historical data requests that return bulk data
-        2. Extracts multiple factor values from each bulk response
-        3. Batch persists all factor values to database
+        This method now uses the FactorValueResolutionService for dependency handling
+        while maintaining IBKR-specific bulk data capabilities for factors without dependencies.
         
         Args:
             factor_batch: FactorBatch DTO containing factors to process
@@ -500,13 +498,42 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if factor_batch.is_empty():
                 print("Cannot process empty factor batch")
                 return None
+            
+            # First, try to use the resolution service for comprehensive dependency handling
+            print(f"Processing batch with {len(factor_batch.factors)} factors via resolution service")
+            resolution_result = self.resolution_service.resolve_factor_values_batch(
+                factor_batch=factor_batch,
+                repository_type="ibkr",
+                what_to_show=what_to_show,
+                duration_str=duration_str,
+                bar_size_setting=bar_size_setting
+            )
+            
+            if resolution_result and resolution_result.factor_values:
+                print(f"Resolution service successfully processed {len(resolution_result.factor_values)} factor values")
+                return resolution_result
+            
+            # Fallback: Use IBKR-specific bulk processing for factors without dependencies
+            print("Fallback to IBKR-specific bulk processing")
+            return self._process_batch_with_ibkr_bulk_data(factor_batch, what_to_show, duration_str, bar_size_setting)
 
+        except Exception as e:
+            print(f"Error in optimized get_or_create_batch: {e}")
+            return None
+    
+    def _process_batch_with_ibkr_bulk_data(self, factor_batch: FactorBatch, 
+                                          what_to_show: str, duration_str: str, 
+                                          bar_size_setting: str) -> Optional[FactorValueBatch]:
+        """
+        IBKR-specific bulk data processing fallback method.
+        
+        This method contains the original IBKR bulk data logic for factors
+        that don't have dependencies and can be processed directly from IBKR API.
+        """
+        try:
             # Extract metadata for bulk processing
             financial_asset_entity = factor_batch.metadata.get('financial_asset_entity')
-           
             time_date = factor_batch.metadata.get('time_date', datetime.now())
-            
-            
             
             # Convert time to datetime if needed
             if isinstance(time_date, str):
@@ -515,13 +542,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             created_factor_values = []
             
             for entity_id in factor_batch.entity_ids:
-                symbol_group_factors_frequency  = self._group_factors_by_symbol_factor_group_and_frequency(factor_batch, financial_asset_entity)
+                symbol_group_factors_frequency = self._group_factors_by_symbol_factor_group_and_frequency(factor_batch, financial_asset_entity)
                 
-                for (symbol, factor_group,bar_size_setting), factors in symbol_group_factors_frequency.items():
+                for (symbol, factor_group, bar_size_setting), factors in symbol_group_factors_frequency.items():
                     try:
-                        what_to_show = self._resolve_what_to_show_from_group(
-                            factor_group
-                        )
+                        what_to_show = self._resolve_what_to_show_from_group(factor_group)
 
                         bulk_ibkr_data = self._fetch_bulk_historical_data(
                             symbol,
@@ -531,6 +556,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             duration_str,
                             bar_size_setting
                         )
+                        
                         if bulk_ibkr_data:
                             # Extract factor values for all factors from the bulk response
                             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
@@ -539,27 +565,23 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             created_factor_values.extend(factor_values_from_bulk)
                         else:
                             factor_values_from_bulk = self._extract_factor_values(
-                                 factors=factors, 
-                                 entity_id=entity_id, 
-                                 time_date=time_date,
-                                 financial_asset_entity=financial_asset_entity,
-                                 what_to_show=what_to_show,
-                                 duration_str=duration_str,
-                                 bar_size_setting=bar_size_setting,
-                                 input_value=None
+                                factors=factors, 
+                                entity_id=entity_id, 
+                                time_date=time_date,
+                                financial_asset_entity=financial_asset_entity,
+                                what_to_show=what_to_show,
+                                duration_str=duration_str,
+                                bar_size_setting=bar_size_setting,
+                                input_value=None
                             )
                             created_factor_values.extend(factor_values_from_bulk)
                     except Exception as e:
                         print(f"Error processing symbol {symbol} in batch: {e}")
                         continue
             
-
             if not created_factor_values:
                 print("No factor values were created from bulk IBKR data")
                 return None
-
-            # Batch persist all factor values to database
-            #self._batch_persist_factor_values(created_factor_values)
 
             # Create result batch with metadata
             result_metadata = {
@@ -572,9 +594,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 factor_values=created_factor_values,
                 metadata=result_metadata
             )
-
+            
         except Exception as e:
-            print(f"Error in optimized get_or_create_batch: {e}")
+            print(f"Error in IBKR bulk data processing: {e}")
             return None
         
     def _resolve_what_to_show_from_group(self, factor_group: str) -> str:
@@ -1787,7 +1809,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                      duration_str: str = "1 M", 
                                      bar_size_setting: str = "1 day") -> List[FactorValue]:
         """
-        Optimized batch method for EntityService integration.
+        Optimized batch method for EntityService integration with dependency resolution.
+        
+        This method now uses the FactorValueResolutionService for comprehensive
+        dependency handling while maintaining performance for EntityService integration.
         
         Args:
             entities_data: List of dictionaries containing entity data for batch processing
@@ -1803,17 +1828,45 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             List of created/retrieved FactorValue entities
         """
         try:
-            # Convert entities_data to FactorBatch format
+            # Use the resolution service's optimized batch method
+            print(f"Processing optimized batch with {len(entities_data)} entities via resolution service")
+            resolved_factor_values = self.resolution_service.resolve_factor_values_optimized_batch(
+                entities_data=entities_data,
+                repository_type="ibkr",
+                what_to_show=what_to_show,
+                duration_str=duration_str,
+                bar_size_setting=bar_size_setting
+            )
+            
+            if resolved_factor_values:
+                print(f"Resolution service processed {len(resolved_factor_values)} factor values")
+                return resolved_factor_values
+            
+            # Fallback: Original FactorBatch approach for backward compatibility
+            print("Fallback to original FactorBatch approach")
+            return self._process_entities_data_with_factor_batches(entities_data, what_to_show, duration_str, bar_size_setting)
+            
+        except Exception as e:
+            print(f"Error in get_or_create_batch_optimized: {e}")
+            return []
+    
+    def _process_entities_data_with_factor_batches(self, entities_data: List[Dict[str, Any]], 
+                                                  what_to_show: str, duration_str: str, 
+                                                  bar_size_setting: str) -> List[FactorValue]:
+        """
+        Fallback method for processing entities_data using original FactorBatch approach.
+        """
+        try:
             from src.dto.factor.factor_batch import FactorBatch
             
             factors = []
             result_batchs = []
             metadata = {}
-            unique_asset_classes = list({type(entity_data["financial_asset_entity"])for entity_data in entities_data if entity_data.get("financial_asset_entity")})
+            unique_asset_classes = list({type(entity_data["financial_asset_entity"]) for entity_data in entities_data if entity_data.get("financial_asset_entity")})
             
             for asset_class in unique_asset_classes:
                 factors = []
-                entity_ids = list({entity_data["entity_id"]for entity_data in entities_data if type(entity_data["financial_asset_entity"])==asset_class})
+                entity_ids = list({entity_data["entity_id"] for entity_data in entities_data if type(entity_data["financial_asset_entity"]) == asset_class})
                 for entity_data in entities_data:
                     if asset_class == type(entity_data['financial_asset_entity']):
                         factor = entity_data.get('factor')
@@ -1823,32 +1876,32 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if 'entity_id' in entity_data:
                             metadata['entity_id'] = entity_data['entity_id']
 
-
                         if 'max_date' in entity_data:
                             metadata['time_date'] = entity_data['max_date']
                         if 'financial_asset_entity' in entity_data:
                             metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
-                    if not factors:
-                        print("No factors found in entities_data")
-                        return []
+                
+                if not factors:
+                    print("No factors found in entities_data")
+                    return []
             
                 # Create FactorBatch and use optimized processing with configurable parameters
-                factor_batch = FactorBatch(factors=factors,entity_ids=entity_ids, metadata=metadata)
+                factor_batch = FactorBatch(factors=factors, entity_ids=entity_ids, metadata=metadata)
                 result_batch = self.get_or_create_batch(factor_batch, what_to_show, duration_str, bar_size_setting)
-                result_batchs.append(result_batch)
+                if result_batch:
+                    result_batchs.append(result_batch)
 
             all_factor_values = []
-
             for result_batch in result_batchs:
-                all_factor_values.extend(result_batch.factor_values)
+                if result_batch and result_batch.factor_values:
+                    all_factor_values.extend(result_batch.factor_values)
             
             return all_factor_values
             
         except Exception as e:
-            print(f"Error in get_or_create_batch_optimized: {e}")
+            print(f"Error in fallback batch processing: {e}")
             return []
 
-    
     def get_ibkr_factor_base(self,financial_asset_entity):
         timestamp = datetime.now()
         
