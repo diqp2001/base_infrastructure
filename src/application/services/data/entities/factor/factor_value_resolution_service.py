@@ -148,14 +148,14 @@ class FactorValueResolutionService:
             related_entities = self._get_related_entities(parent_entity, repository_type)
             
             if not related_entities:
-                self.logger.warning(f"No related entities found for {parent_entity}")
-                # Return factor with zero value
-                return self._create_factor_value(
-                    factor_entity, parent_entity.id, time_date, "0.0", repository_type
-                )
+                self.logger.error(f"No related entities found for {parent_entity} - cannot calculate aggregated value")
+                # Flag error instead of returning zero value
+                return None
             
             # Resolve factor values for each related entity
             dependency_values = {}
+            failed_entities = []
+            
             for i, related_entity in enumerate(related_entities):
                 # For aggregation, we use the same factor for each related entity
                 related_factor_value = self.resolve_factor_value(
@@ -166,9 +166,18 @@ class FactorValueResolutionService:
                     key = f"factor_{factor_entity.id}_{i}"
                     dependency_values[key] = self._convert_to_float(related_factor_value.value)
                 else:
-                    self.logger.warning(f"Could not resolve factor value for related entity {related_entity.id}")
-                    print(f"Could not resolve factor value for related entity {related_entity.id}")
-                    
+                    failed_entities.append(related_entity.id)
+                    self.logger.error(f"Could not resolve factor value for related entity {related_entity.id}")
+            
+            # If any related entities failed, flag error instead of partial aggregation
+            if failed_entities:
+                self.logger.error(f"Cannot calculate aggregated factor {factor_entity.name} - failed entities: {failed_entities}")
+                return None
+            
+            # Ensure we have values to aggregate
+            if not dependency_values:
+                self.logger.error(f"No valid factor values found for aggregation of {factor_entity.name}")
+                return None
             
             # Apply aggregation strategy
             aggregated_value = self._apply_aggregation_strategy(dependency_values, aggregation_strategy)
@@ -262,6 +271,7 @@ class FactorValueResolutionService:
         """Resolve factor value when dependencies exist."""
         try:
             dependency_values = {}
+            missing_dependencies = []
             
             for dependency in dependencies:
                 independent_factor_id = dependency['independent_factor_id']
@@ -283,8 +293,22 @@ class FactorValueResolutionService:
                     key = f"factor_{independent_factor_id}"
                     dependency_values[key] = self._convert_to_float(dependency_value.value)
                 else:
-                    self.logger.warning(f"Could not resolve dependency factor {independent_factor_id}")
-                    print(f"Could not resolve dependency factor {independent_factor_id}")
+                    # Handle missing dependencies based on repository type
+                    dependency_resolved = self._handle_missing_dependency(
+                        independent_factor_id, entity_id, dependency_date_str, repository_type
+                    )
+                    
+                    if dependency_resolved:
+                        key = f"factor_{independent_factor_id}"
+                        dependency_values[key] = self._convert_to_float(dependency_resolved.value)
+                    else:
+                        missing_dependencies.append(independent_factor_id)
+                        self.logger.error(f"Failed to resolve dependency factor {independent_factor_id} for {repository_type} repository")
+            
+            # If there are missing dependencies, flag error and do not assign 0
+            if missing_dependencies:
+                self.logger.error(f"Cannot calculate factor {factor_entity.name} - missing dependencies: {missing_dependencies}")
+                return None
             
             # Calculate using factor's calculate method
             calculated_value = self._call_factor_calculate_method(factor_entity, dependency_values, **kwargs)
@@ -294,10 +318,93 @@ class FactorValueResolutionService:
                     factor_entity, entity_id, target_date, str(calculated_value), repository_type
                 )
             
+            self.logger.error(f"Factor calculation failed for {factor_entity.name}")
             return None
             
         except Exception as e:
             self.logger.error(f"Error resolving factor with dependencies: {e}")
+            return None
+    
+    def _handle_missing_dependency(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        repository_type: str
+    ) -> Optional[FactorValue]:
+        """
+        Handle missing dependency values based on repository type.
+        
+        Args:
+            factor_id: ID of the missing dependency factor
+            entity_id: Entity ID for the dependency
+            date_str: Date string for the dependency
+            repository_type: "local" or "ibkr" for repository-specific handling
+            
+        Returns:
+            FactorValue if resolved, None if failed (never returns 0)
+        """
+        try:
+            if repository_type == "local":
+                # Local repo strategy: Flag error, don't assign 0
+                self.logger.error(f"Local repository cannot resolve missing dependency factor {factor_id}")
+                return None
+                
+            elif repository_type == "ibkr":
+                # IBKR repo strategy: Try to fetch from IBKR, then flag error if not found
+                self.logger.info(f"Attempting to fetch missing dependency factor {factor_id} from IBKR")
+                
+                # Get the IBKR repository
+                ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
+                if not ibkr_repo:
+                    self.logger.error("IBKR repository not available for dependency resolution")
+                    return None
+                
+                # Get the factor entity
+                factor_repo = getattr(self.factory, 'factor_local_repo', None)
+                if not factor_repo:
+                    self.logger.error("Factor repository not available")
+                    return None
+                
+                factor_entity = factor_repo.get_by_id(factor_id)
+                if not factor_entity:
+                    self.logger.error(f"Factor entity {factor_id} not found")
+                    return None
+                
+                # Get financial asset entity
+                financial_asset_entity = getattr(self.factory, 'financial_asset_local_repo', None)
+                if not financial_asset_entity:
+                    self.logger.error("Financial asset repository not available")
+                    return None
+                
+                financial_asset_entity = financial_asset_entity.get_by_id(entity_id)
+                if not financial_asset_entity:
+                    self.logger.error(f"Financial asset entity {entity_id} not found")
+                    return None
+                
+                # Try to fetch from IBKR using the IBKR-specific method
+                if hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
+                    fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
+                        factor_entity=factor_entity,
+                        financial_asset_entity=financial_asset_entity,
+                        time_date=date_str,
+                        entity_symbol=getattr(financial_asset_entity, 'symbol', '')
+                    )
+                    
+                    if fetched_value:
+                        self.logger.info(f"Successfully fetched dependency factor {factor_id} from IBKR")
+                        return fetched_value
+                
+                # If IBKR fetch failed, flag error
+                self.logger.error(f"IBKR repository could not fetch dependency factor {factor_id}")
+                return None
+            
+            else:
+                self.logger.error(f"Unknown repository type: {repository_type}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error handling missing dependency: {e}")
             return None
     
     def _resolve_factor_without_dependencies(
@@ -310,12 +417,45 @@ class FactorValueResolutionService:
     ) -> Optional[FactorValue]:
         """Resolve factor value when no dependencies exist."""
         try:
-            # Use provided value or default
-            factor_value_data = kwargs.get('value', '0.0')
+            # Handle non-dependent factors based on repository type
+            if repository_type == "local":
+                # Local repo: Only create if explicit value provided, otherwise flag error
+                factor_value_data = kwargs.get('value')
+                if factor_value_data is None:
+                    self.logger.error(f"Local repository requires explicit value for factor {factor_entity.name}")
+                    return None
+                
+                return self._create_factor_value(
+                    factor_entity, entity_id, target_date, str(factor_value_data), repository_type
+                )
+                
+            elif repository_type == "ibkr":
+                # IBKR repo: Try to fetch from IBKR first
+                ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
+                if ibkr_repo and hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
+                    # Get financial asset entity
+                    financial_asset_entity = getattr(self.factory, 'financial_asset_local_repo', None)
+                    if financial_asset_entity:
+                        financial_asset_entity = financial_asset_entity.get_by_id(entity_id)
+                        if financial_asset_entity:
+                            fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
+                                factor_entity=factor_entity,
+                                financial_asset_entity=financial_asset_entity,
+                                time_date=target_date,
+                                entity_symbol=getattr(financial_asset_entity, 'symbol', ''),
+                                **kwargs
+                            )
+                            
+                            if fetched_value:
+                                return fetched_value
+                
+                # If IBKR fetch failed, flag error
+                self.logger.error(f"IBKR repository could not fetch factor {factor_entity.name}")
+                return None
             
-            return self._create_factor_value(
-                factor_entity, entity_id, target_date, str(factor_value_data), repository_type
-            )
+            else:
+                self.logger.error(f"Unknown repository type: {repository_type}")
+                return None
             
         except Exception as e:
             self.logger.error(f"Error resolving factor without dependencies: {e}")
@@ -495,12 +635,14 @@ class FactorValueResolutionService:
                         if factor_value:
                             resolved_factor_values.append(factor_value)
                         else:
+                            # Follow repository-specific error handling - no default values
                             failed_resolutions.append({
                                 'factor_id': factor.id,
                                 'factor_name': factor.name,
                                 'entity_id': entity_id,
-                                'reason': 'Resolution failed'
+                                'reason': f'Factor value resolution failed for {repository_type} repository'
                             })
+                            self.logger.error(f"Failed to resolve factor {factor.name} for entity {entity_id} in {repository_type} repository")
                     
                     except Exception as factor_error:
                         self.logger.error(f"Error resolving factor {factor.name} for entity {entity_id}: {factor_error}")
