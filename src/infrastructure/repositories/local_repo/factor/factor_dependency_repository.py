@@ -76,7 +76,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
                 'dependent_factor_id': entity.dependent_factor_id,
                 'independent_factor_id': entity.independent_factor_id,
                 'lag': entity.lag,
-                'independent_factor_related_entity_key': entity.independent_factor_related_entity_key
+                'independent_factor_related_entity_key': entity.independent_factor_related_entity_key,
+                'dependency_name': entity.dependency_name
             }
             updated_model = super().update(entity.id, updates)
             return FactorDependencyMapper.model_to_entity(updated_model) if updated_model else None
@@ -102,7 +103,7 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
         ).count()
         return count > 0
     
-    def _create_or_get(self, independent_factor, dependent_factor, lag=None,independent_factor_related_entity_key=None ) -> Optional[FactorDependency]:
+    def _create_or_get(self, independent_factor, dependent_factor, lag=None, independent_factor_related_entity_key=None, dependency_name=None) -> Optional[FactorDependency]:
         """
         Create or get a factor dependency relationship.
         
@@ -110,6 +111,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
             independent_factor: Domain entity of the independent factor
             dependent_factor: Domain entity of the dependent factor
             lag: Optional timedelta for time-based dependency lag
+            independent_factor_related_entity_key: Optional key for related entity
+            dependency_name: Optional name for the dependency parameter (e.g., "start_price", "end_price")
             
         Returns:
             FactorDependency entity or None if creation failed
@@ -140,7 +143,8 @@ class FactorDependencyRepository(BaseLocalRepository[FactorDependency, FactorDep
                 dependent_factor_id=dependent_factor_id,
                 independent_factor_id=independent_factor_id,
                 lag=lag,
-                independent_factor_related_entity_key=independent_factor_related_entity_key
+                independent_factor_related_entity_key=independent_factor_related_entity_key,
+                dependency_name=dependency_name
             )
             
             return self.add(dependency_entity)

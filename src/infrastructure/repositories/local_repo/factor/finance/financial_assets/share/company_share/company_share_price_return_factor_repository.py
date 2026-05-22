@@ -68,11 +68,10 @@ class CompanySharePriceReturnFactorRepository(BaseFactorRepository, CompanyShare
             #create_or_get dependencies
             if kwargs.get('dependencies'):
                 dependencies = kwargs.get('dependencies')
-                for dependency in dependencies.items():
-                    entity_class = dependency[1].get('class')
+                for dependency_name, dependency_config in dependencies.items():
+                    entity_class = dependency_config.get('class')
                     repo = self.factory.get_local_repository(entity_class)
                     
-                    dependency_config = dependency[1]
                     dependency_entity = repo._create_or_get(
                             entity_class,
                             primary_key=dependency_config.get("name"),
@@ -87,7 +86,12 @@ class CompanySharePriceReturnFactorRepository(BaseFactorRepository, CompanyShare
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
                     lag = dependency_config.get("parameters", {}).get("lag") if dependency_config.get("parameters") else None
-                    repo_factor_dependency._create_or_get(independent_factor = dependency_entity,dependent_factor = self._to_entity(orm_factor), lag=lag)
+                    repo_factor_dependency._create_or_get(
+                        independent_factor=dependency_entity,
+                        dependent_factor=self._to_entity(orm_factor), 
+                        lag=lag,
+                        dependency_name=dependency_name
+                    )
  
             
             self.session.commit()
