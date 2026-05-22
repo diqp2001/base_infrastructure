@@ -10,6 +10,7 @@ from src.infrastructure.repositories.local_repo.base_repository import BaseLocal
 from src.domain.entities.factor.factor_value import FactorValue
 from src.infrastructure.models.factor.factor_value import FactorValueModel as FactorValueModel
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
+from src.application.services.data.entities.factor.factor_value_resolution_service import FactorValueResolutionService
 
 
 class FactorValueRepository(BaseLocalRepository, FactorValuePort):
@@ -21,6 +22,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         self.factory = factory
         self.mapper = mapper or FactorValueMapper()
         self._dependency_creation_stack = set()
+        self.resolution_service = FactorValueResolutionService(factory=factory)
     
     @property
     def model_class(self):
@@ -153,18 +155,15 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             print(f"Error getting factor value for factor {factor_id}, entity {entity_id}, date {date_str}: {e}")
             return None
     
-    def _create_or_get(self, entity_symbol,primary_key=None, **kwargs) -> Optional[FactorValue]:
+    def _create_or_get(self, entity_symbol, primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
-        Enhanced get_or_create function with automatic dependency resolution and local database integration.
+        Enhanced get_or_create function with automatic dependency resolution using FactorValueResolutionService.
         
-        This method implements factor value creation with dependency handling:
-        1. Takes factor entity, financial asset entity, date, and kwargs
-        2. If no dependencies: creates factor value directly from provided value or default
-        3. If dependencies: resolves other factor values from database, uses calculate function
-        4. Stores the result in the database
+        This method delegates to the resolution service for consistent dependency handling.
         
         Args:
             entity_symbol: Symbol identifier (for compatibility, not used in local version)
+            primary_key: Optional primary key (not used in this implementation)
             **kwargs: Parameters including:
                 - factor: Factor domain entity instance
                 - entity: Financial asset entity 
@@ -179,90 +178,26 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             financial_asset_entity = kwargs.get('entity')
             time_date = kwargs.get('date', datetime.now())
             
-            if not factor_entity or not factor_entity.id:
+            if not factor_entity:
                 print("Factor entity is required for local factor value creation")
-
                 return None
             
-                        
-
-            # Get entity ID safely
-            entity_id = getattr(financial_asset_entity, 'id') if financial_asset_entity else None
-            if not entity_id:
-                print("Financial asset entity with valid ID is required")
+            if not financial_asset_entity:
+                print("Financial asset entity is required for local factor value creation")
                 return None
-
-            # Check for dependency loop protection
-            dependency_key = (factor_entity.id, entity_id, str(time_date))
-            if dependency_key in self._dependency_creation_stack:
-                print(f"Detected dependency loop for factor {factor_entity.name} with entity {entity_id}. Skipping to prevent infinite recursion.")
-                return None
-                
-            # Add to dependency stack for loop protection
-            self._dependency_creation_stack.add(dependency_key)
-
-            try:
-                # Ensure time_date is a string
-                if isinstance(time_date, date):
-                    time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
-                elif not isinstance(time_date, str):
-                    time_date = str(time_date)
-
-                # Check if factor value already exists
-                existing = self.get_by_factor_entity_date(factor_entity.id, entity_id, time_date)
-                if existing:
-                    return existing
-
-                # Parse date object for storage
-                target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
-
-                # Get factor dependencies from the database
-                dependencies = self._get_factor_dependencies_from_db(factor_entity.id)
-
-                if dependencies:
-                    # Factor has dependencies - use calculate function
-                    print(f"Factor {factor_entity.name} has {len(dependencies)} dependencies - using calculate function")
-                    print(f"Using static dependency resolution for factor {factor_entity.name}")
-                    
-                    factor_value = self._handle_factor_with_dependencies(
-                        factor_entity, dependencies, entity_id, target_date, **kwargs
-                    )
-                    return factor_value
-                    
-                else:
-                    # Factor has no dependencies - create directly from provided value or default
-                    print(f"Factor {factor_entity.name} has no dependencies - using local database")
-                    
-                    # Use provided value or default to 0.0
-                    factor_value_data = kwargs.get('value', '0.0')
-                    
-                    # Create new factor value entity
-                    factor_value = FactorValue(
-                        id=None,  # Let database auto-increment handle ID generation
-                        factor_id=factor_entity.id,
-                        entity_id=entity_id,
-                        date=target_date,
-                        value=str(factor_value_data)
-                    )
-                    
-                    # Persist to database
-                    created_value = self.add(factor_value)
-                    if created_value:
-                        print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
-                        return created_value
-                
-                print(f"Failed to create factor value for factor {factor_entity.name}")
-                return None
-                    
-            except Exception as e:
-                print(f"Error in _create_or_get for factor {factor_entity.name}: {e}")
-                self.session.rollback()
-                return None
-                
-        finally:
-            # Clean up dependency stack to prevent memory leaks
-            if 'dependency_key' in locals() and dependency_key in self._dependency_creation_stack:
-                self._dependency_creation_stack.remove(dependency_key)
+            
+            # Use the resolution service to handle the factor value creation
+            return self.resolution_service.resolve_factor_value(
+                factor_entity=factor_entity,
+                financial_asset_entity=financial_asset_entity,
+                time_date=time_date,
+                repository_type="local",
+                **kwargs
+            )
+            
+        except Exception as e:
+            print(f"Error in _create_or_get for factor {factor_entity.name if factor_entity else 'unknown'}: {e}")
+            return None
 
     def _get_factor_dependencies_from_db(self, factor_id: int) -> List[Dict[str, Any]]:
         """

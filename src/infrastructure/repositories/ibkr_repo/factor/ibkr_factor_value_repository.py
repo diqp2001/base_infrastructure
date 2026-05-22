@@ -17,6 +17,7 @@ from src.domain.entities.finance.financial_assets.currency import Currency
 from src.dto.factor.factor_batch import FactorBatch
 from src.dto.factor.factor_value_batch import FactorValueBatch
 from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
+from src.application.services.data.entities.factor.factor_value_resolution_service import FactorValueResolutionService
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.domain.ports.factor.factor_value_port import FactorValuePort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
@@ -63,6 +64,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         self.tick_mapper = IBKRTickFactorMapper()
         # Add recursion guard to prevent infinite dependency loops
         self._dependency_creation_stack = set()
+        self.resolution_service = FactorValueResolutionService(factory=factory)
         
     @property 
     def local_repo(self):
@@ -298,172 +300,176 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _create_or_get(
         self,
-         entity_symbol,primary_key=None,
+        entity_symbol, 
+        primary_key=None,
         **kwargs
     ) -> Optional[FactorValue]:
         """
-        Enhanced get_or_create function with automatic dependency resolution and IBKR API integration.
+        Enhanced get_or_create function with automatic dependency resolution using FactorValueResolutionService.
         
-        This method implements the functionality described in the issue:
-        1. Takes factor entity, financial asset entity, date, and kwargs
-        2. If no dependencies: directly fetch factor value from IBKR (e.g., open price)
-        3. If dependencies: get other factor values from IBKR, populate in DB, use calculate function
-        4. Stores the result in the database
+        This method delegates to the resolution service for consistent dependency handling 
+        while preserving IBKR-specific functionality for non-dependent factors.
         
         Args:
-            factor_entity: Factor domain entity instance
-            financial_asset_entity: Financial asset entity (company share, etc)  
-            time_date: Date string in 'YYYY-MM-DD' format
-            **kwargs: Additional parameters for factor calculation
-            
+            entity_symbol: Symbol identifier for IBKR lookups
+            primary_key: Optional primary key (not used in this implementation)
+            **kwargs: Parameters including:
+                - factor: Factor domain entity instance
+                - entity: Financial asset entity 
+                - date: Date string in 'YYYY-MM-DD HH:MM:SS' format
+                - value: Optional explicit value to use
+                
         Returns:
             FactorValue entity or None if creation/retrieval failed
         """
         try:
             factor_entity = kwargs.get('factor')
-            
-            #self.get_ibkr_factor_base(financial_asset_entity)
-            time_date = kwargs.get('date',datetime.now() )
-            if not factor_entity :
-                print("Factor entity and financial asset entity are required")
-                return None
-
-            # Check for dependency loop protection
             financial_asset_entity = kwargs.get('entity')
-            if financial_asset_entity:
-                entity_id = getattr(financial_asset_entity, 'id')
-                dependency_key = (factor_entity.id, entity_id, str(time_date))
-                if dependency_key in self._dependency_creation_stack:
-                    print(f"Detected dependency loop for factor {factor_entity.name} with entity {entity_id}. Skipping to prevent infinite recursion.")
-                    return None
-                self._dependency_creation_stack.add(dependency_key)
+            time_date = kwargs.get('date', datetime.now())
+            
+            if not factor_entity:
+                print("Factor entity is required for IBKR factor value creation")
+                return None
+            
+            if not financial_asset_entity:
+                print("Financial asset entity is required for IBKR factor value creation")
+                return None
+            
+            # Check if factor has dependencies
+            dependencies = self._get_factor_dependencies_from_db(factor_entity.id)
+            
+            if dependencies:
+                # Factor has dependencies - use resolution service
+                print(f"Factor {factor_entity.name} has dependencies - using resolution service")
+                return self.resolution_service.resolve_factor_value(
+                    factor_entity=factor_entity,
+                    financial_asset_entity=financial_asset_entity,
+                    time_date=time_date,
+                    repository_type="ibkr",
+                    **kwargs
+                )
             else:
-                dependency_key = None
-
+                # Factor has no dependencies - use IBKR-specific logic for direct data fetching
+                print(f"Factor {factor_entity.name} has no dependencies - fetching directly from IBKR")
+                return self._fetch_factor_value_from_ibkr(
+                    factor_entity=factor_entity,
+                    financial_asset_entity=financial_asset_entity,
+                    time_date=time_date,
+                    entity_symbol=entity_symbol,
+                    **kwargs
+                )
+                
+        except Exception as e:
+            print(f"Error in _create_or_get for factor {factor_entity.name if factor_entity else 'unknown'}: {e}")
+            return None
+    
+    def _fetch_factor_value_from_ibkr(
+        self,
+        factor_entity,
+        financial_asset_entity,
+        time_date,
+        entity_symbol,
+        **kwargs
+    ) -> Optional[FactorValue]:
+        """
+        Fetch factor value directly from IBKR API for non-dependent factors.
+        
+        This method contains the IBKR-specific logic that was previously in _create_or_get.
+        """
+        try:
             # Ensure time_date is a string
             if isinstance(time_date, date):
                 time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
             elif not isinstance(time_date, str):
                 time_date = str(time_date)
             
-            # Parse date object for storage
-            date_obj = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
-
-            # Get entity ID from financial asset (assumes entity has 'id' attribute)
-            financial_asset_entity = kwargs.get('entity')
-            if financial_asset_entity:
-                entity_id = getattr(financial_asset_entity, 'id')
-            else:
-                entity_id = kwargs.get('entity_id')
-                
+            # Get entity ID
+            entity_id = getattr(financial_asset_entity, 'id')
             factor_id = factor_entity.id
             
-            # 1. Check if factor value already exists for this combination
+            # Check if factor value already exists
             existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
             if existing:
                 return existing
             
-            # 2. Get factor dependencies from the factor class definition
-            dependencies = self._get_factor_dependencies_from_db(factor_entity.id)
+            # Extract symbol from financial asset entity
+            symbol = (
+                getattr(financial_asset_entity, 'symbol', None) or
+                getattr(financial_asset_entity, 'ticker', None) or 
+                getattr(financial_asset_entity, 'name', None) or
+                entity_symbol
+            )
             
-            if dependencies:
-                # Factor has dependencies - call calculate function
-                print(f"Factor {factor_entity.name} has {len(dependencies)} dependencies - using calculate function")
-                
-                factor_value = self._handle_factor_with_dependencies(
-                    factor_entity, dependencies, entity_id, bar_date, bar_data,**kwargs
-                )
-                return factor_value
-
-                
-                
-            else:
-                # CASE 2: No dependencies - fetch directly from IBKR using optimized bulk data pattern
-                print(f"Factor {factor_entity.name} has no dependencies - fetching directly from IBKR")
-                
-                # Extract symbol from financial asset entity
-                symbol = (
-                    getattr(financial_asset_entity, 'symbol', None) or
-                    getattr(financial_asset_entity, 'ticker', None) or 
-                    getattr(financial_asset_entity, 'name', None)
-                )
-                
-                if not symbol:
-                    print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
-                    return None
-                
-                # Get configurable parameters with defaults from get_or_create_batch pattern
-                what_to_show = self._resolve_what_to_show_from_group(factor_entity.group)
-                duration_str = kwargs.get('duration_str', '1 M')
-                bar_size_setting = kwargs.get('bar_size_setting', '1 day')
-                
-                # Convert time_date string to datetime object for _fetch_bulk_historical_data
-                
-                target_date_fetch = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") + timedelta(seconds=self._calculate_date_tolerance_seconds(factor_entity)) 
-                target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") 
-                
-                # Use the optimized bulk historical data fetching pattern from get_or_create_batch
-                bulk_ibkr_data = self._fetch_bulk_historical_data(
-                    symbol=symbol,
-                    target_date=target_date_fetch,
-                    asset=financial_asset_entity,
-                    what_to_show=what_to_show,
-                    duration_str=duration_str,
-                    bar_size_setting=bar_size_setting
-                )
-                
-                if not bulk_ibkr_data:
-                    print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
-                    return None
-                
-                # Extract factor value from bulk data using the same pattern as get_or_create_batch
-                for bar_data in bulk_ibkr_data:
-                    try:
-                        # Parse IBKR date format
-                        bar_date = self._parse_ibkr_date(bar_data.get('date'))
-                        if not bar_date:
-                            continue
-                        
-                        # Check if this bar matches our target date (allow frequency-based tolerance)
-                        tolerance_seconds = self._calculate_date_tolerance_seconds(factor_entity)
-                        date_diff = abs((bar_date - target_date).total_seconds())
-                        if date_diff <= tolerance_seconds:
-                            
-                            # Extract factor value from bar using the same pattern
-                            factor_value = self._extract_factor_value_from_bar(
-                                bar_data=bar_data,
-                                factor=factor_entity,
-                                entity_id=entity_id,
-                                bar_date=bar_date
-                            )
-                            
-                            if factor_value:
-                                # Persist to database using local repository
-                                created_value = self.local_repo.add(factor_value)
-                                if created_value:
-                                    print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
-                                    return created_value
-                            
-                            # Found the matching date, no need to continue
-                            break
-                    
-                    except Exception as bar_error:
-                        print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
-                        continue
-                
-                print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
+            if not symbol:
+                print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
-                    
-                
             
+            # Get configurable parameters with defaults
+            what_to_show = self._resolve_what_to_show_from_group(factor_entity.group)
+            duration_str = kwargs.get('duration_str', '1 M')
+            bar_size_setting = kwargs.get('bar_size_setting', '1 day')
+            
+            # Convert time_date string to datetime object
+            target_date_fetch = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") + timedelta(
+                seconds=self._calculate_date_tolerance_seconds(factor_entity)
+            ) 
+            target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S") 
+            
+            # Fetch bulk historical data from IBKR
+            bulk_ibkr_data = self._fetch_bulk_historical_data(
+                symbol=symbol,
+                target_date=target_date_fetch,
+                asset=financial_asset_entity,
+                what_to_show=what_to_show,
+                duration_str=duration_str,
+                bar_size_setting=bar_size_setting
+            )
+            
+            if not bulk_ibkr_data:
+                print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
+                return None
+            
+            # Extract factor value from bulk data
+            for bar_data in bulk_ibkr_data:
+                try:
+                    # Parse IBKR date format
+                    bar_date = self._parse_ibkr_date(bar_data.get('date'))
+                    if not bar_date:
+                        continue
+                    
+                    # Check if this bar matches our target date
+                    tolerance_seconds = self._calculate_date_tolerance_seconds(factor_entity)
+                    date_diff = abs((bar_date - target_date).total_seconds())
+                    if date_diff <= tolerance_seconds:
+                        
+                        # Extract factor value from bar
+                        factor_value = self._extract_factor_value_from_bar(
+                            bar_data=bar_data,
+                            factor=factor_entity,
+                            entity_id=entity_id,
+                            bar_date=bar_date
+                        )
+                        
+                        if factor_value:
+                            # Persist to database using local repository
+                            created_value = self.local_repo.add(factor_value)
+                            if created_value:
+                                print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
+                                return created_value
+                        
+                        # Found the matching date, no need to continue
+                        break
                 
-        except Exception as e:
-            print(f"Error in get_or_create_factor_value_with_dependencies for {factor_entity.name}: {e}")
+                except Exception as bar_error:
+                    print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
+                    continue
+            
+            print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
             return None
-        finally:
-            # Clean up dependency stack to prevent memory leaks
-            if dependency_key and dependency_key in self._dependency_creation_stack:
-                self._dependency_creation_stack.remove(dependency_key)
+            
+        except Exception as e:
+            print(f"Error fetching factor value from IBKR for {factor_entity.name}: {e}")
+            return None
     
     def get_or_create_batch(self, factor_batch: FactorBatch, 
                            what_to_show: str = "TRADES", 
