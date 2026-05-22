@@ -12,6 +12,7 @@ from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 
+from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
@@ -82,17 +83,20 @@ class UnifiedPortfolioManager:
             # Create portfolio value factor using market data service
             if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
                 try:
-                    portfolio_value_factor = self.market_data_service._create_or_get(
-                        entity_cls=PortfolioValueFactor,
-                        factor_name=f"portfolio_value_{portfolio.name}",
-                        factor_type="portfolio_value_factor",
-                        entity_symbol=portfolio.name,
-                        group="value",
-                        subgroup="portfolio",
-                        frequency="1d",
-                        data_type="numeric",
-                        source="calculated",
-                        definition=f"Portfolio value factor for {portfolio.name}"
+                    # Configure entity_config for MarketDataService._create_or_get method
+                    entity_config = {
+                        'entity_class': PortfolioValueFactor,
+                        'entity_symbol': f"portfolio_value_{portfolio.name}",
+                        'factor_type': "portfolio_value_factor",
+                        'group': "value",
+                        'subgroup': "portfolio",
+                        'frequency': "1d",
+                        'data_type': "numeric",
+                        'source': "calculated",
+                        'definition': f"Portfolio value factor for {portfolio.name}"
+                    }
+                    
+                    portfolio_value_factor = self.market_data_service._create_or_get(entity_config
                     )
                     
                     if self.logger and portfolio_value_factor:
@@ -211,17 +215,20 @@ class UnifiedPortfolioManager:
                                 else:
                                     factor_type = "portfolio_value_factor"
                                 
-                                sub_portfolio_value_factor = self.market_data_service._create_or_get(
-                                    factor_name=f"{sub_portfolio_type}_portfolio_value_{sub_portfolio.name}",
-                                    factor_type=factor_type,
-                                    entity_symbol=sub_portfolio.name,
-                                    group="value",
-                                    subgroup="portfolio",
-                                    frequency="1d",
-                                    data_type="numeric",
-                                    source="calculated",
-                                    definition=f"{sub_portfolio_type.title()} portfolio value factor for {sub_portfolio.name}"
-                                )
+                                # Configure entity_config for MarketDataService._create_or_get method
+                                entity_config = {
+                                    'entity_class': Factor,  # Factor entity class
+                                    'entity_symbol': f"{sub_portfolio_type}_portfolio_value_{sub_portfolio.name}",
+                                    'factor_type': factor_type,
+                                    'group': "value",
+                                    'subgroup': "portfolio",
+                                    'frequency': "1d",
+                                    'data_type': "numeric",
+                                    'source': "calculated",
+                                    'definition': f"{sub_portfolio_type.title()} portfolio value factor for {sub_portfolio.name}"
+                                }
+                                
+                                sub_portfolio_value_factor = self.market_data_service._create_or_get(entity_config)
                                 
                                 if self.logger and sub_portfolio_value_factor:
                                     self.logger.info(f"✅ Sub-portfolio value factor created: {sub_portfolio_value_factor.name}")
@@ -290,30 +297,36 @@ class UnifiedPortfolioManager:
                     symbol = order_params.get('symbol', 'UNKNOWN')
                     
                     # Create order quantity factor
-                    order_quantity_factor = self.market_data_service._create_or_get(
-                        factor_name=f"order_quantity_{symbol}_{persisted_order.id}",
-                        factor_type="company_share_order_quantity_factor",
-                        entity_symbol=symbol,
-                        group="quantity",
-                        subgroup="order",
-                        frequency="1d",
-                        data_type="numeric",
-                        source="order",
-                        definition=f"Order quantity factor for {symbol}"
-                    )
+                    # Configure entity_config for MarketDataService._create_or_get method
+                    entity_config = {
+                        'entity_class': Factor,
+                        'entity_symbol': f"order_quantity_{symbol}_{persisted_order.id}",
+                        'factor_type': "company_share_order_quantity_factor",
+                        'group': "quantity",
+                        'subgroup': "order",
+                        'frequency': "1d",
+                        'data_type': "numeric",
+                        'source': "order",
+                        'definition': f"Order quantity factor for {symbol}"
+                    }
+                    
+                    order_quantity_factor = self.market_data_service._create_or_get(entity_config)
                     
                     # Create order price factor
-                    order_price_factor = self.market_data_service._create_or_get(
-                        factor_name=f"order_price_{symbol}_{persisted_order.id}",
-                        factor_type="company_share_order_price_factor", 
-                        entity_symbol=symbol,
-                        group="price",
-                        subgroup="order",
-                        frequency="1d",
-                        data_type="numeric",
-                        source="order",
-                        definition=f"Order price factor for {symbol}"
-                    )
+                    # Configure entity_config for MarketDataService._create_or_get method
+                    entity_config = {
+                        'entity_class': Factor,
+                        'entity_symbol': f"order_price_{symbol}_{persisted_order.id}",
+                        'factor_type': "company_share_order_price_factor",
+                        'group': "price",
+                        'subgroup': "order",
+                        'frequency': "1d",
+                        'data_type': "numeric",
+                        'source': "order",
+                        'definition': f"Order price factor for {symbol}"
+                    }
+                    
+                    order_price_factor = self.market_data_service._create_or_get(entity_config)
                     
                     if self.logger:
                         if order_quantity_factor:
@@ -386,17 +399,20 @@ class UnifiedPortfolioManager:
                     symbol = transaction_params.get('symbol', 'UNKNOWN')
                     
                     # Create transaction value factor
-                    transaction_value_factor = self.market_data_service._create_or_get(
-                        factor_name=f"transaction_value_{symbol}_{persisted_transaction.id}",
-                        factor_type="company_share_transaction_value_factor",
-                        entity_symbol=symbol,
-                        group="value",
-                        subgroup="transaction",
-                        frequency="1d",
-                        data_type="numeric",
-                        source="calculated",
-                        definition=f"Transaction value factor for {symbol}"
-                    )
+                    # Configure entity_config for MarketDataService._create_or_get method
+                    entity_config = {
+                        'entity_class': Factor,
+                        'entity_symbol': f"transaction_value_{symbol}_{persisted_transaction.id}",
+                        'factor_type': "company_share_transaction_value_factor",
+                        'group': "value",
+                        'subgroup': "transaction",
+                        'frequency': "1d",
+                        'data_type': "numeric",
+                        'source': "calculated",
+                        'definition': f"Transaction value factor for {symbol}"
+                    }
+                    
+                    transaction_value_factor = self.market_data_service._create_or_get(entity_config)
                     
                     if self.logger and transaction_value_factor:
                         self.logger.info(f"✅ Transaction value factor created: {transaction_value_factor.name}")
@@ -465,30 +481,36 @@ class UnifiedPortfolioManager:
                             symbol = self._get_asset_symbol(holding.asset)
                             
                             # Create position value factor
-                            position_value_factor = self.market_data_service._create_or_get(
-                                factor_name=f"position_value_{symbol}_{holding.id}",
-                                factor_type="company_share_position_value_factor",
-                                entity_symbol=symbol,
-                                group="value",
-                                subgroup="position",
-                                frequency="1d",
-                                data_type="numeric",
-                                source="calculated",
-                                definition=f"Position value factor for {symbol}"
-                            )
+                            # Configure entity_config for MarketDataService._create_or_get method
+                            entity_config = {
+                                'entity_class': Factor,
+                                'entity_symbol': f"position_value_{symbol}_{holding.id}",
+                                'factor_type': "company_share_position_value_factor",
+                                'group': "value",
+                                'subgroup': "position",
+                                'frequency': "1d",
+                                'data_type': "numeric",
+                                'source': "calculated",
+                                'definition': f"Position value factor for {symbol}"
+                            }
+                            
+                            position_value_factor = self.market_data_service._create_or_get(entity_config)
                             
                             # Create holding value factor
-                            holding_value_factor = self.market_data_service._create_or_get(
-                                factor_name=f"holding_value_{symbol}_{holding.id}",
-                                factor_type="company_share_portfolio_holding_value_factor",
-                                entity_symbol=symbol,
-                                group="value", 
-                                subgroup="holding",
-                                frequency="1d",
-                                data_type="numeric",
-                                source="calculated",
-                                definition=f"Holding value factor for {symbol}"
-                            )
+                            # Configure entity_config for MarketDataService._create_or_get method
+                            entity_config = {
+                                'entity_class': Factor,
+                                'entity_symbol': f"holding_value_{symbol}_{holding.id}",
+                                'factor_type': "company_share_portfolio_holding_value_factor",
+                                'group': "value",
+                                'subgroup': "holding",
+                                'frequency': "1d",
+                                'data_type': "numeric",
+                                'source': "calculated",
+                                'definition': f"Holding value factor for {symbol}"
+                            }
+                            
+                            holding_value_factor = self.market_data_service._create_or_get(entity_config)
                             
                         except Exception as e:
                             if self.logger:
