@@ -167,8 +167,8 @@ class FactorValueResolutionService:
                     dependency_values[key] = self._convert_to_float(related_factor_value.value)
                 else:
                     self.logger.warning(f"Could not resolve factor value for related entity {related_entity.id}")
-                    key = f"factor_{factor_entity.id}_{i}"
-                    dependency_values[key] = 0.0
+                    print(f"Could not resolve factor value for related entity {related_entity.id}")
+                    
             
             # Apply aggregation strategy
             aggregated_value = self._apply_aggregation_strategy(dependency_values, aggregation_strategy)
@@ -284,8 +284,7 @@ class FactorValueResolutionService:
                     dependency_values[key] = self._convert_to_float(dependency_value.value)
                 else:
                     self.logger.warning(f"Could not resolve dependency factor {independent_factor_id}")
-                    key = f"factor_{independent_factor_id}"
-                    dependency_values[key] = 0.0
+                    print(f"Could not resolve dependency factor {independent_factor_id}")
             
             # Calculate using factor's calculate method
             calculated_value = self._call_factor_calculate_method(factor_entity, dependency_values, **kwargs)
@@ -350,8 +349,7 @@ class FactorValueResolutionService:
         self, dependency_values: Dict[str, float], strategy: str
     ) -> float:
         """Apply aggregation strategy to dependency values."""
-        if not dependency_values:
-            return 0.0
+        
         
         values = list(dependency_values.values())
         
@@ -382,11 +380,9 @@ class FactorValueResolutionService:
                     self.logger.warning(f"Calculate method returned None for factor {factor_entity.name}")
                     return None
             else:
-                self.logger.info(f"Factor {factor_entity.name} has no calculate method, using sum")
-                # Default calculation: sum of dependency values
-                if dependency_values:
-                    return sum(dependency_values.values())
-                return 0.0
+                self.logger.error(f"Factor {factor_entity.name} does not have a calculate method")
+                return None
+                
                 
         except Exception as e:
             self.logger.error(f"Error calling factor calculate method: {e}")
@@ -441,10 +437,10 @@ class FactorValueResolutionService:
                 return float(value)
             else:
                 self.logger.warning(f"Unknown value type for conversion: {type(value)}")
-                return 0.0
+                
         except (ValueError, TypeError):
             self.logger.error(f"Error converting value to float: {value}")
-            return 0.0
+            
     
     def resolve_factor_values_batch(
         self,

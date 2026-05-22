@@ -312,7 +312,7 @@ class MarketDataService:
             
             # Standard entity creation for non-option entities
             # Remove entity_class from kwargs to avoid passing it twice
-            kwargs = {k: v for k, v in entity_config.items() if k not in ['entity_class', 'entity_symbol']}
+            kwargs = {k: v for k, v in entity_config.items() if k not in ['entity_class', 'entity_symbol','name']}
             
             # Use entity_service _create_or_get method
             entity = self.entity_service._create_or_get(
