@@ -233,7 +233,8 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                     'independent_factor_id': dependency.independent_factor_id,
                     'dependent_factor_id': dependency.dependent_factor_id,
                     'lag': dependency.lag,
-                    'dependency_entity': dependency
+                    'dependency_entity': dependency,
+                    'dependency_name': dependency.dependency_name
                 }
                 dependency_list.append(dependency_info)
             
@@ -273,12 +274,17 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                     dependency_values[parameter] = None  # Initialize with None
 
 
-            for i, dependency in enumerate(dependencies):#for dependency in dependencies:
-                independent_factor = dependency['independent_factor']
+            for i, dependency in enumerate(dependencies):
                 independent_factor_id = dependency['independent_factor_id']
                 lag = dependency.get('lag')
+                dependency_entity = dependency.get('dependency_entity')
                 
-
+                # Get the dependency name from the dependency entity
+                dependency_name = getattr(dependency_entity, 'dependency_name', None) if dependency_entity else None
+                
+                # If no dependency name is specified, fall back to generic naming
+                if not dependency_name:
+                    dependency_name = f"factor_{independent_factor_id}_{lag}" if lag else f"factor_{independent_factor_id}"
 
                 # Calculate dependency date with lag
                 dependency_date = target_date
@@ -295,11 +301,10 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 )
                 
                 if dependency_value:
-                    # Use the factor name as key if available
-                    dependency_key = f"factor_{independent_factor_id}_{lag}" if lag else f"factor_{independent_factor_id}"
-                    dependency_values[dependency_key] = float(dependency_value.value)
+                    # Use the dependency name as the key for the calculate method
+                    dependency_values[dependency_name] = float(dependency_value.value)
                 else:
-                    print(f"Could not resolve dependency factor {independent_factor_id} for date {dependency_date_str}")
+                    print(f"Could not resolve dependency factor {independent_factor_id} ('{dependency_name}') for date {dependency_date_str}")
                     # Flag error instead of assigning 0.0
                     print(f"Local repository cannot resolve missing dependency - failing calculation")
                     return None
@@ -381,8 +386,23 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 calculate_method = getattr(factor, 'calculate')
                 
                 try:
-                    # Call the calculate method with dependency values
-                    result = calculate_method(dependency_values, **kwargs)
+                    # Get function signature to determine how to call the method
+                    signature = inspect.signature(calculate_method)
+                    method_params = list(signature.parameters.keys())
+                    
+                    # Prepare arguments for the calculate method
+                    call_kwargs = {}
+                    for param_name in method_params:
+                        if param_name in dependency_values:
+                            call_kwargs[param_name] = dependency_values[param_name]
+                    
+                    # Add any additional kwargs that match method parameters
+                    for key, value in kwargs.items():
+                        if key in method_params:
+                            call_kwargs[key] = value
+                    
+                    # Call the calculate method with the prepared arguments
+                    result = calculate_method(**call_kwargs)
                     
                     if result is not None:
                         return float(result)
@@ -392,6 +412,8 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                         
                 except Exception as calc_error:
                     print(f"Error calling calculate method for factor {factor.name}: {calc_error}")
+                    print(f"Available dependencies: {list(dependency_values.keys())}")
+                    print(f"Method signature: {signature}")
                     return None
             else:
                 print(f"Factor {factor.name} has dependencies but no calculate method")

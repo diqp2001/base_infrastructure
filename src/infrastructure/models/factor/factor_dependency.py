@@ -15,6 +15,7 @@ class FactorDependencyModel(Base):
     independent_factor_id = Column(Integer, ForeignKey('factors.id'), nullable=False)
     lag = Column(Interval, nullable=True)  # Time lag for dependency resolution
     independent_factor_related_entity_key = Column(String, nullable=True) #"underlying_asset_id"
+    dependency_name = Column(String, nullable=True)  # Parameter name in the calculate method
     
     # Relationships to FactorModel
     dependent_factor = relationship(
@@ -33,5 +34,6 @@ class FactorDependencyModel(Base):
         return (f"<FactorDependency(id={self.id}, "
                 f"dependent_factor_id={self.dependent_factor_id}, "
                 f"independent_factor_id={self.independent_factor_id}, "
-                f"lag={self.lag})>,"
-                f"independent_factor_related_entity_key={self.independent_factor_related_entity_key})>")
+                f"lag={self.lag}, "
+                f"independent_factor_related_entity_key={self.independent_factor_related_entity_key}, "
+                f"dependency_name={self.dependency_name})>")

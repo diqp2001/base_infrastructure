@@ -22,7 +22,8 @@ class FactorDependency:
     independent_factor_id: int
     id: Optional[int] = None
     lag: Optional[timedelta] = None
-    independent_factor_related_entity_key: Any = None # it can be it the dependent entity, or a related entity 
+    independent_factor_related_entity_key: Any = None # it can be it the dependent entity, or a related entity
+    dependency_name: Optional[str] = None  # Parameter name in the calculate method (e.g., "start_price", "end_price") 
     
     def __post_init__(self):
         """Validate the factor dependency relationship."""
@@ -37,4 +38,5 @@ class FactorDependency:
     
     def __repr__(self) -> str:
         return (f"FactorDependency(id={self.id}, dependent_factor_id={self.dependent_factor_id}, "
-                f"independent_factor_id={self.independent_factor_id}, lag={self.lag})")
+                f"independent_factor_id={self.independent_factor_id}, lag={self.lag}, "
+                f"dependency_name={self.dependency_name})")

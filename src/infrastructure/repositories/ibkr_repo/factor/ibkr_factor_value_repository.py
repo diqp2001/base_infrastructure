@@ -1127,6 +1127,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         'dependency_id': dep.id,
                         'lag': dep.lag,
                         'independent_factor_related_entity_key': dep.independent_factor_related_entity_key,
+                        'dependency_name': dep.dependency_name,
                         'static_dependency': True
                     })
             
@@ -1272,9 +1273,14 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 independent_factor_id = dep_info['independent_factor_id']
                 lag = dep_info.get('lag')
                 independent_factor_related_entity_key = dep_info.get('independent_factor_related_entity_key')
+                dependency_name = dep_info.get('dependency_name')
                 
-                # Determine parameter name based on factor type and dependency position
-                param_name = self._get_dependency_parameter_name(factor, i, len(dependencies), independent_factor)
+                # Use dependency name if available, otherwise fall back to auto-naming
+                if dependency_name:
+                    param_name = dependency_name
+                else:
+                    # Determine parameter name based on factor type and dependency position
+                    param_name = self._get_dependency_parameter_name(factor, i, len(dependencies), independent_factor)
                 
                 # Calculate the adjusted date considering the lag
                 dependency_date = bar_date
