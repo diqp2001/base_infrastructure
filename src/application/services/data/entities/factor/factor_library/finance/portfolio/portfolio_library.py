@@ -4,6 +4,10 @@ from typing import Dict, List
 from src.domain.entities.factor.finance.holding.portfolio_holding_value_factor import PortfolioHoldingValueFactor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
 from src.domain.entities.factor.finance.portfolio.portfolio_factor import PortfolioFactor
+from src.domain.entities.factor.finance.position.company_share_position_value_factor import CompanySharePositionValueFactor
+from src.domain.entities.factor.finance.transaction.company_share_transaction_value_factor import CompanyShareTransactionValueFactor
+from src.domain.entities.factor.finance.order.company_share_order_quantity_factor import CompanyShareOrderQuantityFactor
+from src.domain.entities.factor.finance.order.company_share_order_price_factor import CompanyShareOrderPriceFactor
 
 
 
@@ -34,25 +38,59 @@ PORTFOLIO_LIBRARY: Dict[str, Dict] = {
             "holding_value": {
                 "class": PortfolioHoldingValueFactor,
                 "name": "holding_value",
-                "group": "value",
-                "subgroup": "daily",
+                "group": "holding",
+                "subgroup": "value",
                 "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Daily value of each holding in the portfolio",
                 "dependencies": {
-                
-                        "holding_value": {
-                        "class": PortfolioHoldingValueFactor,
-                        "name": "holding_value",
-                        "group": "value",
-                        "subgroup": "daily",
+                    "position_value": {
+                        "class": CompanySharePositionValueFactor,
+                        "name": "position_value",
+                        "group": "position",
+                        "subgroup": "value",
                         "frequency": "1d",
                         "data_type": "numeric",
-                        "description": "Daily value of each holding in the portfolio",
-                        "dependencies": {},
+                        "description": "Total value of company share position from transactions",
+                        "dependencies": {
+                            "transaction_value": {
+                                "class": CompanyShareTransactionValueFactor,
+                                "name": "transaction_value",
+                                "group": "transaction",
+                                "subgroup": "value",
+                                "frequency": "1d",
+                                "data_type": "numeric",
+                                "description": "Total value of company share transaction (quantity × price)",
+                                "dependencies": {
+                                    "order_quantity": {
+                                        "class": CompanyShareOrderQuantityFactor,
+                                        "name": "order_quantity",
+                                        "group": "order",
+                                        "subgroup": "quantity",
+                                        "frequency": "1d",
+                                        "data_type": "numeric",
+                                        "description": "Number of shares in company share order",
+                                        "dependencies": {},
+                                        "parameters": {}
+                                    },
+                                    "order_price": {
+                                        "class": CompanyShareOrderPriceFactor,
+                                        "name": "order_price",
+                                        "group": "order",
+                                        "subgroup": "price",
+                                        "frequency": "1d",
+                                        "data_type": "numeric",
+                                        "description": "Price per share in company share order",
+                                        "dependencies": {},
+                                        "parameters": {}
+                                    }
+                                },
+                                "parameters": {}
+                            }
+                        },
                         "parameters": {}
                     }
-            },
+                },
                 "parameters": {}
             }
         },
