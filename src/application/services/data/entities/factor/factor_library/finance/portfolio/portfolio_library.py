@@ -30,7 +30,9 @@ PORTFOLIO_LIBRARY: Dict[str, Dict] = {
 
     "portfolio_value": {
         "class": PortfolioValueFactor,
+        "entity_class": PortfolioValueFactor,
         "name": "portfolio_value",
+        "entity_symbol": "portfolio_value",
         "group": "value",
         "subgroup": "daily",
         "frequency": "1d",
