@@ -7,7 +7,7 @@ from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorM
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor
-from src.domain.entities.factor.finance.holding.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor
+from src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
 
 

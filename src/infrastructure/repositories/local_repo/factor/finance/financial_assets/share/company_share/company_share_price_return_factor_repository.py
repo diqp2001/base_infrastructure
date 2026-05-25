@@ -43,10 +43,9 @@ class CompanySharePriceReturnFactorRepository(BaseFactorRepository, CompanyShare
                 name=primary_key,
                 group=kwargs.get('group', 'company_share'),
                 subgroup=kwargs.get('subgroup', 'return'),
-                frequency=kwargs.get('frequency', '1d'),
-                factor_type=kwargs.get('factor_type', 'return'),
-                data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data')
+                frequency=kwargs.get('frequency'),
+                factor_type=kwargs.get('factor_type', "company_share_price_return_factor"),
+              
             )
             if existing:
                 return self._to_entity(existing)

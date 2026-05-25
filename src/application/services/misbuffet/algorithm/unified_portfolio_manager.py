@@ -12,6 +12,7 @@ from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 
+from application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
 from src.domain.entities.factor.factor_value import FactorValue
@@ -168,11 +169,7 @@ class UnifiedPortfolioManager:
             self._current_portfolio_entity = main_portfolio
             if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
                 try:
-                    config = {"entity_class":PortfolioValueFactor,"factor_name":f"portfolio_value_{main_portfolio.name}",
-                        "factor_type":"portfolio_value_factor",
-                        "entity_symbol":main_portfolio.name,
-                        "group":"value",
-                        "subgroup":"portfolio",}
+                    config = FACTOR_LIBRARY["portfolio_library"]["portfolio_value"]
                     portfolio_value_factor = self.market_data_service._create_or_get(config)
                     self.portfolio_value_factor = portfolio_value_factor
                     if self.logger and portfolio_value_factor:

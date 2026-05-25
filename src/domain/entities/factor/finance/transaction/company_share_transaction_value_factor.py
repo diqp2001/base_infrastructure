@@ -10,7 +10,7 @@ from typing import List, Optional
 from decimal import Decimal
 
 from src.domain.entities.factor.factor_value import FactorValue
-from ..holding.company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
+from ..holding.company_share_portfolio.company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
 
 
 class CompanyShareTransactionValueFactor(CompanySharePortfolioHoldingFactor):

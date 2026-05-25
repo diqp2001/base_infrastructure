@@ -23,7 +23,7 @@ class PortfolioValueFactorRepository(BaseFactorRepository, PortfolioValueFactorP
         self.factory = factory
         self.mapper = PortfolioValueFactorMapper()
         self.mapper_value = FactorValueMapper()
-
+    
     @property
     def entity_class(self):
         return self.get_factor_entity()
