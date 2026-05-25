@@ -83,6 +83,7 @@ class PortfolioValueFactorRepository(BaseFactorRepository, PortfolioValueFactorP
                         factor_type=dependency_config.get("factor_type"),
                         source=dependency_config.get("source"),
                         definition=dependency_config.get("definition"),
+                        dependencies=dependency_config.get("dependencies"),  # Pass nested dependencies
                     )
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)
