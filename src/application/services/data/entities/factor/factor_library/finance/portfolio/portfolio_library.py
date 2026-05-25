@@ -1,6 +1,8 @@
 from datetime import timedelta
 from typing import Dict, List
 
+from src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor
 from src.domain.entities.factor.finance.holding.portfolio_holding_value_factor import PortfolioHoldingValueFactor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
 from src.domain.entities.factor.finance.portfolio.portfolio_factor import PortfolioFactor
@@ -44,58 +46,86 @@ PORTFOLIO_LIBRARY: Dict[str, Dict] = {
                 "data_type": "numeric",
                 "description": "Daily value of each holding in the portfolio",
                 "dependencies": {
-                    "position_value": {
-                        "class": CompanySharePositionValueFactor,
-                        "name": "position_value",
-                        "group": "position",
-                        "subgroup": "value",
+                    "company_share_portfolio_value": {
+                        "class": CompanySharePortfolioValueFactor,
+                        "name": "portfolio_value",
+                        "group": "value",
+                        "subgroup": "daily",
                         "frequency": "1d",
                         "data_type": "numeric",
-                        "description": "Total value of company share position from transactions",
+                        "description": "Daily value of the portfolio calculated from holding values",
                         "dependencies": {
-                            "transaction_value": {
-                                "class": CompanyShareTransactionValueFactor,
-                                "name": "transaction_value",
-                                "group": "transaction",
-                                "subgroup": "value",
-                                "frequency": "1d",
-                                "data_type": "numeric",
-                                "description": "Total value of company share transaction (quantity × price)",
-                                "dependencies": {
-                                    "order_quantity": {
-                                        "class": CompanyShareOrderQuantityFactor,
-                                        "name": "order_quantity",
-                                        "group": "order",
-                                        "subgroup": "quantity",
+                            "company_share_portfolio_holding_value": {
+                                        "class": CompanySharePortfolioHoldingValueFactor,
+                                        "name": "company_share_portfolio_holding_value",
+                                        "group": "holding",
+                                        "subgroup": "value",
                                         "frequency": "1d",
                                         "data_type": "numeric",
-                                        "description": "Number of shares in company share order",
-                                        "dependencies": {},
-                                        "parameters": {}
-                                    },
-                                    "order_price": {
-                                        "class": CompanyShareOrderPriceFactor,
-                                        "name": "order_price",
-                                        "group": "order",
-                                        "subgroup": "price",
-                                        "frequency": "1d",
-                                        "data_type": "numeric",
-                                        "description": "Price per share in company share order",
-                                        "dependencies": {},
-                                        "parameters": {}
-                                    }
-                                },
-                                "parameters": {}
-                            }
-                        },
-                        "parameters": {}
-                    }
+                                        "description": "Daily value of each holding in the portfolio",
+                                        "dependencies": {
+                                                "position_value": {
+                                                "class": CompanySharePositionValueFactor,
+                                                "name": "position_value",
+                                                "group": "position",
+                                                "subgroup": "value",
+                                                "frequency": "1d",
+                                                "data_type": "numeric",
+                                                "description": "Total value of company share position from transactions",
+                                                "dependencies": {
+                                                    "transaction_value": {
+                                                        "class": CompanyShareTransactionValueFactor,
+                                                        "name": "transaction_value",
+                                                        "group": "transaction",
+                                                        "subgroup": "value",
+                                                        "frequency": "1d",
+                                                        "data_type": "numeric",
+                                                        "description": "Total value of company share transaction (quantity × price)",
+                                                        "dependencies": {
+                                                            "order_quantity": {
+                                                                "class": CompanyShareOrderQuantityFactor,
+                                                                "name": "order_quantity",
+                                                                "group": "order",
+                                                                "subgroup": "quantity",
+                                                                "frequency": "1d",
+                                                                "data_type": "numeric",
+                                                                "description": "Number of shares in company share order",
+                                                                "dependencies": {},
+                                                                "parameters": {}
+                                                            },
+                                                            "order_price": {
+                                                                "class": CompanyShareOrderPriceFactor,
+                                                                "name": "order_price",
+                                                                "group": "order",
+                                                                "subgroup": "price",
+                                                                "frequency": "1d",
+                                                                "data_type": "numeric",
+                                                                "description": "Price per share in company share order",
+                                                                "dependencies": {},
+                                                                "parameters": {}
+                                                            }
+                                                        },
+                                                        "parameters": {}
+                                                    }
+                                                },
+                                                "parameters": {}
+                                            }
+                    },
+                        "parameters": {"period": "1D"},
+                        }
+                        }
+
+
+
+
+
+                    
                 },
                 "parameters": {}
             }
         },
         "parameters": {"period": "1D"}
-    },
+    }},
     # ======================
     # Daily Return Factors
     # ======================
