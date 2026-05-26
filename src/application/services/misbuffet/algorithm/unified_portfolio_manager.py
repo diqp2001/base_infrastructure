@@ -40,9 +40,25 @@ class UnifiedPortfolioManager:
             market_data_service: Service for handling market data
             logger: Optional logger for debugging
         """
+        if entity_service is None:
+            raise ValueError("entity_service cannot be None")
+        if entity_service.repository_factory is None:
+            raise ValueError("entity_service.repository_factory cannot be None")
+        
         self.repository_factory = entity_service.repository_factory
+        self.entity_service = entity_service  # Keep reference for fallback market data service creation
         self.market_data_service = market_data_service
         self.logger = logger
+        
+        # Log market_data_service state for debugging
+        if logger:
+            if market_data_service is None:
+                logger.warning("⚠️ UnifiedPortfolioManager initialized with None market_data_service - will create on demand")
+            elif not hasattr(market_data_service, '_create_or_get'):
+                logger.warning(f"⚠️ Market data service {type(market_data_service)} missing _create_or_get method")
+            else:
+                logger.info(f"✅ UnifiedPortfolioManager initialized with {type(market_data_service).__name__}")
+        
         self._current_portfolio_entity: Optional[Portfolio] = None
         self._order_ticket_mapping: Dict[str, str] = {}  # QC order_id -> domain order_id
         
@@ -167,17 +183,43 @@ class UnifiedPortfolioManager:
                 return None
             
             self._current_portfolio_entity = main_portfolio
-            if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
+            # Create market_data_service on demand if it's None
+            if self.market_data_service is None and self.entity_service:
+                if self.logger:
+                    self.logger.info("🔄 Creating MarketDataService on demand...")
+                try:
+                    from src.application.services.misbuffet.data.market_data_service import MarketDataService
+                    self.market_data_service = MarketDataService(self.entity_service)
+                    if self.logger:
+                        self.logger.info("✅ MarketDataService created successfully on demand")
+                except Exception as e:
+                    if self.logger:
+                        self.logger.error(f"❌ Failed to create MarketDataService on demand: {e}")
+            
+            if self.market_data_service is None:
+                if self.logger:
+                    self.logger.error("❌ Market data service is None - cannot create portfolio value factor")
+                    self.logger.error("❌ This indicates UnifiedPortfolioManager was initialized without proper market_data_service")
+            elif not hasattr(self.market_data_service, '_create_or_get'):
+                if self.logger:
+                    self.logger.error(f"❌ Market data service {type(self.market_data_service)} does not have _create_or_get method")
+            else:
                 try:
                     config = FACTOR_LIBRARY["portfolio_library"]["portfolio_value"]
+                    if self.logger:
+                        self.logger.info(f"🔄 Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
                     portfolio_value_factor = self.market_data_service._create_or_get(config)
                     self.portfolio_value_factor = portfolio_value_factor
                     if self.logger and portfolio_value_factor:
                         self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
+                    elif self.logger:
+                        self.logger.warning("⚠️ Portfolio value factor creation returned None")
                         
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning(f"⚠️ Failed to create portfolio value factor: {e}")
+                        self.logger.error(f"❌ Error in get_or_create portfolio value factor portfolio_value: {e}")
+                        import traceback
+                        self.logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             
             if self.logger:
                 self.logger.info(f"✅ Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
