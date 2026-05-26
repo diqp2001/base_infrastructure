@@ -13,5 +13,6 @@ class CompanySharePortfolioModel(PortfolioModel):
 
     
     company_share_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_holding.CompanySharePortfolioHoldingModel", back_populates="company_share_portfolios")
+    company_share_portfolio_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding.CompanySharePortfolioPortfolioHoldingModel", back_populates="company_share_portfolio")
     __mapper_args__ = {
     "polymorphic_identity": "company_share_portfolios",}
