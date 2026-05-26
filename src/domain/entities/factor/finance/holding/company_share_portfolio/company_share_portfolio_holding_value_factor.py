@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
 
 from src.domain.entities.factor.factor_value import FactorValue
@@ -38,16 +38,54 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
             factor_id=factor_id,
         )
 
-    def calculate(self, positions_values: List[FactorValue]) -> Decimal:
+    def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
         """
-        Calculate the total portfolio value by summing the values of all holdings. factor values of factor CompanySharePortfolioHoldingValueFactor
+        Calculate the total value of company share holdings in a portfolio.
+        
+        Args:
+            dependencies: Dictionary containing:
+                - 'company_share_price_factor': CompanySharePriceFactor (or CompanyShareMidPriceFactor)
+                - 'position': Position providing quantity of shares
+                
+        Returns:
+            Total value as Decimal (price × quantity)
         """
+        try:
+            # Get the company share price
+            price_factor = dependencies.get('company_share_price_factor', Decimal('0'))
+            if hasattr(price_factor, 'value'):
+                price = price_factor.value
+            else:
+                price = Decimal(str(price_factor))
+            
+            # Get the position quantity
+            position = dependencies.get('position')
+            quantity = Decimal('0')
+            
+            if position:
+                if hasattr(position, 'quantity'):
+                    quantity = Decimal(str(position.quantity))
+                elif isinstance(position, (int, float, Decimal)):
+                    quantity = Decimal(str(position))
+                elif isinstance(position, dict) and 'quantity' in position:
+                    quantity = Decimal(str(position['quantity']))
+            
+            total_value = price * quantity
+            
+            return total_value
+            
+        except Exception as e:
+            print(f"Error calculating company share portfolio holding value: {e}")
+            return Decimal('0.0')
+    
+    def get_dependencies(self) -> List[str]:
+        """
+        Define the dependencies for this factor calculation.
         
-            
-        total_value = Decimal('0')
-        
-        for position_value in positions_values:
-            
-            total_value += position_value
-            
-        return total_value
+        Returns:
+            List of dependency factor names
+        """
+        return [
+            "company_share_mid_price_factor",  # CompanySharePriceFactor (using mid price)
+            "position"  # Position providing quantity
+        ]
