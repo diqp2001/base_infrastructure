@@ -6,7 +6,7 @@ src/domain/entities/factor/finance/portfolio/portfolio_value_factor.py
 PortfolioValueFactor domain entity - calculates portfolio value from holding values.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from decimal import Decimal
 
 from src.domain.entities.factor.finance.portfolio.portfolio_factor import PortfolioFactor
@@ -45,7 +45,9 @@ class PortfolioValueFactor(PortfolioFactor):
         Calculate portfolio value by summing all holding values.
         
         Args:
-            dependencies: Dictionary containing holding value factors
+            dependencies: Dictionary containing holding value factors, including:
+                - CompanySharePortfolioPortfolioHolding values
+                - Other holding types' values
             
         Returns:
             Total portfolio value as Decimal
@@ -65,3 +67,16 @@ class PortfolioValueFactor(PortfolioFactor):
         except Exception as e:
             print(f"Error calculating portfolio value: {e}")
             return Decimal('0.0')
+    
+    def get_dependencies(self) -> List[str]:
+        """
+        Define the dependencies for portfolio value calculation.
+        
+        Returns:
+            List of dependency factor names
+        """
+        return [
+            "company_share_portfolio_portfolio_holding_value_factor",  # CompanySharePortfolioPortfolioHoldingValueFactor
+            "company_share_holding_value_factor",  # Regular company share holdings
+            "other_holding_value_factors"  # Other types of holdings
+        ]
