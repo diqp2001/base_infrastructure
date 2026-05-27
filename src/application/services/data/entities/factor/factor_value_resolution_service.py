@@ -10,6 +10,7 @@ Supports both local repository and IBKR repository integration.
 
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, date, timedelta
+import inspect
 import logging
 from decimal import Decimal
 
@@ -42,78 +43,92 @@ class FactorValueResolutionService:
     def resolve_factor_value(
         self,
         factor_entity,
-        financial_asset_entity,
+        entity,
         time_date,
         repository_type: str = "local",
+        # Backward-compat alias kept so existing callers still work
+        financial_asset_entity=None,
         **kwargs
     ) -> Optional[FactorValue]:
         """
         Main method to resolve factor value with dependency handling.
-        
+
         Args:
             factor_entity: Factor domain entity instance
-            financial_asset_entity: Financial asset entity
+            entity: The domain Entity for which the factor value is computed.
+                    Accepts any Entity subclass (Country, CompanyShare, Portfolio, …).
+                    The ``financial_asset_entity`` keyword is kept as a deprecated
+                    alias and is used as a fallback when ``entity`` is None.
             time_date: Date for factor value calculation
             repository_type: "local" or "ibkr" for repository selection
             **kwargs: Additional parameters for calculation
-            
+
         Returns:
             FactorValue entity or None if resolution failed
         """
+        # Support deprecated keyword alias
+        if entity is None and financial_asset_entity is not None:
+            entity = financial_asset_entity
+
         try:
             if not factor_entity or not factor_entity.id:
                 self.logger.error("Factor entity is required for factor value resolution")
                 return None
-            
+
             # Get entity ID safely
-            entity_id = getattr(financial_asset_entity, 'id') if financial_asset_entity else None
+            entity_id = getattr(entity, 'id', None) if entity is not None else None
             if not entity_id:
-                self.logger.error("Financial asset entity with valid ID is required")
+                self.logger.error("Entity with valid ID is required for factor value resolution")
                 return None
-            
+
+            entity_type = type(entity).__name__ if entity is not None else None
+
             # Check for dependency loop protection
-            dependency_key = (factor_entity.id, entity_id, str(time_date))
+            dependency_key = (factor_entity.id, entity_id, entity_type, str(time_date))
             if dependency_key in self._dependency_creation_stack:
-                self.logger.warning(f"Detected dependency loop for factor {factor_entity.name} with entity {entity_id}")
+                self.logger.warning(
+                    f"Detected dependency loop for factor {factor_entity.name} "
+                    f"with entity {entity_type}:{entity_id}"
+                )
                 return None
-            
+
             # Add to dependency stack for loop protection
             self._dependency_creation_stack.add(dependency_key)
-            
+
             try:
                 # Ensure time_date is properly formatted
                 formatted_date = self._format_date(time_date)
                 parsed_date = self._parse_date(formatted_date)
-                
+
                 # Check if factor value already exists
                 existing_value = self._check_existing_value(
-                    factor_entity.id, entity_id, formatted_date, repository_type
+                    factor_entity.id, entity_id, entity_type, formatted_date, repository_type
                 )
                 if existing_value:
                     return existing_value
-                
+
                 # Get factor dependencies
                 dependencies = self._get_factor_dependencies(factor_entity.id)
-                
+
                 if dependencies:
                     # Factor has dependencies - resolve them and calculate
                     self.logger.info(f"Factor {factor_entity.name} has {len(dependencies)} dependencies")
                     return self._resolve_factor_with_dependencies(
-                        factor_entity, dependencies, entity_id, parsed_date, 
+                        factor_entity, dependencies, entity, parsed_date,
                         repository_type, **kwargs
                     )
                 else:
                     # Factor has no dependencies - create directly
                     self.logger.info(f"Factor {factor_entity.name} has no dependencies")
                     return self._resolve_factor_without_dependencies(
-                        factor_entity, entity_id, parsed_date, repository_type, **kwargs
+                        factor_entity, entity, parsed_date, repository_type, **kwargs
                     )
-                    
+
             finally:
                 # Clean up dependency stack
                 if dependency_key in self._dependency_creation_stack:
                     self._dependency_creation_stack.remove(dependency_key)
-                    
+
         except Exception as e:
             self.logger.error(f"Error resolving factor value for {factor_entity.name}: {e}")
             return None
@@ -159,7 +174,11 @@ class FactorValueResolutionService:
             for i, related_entity in enumerate(related_entities):
                 # For aggregation, we use the same factor for each related entity
                 related_factor_value = self.resolve_factor_value(
-                    factor_entity, related_entity, time_date, repository_type, **kwargs
+                    factor_entity=factor_entity,
+                    entity=related_entity,
+                    time_date=time_date,
+                    repository_type=repository_type,
+                    **kwargs
                 )
                 
                 if related_factor_value:
@@ -209,7 +228,12 @@ class FactorValueResolutionService:
             return datetime.strptime(date_str, "%Y-%m-%d")
     
     def _check_existing_value(
-        self, factor_id: int, entity_id: int, date_str: str, repository_type: str
+        self,
+        factor_id: int,
+        entity_id: int,
+        entity_type: Optional[str],
+        date_str: str,
+        repository_type: str,
     ) -> Optional[FactorValue]:
         """Check if factor value already exists in the repository."""
         try:
@@ -217,10 +241,10 @@ class FactorValueResolutionService:
                 repo = getattr(self.factory, 'factor_value_local_repo', None)
             else:
                 repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
-            
+
             if repo and hasattr(repo, 'get_by_factor_entity_date'):
-                return repo.get_by_factor_entity_date(factor_id, entity_id, date_str)
-            
+                return repo.get_by_factor_entity_date(factor_id, entity_id, date_str, entity_type=entity_type)
+
             return None
         except Exception as e:
             self.logger.error(f"Error checking existing value: {e}")
@@ -264,69 +288,77 @@ class FactorValueResolutionService:
         self,
         factor_entity,
         dependencies: List[Dict[str, Any]],
-        entity_id: int,
+        entity,
         target_date: datetime,
         repository_type: str,
         **kwargs
     ) -> Optional[FactorValue]:
         """Resolve factor value when dependencies exist."""
         try:
+            entity_id = getattr(entity, 'id', None) if entity is not None else None
+            entity_type = type(entity).__name__ if entity is not None else None
+
             dependency_values = {}
             missing_dependencies = []
-            
+
             for dependency in dependencies:
                 independent_factor_id = dependency['independent_factor_id']
                 lag = dependency.get('lag')
                 dependency_name = dependency.get('dependency_name')
-                
+
                 # If no dependency name is specified, fall back to generic naming
                 if not dependency_name:
                     dependency_name = f"factor_{independent_factor_id}_{lag}" if lag else f"factor_{independent_factor_id}"
-                
+
                 # Calculate dependency date with lag
                 dependency_date = target_date
                 if lag:
                     dependency_date = target_date - lag
                     while dependency_date.weekday() > 4:
                         dependency_date -= timedelta(days=1)
-                
+
                 dependency_date_str = dependency_date.strftime("%Y-%m-%d %H:%M:%S")
-                
+
                 # Get dependency value from repository
                 dependency_value = self._check_existing_value(
-                    independent_factor_id, entity_id, dependency_date_str, repository_type
+                    independent_factor_id, entity_id, entity_type, dependency_date_str, repository_type
                 )
-                
+
                 if dependency_value:
                     dependency_values[dependency_name] = self._convert_to_float(dependency_value.value)
                 else:
                     # Handle missing dependencies based on repository type
                     dependency_resolved = self._handle_missing_dependency(
-                        independent_factor_id, entity_id, dependency_date_str, repository_type
+                        independent_factor_id, entity, dependency_date_str, repository_type
                     )
-                    
+
                     if dependency_resolved:
                         dependency_values[dependency_name] = self._convert_to_float(dependency_resolved.value)
                     else:
                         missing_dependencies.append(dependency["dependency_entity"])
-                        self.logger.error(f"Failed to resolve dependency factor {independent_factor_id} ('{dependency_name}') for {repository_type} repository")
-            
+                        self.logger.error(
+                            f"Failed to resolve dependency factor {independent_factor_id} "
+                            f"('{dependency_name}') for {repository_type} repository"
+                        )
+
             # If there are missing dependencies, flag error and do not assign 0
             if missing_dependencies:
-                self.logger.error(f"Cannot calculate factor {factor_entity.name} - missing dependencies: {missing_dependencies}")
+                self.logger.error(
+                    f"Cannot calculate factor {factor_entity.name} - missing dependencies: {missing_dependencies}"
+                )
                 return None
-            
+
             # Calculate using factor's calculate method
             calculated_value = self._call_factor_calculate_method(factor_entity, dependency_values, **kwargs)
-            
+
             if calculated_value is not None:
                 return self._create_factor_value(
-                    factor_entity, entity_id, target_date, str(calculated_value), repository_type
+                    factor_entity, entity, target_date, str(calculated_value), repository_type
                 )
-            
+
             self.logger.error(f"Factor calculation failed for {factor_entity.name}")
             return None
-            
+
         except Exception as e:
             self.logger.error(f"Error resolving factor with dependencies: {e}")
             return None
@@ -334,81 +366,142 @@ class FactorValueResolutionService:
     def _handle_missing_dependency(
         self,
         factor_id: int,
-        entity_id: int,
+        entity,
         date_str: str,
-        repository_type: str
+        repository_type: str,
     ) -> Optional[FactorValue]:
         """
         Handle missing dependency values based on repository type.
-        
+
         Args:
             factor_id: ID of the missing dependency factor
-            entity_id: Entity ID for the dependency
+            entity: The domain Entity (any Entity subclass) for the dependency
             date_str: Date string for the dependency
             repository_type: "local" or "ibkr" for repository-specific handling
-            
+
         Returns:
             FactorValue if resolved, None if failed (never returns 0)
         """
         try:
+            entity_id = getattr(entity, 'id', None) if entity is not None else None
+
             if repository_type == "local":
-                # Local repo strategy: Flag error, don't assign 0
-                self.logger.error(f"Local repository cannot resolve missing dependency factor {factor_id}")
+                # Before failing, try to aggregate from related entities
+                # (e.g., holding_value for each holding → sum → portfolio_value dependency)
+                related_entities = self._get_related_entities(entity, repository_type)
+
+                if related_entities:
+                    # Fetch the dependency factor entity so we can call resolve_factor_value
+                    factor_repo = getattr(self.factory, 'factor_local_repo', None)
+                    if not factor_repo:
+                        self.logger.error(
+                            "Factor repository not available for aggregation of dependency "
+                            f"factor {factor_id}"
+                        )
+                        return None
+
+                    dep_factor_entity = factor_repo.get_by_id(factor_id)
+                    if not dep_factor_entity:
+                        self.logger.error(
+                            f"Factor entity {factor_id} not found; cannot aggregate"
+                        )
+                        return None
+
+                    # Resolve the dependency for every related entity and sum the results
+                    aggregated_total = 0.0
+                    failed_related = []
+
+                    for related_entity in related_entities:
+                        # Holding-type entities need specialised treatment:
+                        # their value = asset_price × position_quantity.
+                        # The price lives as a FactorValue on holding.asset (not on the
+                        # holding itself), and quantity lives on holding.position /
+                        # transactions / orders – never as a FactorValue.
+                        if 'Holding' in type(related_entity).__name__:
+                            related_value = self._resolve_holding_value_factor(
+                                dep_factor_entity, related_entity, date_str, repository_type
+                            )
+                        else:
+                            related_value = self.resolve_factor_value(
+                                factor_entity=dep_factor_entity,
+                                entity=related_entity,
+                                time_date=date_str,
+                                repository_type=repository_type,
+                            )
+                        if related_value is not None:
+                            aggregated_total += self._convert_to_float(related_value.value)
+                        else:
+                            failed_related.append(
+                                getattr(related_entity, 'id', repr(related_entity))
+                            )
+
+                    if failed_related:
+                        self.logger.error(
+                            f"Cannot aggregate dependency factor {factor_id}: "
+                            f"failed for related entity ids {failed_related}"
+                        )
+                        return None
+
+                    # Return a transient FactorValue carrying the aggregated result.
+                    # It is NOT persisted here – the caller (_resolve_factor_with_dependencies)
+                    # only reads .value from it to feed into the parent factor's calculate().
+                    parsed_date = self._parse_date(date_str)
+                    return FactorValue(
+                        id=None,
+                        factor_id=factor_id,
+                        entity=entity,
+                        date=parsed_date,
+                        value=str(aggregated_total),
+                    )
+
+                # No related entities – local repo cannot resolve this dependency
+                self.logger.error(
+                    f"Local repository cannot resolve missing dependency factor {factor_id}"
+                )
                 return None
-                
+
             elif repository_type == "ibkr":
                 # IBKR repo strategy: Try to fetch from IBKR, then flag error if not found
                 self.logger.info(f"Attempting to fetch missing dependency factor {factor_id} from IBKR")
-                
+
                 # Get the IBKR repository
                 ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
                 if not ibkr_repo:
                     self.logger.error("IBKR repository not available for dependency resolution")
                     return None
-                
+
                 # Get the factor entity
                 factor_repo = getattr(self.factory, 'factor_local_repo', None)
                 if not factor_repo:
                     self.logger.error("Factor repository not available")
                     return None
-                
+
                 factor_entity = factor_repo.get_by_id(factor_id)
                 if not factor_entity:
                     self.logger.error(f"Factor entity {factor_id} not found")
                     return None
-                
-                # Get financial asset entity
-                financial_asset_entity = getattr(self.factory, 'financial_asset_local_repo', None)
-                if not financial_asset_entity:
-                    self.logger.error("Financial asset repository not available")
-                    return None
-                
-                financial_asset_entity = financial_asset_entity.get_by_id(entity_id)
-                if not financial_asset_entity:
-                    self.logger.error(f"Financial asset entity {entity_id} not found")
-                    return None
-                
+
                 # Try to fetch from IBKR using the IBKR-specific method
                 if hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
                     fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
                         factor_entity=factor_entity,
-                        financial_asset_entity=financial_asset_entity,
+                        entity=entity,
                         time_date=date_str,
-                        entity_symbol=getattr(financial_asset_entity, 'symbol', '')
+                        entity_symbol=getattr(entity, 'symbol', '')
                     )
-                    
+
                     if fetched_value:
                         self.logger.info(f"Successfully fetched dependency factor {factor_id} from IBKR")
                         return fetched_value
-                
+
                 # If IBKR fetch failed, flag error
                 self.logger.error(f"IBKR repository could not fetch dependency factor {factor_id}")
                 return None
-            
+
             else:
                 self.logger.error(f"Unknown repository type: {repository_type}")
                 return None
-                
+
         except Exception as e:
             self.logger.error(f"Error handling missing dependency: {e}")
             return None
@@ -416,7 +509,7 @@ class FactorValueResolutionService:
     def _resolve_factor_without_dependencies(
         self,
         factor_entity,
-        entity_id: int,
+        entity,
         target_date: datetime,
         repository_type: str,
         **kwargs
@@ -430,63 +523,320 @@ class FactorValueResolutionService:
                 if factor_value_data is None:
                     self.logger.error(f"Local repository requires explicit value for factor {factor_entity.name}")
                     return None
-                
+
                 return self._create_factor_value(
-                    factor_entity, entity_id, target_date, str(factor_value_data), repository_type
+                    factor_entity, entity, target_date, str(factor_value_data), repository_type
                 )
-                
+
             elif repository_type == "ibkr":
                 # IBKR repo: Try to fetch from IBKR first
                 ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
                 if ibkr_repo and hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
-                    # Get financial asset entity
-                    financial_asset_entity = getattr(self.factory, 'financial_asset_local_repo', None)
-                    if financial_asset_entity:
-                        financial_asset_entity = financial_asset_entity.get_by_id(entity_id)
-                        if financial_asset_entity:
-                            fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
-                                factor_entity=factor_entity,
-                                financial_asset_entity=financial_asset_entity,
-                                time_date=target_date,
-                                entity_symbol=getattr(financial_asset_entity, 'symbol', ''),
-                                **kwargs
-                            )
-                            
-                            if fetched_value:
-                                return fetched_value
-                
+                    if entity is not None:
+                        fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
+                            factor_entity=factor_entity,
+                            entity=entity,
+                            time_date=target_date,
+                            entity_symbol=getattr(entity, 'symbol', ''),
+                            **kwargs
+                        )
+
+                        if fetched_value:
+                            return fetched_value
+
                 # If IBKR fetch failed, flag error
                 self.logger.error(f"IBKR repository could not fetch factor {factor_entity.name}")
                 return None
-            
+
             else:
                 self.logger.error(f"Unknown repository type: {repository_type}")
                 return None
-            
+
         except Exception as e:
             self.logger.error(f"Error resolving factor without dependencies: {e}")
             return None
     
+    # ------------------------------------------------------------------
+    # Holding-value specialised helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_holding_value_factor(
+        self,
+        dep_factor_entity,
+        holding,
+        date_str: str,
+        repository_type: str,
+    ) -> Optional[FactorValue]:
+        """
+        Compute and persist a holding-value FactorValue for one holding entity.
+
+        Formula: holding_value = asset_price × position_quantity
+
+        * asset_price  → FactorValue stored for ``holding.asset`` (e.g. CompanyShare
+                          close price), resolved via the dep_factor_entity's DB
+                          dependencies OR by a name-based fallback search.
+        * quantity     → ``holding.position.quantity`` directly, or looked up from
+                         the Position / Transaction / Order repos (they carry the
+                         quantity directly – it is never stored as a FactorValue).
+
+        If a FactorValue already exists in the DB for this holding it is returned
+        immediately without recomputing.
+        """
+        holding_id   = getattr(holding, 'id', None)
+        holding_type = type(holding).__name__
+
+        # 1. Return existing stored value if present
+        existing = self._check_existing_value(
+            dep_factor_entity.id, holding_id, holding_type, date_str, repository_type
+        )
+        if existing:
+            return existing
+
+        # 2. Get the underlying financial asset (e.g. CompanyShare)
+        asset = getattr(holding, 'asset', None)
+        if asset is None:
+            self.logger.error(
+                f"Holding {holding_id} ({holding_type}) has no 'asset' attribute; "
+                "cannot compute holding_value"
+            )
+            return None
+
+        # 3. Get quantity
+        quantity = self._get_holding_quantity(holding, date_str, repository_type)
+        if quantity is None:
+            self.logger.error(
+                f"Could not determine quantity for holding {holding_id} ({holding_type})"
+            )
+            return None
+
+        # 4. Get asset price at date
+        price = self._get_asset_price_for_holding_value(
+            asset, dep_factor_entity, date_str, repository_type
+        )
+        if price is None:
+            self.logger.error(
+                f"Could not find price factor value for asset {getattr(asset, 'id', '?')} "
+                f"({type(asset).__name__}) at {date_str}"
+            )
+            return None
+
+        # 5. Compute value
+        position = getattr(holding, 'position', None)
+
+        if hasattr(dep_factor_entity, 'calculate'):
+            sig    = inspect.signature(dep_factor_entity.calculate)
+            params = list(sig.parameters.keys())
+            if 'dependencies' in params:
+                # dict-based calculate: resolve the price-key name from the factor's
+                # own DB dependencies so any holding type works (share, currency,
+                # bond, portfolio, …) — no hardcoded key.
+                price_key = self._get_price_dependency_name(dep_factor_entity)
+                result = dep_factor_entity.calculate({
+                    price_key: price,
+                    'position': position if position is not None else quantity,
+                })
+            else:
+                result = Decimal(str(price)) * Decimal(str(quantity))
+        else:
+            result = Decimal(str(price)) * Decimal(str(quantity))
+
+        # 6. Persist and return
+        parsed_date = self._parse_date(date_str)
+        return self._create_factor_value(
+            dep_factor_entity, holding, parsed_date, str(result), repository_type
+        )
+
+    def _get_price_dependency_name(self, factor_entity) -> str:
+        """
+        Return the key name expected for the price/value dependency in
+        factor_entity.calculate(dependencies).
+
+        Reads the factor's own dependency rows from the DB and returns the
+        dependency_name of the first row that is not 'position'.  Falls back
+        to 'price' when nothing is found so the caller always gets a usable key.
+        """
+        factor_dep_repo = getattr(self.factory, 'factor_dependency_local_repo', None)
+        if factor_dep_repo and getattr(factor_entity, 'id', None):
+            try:
+                deps = factor_dep_repo.get_by_dependent_factor_id(factor_entity.id) or []
+                for dep in deps:
+                    name = getattr(dep, 'dependency_name', None)
+                    if name and name != 'position':
+                        return name
+            except Exception as e:
+                self.logger.debug(f"Could not resolve price dependency name: {e}")
+        return 'price'
+
+    def _get_holding_quantity(
+        self,
+        holding,
+        date_str: str,
+        repository_type: str,
+    ) -> Optional[float]:
+        """
+        Return the share quantity for a holding.
+
+        Priority order:
+          1. ``holding.position.quantity``  (cheapest – already in memory)
+          2. Position repo  ``get_by_portfolio_id``  filtered by asset_id
+          3. Transaction repo  ``get_by_portfolio_id``  (sum of matched transactions)
+          4. Order repo  ``get_by_portfolio_id``        (sum of matched orders)
+        """
+        # 1. In-memory position — only trust if quantity is explicitly non-zero.
+        # HoldingMapper creates a dummy Position(quantity=0), so a zero here means
+        # "not set by the mapper" and we should fall through to the DB.
+        position = getattr(holding, 'position', None)
+        if position is not None:
+            qty = getattr(position, 'quantity', None)
+            if qty is not None and qty != 0:
+                return float(qty)
+
+        asset_id     = getattr(getattr(holding, 'asset', None), 'id', None)
+        container    = getattr(holding, 'container', None)
+        container_id = getattr(container, 'id', None)
+
+        prefix = 'local' if repository_type == 'local' else 'ibkr'
+
+        # 2. Position repo
+        if container_id:
+            pos_repo = getattr(self.factory, f'position_{prefix}_repo', None)
+            if pos_repo and hasattr(pos_repo, 'get_by_portfolio_id'):
+                positions = pos_repo.get_by_portfolio_id(container_id) or []
+                for pos in positions:
+                    if asset_id and getattr(pos, 'asset_id', None) == asset_id:
+                        return float(getattr(pos, 'quantity', 0))
+                if positions:
+                    # No asset-id match – fall back to first position quantity
+                    return float(getattr(positions[0], 'quantity', 0))
+
+        # 3. Transaction repo (sum of fills for this asset)
+        if container_id:
+            tx_repo = getattr(self.factory, f'transaction_{prefix}_repo', None)
+            if tx_repo and hasattr(tx_repo, 'get_by_portfolio_id'):
+                transactions = tx_repo.get_by_portfolio_id(container_id) or []
+                total = sum(
+                    float(getattr(t, 'quantity', 0))
+                    for t in transactions
+                    if asset_id is None
+                    or getattr(t, 'asset_id', None) == asset_id
+                    or getattr(t, 'financial_asset_id', None) == asset_id
+                )
+                if total:
+                    return total
+
+        # 4. Order repo (sum of filled orders for this asset)
+        if container_id:
+            order_repo = getattr(self.factory, f'order_{prefix}_repo', None)
+            if order_repo and hasattr(order_repo, 'get_by_portfolio_id'):
+                orders = order_repo.get_by_portfolio_id(container_id) or []
+                total = sum(
+                    float(getattr(o, 'quantity', 0))
+                    for o in orders
+                    if asset_id is None
+                    or getattr(o, 'asset_id', None) == asset_id
+                    or getattr(o, 'financial_asset_id', None) == asset_id
+                )
+                if total:
+                    return total
+
+        return None
+
+    def _get_asset_price_for_holding_value(
+        self,
+        asset,
+        dep_factor_entity,
+        date_str: str,
+        repository_type: str,
+    ) -> Optional[float]:
+        """
+        Find the price of *asset* at *date_str*.
+
+        Strategy 1 – follow dep_factor_entity's own DB dependencies:
+          The holding-value factor has a dependency on a price factor
+          (e.g. company_share_price_factor / close).  That price factor's
+          FactorValue is stored for *asset* (e.g. CompanyShare), not for
+          the holding.  Look it up using the dependency chain.
+
+        Strategy 2 – name-based fallback:
+          Try well-known price factor names ('close', 'Close', 'mid_price',
+          'price') against the factor_local_repo.
+        """
+        asset_id   = getattr(asset, 'id', None)
+        asset_type = type(asset).__name__
+        if not asset_id:
+            return None
+
+        # When the holding mapper returns a lightweight placeholder (e.g. _AssetRef),
+        # we don't know the real entity type.  Pass None so _check_existing_value
+        # skips the entity_type filter and matches on factor_id + entity_id + date only.
+        lookup_type = None if asset_type.startswith('_') else asset_type
+
+        factor_dep_repo = getattr(self.factory, 'factor_dependency_local_repo', None)
+        factor_local_repo = getattr(self.factory, 'factor_local_repo', None)
+
+        # Strategy 1: use the price-factor deps registered for dep_factor_entity
+        if factor_dep_repo and dep_factor_entity.id:
+            try:
+                deps = factor_dep_repo.get_by_dependent_factor_id(dep_factor_entity.id) or []
+                for dep in deps:
+                    fv = self._check_existing_value(
+                        dep.independent_factor_id, asset_id, lookup_type,
+                        date_str, repository_type
+                    )
+                    if fv:
+                        return self._convert_to_float(fv.value)
+            except Exception as e:
+                self.logger.debug(f"Strategy-1 price lookup failed: {e}")
+
+        # Strategy 2: well-known price factor names
+        if factor_local_repo:
+            for price_name in ('close', 'Close', 'mid_price', 'price', 'last'):
+                try:
+                    price_factor = None
+                    if hasattr(factor_local_repo, 'get_by_name'):
+                        price_factor = factor_local_repo.get_by_name(price_name)
+                    if price_factor and price_factor.id:
+                        fv = self._check_existing_value(
+                            price_factor.id, asset_id, lookup_type,
+                            date_str, repository_type
+                        )
+                        if fv:
+                            return self._convert_to_float(fv.value)
+                except Exception as e:
+                    self.logger.debug(f"Strategy-2 price lookup for '{price_name}' failed: {e}")
+
+        # Strategy 3: currency assets are priced at 1.0 in their own denomination.
+        # Cash holdings (e.g. CAD balance in a CAD portfolio) have no price factor
+        # record in the DB — their value is simply quantity × 1.
+        currency_repo = getattr(self.factory, 'currency_local_repo', None)
+        if currency_repo:
+            try:
+                get_fn = getattr(currency_repo, 'get_by_id', None) or getattr(currency_repo, 'get_by_asset_id', None)
+                if get_fn:
+                    currency = get_fn(asset_id)
+                    if currency is not None:
+                        self.logger.debug(
+                            f"Asset {asset_id} is a currency — using price 1.0"
+                        )
+                        return 1.0
+            except Exception as e:
+                self.logger.debug(f"Strategy-3 currency check failed: {e}")
+
+        return None
+
     def _get_related_entities(self, parent_entity, repository_type: str) -> List[Any]:
         """
         Get entities that are related to the parent entity.
-        
-        For example: Get all holdings for a portfolio.
+
+        Delegates to the entity's own repository via get_related_entities, so each
+        repo decides what "related entities" means for its type.
         """
         try:
-            # This is a placeholder - actual implementation depends on entity relationships
-            # For portfolio -> holdings relationship:
-            if hasattr(parent_entity, '__class__') and 'Portfolio' in parent_entity.__class__.__name__:
-                if repository_type == "local":
-                    holding_repo = getattr(self.factory, 'holding_local_repo', None)
-                else:
-                    holding_repo = getattr(self.factory, 'holding_ibkr_repo', None)
-                
-                if holding_repo and hasattr(holding_repo, 'get_by_portfolio_id'):
-                    return holding_repo.get_by_portfolio_id(parent_entity.id)
-            
+            repo = self.factory.get_local_repository(parent_entity.__class__)
+            if repo is not None and hasattr(repo, 'get_related_entities'):
+                return repo.get_related_entities(parent_entity.id) or []
             return []
-            
+
         except Exception as e:
             self.logger.error(f"Error getting related entities: {e}")
             return []
@@ -520,21 +870,26 @@ class FactorValueResolutionService:
                 calculate_method = getattr(factor_entity, 'calculate')
                 
                 # Get function signature to determine how to call the method
-                import inspect
                 signature = inspect.signature(calculate_method)
                 method_params = list(signature.parameters.keys())
-                
-                # Prepare arguments for the calculate method
+
+                # Two calling conventions:
+                # 1. calculate(dependencies) — receives the whole dict as one arg.
+                # 2. calculate(param_a, param_b, …) — individual named params matched
+                #    from dependency_values by name.
                 call_kwargs = {}
-                for param_name in method_params:
-                    if param_name in dependency_values:
-                        call_kwargs[param_name] = dependency_values[param_name]
-                
-                # Add any additional kwargs that match method parameters
+                if 'dependencies' in method_params:
+                    call_kwargs['dependencies'] = dependency_values
+                else:
+                    for param_name in method_params:
+                        if param_name in dependency_values:
+                            call_kwargs[param_name] = dependency_values[param_name]
+
+                # Add any extra kwargs that match remaining method parameters
                 for key, value in kwargs.items():
-                    if key in method_params:
+                    if key in method_params and key not in call_kwargs:
                         call_kwargs[key] = value
-                
+
                 # Call the calculate method with the prepared arguments
                 result = calculate_method(**call_kwargs)
                 
@@ -557,37 +912,48 @@ class FactorValueResolutionService:
     def _create_factor_value(
         self,
         factor_entity,
-        entity_id: int,
+        entity,
         target_date: datetime,
         value: str,
-        repository_type: str
+        repository_type: str,
     ) -> Optional[FactorValue]:
-        """Create and persist factor value to repository."""
+        """Create and persist factor value to repository.
+
+        Args:
+            factor_entity: Factor domain entity instance
+            entity: The domain Entity (any Entity subclass). When only an
+                    integer id is available, pass None and provide entity_id /
+                    entity_type via kwargs instead.
+            target_date: Datetime for the factor value
+            value: Computed value as string
+            repository_type: "local" or "ibkr"
+        """
         try:
-            # Create factor value entity
+            # Build FactorValue using the entity object; entity_id and
+            # entity_type are derived automatically in __post_init__.
             factor_value = FactorValue(
-                id=None,  # Let database auto-increment handle ID
+                id=None,     # Let database auto-increment handle ID
                 factor_id=factor_entity.id,
-                entity_id=entity_id,
+                entity=entity,
                 date=target_date,
-                value=value
+                value=value,
             )
-            
+
             # Get appropriate repository and persist
             if repository_type == "local":
                 repo = getattr(self.factory, 'factor_value_local_repo', None)
             else:
                 repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
-            
+
             if repo and hasattr(repo, 'add'):
                 created_value = repo.add(factor_value)
                 if created_value:
                     self.logger.info(f"Created factor value: {factor_entity.name} = {value}")
                     return created_value
-            
+
             self.logger.error(f"Could not persist factor value for {factor_entity.name}")
             return None
-            
+
         except Exception as e:
             self.logger.error(f"Error creating factor value: {e}")
             return None
@@ -633,8 +999,8 @@ class FactorValueResolutionService:
                 self.logger.warning("Cannot process empty factor batch")
                 return None
             
-            # Extract metadata
-            financial_asset_entity = factor_batch.metadata.get('financial_asset_entity')
+            # Extract metadata (support both 'entity' and legacy 'financial_asset_entity' keys)
+            financial_asset_entity = factor_batch.metadata.get('entity') or factor_batch.metadata.get('financial_asset_entity')
             time_date = factor_batch.metadata.get('time_date', datetime.now())
             
             # Convert time to datetime if needed
@@ -652,7 +1018,7 @@ class FactorValueResolutionService:
                         # Use the single factor resolution method for each factor
                         factor_value = self.resolve_factor_value(
                             factor_entity=factor,
-                            financial_asset_entity=financial_asset_entity,
+                            entity=financial_asset_entity,
                             time_date=time_date,
                             repository_type=repository_type,
                             **kwargs
@@ -737,10 +1103,11 @@ class FactorValueResolutionService:
             
             resolved_factor_values = []
             
-            # Group entities by asset class for optimized processing
+            # Group entities by entity class for optimized processing
+            # Support both 'entity' (new) and 'financial_asset_entity' (legacy) keys
             entities_by_asset_class = {}
             for entity_data in entities_data:
-                financial_asset_entity = entity_data.get('financial_asset_entity')
+                financial_asset_entity = entity_data.get('entity') or entity_data.get('financial_asset_entity')
                 if financial_asset_entity:
                     asset_class = type(financial_asset_entity)
                     if asset_class not in entities_by_asset_class:
@@ -760,21 +1127,22 @@ class FactorValueResolutionService:
                         factor = entity_data.get('factor')
                         if factor:
                             factors.append(factor)
-                        
+
                         entity_id = entity_data.get('entity_id')
                         if entity_id:
                             entity_ids.add(entity_id)
-                        
+
                         if not sample_entity:
-                            sample_entity = entity_data.get('financial_asset_entity')
-                        
+                            # Support both 'entity' (new) and 'financial_asset_entity' (legacy)
+                            sample_entity = entity_data.get('entity') or entity_data.get('financial_asset_entity')
+
                         if 'time_date' in entity_data:
                             time_date = entity_data['time_date']
-                    
+
                     if factors and entity_ids and sample_entity:
                         # Create FactorBatch for this asset class
                         batch_metadata = {
-                            'financial_asset_entity': sample_entity,
+                            'entity': sample_entity,
                             'time_date': time_date,
                             'asset_class': asset_class.__name__
                         }

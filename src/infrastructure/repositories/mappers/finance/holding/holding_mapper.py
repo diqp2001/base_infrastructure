@@ -3,46 +3,62 @@ Mappers for converting between holding domain entities and infrastructure models
 """
 from typing import Optional
 
-
-from src.infrastructure.models.finance.holding.holding import (
-    HoldingModel
-)
+from src.domain.entities.finance.holding.holding import Holding
+from src.domain.entities.finance.holding.position import Position, PositionType
+from src.infrastructure.models.finance.holding.holding import HoldingModel
 
 
 class HoldingMapper:
     """Mapper for converting between holding entities and models"""
 
-    def to_entity(self, model: Optional[HoldingModel]) -> Optional[HoldingModel]:
-        """Convert HoldingModel to Holding entity"""
+    def to_entity(self, model: Optional[HoldingModel]) -> Optional[Holding]:
+        """Convert HoldingModel to Holding domain entity"""
         if not model:
             return None
 
-        # For now, we'll use a simplified approach where asset is just referenced by ID
-        # In a full implementation, you'd load the actual asset entity
-        from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
-        
-        # Create a placeholder FinancialAsset - in real implementation you'd load from repository
-        asset = FinancialAsset(id=model.asset_id, start_date=model.start_date.date(), end_date=model.end_date.date() if model.end_date else None)
+        asset = type('_AssetRef', (), {
+            'id': model.asset_id,
+            'name': None,
+            'symbol': None,
+            'asset_type': 'unknown',
+        })()
 
-        # Create a placeholder container object - in real implementation you'd load from repository
-        container = type('Container', (), {'id': model.container_id})()
+        container = type('_ContainerRef', (), {'id': model.container_id})()
 
-        return HoldingModel(
+        # Use the real position loaded via the FK relationship when available.
+        # Fall back to a placeholder only when the link is not yet set.
+        pos_model = getattr(model, 'position_rel', None)
+        if pos_model is not None:
+            position = Position(
+                id=pos_model.id,
+                quantity=pos_model.quantity,
+                position_type=pos_model.position_type,
+            )
+            position.portfolio_id = pos_model.portfolio_id
+            position.holding_id = getattr(pos_model, 'holding_id', None)
+        else:
+            position = Position(
+                id=None,
+                quantity=0,
+                position_type=PositionType.LONG,
+                asset_id=model.asset_id,
+            )
+
+        return Holding(
             id=model.id,
             asset=asset,
             container=container,
+            position=position,
             start_date=model.start_date,
-            end_date=model.end_date
+            end_date=model.end_date,
         )
 
-    def to_model(self, entity: HoldingModel) -> HoldingModel:
-        """Convert Holding entity to HoldingModel"""
+    def to_model(self, entity: Holding) -> HoldingModel:
+        """Convert Holding domain entity to HoldingModel"""
         return HoldingModel(
             id=entity.id,
             asset_id=entity.asset.id,
-            container_id=entity.id,
+            container_id=entity.container.id,
             start_date=entity.start_date,
-            end_date=entity.end_date
+            end_date=entity.end_date,
         )
-
-   

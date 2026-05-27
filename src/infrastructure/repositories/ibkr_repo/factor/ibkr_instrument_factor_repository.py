@@ -159,9 +159,9 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
                 asset_factor_value = FactorValue(
                     id=None,  # Will be set by repository
                     factor_id=instrument_factor_value.factor_id,  # Same factor
-                    entity_id=financial_asset.id,  # But linked to the asset, not instrument
+                    entity=financial_asset,  # Link to the asset entity object
                     date=instrument_factor_value.date,
-                    value=instrument_factor_value.value
+                    value=instrument_factor_value.value,
                 )
                 
                 # Check if asset factor value already exists

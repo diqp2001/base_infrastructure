@@ -145,6 +145,18 @@ class CompanySharePortfolioOptionHestonPriceFactorModel(FactorModel):
     }
 
 
+class CompanySharePortfolioFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_factor"
+    }
+
+
+class CompanySharePortfolioValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_value_factor"
+    }
+
+
 class PortfolioFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "portfolio_factor"
@@ -160,6 +172,18 @@ class PortfolioValueFactorModel(FactorModel):
 class PortfolioHoldingValueFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "portfolio_holding_value_factor"
+    }
+
+
+class CompanySharePortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_holding_value_factor"
+    }
+
+
+class CompanySharePortfolioPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_portfolio_holding_value_factor"
     }
 
 

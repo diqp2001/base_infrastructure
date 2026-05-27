@@ -1,12 +1,16 @@
 import pandas as pd
 import numpy as np
+from typing import Optional
+from src.domain.entities.entity import Entity
 
-class TimeSeries:
-    def __init__(self, data):
+
+class TimeSeries(Entity):
+    def __init__(self, data, id: Optional[int] = None):
         """
         Initialize a TimeSeries object from a DataFrame, NumPy array, list, or dict.
         :param data: The input data to construct the DataFrame.
         """
+        super().__init__(id)
         if isinstance(data, pd.DataFrame):
             self.time_series = data
         elif isinstance(data, np.ndarray):

@@ -324,13 +324,10 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
                 country_id = default_country.id if default_country else 1
             
             new_currency = DomainCurrency(
+                id=None,
                 name=name,
-                iso_code=iso_code.upper(),
+                symbol=iso_code.upper(),
                 country_id=country_id,
-                is_major_currency=iso_code.upper() in ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'],
-                decimal_places=2,
-                is_active=True,
-                is_tradeable=True
             )
             
             return self.add(new_currency)

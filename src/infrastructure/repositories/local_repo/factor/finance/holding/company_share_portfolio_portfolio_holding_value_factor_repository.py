@@ -1,27 +1,27 @@
 """
-Company Share Portfolio Holding Value Factor Repository
+Company Share Portfolio Portfolio Holding Value Factor Repository
 
-Local repository for company share portfolio holding value factor entities using SQLAlchemy.
+Local repository for company share portfolio portfolio holding value factor entities using SQLAlchemy.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor
+from src.domain.entities.factor.finance.holding.company_share_portfolio_portfolio.company_share_portfolio_portfolio_holding_value_factor import CompanySharePortfolioPortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.company_share_portfolio_holding_value_factor_port import CompanySharePortfolioHoldingValueFactorPort
+from src.domain.ports.factor.company_share_portfolio_portfolio_holding_value_factor_port import CompanySharePortfolioPortfolioHoldingValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from src.infrastructure.repositories.mappers.factor.company_share_portfolio_holding_value_factor_mapper import CompanySharePortfolioHoldingValueFactorMapper
+from src.infrastructure.repositories.mappers.factor.company_share_portfolio_portfolio_holding_value_factor_mapper import CompanySharePortfolioPortfolioHoldingValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 
 
-class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, CompanySharePortfolioHoldingValueFactorPort):
-    """Local repository for company share portfolio holding value factor entities."""
+class CompanySharePortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepository, CompanySharePortfolioPortfolioHoldingValueFactorPort):
+    """Local repository for company share portfolio portfolio holding value factor entities."""
 
     def __init__(self, session: Session, factory=None):
         super().__init__(session)
         self.factory = factory
-        self.mapper = CompanySharePortfolioHoldingValueFactorMapper()
+        self.mapper = CompanySharePortfolioPortfolioHoldingValueFactorMapper()
         self.mapper_value = FactorValueMapper()
 
     @property
@@ -34,7 +34,7 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
 
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         """
-        Get or create a company share portfolio holding value factor with dependency resolution.
+        Get or create a company share portfolio portfolio holding value factor with dependency resolution.
 
         Args:
             primary_key: Factor name identifier
@@ -48,7 +48,7 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
             existing = self.get_by_all(
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
-                factor_type=kwargs.get('factor_type', 'company_share_portfolio_holding_value_factor')
+                factor_type=kwargs.get('factor_type', 'company_share_portfolio_portfolio_holding_value_factor')
             )
             if existing:
                 return self._to_entity(existing)
@@ -56,10 +56,8 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'value'),
+                subgroup=kwargs.get('subgroup', 'portfolio_value'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}'),
             )
 
             # Use Mapper to convert domain entity to ORM model
@@ -68,7 +66,7 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
 
             self.session.add(orm_factor)
 
-            # Create dependencies passed from the factory library config
+            # Create dependencies
             if kwargs.get('dependencies'):
                 dependencies = kwargs.get('dependencies')
                 for dependency in dependencies.items():
@@ -105,7 +103,7 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
                 return self._to_entity(orm_factor)
 
         except Exception as e:
-            print(f"Error in get_or_create company share portfolio holding value factor {primary_key}: {e}")
+            print(f"Error in get_or_create company share portfolio portfolio holding value factor {primary_key}: {e}")
             return None
 
     def get_by_all(
@@ -149,7 +147,7 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
             return query.first()
 
         except Exception as e:
-            print(f"Error retrieving company share portfolio holding value factor by all attributes: {e}")
+            print(f"Error retrieving company share portfolio portfolio holding value factor by all attributes: {e}")
             return None
 
     def get_by_id(self, id: int):

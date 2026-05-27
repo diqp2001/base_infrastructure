@@ -1,22 +1,16 @@
-from typing import Optional, List
+from typing import Optional
+from src.domain.entities.entity import Entity
 
-class Continent:
+
+class Continent(Entity):
     """
     Domain entity for a Continent.
     Represents a high-level geographical and political region.
     """
 
-    def __init__(self, id: int, name: str):
-        """
-        Initialize a Continent entity.
-        
-        :param id: Unique identifier for the continent.
-        :param name: Name of the continent (e.g., 'Asia', 'Europe').
-        :param abbreviation: Optional abbreviation for the continent (e.g., 'AS', 'EU').
-        """
-        self.id = id
+    def __init__(self, id: Optional[int], name: str):
+        super().__init__(id)
         self.name = name
 
-   
     def __repr__(self) -> str:
         return f"Continent(id={self.id}, name='{self.name}')"

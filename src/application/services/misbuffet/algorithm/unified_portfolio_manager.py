@@ -159,6 +159,7 @@ class UnifiedPortfolioManager:
                 main_cash = portfolio_config.get('initial_cash', initial_cash or 100000.0)
                 main_type = portfolio_config.get('portfolio_type', portfolio_type or 'BACKTEST')
                 main_currency = portfolio_config.get('currency_code', 'USD')
+                initial_cash_currency_code = portfolio_config.get('initial_cash_currency_code', main_currency)
                 sub_portfolios_config = portfolio_config.get('sub_portfolios', [])
             else:
                 # Fallback to individual parameters
@@ -166,7 +167,28 @@ class UnifiedPortfolioManager:
                 main_cash = initial_cash or 100000.0
                 main_type = portfolio_type or 'BACKTEST'
                 main_currency = 'USD'
+                initial_cash_currency_code = main_currency
                 sub_portfolios_config = []
+
+            # Convert initial_cash to portfolio currency when they differ.
+            # CurrencyFactor for portfolio_currency stores: 1 portfolio_currency = X initial_cash_currency
+            # so quantity_portfolio_currency = initial_cash / fx_rate.
+            if initial_cash_currency_code != main_currency:
+                fx_rate = self._get_currency_fx_rate(main_currency)
+                if fx_rate:
+                    original_cash = main_cash
+                    main_cash = main_cash / fx_rate
+                    if self.logger:
+                        self.logger.info(
+                            f"FX conversion: {original_cash} {initial_cash_currency_code} "
+                            f"/ {fx_rate} = {main_cash:.4f} {main_currency}"
+                        )
+                else:
+                    if self.logger:
+                        self.logger.warning(
+                            f"CurrencyFactor rate for {main_currency} not found; "
+                            f"using initial_cash without conversion"
+                        )
             
             # Create main portfolio
             main_portfolio = self.portfolio_repo._create_or_get(
@@ -210,6 +232,7 @@ class UnifiedPortfolioManager:
                         self.logger.info(f"🔄 Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
                     portfolio_value_factor = self.market_data_service._create_or_get(config)
                     self.portfolio_value_factor = portfolio_value_factor
+                    initial_portfolio_value = self.get_portfolio_value()
                     if self.logger and portfolio_value_factor:
                         self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
                     elif self.logger:
@@ -754,6 +777,94 @@ class UnifiedPortfolioManager:
         }
         return mapping.get(status_str.upper(), OrderStatus.PENDING)
     
+    def _get_currency_fx_rate(self, portfolio_currency_code: str) -> Optional[float]:
+        """
+        Return the latest CurrencyFactor price for *portfolio_currency_code*.
+
+        CurrencyFactor stores the price as "1 portfolio_currency = X base_currency"
+        (e.g. 1 USD = 1.3 CAD).  Dividing initial_cash (in the base/input currency)
+        by this rate converts it to the portfolio currency.
+
+        Returns None when no FactorValue is found so the caller can fall back
+        gracefully without crashing portfolio creation.
+        """
+        try:
+            from src.infrastructure.models.factor.factor import FactorModel
+            from src.infrastructure.models.factor.factor_value import FactorValueModel
+
+            session = self.repository_factory.session
+
+            # Look up the CurrencyFactor row (discriminator entity_type='currency')
+            currency_factor_model = session.query(FactorModel).filter(
+                FactorModel.name == portfolio_currency_code,
+                FactorModel.entity_type == 'currency',
+            ).first()
+
+            if not currency_factor_model:
+                if self.logger:
+                    self.logger.warning(
+                        f"_get_currency_fx_rate: no CurrencyFactor found for '{portfolio_currency_code}'"
+                    )
+                return None
+
+            # Resolve the Currency financial-asset entity to get its id
+            currency_repo = self.repository_factory.currency_local_repo
+            if not currency_repo:
+                if self.logger:
+                    self.logger.warning(
+                        "_get_currency_fx_rate: currency_local_repo not available"
+                    )
+                return None
+
+            currency_entity = currency_repo.get_or_create(iso_code=portfolio_currency_code)
+            if not currency_entity:
+                if self.logger:
+                    self.logger.warning(
+                        f"_get_currency_fx_rate: currency entity for '{portfolio_currency_code}' not found"
+                    )
+                return None
+
+            currency_id = getattr(currency_entity, 'id', None) or getattr(currency_entity, 'asset_id', None)
+            if not currency_id:
+                if self.logger:
+                    self.logger.warning(
+                        f"_get_currency_fx_rate: currency '{portfolio_currency_code}' has no id"
+                    )
+                return None
+
+            # Fetch the most recent FactorValue for this factor / entity pair
+            latest_fv = (
+                session.query(FactorValueModel)
+                .filter(
+                    FactorValueModel.factor_id == currency_factor_model.id,
+                    FactorValueModel.entity_id == currency_id,
+                )
+                .order_by(FactorValueModel.date.desc())
+                .first()
+            )
+
+            if not latest_fv or latest_fv.value is None:
+                if self.logger:
+                    self.logger.warning(
+                        f"_get_currency_fx_rate: no FactorValue found for '{portfolio_currency_code}'"
+                    )
+                return None
+
+            rate = float(latest_fv.value)
+            if rate == 0:
+                if self.logger:
+                    self.logger.warning(
+                        f"_get_currency_fx_rate: FactorValue for '{portfolio_currency_code}' is 0"
+                    )
+                return None
+
+            return rate
+
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"_get_currency_fx_rate failed for '{portfolio_currency_code}': {e}")
+            return None
+
     def demonstrate_cascading_workflow(self, symbol: str, quantity: float) -> Dict[str, Any]:
         """
         Demonstrate the complete cascading workflow from order to position.

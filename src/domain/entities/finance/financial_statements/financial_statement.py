@@ -1,18 +1,15 @@
-# domain/entities/financial_statements/financial_statement.py
+from typing import Optional
+from src.domain.entities.entity import Entity
 
-class FinancialStatement:
+
+class FinancialStatement(Entity):
     """
     Base class for financial statements.
     """
 
-    def __init__(self, company_id: int, period: str, year: int):
-        """
-        Initialize a financial statement.
-
-        :param company_id: ID of the company associated with the financial statement.
-        :param period: Reporting period (e.g., "Q1", "Q2", "Q3", "Q4", "Annual").
-        :param year: Year of the financial statement.
-        """
+    def __init__(self, id: Optional[int] = None, company_id: int = None,
+                 period: str = None, year: int = None):
+        super().__init__(id)
         self.company_id = company_id
         self.period = period
         self.year = year

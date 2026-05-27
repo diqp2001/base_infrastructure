@@ -2,8 +2,10 @@ from abc import  abstractmethod
 from datetime import date
 from typing import Optional
 
+from src.domain.entities.entity import Entity
 
-class FinancialAsset():
+
+class FinancialAsset(Entity):
     """
     Pure domain base class for all financial assets.
     No ORM, no persistence concerns, no discriminator column.

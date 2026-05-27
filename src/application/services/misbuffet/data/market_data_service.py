@@ -147,7 +147,7 @@ class MarketDataService:
                     for factor in created_factors:
                         factor_values_data.append({
                             'factor': factor,
-                            'financial_asset_entity': entity,
+                            'entity': entity,
                             'entity_id': entity.id,
                             'time_date': point_in_time.strftime("%Y-%m-%d %H:%M:%S")
                         })
@@ -315,11 +315,7 @@ class MarketDataService:
             kwargs = {k: v for k, v in entity_config.items() if k not in ['entity_class', 'entity_symbol','name']}
             
             # Use entity_service _create_or_get method
-            entity = self.entity_service._create_or_get(
-                entity_cls = entity_class, name = entity_symbol,
-                
-                **kwargs
-            )
+            entity = self.entity_service._create_or_get(entity_cls = entity_class, name = entity_symbol,**kwargs)
             
             if entity:
                 self.logger.info(f"Created/retrieved entity: {entity_symbol} (class: {entity_class.__name__})")

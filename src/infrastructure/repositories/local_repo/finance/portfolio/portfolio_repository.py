@@ -196,52 +196,167 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             if existing_portfolio:
                 logger.debug(f"Portfolio {name} already exists, returning existing entity")
                 return existing_portfolio
-            
+
             # Step 2: Create new entity if not found
             logger.info(f"Creating new portfolio: {name}")
-            
-            # Handle defaults
+
+            # Handle defaults — accept both 'currency_code' and 'currency' for the ISO code
             portfolio_type = kwargs.get('portfolio_type', "STANDARD")
-            initial_cash = kwargs.get('initial_cash', 100000.0)
-            currency = kwargs.get('currency', "USD")
-            owner_id = kwargs.get('owner_id')
+            initial_cash   = float(kwargs.get('initial_cash', 100000.0))
+            currency_code  = (
+                kwargs.get('currency_code')
+                or kwargs.get('currency')
+                or 'USD'
+            )
+            owner_id       = kwargs.get('owner_id')
             inception_date = kwargs.get('inception_date', date.today())
-            created_at = kwargs.get('created_at', datetime.now())
-            
-            
-            
+
             # Create domain entity
             new_portfolio = self.entity_class(
                 id=None,
                 name=name,
-                start_date=getattr(kwargs, 'inception_date', date.today()),
-            end_date=getattr(kwargs, 'end_date', None)
+                start_date=inception_date,
+                end_date=kwargs.get('end_date', None),
             )
-            
+
             # Step 3: Convert to ORM model and persist
             portfolio_model = self.mapper.to_orm(new_portfolio)
-            
+
             self.session.add(portfolio_model)
             self.session.commit()
-            
+
             # Step 4: Convert back to domain entity with database ID
             persisted_entity = self.mapper.to_domain(portfolio_model)
-            
+
             logger.info(f"Successfully created portfolio {name} with ID {persisted_entity.id}")
+
+            # Step 5: Create the initial cash holding (currency position)
+            # Every new portfolio gets one holding for its base currency with
+            # quantity equal to initial_cash.
+            self._create_cash_holding(persisted_entity, initial_cash, currency_code)
+
             return persisted_entity
-            
+
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error creating/getting portfolio {name}: {str(e)}")
             raise
     
-    def get_related_holdings(self, portfolio_id: int) -> List:
+    def _create_cash_holding(
+        self,
+        portfolio,
+        initial_cash: float,
+        currency_code: str,
+    ) -> None:
         """
-        Get all holdings related to a specific portfolio.
-        
+        Create the initial cash / currency holding for a newly created portfolio.
+
+        A portfolio always starts with a cash position equal to ``initial_cash``
+        in ``currency_code``.  This is represented as:
+
+        * A ``HoldingModel`` row that links the portfolio (via ``container_id``)
+          to the ``Currency`` financial asset (via ``asset_id``).
+        * A ``PositionModel`` row on the portfolio with ``quantity = initial_cash``
+          and ``position_type = LONG``.
+
+        Both creations are idempotent: if the holding/position already exists
+        (e.g. because the portfolio was just fetched rather than truly created
+        anew) nothing is changed.
+        """
+        try:
+            from src.infrastructure.models.finance.holding.holding import HoldingModel
+            from src.infrastructure.models.finance.position import PositionModel
+            from src.domain.entities.finance.holding.position import PositionType
+
+            portfolio_id = getattr(portfolio, 'id', None)
+            if not portfolio_id:
+                logger.warning("_create_cash_holding: portfolio has no id, skipping")
+                return
+
+            # 1. Get or create the Currency entity
+            currency_repo = getattr(self.factory, 'currency_local_repo', None)
+            if not currency_repo:
+                logger.warning(
+                    "_create_cash_holding: currency_local_repo not available in factory; "
+                    "cash holding will not be created"
+                )
+                return
+
+            currency = currency_repo.get_or_create(iso_code=currency_code)
+            if not currency:
+                logger.warning(
+                    f"_create_cash_holding: could not get/create currency {currency_code}"
+                )
+                return
+
+            currency_id = getattr(currency, 'id', None) or getattr(currency, 'asset_id', None)
+            if not currency_id:
+                logger.warning(
+                    f"_create_cash_holding: currency {currency_code} has no id"
+                )
+                return
+
+            # 2. Create the Holding (idempotent)
+            holding_model = self.session.query(HoldingModel).filter(
+                HoldingModel.container_id == portfolio_id,
+                HoldingModel.asset_id    == currency_id,
+            ).first()
+
+            if not holding_model:
+                holding_model = HoldingModel(
+                    asset_id     = currency_id,
+                    container_id = portfolio_id,
+                    start_date   = datetime.now(),
+                    end_date     = None,
+                )
+                self.session.add(holding_model)
+                self.session.flush()   # assign id before linking to position
+                logger.info(
+                    f"Created cash holding: portfolio {portfolio_id} ← "
+                    f"{currency_code} (currency_id={currency_id})"
+                )
+
+            # 3. Create the Position for the cash amount (idempotent)
+            position_model = self.session.query(PositionModel).filter(
+                PositionModel.portfolio_id == portfolio_id,
+            ).first()
+
+            if not position_model:
+                position_model = PositionModel(
+                    portfolio_id  = portfolio_id,
+                    quantity      = int(initial_cash),   # PositionModel.quantity is Integer
+                    position_type = PositionType.LONG,
+                    holding_id    = holding_model.id,    # link to holding
+                )
+                self.session.add(position_model)
+                self.session.flush()
+                logger.info(
+                    f"Created cash position: portfolio {portfolio_id}, "
+                    f"quantity={initial_cash} {currency_code}"
+                )
+
+            # 4. Ensure the bidirectional FK is set on both sides.
+            if holding_model.position_id != position_model.id:
+                holding_model.position_id = position_model.id
+            if getattr(position_model, 'holding_id', None) != holding_model.id:
+                position_model.holding_id = holding_model.id
+
+            self.session.commit()
+
+        except Exception as e:
+            self.session.rollback()
+            logger.error(
+                f"Error creating cash holding for portfolio {getattr(portfolio, 'id', '?')}: {e}"
+            )
+            # Not re-raised: cash holding failure must not prevent portfolio creation
+
+    def get_related_entities(self, portfolio_id: int) -> List:
+        """
+        Get all entities related to a specific portfolio (its holdings).
+
         Args:
             portfolio_id: The portfolio ID to get holdings for
-            
+
         Returns:
             List of holding entities related to this portfolio
         """

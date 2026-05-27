@@ -1020,7 +1020,10 @@ class QCAlgorithm:
         """
         
         
-        return float(self._unified_portfolio_manager.get_portfolio_value())
+        pv = self._unified_portfolio_manager.get_portfolio_value()
+        # get_portfolio_value returns a FactorValue domain entity; extract .value
+        raw = getattr(pv, 'value', pv)
+        return float(raw)
 
     def get_unified_positions(self) -> List[Dict[str, Any]]:
         """

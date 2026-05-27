@@ -369,10 +369,13 @@ class MarketDataHistoryService:
                         value = values_data.get(value_key, 0.0)  # Default to 0.0 if not provided
                         
                         factor_value = FactorValue(
+                            id=None,
                             factor_id=factor_id,
-                            entity_id=entity_id,
+                            entity=None,
                             date=current_date,
-                            value=value
+                            value=value,
+                            entity_id=entity_id,
+                            entity_type='FinancialAsset',
                         )
                         
                         factor_values.append(factor_value)
@@ -531,7 +534,7 @@ class MarketDataHistoryService:
                 if factor_discriminator == entity_discriminator:
                     factor_values_data.append({
                         'factor': factor,
-                        'financial_asset_entity': entity,
+                        'entity': entity,
                         'entity_id': entity.id,
                         'max_date': max_date.strftime("%Y-%m-%d %H:%M:%S")
                     })

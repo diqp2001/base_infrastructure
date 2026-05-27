@@ -149,9 +149,9 @@ class IBKRContractInstrumentMapper:
                     factor_value = FactorValue(
                         id=None,  # Will be set by repository
                         factor_id=instrument_factor.factor_id,
-                        entity_id=instrument.id,
+                        entity=instrument,  # Instrument is an Entity subclass
                         date=timestamp.date(),
-                        value=formatted_value
+                        value=formatted_value,
                     )
                     
                     factor_values.append(factor_value)
@@ -205,9 +205,9 @@ class IBKRContractInstrumentMapper:
             return FactorValue(
                 id=None,  # Will be set by repository
                 factor_id=instrument_factor.factor_id,
-                entity_id=instrument.id,
+                entity=instrument,  # Instrument is an Entity subclass
                 date=timestamp.date(),
-                value=formatted_value
+                value=formatted_value,
             )
             
         except Exception as e:

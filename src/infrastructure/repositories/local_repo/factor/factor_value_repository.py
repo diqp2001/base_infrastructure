@@ -92,15 +92,23 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             model = self.session.query(FactorValueModel).filter(
                 FactorValueModel.id == entity.id
             ).first()
-            
+
             if not model:
                 return None
-            
+
             model.factor_id = entity.factor_id
-            model.entity_id = entity.entity_id
+            # Resolve entity_id from entity object when available
+            model.entity_id = (
+                entity.entity.id if entity.entity is not None else entity.entity_id
+            )
+            model.entity_type = (
+                type(entity.entity).__name__
+                if entity.entity is not None
+                else entity.entity_type
+            )
             model.date = entity.date
             model.value = entity.value
-            
+
             self.session.commit()
             return self._to_entity(model)
         except Exception as e:
@@ -126,76 +134,107 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             self.session.rollback()
             return False
     
-    def get_all_dates_by_id_entity_id(self, factor_id: int, entity_id: int) -> List[str]:
-        """Get all dates for a specific factor and entity combination."""
+    def get_all_dates_by_id_entity_id(
+        self, factor_id: int, entity_id: int, entity_type: Optional[str] = None
+    ) -> List[str]:
+        """Get all dates for a specific factor and entity combination.
+
+        Args:
+            factor_id: Factor id
+            entity_id: Raw entity id
+            entity_type: Optional entity class name discriminator. When provided
+                the query is scoped to that entity type to prevent id collisions
+                across different entity tables.
+        """
         try:
-            dates = self.session.query(FactorValueModel.date).filter(
+            query = self.session.query(FactorValueModel.date).filter(
                 FactorValueModel.factor_id == factor_id,
-                FactorValueModel.entity_id == entity_id
-            ).all()
-            
+                FactorValueModel.entity_id == entity_id,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+
+            dates = query.all()
             return [str(date_tuple[0]) for date_tuple in dates]
         except Exception as e:
             print(f"Error getting dates for factor {factor_id} and entity {entity_id}: {e}")
             return []
-    
-    def get_by_factor_entity_date(self, factor_id: int, entity_id: int, date_str: str) -> Optional[FactorValue]:
-        """Get factor value by factor ID, entity ID, and date."""
+
+    def get_by_factor_entity_date(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        entity_type: Optional[str] = None,
+    ) -> Optional[FactorValue]:
+        """Get factor value by factor ID, entity ID (+ optional entity type), and date.
+
+        The ``entity_type`` discriminator prevents false matches when different
+        entity tables share the same numeric ids (e.g. Country id=1 and
+        CompanyShare id=1 both producing entity_id=1).
+        """
         try:
-            # Convert date string to date object
+            # Convert date string to datetime object
             date_obj = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-            
-            model = self.session.query(FactorValueModel).filter(
+
+            query = self.session.query(FactorValueModel).filter(
                 FactorValueModel.factor_id == factor_id,
                 FactorValueModel.entity_id == entity_id,
-                FactorValueModel.date == date_obj
-            ).first()
-            
+                FactorValueModel.date == date_obj,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+
+            model = query.first()
             return self._to_entity(model)
         except Exception as e:
-            print(f"Error getting factor value for factor {factor_id}, entity {entity_id}, date {date_str}: {e}")
+            print(
+                f"Error getting factor value for factor {factor_id}, "
+                f"entity {entity_type}:{entity_id}, date {date_str}: {e}"
+            )
             return None
     
     def _create_or_get(self, entity_symbol, primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
-        Enhanced get_or_create function with automatic dependency resolution using FactorValueResolutionService.
-        
-        This method delegates to the resolution service for consistent dependency handling.
-        
+        Enhanced get_or_create with automatic dependency resolution via FactorValueResolutionService.
+
         Args:
-            entity_symbol: Symbol identifier (for compatibility, not used in local version)
+            entity_symbol: Symbol identifier (kept for API compatibility, not used directly)
             primary_key: Optional primary key (not used in this implementation)
             **kwargs: Parameters including:
                 - factor: Factor domain entity instance
-                - entity: Financial asset entity 
+                - entity: Domain Entity (any Entity subclass – Country, CompanyShare, Portfolio, …)
                 - date: Date string in 'YYYY-MM-DD HH:MM:SS' format
                 - value: Optional explicit value to use
-                
+
         Returns:
             FactorValue entity or None if creation/retrieval failed
         """
         try:
             factor_entity = kwargs.get('factor')
-            financial_asset_entity = kwargs.get('entity')
+            entity = kwargs.get('entity')
             time_date = kwargs.get('date', datetime.now())
-            
+
             if not factor_entity:
                 print("Factor entity is required for local factor value creation")
                 return None
-            
-            if not financial_asset_entity:
-                print("Financial asset entity is required for local factor value creation")
+
+            if entity is None:
+                print("Entity is required for local factor value creation")
                 return None
-            
+
+            # Remove keys already passed as explicit arguments to avoid duplicate keyword errors
+            extra_kwargs = {k: v for k, v in kwargs.items() if k not in ('factor', 'entity', 'date')}
+
             # Use the resolution service to handle the factor value creation
             return self.resolution_service.resolve_factor_value(
                 factor_entity=factor_entity,
-                financial_asset_entity=financial_asset_entity,
+                entity=entity,
                 time_date=time_date,
                 repository_type="local",
-                **kwargs
+                **extra_kwargs
             )
-            
+
         except Exception as e:
             print(f"Error in _create_or_get for factor {factor_entity.name if factor_entity else 'unknown'}: {e}")
             return None
@@ -313,15 +352,17 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             calculated_value = self._call_factor_calculate_method(factor, dependency_values, **kwargs)
             
             if calculated_value is not None:
-                # Create new factor value entity with calculated result
+                # Create new factor value entity with calculated result.
+                # entity_id and entity_type are stored directly (no entity object here).
                 factor_value = FactorValue(
                     id=None,
                     factor_id=factor.id,
-                    entity_id=entity_id,
+                    entity=None,
                     date=target_date,
-                    value=str(calculated_value)
+                    value=str(calculated_value),
+                    entity_id=entity_id,
                 )
-                
+
                 # Persist to database
                 created_value = self.add(factor_value)
                 if created_value:
@@ -428,27 +469,40 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             print(f"Error in factor calculation for {factor.name}: {e}")
             return None
 
-    def _create_or_get_legacy(self, factor_id: int, entity_id: int, date: date, value: str) -> Optional[FactorValue]:
-        """Legacy create or get method for backward compatibility."""
+    def _create_or_get_legacy(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date: date,
+        value: str,
+        entity_type: Optional[str] = None,
+    ) -> Optional[FactorValue]:
+        """Legacy create or get method for backward compatibility.
+
+        Note: prefer passing ``entity_type`` to avoid id collisions across
+        different entity tables.
+        """
         # Check if entity already exists by factor_id, entity_id, and date
-        existing = self.get_by_factor_entity_date(factor_id, entity_id, str(date))
+        existing = self.get_by_factor_entity_date(
+            factor_id, entity_id, str(date), entity_type=entity_type
+        )
         if existing:
             return existing
-        
+
         try:
-            # Create new factor value entity without manual ID assignment
-            # Let the database auto-increment handle ID generation
             factor_value = FactorValue(
-                id=None,  # Let database auto-increment handle ID generation
+                id=None,   # Let database auto-increment handle ID generation
                 factor_id=factor_id,
-                entity_id=entity_id,
+                entity=None,
                 date=date,
-                value=value
+                value=value,
+                entity_id=entity_id,
+                entity_type=entity_type,
             )
-            
+
             # Add to database
             return self.add(factor_value)
-            
+
         except Exception as e:
             print(f"Error creating factor value for factor {factor_id}, entity {entity_id}: {str(e)}")
             return None

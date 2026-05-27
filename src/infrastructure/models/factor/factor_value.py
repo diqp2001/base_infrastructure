@@ -13,7 +13,8 @@ class FactorValueModel(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     factor_id = Column(Integer, ForeignKey("factors.id"), nullable=False)
-    entity_id = Column(Integer, nullable=False)  # Generic entity reference
+    entity_id = Column(Integer, nullable=False)   # Generic entity reference
+    entity_type = Column(String(100), nullable=True, index=True)  # Entity class name discriminator
     date = Column(DateTime(timezone=True), nullable=False)
     value = Column(String(255), nullable=False)
     
@@ -24,4 +25,4 @@ class FactorValueModel(Base):
 
     
     def __repr__(self):
-        return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_id={self.entity_id}, date={self.date})>"
+        return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_type={self.entity_type}, entity_id={self.entity_id}, date={self.date})>"

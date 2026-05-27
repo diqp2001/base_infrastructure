@@ -366,57 +366,63 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     def _fetch_factor_value_from_ibkr(
         self,
         factor_entity,
-        financial_asset_entity,
-        time_date,
-        entity_symbol,
+        entity=None,
+        time_date=None,
+        entity_symbol=None,
+        # Backward-compat alias kept so any direct callers still work
+        financial_asset_entity=None,
         **kwargs
     ) -> Optional[FactorValue]:
         """
         Fetch factor value directly from IBKR API for non-dependent factors.
-        
-        This method contains the IBKR-specific logic that was previously in _create_or_get.
+
+        ``entity`` accepts any domain Entity (FinancialAsset, CompanyShare, …).
+        The deprecated ``financial_asset_entity`` parameter is kept as a fallback.
         """
+        # Support deprecated keyword alias
+        if entity is None and financial_asset_entity is not None:
+            entity = financial_asset_entity
+
         try:
             # Ensure time_date is a string
             if isinstance(time_date, date):
                 time_date = time_date.strftime("%Y-%m-%d %H:%M:%S")
             elif not isinstance(time_date, str):
                 time_date = str(time_date)
-            
+
             # Get entity ID
-            entity_id = getattr(financial_asset_entity, 'id')
+            entity_id = getattr(entity, 'id', None) if entity is not None else None
             factor_id = factor_entity.id
-            
+
             # Check if factor value already exists
             existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
             if existing:
                 return existing
-            
-            # Extract symbol from financial asset entity
+
+            # Extract symbol from entity
             symbol = (
-                getattr(financial_asset_entity, 'symbol', None) or
-                getattr(financial_asset_entity, 'ticker', None) or 
-                getattr(financial_asset_entity, 'name', None) or
+                getattr(entity, 'symbol', None) or
+                getattr(entity, 'ticker', None) or
+                getattr(entity, 'name', None) or
                 entity_symbol
             )
-            
+
             if not symbol:
-                print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
+                print(f"Could not extract symbol from entity {entity}")
                 return None
-            
+
             # Get configurable parameters with defaults
             what_to_show = self._resolve_what_to_show_from_group(factor_entity.group)
             duration_str = kwargs.get('duration_str', '1 M')
             bar_size_setting = kwargs.get('bar_size_setting', '1 day')
-            
-            target_date = self.get_effective_market_datetime(time_date=time_date,frequency=factor_entity.frequency)
-            
-            
+
+            target_date = self.get_effective_market_datetime(time_date=time_date, frequency=factor_entity.frequency)
+
             # Fetch bulk historical data from IBKR
             bulk_ibkr_data = self._fetch_bulk_historical_data(
                 symbol=symbol,
                 target_date=target_date,
-                asset=financial_asset_entity,
+                asset=entity,
                 what_to_show=what_to_show,
                 duration_str=duration_str,
                 bar_size_setting=bar_size_setting
@@ -1230,9 +1236,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             factor_value = FactorValue(
                 id=None,
                 factor_id=factor.id,
-                entity_id=entity_id,
+                entity=None,
                 date=bar_date,
-                value=str(calculated_value)
+                value=str(calculated_value),
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
             
             
@@ -1340,9 +1348,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             factor_value = FactorValue(
                 id=None,
                 factor_id=factor.id,
-                entity_id=entity_id,
+                entity=None,
                 date=bar_date,
-                value=str(calculated_value)
+                value=str(calculated_value),
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
             
             
@@ -1750,9 +1760,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return FactorValue(
                 id=None,  # Let database generate
                 factor_id=factor.id,
-                entity_id=entity_id,
+                entity=None,
                 date=date,
-                value=str(value)
+                value=str(value),
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
             
         except Exception as e:
@@ -1798,9 +1810,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return FactorValue(
                 id=None,  # Let database generate
                 factor_id=factor.id,
-                entity_id=entity_id,
+                entity=None,
                 date=bar_date,
-                value=str(value)
+                value=str(value),
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
             
         except Exception as e:
@@ -1980,9 +1994,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     new_factor_value = FactorValue(
                             id=None,  # Will be set by repository
                             factor_id=factor_entity.id,
-                            entity_id=financial_asset_entity.id,
+                            entity=financial_asset_entity,  # Entity object carries id + type
                             date=date,
-                            value=str(tick[factor.name])
+                            value=str(tick[factor.name]),
                         )
                 
                     # Persist to database via local repository
@@ -2174,13 +2188,28 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         """Get factor values by factor and entity (delegates to local repository)."""
         return self.local_repo.get_by_factor_entity(factor_id, entity_id)
 
-    def get_by_factor_entity_date(self, factor_id: int, entity_id: int, date_str: str) -> Optional[FactorValue]:
+    def get_by_factor_entity_date(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        entity_type: Optional[str] = None,
+    ) -> Optional[FactorValue]:
         """Get factor value by factor, entity, and date (delegates to local repository)."""
-        return self.local_repo.get_by_factor_entity_date(factor_id, entity_id, date_str)
+        return self.local_repo.get_by_factor_entity_date(
+            factor_id, entity_id, date_str, entity_type=entity_type
+        )
 
-    def get_all_dates_by_id_entity_id(self, factor_id: int, entity_id: int) -> List[str]:
+    def get_all_dates_by_id_entity_id(
+        self,
+        factor_id: int,
+        entity_id: int,
+        entity_type: Optional[str] = None,
+    ) -> List[str]:
         """Get all dates for factor and entity (delegates to local repository)."""
-        return self.local_repo.get_all_dates_by_id_entity_id(factor_id, entity_id)
+        return self.local_repo.get_all_dates_by_id_entity_id(
+            factor_id, entity_id, entity_type=entity_type
+        )
 
     def get_latest_by_factor_entity(self, factor_id: int, entity_id: int) -> Optional[FactorValue]:
         """Get latest factor value by factor and entity (delegates to local repository)."""
@@ -2421,9 +2450,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return FactorValue(
                 id=None,  # Let database generate
                 factor_id=factor_id,
-                entity_id=entity_id,
+                entity=None,
                 date=date_obj,
-                value=factor_value_string
+                value=factor_value_string,
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
         except Exception as e:
             print(f"Error converting IBKR contract to factor value: {e}")
@@ -2471,9 +2502,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return FactorValue(
                 id=None,  # Let database generate
                 factor_id=factor_id,
-                entity_id=entity_id,
+                entity=None,
                 date=date_obj,
-                value=factor_value_string
+                value=factor_value_string,
+                entity_id=entity_id,
+                entity_type='FinancialAsset',
             )
         except Exception as e:
             print(f"Error converting IBKR contract to factor value: {e}")

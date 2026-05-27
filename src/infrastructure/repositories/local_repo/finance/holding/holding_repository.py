@@ -346,7 +346,7 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         except Exception as e:
             self.logger.error(f"Error creating position for holding {holding.id}: {str(e)}")
 
-    def get_related_position(self, holding_id: int) -> Optional:
+    def get_related_position(self, holding_id: int):
         """
         Get the position related to a specific holding.
         

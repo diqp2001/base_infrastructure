@@ -62,9 +62,11 @@ class BaseIBKRFactorRepository(BaseIBKRRepository):
             return FactorValue(
                 id=None,  # Will be set by repository
                 factor_id=factor_id,
-                entity_id=entity_id,
+                entity=None,
                 date=date_obj,
-                value=str(value)
+                value=str(value),
+                entity_id=entity_id,
+                entity_type='FinancialAsset',  # IBKR data always relates to financial assets
             )
             
         except Exception as e:

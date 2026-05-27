@@ -61,6 +61,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.holding.company_s
 from src.infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_holding_weight_factor_repository import CompanySharePortfolioHoldingWeightFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.portfolio_holding_factor_repository import PortfolioHoldingFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.portfolio_holding_value_factor_repository import PortfolioHoldingValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.holding.company_share_portfolio_portfolio_holding_value_factor_repository import CompanySharePortfolioPortfolioHoldingValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor_repository import CompanyShareOptionGammaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rho_factor_repository import CompanyShareOptionRhoFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vega_factor_repository import CompanyShareOptionVegaFactorRepository
@@ -272,7 +273,8 @@ class RepositoryFactory:
                 'company_share_portfolio_holding_weight_factor': CompanySharePortfolioHoldingWeightFactorRepository(self.session, factory=self),
                 'portfolio_holding_factor': PortfolioHoldingFactorRepository(self.session, factory=self),
                 'portfolio_holding_value_factor': PortfolioHoldingValueFactorRepository(self.session, factory=self),
-                
+                'company_share_portfolio_portfolio_holding_value_factor': CompanySharePortfolioPortfolioHoldingValueFactorRepository(self.session, factory=self),
+
                 # Position, Transaction, and Order factor repositories
                 'company_share_position_value_factor': CompanySharePositionValueFactorRepository(self.session, factory=self),
                 'company_share_transaction_value_factor': CompanyShareTransactionValueFactorRepository(self.session, factory=self),
@@ -1272,7 +1274,12 @@ class RepositoryFactory:
     def portfolio_holding_value_factor_local_repo(self):
         """Get portfolio_holding_value_factor repository for dependency injection."""
         return self._local_repositories.get('portfolio_holding_value_factor')
-    
+
+    @property
+    def company_share_portfolio_portfolio_holding_value_factor_local_repo(self):
+        """Get company_share_portfolio_portfolio_holding_value_factor repository for dependency injection."""
+        return self._local_repositories.get('company_share_portfolio_portfolio_holding_value_factor')
+
     # Position, Transaction, and Order factor repositories
     @property
     def company_share_position_value_factor_local_repo(self):

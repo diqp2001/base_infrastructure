@@ -41,7 +41,7 @@ class PortfolioService:
         Calculate the total value of a portfolio by summing its holding values.
         
         This method uses HoldingService for factor value calculations and the portfolio 
-        repository's get_related_holdings function for entity operations.
+        repository's get_related_entities function for entity operations.
         
         Args:
             portfolio_id: ID of the portfolio to value
@@ -66,7 +66,7 @@ class PortfolioService:
                 raise ValueError(f"Portfolio {portfolio_id} not found")
             
             # Get related holdings through repository (pure entity operation)
-            holdings = portfolio_repo.get_related_holdings(portfolio_id)
+            holdings = portfolio_repo.get_related_entities(portfolio_id)
             
             if not holdings:
                 self.logger.info(f"No holdings found for portfolio {portfolio_id}, returning 0 value")
@@ -118,7 +118,7 @@ class PortfolioService:
             if not portfolio:
                 raise ValueError(f"Portfolio {portfolio_id} not found")
             
-            holdings = portfolio_repo.get_related_holdings(portfolio_id)
+            holdings = portfolio_repo.get_related_entities(portfolio_id)
             
             # Calculate breakdown using services
             from src.application.services.data.entities.factor.finance.holding_service import HoldingService

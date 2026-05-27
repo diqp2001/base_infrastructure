@@ -81,7 +81,6 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         """Retrieve all positions for a specific portfolio."""
         models = self.session.query(PositionModel).filter(
             PositionModel.portfolio_id == portfolio_id,
-            PositionModel.is_active == True
         ).all()
         return [self._to_entity(model) for model in models]
     

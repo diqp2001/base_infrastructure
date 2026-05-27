@@ -1,27 +1,17 @@
-# src/domain/entities/exchange.py
-from typing import List
-
+from typing import Optional
+from src.domain.entities.entity import Entity
 from src.domain.entities.country import Country
 
 
-
-class Exchange:
-    def __init__(self, id: int, name: str, legal_name: str, country_id: int, start_date, end_date=None):
-        """
-        Initialize an Exchange object with its name, location, and the assets it trades.
-        
-        :param name: Name of the exchange (e.g., 'NYSE', 'NASDAQ')
-        :param location: Location of the exchange (e.g., 'New York', 'London')
-        :param assets: A list of asset tickers traded on the exchange (e.g., ['AAPL', 'GOOGL'])
-        """
-        self.id = id
+class Exchange(Entity):
+    def __init__(self, id: Optional[int], name: str, legal_name: str,
+                 country_id: int, start_date, end_date=None):
+        super().__init__(id)
         self.name = name
         self.legal_name = legal_name
         self.country_id = country_id
         self.start_date = start_date
         self.end_date = end_date
-
-    
 
     def __repr__(self):
         return f"Exchange({self.name})"
