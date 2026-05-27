@@ -949,7 +949,7 @@ class UnifiedPortfolioManager:
                     'start_date': self._current_portfolio_entity.start_date.isoformat(),
                     'end_date': self._current_portfolio_entity.end_date.isoformat() if self._current_portfolio_entity.end_date else None
                 },
-                'portfolio_value': float(self.get_portfolio_value()),
+                'portfolio_value': float(self.get_portfolio_value().value),
                 'cash_balance': float(self._get_cash_balance()),
                 'active_positions': self.get_active_positions(),
                 'orders_summary': self.get_orders_summary(),
