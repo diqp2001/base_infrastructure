@@ -460,56 +460,120 @@ class QCAlgorithm:
     # Portfolio Management Methods
     # ===========================================
     
-    def set_holdings(self, symbol: Union[Symbol, str], percentage: float, 
+    def set_holdings(self, symbol: Union[Symbol, str], percentage: float,
                     liquidate_existing_holdings: bool = False, tag: str = ""):
         """
         Set holdings to a target percentage of portfolio.
-        
+
+        Full pipeline:
+          1. Create + register domain Order entity via market_order()
+          2. Simulate immediate fill and record domain Transaction entity
+          3. Upsert domain Position entity to the new quantity
+
         Args:
-            symbol: The symbol to set holdings for
-            percentage: Target percentage (0.0 to 1.0)
-            liquidate_existing_holdings: Whether to liquidate other holdings first
-            tag: Optional tag for the order
+            symbol: Ticker string or Symbol object
+            percentage: Target weight (0.0 – 1.0)
+            liquidate_existing_holdings: Liquidate all other holdings first
+            tag: Optional order tag
         """
-        if isinstance(symbol, str):
-            symbol = next((s for s in self.securities.keys() if s.value == symbol), None)
-            if symbol is None:
-                self.error(f"Symbol {symbol} not found in securities")
-                return
-        
-        # Get current security and portfolio info
-        if symbol not in self.securities:
-            self.error(f"Security {symbol} not added to algorithm")
+        ticker = symbol if isinstance(symbol, str) else getattr(symbol, 'value', str(symbol))
+
+        # --- portfolio value ---
+        if self.is_unified_portfolio_enabled():
+            portfolio_value = self.get_unified_portfolio_value()
+        else:
+            portfolio_value = float(self.portfolio.total_portfolio_value)
+
+        if portfolio_value <= 0:
+            self.error(f"set_holdings: invalid portfolio value {portfolio_value}")
             return
-        
-        security = self.securities[symbol]
-        current_price = security.market_price
-        
-        if current_price <= 0:
-            self.error(f"No valid price data for {symbol}")
+
+        # --- price ---
+        price = self._resolve_asset_price(ticker)
+        if not price or price <= 0:
+            self.error(f"set_holdings: no valid price for {ticker}")
             return
-        
-        # Calculate target position
-        portfolio_value = self.portfolio.total_portfolio_value
-        target_value = portfolio_value * percentage
-        target_quantity = int(target_value / current_price)
-        
-        # Get current position
-        current_holding = self.portfolio.get_holding(symbol)
-        current_quantity = current_holding.quantity if current_holding else 0
-        
-        # Calculate order quantity
+
+        # --- quantities ---
+        target_quantity = int(portfolio_value * percentage / price)
+        current_quantity = self._resolve_current_quantity(ticker)
         order_quantity = target_quantity - current_quantity
-        
-        if order_quantity != 0:
-            # Liquidate other holdings if requested
-            if liquidate_existing_holdings:
-                self.liquidate(tag="Liquidation for rebalancing")
-            
-            # Place the order
-            ticket = self.market_order(symbol, order_quantity, tag=tag)
-            self.debug(f"Set holdings for {symbol} to {percentage:.2%} ({target_quantity} shares)")
+
+        if order_quantity == 0:
+            return
+
+        if liquidate_existing_holdings:
+            self.liquidate(tag="Liquidation for rebalancing")
+
+        # 1. Create in-memory Order + persist domain Order entity
+        ticket = self.market_order(ticker, order_quantity, tag=tag or f"set_holdings_{ticker}")
+
+        if not ticket:
+            return
+
+        # 2. Record Transaction + 3. Update Position
+        if self._unified_portfolio_manager:
+            self._record_fill_transaction(ticket, ticker, order_quantity, price)
+            self._unified_portfolio_manager.update_holding_position(ticker, target_quantity, price)
+
+        self.debug(
+            f"set_holdings {ticker} → {percentage:.2%} "
+            f"target={target_quantity} qty_change={order_quantity:+d} @ ${price:.2f}"
+        )
     
+    def _resolve_asset_price(self, ticker: str) -> Optional[float]:
+        """Return current price for ticker, checking securities dict then data frame/slice."""
+        sym = next(
+            (s for s in self.securities.keys() if getattr(s, 'value', str(s)) == ticker),
+            None
+        )
+        if sym is not None:
+            p = getattr(self.securities[sym], 'market_price', None)
+            if p and float(p) > 0:
+                return float(p)
+        return self._get_current_price(ticker, sym)
+
+    def _resolve_current_quantity(self, ticker: str) -> int:
+        """Return current position quantity for ticker from domain Position or in-memory portfolio."""
+        if self._unified_portfolio_manager and self._current_portfolio_entity:
+            try:
+                pos = self._unified_portfolio_manager.position_repo.get_by_portfolio_and_symbol(
+                    self._current_portfolio_entity.id, ticker
+                )
+                if pos:
+                    return int(getattr(pos, 'quantity', 0))
+            except Exception:
+                pass
+        sym = next(
+            (s for s in self.securities.keys() if getattr(s, 'value', str(s)) == ticker),
+            None
+        )
+        if sym:
+            h = self.portfolio.get_holding(sym)
+            if h:
+                return int(h.quantity)
+        return 0
+
+    def _record_fill_transaction(self, ticket, ticker: str, order_quantity: int, price: float):
+        """Simulate an immediate backtest fill: create domain Transaction for the order."""
+        try:
+            from src.domain.entities.finance.back_testing.orders import OrderEvent as _OrderEvent
+            from src.domain.entities.finance.back_testing.enums import OrderStatus as _OrderStatus
+            from decimal import Decimal as _Decimal
+
+            order_event = _OrderEvent(
+                order_id=ticket.order_id,
+                status=_OrderStatus.FILLED,
+                quantity=order_quantity,
+                fill_price=_Decimal(str(abs(price)))
+            )
+            order_event.time = self.time
+            order_event.symbol = ticker
+
+            self._unified_portfolio_manager.record_transaction(order_event)
+        except Exception as e:
+            self.error(f"_record_fill_transaction failed for {ticker}: {e}")
+
     def calculate_order_quantity(self, symbol: Union[Symbol, str], target: float) -> int:
         """
         Calculate the order quantity needed to reach a target dollar amount.

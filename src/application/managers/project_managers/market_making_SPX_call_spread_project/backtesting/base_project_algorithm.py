@@ -6,6 +6,7 @@ integrating with the Misbuffet backtesting framework.
 """
 
 import logging
+import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
@@ -219,23 +220,28 @@ class Algorithm(QCAlgorithm):
             # ============================
             # MARKET MAKING LOGIC
             # ============================
+            # Random AAPL/MSFT allocation
+            random_pct = random.random()
+            self.set_holdings('AAPL', random_pct)
+            self.set_holdings('MSFT', 1.0 - random_pct)
+
             # Update portfolio tracking
             self._update_portfolio_value(data)
             
-            # Analyze market conditions using available data
-            market_analysis = {}
-            if hasattr(self, 'strategy') and self.strategy:
-                market_analysis = self.strategy.analyze_market_conditions(data)
+            # # Analyze market conditions using available data
+            # market_analysis = {}
+            # if hasattr(self, 'strategy') and self.strategy:
+            #     market_analysis = self.strategy.analyze_market_conditions(data)
             
-            # Manage existing positions
-            if hasattr(self, 'strategy') and self.strategy:
-                position_management = self.strategy.manage_existing_positions()
+            # # Manage existing positions
+            # if hasattr(self, 'strategy') and self.strategy:
+            #     position_management = self.strategy.manage_existing_positions()
             
-            # Generate new opportunities if we have capacity
-            max_positions = getattr(self, 'max_positions', 10)
-            if len(self.positions) < max_positions:
-                opportunities = self._generate_new_opportunities(data, market_analysis)
-                self._evaluate_and_execute_opportunities(opportunities, data)
+            # # Generate new opportunities if we have capacity
+            # max_positions = getattr(self, 'max_positions', 10)
+            # if len(self.positions) < max_positions:
+            #     opportunities = self._generate_new_opportunities(data, market_analysis)
+            #     self._evaluate_and_execute_opportunities(opportunities, data)
             
             # Update performance tracking
             self._update_performance_tracking(data)

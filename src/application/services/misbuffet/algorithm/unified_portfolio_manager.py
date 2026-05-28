@@ -931,6 +931,45 @@ class UnifiedPortfolioManager:
             workflow_log.append(f"❌ Error in cascading workflow: {e}")
             return {'error': str(e), 'workflow_log': workflow_log}
 
+    def update_holding_position(self, ticker: str, new_quantity: float, fill_price: float) -> bool:
+        """
+        Upsert the position for `ticker` to `new_quantity` shares at `fill_price`.
+
+        Called after a simulated fill so the domain Position reflects the new quantity.
+        Creates the position row if it doesn't exist yet.
+        """
+        if not self._current_portfolio_entity:
+            return False
+        try:
+            portfolio_id = self._current_portfolio_entity.id
+            existing = None
+            try:
+                existing = self.position_repo.get_by_portfolio_and_symbol(portfolio_id, ticker)
+            except Exception:
+                pass
+
+            if existing and getattr(existing, 'id', None):
+                self.position_repo.update_quantity(
+                    existing.id, float(new_quantity), float(fill_price)
+                )
+            else:
+                self.position_repo._create_or_get(
+                    portfolio_id=portfolio_id,
+                    symbol=ticker,
+                    quantity=new_quantity,
+                    average_cost=fill_price,
+                    current_price=fill_price,
+                )
+            if self.logger:
+                self.logger.info(
+                    f"✅ Position for {ticker} updated to {new_quantity} shares @ ${fill_price:.2f}"
+                )
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"❌ update_holding_position failed for {ticker}: {e}")
+            return False
+
     def get_unified_state(self) -> Dict[str, Any]:
         """
         Get complete unified portfolio state.
