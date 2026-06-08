@@ -35,7 +35,6 @@ class HoldingMapper:
                 position_type=pos_model.position_type,
             )
             position.portfolio_id = pos_model.portfolio_id
-            position.holding_id = getattr(pos_model, 'holding_id', None)
         else:
             position = Position(
                 id=None,

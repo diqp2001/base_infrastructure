@@ -220,10 +220,11 @@ class Algorithm(QCAlgorithm):
             # ============================
             # MARKET MAKING LOGIC
             # ============================
-            # Random AAPL/MSFT allocation
+            # Random AAPL/MSFT allocation via UnifiedPortfolioManager → TradeManager
             random_pct = random.random()
-            self.set_holdings('AAPL', random_pct)
-            self.set_holdings('MSFT', 1.0 - random_pct)
+            if self._unified_portfolio_manager:
+                self._unified_portfolio_manager.set_holdings('AAPL', random_pct,data=data)
+                self._unified_portfolio_manager.set_holdings('MSFT', 1.0 - random_pct,data=data)
 
             # Update portfolio tracking
             self._update_portfolio_value(data)

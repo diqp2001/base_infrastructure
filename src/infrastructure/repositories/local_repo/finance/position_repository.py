@@ -1,17 +1,17 @@
 """
-Position Repository - handles CRUD operations for Position entities.
+Position Repository – CRUD operations for Position entities.
 
-Follows the standardized repository pattern with _create_or_get_* methods
-consistent with other repositories in the codebase.
+PositionModel columns: id, portfolio_id, quantity, position_type.
+Symbol-based lookups are not possible directly; navigate via Holding.position_id.
 """
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date
-from sqlalchemy.orm import Session
+from typing import List, Optional
 from decimal import Decimal
 
-from src.domain.entities.finance.holding.position import Position as PositionEntity
-from src.infrastructure.models.finance.position import PositionModel as PositionModel
+from sqlalchemy.orm import Session
+
+from src.domain.entities.finance.holding.position import Position as PositionEntity, PositionType
+from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from src.infrastructure.repositories.mappers.finance.position_mapper import PositionMapper
 from src.domain.ports.finance.position_port import PositionPort
@@ -22,355 +22,216 @@ logger = logging.getLogger(__name__)
 
 
 class PositionRepository(BaseLocalRepository, PositionPort):
-    """Repository for managing Position entities."""
-    
-    def __init__(self, session: Session, factory, mapper: PositionMapper = None):
+    """Repository for Position entities.
+
+    The underlying PositionModel carries only (portfolio_id, quantity, position_type).
+    Methods that previously relied on symbol / is_active / market_value columns are
+    preserved with graceful stubs so callers do not break.
+    """
+
+    def __init__(self, session: Session, factory=None, mapper: PositionMapper = None):
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or PositionMapper()
         self.logger = logger
-    
+
     @property
     def model_class(self):
-        """Return the SQLAlchemy model class for Position."""
         return PositionModel
-    
-    def _to_entity(self, model: PositionModel) -> PositionEntity:
-        """Convert infrastructure model to domain entity."""
+
+    def _to_entity(self, model: PositionModel) -> Optional[PositionEntity]:
         if not model:
             return None
         return self.mapper.to_domain(model)
-    
+
     def _to_model(self, entity: PositionEntity) -> PositionModel:
-        """Convert domain entity to infrastructure model."""
         if not entity:
             return None
         return self.mapper.to_orm(entity)
-        
-        return PositionModel(
-            portfolio_id=entity.portfolio_id,
-            asset_id=entity.asset_id,
-            asset_type=entity.asset_type,
-            symbol=entity.symbol,
-            quantity=float(entity.quantity),
-            average_cost=float(entity.average_cost),
-            current_price=float(entity.current_price),
-            cost_basis=float(entity.quantity * entity.average_cost),
-            market_value=float(entity.quantity * entity.current_price),
-            unrealized_pnl=float((entity.current_price - entity.average_cost) * entity.quantity),
-            position_type='LONG',
-            currency='USD',
-            is_active=True,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        )
-    
+
+    # ------------------------------------------------------------------
+    # Standard reads
+    # ------------------------------------------------------------------
+
     def get_all(self) -> List[PositionEntity]:
-        """Retrieve all Position records."""
         models = self.session.query(PositionModel).all()
-        return [self._to_entity(model) for model in models]
-    
+        return [self._to_entity(m) for m in models]
+
     def get_by_id(self, position_id: int) -> Optional[PositionEntity]:
-        """Retrieve Position by its ID."""
         model = self.session.query(PositionModel).filter(
             PositionModel.id == position_id
         ).first()
         return self._to_entity(model)
-    
+
     def get_by_portfolio_id(self, portfolio_id: int) -> List[PositionEntity]:
-        """Retrieve all positions for a specific portfolio."""
         models = self.session.query(PositionModel).filter(
-            PositionModel.portfolio_id == portfolio_id,
+            PositionModel.portfolio_id == portfolio_id
         ).all()
-        return [self._to_entity(model) for model in models]
-    
+        return [self._to_entity(m) for m in models]
+
+    # ------------------------------------------------------------------
+    # Symbol-based stubs (PositionModel has no symbol column)
+    # Navigate via HoldingModel.position_id for symbol lookups.
+    # ------------------------------------------------------------------
+
     def get_by_symbol(self, symbol: str) -> List[PositionEntity]:
-        """Retrieve all positions for a specific symbol."""
-        models = self.session.query(PositionModel).filter(
-            PositionModel.symbol == symbol.upper(),
-            PositionModel.is_active == True
-        ).all()
-        return [self._to_entity(model) for model in models]
-    
-    def get_by_portfolio_and_symbol(self, portfolio_id: int, symbol: str) -> Optional[PositionEntity]:
-        """Retrieve position for a specific portfolio and symbol."""
-        model = self.session.query(PositionModel).filter(
-            PositionModel.portfolio_id == portfolio_id,
-            PositionModel.symbol == symbol.upper(),
-            PositionModel.is_active == True
-        ).first()
-        return self._to_entity(model)
-    
-    def get_active_positions(self) -> List[PositionEntity]:
-        """Retrieve all active positions."""
-        models = self.session.query(PositionModel).filter(
-            PositionModel.is_active == True,
-            PositionModel.is_closed == False,
-            PositionModel.quantity > 0
-        ).all()
-        return [self._to_entity(model) for model in models]
-    
-    def get_by_asset_type(self, asset_type: str) -> List[PositionEntity]:
-        """Retrieve positions by asset type."""
-        models = self.session.query(PositionModel).filter(
-            PositionModel.asset_type == asset_type,
-            PositionModel.is_active == True
-        ).all()
-        return [self._to_entity(model) for model in models]
-    
+        return []
+
+    def get_by_portfolio_and_symbol(
+        self, portfolio_id: int, symbol: str
+    ) -> Optional[PositionEntity]:
+        return None
+
     def exists_position(self, portfolio_id: int, symbol: str) -> bool:
-        """Check if a position exists for a portfolio and symbol."""
-        return self.session.query(PositionModel).filter(
-            PositionModel.portfolio_id == portfolio_id,
-            PositionModel.symbol == symbol.upper(),
-            PositionModel.is_active == True
-        ).first() is not None
-    
-    def add(self, entity: PositionEntity) -> PositionEntity:
-        """Add a new Position entity to the database."""
-        # Check for existing position
-        if self.exists_position(entity.portfolio_id, entity.symbol):
-            existing = self.get_by_portfolio_and_symbol(entity.portfolio_id, entity.symbol)
-            return existing
-        
-        model = self._to_model(entity)
-        self.session.add(model)
-        self.session.commit()
-        
-        return self._to_entity(model)
-    
-    def update(self, position_id: int, **kwargs) -> Optional[PositionEntity]:
-        """Update an existing Position record."""
-        model = self.session.query(PositionModel).filter(
-            PositionModel.id == position_id
-        ).first()
-        
-        if not model:
-            return None
-        
-        for attr, value in kwargs.items():
-            if hasattr(model, attr):
-                setattr(model, attr, value)
-        
-        # Recalculate derived fields
-        if model.quantity and model.average_cost:
-            model.cost_basis = float(model.quantity * model.average_cost)
-        
-        if model.quantity and model.current_price:
-            model.market_value = float(model.quantity * model.current_price)
-            model.unrealized_pnl = float((model.current_price - model.average_cost) * model.quantity)
-            model.unrealized_pnl_percent = (
-                (model.current_price - model.average_cost) / model.average_cost * 100
-                if model.average_cost > 0 else 0
-            )
-        
-        model.updated_at = datetime.now()
-        self.session.commit()
-        return self._to_entity(model)
-    
-    def update_price(self, position_id: int, new_price: float) -> Optional[PositionEntity]:
-        """Update position with new market price."""
-        return self.update(position_id, current_price=new_price, last_valuation_date=datetime.now())
-    
-    def update_quantity(self, position_id: int, new_quantity: float, 
-                       new_average_cost: float = None) -> Optional[PositionEntity]:
-        """Update position quantity and optionally average cost."""
-        update_data = {'quantity': new_quantity}
-        if new_average_cost is not None:
-            update_data['average_cost'] = new_average_cost
-        
-        return self.update(position_id, **update_data)
-    
-    def close_position(self, position_id: int) -> Optional[PositionEntity]:
-        """Close a position."""
-        return self.update(
-            position_id, 
-            is_closed=True, 
-            is_active=False,
-            position_closed_at=datetime.now(),
-            quantity=0
-        )
-    
-    def delete(self, position_id: int) -> bool:
-        """Delete a Position record by ID."""
-        model = self.session.query(PositionModel).filter(
-            PositionModel.id == position_id
-        ).first()
-        
-        if not model:
-            return False
-        
-        self.session.delete(model)
-        self.session.commit()
-        return True
-    
-    def _get_next_available_position_id(self) -> int:
-        """
-        Get the next available ID for position creation.
-        Returns the next sequential ID based on existing database records.
-        
-        Returns:
-            int: Next available ID (defaults to 1 if no records exist)
-        """
+        return False
+
+    def get_by_asset_type(self, asset_type: str) -> List[PositionEntity]:
+        return []
+
+    def get_active_positions(self) -> List[PositionEntity]:
+        """Return all non-zero quantity positions (no is_active column on model)."""
+        models = self.session.query(PositionModel).filter(
+            PositionModel.quantity != 0
+        ).all()
+        return [self._to_entity(m) for m in models]
+
+    # ------------------------------------------------------------------
+    # Writes
+    # ------------------------------------------------------------------
+
+    def add(self, entity: PositionEntity) -> Optional[PositionEntity]:
         try:
-            max_id_result = self.session.query(PositionModel.id).order_by(PositionModel.id.desc()).first()
-            
-            if max_id_result:
-                return max_id_result[0] + 1
-            else:
-                return 1  # Start from 1 if no records exist
-                
-        except Exception as e:
-            print(f"Warning: Could not determine next available position ID: {str(e)}")
-            return 1  # Default to 1 if query fails
-    
-    def _create_or_get(self, portfolio_id: int, symbol: str, **kwargs) -> Optional[PositionEntity]:
-        """
-        Create position entity if it doesn't exist, otherwise return existing.
-        Follows the standard _create_or_get pattern from Repository_Local_CreateOrGet_CLAUDE.md
-        
-        Args:
-            portfolio_id: Portfolio ID (primary identifier component)
-            symbol: Asset symbol (primary identifier component)
-            **kwargs: Additional position parameters
-                - asset_type: Type of asset (default: "EQUITY")
-                - quantity: Position quantity (default: 0)
-                - average_cost: Average cost per unit (default: 0)
-                - current_price: Current market price (default: average_cost)
-                - asset_id: Asset ID reference (optional)
-            
-        Returns:
-            PositionEntity: Created or existing position entity
-            
-        Raises:
-            DatabaseError: If database operation fails
-            ValidationError: If required parameters are invalid
-        """
-        try:
-            # Step 1: Check if entity already exists by composite unique key
-            existing_position = self.get_by_portfolio_and_symbol(portfolio_id, symbol)
-            if existing_position:
-                self.logger.debug(f"Position {symbol} for portfolio {portfolio_id} already exists, returning existing entity")
-                return existing_position
-            
-            # Step 2: Create new entity if not found
-            self.logger.info(f"Creating new position: {symbol} for portfolio {portfolio_id}")
-            
-            # Handle defaults
-            asset_type = kwargs.get('asset_type', "EQUITY")
-            quantity = kwargs.get('quantity', 0)
-            average_cost = kwargs.get('average_cost', 0)
-            current_price = kwargs.get('current_price', average_cost)
-            asset_id = kwargs.get('asset_id')
-            
-            # Get next available ID
-            next_id = self._get_next_available_position_id()
-            
-            # Create domain entity
-            new_position = PositionEntity(
-                id=next_id,
-                portfolio_id=portfolio_id,
-                asset_id=asset_id or next_id,
-                asset_type=asset_type,
-                symbol=symbol.upper(),
-                quantity=Decimal(str(quantity)),
-                average_cost=Decimal(str(average_cost)),
-                current_price=Decimal(str(current_price))
-            )
-            
-            # Step 3: Convert to ORM model and persist
-            position_model = self.mapper.to_orm(new_position)
-            
-            self.session.add(position_model)
+            model = self._to_model(entity)
+            self.session.add(model)
             self.session.commit()
-            
-            # Step 4: Convert back to domain entity with database ID
-            persisted_entity = self.mapper.to_domain(position_model)
-            
-            self.logger.info(f"Successfully created position {symbol} for portfolio {portfolio_id} with ID {persisted_entity.id}")
-            return persisted_entity
-            
+            return self._to_entity(model)
         except Exception as e:
             self.session.rollback()
-            self.logger.error(f"Error creating/getting position {symbol} for portfolio {portfolio_id}: {str(e)}")
-            raise
-    
-    def get_portfolio_value(self, portfolio_id: int) -> Decimal:
-        """Get total market value of all positions in a portfolio."""
-        total = self.session.query(PositionModel.market_value).filter(
-            PositionModel.portfolio_id == portfolio_id,
-            PositionModel.is_active == True
-        ).all()
-        
-        return sum(Decimal(str(value[0])) for value in total if value[0])
-    
-    def get_portfolio_unrealized_pnl(self, portfolio_id: int) -> Decimal:
-        """Get total unrealized P&L for a portfolio."""
-        total = self.session.query(PositionModel.unrealized_pnl).filter(
-            PositionModel.portfolio_id == portfolio_id,
-            PositionModel.is_active == True
-        ).all()
-        
-        return sum(Decimal(str(pnl[0])) for pnl in total if pnl[0])
-    
-    def get_or_create(self, portfolio_id: int, symbol: str, asset_type: Optional[str] = None, 
-                      asset_id: Optional[int] = None, quantity: Optional[float] = None, 
-                      average_cost: Optional[float] = None) -> Optional[PositionEntity]:
-        """
-        Get or create a position with dependency resolution.
-        
-        Args:
-            portfolio_id: Portfolio ID (primary identifier component)
-            symbol: Asset symbol (primary identifier component)
-            asset_type: Type of asset (optional, defaults to "EQUITY")
-            asset_id: Asset ID reference (optional)
-            quantity: Position quantity (optional, defaults to 0)
-            average_cost: Average cost per unit (optional, defaults to 0)
-            
-        Returns:
-            Domain position entity or None if creation failed
-        """
-        try:
-            # First try to get existing position by portfolio and symbol
-            existing = self.get_by_portfolio_and_symbol(portfolio_id, symbol)
-            if existing:
-                return existing
-            
-            # Resolve dependencies
-            # Validate portfolio exists - get or create if needed
-            if not portfolio_id:
-                from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repository import PortfolioRepository
-                portfolio_repo = PortfolioRepository(self.session)
-                default_portfolio = portfolio_repo.get_or_create("Default Portfolio")
-                portfolio_id = default_portfolio.id if default_portfolio else 1
-            
-            # Get or create asset dependency if not provided
-            if not asset_id:
-                from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository
-                share_repo = CompanyShareRepository(self.session)
-                asset = share_repo.get_or_create(symbol, symbol)
-                asset_id = asset.id if asset else 1
-            
-            # Set defaults
-            asset_type = asset_type or "EQUITY"
-            quantity = quantity or 0
-            average_cost = average_cost or 0
-            
-            # Create new position using the standardized _create_or_get method
-            return self._create_or_get(
-                portfolio_id=portfolio_id,
-                symbol=symbol,
-                asset_type=asset_type,
-                quantity=quantity,
-                average_cost=average_cost,
-                asset_id=asset_id
-            )
-            
-        except Exception as e:
-            print(f"Error in get_or_create for position (portfolio: {portfolio_id}, symbol: {symbol}): {e}")
+            self.logger.error(f"PositionRepository.add failed: {e}")
             return None
 
-    # Standard CRUD interface
-    def create(self, entity: PositionEntity) -> PositionEntity:
-        """Create new position entity in database (standard CRUD interface)."""
+    def update(self, position_id: int, **kwargs) -> Optional[PositionEntity]:
+        """Update quantity and/or position_type — the only mutable columns."""
+        try:
+            model = self.session.query(PositionModel).filter(
+                PositionModel.id == position_id
+            ).first()
+            if not model:
+                return None
+
+            allowed = {'quantity', 'position_type'}
+            for attr, value in kwargs.items():
+                if attr in allowed:
+                    setattr(model, attr, value)
+
+            self.session.commit()
+            return self._to_entity(model)
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"PositionRepository.update {position_id} failed: {e}")
+            return None
+
+    def update_quantity(
+        self, position_id: int, new_quantity: float, new_average_cost: float = None
+    ) -> Optional[PositionEntity]:
+        """Update position quantity (average_cost is not persisted on this model)."""
+        return self.update(position_id, quantity=int(new_quantity))
+
+    def update_price(self, position_id: int, new_price: float) -> Optional[PositionEntity]:
+        """No-op: PositionModel has no price column."""
+        return self.get_by_id(position_id)
+
+    def close_position(self, position_id: int) -> Optional[PositionEntity]:
+        """Zero-out quantity to represent a closed position."""
+        return self.update(position_id, quantity=0)
+
+    def delete(self, position_id: int) -> bool:
+        try:
+            model = self.session.query(PositionModel).filter(
+                PositionModel.id == position_id
+            ).first()
+            if not model:
+                return False
+            self.session.delete(model)
+            self.session.commit()
+            return True
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"PositionRepository.delete {position_id} failed: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Create-or-get
+    # ------------------------------------------------------------------
+
+    def _get_next_available_position_id(self) -> int:
+        result = self.session.query(PositionModel.id).order_by(PositionModel.id.desc()).first()
+        return (result[0] + 1) if result else 1
+
+    def _create_or_get(self, portfolio_id: int, **kwargs) -> Optional[PositionEntity]:
+        """
+        Create a new Position for the given portfolio.
+
+        Accepts:
+            quantity      int   (default 0)
+            position_type str or PositionType  (default LONG)
+        """
+        try:
+            quantity = int(kwargs.get('quantity', 0))
+            pt_raw = kwargs.get('position_type', PositionType.LONG)
+            if isinstance(pt_raw, str):
+                try:
+                    position_type = PositionType[pt_raw.upper()]
+                except KeyError:
+                    position_type = PositionType.LONG
+            else:
+                position_type = pt_raw
+
+            entity = PositionEntity(
+                id=None,
+                quantity=quantity,
+                position_type=position_type,
+            )
+            entity.portfolio_id = portfolio_id
+
+            model = self.mapper.to_orm(entity)
+            self.session.add(model)
+            self.session.commit()
+
+            self.logger.info(
+                f"Created Position id={model.id} portfolio={portfolio_id} qty={quantity}"
+            )
+            return self.mapper.to_domain(model)
+
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(
+                f"PositionRepository._create_or_get portfolio={portfolio_id} failed: {e}"
+            )
+            return None
+
+    def get_or_create(
+        self,
+        portfolio_id: int,
+        symbol: str,
+        asset_type: Optional[str] = None,
+        asset_id: Optional[int] = None,
+        quantity: Optional[float] = None,
+        average_cost: Optional[float] = None,
+    ) -> Optional[PositionEntity]:
+        """Compatibility shim — creates a new position (symbol not stored on model)."""
+        return self._create_or_get(portfolio_id=portfolio_id, quantity=quantity or 0)
+
+    # ------------------------------------------------------------------
+    # Aggregate stubs (no financial value columns on model)
+    # ------------------------------------------------------------------
+
+    def get_portfolio_value(self, portfolio_id: int) -> Decimal:
+        return Decimal('0')
+
+    def get_portfolio_unrealized_pnl(self, portfolio_id: int) -> Decimal:
+        return Decimal('0')
+
+    # Standard CRUD alias
+    def create(self, entity: PositionEntity) -> Optional[PositionEntity]:
         return self.add(entity)

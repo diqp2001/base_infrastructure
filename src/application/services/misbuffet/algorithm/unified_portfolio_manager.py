@@ -15,7 +15,6 @@ from decimal import Decimal
 from application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
-from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.holding.holding import Holding
 from src.domain.entities.finance.holding.position import Position, PositionType
@@ -61,13 +60,21 @@ class UnifiedPortfolioManager:
         
         self._current_portfolio_entity: Optional[Portfolio] = None
         self._order_ticket_mapping: Dict[str, str] = {}  # QC order_id -> domain order_id
-        
+        self.portfolio_value_factor = None  # set by register_portfolio_with_config
+
+        # Algorithm reference injected after construction (avoids circular init)
+        self._algorithm = None
+
         # Repository shortcuts
         self.portfolio_repo = self.repository_factory.portfolio_local_repo
         self.holding_repo = self.repository_factory.holding_local_repo
         self.position_repo = self.repository_factory.position_local_repo
         self.order_repo = self.repository_factory.order_local_repo
         self.transaction_repo = self.repository_factory.transaction_local_repo
+
+        # TradeManager is the execution engine; UPM is its orchestrator
+        from .trade_manager import TradeManager
+        self._trade_manager = TradeManager(self.repository_factory, logger=logger)
 
     def register_portfolio(
         self, 
@@ -493,33 +500,31 @@ class UnifiedPortfolioManager:
                 self.logger.error(f"❌ Transaction recording failed: {e}")
             return None
 
-    def get_portfolio_value(self):
+    def get_portfolio_value(self) -> float:
         """
-        Get current total portfolio value using domain entities.
-        
-        Returns:
-            Total portfolio value including cash and holdings
+        Return current total portfolio value as a float.
+
+        Primary source: QC algorithm's live portfolio tracker (cash + open positions
+        at market price) — always accurate during a backtest or live run.
+        Fallback: initial_cash stored on the domain Portfolio entity.
         """
-        
-            
-        try:
-            #with portfolio repo get holdings by portfolio id method that returns holding entities with positions and assets already linked
-            #with portfolio repo get total portfolio value method that calculates total value based on holdings and cash balance
-            
-            entity_config = {
-                "entity_class": FactorValue,
-                "entity": self._current_portfolio_entity,
-                "entity_symbol": self._current_portfolio_entity.name,
-                "factor":self.portfolio_value_factor
-            }
-            portfolio_value=self.market_data_service._create_or_get(entity_config)
-            
-            return portfolio_value
-            
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"❌ Portfolio value calculation failed: {e}")
-            return None
+        # Best source: the running algorithm already tracks total_portfolio_value
+        if self._algorithm is not None:
+            try:
+                return float(self._algorithm.portfolio.total_portfolio_value)
+            except Exception:
+                pass
+
+        # Fallback: initial cash from the domain entity (before any trades)
+        if self._current_portfolio_entity is not None:
+            try:
+                return float(
+                    getattr(self._current_portfolio_entity, 'initial_cash', 0) or 0
+                )
+            except Exception:
+                pass
+
+        return 0.0
 
     def get_active_positions(self) -> List[Dict[str, Any]]:
         """
@@ -931,6 +936,135 @@ class UnifiedPortfolioManager:
             workflow_log.append(f"❌ Error in cascading workflow: {e}")
             return {'error': str(e), 'workflow_log': workflow_log}
 
+    def set_algorithm(self, algorithm) -> None:
+        """Inject the owning QCAlgorithm after construction (avoids circular init)."""
+        self._algorithm = algorithm
+
+    def set_holdings(self, ticker: str, percentage: float, data=None, tag: str = "") -> bool:
+        """
+        Orchestrate a portfolio-weight trade for `ticker`.
+
+        This is the single entry-point called from the algorithm layer.
+        UPM resolves the inputs (price, quantities) and delegates the
+        actual persistence pipeline to TradeManager.
+
+        Args:
+            ticker:     asset symbol string (e.g. 'AAPL')
+            percentage: target portfolio weight (0.0 – 1.0)
+            data:       current Slice object from on_data – prices are read from
+                        data.bars[symbol].close when present
+            tag:        optional order tag
+        """
+        if not self._current_portfolio_entity:
+            if self.logger:
+                self.logger.warning("set_holdings: no portfolio registered")
+            return False
+
+        # Portfolio value
+        try:
+            pv = self.get_portfolio_value()
+            portfolio_value = float(getattr(pv, "value", pv))
+        except Exception:
+            portfolio_value = 0.0
+
+        if portfolio_value <= 0:
+            if self.logger:
+                self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value}")
+            return False
+
+        # Price resolution: Slice bars first, then algorithm's resolver as fallback
+        price = self._price_from_slice(ticker, data)
+        if not price or price <= 0:
+            if self._algorithm and hasattr(self._algorithm, "_resolve_asset_price"):
+                price = self._algorithm._resolve_asset_price(ticker)
+
+        if not price or price <= 0:
+            if self.logger:
+                self.logger.warning(f"set_holdings: no price available for {ticker}")
+            return False
+
+        target_qty = int(portfolio_value * percentage / price)
+        current_qty = self._get_current_position_qty(ticker)
+        order_qty = target_qty - current_qty
+
+        if order_qty == 0:
+            return True
+
+        current_time = (
+            self._algorithm.time
+            if self._algorithm and hasattr(self._algorithm, "time")
+            else datetime.now()
+        )
+
+        if not self._algorithm:
+            if self.logger:
+                self.logger.warning("set_holdings: algorithm not injected, cannot submit order")
+            return False
+
+        return self._trade_manager.execute_trade(
+            ticker=ticker,
+            order_qty=order_qty,
+            price=price,
+            portfolio_id=self._current_portfolio_entity.id,
+            current_time=current_time,
+            submit_order_fn=self._algorithm.market_order,
+            tag=tag,
+        )
+
+    def _price_from_slice(self, ticker: str, data) -> Optional[float]:
+        """
+        Extract the close price for `ticker` from a Slice object.
+
+        data.bars keys are Symbol objects whose `.value` attribute holds the
+        ticker string (e.g. 'AAPL').  Returns None when data is absent or the
+        ticker has no bar in this slice.
+        """
+        if data is None or not hasattr(data, "bars"):
+            return None
+        ticker_upper = ticker.upper()
+        for symbol, bar in data.bars.items():
+            sym_value = getattr(symbol, "value", str(symbol)).upper()
+            if sym_value == ticker_upper:
+                close = getattr(bar, "close", None)
+                if close is not None:
+                    return float(close)
+        return None
+
+    def _get_current_position_qty(self, ticker: str) -> int:
+        """
+        Return the current Position quantity for ticker.
+
+        PositionModel has no symbol column — navigate via:
+          FinancialAsset (symbol) → Holding (container+asset) → Position (position_id)
+        """
+        try:
+            from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+            from src.infrastructure.models.finance.holding.holding import HoldingModel
+            from src.infrastructure.models.finance.position import PositionModel
+
+            session = self.portfolio_repo.session
+
+            asset = session.query(FinancialAssetModel).filter(
+                FinancialAssetModel.symbol == ticker
+            ).first()
+            if not asset:
+                return 0
+
+            holding = session.query(HoldingModel).filter(
+                HoldingModel.container_id == self._current_portfolio_entity.id,
+                HoldingModel.asset_id == asset.id,
+            ).first()
+            if not holding or not holding.position_id:
+                return 0
+
+            pos = session.query(PositionModel).filter(
+                PositionModel.id == holding.position_id
+            ).first()
+            return int(pos.quantity) if pos else 0
+
+        except Exception:
+            return 0
+
     def update_holding_position(self, ticker: str, new_quantity: float, fill_price: float) -> bool:
         """
         Upsert the position for `ticker` to `new_quantity` shares at `fill_price`.
@@ -988,7 +1122,7 @@ class UnifiedPortfolioManager:
                     'start_date': self._current_portfolio_entity.start_date.isoformat(),
                     'end_date': self._current_portfolio_entity.end_date.isoformat() if self._current_portfolio_entity.end_date else None
                 },
-                'portfolio_value': float(self.get_portfolio_value().value),
+                'portfolio_value': float(self.get_portfolio_value()),
                 'cash_balance': float(self._get_cash_balance()),
                 'active_positions': self.get_active_positions(),
                 'orders_summary': self.get_orders_summary(),

@@ -274,16 +274,12 @@ class QCAlgorithm:
         Returns:
             OrderTicket for tracking the order
         """
-        # Submit the order
-        ticket = self._submit_order(MarketOrder, symbol, quantity, tag=tag)
-        
-        # Register with unified portfolio manager if available
-        if self._unified_portfolio_manager:
-            order_entity = self.register_order(ticket)
-            if order_entity:
-                self.debug(f"✅ Order registered with unified portfolio system: {order_entity.id}")
-        
-        return ticket
+        # Submit the order to the QC execution engine only.
+        # Domain Order/Transaction/Position persistence is handled exclusively by
+        # TradeManager (called by UnifiedPortfolioManager.set_holdings).
+        # Calling register_order here would double-register every order that
+        # originates from set_holdings and fail with a holding_id NOT NULL error.
+        return self._submit_order(MarketOrder, symbol, quantity, tag=tag)
     
     def limit_order(self, symbol: Union[Symbol, str], quantity: int, limit_price: float,
                    tag: str = "") -> OrderTicket:
@@ -465,10 +461,8 @@ class QCAlgorithm:
         """
         Set holdings to a target percentage of portfolio.
 
-        Full pipeline:
-          1. Create + register domain Order entity via market_order()
-          2. Simulate immediate fill and record domain Transaction entity
-          3. Upsert domain Position entity to the new quantity
+        Delegates the full Order → Transaction → Position pipeline to
+        UnifiedPortfolioManager, which calls TradeManager to execute it.
 
         Args:
             symbol: Ticker string or Symbol object
@@ -478,48 +472,23 @@ class QCAlgorithm:
         """
         ticker = symbol if isinstance(symbol, str) else getattr(symbol, 'value', str(symbol))
 
-        # --- portfolio value ---
-        if self.is_unified_portfolio_enabled():
-            portfolio_value = self.get_unified_portfolio_value()
-        else:
-            portfolio_value = float(self.portfolio.total_portfolio_value)
-
-        if portfolio_value <= 0:
-            self.error(f"set_holdings: invalid portfolio value {portfolio_value}")
-            return
-
-        # --- price ---
-        price = self._resolve_asset_price(ticker)
-        if not price or price <= 0:
-            self.error(f"set_holdings: no valid price for {ticker}")
-            return
-
-        # --- quantities ---
-        target_quantity = int(portfolio_value * percentage / price)
-        current_quantity = self._resolve_current_quantity(ticker)
-        order_quantity = target_quantity - current_quantity
-
-        if order_quantity == 0:
-            return
-
         if liquidate_existing_holdings:
             self.liquidate(tag="Liquidation for rebalancing")
 
-        # 1. Create in-memory Order + persist domain Order entity
-        ticket = self.market_order(ticker, order_quantity, tag=tag or f"set_holdings_{ticker}")
-
-        if not ticket:
-            return
-
-        # 2. Record Transaction + 3. Update Position
         if self._unified_portfolio_manager:
-            self._record_fill_transaction(ticket, ticker, order_quantity, price)
-            self._unified_portfolio_manager.update_holding_position(ticker, target_quantity, price)
-
-        self.debug(
-            f"set_holdings {ticker} → {percentage:.2%} "
-            f"target={target_quantity} qty_change={order_quantity:+d} @ ${price:.2f}"
-        )
+            self._unified_portfolio_manager.set_holdings(ticker, percentage, tag=tag)
+        else:
+            # Fallback when no domain persistence is available
+            price = self._resolve_asset_price(ticker)
+            if not price or price <= 0:
+                self.error(f"set_holdings: no valid price for {ticker}")
+                return
+            pv = float(self.portfolio.total_portfolio_value)
+            sym = next((s for s in self.securities.keys() if getattr(s, 'value', str(s)) == ticker), None)
+            current_qty = int(self.portfolio.get_holding(sym).quantity) if sym and self.portfolio.get_holding(sym) else 0
+            order_qty = int(pv * percentage / price) - current_qty
+            if order_qty != 0:
+                self.market_order(ticker, order_qty, tag=tag)
     
     def _resolve_asset_price(self, ticker: str) -> Optional[float]:
         """Return current price for ticker, checking securities dict then data frame/slice."""
@@ -842,8 +811,9 @@ class QCAlgorithm:
         # Initialize unified portfolio manager with repository factory from EntityService
         if entity_service and entity_service.repository_factory and not self._unified_portfolio_manager:
             self._unified_portfolio_manager = UnifiedPortfolioManager(entity_service=entity_service, market_data_service = self._market_data_service, logger=self.logger)
+            self._unified_portfolio_manager.set_algorithm(self)
             self.debug("✅ Unified portfolio management system initialized via EntityService")
-        
+
         self.debug("EntityService injected successfully")
         
     @property
