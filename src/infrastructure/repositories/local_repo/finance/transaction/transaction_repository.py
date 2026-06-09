@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime, date
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect
 
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 from src.domain.entities.finance.transaction.transaction import Transaction as TransactionEntity
@@ -338,3 +339,83 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
                 
         except Exception as e:
             logger.error(f"Error updating holding for transaction {transaction.id}: {str(e)}")
+
+    def get_related_entities(self, transaction_id: int) -> List:
+        """
+        Get all entities related to a specific transaction using SQLAlchemy inspect
+        to discover direct and indirect relationships.
+
+        Args:
+            transaction_id: The transaction ID to get related entities for
+
+        Returns:
+            List of related entities found through relationship inspection
+        """
+        try:
+            # Get the transaction model to inspect its relationships
+            transaction_model = self.session.query(TransactionModel).filter_by(id=transaction_id).first()
+            if not transaction_model:
+                logger.warning(f"Transaction {transaction_id} not found")
+                return []
+
+            related_entities = []
+            
+            # Use SQLAlchemy inspect to get relationship information
+            mapper = inspect(TransactionModel)
+            
+            # Process direct relationships (transaction -> related entity)
+            for relationship_name, relationship in mapper.relationships.items():
+                try:
+                    # Get the related entity through the relationship
+                    related_value = getattr(transaction_model, relationship_name, None)
+                    
+                    if related_value is not None:
+                        if hasattr(related_value, '__iter__') and not isinstance(related_value, str):
+                            # Collection relationship (one-to-many, many-to-many)
+                            for item in related_value:
+                                if item:
+                                    entity = self.mapper.to_domain(item) if hasattr(self.mapper, 'to_domain') else item
+                                    if entity:
+                                        related_entities.append(entity)
+                        else:
+                            # Single relationship (many-to-one, one-to-one)
+                            entity = self.mapper.to_domain(related_value) if hasattr(self.mapper, 'to_domain') else related_value
+                            if entity:
+                                related_entities.append(entity)
+                                
+                except Exception as rel_error:
+                    logger.debug(f"Could not access relationship {relationship_name}: {rel_error}")
+                    continue
+
+            # Process indirect relationships (entities that reference this transaction)
+            # Look for entities that have foreign keys pointing to this transaction
+            transaction_table = mapper.mapped_table
+            
+            for table_name, table in transaction_table.metadata.tables.items():
+                try:
+                    for column in table.columns:
+                        # Check if column is a foreign key to transaction table
+                        if column.foreign_keys:
+                            for fk in column.foreign_keys:
+                                if fk.column.table.name == transaction_table.name and str(fk.column.name) == 'id':
+                                    # Found a table that references transactions
+                                    # Query for entities that reference this transaction
+                                    referencing_models = self.session.query(table).filter(
+                                        column == transaction_id
+                                    ).all()
+                                    
+                                    for ref_model in referencing_models:
+                                        # Convert to entity if mapper available, otherwise use raw model
+                                        if hasattr(ref_model, '__table__'):
+                                            related_entities.append(ref_model)
+                                        
+                except Exception as indirect_error:
+                    logger.debug(f"Could not process indirect relationships for table {table_name}: {indirect_error}")
+                    continue
+
+            logger.info(f"Retrieved {len(related_entities)} related entities for transaction {transaction_id}")
+            return related_entities
+            
+        except Exception as e:
+            logger.error(f"Error retrieving related entities for transaction {transaction_id}: {str(e)}")
+            return []
