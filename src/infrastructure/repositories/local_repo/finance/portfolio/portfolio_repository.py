@@ -326,7 +326,6 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
                     portfolio_id  = portfolio_id,
                     quantity      = int(initial_cash),   # PositionModel.quantity is Integer
                     position_type = PositionType.LONG,
-                    holding_id    = holding_model.id,    # link to holding
                 )
                 self.session.add(position_model)
                 self.session.flush()
@@ -335,11 +334,9 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
                     f"quantity={initial_cash} {currency_code}"
                 )
 
-            # 4. Ensure the bidirectional FK is set on both sides.
+            # 4. Ensure holding.position_id FK is set.
             if holding_model.position_id != position_model.id:
                 holding_model.position_id = position_model.id
-            if getattr(position_model, 'holding_id', None) != holding_model.id:
-                position_model.holding_id = holding_model.id
 
             self.session.commit()
 

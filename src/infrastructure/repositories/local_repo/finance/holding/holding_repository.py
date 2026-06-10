@@ -44,6 +44,10 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         models = self.session.query(HoldingModel).filter_by(container_id=container_id).all()
         return [self.mapper.to_entity(model) for model in models]
 
+    def get_by_portfolio_id(self, portfolio_id: int) -> List[HoldingModel]:
+        """Get all holdings for a portfolio (alias for get_by_container_id)."""
+        return self.get_by_container_id(portfolio_id)
+
     def get_active_holdings(self, container_id: int = None) -> List[HoldingModel]:
         """Get active holdings (no end_date or end_date in future)"""
         query = self.session.query(HoldingModel).filter(

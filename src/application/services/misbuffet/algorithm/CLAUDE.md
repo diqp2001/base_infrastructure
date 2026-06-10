@@ -70,3 +70,75 @@ QCAlgorithm.on_data(data)
             └─ _update_position(ticker, qty, portfolio_id)
                  └─ navigate Holding.position_id → UPDATE positions.quantity
 ```
+
+---
+
+## Portfolio Value FactorValue Snapshot Pattern
+
+Called from `get_portfolio_value()` at the start of each `set_holdings` call
+(guarded by `_last_pv_snapshot_time` — at most once per algorithm bar).
+
+### Resolution Chain
+
+```
+UnifiedPortfolioManager.get_portfolio_value()
+  └─ fv_repo.resolution_service.resolve_factor_value(
+         portfolio_value_factor, portfolio_entity, current_time
+     )
+       └─ _resolve_factor_with_dependencies()
+            └─ dependency 'holding_value' not in DB
+                 └─ _handle_missing_dependency(factor_id=holding_value_id, portfolio_entity)
+                      └─ _get_related_entities(portfolio_entity)
+                           └─ PortfolioRepository.get_related_entities(portfolio_id)
+                                └─ HoldingRepository.get_by_container_id(portfolio_id)
+                      └─ for each holding → _resolve_holding_value_factor()
+                           ├─ price  = _get_asset_price_for_holding_value()
+                           │    └─ Strategy 3: currency asset → price = 1.0
+                           └─ qty    = _get_holding_quantity()
+                                └─ holding.position.quantity (via position_rel)
+                      └─ returns transient FactorValue(value=sum(price×qty))
+            └─ portfolio_value_factor.calculate({'holding_value': total}) → Decimal
+            └─ _create_factor_value() → persisted FactorValue ✓
+```
+
+### Sub-Portfolio Holdings (e.g. `CompanySharePortfolioPortfolioHolding`)
+
+A holding's `asset` can itself be another portfolio — not a financial instrument.
+`CompanySharePortfolioPortfolioHolding` stores a `CompanySharePortfolio` as its
+asset inside a parent `Portfolio`.  This creates a tree:
+
+```
+Portfolio (main)
+  └─ CompanySharePortfolioPortfolioHolding
+       └─ asset = CompanySharePortfolio (sub-portfolio)
+            ├─ Holding A  →  AAPL position
+            ├─ Holding B  →  GOOGL position
+            └─ Holding C  →  MSFT position
+```
+
+When computing market value for such a holding, price × quantity is **not**
+meaningful at the top level.  The correct approach is:
+
+1. Detect that `holding.asset` is a `Portfolio` / `CompanySharePortfolio` subtype
+   (check `type(holding.asset).__name__` or use `isinstance`).
+2. Recursively call `_get_related_entities(holding.asset)` to retrieve all
+   holdings of the sub-portfolio.
+3. Compute each sub-holding's market value (`price × position.quantity`) and sum
+   them — that sum is the market value of the sub-portfolio holding.
+4. Propagate this value upward to the parent portfolio total.
+
+**Key rule**: `_resolve_holding_value_factor` must check whether the holding's
+asset is a portfolio type before attempting a price lookup.  If it is, delegate
+to sub-holding aggregation instead of a direct FactorValue price lookup.
+
+### Key Invariants
+
+- The cash holding (currency asset, `quantity = initial_cash`) **must exist** before
+  the first call.  Created by `PortfolioRepository._create_cash_holding()` during
+  `_create_or_get()`.  If missing, `_get_related_entities` returns `[]` and the
+  snapshot silently fails.
+- `PositionModel` has **no** `holding_id` column — columns are
+  `(id, portfolio_id, quantity, position_type)` only.  The FK link is
+  one-directional: `HoldingModel.position_id → positions.id`.
+- Currency holdings resolve price = 1.0 via Strategy 3 in
+  `_get_asset_price_for_holding_value`.

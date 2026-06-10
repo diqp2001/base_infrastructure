@@ -57,7 +57,7 @@ class TradeManager:
             return False
 
         # 2. Persist domain Order entity
-        domain_order = self._register_order(ticket, portfolio_id, ticker)
+        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time)
 
         # 3. Persist domain Transaction entity
         if domain_order:
@@ -76,20 +76,20 @@ class TradeManager:
     # Private mechanics
     # ------------------------------------------------------------------
 
-    def _register_order(self, ticket, portfolio_id: int, ticker: str):
+    def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime):
         """Persist a domain Order entity from the QC OrderTicket."""
         try:
             qty = ticket.quantity
 
             # Resolve FK dependencies before the INSERT to satisfy NOT NULL constraints
-            holding_id = self._resolve_holding_id(ticker, portfolio_id)
-            account_id = self._resolve_account_id()
+            holding_id = self._resolve_holding_id(ticker, portfolio_id, current_time)
+            account_id = self._resolve_account_id(current_time)
 
             params = {
                 "order_type": "MARKET",           # string name avoids enum .upper() error
                 "side": "BUY" if qty > 0 else "SELL",
                 "quantity": abs(qty),
-                "created_at": getattr(ticket, "time", datetime.now()),
+                "created_at": current_time,       # simulation time, not wall clock
                 "status": "FILLED",
                 "symbol": ticker,
                 "holding_id": holding_id,
@@ -108,7 +108,7 @@ class TradeManager:
                 self.logger.error(f"TradeManager._register_order failed: {e}")
             return None
 
-    def _resolve_holding_id(self, ticker: str, portfolio_id: int):
+    def _resolve_holding_id(self, ticker: str, portfolio_id: int, current_time: datetime):
         """
         Resolve or create the Holding for (portfolio_id, ticker).
 
@@ -154,11 +154,11 @@ class TradeManager:
             session.add(pos)
             session.flush()  # assigns pos.id without committing the outer transaction
 
-            # 4. Create Holding referencing the new position
+            # 4. Create Holding referencing the new position — use simulation time
             holding = HoldingModel(
                 asset_id=asset_id,
                 container_id=portfolio_id,
-                start_date=datetime.now(),
+                start_date=current_time,
                 position_id=pos.id,
             )
             session.add(holding)
@@ -174,7 +174,7 @@ class TradeManager:
                 self.logger.error(f"TradeManager._resolve_holding_id failed for {ticker}: {e}")
             return None
 
-    def _resolve_account_id(self):
+    def _resolve_account_id(self, current_time: datetime):
         """Return the PK of the first available account row, creating one if none exists."""
         try:
             from src.infrastructure.models.finance.account import AccountModel
@@ -200,7 +200,7 @@ class TradeManager:
                 account_type='CASH',    # string avoids SQLEnum .upper() error
                 status='ACTIVE',        # string avoids SQLEnum .upper() error
                 currency_id=currency.id,
-                created_at=datetime.now(),
+                created_at=current_time,  # simulation time, not wall clock
             )
             session.add(new_account)
             session.commit()
@@ -234,7 +234,7 @@ class TradeManager:
             params = {
                 "date": current_time,
                 "transaction_type": "MARKET_ORDER",  # string avoids enum .upper() error
-                "account_id": self._resolve_account_id(),
+                "account_id": self._resolve_account_id(current_time),
                 "trade_date": trade_date,
                 "value_date": trade_date,
                 "settlement_date": trade_date,

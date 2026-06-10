@@ -102,3 +102,13 @@ class CompanySharePortfolioRepository(CompanySharePortfolioPort):
         self.session.delete(obj)
         self.session.commit()
         return True
+
+    def get_related_entities(self, portfolio_id: int) -> List:
+        """Return all holdings whose container_id matches this sub-portfolio."""
+        try:
+            from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
+            holding_repo = HoldingRepository(self.session, self.factory)
+            return holding_repo.get_by_container_id(portfolio_id)
+        except Exception as e:
+            print(f"Error retrieving holdings for CompanySharePortfolio {portfolio_id}: {e}")
+            return []

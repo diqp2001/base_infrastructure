@@ -614,6 +614,15 @@ class FactorValueResolutionService:
             asset, dep_factor_entity, date_str, repository_type
         )
         if price is None:
+            # Asset might be a sub-portfolio (e.g. CompanySharePortfolioPortfolioHolding)
+            # rather than a directly-priced instrument.  Try to resolve it as a portfolio
+            # and aggregate its own holdings' values recursively.
+            asset_id = getattr(asset, 'id', None)
+            sub_portfolio = self._try_get_sub_portfolio(asset_id)
+            if sub_portfolio is not None:
+                return self._aggregate_sub_portfolio_holding_value(
+                    dep_factor_entity, sub_portfolio, date_str, repository_type
+                )
             self.logger.error(
                 f"Could not find price factor value for asset {getattr(asset, 'id', '?')} "
                 f"({type(asset).__name__}) at {date_str}"
@@ -823,6 +832,81 @@ class FactorValueResolutionService:
                 self.logger.debug(f"Strategy-3 currency check failed: {e}")
 
         return None
+
+    def _try_get_sub_portfolio(self, asset_id) -> Optional[Any]:
+        """
+        Return a portfolio domain entity for asset_id if it maps to any known
+        portfolio type (CompanySharePortfolio, DerivativePortfolio, etc.); None otherwise.
+
+        Checked in specificity order so the most-derived type wins first.
+        """
+        if not asset_id:
+            return None
+        repo_keys = (
+            'company_share_portfolio_local_repo',
+            'company_share_option_portfolio_local_repo',
+            'company_share_portfolio_option_portfolio_local_repo',
+            'derivative_portfolio_local_repo',
+            'portfolio_local_repo',
+        )
+        for key in repo_keys:
+            repo = getattr(self.factory, key, None)
+            if repo and hasattr(repo, 'get_by_id'):
+                try:
+                    result = repo.get_by_id(asset_id)
+                    if result is not None:
+                        return result
+                except Exception:
+                    pass
+        return None
+
+    def _aggregate_sub_portfolio_holding_value(
+        self,
+        dep_factor_entity,
+        sub_portfolio,
+        date_str: str,
+        repository_type: str,
+    ) -> Optional[FactorValue]:
+        """
+        Compute the total market value of a sub-portfolio by recursively summing
+        the holding values of all its direct holdings.
+
+        Called when a holding's asset is itself a portfolio (e.g.
+        CompanySharePortfolioPortfolioHolding), so the normal price × quantity
+        formula does not apply at the parent level.
+        """
+        sub_holdings = self._get_related_entities(sub_portfolio, repository_type)
+        if not sub_holdings:
+            self.logger.warning(
+                f"Sub-portfolio {getattr(sub_portfolio, 'id', '?')} "
+                f"({type(sub_portfolio).__name__}) has no holdings; using value 0"
+            )
+            parsed_date = self._parse_date(date_str)
+            return FactorValue(
+                id=None,
+                factor_id=dep_factor_entity.id,
+                entity=sub_portfolio,
+                date=parsed_date,
+                value='0',
+            )
+
+        total = Decimal('0')
+        for sub_holding in sub_holdings:
+            sub_val = self._resolve_holding_value_factor(
+                dep_factor_entity, sub_holding, date_str, repository_type
+            )
+            if sub_val is not None:
+                total += Decimal(str(sub_val.value))
+            else:
+                self.logger.warning(
+                    f"Sub-holding {getattr(sub_holding, 'id', '?')} value could not be "
+                    "resolved; treating as 0 for this sub-portfolio aggregation"
+                )
+
+        parsed_date = self._parse_date(date_str)
+        return self._create_factor_value(
+            dep_factor_entity, sub_portfolio, parsed_date, str(total), repository_type
+        )
 
     def _get_related_entities(self, parent_entity, repository_type: str) -> List[Any]:
         """

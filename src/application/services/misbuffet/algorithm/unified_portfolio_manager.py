@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
 from src.domain.entities.factor.factor import Factor
+from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
 from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.finance.holding.holding import Holding
@@ -61,6 +62,7 @@ class UnifiedPortfolioManager:
         self._current_portfolio_entity: Optional[Portfolio] = None
         self._order_ticket_mapping: Dict[str, str] = {}  # QC order_id -> domain order_id
         self.portfolio_value_factor = None  # set by register_portfolio_with_config
+        self._last_pv_snapshot_time = None  # guards one FactorValue write per bar
 
         # Algorithm reference injected after construction (avoids circular init)
         self._algorithm = None
@@ -502,29 +504,67 @@ class UnifiedPortfolioManager:
 
     def get_portfolio_value(self) -> float:
         """
-        Return current total portfolio value as a float.
+        Return current total portfolio value as a float and persist a pre-trade FactorValue snapshot.
 
-        Primary source: QC algorithm's live portfolio tracker (cash + open positions
-        at market price) — always accurate during a backtest or live run.
-        Fallback: initial_cash stored on the domain Portfolio entity.
+        Flow (Option A — algorithm-first):
+          1. Read total_portfolio_value from the QC algorithm (authoritative).
+          2. Source active positions via get_active_positions() as factor dependencies.
+          3. Compute portfolio_value_factor.calculate(dependencies) from those values.
+          4. Persist via the FactorValue resolution service (once per algorithm bar).
+          5. Return the authoritative float from step 1.
         """
-        # Best source: the running algorithm already tracks total_portfolio_value
+        total: float = 0.0
+
         if self._algorithm is not None:
             try:
-                return float(self._algorithm.portfolio.total_portfolio_value)
+                total = float(self._algorithm.portfolio.total_portfolio_value)
             except Exception:
                 pass
 
-        # Fallback: initial cash from the domain entity (before any trades)
-        if self._current_portfolio_entity is not None:
+        if total == 0.0 and self._current_portfolio_entity is not None:
             try:
-                return float(
-                    getattr(self._current_portfolio_entity, 'initial_cash', 0) or 0
-                )
+                total = float(getattr(self._current_portfolio_entity, 'initial_cash', 0) or 0)
             except Exception:
                 pass
 
-        return 0.0
+        # Persist pre-trade snapshot — at most once per algorithm bar
+        if (
+            self.portfolio_value_factor is not None
+            and self._current_portfolio_entity is not None
+            and getattr(self.portfolio_value_factor, 'id', None)
+            and getattr(self._current_portfolio_entity, 'id', None)
+        ):
+            current_time = (
+                self._algorithm.time
+                if self._algorithm and hasattr(self._algorithm, 'time')
+                else datetime.now()
+            )
+            if self._last_pv_snapshot_time != current_time:
+                try:
+                    # Source active positions as factor dependencies
+                    positions = self.get_active_positions()
+                    dependencies = {
+                        f"holding_{p['holding_id']}": Decimal(str(p['market_value']))
+                        for p in positions
+                    }
+
+                    # Compute via the factor entity's calculate function
+                    self.portfolio_value_factor.calculate(dependencies)
+
+                    # Persist (create-or-get) via the resolution service
+                    fv_repo = self.repository_factory.factor_value_local_repo
+                    if fv_repo and hasattr(fv_repo, 'resolution_service'):
+                        fv_repo.resolution_service.resolve_factor_value(
+                            factor_entity=self.portfolio_value_factor,
+                            entity=self._current_portfolio_entity,
+                            time_date=current_time,
+                        )
+                    self._last_pv_snapshot_time = current_time
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
+
+        return total
 
     def get_active_positions(self) -> List[Dict[str, Any]]:
         """
@@ -542,47 +582,6 @@ class UnifiedPortfolioManager:
             
             for holding in holdings:
                 if holding.is_active() and holding.position.quantity != 0:
-                    # Create position and holding value factors for active positions
-                    if self.market_data_service and hasattr(self.market_data_service, '_create_or_get'):
-                        try:
-                            symbol = self._get_asset_symbol(holding.asset)
-                            
-                            # Create position value factor
-                            # Configure entity_config for MarketDataService._create_or_get method
-                            entity_config = {
-                                'entity_class': Factor,
-                                'entity_symbol': f"position_value_{symbol}_{holding.id}",
-                                'factor_type': "company_share_position_value_factor",
-                                'group': "value",
-                                'subgroup': "position",
-                                'frequency': "1d",
-                                'data_type': "numeric",
-                                'source': "calculated",
-                                'definition': f"Position value factor for {symbol}"
-                            }
-                            
-                            position_value_factor = self.market_data_service._create_or_get(entity_config)
-                            
-                            # Create holding value factor
-                            # Configure entity_config for MarketDataService._create_or_get method
-                            entity_config = {
-                                'entity_class': Factor,
-                                'entity_symbol': f"holding_value_{symbol}_{holding.id}",
-                                'factor_type': "company_share_portfolio_holding_value_factor",
-                                'group': "value",
-                                'subgroup': "holding",
-                                'frequency': "1d",
-                                'data_type': "numeric",
-                                'source': "calculated",
-                                'definition': f"Holding value factor for {symbol}"
-                            }
-                            
-                            holding_value_factor = self.market_data_service._create_or_get(entity_config)
-                            
-                        except Exception as e:
-                            if self.logger:
-                                self.logger.warning(f"⚠️ Failed to create position/holding value factors: {e}")
-                    
                     position_data = {
                         'holding_id': holding.id,
                         'asset_id': holding.asset.id,
@@ -732,15 +731,93 @@ class UnifiedPortfolioManager:
         except Exception:
             return Decimal('0')
 
+    def _has_budget_for_trade(self, order_qty: int, price: float, current_qty: int) -> bool:
+        """
+        Return True if the portfolio has sufficient resources to execute the trade.
+
+        BUY  (order_qty > 0): available cash must cover the full order cost.
+        SELL (order_qty < 0): current position must be >= the sell quantity
+                              (no naked short selling in this implementation).
+        """
+        if order_qty > 0:
+            required_cash = order_qty * price
+            available_cash = float(self._get_cash_balance())
+            if available_cash < required_cash:
+                if self.logger:
+                    self.logger.warning(
+                        f"Budget check failed — need ${required_cash:,.2f}, "
+                        f"available cash ${available_cash:,.2f}"
+                    )
+                return False
+        elif order_qty < 0:
+            sell_qty = abs(order_qty)
+            if current_qty < sell_qty:
+                if self.logger:
+                    self.logger.warning(
+                        f"Budget check failed — cannot sell {sell_qty} shares, "
+                        f"only {current_qty} in position"
+                    )
+                return False
+        return True
+
     def _get_cash_balance(self) -> Decimal:
-        """Get current cash balance for the portfolio."""
-        # Simplified - would be tracked via cash holdings or portfolio cash attribute
-        return Decimal('10000.0')
+        """
+        Return the current available cash balance as a Decimal.
+
+        Sources in priority order:
+        1. QC algorithm's in-memory portfolio cash — fast and authoritative
+           during backtesting/paper trading.
+        2. Currency holding in the DB — the cash holding created at portfolio
+           init (currency asset, position.quantity = initial_cash).
+        3. Falls back to 0 so callers always receive a valid number.
+        """
+        # 1. Algorithm in-memory cash (most accurate during simulation)
+        if self._algorithm is not None:
+            try:
+                cash = float(self._algorithm.portfolio.cash)
+                if cash >= 0:
+                    return Decimal(str(cash))
+            except Exception:
+                pass
+
+        # 2. DB currency holding
+        try:
+            if self._current_portfolio_entity:
+                currency_repo = getattr(self.repository_factory, 'currency_local_repo', None)
+                holdings = self.holding_repo.get_by_portfolio_id(
+                    self._current_portfolio_entity.id
+                )
+                for holding in holdings:
+                    asset_id = getattr(getattr(holding, 'asset', None), 'id', None)
+                    if asset_id and currency_repo and hasattr(currency_repo, 'get_by_id'):
+                        if currency_repo.get_by_id(asset_id) is not None:
+                            qty = getattr(getattr(holding, 'position', None), 'quantity', None)
+                            if qty is not None:
+                                return Decimal(str(qty))
+        except Exception:
+            pass
+
+        return Decimal('0')
 
     def _get_asset_symbol(self, asset) -> str:
-        """Get symbol string from asset entity."""
-        # Simplified - would access asset properties
-        return getattr(asset, 'symbol', 'UNKNOWN')
+        """Return the ticker symbol for an asset, falling back to a DB lookup when the
+        in-memory placeholder has symbol=None (as created by HoldingMapper)."""
+        symbol = getattr(asset, 'symbol', None)
+        if symbol:
+            return symbol
+        asset_id = getattr(asset, 'id', None)
+        if asset_id:
+            try:
+                from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+                session = self.portfolio_repo.session
+                fa = session.query(FinancialAssetModel).filter(
+                    FinancialAssetModel.id == asset_id
+                ).first()
+                if fa and fa.symbol:
+                    return fa.symbol
+            except Exception:
+                pass
+        return 'UNKNOWN'
 
     def _get_or_create_holding_for_symbol(self, symbol) -> int:
         """Get or create holding for a symbol."""
@@ -989,6 +1066,14 @@ class UnifiedPortfolioManager:
 
         if order_qty == 0:
             return True
+
+        if not self._has_budget_for_trade(order_qty, price, current_qty):
+            if self.logger:
+                self.logger.warning(
+                    f"set_holdings: insufficient budget for {ticker} "
+                    f"qty={order_qty:+d} @ {price:.2f}"
+                )
+            return False
 
         current_time = (
             self._algorithm.time
