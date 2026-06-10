@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect
 
 from src.infrastructure.models.finance.order.order import OrderModel
 from src.domain.entities.finance.order.order import Order as OrderEntity
@@ -352,3 +353,83 @@ class OrderRepository(BaseLocalRepository, OrderPort):
         }
         
         return mapping.get(order_type, TransactionType.MARKET_ORDER)
+
+    def get_related_entities(self, order_id: int) -> List:
+        """
+        Get all entities related to a specific order using SQLAlchemy inspect
+        to discover direct and indirect relationships.
+
+        Args:
+            order_id: The order ID to get related entities for
+
+        Returns:
+            List of related entities found through relationship inspection
+        """
+        try:
+            # Get the order model to inspect its relationships
+            order_model = self.session.query(OrderModel).filter_by(id=order_id).first()
+            if not order_model:
+                logger.warning(f"Order {order_id} not found")
+                return []
+
+            related_entities = []
+            
+            # Use SQLAlchemy inspect to get relationship information
+            mapper = inspect(OrderModel)
+            
+            # Process direct relationships (order -> related entity)
+            for relationship_name, relationship in mapper.relationships.items():
+                try:
+                    # Get the related entity through the relationship
+                    related_value = getattr(order_model, relationship_name, None)
+                    
+                    if related_value is not None:
+                        if hasattr(related_value, '__iter__') and not isinstance(related_value, str):
+                            # Collection relationship (one-to-many, many-to-many)
+                            for item in related_value:
+                                if item:
+                                    entity = self.mapper.to_domain(item) if hasattr(self.mapper, 'to_domain') else item
+                                    if entity:
+                                        related_entities.append(entity)
+                        else:
+                            # Single relationship (many-to-one, one-to-one)
+                            entity = self.mapper.to_domain(related_value) if hasattr(self.mapper, 'to_domain') else related_value
+                            if entity:
+                                related_entities.append(entity)
+                                
+                except Exception as rel_error:
+                    logger.debug(f"Could not access relationship {relationship_name}: {rel_error}")
+                    continue
+
+            # Process indirect relationships (entities that reference this order)
+            # Look for entities that have foreign keys pointing to this order
+            order_table = mapper.mapped_table
+            
+            for table_name, table in order_table.metadata.tables.items():
+                try:
+                    for column in table.columns:
+                        # Check if column is a foreign key to order table
+                        if column.foreign_keys:
+                            for fk in column.foreign_keys:
+                                if fk.column.table.name == order_table.name and str(fk.column.name) == 'id':
+                                    # Found a table that references orders
+                                    # Query for entities that reference this order
+                                    referencing_models = self.session.query(table).filter(
+                                        column == order_id
+                                    ).all()
+                                    
+                                    for ref_model in referencing_models:
+                                        # Convert to entity if mapper available, otherwise use raw model
+                                        if hasattr(ref_model, '__table__'):
+                                            related_entities.append(ref_model)
+                                        
+                except Exception as indirect_error:
+                    logger.debug(f"Could not process indirect relationships for table {table_name}: {indirect_error}")
+                    continue
+
+            logger.info(f"Retrieved {len(related_entities)} related entities for order {order_id}")
+            return related_entities
+            
+        except Exception as e:
+            logger.error(f"Error retrieving related entities for order {order_id}: {str(e)}")
+            return []
