@@ -142,3 +142,60 @@ to sub-holding aggregation instead of a direct FactorValue price lookup.
   one-directional: `HoldingModel.position_id → positions.id`.
 - Currency holdings resolve price = 1.0 via Strategy 3 in
   `_get_asset_price_for_holding_value`.
+
+---
+
+## Portfolio Tree Traversal — Position Lookup
+
+### Domain hierarchy (3 layers)
+
+```
+Portfolio                               ← top-level container (portfolios table)
+  ├─ PortfolioHolding                   ← holds a FinancialAsset directly
+  │    container = Portfolio
+  │    asset     = FinancialAsset       ← HoldingModel.asset_id → financial_assets.id
+  │    position  = Position (qty)
+  │
+  └─ CompanySharePortfolioPortfolioHolding   ← holds another portfolio
+       container = Portfolio
+       asset     = CompanySharePortfolio     ← asset_id → company_share_portfolios.id
+                    ├─ PortfolioHolding → AAPL position
+                    ├─ PortfolioHolding → GOOGL position
+                    └─ PortfolioHolding → MSFT position
+```
+
+### ORM FK distinction
+
+`HoldingModel.asset_id` declares `ForeignKey('financial_assets.id')`.
+`CompanySharePortfolioPortfolioHoldingModel` **overrides** this column with
+`ForeignKey('company_share_portfolios.id')` — pointing to a different table.
+
+Consequence: a flat join of `holdings → financial_assets` on `asset_id` will
+**miss** every ticker that lives inside a sub-portfolio because those `asset_id`
+values point to `company_share_portfolios`, not `financial_assets`.
+
+### Correct traversal rule (implemented in `_qty_in_container` / `_tickers_in_container`)
+
+```
+def _qty_in_container(ticker, container_id):
+    total = 0
+    # 1. Direct: HoldingModel(container_id=X, asset_id=financial_asset.id matching ticker)
+    #            → sum Position.quantity
+    # 2. Sub-portfolio: CompanySharePortfolioPortfolioHoldingModel(container_id=X)
+    #            → for each sh: recurse _qty_in_container(ticker, sh.asset_id)
+    return total
+```
+
+`_get_current_position_qty(ticker)` delegates to `_qty_in_container(ticker, main_portfolio.id)`.
+`_get_all_held_tickers()` delegates to `_tickers_in_container(main_portfolio.id)` which applies
+the same two-step pattern to collect every tradeable symbol across the full tree.
+
+### Why this matters for `set_holdings`
+
+`set_holdings(target_weights)` must:
+1. Know the **actual current qty** of each ticker (including those inside sub-portfolios)
+   before computing `order_qty = target_qty - current_qty`.
+2. Discover tickers **currently held but absent from target_weights** so it can
+   generate sell orders to liquidate them.
+
+Both require full tree traversal — a flat single-level query is incorrect.

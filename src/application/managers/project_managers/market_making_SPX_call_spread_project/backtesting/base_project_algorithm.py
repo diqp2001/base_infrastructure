@@ -79,9 +79,8 @@ class Algorithm(QCAlgorithm):
 
         # Register the SPX trading portfolio with EntityService using full config
         if self._entity_service:
-            # Pass entire portfolio config to enable creation of main + sub-portfolios
             portfolio_entity = self.register_portfolio(
-                portfolio_config=portfolio_config
+                portfolio_config=portfolio_config,
             )
             if portfolio_entity:
                 self.portfolio_entity = portfolio_entity
@@ -223,8 +222,10 @@ class Algorithm(QCAlgorithm):
             # Random AAPL/MSFT allocation via UnifiedPortfolioManager → TradeManager
             random_pct = random.random()
             if self._unified_portfolio_manager:
-                self._unified_portfolio_manager.set_holdings('AAPL', random_pct,data=data)
-                self._unified_portfolio_manager.set_holdings('MSFT', 1.0 - random_pct,data=data)
+                self._unified_portfolio_manager.set_holdings(
+                    {'AAPL': random_pct, 'MSFT': 1.0 - random_pct},
+                    data=data,
+                )
 
             # Update portfolio tracking
             self._update_portfolio_value(data)

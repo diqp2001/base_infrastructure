@@ -142,6 +142,10 @@ class BacktestRunner:
             universe = config.get('universe')
             start_date = config.get('backtest_start', '2025-07-01')
             end_date = config.get('backtest_end', '2025-12-31')
+            if isinstance(start_date, str):
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            if isinstance(end_date, str):
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
             initial_capital = config.get('initial_capital', 100000)
             config_interval = config.get('config_interval')
             if not self.setup_components(config):

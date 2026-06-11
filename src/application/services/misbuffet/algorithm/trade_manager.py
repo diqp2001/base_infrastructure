@@ -57,7 +57,7 @@ class TradeManager:
             return False
 
         # 2. Persist domain Order entity
-        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time)
+        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time, order_qty)
 
         # 3. Persist domain Transaction entity
         if domain_order:
@@ -76,19 +76,17 @@ class TradeManager:
     # Private mechanics
     # ------------------------------------------------------------------
 
-    def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime):
+    def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime, order_qty: int = 0):
         """Persist a domain Order entity from the QC OrderTicket."""
         try:
-            qty = ticket.quantity
-
             # Resolve FK dependencies before the INSERT to satisfy NOT NULL constraints
             holding_id = self._resolve_holding_id(ticker, portfolio_id, current_time)
             account_id = self._resolve_account_id(current_time)
 
             params = {
                 "order_type": "MARKET",           # string name avoids enum .upper() error
-                "side": "BUY" if qty > 0 else "SELL",
-                "quantity": abs(qty),
+                "side": "BUY" if order_qty > 0 else "SELL",
+                "quantity": abs(order_qty),
                 "created_at": current_time,       # simulation time, not wall clock
                 "status": "FILLED",
                 "symbol": ticker,

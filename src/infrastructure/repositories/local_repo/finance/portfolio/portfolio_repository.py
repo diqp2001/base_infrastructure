@@ -250,94 +250,119 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
         currency_code: str,
     ) -> None:
         """
-        Create the initial cash / currency holding for a newly created portfolio.
+        Create the initial cash / currency holding using the CurrencyPortfolio pipeline.
 
-        A portfolio always starts with a cash position equal to ``initial_cash``
-        in ``currency_code``.  This is represented as:
+        Structure (mirrors the CompanyShare 3-layer pattern):
 
-        * A ``HoldingModel`` row that links the portfolio (via ``container_id``)
-          to the ``Currency`` financial asset (via ``asset_id``).
-        * A ``PositionModel`` row on the portfolio with ``quantity = initial_cash``
-          and ``position_type = LONG``.
+            Portfolio (main)
+              └─ CurrencyPortfolioPortfolioHoldingModel  (container_id = main_id)
+                   └─ CurrencyPortfolioModel             (sub-portfolio)
+                        └─ CurrencyPortfolioHoldingModel (container_id = sub_id)
+                             └─ PositionModel            (quantity = initial_cash)
 
-        Both creations are idempotent: if the holding/position already exists
-        (e.g. because the portfolio was just fetched rather than truly created
-        anew) nothing is changed.
+        All steps are idempotent.
         """
         try:
-            from src.infrastructure.models.finance.holding.holding import HoldingModel
             from src.infrastructure.models.finance.position import PositionModel
-            from src.domain.entities.finance.holding.position import PositionType
+            from src.infrastructure.models.finance.portfolio.currency_portfolio import CurrencyPortfolioModel
+            from src.infrastructure.models.finance.holding.currency_portfolio_holding import CurrencyPortfolioHoldingModel
+            from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import CurrencyPortfolioPortfolioHoldingModel
 
             portfolio_id = getattr(portfolio, 'id', None)
             if not portfolio_id:
                 logger.warning("_create_cash_holding: portfolio has no id, skipping")
                 return
 
-            # 1. Get or create the Currency entity
+            # 1. Resolve the Currency financial asset
             currency_repo = getattr(self.factory, 'currency_local_repo', None)
             if not currency_repo:
                 logger.warning(
-                    "_create_cash_holding: currency_local_repo not available in factory; "
+                    "_create_cash_holding: currency_local_repo not available; "
                     "cash holding will not be created"
                 )
                 return
-
             currency = currency_repo.get_or_create(iso_code=currency_code)
             if not currency:
-                logger.warning(
-                    f"_create_cash_holding: could not get/create currency {currency_code}"
-                )
+                logger.warning(f"_create_cash_holding: could not get/create currency {currency_code}")
                 return
-
             currency_id = getattr(currency, 'id', None) or getattr(currency, 'asset_id', None)
             if not currency_id:
-                logger.warning(
-                    f"_create_cash_holding: currency {currency_code} has no id"
-                )
+                logger.warning(f"_create_cash_holding: currency {currency_code} has no id")
                 return
 
-            # 2. Create the Holding (idempotent)
-            holding_model = self.session.query(HoldingModel).filter(
-                HoldingModel.container_id == portfolio_id,
-                HoldingModel.asset_id    == currency_id,
-            ).first()
+            # 2. Find or create the CurrencyPortfolio sub-portfolio + portfolio-portfolio link
+            cp_link = (
+                self.session.query(CurrencyPortfolioPortfolioHoldingModel)
+                .filter_by(container_id=portfolio_id)
+                .first()
+            )
+            if cp_link:
+                sub_portfolio_id = cp_link.asset_id
+            else:
+                sub_name = f"{getattr(portfolio, 'name', 'portfolio')}_cash"
+                sub_orm = self.session.query(CurrencyPortfolioModel).filter_by(name=sub_name).first()
+                if not sub_orm:
+                    sub_orm = CurrencyPortfolioModel(
+                        name=sub_name,
+                        start_date=datetime.now(),
+                    )
+                    self.session.add(sub_orm)
+                    self.session.flush()
+                    logger.info(
+                        f"Created CurrencyPortfolio '{sub_name}' id={sub_orm.id}"
+                    )
+                sub_portfolio_id = sub_orm.id
 
-            if not holding_model:
-                holding_model = HoldingModel(
-                    asset_id     = currency_id,
-                    container_id = portfolio_id,
-                    start_date   = datetime.now(),
-                    end_date     = None,
+                # Structural position for the portfolio-portfolio link (qty=1)
+                pp_pos = PositionModel(
+                    portfolio_id=portfolio_id,
+                    quantity=1,
+                    position_type='LONG',
                 )
-                self.session.add(holding_model)
-                self.session.flush()   # assign id before linking to position
-                logger.info(
-                    f"Created cash holding: portfolio {portfolio_id} ← "
-                    f"{currency_code} (currency_id={currency_id})"
-                )
+                self.session.add(pp_pos)
+                self.session.flush()
 
-            # 3. Create the Position for the cash amount (idempotent)
-            position_model = self.session.query(PositionModel).filter(
-                PositionModel.portfolio_id == portfolio_id,
-            ).first()
-
-            if not position_model:
-                position_model = PositionModel(
-                    portfolio_id  = portfolio_id,
-                    quantity      = int(initial_cash),   # PositionModel.quantity is Integer
-                    position_type = PositionType.LONG,
+                cp_link = CurrencyPortfolioPortfolioHoldingModel(
+                    asset_id=sub_portfolio_id,
+                    portfolio_id=portfolio_id,
+                    container_id=portfolio_id,
+                    start_date=datetime.now(),
+                    position_id=pp_pos.id,
                 )
-                self.session.add(position_model)
+                self.session.add(cp_link)
                 self.session.flush()
                 logger.info(
-                    f"Created cash position: portfolio {portfolio_id}, "
-                    f"quantity={initial_cash} {currency_code}"
+                    f"Linked CurrencyPortfolio {sub_portfolio_id} → main portfolio {portfolio_id}"
                 )
 
-            # 4. Ensure holding.position_id FK is set.
-            if holding_model.position_id != position_model.id:
-                holding_model.position_id = position_model.id
+            # 3. Find or create the leaf CurrencyPortfolioHolding + cash Position
+            existing_holding = (
+                self.session.query(CurrencyPortfolioHoldingModel)
+                .filter_by(currency_portfolio_id=sub_portfolio_id, asset_id=currency_id)
+                .first()
+            )
+            if not existing_holding:
+                cash_pos = PositionModel(
+                    portfolio_id=sub_portfolio_id,
+                    quantity=int(initial_cash),
+                    position_type='LONG',
+                )
+                self.session.add(cash_pos)
+                self.session.flush()
+
+                currency_holding = CurrencyPortfolioHoldingModel(
+                    asset_id=currency_id,
+                    currency_portfolio_id=sub_portfolio_id,
+                    container_id=sub_portfolio_id,
+                    start_date=datetime.now(),
+                    position_id=cash_pos.id,
+                )
+                self.session.add(currency_holding)
+                logger.info(
+                    f"Created CurrencyPortfolioHolding: {currency_code} "
+                    f"(currency_id={currency_id}) → sub-portfolio {sub_portfolio_id}, "
+                    f"quantity={initial_cash}"
+                )
 
             self.session.commit()
 

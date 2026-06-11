@@ -476,7 +476,7 @@ class QCAlgorithm:
             self.liquidate(tag="Liquidation for rebalancing")
 
         if self._unified_portfolio_manager:
-            self._unified_portfolio_manager.set_holdings(ticker, percentage, tag=tag)
+            self._unified_portfolio_manager.set_holdings({ticker: percentage}, tag=tag)
         else:
             # Fallback when no domain persistence is available
             price = self._resolve_asset_price(ticker)
@@ -821,31 +821,27 @@ class QCAlgorithm:
         """Access repository factory through EntityService."""
         return self._entity_service.repository_factory if self._entity_service else None
     
-    def register_portfolio(self, portfolio_config: Dict[str, Any] = None, 
-                          name: str = None, initial_cash: float = None, 
+    def register_portfolio(self, portfolio_config: Dict[str, Any] = None,
+                          name: str = None, initial_cash: float = None,
                           portfolio_type: str = None) -> Optional[Any]:
         """
         Register portfolio using unified portfolio management system.
-        
-        Can accept either a portfolio_config dict (new enhanced way) or individual 
-        parameters (legacy compatibility).
-        
+
         Args:
-            portfolio_config: Full portfolio configuration dict with sub-portfolios
-            name: Portfolio name (legacy)
-            initial_cash: Initial cash (legacy)
-            portfolio_type: Portfolio type (legacy)
+            portfolio_config: Full portfolio configuration dict
+            name:             Portfolio name (legacy fallback)
+            initial_cash:     Initial cash (legacy fallback)
+            portfolio_type:   Portfolio type (legacy fallback)
         """
         if not self._unified_portfolio_manager:
             self.warning("No unified portfolio manager available")
             return None
-        
-        # Use enhanced register_portfolio method that handles config dict
+
         portfolio = self._unified_portfolio_manager.register_portfolio_with_config(
             portfolio_config=portfolio_config,
             name=name,
             initial_cash=initial_cash,
-            portfolio_type=portfolio_type
+            portfolio_type=portfolio_type,
         )
         
         if portfolio:

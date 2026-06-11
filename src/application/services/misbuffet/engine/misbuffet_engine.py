@@ -389,12 +389,23 @@ class MisbuffetEngine(BaseEngine):
             result.error_message = str(e)
             return result
     
+    @staticmethod
+    def _parse_date(d):
+        if isinstance(d, datetime):
+            return d
+        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+            try:
+                return datetime.strptime(d, fmt)
+            except (ValueError, TypeError):
+                continue
+        raise ValueError(f"Cannot parse date: {d!r}")
+
     def _run_simulation(self, config):
         """Run the actual simulation loop."""
         # Get date range from engine config
         engine_config = getattr(config, 'custom_config', {})
-        start_date = datetime.strptime(engine_config.get('start_date'), "%Y-%m-%d %H:%M:%S")
-        end_date = datetime.strptime(engine_config.get('end_date'), "%Y-%m-%d %H:%M:%S")
+        start_date = self._parse_date(engine_config.get('start_date'))
+        end_date = self._parse_date(engine_config.get('end_date'))
         
         # Get configurable time interval
         time_interval = self._get_time_interval(engine_config)
@@ -557,7 +568,10 @@ class MisbuffetEngine(BaseEngine):
     def _get_point_in_time_data(self, ticker, point_in_time):
         if not self.factor_data_service:
             return None
-        
+
+        if isinstance(point_in_time, str):
+            point_in_time = self._parse_date(point_in_time)
+
         try:
             # Get entity based on configured entity type
             entity = self._get_entity_by_identifier(ticker)
@@ -996,8 +1010,8 @@ class BacktestResult:
         """Set basic performance data for the backtest result."""
         self.initial_capital = initial_capital
         self.final_portfolio_value = final_value
-        self.start_date = start_date.strftime('%Y-%m-%d') if start_date else "N/A"
-        self.end_date = end_date.strftime('%Y-%m-%d') if end_date else "N/A"
+        self.start_date = start_date if isinstance(start_date, str) else (start_date.strftime('%Y-%m-%d') if start_date else "N/A")
+        self.end_date = end_date if isinstance(end_date, str) else (end_date.strftime('%Y-%m-%d') if end_date else "N/A")
         self.total_trades = total_trades
         
         # Calculate total return
