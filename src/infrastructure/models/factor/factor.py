@@ -203,6 +203,24 @@ class CompanySharePortfolioPortfolioHoldingValueFactorModel(FactorModel):
     }
 
 
+class CurrencyPortfolioValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_portfolio_value_factor"
+    }
+
+
+class CurrencyPortfolioPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_portfolio_portfolio_holding_value_factor"
+    }
+
+
+class CurrencyPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_portfolio_holding_value_factor"
+    }
+
+
 class CompanySharePortfolioOptionHullWhitePriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_portfolio_option_hull_white_price_factor"
