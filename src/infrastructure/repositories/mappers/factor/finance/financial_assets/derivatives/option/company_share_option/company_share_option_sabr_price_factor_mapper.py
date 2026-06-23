@@ -14,7 +14,7 @@ class CompanyShareOptionSABRPriceFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'company_share_option'
+        return 'CompanyShareOption'
     
     @property
     def model_class(self):

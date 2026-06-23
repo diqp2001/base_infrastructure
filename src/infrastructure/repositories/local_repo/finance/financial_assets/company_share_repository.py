@@ -600,7 +600,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         else:
             return 'NYSE'
 
-    def get_or_create(self, ticker: str, exchange_id: Optional[int] = None, company_id: Optional[int] = None) -> Optional[CompanyShareEntity]:
+    def _create_or_get(self, ticker: str, exchange_id: Optional[int] = None, company_id: Optional[int] = None) -> Optional[CompanyShareEntity]:
         """
         Get or create a company share with dependency resolution.
         Integrates the functionality from to_orm_with_dependencies.

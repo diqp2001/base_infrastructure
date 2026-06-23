@@ -54,7 +54,7 @@ class EquityRepository(FinancialAssetRepository, EquityPort):
             print(f"Error retrieving equity by symbol {symbol}: {e}")
             return None
     
-    def get_or_create(self, symbol: str, name: str = None, **kwargs) -> Optional[EquityEntity]:
+    def _create_or_get(self, symbol: str, name: str = None, **kwargs) -> Optional[EquityEntity]:
         """
         Get or create an equity by symbol with dependency resolution.
         

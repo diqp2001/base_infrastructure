@@ -14,7 +14,7 @@ class IndexPriceReturnFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'index'
+        return 'Index'
     @property
     def model_class(self):
         return IndexPriceReturnFactorModel

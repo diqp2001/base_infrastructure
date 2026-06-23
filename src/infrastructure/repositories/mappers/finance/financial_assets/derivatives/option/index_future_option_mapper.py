@@ -16,7 +16,7 @@ class IndexFutureOptionMapper:
     
     @property
     def discriminator(self):
-        return 'index_future_option'
+        return 'IndexFutureOption'
     
     @property
     def entity_class(self):

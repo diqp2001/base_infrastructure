@@ -42,7 +42,7 @@ class DerivativesRepository(FinancialAssetRepository, DerivativePort):
         """Find all derivatives"""
         return self.data_store.copy()
 
-    def get_or_create(self, ticker: str, name: Optional[str] = None, underlying_asset_id: Optional[int] = None, 
+    def _create_or_get(self, ticker: str, name: Optional[str] = None, underlying_asset_id: Optional[int] = None, 
                       exchange_id: Optional[int] = None, currency_id: Optional[int] = None, **kwargs):
         """
         Get or create a derivative with dependency resolution.
@@ -72,7 +72,7 @@ class DerivativesRepository(FinancialAssetRepository, DerivativePort):
                 underlying_asset_id = default_share.id if default_share else 1
             
             # Use parent class get_or_create with derivative-specific parameters
-            return super().get_or_create(
+            return super()._create_or_get(
                 ticker=ticker,
                 name=name,
                 exchange_id=exchange_id,

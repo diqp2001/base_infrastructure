@@ -3,6 +3,9 @@ from typing import Dict, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_price_return_factor import CompanySharePriceReturnFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_avg_turnover_6m_factor import CompanyShareAvgTurnover6mFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor import CompanyShareMonthlyPriceRangeFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor
 
 
 
@@ -261,5 +264,116 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
             }
         },
         "parameters": {"period": "1M"}
+    },
+
+    # ======================
+    # 6-Month Average Share Turnover
+    # ======================
+
+    "avg_turnover_6m": {
+        "class": CompanyShareAvgTurnover6mFactor,
+        "name": "avg_turnover_6m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "6-month (126-day) average daily share turnover (traded volume)",
+        "dependencies": {
+            "volume": {
+                "class": CompanyShareFactor,
+                "name": "volume",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily traded volume",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=1)}
+            }
+        },
+        "parameters": {"period": 126}
+    },
+
+    # ======================
+    # 1-Month Price High Minus 1-Month Price Low
+    # ======================
+
+    "monthly_price_range": {
+        "class": CompanyShareMonthlyPriceRangeFactor,
+        "name": "monthly_price_range",
+        "group": "price",
+        "subgroup": "range",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "1-month price high (lag=1d) minus 1-month price low (lag=21d)",
+        "dependencies": {
+            "high_price": {
+                "class": CompanyShareFactor,
+                "name": "high",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily high price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=1)}
+            },
+            "low_price": {
+                "class": CompanyShareFactor,
+                "name": "low",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily low price",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=21)}
+            }
+        },
+        "parameters": {}
+    },
+
+    # ======================
+    # 52-Week Volume Price Trend with 20-Day Lag
+    # ======================
+
+    "vpt_52w_20d_lag": {
+        "class": CompanyShareVpt52w20dLagFactor,
+        "name": "vpt_52w_20d_lag",
+        "group": "volume",
+        "subgroup": "trend",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "52-week Volume Price Trend observed with a 20-day lag",
+        "dependencies": {
+            "volume": {
+                "class": CompanyShareFactor,
+                "name": "volume",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily traded volume at 20-day lag",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=20)}
+            },
+            "close": {
+                "class": CompanyShareFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price at 20-day lag",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=20)}
+            },
+            "start_close": {
+                "class": CompanyShareFactor,
+                "name": "close",
+                "group": "price",
+                "subgroup": "daily",
+                "data_type": "numeric",
+                "description": "Daily close price at 272-day lag (52 weeks + 20-day lag)",
+                "dependencies": {},
+                "parameters": {"lag": timedelta(days=272)}
+            }
+        },
+        "parameters": {}
     },
 }

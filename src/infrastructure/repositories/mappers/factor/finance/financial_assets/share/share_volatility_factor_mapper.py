@@ -13,7 +13,7 @@ class ShareVolatilityFactorMapper(BaseFactorMapper):
     """Mapper for ShareVolatilityFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'share'
+        return 'Share'
     def get_factor_model(self):
         return FactorModel
     

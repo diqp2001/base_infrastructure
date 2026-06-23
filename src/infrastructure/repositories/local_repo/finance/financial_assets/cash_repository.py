@@ -212,7 +212,7 @@ class CashRepository(FinancialAssetRepository, CashPort):
         
         return sum(Decimal(str(amount[0])) for amount in total if amount[0])
     
-    def get_or_create(self, name: str = None, currency: str = "USD", amount: float = 0.0, **kwargs) -> Optional[CashEntity]:
+    def _create_or_get(self, name: str = None, currency: str = "USD", amount: float = 0.0, **kwargs) -> Optional[CashEntity]:
         """
         Get or create a cash asset by currency with dependency resolution.
         

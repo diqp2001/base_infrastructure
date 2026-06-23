@@ -14,7 +14,7 @@ class CompanySharePortfolioMapper:
     """Mapper for PortfolioCompanyShare domain entity and ORM model."""
     @property
     def discriminator(self):
-        return "company_share_portfolio"
+        return "CompanySharePortfolio"
     @property
     def entity_class(self):
         return DomainCompanySharePortfolio

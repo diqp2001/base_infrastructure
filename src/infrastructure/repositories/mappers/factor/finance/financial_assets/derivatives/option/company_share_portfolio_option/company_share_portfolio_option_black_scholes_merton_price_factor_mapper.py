@@ -14,7 +14,7 @@ class CompanySharePortfolioOptionBlackScholesMertonPriceFactorMapper(BaseFactorM
     
     @property
     def discriminator(self):
-        return 'company_share_portfolio_option'
+        return 'CompanySharePortfolioOption'
     
     @property
     def model_class(self):

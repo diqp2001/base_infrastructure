@@ -14,7 +14,7 @@ class CompanySharePortfolioOptionDupireLocalVolatilityPriceFactorMapper(BaseFact
     
     @property
     def discriminator(self):
-        return 'company_share_portfolio_option'
+        return 'CompanySharePortfolioOption'
     
     @property
     def model_class(self):

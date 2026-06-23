@@ -12,8 +12,14 @@ from sqlalchemy.orm import Session
 from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_option_portfolio_repository import CompanySharePortfolioOptionPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.company_share_portfolio_option_repository import CompanySharePortfolioOptionRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_price_return_factor_repository import IBKRCompanySharePriceReturnFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_avg_turnover_6m_factor_repository import IBKRCompanyShareAvgTurnover6mFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_monthly_price_range_factor_repository import IBKRCompanyShareMonthlyPriceRangeFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_vpt_52w_20d_lag_factor_repository import IBKRCompanyShareVpt52w20dLagFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_price_return_factor_repository import CompanySharePriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_factor_repository import CompanyShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_avg_turnover_6m_factor_repository import CompanyShareAvgTurnover6mFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_monthly_price_range_factor_repository import CompanyShareMonthlyPriceRangeFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
@@ -28,6 +34,9 @@ from src.infrastructure.repositories.local_repo.finance.company_repository impor
 from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.portfolio_holding_repository import PortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_holding_repository import CompanySharePortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_holding_repository import CurrencyPortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_portfolio_holding_repository import CompanySharePortfolioPortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_portfolio_holding_repository import CurrencyPortfolioPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.financial_statement_repository import FinancialStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.income_statement_repository import IncomeStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
@@ -224,120 +233,126 @@ class RepositoryFactory:
         """
         if not self._local_repositories:
             self._local_repositories = {
-                'instrument': InstrumentRepository(self.session, factory=self),
-                'factor_value': FactorValueRepository(self.session, factory=self),
-                'factor': FactorRepository(self.session, factory=self),
-                'factor_dependency': FactorDependencyRepository(self.session),
-                'financial_asset': FinancialAssetRepository(self.session, factory=self),
+                'Instrument': InstrumentRepository(self.session, factory=self),
+                'FactorValue': FactorValueRepository(self.session, factory=self),
+                'Factor': FactorRepository(self.session, factory=self),
+                'FactorDependency': FactorDependencyRepository(self.session),
+                'FinancialAsset': FinancialAssetRepository(self.session, factory=self),
                 # Individual factor repositories
-                'continent_factor': ContinentFactorRepository(self.session, factory=self),
-                'country_factor': CountryFactorRepository(self.session, factory=self),
-                'index_factor': IndexFactorRepository(self.session, factory=self),
-                'index_price_return_factor': IndexPriceReturnFactorRepository(self.session, factory=self),
-                'future_price_return_factor': FuturePriceReturnFactorRepository(self.session, factory=self),
-                'index_future_price_return_factor': IndexFuturePriceReturnFactorRepository(self.session, factory=self),
-                'share_factor': ShareFactorRepository(self.session, factory=self),
-                'currency_factor': CurrencyFactorRepository(self.session, factory=self),
-                'equity_factor': EquityFactorRepository(self.session, factory=self),
-                'bond_factor': BondFactorRepository(self.session, factory=self),
-                'derivative_factor': DerivativeFactorRepository(self.session, factory=self),
-                'financial_asset_factor': FinancialAssetFactorRepository(self.session, factory=self),
-                'security_factor': SecurityFactorRepository(self.session, factory=self),
-                'future_factor': FuturesFactorRepository(self.session, factory=self),
-                'index_future_factor': IndexFutureFactorRepository(self.session, factory=self),
-                'index_future_option_factor': IndexFutureOptionFactorRepository(self.session, factory=self),
-                'index_future_option_price_return_factor': IndexFutureOptionPriceReturnFactorRepository(self.session, factory=self),
-                'index_future_option_price_factor': IndexFutureOptionPriceFactorRepository(self.session, factory=self),
-                'index_future_option_delta_factor': IndexFutureOptionDeltaFactorRepository(self.session, factory=self),
-                'option_factor': OptionsFactorRepository(self.session, factory=self),
-                'company_share_option_price_return_factor': CompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
-                'company_share_portfolio_option_price_return_factor': CompanySharePortfolioOptionPriceReturnFactorRepository(self.session, factory=self),
-                'company_share_portfolio_option_delta_factor': CompanySharePortfolioOptionDeltaFactorRepository(self.session, factory=self),
-                'company_share_portfolio_option_price_factor': CompanySharePortfolioOptionPriceFactorRepository(self.session, factory=self),
-                'company_share_portfolio_option_factor': CompanySharePortfolioOptionFactorRepository(self.session, factory=self),
-                'company_share_portfolio_option': CompanySharePortfolioOptionRepository(self.session, factory=self),
-                'company_share_option_delta_factor': CompanyShareOptionDeltaFactorRepository(self.session, factory=self),
-                'company_share_option_factor': CompanyShareOptionFactorRepository(self.session, factory=self),
-                'company_share_option_price_factor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
+                'ContinentFactor': ContinentFactorRepository(self.session, factory=self),
+                'CountryFactor': CountryFactorRepository(self.session, factory=self),
+                'IndexFactor': IndexFactorRepository(self.session, factory=self),
+                'IndexPriceReturnFactor': IndexPriceReturnFactorRepository(self.session, factory=self),
+                'FuturePriceReturnFactor': FuturePriceReturnFactorRepository(self.session, factory=self),
+                'IndexFuturePriceReturnFactor': IndexFuturePriceReturnFactorRepository(self.session, factory=self),
+                'ShareFactor': ShareFactorRepository(self.session, factory=self),
+                'CurrencyFactor': CurrencyFactorRepository(self.session, factory=self),
+                'EquityFactor': EquityFactorRepository(self.session, factory=self),
+                'BondFactor': BondFactorRepository(self.session, factory=self),
+                'DerivativeFactor': DerivativeFactorRepository(self.session, factory=self),
+                'FinancialAssetFactor': FinancialAssetFactorRepository(self.session, factory=self),
+                'SecurityFactor': SecurityFactorRepository(self.session, factory=self),
+                'FutureFactor': FuturesFactorRepository(self.session, factory=self),
+                'IndexFutureFactor': IndexFutureFactorRepository(self.session, factory=self),
+                'IndexFutureOptionFactor': IndexFutureOptionFactorRepository(self.session, factory=self),
+                'IndexFutureOptionPriceReturnFactor': IndexFutureOptionPriceReturnFactorRepository(self.session, factory=self),
+                'IndexFutureOptionPriceFactor': IndexFutureOptionPriceFactorRepository(self.session, factory=self),
+                'IndexFutureOptionDeltaFactor': IndexFutureOptionDeltaFactorRepository(self.session, factory=self),
+                'OptionFactor': OptionsFactorRepository(self.session, factory=self),
+                'CompanyShareOptionPriceReturnFactor': CompanyShareOptionPriceReturnFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionPriceReturnFactor': CompanySharePortfolioOptionPriceReturnFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionDeltaFactor': CompanySharePortfolioOptionDeltaFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionPriceFactor': CompanySharePortfolioOptionPriceFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionFactor': CompanySharePortfolioOptionFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOption': CompanySharePortfolioOptionRepository(self.session, factory=self),
+                'CompanyShareOptionDeltaFactor': CompanyShareOptionDeltaFactorRepository(self.session, factory=self),
+                'CompanyShareOptionFactor': CompanyShareOptionFactorRepository(self.session, factory=self),
+                'CompanyShareOptionPriceFactor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
                 # New factor repositories
-                'portfolio_factor': PortfolioFactorRepository(self.session, factory=self),
-                'company_share_portfolio_correlation_factor': CompanySharePortfolioCorrelationFactorRepository(self.session, factory=self),
-                'company_share_portfolio_return_factor': CompanySharePortfolioReturnFactorRepository(self.session, factory=self),
-                'company_share_portfolio_value_factor': CompanySharePortfolioValueFactorRepository(self.session, factory=self),
-                'portfolio_value_factor': PortfolioValueFactorRepository(self.session, factory=self),
-                'company_share_portfolio_variance_factor': CompanySharePortfolioVarianceFactorRepository(self.session, factory=self),
-                'holding_factor': HoldingFactorRepository(self.session, factory=self),
-                'company_share_portfolio_holding_factor': CompanySharePortfolioHoldingFactorRepository(self.session, factory=self),
-                'company_share_portfolio_holding_quantity_factor': CompanySharePortfolioHoldingQuantityFactorRepository(self.session, factory=self),
-                'company_share_portfolio_holding_value_factor': CompanySharePortfolioHoldingValueFactorRepository(self.session, factory=self),
-                'company_share_portfolio_holding_weight_factor': CompanySharePortfolioHoldingWeightFactorRepository(self.session, factory=self),
-                'portfolio_holding_factor': PortfolioHoldingFactorRepository(self.session, factory=self),
-                'portfolio_holding_value_factor': PortfolioHoldingValueFactorRepository(self.session, factory=self),
-                'company_share_portfolio_portfolio_holding_value_factor': CompanySharePortfolioPortfolioHoldingValueFactorRepository(self.session, factory=self),
+                'PortfolioFactor': PortfolioFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioCorrelationFactor': CompanySharePortfolioCorrelationFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioReturnFactor': CompanySharePortfolioReturnFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioValueFactor': CompanySharePortfolioValueFactorRepository(self.session, factory=self),
+                'PortfolioValueFactor': PortfolioValueFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioVarianceFactor': CompanySharePortfolioVarianceFactorRepository(self.session, factory=self),
+                'HoldingFactor': HoldingFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioHoldingFactor': CompanySharePortfolioHoldingFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioHoldingQuantityFactor': CompanySharePortfolioHoldingQuantityFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioHoldingValueFactor': CompanySharePortfolioHoldingValueFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioHoldingWeightFactor': CompanySharePortfolioHoldingWeightFactorRepository(self.session, factory=self),
+                'PortfolioHoldingFactor': PortfolioHoldingFactorRepository(self.session, factory=self),
+                'PortfolioHoldingValueFactor': PortfolioHoldingValueFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioPortfolioHoldingValueFactor': CompanySharePortfolioPortfolioHoldingValueFactorRepository(self.session, factory=self),
 
                 # Position, Transaction, and Order factor repositories
-                'company_share_position_value_factor': CompanySharePositionValueFactorRepository(self.session, factory=self),
-                'company_share_transaction_value_factor': CompanyShareTransactionValueFactorRepository(self.session, factory=self),
-                'company_share_order_quantity_factor': CompanyShareOrderQuantityFactorRepository(self.session, factory=self),
-                'company_share_order_price_factor': CompanyShareOrderPriceFactorRepository(self.session, factory=self),
-                
-                'company_share_option_gamma_factor': CompanyShareOptionGammaFactorRepository(self.session, factory=self),
-                'company_share_option_rho_factor': CompanyShareOptionRhoFactorRepository(self.session, factory=self),
-                'company_share_option_vega_factor': CompanyShareOptionVegaFactorRepository(self.session, factory=self),
-                
+                'CompanySharePositionValueFactor': CompanySharePositionValueFactorRepository(self.session, factory=self),
+                'CompanyShareTransactionValueFactor': CompanyShareTransactionValueFactorRepository(self.session, factory=self),
+                'CompanyShareOrderQuantityFactor': CompanyShareOrderQuantityFactorRepository(self.session, factory=self),
+                'CompanyShareOrderPriceFactor': CompanyShareOrderPriceFactorRepository(self.session, factory=self),
+
+                'CompanyShareOptionGammaFactor': CompanyShareOptionGammaFactorRepository(self.session, factory=self),
+                'CompanyShareOptionRhoFactor': CompanyShareOptionRhoFactorRepository(self.session, factory=self),
+                'CompanyShareOptionVegaFactor': CompanyShareOptionVegaFactorRepository(self.session, factory=self),
+
                 # Advanced Options Pricing Model Repositories
-                'company_share_option_black_scholes_merton_price_factor': CompanyShareOptionBlackScholesMertonPriceFactorRepository(self.session, factory=self),
-                'company_share_option_cox_ross_rubinstein_price_factor': CompanyShareOptionCoxRossRubinsteinPriceFactorRepository(self.session, factory=self),
-                'company_share_option_heston_price_factor': CompanyShareOptionHestonPriceFactorRepository(self.session, factory=self),
-                'company_share_option_hull_white_price_factor': CompanyShareOptionHullWhitePriceFactorRepository(self.session, factory=self),
-                'company_share_option_sabr_price_factor': CompanyShareOptionSABRPriceFactorRepository(self.session, factory=self),
-                'company_share_option_bates_price_factor': CompanyShareOptionBatesPriceFactorRepository(self.session, factory=self),
-                'company_share_option_dupire_local_volatility_price_factor': CompanyShareOptionDupireLocalVolatilityPriceFactorRepository(self.session, factory=self),
-                
-                'index_future': IndexFutureRepository(self.session, factory=self),
-                'index_future_option': IndexFutureOptionRepository(self.session, factory=self),
-                'company_share_option': CompanyShareOptionRepository(self.session, factory=self),
-                'company_share_portfolio_option_portfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
-                'company_share_option_portfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
-                'company_share_portfolio': CompanySharePortfolioRepository(self.session, factory=self),
-                'derivative_portfolio': DerivativePortfolioRepository(self.session, factory=self),
-                'company_share': CompanyShareRepository(self.session, factory=self),
-                'company_share_factor': CompanyShareFactorRepository(self.session, factory=self),
-                'company_share_price_return_factor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
-                'currency': CurrencyRepository(self.session, factory=self),
-                'bond': BondRepository(self.session, factory=self),
-                'index': IndexRepository(self.session, factory=self),
-                'crypto': CryptoRepository(self.session, factory=self),
-                'commodity': CommodityRepository(self.session, factory=self),  
-                'cash': CashRepository(self.session, factory=self),
-                'equity': EquityRepository(self.session, factory=self), 
-                'share': ShareRepository(self.session, factory=self),
-                'security': SecurityRepository(self.session, factory=self),
-                'country': CountryRepository(self.session, factory=self),
-                'continent': ContinentRepository(self.session, factory=self),
-                'exchange': ExchangeRepository(self.session, factory=self),
+                'CompanyShareOptionBlackScholesMertonPriceFactor': CompanyShareOptionBlackScholesMertonPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionCoxRossRubinsteinPriceFactor': CompanyShareOptionCoxRossRubinsteinPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionHestonPriceFactor': CompanyShareOptionHestonPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionHullWhitePriceFactor': CompanyShareOptionHullWhitePriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionSabrPriceFactor': CompanyShareOptionSABRPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionBatesPriceFactor': CompanyShareOptionBatesPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionDupireLocalVolatilityPriceFactor': CompanyShareOptionDupireLocalVolatilityPriceFactorRepository(self.session, factory=self),
+
+                'IndexFuture': IndexFutureRepository(self.session, factory=self),
+                'IndexFutureOption': IndexFutureOptionRepository(self.session, factory=self),
+                'CompanyShareOption': CompanyShareOptionRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionPortfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
+                'CompanyShareOptionPortfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
+                'CompanySharePortfolio': CompanySharePortfolioRepository(self.session, factory=self),
+                'DerivativePortfolio': DerivativePortfolioRepository(self.session, factory=self),
+                'CompanyShare': CompanyShareRepository(self.session, factory=self),
+                'CompanyShareFactor': CompanyShareFactorRepository(self.session, factory=self),
+                'CompanySharePriceReturnFactor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover6mFactor': CompanyShareAvgTurnover6mFactorRepository(self.session, factory=self),
+                'CompanyShareMonthlyPriceRangeFactor': CompanyShareMonthlyPriceRangeFactorRepository(self.session, factory=self),
+                'CompanyShareVpt52w20dLagFactor': CompanyShareVpt52w20dLagFactorRepository(self.session, factory=self),
+                'Currency': CurrencyRepository(self.session, factory=self),
+                'Bond': BondRepository(self.session, factory=self),
+                'Index': IndexRepository(self.session, factory=self),
+                'Crypto': CryptoRepository(self.session, factory=self),
+                'Commodity': CommodityRepository(self.session, factory=self),
+                'Cash': CashRepository(self.session, factory=self),
+                'Equity': EquityRepository(self.session, factory=self),
+                'Share': ShareRepository(self.session, factory=self),
+                'Security': SecurityRepository(self.session, factory=self),
+                'Country': CountryRepository(self.session, factory=self),
+                'Continent': ContinentRepository(self.session, factory=self),
+                'Exchange': ExchangeRepository(self.session, factory=self),
                 # Additional geographic repositories
-                'sector': SectorRepository(self.session, factory=self),
-                'industry': IndustryRepository(self.session, factory=self),
+                'Sector': SectorRepository(self.session, factory=self),
+                'Industry': IndustryRepository(self.session, factory=self),
                 # Portfolio and position repositories
-                'position': PositionRepository(self.session, factory=self),
-                'portfolio': PortfolioRepository(self.session, factory=self),
-                'company': CompanyRepository(self.session, factory=self),
+                'Position': PositionRepository(self.session, factory=self),
+                'Portfolio': PortfolioRepository(self.session, factory=self),
+                'Company': CompanyRepository(self.session, factory=self),
 
                 # Holding repositories
-                'holding': HoldingRepository(self.session, factory=self),
-                'portfolio_holding': PortfolioHoldingRepository(self.session, factory=self),
-                'company_share_portfolio_holding': CompanySharePortfolioHoldingRepository(self.session, factory=self),
+                'Holding': HoldingRepository(self.session, factory=self),
+                'PortfolioHolding': PortfolioHoldingRepository(self.session, factory=self),
+                'CompanySharePortfolioHolding': CompanySharePortfolioHoldingRepository(self.session, factory=self),
+                'CurrencyPortfolioHolding': CurrencyPortfolioHoldingRepository(self.session, factory=self),
+                'CompanySharePortfolioPortfolioHolding': CompanySharePortfolioPortfolioHoldingRepository(self.session, factory=self),
+                'CurrencyPortfolioPortfolioHolding': CurrencyPortfolioPortfolioHoldingRepository(self.session, factory=self),
                 # Financial statement repositories
-                'financial_statement': FinancialStatementRepository(self.session, factory=self),
-                'income_statement': IncomeStatementRepository(self.session, factory=self),
-                'balance_sheet': BalanceSheetRepository(self.session, factory=self),
-                'cash_flow_statement': CashFlowStatementRepository(self.session, factory=self),
+                'FinancialStatement': FinancialStatementRepository(self.session, factory=self),
+                'IncomeStatement': IncomeStatementRepository(self.session, factory=self),
+                'BalanceSheet': BalanceSheetRepository(self.session, factory=self),
+                'CashFlowStatement': CashFlowStatementRepository(self.session, factory=self),
                 # Market data repository
-                'market_data': MarketDataRepository(self.session, factory=self),
+                'MarketData': MarketDataRepository(self.session, factory=self),
                 # Order and transaction repositories
-                'order': OrderRepository(self.session, factory=self),
-                'transaction': TransactionRepository(self.session, factory=self)
+                'Order': OrderRepository(self.session, factory=self),
+                'Transaction': TransactionRepository(self.session, factory=self)
             }
         return self._local_repositories
 
@@ -359,258 +374,74 @@ class RepositoryFactory:
             return None
 
         if not self._ibkr_repositories:
-            # Ensure local repositories exist first
-            
             self._ibkr_repositories = {
-                'instrument_factor': IBKRInstrumentFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'instrument': IBKRInstrumentRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'factor': IBKRFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'factor_value': IBKRFactorValueRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
+                'InstrumentFactor': IBKRInstrumentFactorRepository(ibkr_client=client, factory=self),
+                'Instrument': IBKRInstrumentRepository(ibkr_client=client, factory=self),
+                'Factor': IBKRFactorRepository(ibkr_client=client, factory=self),
+                'FactorValue': IBKRFactorValueRepository(ibkr_client=client, factory=self),
                 # Individual factor repositories
-                'continent_factor': IBKRContinentFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'country_factor': IBKRCountryFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_factor': IBKRIndexFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_price_return_factor': IBKRIndexPriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_price_return_factor': IBKRIndexFuturePriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'share_factor': IBKRShareFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_factor': IBKRCompanyShareFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_price_return_factor': IBKRCompanySharePriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'portfolio_company_share_option_factor': IBKRPortfolioCompanyShareOptionFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-
-                'company_share_option_delta_factor': IBKRCompanyShareOptionDeltaFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_factor': IBKRCompanyShareOptionFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_gamma_factor': IBKRCompanyShareOptionGammaFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_price_factor': IBKRCompanyShareOptionPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_price_return_factor': IBKRCompanyShareOptionPriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_rho_factor': IBKRCompanyShareOptionRhoFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_vega_factor': IBKRCompanyShareOptionVegaFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                
+                'ContinentFactor': IBKRContinentFactorRepository(ibkr_client=client, factory=self),
+                'CountryFactor': IBKRCountryFactorRepository(ibkr_client=client, factory=self),
+                'IndexFactor': IBKRIndexFactorRepository(ibkr_client=client, factory=self),
+                'IndexPriceReturnFactor': IBKRIndexPriceReturnFactorRepository(ibkr_client=client, factory=self),
+                'IndexFuturePriceReturnFactor': IBKRIndexFuturePriceReturnFactorRepository(ibkr_client=client, factory=self),
+                'ShareFactor': IBKRShareFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareFactor': IBKRCompanyShareFactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceReturnFactor': IBKRCompanySharePriceReturnFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover6mFactor': IBKRCompanyShareAvgTurnover6mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMonthlyPriceRangeFactor': IBKRCompanyShareMonthlyPriceRangeFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareVpt52w20dLagFactor': IBKRCompanyShareVpt52w20dLagFactorRepository(ibkr_client=client, factory=self),
+                'PortfolioCompanyShareOptionFactor': IBKRPortfolioCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionDeltaFactor': IBKRCompanyShareOptionDeltaFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionFactor': IBKRCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionGammaFactor': IBKRCompanyShareOptionGammaFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionPriceFactor': IBKRCompanyShareOptionPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionPriceReturnFactor': IBKRCompanyShareOptionPriceReturnFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionRhoFactor': IBKRCompanyShareOptionRhoFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionVegaFactor': IBKRCompanyShareOptionVegaFactorRepository(ibkr_client=client, factory=self),
                 # Advanced Options Pricing Model Repositories - IBKR
-                'company_share_option_black_scholes_merton_price_factor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_cox_ross_rubinstein_price_factor': IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_heston_price_factor': IBKRCompanyShareOptionHestonPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_hull_white_price_factor': IBKRCompanyShareOptionHullWhitePriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_sabr_price_factor': IBKRCompanyShareOptionSABRPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_bates_price_factor': IBKRCompanyShareOptionBatesPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option_dupire_local_volatility_price_factor': IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                
-                'currency_factor': IBKRCurrencyFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'equity_factor': IBKREquityFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
+                'CompanyShareOptionBlackScholesMertonPriceFactor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionCoxRossRubinsteinPriceFactor': IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionHestonPriceFactor': IBKRCompanyShareOptionHestonPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionHullWhitePriceFactor': IBKRCompanyShareOptionHullWhitePriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionSabrPriceFactor': IBKRCompanyShareOptionSABRPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionBatesPriceFactor': IBKRCompanyShareOptionBatesPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionDupireLocalVolatilityPriceFactor': IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository(ibkr_client=client, factory=self),
+                'CurrencyFactor': IBKRCurrencyFactorRepository(ibkr_client=client, factory=self),
+                'EquityFactor': IBKREquityFactorRepository(ibkr_client=client, factory=self),
                 # New IBKR factor repositories
-                'bond_factor': IBKRBondFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'derivative_factor': IBKRDerivativeFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'future_factor': IBKRFutureFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_factor': IBKRIndexFutureFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_option_factor': IBKRIndexFutureOptionFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_option_price_return_factor': IBKRIndexFutureOptionPriceReturnFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_option_price_factor': IBKRIndexFutureOptionPriceFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_option_delta_factor': IBKRIndexFutureOptionDeltaFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'option_factor': IBKROptionFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'financial_asset_factor': IBKRFinancialAssetFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'security_factor': IBKRSecurityFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                # New IBKR factor repositories
-                'portfolio_factor': IBKRPortfolioFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_portfolio_correlation_factor': IBKRCompanySharePortfolioCorrelationFactorRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future': IBKRIndexFutureRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index_future_option': IBKRIndexFutureOptionRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company_share_option': IBKRCompanyShareOptionRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                
-                'company_share': IBKRCompanyShareRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'currency': IBKRCurrencyRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'bond': IBKRBondRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'index': IBKRIndexRepository(
-                    ibkr_client=client,
-                    factory=self  
-                ),
-                'crypto': IBKRCryptoRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'commodity': IBKRCommodityRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'cash': IBKRCashRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'equity': IBKREquityRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                
-                'share': IBKRShareRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'security': IBKRSecurityRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'country': IBKRCountryRepository(ibkr_client=client,
-                    factory=self),
-                'continent': IBKRContinentRepository(ibkr_client=client,
-                    factory=self),
-                'exchange': IBKRExchangeRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'company': IBKRCompanyRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'industry': IBKRIndustryRepository(
-                    ibkr_client=client,
-                    factory=self
-                ),
-                'sector': IBKRSectorRepository(
-                    ibkr_client=client,
-                    factory=self
-                )
+                'BondFactor': IBKRBondFactorRepository(ibkr_client=client, factory=self),
+                'DerivativeFactor': IBKRDerivativeFactorRepository(ibkr_client=client, factory=self),
+                'FutureFactor': IBKRFutureFactorRepository(ibkr_client=client, factory=self),
+                'IndexFutureFactor': IBKRIndexFutureFactorRepository(ibkr_client=client, factory=self),
+                'IndexFutureOptionFactor': IBKRIndexFutureOptionFactorRepository(ibkr_client=client, factory=self),
+                'IndexFutureOptionPriceReturnFactor': IBKRIndexFutureOptionPriceReturnFactorRepository(ibkr_client=client, factory=self),
+                'IndexFutureOptionPriceFactor': IBKRIndexFutureOptionPriceFactorRepository(ibkr_client=client, factory=self),
+                'IndexFutureOptionDeltaFactor': IBKRIndexFutureOptionDeltaFactorRepository(ibkr_client=client, factory=self),
+                'OptionFactor': IBKROptionFactorRepository(ibkr_client=client, factory=self),
+                'FinancialAssetFactor': IBKRFinancialAssetFactorRepository(ibkr_client=client, factory=self),
+                'SecurityFactor': IBKRSecurityFactorRepository(ibkr_client=client, factory=self),
+                'PortfolioFactor': IBKRPortfolioFactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePortfolioCorrelationFactor': IBKRCompanySharePortfolioCorrelationFactorRepository(ibkr_client=client, factory=self),
+                'IndexFuture': IBKRIndexFutureRepository(ibkr_client=client, factory=self),
+                'IndexFutureOption': IBKRIndexFutureOptionRepository(ibkr_client=client, factory=self),
+                'CompanyShareOption': IBKRCompanyShareOptionRepository(ibkr_client=client, factory=self),
+                'CompanyShare': IBKRCompanyShareRepository(ibkr_client=client, factory=self),
+                'Currency': IBKRCurrencyRepository(ibkr_client=client, factory=self),
+                'Bond': IBKRBondRepository(ibkr_client=client, factory=self),
+                'Index': IBKRIndexRepository(ibkr_client=client, factory=self),
+                'Crypto': IBKRCryptoRepository(ibkr_client=client, factory=self),
+                'Commodity': IBKRCommodityRepository(ibkr_client=client, factory=self),
+                'Cash': IBKRCashRepository(ibkr_client=client, factory=self),
+                'Equity': IBKREquityRepository(ibkr_client=client, factory=self),
+                'Share': IBKRShareRepository(ibkr_client=client, factory=self),
+                'Security': IBKRSecurityRepository(ibkr_client=client, factory=self),
+                'Country': IBKRCountryRepository(ibkr_client=client, factory=self),
+                'Continent': IBKRContinentRepository(ibkr_client=client, factory=self),
+                'Exchange': IBKRExchangeRepository(ibkr_client=client, factory=self),
+                'Company': IBKRCompanyRepository(ibkr_client=client, factory=self),
+                'Industry': IBKRIndustryRepository(ibkr_client=client, factory=self),
+                'Sector': IBKRSectorRepository(ibkr_client=client, factory=self)
             }
         return self._ibkr_repositories
 
@@ -633,7 +464,8 @@ class RepositoryFactory:
                 'client_id': 1,
                 'timeout': 60,
                 'account_id': 'DEFAULT',
-                'enable_logging': True
+                'enable_logging': True,
+                'max_import_ibkr': True,
             }
             
             client = create_interactive_brokers_broker(**ib_config)
@@ -646,38 +478,62 @@ class RepositoryFactory:
             print(f"Error creating IBKR client: {e}")
             return None
 
-    def get_local_repository(self, entity_class: type):
+    def get_local_repository(self, entity_class_or_key):
         """
-        Get local repository for a given entity class.
-        
-        Args:
-            entity_class: Domain entity class
-            
-        Returns:
-            Repository instance or None if not found
+        Get local repository by string key or by domain entity class.
+        String keys accept CamelCase ('CompanyShare'), snake_case ('company_share'),
+        or mapper discriminator values ('CurrencyPortfolioPortfolioHoldings').
         """
         repos = self.create_local_repositories()
+        if isinstance(entity_class_or_key, str):
+            result = repos.get(entity_class_or_key)
+            if result is not None:
+                return result
+            camel = ''.join(w.capitalize() for w in entity_class_or_key.split('_'))
+            result = repos.get(camel)
+            if result is not None:
+                return result
+            # Fallback: match by mapper.discriminator (e.g. holding_type values stored in DB)
+            for repo in repos.values():
+                m_disc = getattr(getattr(repo, 'mapper', None), 'discriminator', None)
+                if m_disc is not None and (m_disc == entity_class_or_key or m_disc == camel):
+                    return repo
+            return None
         for repo in repos.values():
-            if hasattr(repo, 'entity_class') and repo.entity_class is entity_class:
+            if hasattr(repo, 'entity_class') and repo.entity_class is entity_class_or_key:
                 return repo
         return None
 
-    def get_ibkr_repository(self, entity_class: type):
+    def get_local_repository_by_discriminator(self, discriminator: str):
         """
-        Get IBKR repository for a given entity class.
-        
-        Args:
-            entity_class: Domain entity class
-            
-        Returns:
-            Repository instance or None if not found or no IBKR client
+        Get local repository whose mapper.discriminator matches the given value.
+        Accepts both snake_case DB values ('company_share_portfolio_holdings') and
+        CamelCase mapper discriminators ('CompanySharePortfolioHoldings').
+        """
+        repos = self.create_local_repositories()
+        camel = ''.join(w.capitalize() for w in discriminator.split('_'))
+        for repo in repos.values():
+            m_disc = getattr(getattr(repo, 'mapper', None), 'discriminator', None)
+            if m_disc is not None and (m_disc == discriminator or m_disc == camel):
+                return repo
+        return None
+
+    def get_ibkr_repository(self, entity_class_or_key):
+        """
+        Get IBKR repository by string key or by domain entity class.
+        String keys accept CamelCase ('CompanyShare') or snake_case ('company_share').
         """
         repos = self.create_ibkr_repositories()
         if not repos:
             return None
-            
+        if isinstance(entity_class_or_key, str):
+            result = repos.get(entity_class_or_key)
+            if result is not None:
+                return result
+            camel = ''.join(w.capitalize() for w in entity_class_or_key.split('_'))
+            return repos.get(camel)
         for repo in repos.values():
-            if hasattr(repo, 'entity_class') and repo.entity_class is entity_class:
+            if hasattr(repo, 'entity_class') and repo.entity_class is entity_class_or_key:
                 return repo
         return None
 
@@ -688,834 +544,864 @@ class RepositoryFactory:
     @property
     def instrument_local_repo(self):
         """Get instrument repository for dependency injection."""
-        return self._local_repositories.get('instrument')
+        return self.get_local_repository('Instrument')
     
     @property
     def financial_asset_local_repo(self):
         """Get financial_asset repository for dependency injection."""
-        return self._local_repositories.get('financial_asset')
+        return self.get_local_repository('FinancialAsset')
     
     @property
     def factor_value_local_repo(self):
         """Get factor_value repository for dependency injection."""
-        return self._local_repositories.get('factor_value')
+        return self.get_local_repository('FactorValue')
 
 
     @property
     def factor_local_repo(self):
         """Get factor repository for dependency injection."""
-        return self._local_repositories.get('factor')
+        return self.get_local_repository('Factor')
 
     @property
     def factor_dependency_local_repo(self):
         """Get factor_dependency repository for dependency injection."""
-        return self._local_repositories.get('factor_dependency')
+        return self.get_local_repository('FactorDependency')
 
     # Individual local factor repositories
     @property
     def continent_factor_local_repo(self):
         """Get continent_factor repository for dependency injection."""
-        return self._local_repositories.get('continent_factor')
+        return self.get_local_repository('ContinentFactor')
 
     @property
     def country_factor_local_repo(self):
         """Get country_factor repository for dependency injection."""
-        return self._local_repositories.get('country_factor')
+        return self.get_local_repository('CountryFactor')
 
     @property
     def index_factor_local_repo(self):
         """Get index_factor repository for dependency injection."""
-        return self._local_repositories.get('index_factor')
+        return self.get_local_repository('IndexFactor')
 
     @property
     def index_price_return_factor_local_repo(self):
         """Get index_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('index_price_return_factor')
+        return self.get_local_repository('IndexPriceReturnFactor')
 
     @property
     def currency_factor_local_repo(self):
         """Get currency_factor repository for dependency injection."""
-        return self._local_repositories.get('currency_factor')
+        return self.get_local_repository('CurrencyFactor')
 
     @property
     def equity_factor_local_repo(self):
         """Get equity_factor repository for dependency injection."""
-        return self._local_repositories.get('equity_factor')
+        return self.get_local_repository('EquityFactor')
 
     @property
     def bond_factor_local_repo(self):
         """Get bond_factor repository for dependency injection."""
-        return self._local_repositories.get('bond_factor')
+        return self.get_local_repository('BondFactor')
 
     @property
     def derivative_factor_local_repo(self):
         """Get derivative_factor repository for dependency injection."""
-        return self._local_repositories.get('derivative_factor')
+        return self.get_local_repository('DerivativeFactor')
 
     @property
     def financial_asset_factor_local_repo(self):
         """Get financial_asset_factor repository for dependency injection."""
-        return self._local_repositories.get('financial_asset_factor')
+        return self.get_local_repository('FinancialAssetFactor')
 
     @property
     def security_factor_local_repo(self):
         """Get security_factor repository for dependency injection."""
-        return self._local_repositories.get('security_factor')
+        return self.get_local_repository('SecurityFactor')
 
     @property
     def future_factor_local_repo(self):
         """Get future_factor repository for dependency injection."""
-        return self._local_repositories.get('future_factor')
+        return self.get_local_repository('FutureFactor')
 
     @property
     def index_future_factor_local_repo(self):
         """Get index_future_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_factor')
+        return self.get_local_repository('IndexFutureFactor')
 
     @property
     def option_factor_local_repo(self):
         """Get option_factor repository for dependency injection."""
-        return self._local_repositories.get('option_factor')
+        return self.get_local_repository('OptionFactor')
 
 
     @property
     def base_factor_local_repo(self):
         """Get base_factor repository for dependency injection."""
-        return self._local_repositories.get('base_factor')
+        return self.get_local_repository('BaseFactor')
 
 
     @property
     def share_factor_local_repo(self):
         """Get share_factor repository for dependency injection."""
-        return self._local_repositories.get('share_factor')
+        return self.get_local_repository('ShareFactor')
 
 
     @property
     def index_future_local_repo(self):
         """Get index_future repository for dependency injection."""
-        return self._local_repositories.get('index_future')
+        return self.get_local_repository('IndexFuture')
 
     @property
     def index_future_option_local_repo(self):
         """Get index_future_option repository for dependency injection."""
-        return self._local_repositories.get('index_future_option')
+        return self.get_local_repository('IndexFutureOption')
 
     @property
     def index_future_option_factor_local_repo(self):
         """Get index_future_option_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_option_factor')
+        return self.get_local_repository('IndexFutureOptionFactor')
 
     @property
     def index_future_option_price_return_factor_local_repo(self):
         """Get index_future_option_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_option_price_return_factor')
+        return self.get_local_repository('IndexFutureOptionPriceReturnFactor')
 
     @property
     def index_future_option_price_factor_local_repo(self):
         """Get index_future_option_price_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_option_price_factor')
+        return self.get_local_repository('IndexFutureOptionPriceFactor')
 
     @property
     def index_future_option_delta_factor_local_repo(self):
         """Get index_future_option_delta_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_option_delta_factor')
+        return self.get_local_repository('IndexFutureOptionDeltaFactor')
 
     @property
     def company_share_local_repo(self):
         """Get company_share repository for dependency injection."""
-        return self._local_repositories.get('company_share')
+        return self.get_local_repository('CompanyShare')
 
 
     @property
     def currency_local_repo(self):
         """Get currency repository for dependency injection."""
-        return self._local_repositories.get('currency')
+        return self.get_local_repository('Currency')
 
 
     @property
     def bond_local_repo(self):
         """Get bond repository for dependency injection."""
-        return self._local_repositories.get('bond')
+        return self.get_local_repository('Bond')
 
 
     @property
     def index_local_repo(self):
         """Get index repository for dependency injection."""
-        return self._local_repositories.get('index')
+        return self.get_local_repository('Index')
 
 
     @property
     def crypto_local_repo(self):
         """Get crypto repository for dependency injection."""
-        return self._local_repositories.get('crypto')
+        return self.get_local_repository('Crypto')
 
 
     @property
     def commodity_local_repo(self):
         """Get commodity repository for dependency injection."""
-        return self._local_repositories.get('commodity')
+        return self.get_local_repository('Commodity')
 
 
     @property
     def cash_local_repo(self):
         """Get cash repository for dependency injection."""
-        return self._local_repositories.get('cash')
+        return self.get_local_repository('Cash')
 
 
     @property
     def equity_local_repo(self):
         """Get equity repository for dependency injection."""
-        return self._local_repositories.get('equity')
+        return self.get_local_repository('Equity')
 
 
     @property
     def etf_share_local_repo(self):
         """Get etf_share repository for dependency injection."""
-        return self._local_repositories.get('etf_share')
+        return self.get_local_repository('EtfShare')
 
 
     @property
     def share_local_repo(self):
         """Get share repository for dependency injection."""
-        return self._local_repositories.get('share')
+        return self.get_local_repository('Share')
 
 
     @property
     def security_local_repo(self):
         """Get security repository for dependency injection."""
-        return self._local_repositories.get('security')
+        return self.get_local_repository('Security')
 
     @property
     def country_local_repo(self):
         """Get country repository for dependency injection."""
-        return self._local_repositories.get('country')
+        return self.get_local_repository('Country')
 
     @property
     def continent_local_repo(self):
         """Get continent repository for dependency injection."""
-        return self._local_repositories.get('continent')
+        return self.get_local_repository('Continent')
 
     @property
     def exchange_local_repo(self):
         """Get exchange repository for dependency injection."""
-        return self._local_repositories.get('exchange')
+        return self.get_local_repository('Exchange')
 
     @property
     def instrument_ibkr_repo(self):
         """Get factor repository for dependency injection."""
-        return self._ibkr_repositories.get('instrument')
+        return self.get_ibkr_repository('Instrument')
     @property
     def instrument_factor_ibkr_repo(self):
         """Get factor repository for dependency injection."""
-        return self._ibkr_repositories.get('instrument_factor')
+        return self.get_ibkr_repository('InstrumentFactor')
     @property
     def factor_ibkr_repo(self):
         """Get factor repository for dependency injection."""
-        return self._ibkr_repositories.get('factor')
+        return self.get_ibkr_repository('Factor')
 
 
     @property
     def factor_value_ibkr_repo(self):
         """Get factor_value repository for dependency injection."""
-        return self._ibkr_repositories.get('factor_value')
+        return self.get_ibkr_repository('FactorValue')
 
     # Individual IBKR factor repositories
     @property
     def continent_factor_ibkr_repo(self):
         """Get continent_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('continent_factor')
+        return self.get_ibkr_repository('ContinentFactor')
 
     @property
     def country_factor_ibkr_repo(self):
         """Get country_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('country_factor')
+        return self.get_ibkr_repository('CountryFactor')
 
     @property
     def index_factor_ibkr_repo(self):
         """Get index_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_factor')
+        return self.get_ibkr_repository('IndexFactor')
 
     @property
     def index_price_return_factor_ibkr_repo(self):
         """Get index_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_price_return_factor')
+        return self.get_ibkr_repository('IndexPriceReturnFactor')
 
     @property
     def index_future_price_return_factor_ibkr_repo(self):
         """Get index_future_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_price_return_factor')
+        return self.get_ibkr_repository('IndexFuturePriceReturnFactor')
 
     @property
     def share_factor_ibkr_repo(self):
         """Get share_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('share_factor')
+        return self.get_ibkr_repository('ShareFactor')
 
     @property
     def currency_factor_ibkr_repo(self):
         """Get currency_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('currency_factor')
+        return self.get_ibkr_repository('CurrencyFactor')
 
     @property
     def equity_factor_ibkr_repo(self):
         """Get equity_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('equity_factor')
+        return self.get_ibkr_repository('EquityFactor')
 
 
     @property
     def index_future_ibkr_repo(self):
         """Get index_future repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future')
+        return self.get_ibkr_repository('IndexFuture')
 
     @property
     def index_future_option_ibkr_repo(self):
         """Get index_future_option repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_option')
+        return self.get_ibkr_repository('IndexFutureOption')
 
     @property
     def index_future_option_factor_ibkr_repo(self):
         """Get index_future_option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_option_factor')
+        return self.get_ibkr_repository('IndexFutureOptionFactor')
 
     @property
     def index_future_option_price_return_factor_ibkr_repo(self):
         """Get index_future_option_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_option_price_return_factor')
+        return self.get_ibkr_repository('IndexFutureOptionPriceReturnFactor')
 
     @property
     def index_future_option_price_factor_ibkr_repo(self):
         """Get index_future_option_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_option_price_factor')
+        return self.get_ibkr_repository('IndexFutureOptionPriceFactor')
 
     @property
     def index_future_option_delta_factor_ibkr_repo(self):
         """Get index_future_option_delta_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_option_delta_factor')
+        return self.get_ibkr_repository('IndexFutureOptionDeltaFactor')
 
     @property
     def company_share_ibkr_repo(self):
         """Get company_share repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share')
+        return self.get_ibkr_repository('CompanyShare')
 
 
     @property
     def currency_ibkr_repo(self):
         """Get currency repository for dependency injection."""
-        return self._ibkr_repositories.get('currency')
+        return self.get_ibkr_repository('Currency')
 
 
     @property
     def bond_ibkr_repo(self):
         """Get bond repository for dependency injection."""
-        return self._ibkr_repositories.get('bond')
+        return self.get_ibkr_repository('Bond')
 
 
     @property
     def index_ibkr_repo(self):
         """Get index repository for dependency injection."""
-        return self._ibkr_repositories.get('index')
+        return self.get_ibkr_repository('Index')
 
 
     @property
     def crypto_ibkr_repo(self):
         """Get crypto repository for dependency injection."""
-        return self._ibkr_repositories.get('crypto')
+        return self.get_ibkr_repository('Crypto')
 
 
     @property
     def commodity_ibkr_repo(self):
         """Get commodity repository for dependency injection."""
-        return self._ibkr_repositories.get('commodity')
+        return self.get_ibkr_repository('Commodity')
 
 
     @property
     def cash_ibkr_repo(self):
         """Get cash repository for dependency injection."""
-        return self._ibkr_repositories.get('cash')
+        return self.get_ibkr_repository('Cash')
 
 
     @property
     def equity_ibkr_repo(self):
         """Get equity repository for dependency injection."""
-        return self._ibkr_repositories.get('equity')
+        return self.get_ibkr_repository('Equity')
 
 
     @property
     def etf_share_ibkr_repo(self):
         """Get etf_share repository for dependency injection."""
-        return self._ibkr_repositories.get('etf_share')
+        return self.get_ibkr_repository('EtfShare')
 
 
     @property
     def share_ibkr_repo(self):
         """Get share repository for dependency injection."""
-        return self._ibkr_repositories.get('share')
+        return self.get_ibkr_repository('Share')
 
 
     @property
     def security_ibkr_repo(self):
         """Get security repository for dependency injection."""
-        return self._ibkr_repositories.get('security')
+        return self.get_ibkr_repository('Security')
 
     @property
     def country_ibkr_repo(self):
         """Get country repository for dependency injection."""
-        return self._ibkr_repositories.get('country')
+        return self.get_ibkr_repository('Country')
 
     @property
     def continent_ibkr_repo(self):
         """Get continent repository for dependency injection."""
-        return self._ibkr_repositories.get('continent')
+        return self.get_ibkr_repository('Continent')
 
     @property
     def exchange_ibkr_repo(self):
         """Get exchange repository for dependency injection."""
-        return self._ibkr_repositories.get('exchange')
+        return self.get_ibkr_repository('Exchange')
 
     # New IBKR factor repository properties
     @property
     def bond_factor_ibkr_repo(self):
         """Get bond_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('bond_factor')
+        return self.get_ibkr_repository('BondFactor')
 
     @property
     def derivative_factor_ibkr_repo(self):
         """Get derivative_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('derivative_factor')
+        return self.get_ibkr_repository('DerivativeFactor')
 
     @property
     def future_factor_ibkr_repo(self):
         """Get future_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('future_factor')
+        return self.get_ibkr_repository('FutureFactor')
 
     @property
     def index_future_factor_ibkr_repo(self):
         """Get index_future_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('index_future_factor')
+        return self.get_ibkr_repository('IndexFutureFactor')
 
     @property
     def option_factor_ibkr_repo(self):
         """Get option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('option_factor')
+        return self.get_ibkr_repository('OptionFactor')
 
     @property
     def financial_asset_factor_ibkr_repo(self):
         """Get financial_asset_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('financial_asset_factor')
+        return self.get_ibkr_repository('FinancialAssetFactor')
 
     @property
     def security_factor_ibkr_repo(self):
         """Get security_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('security_factor')
+        return self.get_ibkr_repository('SecurityFactor')
     
     # Additional local repository properties
     @property
     def sector_local_repo(self):
         """Get sector repository for dependency injection."""
-        return self._local_repositories.get('sector')
+        return self.get_local_repository('Sector')
     
     @property
     def industry_local_repo(self):
         """Get industry repository for dependency injection."""
-        return self._local_repositories.get('industry')
+        return self.get_local_repository('Industry')
     
     @property
     def position_local_repo(self):
         """Get position repository for dependency injection."""
-        return self._local_repositories.get('position')
+        return self.get_local_repository('Position')
     
     @property
     def portfolio_local_repo(self):
         """Get portfolio repository for dependency injection."""
-        return self._local_repositories.get('portfolio')
+        return self.get_local_repository('Portfolio')
     
     @property
     def company_local_repo(self):
         """Get company repository for dependency injection."""
-        return self._local_repositories.get('company')
+        return self.get_local_repository('Company')
     
     @property
     def holding_local_repo(self):
         """Get holding repository for dependency injection."""
-        return self._local_repositories.get('holding')
+        return self.get_local_repository('Holding')
     
     @property
     def portfolio_holding_local_repo(self):
         """Get portfolio_holding repository for dependency injection."""
-        return self._local_repositories.get('portfolio_holding')
+        return self.get_local_repository('PortfolioHolding')
     
     @property
     def company_share_portfolio_holding_local_repo(self):
         """Get portfolio_company_share_holding repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_holding')
+        return self.get_local_repository('CompanySharePortfolioHolding')
     
     @property
     def financial_statement_local_repo(self):
         """Get financial_statement repository for dependency injection."""
-        return self._local_repositories.get('financial_statement')
+        return self.get_local_repository('FinancialStatement')
     
     @property
     def income_statement_local_repo(self):
         """Get income_statement repository for dependency injection."""
-        return self._local_repositories.get('income_statement')
+        return self.get_local_repository('IncomeStatement')
     
     @property
     def balance_sheet_local_repo(self):
         """Get balance_sheet repository for dependency injection."""
-        return self._local_repositories.get('balance_sheet')
+        return self.get_local_repository('BalanceSheet')
     
     @property
     def cash_flow_statement_local_repo(self):
         """Get cash_flow_statement repository for dependency injection."""
-        return self._local_repositories.get('cash_flow_statement')
+        return self.get_local_repository('CashFlowStatement')
     
     @property
     def market_data_local_repo(self):
         """Get market_data repository for dependency injection."""
-        return self._local_repositories.get('market_data')
+        return self.get_local_repository('MarketData')
     
     @property
     def order_local_repo(self):
         """Get order repository for dependency injection."""
-        return self._local_repositories.get('order')
+        return self.get_local_repository('Order')
     
     @property
     def transaction_local_repo(self):
         """Get transaction repository for dependency injection."""
-        return self._local_repositories.get('transaction')
+        return self.get_local_repository('Transaction')
     
     @property
     def future_price_return_factor_local_repo(self):
         """Get future_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('future_price_return_factor')
+        return self.get_local_repository('FuturePriceReturnFactor')
     
     @property
     def index_future_price_return_factor_local_repo(self):
         """Get index_future_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('index_future_price_return_factor')
+        return self.get_local_repository('IndexFuturePriceReturnFactor')
     
     # Additional IBKR repository properties
     @property
     def company_ibkr_repo(self):
         """Get company repository for dependency injection."""
-        return self._ibkr_repositories.get('company')
+        return self.get_ibkr_repository('Company')
 
     @property
     def industry_ibkr_repo(self):
         """Get industry repository for dependency injection."""
-        return self._ibkr_repositories.get('industry')
+        return self.get_ibkr_repository('Industry')
 
     @property
     def sector_ibkr_repo(self):
         """Get sector repository for dependency injection."""
-        return self._ibkr_repositories.get('sector')
+        return self.get_ibkr_repository('Sector')
 
     # New local repository properties
     @property
     def portfolio_factor_local_repo(self):
         """Get portfolio_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_factor')
+        return self.get_local_repository('PortfolioFactor')
     
     @property
     def company_share_portfolio_correlation_factor_local_repo(self):
         """Get portfolio_company_share_correlation_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_correlation_factor')
+        return self.get_local_repository('CompanySharePortfolioCorrelationFactor')
     
     @property
     def company_share_portfolio_return_factor_local_repo(self):
         """Get portfolio_company_share_return_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_return_factor')
+        return self.get_local_repository('CompanySharePortfolioReturnFactor')
     
     @property
     def company_share_portfolio_value_factor_local_repo(self):
         """Get portfolio_company_share_value_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_value_factor')
+        return self.get_local_repository('CompanySharePortfolioValueFactor')
     
     @property
     def portfolio_value_factor_local_repo(self):
         """Get portfolio_value_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_value_factor')
+        return self.get_local_repository('PortfolioValueFactor')
     
     @property
     def company_share_portfolio_variance_factor_local_repo(self):
         """Get portfolio_company_share_variance_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_variance_factor')
+        return self.get_local_repository('CompanySharePortfolioVarianceFactor')
     
     @property
     def holding_factor_local_repo(self):
         """Get holding_factor repository for dependency injection."""
-        return self._local_repositories.get('holding_factor')
+        return self.get_local_repository('HoldingFactor')
     
     @property
     def company_share_portfolio_holding_factor_local_repo(self):
         """Get portfolio_company_share_holding_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_holding_factor')
+        return self.get_local_repository('CompanySharePortfolioHoldingFactor')
     
     @property
     def company_share_portfolio_holding_quantity_factor_local_repo(self):
         """Get portfolio_company_share_holding_quantity_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_holding_quantity_factor')
+        return self.get_local_repository('CompanySharePortfolioHoldingQuantityFactor')
     
     @property
     def company_share_portfolio_holding_value_factor_local_repo(self):
         """Get portfolio_company_share_holding_value_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_holding_value_factor')
+        return self.get_local_repository('CompanySharePortfolioHoldingValueFactor')
     
     @property
     def company_share_portfolio_holding_weight_factor_local_repo(self):
         """Get portfolio_company_share_holding_weight_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_holding_weight_factor')
+        return self.get_local_repository('CompanySharePortfolioHoldingWeightFactor')
     
     @property
     def portfolio_holding_factor_local_repo(self):
         """Get portfolio_holding_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_holding_factor')
+        return self.get_local_repository('PortfolioHoldingFactor')
     
     @property
     def portfolio_holding_value_factor_local_repo(self):
         """Get portfolio_holding_value_factor repository for dependency injection."""
-        return self._local_repositories.get('portfolio_holding_value_factor')
+        return self.get_local_repository('PortfolioHoldingValueFactor')
 
     @property
     def company_share_portfolio_portfolio_holding_value_factor_local_repo(self):
         """Get company_share_portfolio_portfolio_holding_value_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_portfolio_holding_value_factor')
+        return self.get_local_repository('CompanySharePortfolioPortfolioHoldingValueFactor')
 
     # Position, Transaction, and Order factor repositories
     @property
     def company_share_position_value_factor_local_repo(self):
         """Get company_share_position_value_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_position_value_factor')
+        return self.get_local_repository('CompanySharePositionValueFactor')
     
     @property
     def company_share_transaction_value_factor_local_repo(self):
         """Get company_share_transaction_value_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_transaction_value_factor')
+        return self.get_local_repository('CompanyShareTransactionValueFactor')
     
     @property
     def company_share_order_quantity_factor_local_repo(self):
         """Get company_share_order_quantity_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_order_quantity_factor')
+        return self.get_local_repository('CompanyShareOrderQuantityFactor')
     
     @property
     def company_share_order_price_factor_local_repo(self):
         """Get company_share_order_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_order_price_factor')
+        return self.get_local_repository('CompanyShareOrderPriceFactor')
     
     @property
     def company_share_option_gamma_factor_local_repo(self):
         """Get company_share_option_gamma_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_gamma_factor')
+        return self.get_local_repository('CompanyShareOptionGammaFactor')
     
     @property
     def company_share_option_rho_factor_local_repo(self):
         """Get company_share_option_rho_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_rho_factor')
+        return self.get_local_repository('CompanyShareOptionRhoFactor')
     
     @property
     def company_share_option_vega_factor_local_repo(self):
         """Get company_share_option_vega_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_vega_factor')
+        return self.get_local_repository('CompanyShareOptionVegaFactor')
 
     # Advanced Options Pricing Model Repository Properties
     @property
     def company_share_option_black_scholes_merton_price_factor_local_repo(self):
         """Get company_share_option_black_scholes_merton_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_black_scholes_merton_price_factor')
+        return self.get_local_repository('CompanyShareOptionBlackScholesMertonPriceFactor')
     
     @property
     def company_share_option_cox_ross_rubinstein_price_factor_local_repo(self):
         """Get company_share_option_cox_ross_rubinstein_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_cox_ross_rubinstein_price_factor')
+        return self.get_local_repository('CompanyShareOptionCoxRossRubinsteinPriceFactor')
     
     @property
     def company_share_option_heston_price_factor_local_repo(self):
         """Get company_share_option_heston_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_heston_price_factor')
+        return self.get_local_repository('CompanyShareOptionHestonPriceFactor')
     
     @property
     def company_share_option_hull_white_price_factor_local_repo(self):
         """Get company_share_option_hull_white_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_hull_white_price_factor')
+        return self.get_local_repository('CompanyShareOptionHullWhitePriceFactor')
     
     @property
     def company_share_option_sabr_price_factor_local_repo(self):
         """Get company_share_option_sabr_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_sabr_price_factor')
+        return self.get_local_repository('CompanyShareOptionSabrPriceFactor')
     
     @property
     def company_share_option_bates_price_factor_local_repo(self):
         """Get company_share_option_bates_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_bates_price_factor')
+        return self.get_local_repository('CompanyShareOptionBatesPriceFactor')
     
     @property
     def company_share_option_dupire_local_volatility_price_factor_local_repo(self):
         """Get company_share_option_dupire_local_volatility_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_dupire_local_volatility_price_factor')
+        return self.get_local_repository('CompanyShareOptionDupireLocalVolatilityPriceFactor')
 
     # New IBKR repository properties
     @property
     def portfolio_factor_ibkr_repo(self):
         """Get portfolio_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('portfolio_factor')
+        return self.get_ibkr_repository('PortfolioFactor')
     
     @property
     def company_share_portfolio_correlation_factor_ibkr_repo(self):
         """Get portfolio_company_share_correlation_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_portfolio_correlation_factor')
+        return self.get_ibkr_repository('CompanySharePortfolioCorrelationFactor')
 
     # New Local repository properties
     @property
     def company_share_portfolio_option_factor_local_repo(self):
         """Get portfolio_company_share_option_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option_factor')
+        return self.get_local_repository('CompanySharePortfolioOptionFactor')
 
     
 
     @property
     def company_share_option_delta_factor_local_repo(self):
         """Get company_share_option_delta_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_delta_factor')
+        return self.get_local_repository('CompanyShareOptionDeltaFactor')
 
     @property
     def company_share_option_factor_local_repo(self):
         """Get company_share_option_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_factor')
+        return self.get_local_repository('CompanyShareOptionFactor')
 
     @property
     def company_share_option_price_factor_local_repo(self):
         """Get company_share_option_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_price_factor')
+        return self.get_local_repository('CompanyShareOptionPriceFactor')
 
     # New IBKR repository properties
     @property
     def company_share_portfolio_option_factor_ibkr_repo(self):
         """Get portfolio_company_share_option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_portfolio_option_factor')
+        return self.get_ibkr_repository('CompanySharePortfolioOptionFactor')
 
  
 
     @property
     def company_share_option_delta_factor_ibkr_repo(self):
         """Get company_share_option_delta_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_delta_factor')
+        return self.get_ibkr_repository('CompanyShareOptionDeltaFactor')
 
     @property
     def company_share_option_factor_ibkr_repo(self):
         """Get company_share_option_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_factor')
+        return self.get_ibkr_repository('CompanyShareOptionFactor')
 
     @property
     def company_share_option_gamma_factor_ibkr_repo(self):
         """Get company_share_option_gamma_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_gamma_factor')
+        return self.get_ibkr_repository('CompanyShareOptionGammaFactor')
 
     @property
     def company_share_option_price_factor_ibkr_repo(self):
         """Get company_share_option_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionPriceFactor')
 
     @property
     def company_share_option_price_return_factor_ibkr_repo(self):
         """Get company_share_option_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_price_return_factor')
+        return self.get_ibkr_repository('CompanyShareOptionPriceReturnFactor')
 
     @property
     def company_share_option_rho_factor_ibkr_repo(self):
         """Get company_share_option_rho_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_rho_factor')
+        return self.get_ibkr_repository('CompanyShareOptionRhoFactor')
 
     @property
     def company_share_option_vega_factor_ibkr_repo(self):
         """Get company_share_option_vega_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_vega_factor')
+        return self.get_ibkr_repository('CompanyShareOptionVegaFactor')
 
     # Advanced Options Pricing Model IBKR Repository Properties
     @property
     def company_share_option_black_scholes_merton_price_factor_ibkr_repo(self):
         """Get company_share_option_black_scholes_merton_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_black_scholes_merton_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionBlackScholesMertonPriceFactor')
     
     @property
     def company_share_option_cox_ross_rubinstein_price_factor_ibkr_repo(self):
         """Get company_share_option_cox_ross_rubinstein_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_cox_ross_rubinstein_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionCoxRossRubinsteinPriceFactor')
     
     @property
     def company_share_option_heston_price_factor_ibkr_repo(self):
         """Get company_share_option_heston_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_heston_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionHestonPriceFactor')
     
     @property
     def company_share_option_hull_white_price_factor_ibkr_repo(self):
         """Get company_share_option_hull_white_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_hull_white_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionHullWhitePriceFactor')
     
     @property
     def company_share_option_sabr_price_factor_ibkr_repo(self):
         """Get company_share_option_sabr_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_sabr_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionSabrPriceFactor')
     
     @property
     def company_share_option_bates_price_factor_ibkr_repo(self):
         """Get company_share_option_bates_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_bates_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionBatesPriceFactor')
     
     @property
     def company_share_option_dupire_local_volatility_price_factor_ibkr_repo(self):
         """Get company_share_option_dupire_local_volatility_price_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_option_dupire_local_volatility_price_factor')
+        return self.get_ibkr_repository('CompanyShareOptionDupireLocalVolatilityPriceFactor')
 
     # Missing properties for already registered repositories
     @property
     def company_share_factor_local_repo(self):
         """Get company_share_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_factor')
+        return self.get_local_repository('CompanyShareFactor')
 
     @property
     def company_share_price_return_factor_local_repo(self):
         """Get company_share_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_price_return_factor')
+        return self.get_local_repository('CompanySharePriceReturnFactor')
 
     @property
     def company_share_option_local_repo(self):
         """Get company_share_option repository for dependency injection."""
-        return self._local_repositories.get('company_share_option')
+        return self.get_local_repository('CompanyShareOption')
 
     @property
     def company_share_portfolio_option_local_repo(self):
         """Get portfolio_company_share_option repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option')
+        return self.get_local_repository('CompanySharePortfolioOption')
     @property
     def company_share_portfolio_option_portfolio_local_repo(self):
         """Get portfolio_company_share_option_portfolio repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option_portfolio')
+        return self.get_local_repository('CompanySharePortfolioOptionPortfolio')
     @property
     def company_share_option_price_return_factor_local_repo(self):
         """Get company_share_option_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_option_price_return_factor')
+        return self.get_local_repository('CompanyShareOptionPriceReturnFactor')
 
     @property
     def company_share_portfolio_option_price_return_factor_local_repo(self):
         """Get portfolio_company_share_option_price_return_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option_price_return_factor')
+        return self.get_local_repository('CompanySharePortfolioOptionPriceReturnFactor')
 
     @property
     def company_share_portfolio_option_delta_factor_local_repo(self):
         """Get portfolio_company_share_option_delta_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option_delta_factor')
+        return self.get_local_repository('CompanySharePortfolioOptionDeltaFactor')
 
     @property
     def company_share_portfolio_option_price_factor_local_repo(self):
         """Get portfolio_company_share_option_price_factor repository for dependency injection."""
-        return self._local_repositories.get('company_share_portfolio_option_price_factor')
+        return self.get_local_repository('CompanySharePortfolioOptionPriceFactor')
 
     # Missing IBKR properties for already registered repositories
     @property
     def company_share_factor_ibkr_repo(self):
         """Get company_share_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_factor')
+        return self.get_ibkr_repository('CompanyShareFactor')
 
     @property
     def company_share_price_return_factor_ibkr_repo(self):
         """Get company_share_price_return_factor repository for dependency injection."""
-        return self._ibkr_repositories.get('company_share_price_return_factor')
+        return self.get_ibkr_repository('CompanySharePriceReturnFactor')
+
+    @property
+    def company_share_avg_turnover_6m_factor_local_repo(self):
+        """Get company_share_avg_turnover_6m_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareAvgTurnover6mFactor')
+
+    @property
+    def company_share_avg_turnover_6m_factor_ibkr_repo(self):
+        """Get company_share_avg_turnover_6m_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareAvgTurnover6mFactor')
+
+    @property
+    def company_share_monthly_price_range_factor_local_repo(self):
+        """Get company_share_monthly_price_range_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareMonthlyPriceRangeFactor')
+
+    @property
+    def company_share_monthly_price_range_factor_ibkr_repo(self):
+        """Get company_share_monthly_price_range_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareMonthlyPriceRangeFactor')
+
+    @property
+    def company_share_vpt_52w_20d_lag_factor_local_repo(self):
+        """Get company_share_vpt_52w_20d_lag_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareVpt52w20dLagFactor')
+
+    @property
+    def company_share_vpt_52w_20d_lag_factor_ibkr_repo(self):
+        """Get company_share_vpt_52w_20d_lag_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareVpt52w20dLagFactor')

@@ -290,7 +290,7 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             logger.error(f"Error counting currencies: {e}_{os.path.abspath(__file__)}")
             raise
     
-    def get_or_create(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
+    def _create_or_get(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
         """
         Get or create a currency by ISO code with dependency resolution.
         Integrates the functionality from to_orm_with_dependencies.

@@ -13,7 +13,7 @@ class IndexFutureFactorMapper(BaseFactorMapper):
     """Mapper for IndexFutureFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'index_future'
+        return 'IndexFuture'
     @property
     def model_class(self):
         return IndexFutureFactorModel

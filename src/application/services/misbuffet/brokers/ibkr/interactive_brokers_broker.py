@@ -60,8 +60,11 @@ class InteractiveBrokersBroker(BaseBroker):
         # Account information
         self.account_id = config.get('account_id', 'DEFAULT')
         self.paper_trading = config.get('paper_trading', True)
-        
-        
+
+        # Historical data cache: enabled when max_import_ibkr is True
+        self.max_import_ibkr: bool = config.get('max_import_ibkr', False)
+        self._historical_data_cache: Dict[str, List] = {}
+
         self.logger.info(f"Initialized IB Broker - Host: {self.host}:{self.port}, "
                         f"Client ID: {self.client_id}, Paper: {self.paper_trading}")
     
@@ -724,7 +727,12 @@ class InteractiveBrokersBroker(BaseBroker):
 
         if not self.ib_connection or not self.ib_connection.is_connected():
             return []
-        
+
+        cache_key = f"{contract.symbol}_{end_date_time}_{duration_str}_{bar_size_setting}_{what_to_show}"
+        if self.max_import_ibkr and cache_key in self._historical_data_cache:
+            self.logger.debug(f"Cache hit for {contract.symbol} ({duration_str}, {bar_size_setting})")
+            return self._historical_data_cache[cache_key]
+
         try:
             # Generate unique request ID
             req_id = abs(hash(f"hist_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
@@ -788,10 +796,13 @@ class InteractiveBrokersBroker(BaseBroker):
                 formatted_bars.append(formatted_bar)
             
             self.logger.info(f"Historical data complete for {contract.symbol}: {len(formatted_bars)} bars")
-            
+
             # Clean up stored data
             self.ib_connection.historical_data.pop(req_id, None)
-            
+
+            if self.max_import_ibkr:
+                self._historical_data_cache[cache_key] = formatted_bars
+
             return formatted_bars
             
         except Exception as e:
@@ -840,22 +851,21 @@ class InteractiveBrokersBroker(BaseBroker):
             raise ValueError("end_date_time must be within the last 6 months.")
 
         return
-    def format_ib_datetime(self,date_time=None, tz="US/Eastern"):
+    def format_ib_datetime(self, date_time=None, tz="US/Eastern"):
         """
         Format datetime for IBKR historical data request.
-        
+
         Returns:
             String in IB UTC format: 'yyyymmdd-hh:mm:ss'
             or "" for current time
         """
-        
+
         if not date_time:
             return ""  # IB interprets empty as "now"
-        
+
         # If string already provided, try parsing
         if isinstance(date_time, str):
             try:
-                # Try ISO format first
                 dt = datetime.fromisoformat(date_time)
             except ValueError:
                 raise ValueError("Unsupported datetime string format")
@@ -864,6 +874,9 @@ class InteractiveBrokersBroker(BaseBroker):
         else:
             raise TypeError("end_date_time must be datetime, str, or None")
 
+        # Add one day because if you specify an end date of "2024-06-01", IB returns data up to 2024-05-31. This is a quirk of their API. By adding one day, we ensure we get data through the intended end date.
+        dt = dt + timedelta(days=1)
+
         # If naive datetime → assume provided timezone
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=ZoneInfo(tz))
@@ -871,7 +884,7 @@ class InteractiveBrokersBroker(BaseBroker):
         # Convert to UTC
         dt_utc = dt.astimezone(timezone.utc)
 
-        # Return IB UTC format (IMPORTANT: dash between date and time)
+        # Return IB UTC format
         return dt_utc.strftime("%Y%m%d-%H:%M:%S")
     
     def get_contract_details(self, contract: Contract, timeout: int = 10) -> List[Dict[str, Any]]:

@@ -16,7 +16,7 @@ class PortfolioValueFactorMapper(BaseFactorMapper):
 
     @property
     def discriminator(self):
-        return 'portfolio'
+        return 'Portfolio'
 
     @property
     def model_class(self):

@@ -14,7 +14,7 @@ class PortfolioMapper:
     """Mapper for Portfolio domain entity and ORM model."""
     @property
     def discriminator(self):
-        return 'portfolio'
+        return 'Portfolio'
     @property
     def entity_class(self):
         return DomainPortfolio

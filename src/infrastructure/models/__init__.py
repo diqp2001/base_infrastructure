@@ -77,6 +77,11 @@ from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
 from src.infrastructure.models.finance.instrument import InstrumentModel
 
+# Currency portfolio models (must come before holding models that reference them)
+from src.infrastructure.models.finance.portfolio.currency_portfolio import CurrencyPortfolioModel
+from src.infrastructure.models.finance.holding.currency_portfolio_holding import CurrencyPortfolioHoldingModel
+from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import CurrencyPortfolioPortfolioHoldingModel
+
 # Holding models
 from src.infrastructure.models.finance.holding.holding import HoldingModel
 from src.infrastructure.models.finance.holding.portfolio_holding import PortfolioHoldingsModel
@@ -148,7 +153,8 @@ __all__ = [
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
-    'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel', 
+    'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel',
+    'CurrencyPortfolioModel', 'CurrencyPortfolioHoldingModel', 'CurrencyPortfolioPortfolioHoldingModel',
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',

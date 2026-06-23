@@ -14,7 +14,7 @@ class DerivativeMapper:
     """Mapper for Derivative domain entity and ORM model."""
     @property
     def discriminator(self):
-        return 'derivatives'
+        return 'Derivatives'
     @property
     def entity_class(self):
         return DomainDerivative

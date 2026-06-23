@@ -17,7 +17,7 @@ class CompanySharePortfolioHoldingValueFactorMapper(BaseFactorMapper):
 
     @property
     def discriminator(self):
-        return 'company_share_portfolio_holding'
+        return 'CompanySharePortfolioHolding'
 
     @property
     def model_class(self):

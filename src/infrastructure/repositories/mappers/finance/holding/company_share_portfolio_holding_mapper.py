@@ -1,5 +1,6 @@
 from typing import Optional
 
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 from src.domain.entities.finance.holding.company_share_portfolio_holding import (
     CompanySharePortfolioHolding
@@ -14,13 +15,22 @@ class CompanySharePortfolioHoldingMapper:
     """Mapper for converting between PortfolioCompanyShareHolding entities and models"""
     @property
     def discriminator(self):
-        return "company_share_portfolio_holding"
+        return "CompanySharePortfolioHoldings"
 
     @property
     def model_class(self):
         return CompanySharePortfolioHoldingModel
+    @property
+    def asset_class(self):
+        return CompanyShare
+    @property
+    def container_class(self):
+        return CompanySharePortfolio
 
-    
+    @property
+    def entity_class(self):
+        return CompanySharePortfolioHolding
+
     def to_entity(
         self,
         model: Optional[CompanySharePortfolioHoldingModel],
@@ -60,6 +70,7 @@ class CompanySharePortfolioHoldingMapper:
 
         return CompanySharePortfolioHoldingModel(
             id=entity.id,
+            holding_type=self.discriminator,
             asset_id=entity.asset.id,
             portfolio_id=entity.container.id,
             quantity=entity.quantity,

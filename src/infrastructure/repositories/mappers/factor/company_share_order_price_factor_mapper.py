@@ -14,7 +14,7 @@ class CompanyShareOrderPriceFactorMapper(BaseFactorMapper):
 
     @property
     def discriminator(self):
-        return 'company_share'
+        return 'CompanyShare'
 
     @property
     def model_class(self):

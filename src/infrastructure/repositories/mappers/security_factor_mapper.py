@@ -13,7 +13,7 @@ class SecurityFactorMapper(BaseFactorMapper):
     """Mapper for SecurityFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'security'
+        return 'Security'
     def get_factor_model(self):
         return FactorModel
     

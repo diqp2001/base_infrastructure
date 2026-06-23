@@ -579,7 +579,7 @@ class UnifiedPortfolioManager:
                 self.logger.error(f"❌ Transaction recording failed: {e}")
             return None
 
-    def get_portfolio_value(self) -> float:
+    def get_portfolio_value(self,backtest_date=None) -> float:
         """
         Return current total portfolio value as a float and persist a pre-trade FactorValue snapshot.
 
@@ -598,57 +598,59 @@ class UnifiedPortfolioManager:
             except Exception:
                 pass
 
+        # Persist pre-trade snapshot — at most once per algorithm bar, and use the
+        # computed value as authoritative total when the QC portfolio reports 0.
+        if self._current_portfolio_entity is not None:
+            
+            if self._algorithm and hasattr(self._algorithm, 'time') and isinstance(self._algorithm.time, datetime) and self._algorithm.time < datetime.strptime(self._algorithm.config["backtest_end"],"%Y-%m-%d %H:%M:%S"):
+                current_time = self._algorithm.time
+            elif backtest_date is not None:
+                current_time = backtest_date
+           
+            elif self._algorithm and hasattr(self._algorithm, 'config') and "backtest_start" in self._algorithm.config:
+                current_time = self._algorithm.config["backtest_start"]
+            
+            else:
+                current_time = datetime.now()
+
+            if self._last_pv_snapshot_time != current_time:
+                try:
+                    # Recursively value the full holding tree (main portfolio →
+                    # sub-portfolios → leaf assets).  Prices come from DB
+                    # FactorValues only — no market_data_service fallback here,
+                    # because that path calls factor_value_resolution_service which
+                    # would re-enter this call stack and cause infinite recursion.
+                    # Prices are written to DB by the market-data pipeline before
+                    # on_data fires, so DB-only lookup is sufficient.
+                    from src.application.services.data.entities.factor.finance.portfolio_service import PortfolioService
+                    portfolio_svc = PortfolioService(
+                        self.portfolio_repo.session,
+                        self.repository_factory,
+                        market_data_service=None,
+                    )
+                    computed = float(portfolio_svc.calculate_value(
+                        self._current_portfolio_entity.id,
+                        as_of_date=current_time,
+                    ))
+                    # Use the computed tree-traversal value when the QC portfolio
+                    # object reports zero (happens in custom backtests that don't
+                    # populate the in-memory QC portfolio object).
+                    if total == 0.0 and computed > 0.0:
+                        total = computed
+                    # calculate_value already persisted holding_value and
+                    # portfolio_value FactorValue rows; no resolve_factor_value
+                    # call needed (that path triggers _resolve_dynamic_dependencies
+                    # which recurses unboundedly through related entities).
+                    self._last_pv_snapshot_time = current_time
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
+
         if total == 0.0 and self._current_portfolio_entity is not None:
             try:
                 total = float(getattr(self._current_portfolio_entity, 'initial_cash', 0) or 0)
             except Exception:
                 pass
-
-        # Persist pre-trade snapshot — at most once per algorithm bar
-        if (
-            self.portfolio_value_factor is not None
-            and self._current_portfolio_entity is not None
-            and getattr(self.portfolio_value_factor, 'id', None)
-            and getattr(self._current_portfolio_entity, 'id', None)
-        ):
-            current_time = (
-                self._algorithm.time
-                if self._algorithm and hasattr(self._algorithm, 'time')
-                else datetime.now()
-            )
-            if self._last_pv_snapshot_time != current_time:
-                try:
-                    # Recursively value the full holding tree (main portfolio →
-                    # sub-portfolios → leaf assets).  Prices come from DB
-                    # FactorValues first; market_data_service (IBKR or local)
-                    # is used as fallback and persists any missing records.
-                    from src.application.services.data.entities.factor.finance.portfolio_service import PortfolioService
-                    portfolio_svc = PortfolioService(
-                        self.portfolio_repo.session,
-                        self.repository_factory,
-                        market_data_service=self.market_data_service,
-                    )
-                    computed_value = portfolio_svc.calculate_value(
-                        self._current_portfolio_entity.id,
-                        as_of_date=current_time,
-                    )
-                    dependencies = {"holding_value": computed_value}
-
-                    # Compute via the factor entity's calculate function
-                    self.portfolio_value_factor.calculate(dependencies)
-
-                    # Persist (create-or-get) via the resolution service
-                    fv_repo = self.repository_factory.factor_value_local_repo
-                    if fv_repo and hasattr(fv_repo, 'resolution_service'):
-                        fv_repo.resolution_service.resolve_factor_value(
-                            factor_entity=self.portfolio_value_factor,
-                            entity=self._current_portfolio_entity,
-                            time_date=current_time,
-                        )
-                    self._last_pv_snapshot_time = current_time
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
 
         return total
 
@@ -1139,7 +1141,14 @@ class UnifiedPortfolioManager:
             {ticker: True/False} for every ticker where an order was attempted.
         """
         results: Dict[str, bool] = {}
-
+        
+            
+        if data.time:
+            current_time = data.time
+        elif hasattr(self._algorithm, "time"):
+            current_time = self._algorithm.time
+        else:
+            current_time = datetime.now()
         if not self._current_portfolio_entity:
             if self.logger:
                 self.logger.warning("set_holdings: no portfolio registered")
@@ -1152,7 +1161,7 @@ class UnifiedPortfolioManager:
 
         # Portfolio value snapshot (at most once per bar via get_portfolio_value guard)
         try:
-            pv = self.get_portfolio_value()
+            pv = self.get_portfolio_value(backtest_date=current_time)
             portfolio_value = float(getattr(pv, "value", pv))
         except Exception:
             portfolio_value = 0.0
@@ -1162,11 +1171,7 @@ class UnifiedPortfolioManager:
                 self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value}")
             return results
 
-        current_time = (
-            self._algorithm.time
-            if hasattr(self._algorithm, "time")
-            else datetime.now()
-        )
+        
 
         # Evaluate all explicitly targeted tickers + all currently held tickers
         main_id = self._current_portfolio_entity.id

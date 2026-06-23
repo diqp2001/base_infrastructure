@@ -13,7 +13,7 @@ class ContinentFactorMapper(BaseFactorMapper):
     """Mapper for ContinentFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'continent'
+        return 'Continent'
     def get_factor_model(self):
         return FactorModel
     

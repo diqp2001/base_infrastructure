@@ -52,6 +52,22 @@ class CompanySharePriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_price_return_factor"
     }
+
+class CompanyShareAvgTurnover6mFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_avg_turnover_6m_factor"
+    }
+
+class CompanyShareMonthlyPriceRangeFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_monthly_price_range_factor"
+    }
+
+class CompanyShareVpt52w20dLagFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_vpt_52w_20d_lag_factor"
+    }
+
 class IndexFutureFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "index_future_factor"

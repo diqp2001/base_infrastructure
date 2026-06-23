@@ -21,18 +21,22 @@ class PortfolioHoldingRepository(BaseLocalRepository, PortfolioHoldingPort):
     def model_class(self):
         """Return the SQLAlchemy model class for PortfolioHoldings."""
         return PortfolioHoldingsModel
+
+    @property
+    def entity_class(self):
+        return self.mapper.entity_class
     
     def _to_entity(self, model: PortfolioHoldingsModel):
         """Convert infrastructure model to domain entity."""
         if not model:
             return None
-        return self.mapper.to_domain(model)
-    
+        return self.mapper.to_entity(model)
+
     def _to_model(self, entity) -> PortfolioHoldingsModel:
         """Convert domain entity to infrastructure model."""
         if not entity:
             return None
-        return self.mapper.to_orm(entity)
+        return self.mapper.to_model(entity)
     def get_by_id(self, holding_id: int) -> Optional[PortfolioHoldingsModel]:
         """Get a portfolio holding by ID"""
         model = self.session.query(PortfolioHoldingsModel).filter_by(id=holding_id).first()

@@ -13,7 +13,7 @@ class DerivativeFactorMapper(BaseFactorMapper):
     """Mapper for DerivativeFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'derivative'
+        return 'Derivative'
     def get_factor_model(self):
         return FactorModel
     

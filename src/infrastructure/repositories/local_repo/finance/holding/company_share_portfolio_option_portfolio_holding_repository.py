@@ -15,7 +15,7 @@ class CompanySharePortfolioOptionPortfolioHoldingRepository(CompanySharePortfoli
 
     @property
     def entity_class(self):
-        return self.mapper.get_entity()
+        return self.mapper.entity_class
 
     @property
     def model_class(self):
@@ -42,12 +42,12 @@ class CompanySharePortfolioOptionPortfolioHoldingRepository(CompanySharePortfoli
                 end_date=kwargs.get("end_date"),
             )
 
-            orm_obj = self.mapper.to_orm(entity)
+            orm_obj = self.mapper.to_model(entity)
 
             self.session.add(orm_obj)
             self.session.commit()
 
-            return self.mapper.to_domain(orm_obj)
+            return self.mapper.to_entity(orm_obj)
 
         except Exception as e:
             print(f"Error creating company share portfolio option portfolio holding: {e}")
@@ -61,29 +61,29 @@ class CompanySharePortfolioOptionPortfolioHoldingRepository(CompanySharePortfoli
             .filter(self.model_class.company_share_portfolio_option_portfolio_id == portfolio_id)\
             .filter(self.model_class.company_share_portfolio_option_id == asset_id)\
             .one_or_none()
-        return self.mapper.to_domain(obj)
+        return self.mapper.to_entity(obj)
 
     def get_by_id(self, id: int) -> Optional[CompanySharePortfolioOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.id == id)\
             .one_or_none()
-        return self.mapper.to_domain(obj)
+        return self.mapper.to_entity(obj)
 
     def get_by_portfolio_id(self, portfolio_id: int) -> List[CompanySharePortfolioOptionPortfolioHolding]:
         objs = self.session.query(self.model_class)\
             .filter(self.model_class.company_share_portfolio_option_portfolio_id == portfolio_id)\
             .all()
-        return [self.mapper.to_domain(o) for o in objs]
+        return [self.mapper.to_entity(o) for o in objs]
 
     def get_all(self) -> List[CompanySharePortfolioOptionPortfolioHolding]:
         objs = self.session.query(self.model_class).all()
-        return [self.mapper.to_domain(o) for o in objs]
+        return [self.mapper.to_entity(o) for o in objs]
 
     def add(self, entity: CompanySharePortfolioOptionPortfolioHolding) -> Optional[CompanySharePortfolioOptionPortfolioHolding]:
-        obj = self.mapper.to_orm(entity)
+        obj = self.mapper.to_model(entity)
         self.session.add(obj)
         self.session.commit()
-        return self.mapper.to_domain(obj)
+        return self.mapper.to_entity(obj)
 
     def update(self, entity: CompanySharePortfolioOptionPortfolioHolding) -> Optional[CompanySharePortfolioOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
@@ -97,7 +97,7 @@ class CompanySharePortfolioOptionPortfolioHoldingRepository(CompanySharePortfoli
         obj.end_date = entity.end_date
 
         self.session.commit()
-        return self.mapper.to_domain(obj)
+        return self.mapper.to_entity(obj)
 
     def delete(self, id: int) -> bool:
         obj = self.session.query(self.model_class)\

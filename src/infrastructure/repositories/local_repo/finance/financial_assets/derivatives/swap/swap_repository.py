@@ -54,7 +54,7 @@ class SwapRepository(FinancialAssetRepository, SwapPort):
             print(f"Error retrieving swap by symbol {symbol}: {e}")
             return None
     
-    def get_or_create(self, symbol: str, name: str = None, currency_id: int = None, 
+    def _create_or_get(self, symbol: str, name: str = None, currency_id: int = None, 
                       underlying_asset_id: int = None, **kwargs) -> Optional[SwapEntity]:
         """
         Get or create a swap by symbol with dependency resolution.

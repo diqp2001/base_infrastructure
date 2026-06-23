@@ -30,7 +30,7 @@ class CurrencyPortfolioHolding(PortfolioHolding):
         super().__init__(
             id=id,
             asset=asset,
-            container=portfolio,
+            portfolio=portfolio,
             position=position,
             start_date=start_date,
             end_date=end_date,

@@ -241,7 +241,7 @@ class CryptoRepository(FinancialAssetRepository, CryptoPort):
         
         return [self._to_entity(model) for model in models]
     
-    def get_or_create(self, symbol: str, name: str = None, blockchain: str = None, **kwargs) -> Optional[CryptoEntity]:
+    def _create_or_get(self, symbol: str, name: str = None, blockchain: str = None, **kwargs) -> Optional[CryptoEntity]:
         """
         Get or create a cryptocurrency by symbol with dependency resolution.
         

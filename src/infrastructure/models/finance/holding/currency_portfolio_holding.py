@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, column_property, declared_attr
 from src.infrastructure.models.finance.holding.holding import HoldingModel
 
 
@@ -26,6 +26,18 @@ class CurrencyPortfolioHoldingModel(HoldingModel):
         "src.infrastructure.models.finance.financial_assets.currency.CurrencyModel",
     )
 
-    __mapper_args__ = {
-        "polymorphic_identity": "currency_portfolio_holdings",
-    }
+    @declared_attr
+    def __mapper_args__(cls):
+        return {
+            "polymorphic_identity": "CurrencyPortfolioHoldings",
+            "properties": {
+                # Explicitly combine both tables' asset_id column under one
+                # attribute to suppress the "Implicitly combining column" SAWarning.
+                # Both columns receive the same value on INSERT/UPDATE; SELECTs
+                # read from the subclass column (first argument).
+                "asset_id": column_property(
+                    cls.__table__.c.asset_id,
+                    HoldingModel.__table__.c.asset_id,
+                )
+            }
+        }

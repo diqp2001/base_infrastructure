@@ -14,7 +14,7 @@ class CompanyShareOptionMapper:
     """Mapper for CompanyShareOption domain entity and ORM model."""
     @property
     def discriminator(self):
-        return 'company_share_option'
+        return 'CompanyShareOption'
 
     @staticmethod
     def to_domain(orm_obj: ORMCompanyShareOption) -> DomainCompanyShareOption:

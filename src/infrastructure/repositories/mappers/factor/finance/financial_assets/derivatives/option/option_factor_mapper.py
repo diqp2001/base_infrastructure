@@ -13,7 +13,7 @@ class OptionFactorMapper(BaseFactorMapper):
     """Mapper for OptionFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'option'
+        return 'Option'
     def get_factor_model(self):
         return FactorModel
     

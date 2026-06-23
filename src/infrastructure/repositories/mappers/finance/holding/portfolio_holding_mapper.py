@@ -3,6 +3,8 @@ from typing import Optional
 from src.domain.entities.finance.holding.company_share_portfolio_holding import (
     CompanySharePortfolioHolding
 )
+from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
 
 from src.infrastructure.models.finance.holding.portfolio_holding import (
     PortfolioHoldingsModel
@@ -13,13 +15,24 @@ class PortfolioHoldingMapper:
     """Mapper for converting between portfolio holding entities and models"""
     @property
     def discriminator(self):
-        return "portfolio_holding"
+        return "PortfolioHoldings"
 
     @property
     def model_class(self):
         return PortfolioHoldingsModel
 
-    
+    @property
+    def asset_class(self):
+        return Portfolio
+
+    @property
+    def container_class(self):
+        return Portfolio
+
+    @property
+    def entity_class(self):
+        return PortfolioHolding
+
     def to_entity(self, model: Optional[PortfolioHoldingsModel]) -> Optional[PortfolioHoldingsModel]:
         """Convert PortfolioHoldingModel to PortfolioHolding entity"""
         if not model:
@@ -61,15 +74,12 @@ class PortfolioHoldingMapper:
 
     def to_model(self, entity: PortfolioHoldingsModel) -> PortfolioHoldingsModel:
         """Convert PortfolioHolding entity to PortfolioHoldingModel"""
-
-        holding_type = "company_share" if isinstance(entity, CompanySharePortfolioHolding) else "generic"
-
         return PortfolioHoldingsModel(
             id=entity.id,
+            holding_type=self.discriminator,
             asset_id=entity.asset.id,
             portfolio_id=entity.container.id,
             quantity=entity.quantity,
-            holding_type=holding_type,
             start_date=entity.start_date,
             end_date=entity.end_date,
         )

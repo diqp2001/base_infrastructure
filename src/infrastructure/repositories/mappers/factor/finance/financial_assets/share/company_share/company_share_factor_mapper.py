@@ -12,7 +12,7 @@ class CompanyShareFactorMapper(BaseFactorMapper):
     """Mapper for CompanyShareFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'company_share'
+        return 'CompanyShare'
     
     def get_factor_model(self):
         return CompanyShareFactorModel

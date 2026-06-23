@@ -164,7 +164,7 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
             print(f"Error retrieving {self.model_class.__name__} by date range: {e}")
             return []
 
-    def get_or_create(self, ticker: str, name: Optional[str] = None, exchange_id: Optional[int] = None, 
+    def _create_or_get(self, ticker: str, name: Optional[str] = None, exchange_id: Optional[int] = None, 
                       currency_id: Optional[int] = None, **kwargs) -> Optional[EntityType]:
         """
         Get or create a financial asset with dependency resolution.

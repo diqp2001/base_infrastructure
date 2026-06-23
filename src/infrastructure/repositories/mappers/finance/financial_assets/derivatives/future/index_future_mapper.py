@@ -15,7 +15,7 @@ class IndexFutureMapper:
     """Mapper for IndexFuture domain entity and ORM model."""
     @property
     def discriminator(self):
-        return 'index_future'
+        return 'IndexFuture'
     @property
     def entity_class(self):
         return DomainIndexFuture

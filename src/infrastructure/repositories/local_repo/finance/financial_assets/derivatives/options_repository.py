@@ -36,7 +36,7 @@ class OptionsRepository(DerivativesRepository):
         """Return the domain entity class for Options."""
         return DomainOptions
 
-    def get_or_create(self, ticker: str = None, name: str = None, symbol: str = None, 
+    def _create_or_get(self, ticker: str = None, name: str = None, symbol: str = None, 
                       currency_code: str = "USD", option_type: str = None, 
                       underlying_asset_id: int = None) -> Optional[DomainOptions]:
         """

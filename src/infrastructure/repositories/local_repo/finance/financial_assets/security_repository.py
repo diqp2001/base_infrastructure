@@ -68,7 +68,7 @@ class SecurityRepository(FinancialAssetRepository, SecurityPort):
             print(f"Error retrieving security by ISIN {isin}: {e}")
             return None
     
-    def get_or_create(self, symbol: str = None, isin: str = None, name: str = None, 
+    def _create_or_get(self, symbol: str = None, isin: str = None, name: str = None, 
                       portfolio_id: int = None, **kwargs) -> Optional[SecurityEntity]:
         """
         Get or create a security by symbol or ISIN with dependency resolution.

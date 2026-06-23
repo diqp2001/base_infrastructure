@@ -18,6 +18,10 @@ class CompanySharePortfolioHoldingRepository(BaseLocalRepository, CompanySharePo
         self.factory = factory
         self.mapper = mapper or CompanySharePortfolioHoldingMapper()
 
+    @property
+    def entity_class(self):
+        return self.mapper.entity_class
+
     def get_by_id(self, holding_id: int) -> Optional[CompanySharePortfolioHoldingModel]:
         """Get a portfolio company share holding by ID"""
         model = self.session.query(CompanySharePortfolioHoldingModel).filter_by(id=holding_id).first()

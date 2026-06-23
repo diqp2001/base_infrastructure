@@ -14,7 +14,7 @@ class DerivativePortfolioMapper:
 
     @property
     def discriminator(self):
-        return "derivative_portfolio"
+        return "DerivativePortfolio"
     @property
     def entity_class(self):
         return DomainPortfolioDerivative

@@ -14,7 +14,7 @@ class OrderMapper:
 
     @property
     def discriminator(self):
-        return "order"
+        return "Order"
 
     @property
     def model_class(self):

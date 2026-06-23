@@ -17,6 +17,10 @@ class CurrencyPortfolioHoldingRepository(BaseLocalRepository, CurrencyPortfolioH
         self.factory = factory
         self.mapper = mapper or CurrencyPortfolioHoldingMapper()
 
+    @property
+    def entity_class(self):
+        return self.mapper.entity_class
+
     def get_by_id(self, holding_id: int) -> Optional[CurrencyPortfolioHolding]:
         model = self.session.query(CurrencyPortfolioHoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
@@ -29,7 +33,7 @@ class CurrencyPortfolioHoldingRepository(BaseLocalRepository, CurrencyPortfolioH
 
     def save(self, holding: CurrencyPortfolioHolding) -> CurrencyPortfolioHolding:
         model = self.mapper.to_model(holding)
-        self.session.merge(model)
+        model = self.session.merge(model)
         self.session.commit()
         self.session.refresh(model)
         return self.mapper.to_entity(model)

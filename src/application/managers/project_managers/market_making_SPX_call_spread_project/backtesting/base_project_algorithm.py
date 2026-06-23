@@ -192,6 +192,8 @@ class Algorithm(QCAlgorithm):
         Args:
             data: Market data dictionary containing date/time and basic market info
         """
+        current_time = data.time if data.time else datetime.now()
+
         try:
             if not self.initialized:
                 self.logger.warning("Algorithm not initialized")
@@ -200,7 +202,7 @@ class Algorithm(QCAlgorithm):
             
             
             # Step 1: Execute model training pipeline for data creation and verification
-            if hasattr(self, 'trainer') and self.trainer and not hasattr(self, '_model_trained'):
+            if hasattr(self, 'trainer') and self.trainer:
                 self.logger.info("🚀 Running model training pipeline for data preparation...")
                 
                 training_result = self.trainer.train_complete_pipeline(

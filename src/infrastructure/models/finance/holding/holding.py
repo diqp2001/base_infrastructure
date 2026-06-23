@@ -3,7 +3,7 @@ Infrastructure models for holdings - SQLAlchemy models matching domain entities
 """
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from src.infrastructure.models import ModelBase as Base
@@ -13,11 +13,18 @@ class HoldingModel(Base):
     """
     Base SQLAlchemy model for holdings.
     Maps to domain.entities.finance.holding.holding.Holding
+
+    asset_id is a plain integer with no FK to financial_assets — the "asset"
+    of a holding can be a financial asset OR a portfolio, so no single FK
+    target covers all subclasses.  Each concrete subclass declares its own
+    typed FK column (pointing to the specific asset table) and merges it with
+    this column via column_property where needed.
     """
     __tablename__ = 'holdings'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('financial_assets.id'), nullable=False)
+    holding_type = Column(String(50), nullable=False)
+    asset_id = Column(Integer, nullable=False)
     container_id = Column(Integer, nullable=False)
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=True)
@@ -31,12 +38,6 @@ class HoldingModel(Base):
         nullable=True,
     )
 
-    # Relationships
-    asset = relationship(
-        "src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel",
-        foreign_keys=[asset_id],
-        back_populates="holdings",
-    )
     orders = relationship(
         "src.infrastructure.models.finance.order.order.OrderModel",
         foreign_keys="OrderModel.holding_id",
@@ -52,5 +53,6 @@ class HoldingModel(Base):
     )
 
     __mapper_args__ = {
-        "polymorphic_identity": "holding",
+        "polymorphic_identity": "Holding",
+        "polymorphic_on": holding_type,
     }

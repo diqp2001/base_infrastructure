@@ -16,7 +16,7 @@ class FutureMapper:
     """Mapper for Future domain entity and ORM model."""
     @property
     def discriminator(self):
-        return 'future'
+        return 'Future'
     @property
     def entity_class(self):
         return DomainFuture

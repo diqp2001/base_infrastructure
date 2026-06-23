@@ -86,6 +86,7 @@ class ModelTrainer:
         
         # Step 4: Train models
         print("\n🚀 Step 4: Training spatiotemporal models...")
+        #  and not hasattr(self, '_model_trained')
         #training_results = self._train_models(normalized_factor_data, model_type)
         
         # Step 5: Evaluate performance

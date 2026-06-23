@@ -9,7 +9,7 @@ class CurrencyPortfolioMapper:
 
     @property
     def discriminator(self):
-        return "currency_portfolio"
+        return "CurrencyPortfolio"
 
     @property
     def entity_class(self):

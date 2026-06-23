@@ -13,7 +13,7 @@ class EquityFactorMapper(BaseFactorMapper):
     """Mapper for EquityFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'equity'
+        return 'Equity'
     def get_factor_model(self):
         return FactorModel
     

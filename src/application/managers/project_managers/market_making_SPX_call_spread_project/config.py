@@ -73,6 +73,7 @@ DEFAULT_CONFIG = {
     'bar_size_setting': '5 mins',
     'duration_str': '1 D',
     'option_data_duration': '30 D',  # 30 days of option data
+    'max_import_ibkr': True,
     
     # Risk Management
     'max_position_size': 10,  # Maximum number of spreads

@@ -10,6 +10,7 @@ Valuation order per holding:
 """
 
 import logging
+import re
 from typing import Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime
@@ -49,42 +50,66 @@ class PortfolioService:
         """
         Recursively compute total portfolio value by traversing the holding tree.
 
-        Tree structure handled:
-          Portfolio (main)
-            ├─ CompanySharePortfolioPortfolioHolding
-            │    └─ asset = CompanySharePortfolio (sub-portfolio)  → recurse
-            └─ Other holdings (currency cash, direct assets)       → qty * price
+        For every holding whose container_id == portfolio_id:
+          - If the holding's asset_id resolves to a PortfolioModel → recurse bottom-up
+          - Otherwise → leaf asset: value = qty * price (or 1 for currency)
+        Holding values accumulate into the portfolio total, then portfolio_value is persisted.
         """
         from src.infrastructure.models.finance.holding.holding import HoldingModel
-        from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
-            CompanySharePortfolioPortfolioHoldingModel,
-        )
-        from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
-            CurrencyPortfolioPortfolioHoldingModel,
-        )
+        from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
         from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
         if as_of_date is None:
             as_of_date = datetime.now()
 
-        holdings = (
+        from src.domain.entities.finance.portfolio.portfolio import Portfolio as PortfolioDomain
+
+        factor_value_repo = self.factory.factor_value_local_repo if self.factory else None
+        portfolio_obj = self.session.query(PortfolioModel).filter_by(id=portfolio_id).first()
+
+        if portfolio_obj is not None:
+            orm_cls = type(portfolio_obj).__name__
+            entity_name = orm_cls[:-5] if orm_cls.endswith('Model') else orm_cls
+            portfolio_factor_name = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', entity_name).lower() + '_value'
+        else:
+            portfolio_factor_name = 'portfolio_value'
+        portfolio_factor = self._create_or_get_factor(portfolio_factor_name, 'value', 'portfolio_value_factor')
+
+        total = Decimal("0")
+
+        all_holdings = (
             self.session.query(HoldingModel)
             .filter_by(container_id=portfolio_id)
             .all()
         )
 
-        total = Decimal("0")
+        for h in all_holdings:
+            if h.asset_id is None:
+                continue
 
-        for h in holdings:
-            if isinstance(h, (CompanySharePortfolioPortfolioHoldingModel, CurrencyPortfolioPortfolioHoldingModel)):
-                # Asset is another portfolio — recurse
-                sub_value = self.calculate_value(h.asset_id, as_of_date)
-                total += sub_value
+            holding_type = getattr(h, 'holding_type', '') or ''
+            repo = self.factory.get_local_repository(holding_type) if self.factory else None
+            mapper = getattr(repo, 'mapper', None)
+
+            is_sub_portfolio = (
+                mapper is not None and issubclass(mapper.asset_class, PortfolioDomain)
+            )
+
+            entity_cls = getattr(mapper, 'entity_class', None) if mapper else None
+            if entity_cls is not None:
+                factor_name = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', entity_cls.__name__).lower() + '_value'
+            else:
+                factor_name = 'holding_value'
+            holding_factor = self._create_or_get_factor(factor_name, 'holding', 'holding_value_factor')
+
+            if is_sub_portfolio:
+                # Sub-portfolio link: asset_id is the child portfolio id — recurse bottom-up
+                holding_value = self.calculate_value(h.asset_id, as_of_date)
                 self.logger.debug(
-                    f"Sub-portfolio {h.asset_id} value: {sub_value}"
+                    f"Holding {h.id} ({holding_type}) → sub-portfolio {h.asset_id}: {holding_value}"
                 )
             else:
-                # Leaf holding — price × qty
+                # Leaf asset holding: qty × price
                 qty = self._get_position_qty(h)
                 if qty == Decimal("0"):
                     continue
@@ -103,12 +128,29 @@ class PortfolioService:
                     price = self._resolve_price(asset, as_of_date)
 
                 holding_value = qty * price
-                total += holding_value
                 self.logger.debug(
-                    f"Holding {h.id} (asset_id={h.asset_id}): "
-                    f"qty={qty} * price={price} = {holding_value}"
+                    f"Holding {h.id} ({holding_type}, asset_id={h.asset_id}): "
+                    f"qty={qty} × price={price} = {holding_value}"
                 )
 
+            total += holding_value
+            if factor_value_repo is not None and holding_factor is not None:
+                factor_value_repo._create_or_get(
+                    None,
+                    factor=holding_factor,
+                    entity=h,
+                    date=as_of_date,
+                    value=str(holding_value),
+                )
+
+        if factor_value_repo is not None and portfolio_factor is not None and portfolio_obj is not None:
+            factor_value_repo._create_or_get(
+                None,
+                factor=portfolio_factor,
+                entity=portfolio_obj,
+                date=as_of_date,
+                value=str(total),
+            )
         self.logger.info(f"Portfolio {portfolio_id} total value: {total}")
         return total
 
@@ -119,12 +161,7 @@ class PortfolioService:
         Breakdown of portfolio value by holding, including sub-portfolios.
         """
         from src.infrastructure.models.finance.holding.holding import HoldingModel
-        from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
-            CompanySharePortfolioPortfolioHoldingModel,
-        )
-        from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
-            CurrencyPortfolioPortfolioHoldingModel,
-        )
+        from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
         from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
         if as_of_date is None:
@@ -140,13 +177,21 @@ class PortfolioService:
         total = Decimal("0")
 
         for h in holdings:
-            if isinstance(h, (CompanySharePortfolioPortfolioHoldingModel, CurrencyPortfolioPortfolioHoldingModel)):
-                sub_value = self.calculate_value(h.asset_id, as_of_date)
+            if h.asset_id is None:
+                continue
+
+            sub_portfolio = (
+                self.session.query(PortfolioModel).filter_by(id=h.asset_id).first()
+            )
+
+            if sub_portfolio is not None:
+                sub_value = self.calculate_value(sub_portfolio.id, as_of_date)
                 total += sub_value
                 breakdown.append({
                     "holding_id": h.id,
                     "type": "sub_portfolio",
-                    "asset_id": h.asset_id,
+                    "asset_id": sub_portfolio.id,
+                    "name": getattr(sub_portfolio, "name", None),
                     "value": sub_value,
                 })
             else:
@@ -183,6 +228,35 @@ class PortfolioService:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _create_or_get_factor(self, name: str, group: str, factor_type: str):
+        """Return an existing FactorModel row for (name, group) or create one."""
+        from src.infrastructure.models.factor.factor import FactorModel as FactorORM
+        if not hasattr(self, '_factor_cache'):
+            self._factor_cache: dict = {}
+        key = (name, group)
+        if key not in self._factor_cache:
+            factor = self.session.query(FactorORM).filter_by(name=name, group=group).first()
+            if not factor:
+                factor = FactorORM(
+                    name=name,
+                    group=group,
+                    factor_type=factor_type,
+                    frequency='1d',
+                    data_type='numeric',
+                    source='calculated',
+                )
+                self.session.add(factor)
+                sp = self.session.begin_nested()
+                try:
+                    self.session.flush()
+                    sp.commit()
+                except Exception as e:
+                    sp.rollback()
+                    self.logger.warning(f"_create_or_get_factor flush failed ({name}/{group}): {e}")
+                    return None
+            self._factor_cache[key] = factor
+        return self._factor_cache[key]
 
     def _get_position_qty(self, holding) -> Decimal:
         """Return position quantity linked to this holding, or 0 if not found."""

@@ -45,7 +45,7 @@ class CommodityRepository(FinancialAssetRepository, CommodityPort):
         """Find all commodities"""
         return self.data_store.copy()
     
-    def get_or_create(self, ticker: str = None, name: str = None, symbol: str = None,
+    def _create_or_get(self, ticker: str = None, name: str = None, symbol: str = None,
                       currency_code: str = "USD", commodity_type: str = "Physical") -> Optional[CommodityEntity]:
         """
         Get or create a commodity with dependency resolution.

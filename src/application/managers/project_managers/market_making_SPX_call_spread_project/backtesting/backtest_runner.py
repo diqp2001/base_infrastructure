@@ -142,10 +142,17 @@ class BacktestRunner:
             universe = config.get('universe')
             start_date = config.get('backtest_start', '2025-07-01')
             end_date = config.get('backtest_end', '2025-12-31')
-            if isinstance(start_date, str):
-                start_date = datetime.strptime(start_date, '%Y-%m-%d')
-            if isinstance(end_date, str):
-                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            def _parse_date(d):
+                if isinstance(d, datetime):
+                    return d
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        return datetime.strptime(d, fmt)
+                    except (ValueError, TypeError):
+                        continue
+                raise ValueError(f"Cannot parse date: {d!r}")
+            start_date = _parse_date(start_date)
+            end_date = _parse_date(end_date)
             initial_capital = config.get('initial_capital', 100000)
             config_interval = config.get('config_interval')
             if not self.setup_components(config):

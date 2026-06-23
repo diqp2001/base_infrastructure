@@ -13,7 +13,7 @@ class CurrencyFactorMapper(BaseFactorMapper):
     """Mapper for CurrencyFactor domain entity and ORM model conversion."""
     @property
     def discriminator(self):
-        return 'currency'
+        return 'Currency'
     def get_factor_model(self):
         return FactorModel
     

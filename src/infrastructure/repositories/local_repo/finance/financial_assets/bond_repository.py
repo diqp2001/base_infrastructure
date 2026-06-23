@@ -70,7 +70,7 @@ class BondRepository(FinancialAssetRepository,BondPort):
             print(f"Error retrieving bond by CUSIP {cusip}: {e}")
             return None
     
-    def get_or_create(self, isin: str = None, cusip: str = None, ticker: str = None,
+    def _create_or_get(self, isin: str = None, cusip: str = None, ticker: str = None,
                       name: str = None, currency_code: str = "USD") -> Optional[Bond_Entity]:
         """
         Get or create a bond with dependency resolution.
