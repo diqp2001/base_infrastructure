@@ -1,11 +1,14 @@
 
+import sys
+# print(sys.getrecursionlimit())
+# sys.setrecursionlimit(10000)
 
 from cProfile import Profile
 from pstats import SortKey, Stats
 
 
-from application.managers.project_managers.market_making_SPX_call_spread_project.project_manager import MarketMakingSPXCallSpreadProjectManager
-from application.services.api_service.ibkr_service.comprehensive_market_data_examples import ComprehensiveIBMarketDataExamples
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.project_manager import MarketMakingSPXCallSpreadProjectManager
+from src.application.services.api_service.ibkr_service.comprehensive_market_data_examples import ComprehensiveIBMarketDataExamples
 from src.application.managers.project_managers.cross_sectionnal_project.cross_sectionnal_project_manager import CrossSectionnal
 from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
 from src.application.services.api_service.ercot_service.ercot_public_api_service import ErcotPublicApiService

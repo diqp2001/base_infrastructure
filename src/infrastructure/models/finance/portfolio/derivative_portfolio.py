@@ -21,5 +21,5 @@ class DerivativePortfolioModel(PortfolioModel):
     )
     
     __mapper_args__ = {
-        "polymorphic_identity": "derivative_portfolios",
+        "polymorphic_identity": "DerivativePortfolio",
     }

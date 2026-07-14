@@ -44,12 +44,17 @@ class IBKRCompanyShareFactorRepository(BaseIBKRFactorRepository, CompanyShareFac
         """
         super().__init__(ibkr_client)
         self.factory = factory
-        self.mapper =  CompanyShareFactorMapper()
+        self.mapper = CompanyShareFactorMapper()
+
+    @property
+    def local_repo(self):
         if self.factory:
-            self.local_repo = self.factory._local_repositories.get('company_share_factor')
+            return self.factory.get_local_repository('CompanyShareFactor')
+        return None
+
     @property
     def entity_class(self):
-        return self.local_repo.get_factor_entity()
+        return self.mapper.get_factor_entity()
     def get_or_create_factor_value_with_ticks(
         self, 
         symbol_or_name: str, 

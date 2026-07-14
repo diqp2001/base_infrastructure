@@ -39,6 +39,7 @@ class FactorValueMapper:
             value=orm_model.value if orm_model.value is not None else '0',
             entity_type=orm_model.entity_type,
             entity_id=orm_model.entity_id,
+            currency_id=orm_model.currency_id,
         )
 
     @staticmethod
@@ -64,6 +65,7 @@ class FactorValueMapper:
             'entity_type': resolved_entity_type,
             'date': domain_entity.date,
             'value': domain_entity.value,
+            'currency_id': domain_entity.currency_id,
         }
 
         # Only include id if it's not None to allow auto-increment

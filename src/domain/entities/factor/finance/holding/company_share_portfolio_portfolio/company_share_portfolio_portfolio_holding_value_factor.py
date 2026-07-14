@@ -39,28 +39,15 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
         )
 
     def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        """
-        Calculate the total value of a CompanySharePortfolio holding within a Portfolio.
-        
-        Args:
-            dependencies: Dictionary containing:
-                - 'company_share_portfolio_value': CompanySharePortfolioHoldingValueFactor result
-                - 'position': Position providing quantity
-                
-        Returns:
-            Total value as Decimal (portfolio_value × quantity)
-        """
         try:
-            # Get the underlying CompanySharePortfolio value
-            portfolio_value = dependencies.get('company_share_portfolio_value', Decimal('0'))
+            portfolio_value = dependencies.get('CompanySharePortfolioValueFactor', Decimal('0'))
             if hasattr(portfolio_value, 'value'):
                 portfolio_value = portfolio_value.value
             portfolio_value = Decimal(str(portfolio_value))
-            
-            # Get the position quantity  
-            position = dependencies.get('position')
-            quantity = Decimal('1')  # Default quantity
-            
+
+            position = dependencies.get('Position')
+            quantity = Decimal('1')
+
             if position:
                 if hasattr(position, 'quantity'):
                     quantity = Decimal(str(position.quantity))
@@ -68,25 +55,18 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
                     quantity = Decimal(str(position))
                 elif isinstance(position, dict) and 'quantity' in position:
                     quantity = Decimal(str(position['quantity']))
-            
-            total_value = portfolio_value * quantity
-            
-            return total_value
-            
+
+            return portfolio_value * quantity
+
         except Exception as e:
             print(f"Error calculating CompanySharePortfolio portfolio holding value: {e}")
             return Decimal('0.0')
 
-    def get_dependencies(self) -> List[str]:
-        """
-        Define the dependencies for this factor calculation.
-        
-        Returns:
-            List of dependency factor names
-        """
+    @property
+    def calculate_dependencies(self) -> List[str]:
         return [
-            "company_share_portfolio_holding_value_factor",  # CompanySharePortfolioHoldingValueFactor
-            "position"  # Position providing quantity
+            "CompanySharePortfolioValueFactor",
+            "Position",
         ]
 
     def __repr__(self):

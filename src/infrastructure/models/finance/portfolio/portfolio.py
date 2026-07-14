@@ -13,6 +13,7 @@ class PortfolioModel(Base):
     __tablename__ = "portfolios"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    portfolio_type = Column(String(50), nullable=False)
     name = Column(String(200), nullable=False, index=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
@@ -23,7 +24,9 @@ class PortfolioModel(Base):
     security_holdings = relationship("src.infrastructure.models.finance.holding.security_holding.SecurityHoldingModel", back_populates="portfolios")
     securities = relationship("src.infrastructure.models.finance.financial_assets.security.SecurityModel", back_populates="portfolios")
     __mapper_args__ = {
-    "polymorphic_identity": "portfolios",}
+        "polymorphic_on": portfolio_type,
+        "polymorphic_identity": "Portfolio",
+    }
     def __repr__(self):
         return (
             f"<Portfolio(id={self.id}, name={self.name}, "

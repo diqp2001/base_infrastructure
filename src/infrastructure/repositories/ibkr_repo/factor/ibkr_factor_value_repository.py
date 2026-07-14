@@ -8,9 +8,11 @@ from zoneinfo import ZoneInfo
 from collections import defaultdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
+import calendar
 import inspect
 from ibapi.contract import Contract
 from dateutil.relativedelta import relativedelta
+from dateutil.easter import easter
 from sqlalchemy import Tuple
 from src.domain.entities.finance.financial_assets.currency import Currency
 
@@ -60,13 +62,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         super().__init__(ibkr_client)
         self.ibkr_instrument_repo = ibkr_instrument_repo
         self.factory = factory
-        self.ibkr_instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
         self.tick_mapper = IBKRTickFactorMapper()
-        # Add recursion guard to prevent infinite dependency loops
-        self._dependency_creation_stack = set()
         self.resolution_service = FactorValueResolutionService(factory=factory)
-        
-    @property 
+
+    @property
+    def ibkr_instrument_factor_repo(self):
+        if self.factory:
+            return self.factory.instrument_factor_ibkr_repo
+        return None
+
+    @property
     def local_repo(self):
         """Get local factor value repository through factory."""
         if hasattr(self, '_local_repo') and self._local_repo:
@@ -1953,8 +1958,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if 'entity_id' in entity_data:
                             metadata['entity_id'] = entity_data['entity_id']
 
-                        if 'max_date' in entity_data:
-                            metadata['time_date'] = entity_data['max_date']
+                        if 'time_date' in entity_data:
+                            metadata['time_date'] = entity_data['time_date']
                         if 'financial_asset_entity' in entity_data:
                             metadata['financial_asset_entity'] = entity_data['financial_asset_entity']
                 
@@ -2614,6 +2619,42 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting factor value {factor_id} from IBKR data: {e}")
             return None
         
+    @staticmethod
+    def _get_us_market_holidays(year: int):
+        """Return the set of NYSE holiday dates for the given year."""
+        holidays = set()
+
+        def observed(d):
+            wd = d.weekday()
+            if wd == 5:   # Saturday → Friday
+                return d - timedelta(days=1)
+            if wd == 6:   # Sunday → Monday
+                return d + timedelta(days=1)
+            return d
+
+        def nth_weekday(yr, month, n, weekday):
+            first = date(yr, month, 1)
+            delta = (weekday - first.weekday()) % 7
+            return first + timedelta(days=delta) + timedelta(weeks=n - 1)
+
+        def last_weekday(yr, month, weekday):
+            last_day = date(yr, month, calendar.monthrange(yr, month)[1])
+            delta = (last_day.weekday() - weekday) % 7
+            return last_day - timedelta(days=delta)
+
+        holidays.add(observed(date(year, 1, 1)))           # New Year's Day
+        holidays.add(nth_weekday(year, 1, 3, 0))           # MLK Day (3rd Mon Jan)
+        holidays.add(nth_weekday(year, 2, 3, 0))           # Presidents' Day (3rd Mon Feb)
+        holidays.add(easter(year) - timedelta(days=2))     # Good Friday
+        holidays.add(last_weekday(year, 5, 0))             # Memorial Day (last Mon May)
+        if year >= 2022:
+            holidays.add(observed(date(year, 6, 19)))      # Juneteenth
+        holidays.add(observed(date(year, 7, 4)))           # Independence Day
+        holidays.add(nth_weekday(year, 9, 1, 0))           # Labor Day (1st Mon Sep)
+        holidays.add(nth_weekday(year, 11, 4, 3))          # Thanksgiving (4th Thu Nov)
+        holidays.add(observed(date(year, 12, 25)))         # Christmas Day
+        return holidays
+
     def get_effective_market_datetime(self,
     time_date: str,
     frequency: str,
@@ -2687,10 +2728,21 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             raise ValueError(f"Unsupported frequency: {frequency}")
 
         # -----------------------------------------
-        # Roll weekends backward to Friday
+        # Roll back to the last trading day
+        # (weekends and US market holidays)
         # -----------------------------------------
-        while effective_date.weekday() >= 5:
-            effective_date -= timedelta(days=1)
+        holiday_cache: dict = {}
+        while True:
+            if effective_date.weekday() >= 5:
+                effective_date -= timedelta(days=1)
+                continue
+            yr = effective_date.year
+            if yr not in holiday_cache:
+                holiday_cache[yr] = self._get_us_market_holidays(yr)
+            if effective_date.date() in holiday_cache[yr]:
+                effective_date -= timedelta(days=1)
+                continue
+            break
 
         return effective_date
         

@@ -65,18 +65,25 @@ class PortfolioService:
         from src.domain.entities.finance.portfolio.portfolio import Portfolio as PortfolioDomain
 
         factor_value_repo = self.factory.factor_value_local_repo if self.factory else None
+
+
+
+
         portfolio_obj = self.session.query(PortfolioModel).filter_by(id=portfolio_id).first()
 
-        if portfolio_obj is not None:
-            orm_cls = type(portfolio_obj).__name__
-            entity_name = orm_cls[:-5] if orm_cls.endswith('Model') else orm_cls
-            portfolio_factor_name = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', entity_name).lower() + '_value'
-        else:
-            portfolio_factor_name = 'portfolio_value'
-        portfolio_factor = self._create_or_get_factor(portfolio_factor_name, 'value', 'portfolio_value_factor')
-
+        orm_cls = type(portfolio_obj).__name__
+        portfolio_type = getattr(portfolio_obj, 'portfolio_type', '') or ''
+        entity_name = portfolio_type
+        portfolio_factor_name = portfolio_type + 'ValueFactor'
+        
+            
+        portfolio_factor_repo  = self.factory.get_local_repository(portfolio_factor_name)
+        #create factor for portfolio value
+        portfolio_factor = portfolio_factor_repo._create_or_get(portfolio_factor_name,entity_name) if portfolio_factor_repo else None
+        
+        
         total = Decimal("0")
-
+        # Get all holdings for this portfolio
         all_holdings = (
             self.session.query(HoldingModel)
             .filter_by(container_id=portfolio_id)
@@ -86,71 +93,64 @@ class PortfolioService:
         for h in all_holdings:
             if h.asset_id is None:
                 continue
-
-            holding_type = getattr(h, 'holding_type', '') or ''
+            #get the holding type from the holding model
+            holding_type = getattr(h, 'holding_type')
+            #get the repository for the holding type
             repo = self.factory.get_local_repository(holding_type) if self.factory else None
+            #get the mapper for the repository
             mapper = getattr(repo, 'mapper', None)
-
+            #check if the mapper's asset_class (an holding always has a asset_class and a container_class) is a subclass of PortfolioDomain
             is_sub_portfolio = (
                 mapper is not None and issubclass(mapper.asset_class, PortfolioDomain)
             )
-
+            #get the entity class from the mapper
             entity_cls = getattr(mapper, 'entity_class', None) if mapper else None
             if entity_cls is not None:
-                factor_name = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', entity_cls.__name__).lower() + '_value'
-            else:
-                factor_name = 'holding_value'
-            holding_factor = self._create_or_get_factor(factor_name, 'holding', 'holding_value_factor')
+                #get the factor name for the holding type
+                factor_name =  entity_cls.__name__ + 'ValueFactor'
+            #get the repository for the factor name for the holding type
+            repo = self.factory.get_local_repository(factor_name)
+            #create or get the factor for the holding type
+            holding_factor = repo._create_or_get(factor_name,holding_type) if repo else None
+
+            # Determine the currency the holding value is denominated in.
+            # Prefer the asset's own currency_id; if the asset IS a currency
+            # (no currency_id attribute), use the asset's id directly.
+            asset_orm = self.session.query(FinancialAssetModel).filter_by(id=h.asset_id).first()
+            holding_currency_id = getattr(asset_orm, 'currency_id', None)
+            if holding_currency_id is None and asset_orm is not None:
+                if getattr(asset_orm, 'asset_type', None) == 'currency':
+                    holding_currency_id = h.asset_id
 
             if is_sub_portfolio:
                 # Sub-portfolio link: asset_id is the child portfolio id — recurse bottom-up
                 holding_value = self.calculate_value(h.asset_id, as_of_date)
+                _holding_fv_kwargs = {'value': str(holding_value)}
                 self.logger.debug(
                     f"Holding {h.id} ({holding_type}) → sub-portfolio {h.asset_id}: {holding_value}"
                 )
             else:
-                # Leaf asset holding: qty × price
-                qty = self._get_position_qty(h)
-                if qty == Decimal("0"):
-                    continue
-
-                asset = (
-                    self.session.query(FinancialAssetModel)
-                    .filter_by(id=h.asset_id)
-                    .first()
-                )
-                if asset is None:
-                    continue
-
-                if getattr(asset, "asset_type", "") == "currency":
-                    price = Decimal("1")
-                else:
-                    price = self._resolve_price(asset, as_of_date)
-
-                holding_value = qty * price
-                self.logger.debug(
-                    f"Holding {h.id} ({holding_type}, asset_id={h.asset_id}): "
-                    f"qty={qty} × price={price} = {holding_value}"
+                factor_value = (
+                    factor_value_repo._create_or_get(
+                        None, None,
+                        factor=holding_factor, entity=h, date=as_of_date,
+                        currency_id=holding_currency_id,
+                    )
+                    if factor_value_repo and holding_factor else None
                 )
 
-            total += holding_value
-            if factor_value_repo is not None and holding_factor is not None:
-                factor_value_repo._create_or_get(
-                    None,
-                    factor=holding_factor,
-                    entity=h,
-                    date=as_of_date,
-                    value=str(holding_value),
-                )
+            
+            
 
         if factor_value_repo is not None and portfolio_factor is not None and portfolio_obj is not None:
-            factor_value_repo._create_or_get(
+            factor_value = factor_value_repo._create_or_get(
                 None,
                 factor=portfolio_factor,
                 entity=portfolio_obj,
                 date=as_of_date,
-                value=str(total),
             )
+            if factor_value is not None and getattr(factor_value, 'value', None) is not None:
+                total = Decimal(str(factor_value.value))
         self.logger.info(f"Portfolio {portfolio_id} total value: {total}")
         return total
 
@@ -204,7 +204,7 @@ class PortfolioService:
                 if getattr(asset, "asset_type", "") == "currency":
                     price = Decimal("1")
                 else:
-                    price = self._resolve_price(asset, as_of_date)
+                    price = self._resolve_value(asset, as_of_date)
                 holding_value = qty * price
                 total += holding_value
                 breakdown.append({
@@ -229,65 +229,60 @@ class PortfolioService:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _create_or_get_factor(self, name: str, group: str, factor_type: str):
-        """Return an existing FactorModel row for (name, group) or create one."""
-        from src.infrastructure.models.factor.factor import FactorModel as FactorORM
-        if not hasattr(self, '_factor_cache'):
-            self._factor_cache: dict = {}
-        key = (name, group)
-        if key not in self._factor_cache:
-            factor = self.session.query(FactorORM).filter_by(name=name, group=group).first()
-            if not factor:
-                factor = FactorORM(
-                    name=name,
-                    group=group,
-                    factor_type=factor_type,
-                    frequency='1d',
-                    data_type='numeric',
-                    source='calculated',
-                )
-                self.session.add(factor)
-                sp = self.session.begin_nested()
-                try:
-                    self.session.flush()
-                    sp.commit()
-                except Exception as e:
-                    sp.rollback()
-                    self.logger.warning(f"_create_or_get_factor flush failed ({name}/{group}): {e}")
-                    return None
-            self._factor_cache[key] = factor
-        return self._factor_cache[key]
+    
+
+    def _get_position_model(self, holding):
+        """Return the PositionModel linked to this holding, or None."""
+        from src.infrastructure.models.finance.position import PositionModel
+        if not getattr(holding, 'position_id', None):
+            return None
+        return self.session.query(PositionModel).filter_by(id=holding.position_id).first()
 
     def _get_position_qty(self, holding) -> Decimal:
         """Return position quantity linked to this holding, or 0 if not found."""
-        from src.infrastructure.models.finance.position import PositionModel
-
-        if not holding.position_id:
-            return Decimal("0")
-        pos = (
-            self.session.query(PositionModel).filter_by(id=holding.position_id).first()
-        )
+        pos = self._get_position_model(holding)
         if pos is None or pos.quantity is None:
             return Decimal("0")
         return Decimal(str(pos.quantity))
 
-    def _resolve_price(self, asset, as_of_date: datetime) -> Decimal:
+    def _resolve_value(self, asset, as_of_date: datetime) -> Decimal:
         """
-        Get close price for a financial asset.
+        Get asset value via the factor/factor_value system.
+
+        The ValueFactor name is derived dynamically from the asset ORM class:
+          e.g. CompanyShareModel → company_share_value / company_share_value_factor
+               ETFShareModel     → etf_share_value    / etf_share_value_factor
 
         Priority:
-          1. Latest FactorValue in DB (group='price', name contains 'close')
-          2. market_data_service._get_point_in_time_data (IBKR or local)
+          1. Existing FactorValue in DB for the asset's ValueFactor
+          2. market_data_service fallback — fetches from broker and persists as FactorValue
           3. Return 0 if no price available
         """
         ticker = getattr(asset, "symbol", None)
+        factor_value_repo = self.factory.factor_value_local_repo if self.factory else None
 
-        # 1 — DB lookup
-        price = self._get_close_price_from_db(asset.id, as_of_date)
-        if price is not None:
-            return price
+        # Derive factor name/type from the asset ORM class name
+        orm_cls = type(asset).__name__
+        entity_name = orm_cls[:-5] if orm_cls.endswith('Model') else orm_cls
+        entity_snake = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', entity_name).lower()
+        value_factor_name = entity_snake + '_value'
+        value_factor_type = entity_snake + '_value_factor'
 
-        # 2 — market_data_service fallback (fetches from broker and persists to DB)
+        # 1 — create or get the asset's ValueFactor entity
+        value_factor = self._create_or_get_factor(value_factor_name, 'value', value_factor_type)
+
+        # 2 — look up existing FactorValue for this asset + date
+        if factor_value_repo and value_factor and value_factor.id:
+            date_str = as_of_date.strftime("%Y-%m-%d %H:%M:%S")
+            existing = factor_value_repo.get_by_factor_entity_date(
+                value_factor.id, asset.id, date_str
+            )
+            if existing and existing.value:
+                val = Decimal(str(existing.value))
+                if val > Decimal("0"):
+                    return val
+
+        # 3 — market_data_service fallback; persist result as ValueFactor FactorValue
         if self.market_data_service and ticker:
             entity_class = self._domain_class_for_asset(asset)
             if entity_class:
@@ -299,44 +294,24 @@ class PortfolioService:
                         row = price_df.iloc[-1]
                         close_val = row.get("close", row.get("Close"))
                         if close_val and float(close_val) > 0:
-                            return Decimal(str(close_val))
+                            price = Decimal(str(close_val))
+                            if factor_value_repo and value_factor and value_factor.id:
+                                factor_value_repo._create_or_get_legacy(
+                                    factor_id=value_factor.id,
+                                    entity_id=asset.id,
+                                    date=as_of_date,
+                                    value=str(price),
+                                )
+                            return price
                 except Exception as e:
                     self.logger.warning(
-                        f"_resolve_price: market service fallback failed for {ticker}: {e}"
+                        f"_resolve_value: market service fallback failed for {ticker}: {e}"
                     )
 
-        self.logger.debug(f"_resolve_price: no price found for asset_id={asset.id}")
+        self.logger.debug(f"_resolve_value: no value found for asset_id={asset.id}")
         return Decimal("0")
 
-    def _get_close_price_from_db(
-        self, asset_id: int, as_of_date: datetime
-    ) -> Optional[Decimal]:
-        """
-        Query the most recent 'close' FactorValue for this asset on or before as_of_date.
-        Factors created by market_data_service use group='price' and have 'close' in their name.
-        """
-        from src.infrastructure.models.factor.factor import FactorModel as FactorORM
-        from src.infrastructure.models.factor.factor_value import FactorValueModel
-
-        try:
-            fv = (
-                self.session.query(FactorValueModel)
-                .join(FactorORM, FactorValueModel.factor_id == FactorORM.id)
-                .filter(
-                    FactorValueModel.entity_id == asset_id,
-                    FactorORM.group == "price",
-                    FactorORM.name.contains("close"),
-                    FactorValueModel.date <= as_of_date,
-                )
-                .order_by(FactorValueModel.date.desc())
-                .first()
-            )
-            if fv and fv.value:
-                val = Decimal(str(fv.value))
-                return val if val > Decimal("0") else None
-        except Exception as e:
-            self.logger.debug(f"_get_close_price_from_db failed for asset {asset_id}: {e}")
-        return None
+    
 
     def _domain_class_for_asset(self, asset):
         """

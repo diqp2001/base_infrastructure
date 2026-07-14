@@ -134,8 +134,10 @@ DEFAULT_CONFIG = {
     "Portfolio": {
         "name": "SPX_Call_Spread_Portfolio",
         "initial_cash": 1000000,
-        "currency_code": "USD",
+        "initial_cash_currency_code": "CAD",
+        "currency_code": "CAD",
         "portfolio_type": "BACKTEST",
+        "initial_cash_currency_code": "USD",
 
         "class": Portfolio,
         "holding_class": PortfolioHolding,
@@ -145,8 +147,9 @@ DEFAULT_CONFIG = {
                 "type": "company_share",
                 "name": "SPX_Call_Spread_CompanyShare_Portfolio",
                 "initial_cash": 1000000,
-                "currency_code": "USD",
+                "currency_code": "CAD",
                 "portfolio_type": "BACKTEST",
+                "initial_cash_currency_code": "USD",
 
                 "class": CompanySharePortfolio,
                 "holding_class": CompanySharePortfolioHolding,

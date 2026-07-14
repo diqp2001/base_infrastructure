@@ -298,6 +298,24 @@ class CompanyShareMidPriceFactorModel(FactorModel):
     }
 
 
+class CompanyShareValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_value_factor"
+    }
+
+
+class CurrencyValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_value_factor"
+    }
+
+
+class CurrencyRateFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_rate_factor"
+    }
+
+
 class CompanyShareOptionMidPriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_mid_price_factor"

@@ -57,6 +57,7 @@ class CompanySharePortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepos
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
                 subgroup=kwargs.get('subgroup', 'portfolio_value'),
+                frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
             )
 

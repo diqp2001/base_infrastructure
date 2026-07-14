@@ -147,7 +147,7 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
         total = sum(price['price'] for price in prices)
         return total / len(prices)
 
-    def get_dependency_requirements(self) -> 'DependencyRequirements':
+    def get_dependency_requirements(self) :
         """
         Define dynamic dependency requirements for this factor.
         

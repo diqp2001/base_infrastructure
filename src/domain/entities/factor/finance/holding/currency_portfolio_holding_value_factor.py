@@ -3,7 +3,6 @@ from typing import Optional, List
 from decimal import Decimal
 
 from src.domain.entities.factor.finance.holding.portfolio_holding_factor import PortfolioHoldingFactor
-from src.domain.entities.factor.factor_value import FactorValue
 
 
 class CurrencyPortfolioHoldingValueFactor(PortfolioHoldingFactor):
@@ -29,8 +28,15 @@ class CurrencyPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             factor_id=factor_id,
         )
 
-    def calculate(self, positions_values: List[FactorValue]) -> Decimal:
-        total_value = Decimal('0')
-        for position_value in positions_values:
-            total_value += position_value
-        return total_value
+    @property
+    def calculate_dependencies(self) -> List[str]:
+        return ['CurrencyValueFactor', 'Position']
+
+    def calculate(self, dependencies: dict) -> Decimal:
+        currency_value = dependencies.get('CurrencyValueFactor')
+        position_quantity = dependencies.get('Position')
+        if currency_value is None:
+            currency_value = Decimal('0')
+        if position_quantity is None:
+            position_quantity = Decimal('0')
+        return Decimal(str(currency_value)) * Decimal(str(position_quantity))

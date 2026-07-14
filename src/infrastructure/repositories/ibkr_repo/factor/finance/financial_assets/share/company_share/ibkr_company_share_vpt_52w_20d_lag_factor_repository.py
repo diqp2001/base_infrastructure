@@ -19,7 +19,7 @@ class IBKRCompanyShareVpt52w20dLagFactorRepository(BaseIBKRFactorRepository, Com
 
     @property
     def entity_class(self):
-        return self.local_repo.get_factor_entity()
+        return self.mapper.get_factor_entity()
 
     @property
     def model_class(self):

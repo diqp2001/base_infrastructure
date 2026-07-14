@@ -24,6 +24,12 @@ class CompanySharePortfolioPortfolioHoldingRepository(BaseLocalRepository):
         model = self.session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
+    def get_related_entities(self, portfolio_id: int):
+        models = self.session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(
+            company_share_portfolio_portfolio_id=portfolio_id
+        ).all()
+        return [self.mapper.to_entity(m) for m in models]
+
     def save(self, holding: CompanySharePortfolioPortfolioHolding) -> CompanySharePortfolioPortfolioHolding:
         model = self.mapper.to_model(holding)
         self.session.merge(model)

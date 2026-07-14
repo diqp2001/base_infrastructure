@@ -5,7 +5,7 @@ IBKR Currency Factor Repository - Interactive Brokers implementation for Currenc
 from typing import Optional, List, Dict, Any
 from src.domain.ports.factor.currency_factor_port import CurrencyFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
-from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor
+from src.domain.entities.factor.finance.financial_assets.currency.currency_factor import CurrencyFactor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickFactorMapper, IBKRTickType
 
 

@@ -22,5 +22,5 @@ class CurrencyPortfolioModel(PortfolioModel):
     )
 
     __mapper_args__ = {
-        "polymorphic_identity": "currency_portfolios",
+        "polymorphic_identity": "CurrencyPortfolio",
     }

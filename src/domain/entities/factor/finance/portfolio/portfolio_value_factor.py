@@ -68,15 +68,9 @@ class PortfolioValueFactor(PortfolioFactor):
             print(f"Error calculating portfolio value: {e}")
             return Decimal('0.0')
     
-    def get_dependencies(self) -> List[str]:
-        """
-        Define the dependencies for portfolio value calculation.
-        
-        Returns:
-            List of dependency factor names
-        """
+    @property
+    def calculate_dependencies(self) -> List[str]:
         return [
-            "company_share_portfolio_portfolio_holding_value_factor",  # CompanySharePortfolioPortfolioHoldingValueFactor
-            "company_share_holding_value_factor",  # Regular company share holdings
-            "other_holding_value_factors"  # Other types of holdings
+            "CurrencyPortfolioPortfolioHoldingValueFactor",
+            "CompanySharePortfolioPortfolioHoldingValueFactor",
         ]

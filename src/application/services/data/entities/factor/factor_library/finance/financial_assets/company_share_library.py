@@ -6,11 +6,34 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_avg_turnover_6m_factor import CompanyShareAvgTurnover6mFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor import CompanyShareMonthlyPriceRangeFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor
-
-
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
 
 
 COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
+
+    "company_share_value": {
+        "class": CompanyShareValueFactor,
+        "name": "company_share_value",
+        "group": "value",
+        "subgroup": "asset",
+        "frequency": "1d",
+        "data_type": "decimal",
+        "description": "Market value of a company share, derived from mid price",
+        "dependencies": {
+            "company_share_mid_price_factor": {
+                "class": CompanyShareMidPriceFactor,
+                "name": "mid_price",
+                "group": "price",
+                "subgroup": "mid_price_true",
+                "data_type": "decimal",
+                "description": "Mid price of the company share",
+                "dependencies": {},
+                "parameters": {}
+            }
+        },
+        "parameters": {}
+    },
     
 
 

@@ -196,8 +196,9 @@ class FactorRepository(BaseFactorRepository, FactorPort):
             model = self.session.query(self.model_class).filter(
                 self.model_class.id == id
             ).first()
-            repo = self.factory._local_repositories.get(model.factor_type)
-            return repo.mapper.to_domain(model) if model else None
+            if not model:
+                return None
+            return self.mapper.to_domain(model)
         except Exception as e:
             print(f"Error retrieving {self.model_class.__name__} by id {id}: {e}")
             return None

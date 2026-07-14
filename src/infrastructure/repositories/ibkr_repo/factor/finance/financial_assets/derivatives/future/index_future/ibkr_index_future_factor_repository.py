@@ -22,7 +22,7 @@ class IBKRIndexFutureFactorRepository(BaseIBKRFactorRepository, IndexFutureFacto
 
     @property
     def entity_class(self):
-        return self.local_repo.get_factor_entity()
+        return self.mapper.get_factor_entity()
     
 
     def _create_or_get(self, name: str,**kwargs):

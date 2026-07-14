@@ -33,7 +33,7 @@ class IBKRFutureFactorRepository(BaseIBKRFactorRepository, FutureFactorPort):
         
     @property
     def entity_class(self):
-        return self.local_repo.get_factor_entity()
+        return self.mapper.get_factor_entity()
     
     @property
     def local_repo(self):

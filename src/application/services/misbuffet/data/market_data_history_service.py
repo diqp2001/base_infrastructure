@@ -516,7 +516,7 @@ class MarketDataHistoryService:
         
         created_factors =[]
         factor_values = []
-        max_date = date
+        time_date = date
         
         for factor_config in factor_groups:
             
@@ -536,7 +536,7 @@ class MarketDataHistoryService:
                         'factor': factor,
                         'entity': entity,
                         'entity_id': entity.id,
-                        'max_date': max_date.strftime("%Y-%m-%d %H:%M:%S")
+                        'time_date': time_date.strftime("%Y-%m-%d %H:%M:%S")
                     })
                     
         factor_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(

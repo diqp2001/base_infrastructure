@@ -24,6 +24,13 @@ class CurrencyPortfolioPortfolioHoldingRepository(BaseLocalRepository):
         model = self.session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
+    def get_related_entities(self, portfolio_id: int):
+        from typing import List
+        models = self.session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(
+            currency_portfolio_portfolio_id=portfolio_id
+        ).all()
+        return [self.mapper.to_entity(m) for m in models]
+
     def save(self, holding: CurrencyPortfolioPortfolioHolding) -> CurrencyPortfolioPortfolioHolding:
         model = self.mapper.to_model(holding)
         model = self.session.merge(model)

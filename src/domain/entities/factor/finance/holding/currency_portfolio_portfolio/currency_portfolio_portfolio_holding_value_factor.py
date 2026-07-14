@@ -30,12 +30,12 @@ class CurrencyPortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
 
     def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
         try:
-            portfolio_value = dependencies.get('currency_portfolio_value', Decimal('0'))
+            portfolio_value = dependencies.get('CurrencyPortfolioValueFactor', Decimal('0'))
             if hasattr(portfolio_value, 'value'):
                 portfolio_value = portfolio_value.value
             portfolio_value = Decimal(str(portfolio_value))
 
-            position = dependencies.get('position')
+            position = dependencies.get('Position')
             quantity = Decimal('1')
             if position:
                 if hasattr(position, 'quantity'):
@@ -50,8 +50,9 @@ class CurrencyPortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             print(f"Error calculating CurrencyPortfolio portfolio holding value: {e}")
             return Decimal('0.0')
 
-    def get_dependencies(self) -> List[str]:
+    @property
+    def calculate_dependencies(self) -> List[str]:
         return [
-            "currency_portfolio_holding_value_factor",
-            "position",
+            "CurrencyPortfolioValueFactor",
+            "Position",
         ]

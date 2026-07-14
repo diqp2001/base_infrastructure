@@ -5,7 +5,7 @@ Mapper for CurrencyFactor domain entity and ORM model conversion.
 from typing import Optional
 
 from src.infrastructure.models.factor.factor import FactorModel
-from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor
+from src.domain.entities.factor.finance.financial_assets.currency.currency_factor import CurrencyFactor
 from .factor.base_factor_mapper import BaseFactorMapper
 
 

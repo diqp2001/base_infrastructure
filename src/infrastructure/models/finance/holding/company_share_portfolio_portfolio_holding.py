@@ -39,6 +39,10 @@ class CompanySharePortfolioPortfolioHoldingModel(PortfolioHoldingsModel):
                 "asset_id": column_property(
                     cls.__table__.c.asset_id,
                     HoldingModel.__table__.c.asset_id,
-                )
+                ),
+                "container_id": column_property(
+                    cls.__table__.c.container_id,
+                    HoldingModel.__table__.c.container_id,
+                ),
             }
         }

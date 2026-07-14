@@ -40,6 +40,7 @@ class CompanyShareOptionPortfolioMapper:
         if orm_obj is None:
             orm_obj = self.model_class(
                 name=domain_obj.name,
+                portfolio_type=self.discriminator,
                 start_date=getattr(domain_obj, 'start_date', None),
             end_date=getattr(domain_obj, 'end_date', None)
                 

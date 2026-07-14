@@ -20,7 +20,13 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_avg_turnover_6m_factor_repository import CompanyShareAvgTurnover6mFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_monthly_price_range_factor_repository import CompanyShareMonthlyPriceRangeFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_value_factor_repository import CompanyShareValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_value_factor_repository import CurrencyValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_rate_factor_repository import CurrencyRateFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_value_factor_repository import IBKRCompanyShareValueFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.currency.ibkr_currency_value_factor_repository import IBKRCurrencyValueFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.currency.ibkr_currency_rate_factor_repository import IBKRCurrencyRateFactorRepository
 from src.infrastructure.repositories.ibkr_repo.finance.instrument_repository import IBKRInstrumentRepository
 from src.infrastructure.repositories.local_repo.finance.instrument_repository import InstrumentRepository
 from src.infrastructure.repositories.local_repo.geographic.sector_repository import SectorRepository
@@ -28,6 +34,7 @@ from src.infrastructure.repositories.local_repo.geographic.industry_repository i
 from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repository import PortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_repository import CompanySharePortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio.currency_portfolio_repository import CurrencyPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_option_portfolio_repository import CompanyShareOptionPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.derivative_portfolio_repository import DerivativePortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
@@ -223,9 +230,12 @@ class RepositoryFactory:
         self.ibkr_client = ibkr_client
         self._local_repositories = {}
         self._ibkr_repositories = {}
+        self._available_repository_families: Dict[str, bool] = {'local': True}
+        self._available_repository_families['ibkr'] = True
         self.create_local_repositories()
         if ibkr_client:
             self.create_ibkr_repositories()
+            self._available_repository_families['ibkr'] = True
 
     def create_local_repositories(self) -> Dict[str, Any]:
         """
@@ -315,9 +325,13 @@ class RepositoryFactory:
                 'CompanySharePortfolioOptionPortfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
                 'CompanyShareOptionPortfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
                 'CompanySharePortfolio': CompanySharePortfolioRepository(self.session, factory=self),
+                'CurrencyPortfolio': CurrencyPortfolioRepository(self.session, factory=self),
                 'DerivativePortfolio': DerivativePortfolioRepository(self.session, factory=self),
                 'CompanyShare': CompanyShareRepository(self.session, factory=self),
                 'CompanyShareFactor': CompanyShareFactorRepository(self.session, factory=self),
+                'CompanyShareValueFactor': CompanyShareValueFactorRepository(self.session, factory=self),
+                'CurrencyValueFactor': CurrencyValueFactorRepository(self.session, factory=self),
+                'CurrencyRateFactor': CurrencyRateFactorRepository(self.session, factory=self),
                 'CompanySharePriceReturnFactor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
                 'CompanyShareAvgTurnover6mFactor': CompanyShareAvgTurnover6mFactorRepository(self.session, factory=self),
                 'CompanyShareMonthlyPriceRangeFactor': CompanyShareMonthlyPriceRangeFactorRepository(self.session, factory=self),
@@ -362,6 +376,26 @@ class RepositoryFactory:
             }
         return self._local_repositories
 
+    def _create_or_get_ibkr_repo(self, key: str, ibkr_client=None):
+        """
+        Create and cache a single IBKR repository by property-style key
+        (e.g. 'factor_value_ibkr_repo') without instantiating all repos.
+        """
+        client = ibkr_client or self.ibkr_client
+        if not client:
+            client = self.create_ibkr_client()
+            return None
+
+        if key in self._ibkr_repositories:
+            return self._ibkr_repositories[key]
+
+        if key == 'factor_value_ibkr_repo':
+            repo = IBKRFactorValueRepository(ibkr_client=client, factory=self)
+            self._ibkr_repositories[key] = repo
+            return repo
+
+        return None
+
     def create_ibkr_repositories(self, ibkr_client=None) -> Optional[Dict[str, Any]]:
         """
         Create and cache IBKR repository instances if IBKR client is available.
@@ -378,7 +412,7 @@ class RepositoryFactory:
         if not client:
             client = self.create_ibkr_client()
             return None
-
+        
         if not self._ibkr_repositories:
             self._ibkr_repositories = {
                 'InstrumentFactor': IBKRInstrumentFactorRepository(ibkr_client=client, factory=self),
@@ -393,6 +427,9 @@ class RepositoryFactory:
                 'IndexFuturePriceReturnFactor': IBKRIndexFuturePriceReturnFactorRepository(ibkr_client=client, factory=self),
                 'ShareFactor': IBKRShareFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareFactor': IBKRCompanyShareFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareValueFactor': IBKRCompanyShareValueFactorRepository(ibkr_client=client, factory=self),
+                'CurrencyValueFactor': IBKRCurrencyValueFactorRepository(ibkr_client=client, factory=self),
+                'CurrencyRateFactor': IBKRCurrencyRateFactorRepository(ibkr_client=client, factory=self),
                 'CompanySharePriceReturnFactor': IBKRCompanySharePriceReturnFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareAvgTurnover6mFactor': IBKRCompanyShareAvgTurnover6mFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareMonthlyPriceRangeFactor': IBKRCompanyShareMonthlyPriceRangeFactorRepository(ibkr_client=client, factory=self),
@@ -1349,6 +1386,21 @@ class RepositoryFactory:
         return self.get_local_repository('CompanyShareFactor')
 
     @property
+    def company_share_value_factor_local_repo(self):
+        """Get company_share_value_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareValueFactor')
+
+    @property
+    def currency_value_factor_local_repo(self):
+        """Get currency_value_factor repository for dependency injection."""
+        return self.get_local_repository('CurrencyValueFactor')
+
+    @property
+    def currency_rate_factor_local_repo(self):
+        """Get currency_rate_factor repository for dependency injection."""
+        return self.get_local_repository('CurrencyRateFactor')
+
+    @property
     def company_share_price_return_factor_local_repo(self):
         """Get company_share_price_return_factor repository for dependency injection."""
         return self.get_local_repository('CompanySharePriceReturnFactor')
@@ -1391,6 +1443,21 @@ class RepositoryFactory:
     def company_share_factor_ibkr_repo(self):
         """Get company_share_factor repository for dependency injection."""
         return self.get_ibkr_repository('CompanyShareFactor')
+
+    @property
+    def company_share_value_factor_ibkr_repo(self):
+        """Get company_share_value_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareValueFactor')
+
+    @property
+    def currency_value_factor_ibkr_repo(self):
+        """Get currency_value_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CurrencyValueFactor')
+
+    @property
+    def currency_rate_factor_ibkr_repo(self):
+        """Get currency_rate_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CurrencyRateFactor')
 
     @property
     def company_share_price_return_factor_ibkr_repo(self):

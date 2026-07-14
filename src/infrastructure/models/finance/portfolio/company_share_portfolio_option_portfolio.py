@@ -19,5 +19,5 @@ class CompanySharePortfolioOptionPortfolioModel(PortfolioModel):
     )
     
     __mapper_args__ = {
-        "polymorphic_identity": "company_share_portfolio_option_portfolios",
+        "polymorphic_identity": "CompanySharePortfolioOptionPortfolio",
     }

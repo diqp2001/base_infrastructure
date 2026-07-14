@@ -28,7 +28,8 @@ class FactorValue:
     value: str
     entity_type: Optional[str] = None   # Discriminator: entity class name
     entity_id: Optional[int] = None     # Raw id – synced from entity.id if entity provided
-
+    currency_id: Optional[int] = None
+    
     def __post_init__(self):
         """Validate domain constraints and sync entity_id / entity_type from entity."""
         if self.factor_id <= 0:
@@ -38,9 +39,11 @@ class FactorValue:
             # Sync entity_id from entity when entity object is available
             if self.entity_id is None:
                 self.entity_id = self.entity.id
-            # Auto-derive entity_type from entity's class name when not provided
+            # Auto-derive entity_type from entity's class name when not provided.
+            # Strip the ORM 'Model' suffix so 'CurrencyModel' → 'Currency'.
             if self.entity_type is None:
-                self.entity_type = type(self.entity).__name__
+                cls_name = type(self.entity).__name__
+                self.entity_type = cls_name[:-5] if cls_name.endswith('Model') else cls_name
 
         if self.entity_id is not None and self.entity_id <= 0:
             raise ValueError("entity_id must be positive")

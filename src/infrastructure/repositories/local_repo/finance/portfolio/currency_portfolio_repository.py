@@ -83,10 +83,10 @@ class CurrencyPortfolioRepository(CurrencyPortfolioPort):
         return True
 
     def get_related_entities(self, portfolio_id: int) -> List:
-        """Return all holdings whose container_id matches this sub-portfolio."""
+        """Return all CurrencyPortfolioHoldings for this portfolio."""
         try:
-            from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
-            return HoldingRepository(self.session, self.factory).get_by_container_id(portfolio_id)
+            from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_holding_repository import CurrencyPortfolioHoldingRepository
+            return CurrencyPortfolioHoldingRepository(self.session, self.factory).get_by_currency_portfolio_id(portfolio_id)
         except Exception as e:
             print(f"Error retrieving holdings for CurrencyPortfolio {portfolio_id}: {e}")
             return []

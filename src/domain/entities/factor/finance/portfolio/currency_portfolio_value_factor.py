@@ -45,8 +45,8 @@ class CurrencyPortfolioValueFactor(PortfolioFactor):
             print(f"Error calculating currency portfolio value: {e}")
             return Decimal('0.0')
 
-    def get_dependencies(self) -> List[str]:
+    @property
+    def calculate_dependencies(self) -> List[str]:
         return [
-            "currency_portfolio_portfolio_holding_value_factor",
-            "currency_portfolio_holding_value_factor",
+            "CurrencyPortfolioHoldingValueFactor",
         ]

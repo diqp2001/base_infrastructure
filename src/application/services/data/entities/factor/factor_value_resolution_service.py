@@ -38,7 +38,6 @@ class FactorValueResolutionService:
         """
         self.factory = factory
         self.logger = logger or logging.getLogger(__name__)
-        self._dependency_creation_stack: Set[Tuple[int, int, str]] = set()
     
     def resolve_factor_value(
         self,
@@ -83,58 +82,44 @@ class FactorValueResolutionService:
 
             entity_type = type(entity).__name__ if entity is not None else None
 
-            # Check for dependency loop protection
-            dependency_key = (factor_entity.id, entity_id, entity_type, str(time_date))
-            if dependency_key in self._dependency_creation_stack:
-                self.logger.warning(
-                    f"Detected dependency loop for factor {factor_entity.name} "
-                    f"with entity {entity_type}:{entity_id}"
+            
+
+            
+            # Ensure time_date is properly formatted
+            formatted_date = self._format_date(time_date)
+            parsed_date = self._parse_date(formatted_date)
+
+            # Check if factor value already exists
+            existing_value = self._check_existing_value(
+                factor_entity.id, entity_id, entity_type, formatted_date, repository_type
+            )
+            if existing_value:
+                return existing_value
+
+            # Get factor dependencies from database
+            dependencies = self._get_factor_dependencies(factor_entity.id)
+
+            # True when the factor can compute its own value from dependency inputs.
+            has_calculate_function = callable(getattr(type(factor_entity), 'calculate', None))
+            # True only when the factor declares its deps programmatically (calculate_dependencies).
+            has_dynamic_dependencies = hasattr(factor_entity, 'calculate_dependencies')
+
+            if dependencies or has_dynamic_dependencies:
+                self.logger.info(
+                    f"Factor {factor_entity.name} has "
+                    f"{'DB' if dependencies else 'dynamic'} dependencies"
                 )
-                return None
-
-            # Add to dependency stack for loop protection
-            self._dependency_creation_stack.add(dependency_key)
-
-            try:
-                # Ensure time_date is properly formatted
-                formatted_date = self._format_date(time_date)
-                parsed_date = self._parse_date(formatted_date)
-
-                # Check if factor value already exists
-                existing_value = self._check_existing_value(
-                    factor_entity.id, entity_id, entity_type, formatted_date, repository_type
+                return self._resolve_factor_with_dependencies(
+                    factor_entity, dependencies, entity, parsed_date,
+                    repository_type, has_calculate_function, has_dynamic_dependencies, **kwargs
                 )
-                if existing_value:
-                    return existing_value
+            else:
+                self.logger.info(f"Factor {factor_entity.name} has no dependencies")
+                return self._resolve_factor_without_dependencies(
+                    factor_entity, entity, parsed_date, repository_type, **kwargs
+                )
 
-                # Get factor dependencies from database
-                dependencies = self._get_factor_dependencies(factor_entity.id)
 
-                # Check if factor has calculate function (indicates dynamic dependencies)
-                has_calculate_function = hasattr(factor_entity, 'calculate') and callable(getattr(factor_entity, 'calculate'))
-
-                if dependencies or has_calculate_function:
-                    # Factor has dependencies (database or dynamic) - resolve them and calculate
-                    if dependencies:
-                        self.logger.info(f"Factor {factor_entity.name} has {len(dependencies)} database dependencies")
-                    if has_calculate_function and not dependencies:
-                        self.logger.info(f"Factor {factor_entity.name} has dynamic dependencies (calculate function)")
-                    
-                    return self._resolve_factor_with_dependencies(
-                        factor_entity, dependencies, entity, parsed_date,
-                        repository_type, has_calculate_function, **kwargs
-                    )
-                else:
-                    # Factor has no dependencies - create directly
-                    self.logger.info(f"Factor {factor_entity.name} has no dependencies")
-                    return self._resolve_factor_without_dependencies(
-                        factor_entity, entity, parsed_date, repository_type, **kwargs
-                    )
-
-            finally:
-                # Clean up dependency stack
-                if dependency_key in self._dependency_creation_stack:
-                    self._dependency_creation_stack.remove(dependency_key)
 
         except Exception as e:
             self.logger.error(f"Error resolving factor value for {factor_entity.name}: {e}")
@@ -299,6 +284,7 @@ class FactorValueResolutionService:
         target_date: datetime,
         repository_type: str,
         has_calculate_function: bool = False,
+        has_dynamic_dependencies: bool = False,
         **kwargs
     ) -> Optional[FactorValue]:
         """Resolve factor value when dependencies exist."""
@@ -349,9 +335,9 @@ class FactorValueResolutionService:
                             f"('{dependency_name}') for {repository_type} repository"
                         )
 
-            # Handle dynamic dependencies if factor has calculate function
-            if has_calculate_function and not dependencies:
-                # Factor has calculate function but no database dependencies - resolve dynamic dependencies
+            # Handle dynamic dependencies declared via calculate_dependencies property
+            if has_dynamic_dependencies and not dependencies:
+                # Factor declares its deps programmatically but has no DB-stored deps
                 dynamic_dependency_values = self._resolve_dynamic_dependencies(
                     factor_entity, entity, target_date, repository_type, **kwargs
                 )
@@ -361,7 +347,7 @@ class FactorValueResolutionService:
                     self.logger.error(f"Failed to resolve dynamic dependencies for factor {factor_entity.name}")
                     return None
 
-            # If there are missing dependencies (and no dynamic dependencies resolved them), flag error
+            # If there are missing dependencies (and the factor can't calculate anyway), flag error
             if missing_dependencies and not (has_calculate_function and dependency_values):
                 self.logger.error(
                     f"Cannot calculate factor {factor_entity.name} - missing dependencies: {missing_dependencies}"
@@ -373,7 +359,8 @@ class FactorValueResolutionService:
 
             if calculated_value is not None:
                 return self._create_factor_value(
-                    factor_entity, entity, target_date, str(calculated_value), repository_type
+                    factor_entity, entity, target_date, str(calculated_value), repository_type,
+                    currency_id=kwargs.get('currency_id'),
                 )
 
             self.logger.error(f"Factor calculation failed for {factor_entity.name}")
@@ -536,88 +523,183 @@ class FactorValueResolutionService:
     ) -> Optional[Dict[str, float]]:
         """
         Resolve dynamic dependencies by finding related entities and their factor values.
-        
-        This method:
-        1. Gets related entities (e.g., portfolio -> holdings)
-        2. For each related entity, tries to get factor values for factors with matching parameters
-        3. Returns a dictionary of dependency values for the calculate function
-        
-        Args:
-            factor_entity: Factor that needs dynamic dependencies resolved
-            entity: Parent entity (e.g., Portfolio)
-            target_date: Date for calculation
-            repository_type: "local" or "ibkr"
-            **kwargs: Additional parameters
-            
-        Returns:
-            Dictionary of dependency values or None if resolution failed
+        *** the only part that is dynamic now in a dependency is the factor parameters like frequency and lag and
+          the dependency for the moment will take same frequency and lag from the dependent factor***
+        Two branches:
+
+        A dynamic factor will always have a factor_entity.calculate_dependencies exists (Source 2):
+            Each name in calculate_dependencies is a factor class key (e.g. 'CurrencyValueFactor').
+            The repo for that class is retrieved via the factory, the factor record is located by
+            matching the holding factor's own subgroup / data_type / frequency, and its value is
+            resolved for each related entity.  The result dict uses the dep class name as key.
+
+ 
         """
         try:
             entity_id = getattr(entity, 'id', None) if entity is not None else None
             if not entity_id:
                 self.logger.error("Entity ID required for dynamic dependency resolution")
                 return None
-
-            # Get related entities using the get_related_entities method
+            
             related_entities = self._get_related_entities(entity, repository_type)
-            
             if not related_entities:
-                self.logger.warning(f"No related entities found for {type(entity).__name__}:{entity_id}")
-                return None
-
-            self.logger.info(f"Found {len(related_entities)} related entities for dynamic dependency resolution")
-            
-            # Get all factors with matching parameters (frequency, group, subgroup, data_type)
-            matching_factors = self._find_matching_factors(factor_entity, repository_type)
-            
-            dependency_values = {}
-            
-            # For each related entity, try to find factor values
-            for i, related_entity in enumerate(related_entities):
-                related_entity_id = getattr(related_entity, 'id', None)
-                related_entity_type = type(related_entity).__name__
-                
-                if not related_entity_id:
-                    continue
-                    
-                # Try to find factor values for this related entity
-                for matching_factor in matching_factors:
-                    factor_value = self._check_existing_value(
-                        matching_factor.id, related_entity_id, related_entity_type, 
-                        target_date.strftime("%Y-%m-%d %H:%M:%S"), repository_type
-                    )
-                    
-                    if factor_value:
-                        # Create a dependency name based on factor and related entity
-                        dependency_name = f"{matching_factor.name}_{related_entity_type}_{i}"
-                        dependency_values[dependency_name] = self._convert_to_float(factor_value.value)
-                        self.logger.info(f"Found dynamic dependency: {dependency_name} = {factor_value.value}")
-                        break
-                
-                # If no factor value found, try to resolve it recursively
-                if not any(f"{mf.name}_{related_entity_type}_{i}" in dependency_values for mf in matching_factors):
-                    for matching_factor in matching_factors:
-                        resolved_value = self.resolve_factor_value(
-                            factor_entity=matching_factor,
-                            entity=related_entity,
-                            time_date=target_date,
-                            repository_type=repository_type,
-                            **kwargs
-                        )
-                        
-                        if resolved_value:
-                            dependency_name = f"{matching_factor.name}_{related_entity_type}_{i}"
-                            dependency_values[dependency_name] = self._convert_to_float(resolved_value.value)
-                            self.logger.info(f"Resolved dynamic dependency: {dependency_name} = {resolved_value.value}")
-                            break
-            
-            if dependency_values:
-                self.logger.info(f"Successfully resolved {len(dependency_values)} dynamic dependencies")
-                return dependency_values
+                # Entity has no sub-entities (e.g. Currency has no children).
+                # The dep factor must be resolved for the entity itself.
+                self.logger.info(
+                    f"No related entities found for {type(entity).__name__}:{entity_id} "
+                    f"— using entity itself as the resolution target"
+                )
+                related_entities = [entity]
             else:
-                self.logger.warning("No dynamic dependencies could be resolved")
-                return None
-                
+                related_entities.append(entity)
+                self.logger.info(
+                    f"Found {len(related_entities)} related entities for dynamic dependency resolution"
+                )
+
+            dependency_values = {}
+            date_str = target_date.strftime("%Y-%m-%d %H:%M:%S")
+
+            if hasattr(factor_entity, 'calculate_dependencies'):
+                # ── Branch A: resolve via named dependency factor classes ──────────
+                #
+                # For each declared dependency:
+                #   Step 1 — _create_or_get guarantees the factor row exists in DB.
+                #   Step 2 — resolve_factor_value recursively materialises the factor
+                #             value (and any of its own dependencies) bottom-up.
+                for dep_name in factor_entity.calculate_dependencies:
+                    dep_repo = (
+                        self.factory.get_local_repository(dep_name) if self.factory else None
+                    )
+                    if dep_repo is None:
+                        self.logger.warning(f"No repository found for dependency: {dep_name}")
+                        continue
+
+                    # Step 1: determine whether this is a factor dep or a plain entity dep
+                    if hasattr(dep_repo, 'get_factor_entity'):
+                        # ── Factor dependency path ─────────────────────────────────
+                        dep_factor_entity = None
+                        if hasattr(dep_repo, '_create_or_get'):
+                            dep_defaults = dep_repo.get_factor_entity()()
+                            dep_factor_entity = dep_repo._create_or_get(
+                                dep_repo.get_factor_entity(),
+                                primary_key=dep_defaults.name,
+                                group=getattr(dep_defaults, 'group', None),
+                                subgroup=getattr(dep_defaults, 'subgroup', None),
+                                data_type=getattr(dep_defaults, 'data_type', None),
+                                frequency=getattr(dep_defaults, 'frequency', None),
+                            )
+                        elif hasattr(dep_repo, 'get_by_all'):
+                            dep_defaults = dep_repo.get_factor_entity()()
+                            db_record = dep_repo.get_by_all(
+                                name=dep_defaults.name,
+                                group=getattr(dep_defaults, 'group', None),
+                            )
+                            if db_record and hasattr(dep_repo, '_to_entity'):
+                                dep_factor_entity = dep_repo._to_entity(db_record)
+                            else:
+                                dep_factor_entity = dep_defaults
+
+                        if dep_factor_entity is None:
+                            self.logger.warning(
+                                f"Could not obtain factor entity for dependency: {dep_name}"
+                            )
+                            continue
+
+                        # Step 2: resolve the factor value for each related entity
+                        dep_discriminator = getattr(
+                            getattr(dep_repo, 'mapper', None), 'discriminator', None
+                        )
+
+                        for related_entity in related_entities:
+                            related_entity_id = getattr(related_entity, 'id', None)
+                            related_entity_type = type(related_entity).__name__
+                            if not related_entity_id:
+                                continue
+
+                            if dep_discriminator:
+                                entity_base = related_entity_type.removesuffix('Model')
+                                if entity_base != dep_discriminator:
+                                    self.logger.debug(
+                                        f"Skipping {related_entity_type} for dependency {dep_name} "
+                                        f"(expected '{dep_discriminator}', got '{entity_base}')"
+                                    )
+                                    continue
+
+                            factor_value = self.resolve_factor_value(
+                                factor_entity=dep_factor_entity,
+                                entity=related_entity,
+                                time_date=target_date,
+                                repository_type=repository_type,
+                                **kwargs,
+                            )
+
+                            if factor_value:
+                                dependency_values[dep_name] = (
+                                    dependency_values.get(dep_name, 0.0)
+                                    + self._convert_to_float(factor_value.value)
+                                )
+                                self.logger.info(
+                                    f"Resolved dependency {dep_name} += {factor_value.value} "
+                                    f"from {related_entity_type}:{related_entity_id}"
+                                    f" (running total: {dependency_values[dep_name]})"
+                                )
+
+                    else:
+                        # ── Entity value dependency path ───────────────────────────
+                        # dep_repo is a plain entity repo (no get_factor_entity).
+                        # Find the related entity on the current entity or via the
+                        # holding repo's get_related_{name} method, then extract
+                        # the primary numeric attribute (quantity, value, amount, price).
+                        dep_entity_name = dep_name.lower()
+                        related_obj = None
+
+                        # 1. Direct attribute on the entity model (e.g. holding.position_rel)
+                        for attr in (f'{dep_entity_name}_rel', dep_entity_name):
+                            related_obj = getattr(entity, attr, None)
+                            if related_obj is not None:
+                                break
+
+                        # 2. Holding repo get_related_{dep_name.lower()} method
+                        if related_obj is None:
+                            entity_type_key = type(entity).__name__
+                            if entity_type_key.endswith('Model'):
+                                entity_type_key = entity_type_key[:-5]
+                            holding_repo = (
+                                self.factory.get_local_repository(entity_type_key)
+                                if self.factory else None
+                            )
+                            if holding_repo:
+                                getter = getattr(holding_repo, f'get_related_{dep_entity_name}', None)
+                                if callable(getter):
+                                    related_obj = getter(entity.id)
+
+                        if related_obj is not None:
+                            for numeric_attr in ('quantity', 'value', 'amount', 'price'):
+                                numeric_val = getattr(related_obj, numeric_attr, None)
+                                if numeric_val is not None:
+                                    dependency_values[dep_name] = self._convert_to_float(numeric_val)
+                                    self.logger.info(
+                                        f"Resolved entity dependency {dep_name}.{numeric_attr} = {numeric_val} "
+                                        f"for {type(entity).__name__}:{entity.id}"
+                                    )
+                                    break
+                        else:
+                            self.logger.warning(
+                                f"Could not find related {dep_name} entity for "
+                                f"{type(entity).__name__}:{entity.id}"
+                            )
+
+            
+
+            if dependency_values:
+                self.logger.info(
+                    f"Successfully resolved {len(dependency_values)} dynamic dependencies"
+                )
+                return dependency_values
+
+            self.logger.warning("No dynamic dependencies could be resolved")
+            return None
+
         except Exception as e:
             self.logger.error(f"Error resolving dynamic dependencies: {e}")
             return None
@@ -670,43 +752,70 @@ class FactorValueResolutionService:
         repository_type: str,
         **kwargs
     ) -> Optional[FactorValue]:
-        """Resolve factor value when no dependencies exist."""
-        try:
-            # Handle non-dependent factors based on repository type
-            if repository_type == "local":
-                # Local repo: Only create if explicit value provided, otherwise flag error
-                factor_value_data = kwargs.get('value')
-                if factor_value_data is None:
-                    self.logger.error(f"Local repository requires explicit value for factor {factor_entity.name}")
-                    return None
+        """Resolve factor value when no dependencies exist.
 
+        Iterates factory._available_repository_families in insertion order
+        (local first, then ibkr if connected). Moves to the next family
+        whenever the current one cannot produce a value.
+
+        When currency_id is provided in kwargs it is always stamped on the
+        persisted FactorValue. If currency_id == entity.id the entity is being
+        valued in its own unit (e.g. CAD/CAD = 1) so the value is set to 1
+        immediately without hitting any data source.
+        """
+        try:
+            currency_id = kwargs.get('currency_id', None)
+            entity_id = getattr(entity, 'id', None)
+
+            # Identity shortcut: anything valued in its own unit = 1
+            if currency_id is not None and entity_id is not None and currency_id == entity_id:
                 return self._create_factor_value(
-                    factor_entity, entity, target_date, str(factor_value_data), repository_type
+                    factor_entity, entity, target_date, '1', repository_type,
+                    currency_id=currency_id,
                 )
 
-            elif repository_type == "ibkr":
-                # IBKR repo: Try to fetch from IBKR first
-                ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
-                if ibkr_repo and hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
-                    if entity is not None:
-                        fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
+            available_families: Dict[str, bool] = (
+                self.factory._available_repository_families
+                if self.factory and hasattr(self.factory, '_available_repository_families')
+                else {repository_type: True}
+            )
+
+            for family, is_available in available_families.items():
+                if not is_available:
+                    continue
+
+                if family == 'local':
+                    factor_value_data = kwargs.get('value')
+
+                    result = self._create_factor_value(
+                        factor_entity, entity, target_date, str(factor_value_data), family,
+                        currency_id=currency_id,
+                    )
+                    if result is not None:
+                        if result.value is not None and result.value != 'None':
+                            return result
+
+                elif family == 'ibkr':
+                    factor_value_ibkr_repo = self.factory._create_or_get_ibkr_repo('factor_value_ibkr_repo')
+                    if factor_value_ibkr_repo and hasattr(factor_value_ibkr_repo, '_fetch_factor_value_from_ibkr') and entity is not None:
+                        fetched_value = factor_value_ibkr_repo._fetch_factor_value_from_ibkr(
                             factor_entity=factor_entity,
                             entity=entity,
                             time_date=target_date,
                             entity_symbol=getattr(entity, 'symbol', ''),
                             **kwargs
                         )
-
                         if fetched_value:
                             return fetched_value
 
-                # If IBKR fetch failed, flag error
-                self.logger.error(f"IBKR repository could not fetch factor {factor_entity.name}")
-                return None
+                else:
+                    self.logger.warning(f"Unknown repository family '{family}' — skipping")
 
-            else:
-                self.logger.error(f"Unknown repository type: {repository_type}")
-                return None
+            self.logger.error(
+                f"No repository family could resolve factor {factor_entity.name} "
+                f"(tried: {list(available_families)})"
+            )
+            return None
 
         except Exception as e:
             self.logger.error(f"Error resolving factor without dependencies: {e}")
@@ -1064,7 +1173,7 @@ class FactorValueResolutionService:
             dep_factor_entity, sub_portfolio, parsed_date, str(total), repository_type
         )
 
-    def _get_related_entities(self, parent_entity, repository_type: str) -> List[Any]:
+    def _get_related_entities(self, entity, repository_type: str) -> List[Any]:
         """
         Get entities that are related to the parent entity.
 
@@ -1072,14 +1181,18 @@ class FactorValueResolutionService:
         repo decides what "related entities" means for its type.
         """
         try:
-            repo = self.factory.get_local_repository(parent_entity.__class__)
+            class_name = entity.__class__.__name__
+            repo_key = class_name.removesuffix('Model') if class_name.endswith('Model') else class_name
+            repo = self.factory.get_local_repository(repo_key)
             if repo is not None and hasattr(repo, 'get_related_entities'):
-                return repo.get_related_entities(parent_entity.id) or []
+                return repo.get_related_entities(entity.id) or []
             return []
 
         except Exception as e:
             self.logger.error(f"Error getting related entities: {e}")
             return []
+        
+    
     
     def _apply_aggregation_strategy(
         self, dependency_values: Dict[str, float], strategy: str
@@ -1156,6 +1269,7 @@ class FactorValueResolutionService:
         target_date: datetime,
         value: str,
         repository_type: str,
+        currency_id: Optional[int] = None,
     ) -> Optional[FactorValue]:
         """Create and persist factor value to repository.
 
@@ -1167,6 +1281,7 @@ class FactorValueResolutionService:
             target_date: Datetime for the factor value
             value: Computed value as string
             repository_type: "local" or "ibkr"
+            currency_id: Optional currency the value is denominated in
         """
         try:
             # Build FactorValue using the entity object; entity_id and
@@ -1177,6 +1292,7 @@ class FactorValueResolutionService:
                 entity=entity,
                 date=target_date,
                 value=value,
+                currency_id=currency_id,
             )
 
             # Get appropriate repository and persist
@@ -1185,13 +1301,14 @@ class FactorValueResolutionService:
             else:
                 repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
 
-            if repo and hasattr(repo, 'add'):
+            if factor_value.value is not None and factor_value.value != 'None' and repo and hasattr(repo, 'add'):
+            
                 created_value = repo.add(factor_value)
                 if created_value:
                     self.logger.info(f"Created factor value: {factor_entity.name} = {value}")
                     return created_value
 
-            self.logger.error(f"Could not persist factor value for {factor_entity.name}")
+            
             return None
 
         except Exception as e:
@@ -1311,9 +1428,7 @@ class FactorValueResolutionService:
         except Exception as e:
             self.logger.error(f"Error in batch factor value resolution: {e}")
             return None
-        finally:
-            # Clear dependency stack after batch processing
-            self._dependency_creation_stack.clear()
+        
     
     def resolve_factor_values_optimized_batch(
         self,
@@ -1413,6 +1528,4 @@ class FactorValueResolutionService:
         except Exception as e:
             self.logger.error(f"Error in optimized batch resolution: {e}")
             return []
-        finally:
-            # Clear dependency stack after batch processing
-            self._dependency_creation_stack.clear()
+        

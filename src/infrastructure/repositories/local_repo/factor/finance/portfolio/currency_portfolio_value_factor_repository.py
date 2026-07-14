@@ -40,6 +40,7 @@ class CurrencyPortfolioValueFactorRepository(BaseFactorRepository, CurrencyPortf
                 name=primary_key,
                 group=kwargs.get('group', 'value'),
                 subgroup=kwargs.get('subgroup', 'portfolio'),
+                frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
             )
 

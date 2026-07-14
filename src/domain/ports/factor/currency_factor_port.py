@@ -4,7 +4,7 @@ Currency Factor Port - Domain interface for CurrencyFactor repository operations
 
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from src.domain.entities.factor.finance.financial_assets.currency_factor import CurrencyFactor
+from src.domain.entities.factor.finance.financial_assets.currency.currency_factor import CurrencyFactor
 
 
 class CurrencyFactorPort(ABC):

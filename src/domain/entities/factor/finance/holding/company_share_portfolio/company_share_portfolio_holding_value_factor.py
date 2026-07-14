@@ -52,7 +52,7 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
         """
         try:
             # Get the company share price
-            price_factor = dependencies.get('company_share_price_factor', Decimal('0'))
+            price_factor = dependencies.get('company_share_mid_price_factor', Decimal('0'))
             if hasattr(price_factor, 'value'):
                 price = price_factor.value
             else:

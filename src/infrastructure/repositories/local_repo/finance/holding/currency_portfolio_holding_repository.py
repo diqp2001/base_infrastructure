@@ -37,3 +37,20 @@ class CurrencyPortfolioHoldingRepository(BaseLocalRepository, CurrencyPortfolioH
         self.session.commit()
         self.session.refresh(model)
         return self.mapper.to_entity(model)
+
+    def get_related_entities(self, holding_id: int) -> list:
+        """Return the underlying currency asset for this holding (used by factor resolution)."""
+        model = self.session.query(CurrencyPortfolioHoldingModel).filter_by(id=holding_id).first()
+        if not model:
+            return []
+        result = []
+        if model.currencies:
+            result.append(model.currencies)
+        return result
+
+    def get_related_position(self, holding_id: int):
+        """Return the position linked to this holding."""
+        model = self.session.query(CurrencyPortfolioHoldingModel).filter_by(id=holding_id).first()
+        if not model:
+            return None
+        return model.position_rel

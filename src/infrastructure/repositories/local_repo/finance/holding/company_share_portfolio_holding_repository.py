@@ -34,6 +34,13 @@ class CompanySharePortfolioHoldingRepository(BaseLocalRepository, CompanySharePo
         ).all()
         return [self.mapper.to_entity(model) for model in models]
 
+    def get_related_entities(self, portfolio_id: int) -> List[CompanySharePortfolioHolding]:
+        """Get all holdings belonging to a given CompanySharePortfolio."""
+        models = self.session.query(CompanySharePortfolioHoldingModel).filter_by(
+            company_share_portfolio_id=portfolio_id
+        ).all()
+        return [self.mapper.to_entity(model) for model in models]
+
     def save(self, holding: CompanySharePortfolioHoldingModel) -> CompanySharePortfolioHoldingModel:
         """Save or update a portfolio company share holding"""
         model = self.mapper.to_model(holding)

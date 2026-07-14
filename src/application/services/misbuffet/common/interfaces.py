@@ -137,17 +137,17 @@ class IBrokerageModel(ABC):
     """Interface for brokerage models that define trading rules and fees."""
     
     @abstractmethod
-    def get_commission(self, order: 'Order') -> float:
+    def get_commission(self, order) -> float:
         """Calculate commission for an order."""
         pass
     
     @abstractmethod
-    def get_slippage(self, order: 'Order') -> float:
+    def get_slippage(self, order) -> float:
         """Calculate slippage for an order."""
         pass
     
     @abstractmethod
-    def can_submit_order(self, order: 'Order') -> bool:
+    def can_submit_order(self, order) -> bool:
         """Check if an order can be submitted."""
         pass
 
@@ -156,7 +156,7 @@ class ISecurityInitializer(ABC):
     """Interface for security initialization strategies."""
     
     @abstractmethod
-    def initialize(self, security: 'Security') -> None:
+    def initialize(self, security) -> None:
         """Initialize a security with default properties."""
         pass
 

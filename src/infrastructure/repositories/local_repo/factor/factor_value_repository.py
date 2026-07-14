@@ -22,7 +22,6 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         super().__init__(session)
         self.factory = factory
         self.mapper = mapper or FactorValueMapper()
-        self._dependency_creation_stack = set()
         self.resolution_service = FactorValueResolutionService(factory=factory)
     
     @property

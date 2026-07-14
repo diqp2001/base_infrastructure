@@ -175,22 +175,22 @@ class UnifiedPortfolioManager:
             # Convert initial_cash to portfolio currency when they differ.
             # CurrencyFactor for portfolio_currency stores: 1 portfolio_currency = X initial_cash_currency
             # so quantity_portfolio_currency = initial_cash / fx_rate.
-            if initial_cash_currency_code != main_currency:
-                fx_rate = self._get_currency_fx_rate(main_currency)
-                if fx_rate:
-                    original_cash = main_cash
-                    main_cash = main_cash / fx_rate
-                    if self.logger:
-                        self.logger.info(
-                            f"FX conversion: {original_cash} {initial_cash_currency_code} "
-                            f"/ {fx_rate} = {main_cash:.4f} {main_currency}"
-                        )
-                else:
-                    if self.logger:
-                        self.logger.warning(
-                            f"CurrencyFactor rate for {main_currency} not found; "
-                            f"using initial_cash without conversion"
-                        )
+            # if initial_cash_currency_code != main_currency:
+            #     fx_rate = self._get_currency_fx_rate(main_currency)
+            #     if fx_rate:
+            #         original_cash = main_cash
+            #         main_cash = main_cash / fx_rate
+            #         if self.logger:
+            #             self.logger.info(
+            #                 f"FX conversion: {original_cash} {initial_cash_currency_code} "
+            #                 f"/ {fx_rate} = {main_cash:.4f} {main_currency}"
+            #             )
+            #     else:
+            #         if self.logger:
+            #             self.logger.warning(
+            #                 f"CurrencyFactor rate for {main_currency} not found; "
+            #                 f"using initial_cash without conversion"
+            #             )
             
             # Create main portfolio
             main_portfolio = self.portfolio_repo._create_or_get(
@@ -234,7 +234,7 @@ class UnifiedPortfolioManager:
                         self.logger.info(f"🔄 Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
                     portfolio_value_factor = self.market_data_service._create_or_get(config)
                     self.portfolio_value_factor = portfolio_value_factor
-                    initial_portfolio_value = self.get_portfolio_value()
+                    #initial_portfolio_value = self.get_portfolio_value()
                     if self.logger and portfolio_value_factor:
                         self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
                     elif self.logger:

@@ -37,7 +37,6 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
             local_instrument_repo: Local repository for instrument persistence
         """
         super().__init__(ibkr_client)
-        self.local_instrument_repo = factory.instrument_ibkr_repo
         self.factory = factory
         self.tick_mapper = IBKRTickFactorMapper()
         self.contract_mapper = IBKRContractInstrumentMapper()
@@ -47,6 +46,12 @@ class IBKRInstrumentFactorRepository(BaseIBKRFactorRepository):
         """Get local factor value repository through factory."""
         if self.factory:
             return self.factory.factor_value_local_repo
+        return None
+
+    @property
+    def local_instrument_repo(self):
+        if self.factory:
+            return self.factory.instrument_ibkr_repo
         return None
 
     def create_factor_values_from_ticks(
