@@ -1238,6 +1238,7 @@ class UnifiedPortfolioManager:
                 current_time=current_time,
                 submit_order_fn=self._algorithm.market_order,
                 tag=tag,
+                main_portfolio_id=main_id,
             )
 
         # Execute buys after sells have freed up liquidity
@@ -1258,6 +1259,7 @@ class UnifiedPortfolioManager:
                 current_time=current_time,
                 submit_order_fn=self._algorithm.market_order,
                 tag=tag,
+                main_portfolio_id=main_id,
             )
 
         return results

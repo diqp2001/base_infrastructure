@@ -7,7 +7,7 @@ to trade. TradeManager only knows *how* to persist the resulting domain entities
 
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 
 class TradeManager:
@@ -39,17 +39,21 @@ class TradeManager:
         current_time: datetime,
         submit_order_fn: Callable,
         tag: str = "",
+        main_portfolio_id: Optional[int] = None,
     ) -> bool:
         """
         Full pipeline: submit ticket → register Order → record Transaction → update Position.
 
         Args:
-            ticker:          asset symbol string
-            order_qty:       signed quantity (positive = buy, negative = sell)
-            price:           fill price
-            portfolio_id:    domain portfolio ID
-            current_time:    algorithm time used for timestamps
-            submit_order_fn: callable(ticker, qty) → OrderTicket
+            ticker:            asset symbol string
+            order_qty:         signed quantity (positive = buy, negative = sell)
+            price:             fill price
+            portfolio_id:      domain portfolio ID (may be a sub-portfolio, e.g. CompanySharePortfolio)
+            current_time:      algorithm time used for timestamps
+            submit_order_fn:   callable(ticker, qty) → OrderTicket
+            main_portfolio_id: top-level portfolio id that owns the CurrencyPortfolio; defaults
+                               to portfolio_id when the caller does not provide it (i.e. when
+                               portfolio_id already is the main portfolio)
         """
         # 1. In-memory order ticket
         ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
@@ -65,6 +69,10 @@ class TradeManager:
 
         # 4. Upsert domain Position entity
         self._update_position(ticker, order_qty, portfolio_id)
+
+        # 5. Mirror cash impact on the CurrencyPortfolio linked to the main portfolio
+        cash_portfolio_id = main_portfolio_id if main_portfolio_id is not None else portfolio_id
+        self._update_cash_for_trade(order_qty, price, cash_portfolio_id, current_time)
 
         if self.logger:
             self.logger.info(
@@ -301,3 +309,136 @@ class TradeManager:
                 self.logger.error(
                     f"TradeManager._update_position failed for {ticker}: {e}"
                 )
+
+    def _update_cash_for_trade(
+        self,
+        order_qty: int,
+        price: float,
+        portfolio_id: int,
+        current_time: datetime,
+    ) -> None:
+        """
+        Mirror the cash impact of a trade on the CurrencyPortfolio:
+          BUY  (order_qty > 0): SELL cash Order + Transaction, reduce Position.quantity
+          SELL (order_qty < 0): BUY  cash Order + Transaction, increase Position.quantity
+
+        Navigation: main portfolio → CurrencyPortfolioPortfolioHolding
+                                  → CurrencyPortfolio
+                                  → CurrencyPortfolioHolding → Position
+        """
+        try:
+            from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
+                CurrencyPortfolioPortfolioHoldingModel,
+            )
+            from src.infrastructure.models.finance.holding.currency_portfolio_holding import (
+                CurrencyPortfolioHoldingModel,
+            )
+            from src.infrastructure.models.finance.position import PositionModel
+
+            session = self.order_repo.session
+
+            # 1. Find the CurrencyPortfolio linked to this portfolio
+            cp_link = (
+                session.query(CurrencyPortfolioPortfolioHoldingModel)
+                .filter_by(container_id=portfolio_id)
+                .first()
+            )
+            if not cp_link:
+                if self.logger:
+                    self.logger.warning(
+                        f"_update_cash_for_trade: no CurrencyPortfolio link for portfolio {portfolio_id}"
+                    )
+                return
+
+            currency_portfolio_id = cp_link.asset_id  # FK → currency_portfolios.id
+
+            # 2. Find the cash holding inside the CurrencyPortfolio
+            cash_holding = (
+                session.query(CurrencyPortfolioHoldingModel)
+                .filter_by(currency_portfolio_id=currency_portfolio_id)
+                .first()
+            )
+            if not cash_holding:
+                if self.logger:
+                    self.logger.warning(
+                        f"_update_cash_for_trade: no CurrencyPortfolioHolding "
+                        f"for currency_portfolio {currency_portfolio_id}"
+                    )
+                return
+
+            # 3. Find the Position linked to the cash holding
+            pos = session.query(PositionModel).filter_by(id=cash_holding.position_id).first()
+            if not pos:
+                if self.logger:
+                    self.logger.warning(
+                        f"_update_cash_for_trade: no Position for cash holding {cash_holding.id}"
+                    )
+                return
+
+            # 4. Compute cash delta and order side
+            cash_amount = int(round(abs(order_qty) * price))
+            if order_qty > 0:
+                cash_qty_delta = -cash_amount  # BUY stock → cash decreases
+                cash_side = "SELL"
+            else:
+                cash_qty_delta = cash_amount   # SELL stock → cash increases
+                cash_side = "BUY"
+
+            account_id = self._resolve_account_id(current_time)
+
+            # 5. Order for cash movement (against the CurrencyPortfolio sub-portfolio)
+            cash_order = self.order_repo._create_or_get(
+                external_order_id=f"CASH_{uuid.uuid4().hex[:12]}",
+                portfolio_id=currency_portfolio_id,
+                order_type="MARKET",
+                side=cash_side,
+                quantity=cash_amount,
+                created_at=current_time,
+                status="FILLED",
+                holding_id=cash_holding.id,
+                account_id=account_id,
+            )
+
+            # 6. Transaction for cash movement
+            if cash_order:
+                trade_date = (
+                    current_time.date() if hasattr(current_time, "date") else current_time
+                )
+                txn_id = f"CASH_TXN_{uuid.uuid4().hex[:8]}"
+                self.transaction_repo._create_or_get(
+                    transaction_id=txn_id,
+                    order_id=int(cash_order.id),
+                    portfolio_id=currency_portfolio_id,
+                    date=current_time,
+                    transaction_type="MARKET_ORDER",
+                    account_id=account_id,
+                    trade_date=trade_date,
+                    value_date=trade_date,
+                    settlement_date=trade_date,
+                    status="EXECUTED",
+                    spread=0.0,
+                    currency_id=1,
+                    exchange_id=1,
+                    side=cash_side,
+                    quantity=cash_amount,
+                    fill_price=1.0,
+                    symbol="CASH",
+                )
+
+            # 7. Update the cash Position quantity
+            pos.quantity = int(pos.quantity or 0) + cash_qty_delta
+            session.commit()
+
+            if self.logger:
+                self.logger.info(
+                    f"TradeManager: cash {cash_side} ${cash_amount:,} "
+                    f"→ new cash position = {pos.quantity:,}"
+                )
+
+        except Exception as e:
+            try:
+                self.order_repo.session.rollback()
+            except Exception:
+                pass
+            if self.logger:
+                self.logger.error(f"TradeManager._update_cash_for_trade failed: {e}")

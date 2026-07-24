@@ -71,15 +71,24 @@ class PortfolioService:
 
         portfolio_obj = self.session.query(PortfolioModel).filter_by(id=portfolio_id).first()
 
-        orm_cls = type(portfolio_obj).__name__
         portfolio_type = getattr(portfolio_obj, 'portfolio_type', '') or ''
-        entity_name = portfolio_type
         portfolio_factor_name = portfolio_type + 'ValueFactor'
         
             
         portfolio_factor_repo  = self.factory.get_local_repository(portfolio_factor_name)
-        #create factor for portfolio value
-        portfolio_factor = portfolio_factor_repo._create_or_get(portfolio_factor_name,entity_name) if portfolio_factor_repo else None
+        if portfolio_factor_repo is not None:
+            _pf_defaults = portfolio_factor_repo.get_factor_entity()()
+            portfolio_factor = portfolio_factor_repo._create_or_get(
+                portfolio_factor_name,
+                _pf_defaults.name,
+                group=_pf_defaults.group,
+                subgroup=_pf_defaults.subgroup,
+                data_type=_pf_defaults.data_type,
+                source=_pf_defaults.source,
+                frequency=_pf_defaults.frequency,
+            )
+        else:
+            portfolio_factor = None
         
         
         total = Decimal("0")
@@ -110,8 +119,20 @@ class PortfolioService:
                 factor_name =  entity_cls.__name__ + 'ValueFactor'
             #get the repository for the factor name for the holding type
             repo = self.factory.get_local_repository(factor_name)
-            #create or get the factor for the holding type
-            holding_factor = repo._create_or_get(factor_name,holding_type) if repo else None
+            #create or get the factor for the holding type using domain entity canonical defaults
+            if repo is not None:
+                _hf_defaults = repo.get_factor_entity()()
+                holding_factor = repo._create_or_get(
+                    factor_name,
+                    _hf_defaults.name,
+                    group=_hf_defaults.group,
+                    subgroup=_hf_defaults.subgroup,
+                    data_type=_hf_defaults.data_type,
+                    source=_hf_defaults.source,
+                    frequency=_hf_defaults.frequency,
+                )
+            else:
+                holding_factor = None
 
             # Determine the currency the holding value is denominated in.
             # Prefer the asset's own currency_id; if the asset IS a currency

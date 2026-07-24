@@ -364,15 +364,35 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             # Not re-raised: cash holding failure must not prevent portfolio creation
 
     def get_related_entities(self, portfolio_id: int) -> List:
-        """Return all sub-portfolio holdings contained in this portfolio."""
+        """Return all sub-portfolio holding domain entities for this portfolio.
+
+        Queries the holdings table by container_id, then dispatches each holding
+        to its typed repo via the holding_type discriminator.  Only portfolio-in-
+        portfolio holdings (type contains 'PortfolioPortfolioHolding') are returned;
+        leaf-asset holdings are skipped.
+        """
         try:
-            from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_portfolio_holding_repository import CurrencyPortfolioPortfolioHoldingRepository
-            from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_portfolio_holding_repository import CompanySharePortfolioPortfolioHoldingRepository
-            holdings = []
-            holdings += CurrencyPortfolioPortfolioHoldingRepository(self.session, self.factory).get_related_entities(portfolio_id)
-            holdings += CompanySharePortfolioPortfolioHoldingRepository(self.session, self.factory).get_related_entities(portfolio_id)
-            logger.info(f"Retrieved {len(holdings)} related entities for portfolio {portfolio_id}")
-            return holdings
+            from src.infrastructure.models.finance.holding.holding import HoldingModel
+            all_holdings = (
+                self.session.query(HoldingModel)
+                .filter_by(container_id=portfolio_id)
+                .all()
+            )
+            result = []
+            for h in all_holdings:
+                holding_type = getattr(h, 'holding_type', None)
+                if not holding_type or 'PortfolioPortfolioHolding' not in holding_type:
+                    continue
+                # Discriminator values end with 's' (e.g. "CurrencyPortfolioPortfolioHoldings");
+                # factory keys do not.
+                repo_key = holding_type.removesuffix('s')
+                repo = self.factory.get_local_repository(repo_key) if self.factory else None
+                if repo and hasattr(repo, 'get_by_id'):
+                    domain_entity = repo.get_by_id(h.id)
+                    if domain_entity:
+                        result.append(domain_entity)
+            logger.info(f"Retrieved {len(result)} related entities for portfolio {portfolio_id}")
+            return result
         except Exception as e:
             logger.error(f"Error retrieving related entities for portfolio {portfolio_id}: {str(e)}")
             return []

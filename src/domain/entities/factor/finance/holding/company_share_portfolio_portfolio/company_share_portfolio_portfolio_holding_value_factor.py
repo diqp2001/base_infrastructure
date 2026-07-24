@@ -21,8 +21,9 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
     def __init__(
         self,
         name: str = "Company Share Portfolio Portfolio Holding Value",
-        group: str = "holding", 
+        group: str = "holding",
         subgroup: Optional[str] = "portfolio_value",
+        frequency: Optional[str] = None,
         data_type: Optional[str] = "decimal",
         source: Optional[str] = "portfolio_management",
         definition: Optional[str] = "Total value of CompanySharePortfolio holding within Portfolio",
@@ -32,6 +33,7 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,
@@ -43,31 +45,14 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             portfolio_value = dependencies.get('CompanySharePortfolioValueFactor', Decimal('0'))
             if hasattr(portfolio_value, 'value'):
                 portfolio_value = portfolio_value.value
-            portfolio_value = Decimal(str(portfolio_value))
-
-            position = dependencies.get('Position')
-            quantity = Decimal('1')
-
-            if position:
-                if hasattr(position, 'quantity'):
-                    quantity = Decimal(str(position.quantity))
-                elif isinstance(position, (int, float, Decimal)):
-                    quantity = Decimal(str(position))
-                elif isinstance(position, dict) and 'quantity' in position:
-                    quantity = Decimal(str(position['quantity']))
-
-            return portfolio_value * quantity
-
+            return Decimal(str(portfolio_value))
         except Exception as e:
             print(f"Error calculating CompanySharePortfolio portfolio holding value: {e}")
             return Decimal('0.0')
 
     @property
     def calculate_dependencies(self) -> List[str]:
-        return [
-            "CompanySharePortfolioValueFactor",
-            "Position",
-        ]
+        return ["CompanySharePortfolioValueFactor"]
 
     def __repr__(self):
         return f"CompanySharePortfolioPortfolioHoldingValueFactor(name={self.name}, group={self.group}, subgroup={self.subgroup})"

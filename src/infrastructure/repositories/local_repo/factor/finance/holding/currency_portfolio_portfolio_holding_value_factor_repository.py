@@ -40,7 +40,10 @@ class CurrencyPortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepositor
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
                 subgroup=kwargs.get('subgroup', 'portfolio_value'),
-                data_type=kwargs.get('data_type', 'numeric'),
+                frequency=kwargs.get('frequency', None),
+                data_type=kwargs.get('data_type', 'decimal'),
+                source=kwargs.get('source', 'portfolio_management'),
+                definition=kwargs.get('definition', 'Total value of CurrencyPortfolio holding within Portfolio'),
             )
 
             orm_factor = self._to_model(domain_factor)

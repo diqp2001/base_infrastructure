@@ -24,12 +24,23 @@ class CurrencyPortfolioPortfolioHoldingRepository(BaseLocalRepository):
         model = self.session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
-    def get_related_entities(self, portfolio_id: int):
-        from typing import List
+    def get_by_portfolio_id(self, portfolio_id: int):
+        """Return all holdings where this portfolio is the container."""
         models = self.session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(
             currency_portfolio_portfolio_id=portfolio_id
         ).all()
         return [self.mapper.to_entity(m) for m in models]
+
+    def get_related_entities(self, holding_id: int):
+        """Return the CurrencyPortfolio asset that this holding points to."""
+        from src.infrastructure.models.finance.portfolio.currency_portfolio import CurrencyPortfolioModel
+        model = self.session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
+        if model is None:
+            return []
+        currency_portfolio = self.session.query(CurrencyPortfolioModel).filter_by(
+            id=model.currency_portfolio_id
+        ).first()
+        return [currency_portfolio] if currency_portfolio else []
 
     def save(self, holding: CurrencyPortfolioPortfolioHolding) -> CurrencyPortfolioPortfolioHolding:
         model = self.mapper.to_model(holding)

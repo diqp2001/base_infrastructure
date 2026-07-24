@@ -24,11 +24,23 @@ class CompanySharePortfolioPortfolioHoldingRepository(BaseLocalRepository):
         model = self.session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
-    def get_related_entities(self, portfolio_id: int):
+    def get_by_portfolio_id(self, portfolio_id: int):
+        """Return all holdings where this portfolio is the container."""
         models = self.session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(
             company_share_portfolio_portfolio_id=portfolio_id
         ).all()
         return [self.mapper.to_entity(m) for m in models]
+
+    def get_related_entities(self, holding_id: int):
+        """Return the CompanySharePortfolio asset that this holding points to."""
+        from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+        model = self.session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(id=holding_id).first()
+        if model is None:
+            return []
+        company_share_portfolio = self.session.query(CompanySharePortfolioModel).filter_by(
+            id=model.company_share_portfolio_id
+        ).first()
+        return [company_share_portfolio] if company_share_portfolio else []
 
     def save(self, holding: CompanySharePortfolioPortfolioHolding) -> CompanySharePortfolioPortfolioHolding:
         model = self.mapper.to_model(holding)
