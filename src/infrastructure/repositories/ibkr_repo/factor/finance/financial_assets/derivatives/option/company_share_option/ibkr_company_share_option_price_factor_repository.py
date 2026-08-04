@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Company Share Option Price Factor Repository - Retrieval and creation of company share option price factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_factor import CompanyShareOptionPriceFactor
-from src.domain.ports.factor.company_share_option_price_factor_port import CompanyShareOptionPriceFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_factor_port import CompanyShareOptionPriceFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

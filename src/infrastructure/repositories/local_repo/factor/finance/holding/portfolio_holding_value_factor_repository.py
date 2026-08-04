@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.holding.portfolio_holding_value_factor import PortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.portfolio_holding_value_factor_port import PortfolioHoldingValueFactorPort
+from src.domain.ports.factor.finance.holding.portfolio_holding_value_factor_port import PortfolioHoldingValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.portfolio_holding_value_factor_mapper import PortfolioHoldingValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -55,9 +55,12 @@ class PortfolioHoldingValueFactorRepository(BaseFactorRepository, PortfolioHoldi
             
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'value'),
-                data_type=kwargs.get('data_type', 'numeric'),)
+                group=kwargs.get('group') or 'holding',
+                subgroup=kwargs.get('subgroup') or 'value',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
+            )
             
             # Use FactorMapper to convert domain entity to ORM model
             # This ensures entity_type is properly set
@@ -156,6 +159,15 @@ class PortfolioHoldingValueFactorRepository(BaseFactorRepository, PortfolioHoldi
             .one_or_none())
         return entity
     
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
+
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     

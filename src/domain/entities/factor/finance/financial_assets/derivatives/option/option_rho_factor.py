@@ -1,7 +1,7 @@
-import math
+﻿import math
 from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
 class OptionRhoFactor(OptionFactor):

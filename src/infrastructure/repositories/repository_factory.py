@@ -21,6 +21,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_monthly_price_range_factor_repository import CompanyShareMonthlyPriceRangeFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_value_factor_repository import CompanyShareValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_repository import CompanyShareMidPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_value_factor_repository import CurrencyValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_rate_factor_repository import CurrencyRateFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
@@ -44,6 +45,7 @@ from src.infrastructure.repositories.local_repo.finance.holding.company_share_po
 from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_holding_repository import CurrencyPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_portfolio_holding_repository import CompanySharePortfolioPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_portfolio_holding_repository import CurrencyPortfolioPortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.company_share_option_portfolio_holding_repository import CompanyShareOptionPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.financial_statement_repository import FinancialStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.income_statement_repository import IncomeStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
@@ -66,7 +68,10 @@ from src.infrastructure.repositories.local_repo.factor.country_factor_repository
 # New Local Factor repositories
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.portfolio_factor_repository import PortfolioFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_correlation_factor_repository import CompanySharePortfolioCorrelationFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_factor_repository import CompanySharePortfolioFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_return_factor_repository import CompanySharePortfolioReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_price_return_factor_repository import CompanySharePortfolioPriceReturnFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_equal_weight_return_factor_repository import CompanySharePortfolioEqualWeightReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_value_factor_repository import CompanySharePortfolioValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.portfolio_value_factor_repository import PortfolioValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.company_share_portfolio.company_share_portfolio_variance_factor_repository import CompanySharePortfolioVarianceFactorRepository
@@ -209,6 +214,14 @@ from src.infrastructure.repositories.local_repo.factor.finance.transaction.compa
 from src.infrastructure.repositories.local_repo.factor.finance.order.company_share_order_quantity_factor_repository import CompanyShareOrderQuantityFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.order.company_share_order_price_factor_repository import CompanyShareOrderPriceFactorRepository
 
+# Backtest repositories
+from src.infrastructure.repositories.local_repo.backtest.model_repository import ModelRepository
+from src.infrastructure.repositories.local_repo.backtest.backtest_repository import BacktestRepository
+from src.infrastructure.repositories.local_repo.backtest.universe_repository import UniverseRepository
+from src.infrastructure.repositories.local_repo.backtest.backtest_factor_backtest_repository import BacktestFactorBacktestRepository
+from src.infrastructure.repositories.local_repo.factor.backtest.backtest_factor_repository import BacktestFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.backtest.ibkr_backtest_factor_repository import IBKRBacktestFactorRepository
+
 
 class RepositoryFactory:
     """
@@ -230,12 +243,16 @@ class RepositoryFactory:
         self.ibkr_client = ibkr_client
         self._local_repositories = {}
         self._ibkr_repositories = {}
-        self._available_repository_families: Dict[str, bool] = {'local': True}
-        self._available_repository_families['ibkr'] = True
+        # ibkr is only advertised as available when an actual client was supplied.
+        # _resolve_factor_without_dependencies iterates this dict, so setting ibkr=True
+        # without a client causes unnecessary IBKR lookup attempts on every resolution.
+        self._available_repository_families: Dict[str, bool] = {
+            'local': True,
+            'ibkr': bool(ibkr_client),
+        }
         self.create_local_repositories()
         if ibkr_client:
             self.create_ibkr_repositories()
-            self._available_repository_families['ibkr'] = True
 
     def create_local_repositories(self) -> Dict[str, Any]:
         """
@@ -283,8 +300,11 @@ class RepositoryFactory:
                 'CompanyShareOptionPriceFactor': CompanyShareOptionPriceFactorRepository(self.session, factory=self),
                 # New factor repositories
                 'PortfolioFactor': PortfolioFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioFactor': CompanySharePortfolioFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioCorrelationFactor': CompanySharePortfolioCorrelationFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioReturnFactor': CompanySharePortfolioReturnFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioPriceReturnFactor': CompanySharePortfolioPriceReturnFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioEqualWeightReturnFactor': CompanySharePortfolioEqualWeightReturnFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioValueFactor': CompanySharePortfolioValueFactorRepository(self.session, factory=self),
                 'PortfolioValueFactor': PortfolioValueFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioVarianceFactor': CompanySharePortfolioVarianceFactorRepository(self.session, factory=self),
@@ -330,6 +350,7 @@ class RepositoryFactory:
                 'CompanyShare': CompanyShareRepository(self.session, factory=self),
                 'CompanyShareFactor': CompanyShareFactorRepository(self.session, factory=self),
                 'CompanyShareValueFactor': CompanyShareValueFactorRepository(self.session, factory=self),
+                'CompanyShareMidPriceFactor': CompanyShareMidPriceFactorRepository(self.session, factory=self),
                 'CurrencyValueFactor': CurrencyValueFactorRepository(self.session, factory=self),
                 'CurrencyRateFactor': CurrencyRateFactorRepository(self.session, factory=self),
                 'CompanySharePriceReturnFactor': CompanySharePriceReturnFactorRepository(self.session, factory=self),
@@ -360,6 +381,7 @@ class RepositoryFactory:
                 'Holding': HoldingRepository(self.session, factory=self),
                 'PortfolioHolding': PortfolioHoldingRepository(self.session, factory=self),
                 'CompanySharePortfolioHolding': CompanySharePortfolioHoldingRepository(self.session, factory=self),
+                'CompanyShareOptionPortfolioHolding': CompanyShareOptionPortfolioHoldingRepository(self.session, factory=self),
                 'CurrencyPortfolioHolding': CurrencyPortfolioHoldingRepository(self.session, factory=self),
                 'CompanySharePortfolioPortfolioHolding': CompanySharePortfolioPortfolioHoldingRepository(self.session, factory=self),
                 'CurrencyPortfolioPortfolioHolding': CurrencyPortfolioPortfolioHoldingRepository(self.session, factory=self),
@@ -372,7 +394,14 @@ class RepositoryFactory:
                 'MarketData': MarketDataRepository(self.session, factory=self),
                 # Order and transaction repositories
                 'Order': OrderRepository(self.session, factory=self),
-                'Transaction': TransactionRepository(self.session, factory=self)
+                'Transaction': TransactionRepository(self.session, factory=self),
+
+                # Backtest repositories
+                'Model': ModelRepository(self.session, factory=self),
+                'Backtest': BacktestRepository(self.session, factory=self),
+                'Universe': UniverseRepository(self.session, factory=self),
+                'BacktestFactorBacktest': BacktestFactorBacktestRepository(self.session, factory=self),
+                'BacktestFactor': BacktestFactorRepository(self.session, factory=self),
             }
         return self._local_repositories
 
@@ -411,7 +440,11 @@ class RepositoryFactory:
         
         if not client:
             client = self.create_ibkr_client()
-            return None
+            if not client:
+                return None
+            else:
+                self.ibkr_client = client
+                self._available_repository_families['ibkr'] = True
         
         if not self._ibkr_repositories:
             self._ibkr_repositories = {
@@ -484,7 +517,10 @@ class RepositoryFactory:
                 'Exchange': IBKRExchangeRepository(ibkr_client=client, factory=self),
                 'Company': IBKRCompanyRepository(ibkr_client=client, factory=self),
                 'Industry': IBKRIndustryRepository(ibkr_client=client, factory=self),
-                'Sector': IBKRSectorRepository(ibkr_client=client, factory=self)
+                'Sector': IBKRSectorRepository(ibkr_client=client, factory=self),
+
+                # Backtest factor IBKR repository
+                'BacktestFactor': IBKRBacktestFactorRepository(ibkr_client=client, factory=self),
             }
         return self._ibkr_repositories
 
@@ -1123,6 +1159,14 @@ class RepositoryFactory:
     def company_share_portfolio_return_factor_local_repo(self):
         """Get portfolio_company_share_return_factor repository for dependency injection."""
         return self.get_local_repository('CompanySharePortfolioReturnFactor')
+
+    @property
+    def company_share_portfolio_price_return_factor_local_repo(self):
+        return self.get_local_repository('CompanySharePortfolioPriceReturnFactor')
+
+    @property
+    def company_share_portfolio_equal_weight_return_factor_local_repo(self):
+        return self.get_local_repository('CompanySharePortfolioEqualWeightReturnFactor')
     
     @property
     def company_share_portfolio_value_factor_local_repo(self):

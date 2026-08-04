@@ -1,11 +1,11 @@
-"""
+﻿"""
 Repository class for Index Future Option Price Return factor entities.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_price_return_factor_mapper import IndexFutureOptionPriceReturnFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_price_return_factor_mapper import IndexFutureOptionPriceReturnFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from .....base_factor_repository import BaseFactorRepository
 
@@ -74,7 +74,7 @@ class IndexFutureOptionPriceReturnFactorRepository(BaseFactorRepository):
                 frequency=kwargs.get('frequency', '1d'),
                 factor_type=kwargs.get('factor_type', 'return'),
                 data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data')
+                source=kwargs.get('source', 'ibkr')
             )
             if existing:
                 return self._to_entity(existing)
@@ -85,7 +85,7 @@ class IndexFutureOptionPriceReturnFactorRepository(BaseFactorRepository):
                 subgroup=kwargs.get('subgroup', 'return'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
             )
             

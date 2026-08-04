@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Dict, Optional, List
 from datetime import datetime, date
 from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
@@ -103,11 +103,45 @@ class CompanySharePortfolioRepository(CompanySharePortfolioPort):
         self.session.commit()
         return True
 
+    def set_holding_for_entity(self, portfolio_id: int, asset_id: int) -> None:
+        """Idempotently create a holding for a single asset in this portfolio."""
+        from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel as _HoldingModel
+        existing = self.session.query(_HoldingModel).filter(
+            _HoldingModel.company_share_portfolio_id == portfolio_id,
+            _HoldingModel.asset_id == asset_id
+        ).first()
+        if not existing:
+            self.session.add(_HoldingModel(
+                holding_type="CompanySharePortfolioHoldings",
+                asset_id=asset_id,
+                container_id=portfolio_id,
+                company_share_portfolio_id=portfolio_id,
+                start_date=datetime.now(),
+            ))
+            self.session.commit()
+
+    def set_holdings(self, portfolio_config: Dict) -> None:
+        """Create holdings for each component if they do not already exist."""
+        name = portfolio_config.get('name')
+        if not name:
+            return
+
+        portfolio = self._create_or_get(name)
+        if not portfolio:
+            return
+
+        for component_class, tickers in portfolio_config.get('components', {}).items():
+            component_repo = self.factory.get_local_repository(component_class)
+            for ticker in tickers:
+                share = component_repo.get_by_symbol(ticker)
+                if share:
+                    self.set_holding_for_entity(portfolio.id, share.id)
+
     def get_related_entities(self, portfolio_id: int) -> List:
         """Return all CompanySharePortfolioHoldings for this portfolio."""
         try:
             from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_holding_repository import CompanySharePortfolioHoldingRepository
-            return CompanySharePortfolioHoldingRepository(self.session, self.factory).get_related_entities(portfolio_id)
+            return CompanySharePortfolioHoldingRepository(self.session, self.factory).get_holdings_by_portfolio_id(portfolio_id)
         except Exception as e:
             print(f"Error retrieving holdings for CompanySharePortfolio {portfolio_id}: {e}")
             return []

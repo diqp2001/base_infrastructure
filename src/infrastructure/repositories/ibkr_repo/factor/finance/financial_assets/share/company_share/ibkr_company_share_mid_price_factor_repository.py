@@ -1,4 +1,4 @@
-"""
+﻿"""
 src/infrastructure/repositories/ibkr_repo/factor/finance/financial_assets/ibkr_company_share_mid_price_factor_repository.py
 
 IBKR repository for CompanyShareMidPriceFactor operations.
@@ -9,7 +9,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
-from src.domain.ports.factor.company_share_mid_price_factor_port import CompanyShareMidPriceFactorPort
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor_port import CompanyShareMidPriceFactorPort
 
 
 class IBKRCompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):

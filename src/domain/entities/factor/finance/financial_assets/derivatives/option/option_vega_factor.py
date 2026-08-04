@@ -1,7 +1,7 @@
-import math
+﻿import math
 from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 
 
@@ -44,5 +44,5 @@ class OptionVegaFactor(OptionFactor):
             if d1 is None:
                 return None
 
-            # Note: Vega is per % volatility change → multiply by 0.01 if needed
+            # Note: Vega is per % volatility change â†’ multiply by 0.01 if needed
             return S * self._norm_pdf(d1) * math.sqrt(T)

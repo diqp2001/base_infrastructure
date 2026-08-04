@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Company Share Option Cox-Ross-Rubinstein Price Factor Repository - Retrieval and creation of company share option Cox-Ross-Rubinstein price factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_cox_ross_rubinstein_price_factor import CompanyShareOptionCoxRossRubinsteinPriceFactor
-from src.domain.ports.factor.company_share_option_cox_ross_rubinstein_price_factor_port import CompanyShareOptionCoxRossRubinsteinPriceFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_cox_ross_rubinstein_price_factor_port import CompanyShareOptionCoxRossRubinsteinPriceFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

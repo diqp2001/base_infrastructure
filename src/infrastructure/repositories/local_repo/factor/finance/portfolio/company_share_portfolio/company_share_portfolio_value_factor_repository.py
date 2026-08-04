@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.company_share_portfolio_value_factor_port import CompanySharePortfolioValueFactorPort
+from src.domain.ports.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor_port import CompanySharePortfolioValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.company_share_portfolio_value_factor_mapper import CompanySharePortfolioValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -55,11 +55,12 @@ class CompanySharePortfolioValueFactorRepository(BaseFactorRepository, CompanySh
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'value'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}'),
+                group=kwargs.get('group') or 'value',
+                subgroup=kwargs.get('subgroup') or 'daily',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or f'{self.mapper.discriminator} factor: {primary_key}',
             )
 
             # Use Mapper to convert domain entity to ORM model
@@ -158,6 +159,15 @@ class CompanySharePortfolioValueFactorRepository(BaseFactorRepository, CompanySh
             .filter(self.model_class.id == id)
             .one_or_none())
         return entity
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

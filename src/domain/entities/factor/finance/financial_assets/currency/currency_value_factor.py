@@ -36,22 +36,15 @@ class CurrencyValueFactor(CurrencyFactor):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,
             factor_id=factor_id,
         )
-        self.frequency = frequency
 
     def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        """
-        Return the mid price as the value of the currency.
-
-        Args:
-            dependencies: dict containing:
-                'currency_mid_price_factor': Decimal or object with .value
-        """
-        raw = dependencies.get('currency_mid_price_factor', Decimal('1'))
+        raw = dependencies.get('CurrencyRateFactor') or Decimal('1')
         if hasattr(raw, 'value'):
             return Decimal(str(raw.value))
         return Decimal(str(raw))

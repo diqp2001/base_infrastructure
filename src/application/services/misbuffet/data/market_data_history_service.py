@@ -508,25 +508,31 @@ class MarketDataHistoryService:
             self.logger.error(f"Error in local date range processing: {e}")
             return []
         
-    def _create_or_get_factor_value_batch(self,factor_groups: Any, entities: Any, 
-                                date: Any,what_to_show: str = "TRADES", 
-                                duration_str: str = "1 D", 
-                                bar_size_setting: str = "5 mins" ) -> FactorValueBatch:
+    # (group, subgroup) → IBKR whatToShow.  Only pairs that differ from "TRADES".
+    _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
+        ('volatility', 'implied'):    'OPTION_IMPLIED_VOLATILITY',
+        ('volatility', 'historical'): 'HISTORICAL_VOLATILITY',
+    }
+
+    def _resolve_what_to_show_for_factor(self, factor) -> str:
+        """Return the IBKR whatToShow string driven by (group, subgroup)."""
+        key = (getattr(factor, 'group', ''), getattr(factor, 'subgroup', ''))
+        return self._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.get(key, 'TRADES')
+
+    def _create_or_get_factor_value_batch(self, factor_groups: Any, entities: Any,
+                                date: Any,
+                                duration_str: str = "1 D",
+                                bar_size_setting: str = "5 mins") -> FactorValueBatch:
         factor_data = {}
-        
-        created_factors =[]
-        factor_values = []
         time_date = date
-        
-        for factor_config in factor_groups:
-            
-            
-            created_factors.append(factor_config.get('factor_entity', 'unknown'))
-    
+
+        created_factors = [
+            fc.get('factor_entity', 'unknown') for fc in factor_groups
+        ]
+
         factor_values_data = []
-        
         for entity in entities:
-            if entity == None:
+            if entity is None:
                 break
             for factor in created_factors:
                 factor_discriminator = self.market_data_service.entity_service.get_discriminator_by_domain_entity(factor)
@@ -536,22 +542,35 @@ class MarketDataHistoryService:
                         'factor': factor,
                         'entity': entity,
                         'entity_id': entity.id,
-                        'time_date': time_date.strftime("%Y-%m-%d %H:%M:%S")
+                        'time_date': time_date.strftime("%Y-%m-%d %H:%M:%S"),
                     })
-                    
-        factor_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(
-                        factor_values_data, FactorValue,
-                        what_to_show=what_to_show,
-                        duration_str=duration_str,
-                        bar_size_setting=bar_size_setting
-                    )
-        for factor_value in factor_values:
-                        # Find corresponding factor name
-                        for factor in created_factors:
-                            if factor.id == factor_value.factor_id:
-                                factor_data[factor.name] = float(factor_value.value)
-                                break
-        
+
+        # Group items by their resolved what_to_show so each IBKR request uses the
+        # correct data type (e.g. implied_volatility needs OPTION_IMPLIED_VOLATILITY,
+        # not TRADES).
+        from collections import defaultdict
+        groups: Dict[str, list] = defaultdict(list)
+        for item in factor_values_data:
+            wts = self._resolve_what_to_show_for_factor(item['factor'])
+            groups[wts].append(item)
+
+        all_factor_values = []
+        for wts, items in groups.items():
+            batch_values = self.market_data_service.entity_service.create_or_get_batch_ibkr(
+                items, FactorValue,
+                what_to_show=wts,
+                duration_str=duration_str,
+                bar_size_setting=bar_size_setting,
+            )
+            if batch_values:
+                all_factor_values.extend(batch_values)
+
+        for factor_value in all_factor_values:
+            for factor in created_factors:
+                if factor.id == factor_value.factor_id:
+                    factor_data[factor.name] = float(factor_value.value)
+                    break
+
         return factor_data
 
     def _create_or_get(self, entity_config: Dict[str, Any]) -> Optional[Any]:

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import time
 import logging
 import pandas as pd
@@ -8,12 +8,12 @@ from pathlib import Path
 import mlflow
 
 # Base classes
-#from application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
+#from src.application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
 from src.application.services.database_service.database_service import DatabaseService
 from src.application.managers.project_managers.project_manager import ProjectManager
 
 # Interactive Brokers integration
-from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner
@@ -81,7 +81,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
         self.mlflow_run = None
         self._setup_mlflow_tracking()
         
-        self.logger.info("🚀 Market making Call Spread SPX ProjectManager initialized with Misbuffet integration and MLflow tracking")
+        self.logger.info("ðŸš€ Market making Call Spread SPX ProjectManager initialized with Misbuffet integration and MLflow tracking")
     
     def _setup_mlflow_tracking(self):
         """Setup MLflow experiment tracking."""
@@ -114,7 +114,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             Dict containing comprehensive results
         """
         try:
-            self.logger.info("🚀 Starting SPX Call Spread Market Making Pipeline")
+            self.logger.info("ðŸš€ Starting SPX Call Spread Market Making Pipeline")
             
             # Start MLflow run
             self.mlflow_run = mlflow.start_run()
@@ -168,7 +168,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
             # Log artifacts
             mlflow.log_dict(pipeline_results, "pipeline_results.json")
             
-            self.logger.info("✅ SPX Call Spread Market Making Pipeline completed successfully")
+            self.logger.info("âœ… SPX Call Spread Market Making Pipeline completed successfully")
             return pipeline_results
             
         except Exception as e:
@@ -193,7 +193,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
     def _run_strategy_setup_stage(self) -> Dict[str, Any]:
         """Run the strategy setup stage."""
         try:
-            self.logger.info("⚙️ Setting up Market Making Strategy...")
+            self.logger.info("âš™ï¸ Setting up Market Making Strategy...")
             
             # Initialize strategy components
             from .strategy.market_making_strategy import Strategy
@@ -239,7 +239,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
     ) -> Dict[str, Any]:
         """Run the backtesting stage."""
         try:
-            self.logger.info("🎯 Running Backtest Stage...")
+            self.logger.info("ðŸŽ¯ Running Backtest Stage...")
             
             from .backtesting.backtest_runner import BacktestRunner
             
@@ -274,7 +274,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
     def _compile_final_results(self, pipeline_results: Dict[str, Any]) -> Dict[str, Any]:
         """Compile final results from all stages."""
         try:
-            self.logger.info("📋 Compiling Final Results...")
+            self.logger.info("ðŸ“‹ Compiling Final Results...")
             
             # Extract key metrics from each stage
             data_stage = pipeline_results['stages'].get('data_stage', {})

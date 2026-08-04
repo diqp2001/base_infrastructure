@@ -1,9 +1,9 @@
-"""
+﻿"""
 Repository class for Security factor entities.
 """
 
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.security_factor_mapper import SecurityFactorMapper
+from src.infrastructure.repositories.mappers.security_factor_mapper import SecurityFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 
@@ -61,7 +61,7 @@ class SecurityFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'security'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Security factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'SecurityFactor')
             )

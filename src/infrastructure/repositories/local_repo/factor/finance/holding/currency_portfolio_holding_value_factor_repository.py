@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.holding.currency_portfolio_holding_value_factor import CurrencyPortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.currency_portfolio_holding_value_factor_port import CurrencyPortfolioHoldingValueFactorPort
+from src.domain.ports.factor.finance.holding.currency_portfolio_holding_value_factor_port import CurrencyPortfolioHoldingValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.currency_portfolio_holding_value_factor_mapper import CurrencyPortfolioHoldingValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -38,9 +38,11 @@ class CurrencyPortfolioHoldingValueFactorRepository(BaseFactorRepository, Curren
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'value'),
-                data_type=kwargs.get('data_type', 'numeric'),
+                group=kwargs.get('group') or 'holding',
+                subgroup=kwargs.get('subgroup') or 'value',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
             )
 
             orm_factor = self._to_model(domain_factor)
@@ -110,6 +112,15 @@ class CurrencyPortfolioHoldingValueFactorRepository(BaseFactorRepository, Curren
         return self._to_entity(
             self.session.query(self.model_class).filter(self.model_class.id == id).one_or_none()
         )
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

@@ -34,7 +34,23 @@ class CompanySharePortfolioHoldingRepository(BaseLocalRepository, CompanySharePo
         ).all()
         return [self.mapper.to_entity(model) for model in models]
 
-    def get_related_entities(self, portfolio_id: int) -> List[CompanySharePortfolioHolding]:
+    def get_related_entities(self, holding_id: int):
+        """Return the underlying CompanyShare asset that this holding holds."""
+        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        model = self.session.query(CompanySharePortfolioHoldingModel).filter_by(id=holding_id).first()
+        if not model:
+            return []
+        company_share = self.session.query(CompanyShareModel).filter_by(id=model.asset_id).first()
+        return [company_share] if company_share else []
+
+    def get_related_position(self, holding_id: int):
+        """Return the Position linked to this holding (used by factor resolution)."""
+        model = self.session.query(CompanySharePortfolioHoldingModel).filter_by(id=holding_id).first()
+        if not model:
+            return None
+        return model.position_rel
+
+    def get_holdings_by_portfolio_id(self, portfolio_id: int) -> List[CompanySharePortfolioHolding]:
         """Get all holdings belonging to a given CompanySharePortfolio."""
         models = self.session.query(CompanySharePortfolioHoldingModel).filter_by(
             company_share_portfolio_id=portfolio_id

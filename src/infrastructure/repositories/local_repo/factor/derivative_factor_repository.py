@@ -1,9 +1,9 @@
-"""
+﻿"""
 Repository class for Derivative factor entities.
 """
 
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.derivative_factor_mapper import DerivativeFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.derivative_factor_mapper import DerivativeFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from .base_factor_repository import BaseFactorRepository
 
@@ -61,7 +61,7 @@ class DerivativeFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'derivative'),
                 subgroup=kwargs.get('subgroup', 'general'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Derivative factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'derivative')
             )

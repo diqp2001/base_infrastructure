@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Optional
-from domain.entities.finance.exchange import Exchange
+from src.domain.entities.finance.exchange import Exchange
 from src.domain.entities.finance.financial_assets.security import Security
 
 

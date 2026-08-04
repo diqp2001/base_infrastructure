@@ -1,4 +1,4 @@
-"""
+﻿"""
 IBKR Futures Data Service
 
 This service orchestrates the Interactive Brokers API connection, futures data retrieval, 
@@ -24,7 +24,7 @@ from ibapi.contract import Contract
 
 from src.application.services.api_service.ibkr_service.config_futures_service import IBKRFuturesServiceConfig
 from src.application.services.api_service.ibkr_service.interactive_brokers_api_service import InteractiveBrokersApiService
-from application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
+from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.factor.finance.financial_assets.share_factor.share_factor import ShareFactor
 
@@ -126,14 +126,14 @@ class IBKRFuturesDataService:
             self.stats['total_connections'] += 1
             
             if self.connected:
-                logger.info("✅ Successfully connected to IBKR via API service")
+                logger.info("âœ… Successfully connected to IBKR via API service")
                 return True
             else:
-                logger.error("❌ Failed to connect to IBKR")
+                logger.error("âŒ Failed to connect to IBKR")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Error connecting to IBKR: {str(e)}")
+            logger.error(f"âŒ Error connecting to IBKR: {str(e)}")
             self.connected = False
             return False
     
@@ -146,7 +146,7 @@ class IBKRFuturesDataService:
                 self.connected = False
                 self.ib_api_service = None
                 self.ib_broker = None
-                logger.info("✅ Disconnected from IBKR")
+                logger.info("âœ… Disconnected from IBKR")
             except Exception as e:
                 logger.error(f"Error disconnecting from IBKR: {str(e)}")
     

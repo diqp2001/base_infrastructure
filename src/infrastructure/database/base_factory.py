@@ -36,10 +36,13 @@ class BaseFactory:
             if 'factor_values' in existing_tables:
                 existing_cols = {c['name'] for c in inspector.get_columns('factor_values')}
                 if 'currency_id' not in existing_cols:
+                    dialect = self.engine.dialect.name
+                    if dialect == 'sqlite':
+                        sql = "ALTER TABLE factor_values ADD COLUMN currency_id INTEGER"
+                    else:
+                        sql = "ALTER TABLE factor_values ADD currency_id INTEGER NULL"
                     with self.engine.connect() as conn:
-                        conn.execute(text(
-                            "ALTER TABLE factor_values ADD COLUMN currency_id INTEGER"
-                        ))
+                        conn.execute(text(sql))
                         conn.commit()
                     print("Migrated: added currency_id to factor_values")
         except Exception as e:

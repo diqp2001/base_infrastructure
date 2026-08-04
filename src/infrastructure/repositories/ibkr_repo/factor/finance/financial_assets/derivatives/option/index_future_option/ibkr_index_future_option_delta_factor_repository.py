@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Index Future Option Delta Factor Repository - Retrieval and creation of index future option delta factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_delta_factor import IndexFutureOptionDeltaFactor
-from src.domain.ports.factor.index_future_option_delta_factor_port import IndexFutureOptionDeltaFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.index_future_option_delta_factor_port import IndexFutureOptionDeltaFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

@@ -64,7 +64,7 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
     },
 
     "return_open": {
-        "class": IndexFutureOptionPriceReturnFactor, 
+        "class": IndexFutureOptionPriceReturnFactor,
         "name": "return_open",
         "group": "return",
         "subgroup": "minutes",
@@ -74,9 +74,10 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
         "dependencies": {
             "start_price": {
                 "class": IndexFutureOptionFactor,
-                    "name": "open", 
+                    "name": "open",
                     "group": "price",
                     "subgroup": "minutes",
+                    "frequency": "1m",
                     "data_type": "numeric",
                     "description": "Minute-level open price",
                     "dependencies": [],
@@ -84,9 +85,10 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
                 },
             "end_price": {
                 "class": IndexFutureOptionFactor,
-                    "name": "open", 
+                    "name": "open",
                     "group": "price",
                     "subgroup": "minutes",
+                    "frequency": "1m",
                     "data_type": "numeric",
                     "description": "Minute-level open price",
                     "dependencies": [],
@@ -95,7 +97,7 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
                 },
         "parameters": {}
     },
-    
+
     # Daily return factors
     "return_daily": {
         "class": IndexFutureOptionPriceReturnFactor,
@@ -111,6 +113,7 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
                 "name": "close",
                 "group": "price",
                 "subgroup": "daily",
+                "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": [],
@@ -121,6 +124,7 @@ FUTURE_INDEX_OPTION_LIBRARY: Dict[str, Dict] = {
                 "name": "close",
                 "group": "price",
                 "subgroup": "daily",
+                "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": [],

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unified Portfolio Manager
 
 This module provides a unified portfolio management system that replaces the dual
@@ -12,7 +12,7 @@ from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 
-from application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
+from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
 from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor
@@ -53,11 +53,11 @@ class UnifiedPortfolioManager:
         # Log market_data_service state for debugging
         if logger:
             if market_data_service is None:
-                logger.warning("⚠️ UnifiedPortfolioManager initialized with None market_data_service - will create on demand")
+                logger.warning("âš ï¸ UnifiedPortfolioManager initialized with None market_data_service - will create on demand")
             elif not hasattr(market_data_service, '_create_or_get'):
-                logger.warning(f"⚠️ Market data service {type(market_data_service)} missing _create_or_get method")
+                logger.warning(f"âš ï¸ Market data service {type(market_data_service)} missing _create_or_get method")
             else:
-                logger.info(f"✅ UnifiedPortfolioManager initialized with {type(market_data_service).__name__}")
+                logger.info(f"âœ… UnifiedPortfolioManager initialized with {type(market_data_service).__name__}")
         
         self._current_portfolio_entity: Optional[Portfolio] = None
         self._order_ticket_mapping: Dict[str, str] = {}  # QC order_id -> domain order_id
@@ -126,20 +126,20 @@ class UnifiedPortfolioManager:
     #                 )
                     
     #                 if self.logger and portfolio_value_factor:
-    #                     self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
+    #                     self.logger.info(f"âœ… Portfolio value factor created: {portfolio_value_factor.name}")
                         
     #             except Exception as e:
     #                 if self.logger:
-    #                     self.logger.warning(f"⚠️ Failed to create portfolio value factor: {e}")
+    #                     self.logger.warning(f"âš ï¸ Failed to create portfolio value factor: {e}")
             
     #         if self.logger:
-    #             self.logger.info(f"✅ Portfolio registered: {portfolio.name} (ID: {portfolio.id})")
+    #             self.logger.info(f"âœ… Portfolio registered: {portfolio.name} (ID: {portfolio.id})")
             
     #         return portfolio
             
     #     except Exception as e:
     #         if self.logger:
-    #             self.logger.error(f"❌ Portfolio registration failed: {e}")
+    #             self.logger.error(f"âŒ Portfolio registration failed: {e}")
     #         return None
 
     def register_portfolio_with_config(
@@ -203,61 +203,61 @@ class UnifiedPortfolioManager:
             
             if not main_portfolio:
                 if self.logger:
-                    self.logger.error(f"❌ Failed to create main portfolio: {main_name}")
+                    self.logger.error(f"âŒ Failed to create main portfolio: {main_name}")
                 return None
             
             self._current_portfolio_entity = main_portfolio
             # Create market_data_service on demand if it's None
             if self.market_data_service is None and self.entity_service:
                 if self.logger:
-                    self.logger.info("🔄 Creating MarketDataService on demand...")
+                    self.logger.info("ðŸ”„ Creating MarketDataService on demand...")
                 try:
                     from src.application.services.misbuffet.data.market_data_service import MarketDataService
                     self.market_data_service = MarketDataService(self.entity_service)
                     if self.logger:
-                        self.logger.info("✅ MarketDataService created successfully on demand")
+                        self.logger.info("âœ… MarketDataService created successfully on demand")
                 except Exception as e:
                     if self.logger:
-                        self.logger.error(f"❌ Failed to create MarketDataService on demand: {e}")
+                        self.logger.error(f"âŒ Failed to create MarketDataService on demand: {e}")
             
             if self.market_data_service is None:
                 if self.logger:
-                    self.logger.error("❌ Market data service is None - cannot create portfolio value factor")
-                    self.logger.error("❌ This indicates UnifiedPortfolioManager was initialized without proper market_data_service")
+                    self.logger.error("âŒ Market data service is None - cannot create portfolio value factor")
+                    self.logger.error("âŒ This indicates UnifiedPortfolioManager was initialized without proper market_data_service")
             elif not hasattr(self.market_data_service, '_create_or_get'):
                 if self.logger:
-                    self.logger.error(f"❌ Market data service {type(self.market_data_service)} does not have _create_or_get method")
+                    self.logger.error(f"âŒ Market data service {type(self.market_data_service)} does not have _create_or_get method")
             else:
                 try:
                     config = FACTOR_LIBRARY["portfolio_library"]["portfolio_value"]
-                    if self.logger:
-                        self.logger.info(f"🔄 Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
-                    portfolio_value_factor = self.market_data_service._create_or_get(config)
-                    self.portfolio_value_factor = portfolio_value_factor
-                    #initial_portfolio_value = self.get_portfolio_value()
-                    if self.logger and portfolio_value_factor:
-                        self.logger.info(f"✅ Portfolio value factor created: {portfolio_value_factor.name}")
-                    elif self.logger:
-                        self.logger.warning("⚠️ Portfolio value factor creation returned None")
+                    # if self.logger:
+                    #     self.logger.info(f"ðŸ”„ Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
+                    # portfolio_value_factor = self.market_data_service._create_or_get(config)
+                    # self.portfolio_value_factor = portfolio_value_factor
+                    # #initial_portfolio_value = self.get_portfolio_value()
+                    # if self.logger and portfolio_value_factor:
+                    #     self.logger.info(f"âœ… Portfolio value factor created: {portfolio_value_factor.name}")
+                    # elif self.logger:
+                    #     self.logger.warning("âš ï¸ Portfolio value factor creation returned None")
                         
                 except Exception as e:
                     if self.logger:
-                        self.logger.error(f"❌ Error in get_or_create portfolio value factor portfolio_value: {e}")
+                        self.logger.error(f"âŒ Error in get_or_create portfolio value factor portfolio_value: {e}")
                         import traceback
-                        self.logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+                        self.logger.error(f"âŒ Full traceback: {traceback.format_exc()}")
             
             if self.logger:
-                self.logger.info(f"✅ Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
+                self.logger.info(f"âœ… Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
 
             return main_portfolio
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Enhanced portfolio registration failed: {e}")
+                self.logger.error(f"âŒ Enhanced portfolio registration failed: {e}")
             return None
 
     # ---------------------------------------------------------------------------
-    # Lazy asset pipeline — called from set_holdings on first trade for a ticker
+    # Lazy asset pipeline â€” called from set_holdings on first trade for a ticker
     # ---------------------------------------------------------------------------
 
     def _ensure_asset_container(self, ticker: str, now: datetime) -> Optional[int]:
@@ -291,7 +291,7 @@ class UnifiedPortfolioManager:
             CompanyShareModel.symbol == ticker
         ).first()
         if not share:
-            return None
+            return self._ensure_option_asset_container(ticker, now)
 
         # Step 2 & 3: find or create the CompanySharePortfolio + its link to main portfolio
         link = (
@@ -360,7 +360,7 @@ class UnifiedPortfolioManager:
             if self.logger:
                 self.logger.info(
                     f"Created CompanySharePortfolioHolding: {ticker} "
-                    f"(asset_id={share.id}) → sub-portfolio {sub_portfolio_id}"
+                    f"(asset_id={share.id}) â†’ sub-portfolio {sub_portfolio_id}"
                 )
 
         return sub_portfolio_id
@@ -405,6 +405,101 @@ class UnifiedPortfolioManager:
             if self.logger:
                 self.logger.error(f"_create_company_share_sub_portfolio failed: {e}")
             return None
+
+    def _create_company_share_option_sub_portfolio(self):
+        """Create (or retrieve) a CompanyShareOptionPortfolio sub-portfolio for this main portfolio."""
+        try:
+            from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
+            repo = self.repository_factory.get_local_repository(CompanyShareOptionPortfolio)
+            main = self._current_portfolio_entity
+            sub_name = f"{main.name}_CSO"
+            return repo._create_or_get(
+                name=sub_name,
+                currency_code=getattr(main, 'currency_code', 'USD'),
+                initial_cash=0.0,
+                portfolio_type=getattr(main, 'portfolio_type', 'BACKTEST'),
+            )
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"_create_company_share_option_sub_portfolio failed: {e}")
+            return None
+
+    def _ensure_option_asset_container(self, ticker: str, now: datetime) -> Optional[int]:
+        """
+        Idempotently set up the holding hierarchy for a CompanyShareOption ticker.
+
+        Steps (all idempotent):
+          1. Resolve the CompanyShareOptionModel by symbol.
+          2. Find or create a CompanyShareOptionPortfolio sub-portfolio.
+          3. Create a CompanyShareOptionPortfolioHolding + Position for the ticker.
+
+        Returns the sub-portfolio id, or None if the option is not found in the DB.
+        """
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import (
+            CompanyShareOptionModel,
+        )
+        from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
+            CompanyShareOptionPortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        session = self.portfolio_repo.session
+
+        # Step 1: resolve the option asset
+        option = session.query(CompanyShareOptionModel).filter(
+            CompanyShareOptionModel.symbol == ticker
+        ).first()
+        if not option:
+            if self.logger:
+                self.logger.warning(
+                    f"CompanyShareOption not found for ticker '{ticker}' — "
+                    f"ensure it is fetched from IBKR before the universe initialises"
+                )
+            return None
+
+        # Step 2: find or create the CompanyShareOptionPortfolio sub-portfolio
+        sub_portfolio = self._create_company_share_option_sub_portfolio()
+        if sub_portfolio is None:
+            return None
+        sub_portfolio_id = sub_portfolio.id
+
+        # Step 3: ensure per-ticker holding
+        existing = (
+            session.query(CompanyShareOptionPortfolioHoldingModel)
+            .filter_by(
+                company_share_option_portfolio_id=sub_portfolio_id,
+                company_share_option_id=option.id,
+            )
+            .first()
+        )
+        if not existing:
+            pos = PositionModel(
+                portfolio_id=sub_portfolio_id,
+                quantity=0,
+                position_type='LONG',
+            )
+            session.add(pos)
+            session.flush()
+
+            holding = CompanyShareOptionPortfolioHoldingModel(
+                asset_id=option.id,
+                company_share_option_id=option.id,
+                company_share_option_portfolio_id=sub_portfolio_id,
+                portfolio_id=sub_portfolio_id,
+                container_id=sub_portfolio_id,
+                start_date=now,
+                position_id=pos.id,
+            )
+            session.add(holding)
+            session.commit()
+
+            if self.logger:
+                self.logger.info(
+                    f"Created CompanyShareOptionPortfolioHolding: {ticker} "
+                    f"(asset_id={option.id}) → option sub-portfolio {sub_portfolio_id}"
+                )
+
+        return sub_portfolio_id
 
     def get_current_portfolio(self) -> Optional[Portfolio]:
         """Get the current portfolio entity."""
@@ -478,20 +573,20 @@ class UnifiedPortfolioManager:
                     
                     if self.logger:
                         if order_quantity_factor:
-                            self.logger.info(f"✅ Order quantity factor created: {order_quantity_factor.name}")
+                            self.logger.info(f"âœ… Order quantity factor created: {order_quantity_factor.name}")
                         if order_price_factor:
-                            self.logger.info(f"✅ Order price factor created: {order_price_factor.name}")
+                            self.logger.info(f"âœ… Order price factor created: {order_price_factor.name}")
                             
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning(f"⚠️ Failed to create order factors: {e}")
+                        self.logger.warning(f"âš ï¸ Failed to create order factors: {e}")
             
             if persisted_order:
                 # Store mapping for future reference
                 self._order_ticket_mapping[order_ticket.order_id] = persisted_order.id
                 
                 if self.logger:
-                    self.logger.info(f"✅ Order registered with cascading relationships: {persisted_order.id}")
+                    self.logger.info(f"âœ… Order registered with cascading relationships: {persisted_order.id}")
                 
                 return persisted_order
             
@@ -499,7 +594,7 @@ class UnifiedPortfolioManager:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Order registration failed: {e}")
+                self.logger.error(f"âŒ Order registration failed: {e}")
             return None
 
     def record_transaction(self, order_event) -> Optional[Transaction]:
@@ -563,27 +658,27 @@ class UnifiedPortfolioManager:
                     transaction_value_factor = self.market_data_service._create_or_get(entity_config)
                     
                     if self.logger and transaction_value_factor:
-                        self.logger.info(f"✅ Transaction value factor created: {transaction_value_factor.name}")
+                        self.logger.info(f"âœ… Transaction value factor created: {transaction_value_factor.name}")
                         
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning(f"⚠️ Failed to create transaction value factor: {e}")
+                        self.logger.warning(f"âš ï¸ Failed to create transaction value factor: {e}")
             
             if self.logger and persisted_transaction:
-                self.logger.info(f"✅ Transaction recorded with cascading relationships: {persisted_transaction.id}")
+                self.logger.info(f"âœ… Transaction recorded with cascading relationships: {persisted_transaction.id}")
             
             return persisted_transaction
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Transaction recording failed: {e}")
+                self.logger.error(f"âŒ Transaction recording failed: {e}")
             return None
 
     def get_portfolio_value(self,backtest_date=None) -> float:
         """
         Return current total portfolio value as a float and persist a pre-trade FactorValue snapshot.
 
-        Flow (Option A — algorithm-first):
+        Flow (Option A â€” algorithm-first):
           1. Read total_portfolio_value from the QC algorithm (authoritative).
           2. Source active positions via get_active_positions() as factor dependencies.
           3. Compute portfolio_value_factor.calculate(dependencies) from those values.
@@ -598,7 +693,7 @@ class UnifiedPortfolioManager:
             except Exception:
                 pass
 
-        # Persist pre-trade snapshot — at most once per algorithm bar, and use the
+        # Persist pre-trade snapshot â€” at most once per algorithm bar, and use the
         # computed value as authoritative total when the QC portfolio reports 0.
         if self._current_portfolio_entity is not None:
             
@@ -613,38 +708,38 @@ class UnifiedPortfolioManager:
             else:
                 current_time = datetime.now()
 
-            if self._last_pv_snapshot_time != current_time:
-                try:
-                    # Recursively value the full holding tree (main portfolio →
-                    # sub-portfolios → leaf assets).  Prices come from DB
-                    # FactorValues only — no market_data_service fallback here,
-                    # because that path calls factor_value_resolution_service which
-                    # would re-enter this call stack and cause infinite recursion.
-                    # Prices are written to DB by the market-data pipeline before
-                    # on_data fires, so DB-only lookup is sufficient.
-                    from src.application.services.data.entities.factor.finance.portfolio_service import PortfolioService
-                    portfolio_svc = PortfolioService(
-                        self.portfolio_repo.session,
-                        self.repository_factory,
-                        market_data_service=None,
-                    )
-                    computed = float(portfolio_svc.calculate_value(
-                        self._current_portfolio_entity.id,
-                        as_of_date=current_time,
-                    ))
-                    # Use the computed tree-traversal value when the QC portfolio
-                    # object reports zero (happens in custom backtests that don't
-                    # populate the in-memory QC portfolio object).
-                    if total == 0.0 and computed > 0.0:
-                        total = computed
-                    # calculate_value already persisted holding_value and
-                    # portfolio_value FactorValue rows; no resolve_factor_value
-                    # call needed (that path triggers _resolve_dynamic_dependencies
-                    # which recurses unboundedly through related entities).
-                    self._last_pv_snapshot_time = current_time
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
+            
+            try:
+                # Recursively value the full holding tree (main portfolio â†’
+                # sub-portfolios â†’ leaf assets).  Prices come from DB
+                # FactorValues only â€” no market_data_service fallback here,
+                # because that path calls factor_value_resolution_service which
+                # would re-enter this call stack and cause infinite recursion.
+                # Prices are written to DB by the market-data pipeline before
+                # on_data fires, so DB-only lookup is sufficient.
+                from src.application.services.data.entities.factor.finance.portfolio_service import PortfolioService
+                portfolio_svc = PortfolioService(
+                    self.portfolio_repo.session,
+                    self.repository_factory,
+                    market_data_service=None,
+                )
+                computed = float(portfolio_svc.calculate_value(
+                    self._current_portfolio_entity.id,
+                    as_of_date=current_time,
+                ))
+                # Use the computed tree-traversal value when the QC portfolio
+                # object reports zero (happens in custom backtests that don't
+                # populate the in-memory QC portfolio object).
+                if total == 0.0 and computed > 0.0:
+                    total = computed
+                # calculate_value already persisted holding_value and
+                # portfolio_value FactorValue rows; no resolve_factor_value
+                # call needed (that path triggers _resolve_dynamic_dependencies
+                # which recurses unboundedly through related entities).
+                self._last_pv_snapshot_time = current_time
+            except Exception as e:
+                if self.logger:
+                    self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
 
         if total == 0.0 and self._current_portfolio_entity is not None:
             try:
@@ -686,7 +781,7 @@ class UnifiedPortfolioManager:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Active positions retrieval failed: {e}")
+                self.logger.error(f"âŒ Active positions retrieval failed: {e}")
             return []
 
     def get_orders_summary(self) -> Dict[str, Any]:
@@ -716,7 +811,7 @@ class UnifiedPortfolioManager:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Orders summary failed: {e}")
+                self.logger.error(f"âŒ Orders summary failed: {e}")
             return {}
 
     def get_transactions_summary(self) -> Dict[str, Any]:
@@ -745,7 +840,7 @@ class UnifiedPortfolioManager:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Transactions summary failed: {e}")
+                self.logger.error(f"âŒ Transactions summary failed: {e}")
             return {}
 
     # Private helper methods
@@ -803,7 +898,7 @@ class UnifiedPortfolioManager:
                 
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Enhanced holdings retrieval failed: {e}")
+                self.logger.error(f"âŒ Enhanced holdings retrieval failed: {e}")
             return []
 
     def _calculate_holding_market_value(self, holding: Holding) -> Decimal:
@@ -833,7 +928,7 @@ class UnifiedPortfolioManager:
             if available_cash < required_cash:
                 if self.logger:
                     self.logger.warning(
-                        f"Budget check failed — need ${required_cash:,.2f}, "
+                        f"Budget check failed â€” need ${required_cash:,.2f}, "
                         f"available cash ${available_cash:,.2f}"
                     )
                 return False
@@ -842,7 +937,7 @@ class UnifiedPortfolioManager:
             if current_qty < sell_qty:
                 if self.logger:
                     self.logger.warning(
-                        f"Budget check failed — cannot sell {sell_qty} shares, "
+                        f"Budget check failed â€” cannot sell {sell_qty} shares, "
                         f"only {current_qty} in position"
                     )
                 return False
@@ -853,9 +948,9 @@ class UnifiedPortfolioManager:
         Return the current available cash balance as a Decimal.
 
         Sources in priority order:
-        1. QC algorithm's in-memory portfolio cash — fast and authoritative
+        1. QC algorithm's in-memory portfolio cash â€” fast and authoritative
            during backtesting/paper trading.
-        2. Currency holding in the DB — the cash holding created at portfolio
+        2. Currency holding in the DB â€” the cash holding created at portfolio
            init (currency asset, position.quantity = initial_cash).
         3. Falls back to 0 so callers always receive a valid number.
         """
@@ -1072,7 +1167,7 @@ class UnifiedPortfolioManager:
             if not order:
                 return {'error': 'Failed to create order', 'workflow_log': workflow_log}
             
-            workflow_log.append(f"✅ Created order {order.id} for {symbol}")
+            workflow_log.append(f"âœ… Created order {order.id} for {symbol}")
             
             # Step 2: Simulate order execution by creating transaction
             workflow_log.append("Step 2: Creating transaction (simulating order fill)...")
@@ -1084,7 +1179,7 @@ class UnifiedPortfolioManager:
             )
             
             if transaction:
-                workflow_log.append(f"✅ Created transaction {transaction.id} (holding updated)")
+                workflow_log.append(f"âœ… Created transaction {transaction.id} (holding updated)")
             
             # Step 3: Get the resulting holding with position
             workflow_log.append("Step 3: Retrieving enhanced holding with position...")
@@ -1093,7 +1188,7 @@ class UnifiedPortfolioManager:
                                    self._get_asset_symbol(h.asset) == symbol), None)
             
             if relevant_holding:
-                workflow_log.append(f"✅ Found holding {relevant_holding.id} with position")
+                workflow_log.append(f"âœ… Found holding {relevant_holding.id} with position")
             
             return {
                 'success': True,
@@ -1111,7 +1206,7 @@ class UnifiedPortfolioManager:
             }
             
         except Exception as e:
-            workflow_log.append(f"❌ Error in cascading workflow: {e}")
+            workflow_log.append(f"âŒ Error in cascading workflow: {e}")
             return {'error': str(e), 'workflow_log': workflow_log}
 
     def set_algorithm(self, algorithm) -> None:
@@ -1133,7 +1228,7 @@ class UnifiedPortfolioManager:
         weight = 0 (full liquidation).
 
         Args:
-            target_weights: {ticker: target_weight (0.0 – 1.0)}
+            target_weights: {ticker: target_weight (0.0 â€“ 1.0)}
             data:           current Slice from on_data (for price resolution)
             tag:            optional order tag
 
@@ -1261,7 +1356,17 @@ class UnifiedPortfolioManager:
                 tag=tag,
                 main_portfolio_id=main_id,
             )
+        # Portfolio value snapshot (at most once per bar via get_portfolio_value guard)
+        try:
+            pv = self.get_portfolio_value(backtest_date=current_time)
+            portfolio_value = float(getattr(pv, "value", pv))
+        except Exception:
+            portfolio_value = 0.0
 
+        if portfolio_value <= 0:
+            if self.logger:
+                self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value}")
+            return results
         return results
 
     def _get_all_held_tickers(self) -> set:
@@ -1280,10 +1385,10 @@ class UnifiedPortfolioManager:
 
         Portfolio tree structure:
           Portfolio (main)
-            ├─ PortfolioHolding          → asset is a FinancialAsset (direct)
-            └─ CompanySharePortfolioPortfolioHolding
-                 └─ asset is a CompanySharePortfolio (sub-portfolio)
-                      └─ its own PortfolioHoldings → FinancialAssets
+            â”œâ”€ PortfolioHolding          â†’ asset is a FinancialAsset (direct)
+            â””â”€ CompanySharePortfolioPortfolioHolding
+                 â””â”€ asset is a CompanySharePortfolio (sub-portfolio)
+                      â””â”€ its own PortfolioHoldings â†’ FinancialAssets
         """
         try:
             from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -1308,7 +1413,7 @@ class UnifiedPortfolioManager:
             )
             tickers.update(symbol for (symbol,) in rows if symbol)
 
-            # Sub-portfolio holdings — recurse one level per sub-portfolio
+            # Sub-portfolio holdings â€” recurse one level per sub-portfolio
             sub_holdings = session.query(CompanySharePortfolioPortfolioHoldingModel).filter(
                 CompanySharePortfolioPortfolioHoldingModel.container_id == container_id
             ).all()
@@ -1354,9 +1459,9 @@ class UnifiedPortfolioManager:
 
         Portfolio tree navigation:
           container_id
-            ├─ HoldingModel(asset_id → FinancialAsset symbol=ticker) → Position.quantity
-            └─ CompanySharePortfolioPortfolioHoldingModel(container_id)
-                 asset_id = sub-portfolio id → recurse with that id as container_id
+            â”œâ”€ HoldingModel(asset_id â†’ FinancialAsset symbol=ticker) â†’ Position.quantity
+            â””â”€ CompanySharePortfolioPortfolioHoldingModel(container_id)
+                 asset_id = sub-portfolio id â†’ recurse with that id as container_id
         """
         try:
             from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -1426,12 +1531,12 @@ class UnifiedPortfolioManager:
                 )
             if self.logger:
                 self.logger.info(
-                    f"✅ Position for {ticker} updated to {new_quantity} shares @ ${fill_price:.2f}"
+                    f"âœ… Position for {ticker} updated to {new_quantity} shares @ ${fill_price:.2f}"
                 )
             return True
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ update_holding_position failed for {ticker}: {e}")
+                self.logger.error(f"âŒ update_holding_position failed for {ticker}: {e}")
             return False
 
     def get_unified_state(self) -> Dict[str, Any]:
@@ -1462,5 +1567,5 @@ class UnifiedPortfolioManager:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"❌ Unified state retrieval failed: {e}")
+                self.logger.error(f"âŒ Unified state retrieval failed: {e}")
             return {'error': str(e)}

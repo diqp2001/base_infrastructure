@@ -4,7 +4,7 @@ IBKR Index Future Factor Repository - Retrieval and creation of index future fac
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor
-from src.domain.ports.factor.index_future_factor_port import IndexFutureFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.future.index_future_factor_port import IndexFutureFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 
@@ -127,3 +127,8 @@ class IBKRIndexFutureFactorRepository(BaseIBKRFactorRepository, IndexFutureFacto
     def delete(self, factor_id: int) -> bool:
         """Delete factor entity (delegates to local repo)."""
         return self.local_repo.delete(factor_id) if self.local_repo else False
+
+    def get_by_group(self, group: str):
+        if self.local_repo and hasattr(self.local_repo, 'get_by_group'):
+            return self.local_repo.get_by_group(group)
+        return []

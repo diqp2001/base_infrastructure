@@ -442,20 +442,45 @@ def run_custom_visualization():
         x_columns = data.get('x_columns', [])
         y_columns = data.get('y_columns', [])
         params = data.get('params', {})
-        
+
         if not x_columns and not y_columns:
             return jsonify({
                 "success": False,
                 "error": "Must provide at least one X or Y column for visualization"
             }), 400
-        
+
         service = PowerBuffetService()
         result = service.run_custom_visualization(chart_type, x_columns, y_columns, params)
-        
+
         return jsonify(result)
-        
+
     except Exception as e:
         logger.error(f"Error running custom visualization: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@web_bp.route("/api/powerbuffet/run_sql_visualization", methods=["POST"])
+def run_sql_visualization():
+    """Execute a user-edited SQL query and produce a chart from the result."""
+    try:
+        data = request.json
+        query = data.get('query', '').strip()
+        database_path = data.get('database_path', '')
+        chart_type = data.get('chart_type', 'line')
+        x_cols = data.get('x_cols', [])
+        y_cols = data.get('y_cols', [])
+
+        if not query:
+            return jsonify({"success": False, "error": "No SQL query provided"}), 400
+        if not database_path:
+            return jsonify({"success": False, "error": "No database path provided"}), 400
+
+        service = PowerBuffetService()
+        result = service.run_sql_visualization(query, database_path, chart_type, x_cols, y_cols)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error running SQL visualization: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 

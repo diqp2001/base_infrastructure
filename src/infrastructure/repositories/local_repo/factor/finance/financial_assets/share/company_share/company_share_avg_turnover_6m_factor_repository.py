@@ -1,10 +1,10 @@
-import logging
+﻿import logging
 from typing import Optional
 from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.factor_dependency import FactorDependency
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_avg_turnover_6m_factor import CompanyShareAvgTurnover6mFactor
-from src.domain.ports.factor.company_share_avg_turnover_6m_factor_port import CompanyShareAvgTurnover6mFactorPort
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_avg_turnover_6m_factor_port import CompanyShareAvgTurnover6mFactorPort
 from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_avg_turnover_6m_factor_mapper import CompanyShareAvgTurnover6mFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository

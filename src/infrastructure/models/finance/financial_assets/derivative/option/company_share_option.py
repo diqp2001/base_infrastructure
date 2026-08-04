@@ -28,7 +28,7 @@ class CompanyShareOptionModel(OptionsModel):
     
     
     __mapper_args__ = {
-        "polymorphic_identity": "company_share_options",
+        "polymorphic_identity": "CompanyShareOption",
     }
     
     def __repr__(self):

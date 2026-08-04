@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.company_share_portfolio_holding_value_factor_port import CompanySharePortfolioHoldingValueFactorPort
+from src.domain.ports.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor_port import CompanySharePortfolioHoldingValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.company_share_portfolio_holding_value_factor_mapper import CompanySharePortfolioHoldingValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -55,11 +55,12 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'value'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}'),
+                group=kwargs.get('group') or 'holding',
+                subgroup=kwargs.get('subgroup') or 'value',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or f'{self.mapper.discriminator} factor: {primary_key}',
             )
 
             # Use Mapper to convert domain entity to ORM model
@@ -158,6 +159,15 @@ class CompanySharePortfolioHoldingValueFactorRepository(BaseFactorRepository, Co
             .filter(self.model_class.id == id)
             .one_or_none())
         return entity
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

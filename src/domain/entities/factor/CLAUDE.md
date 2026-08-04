@@ -370,6 +370,368 @@ class IBKRIndexFuturePriceReturnFactorRepository(BaseIBKRFactorRepository, Index
     all base factor of each domain entity needs to be added in ENTITY_FACTOR_MAPPING in src.infrastructure.repositories.mappers.factor.factor_mapper.py
     a base factor is a factor that doesn't have a calculate function, and is considered the main factor for a certain entity . IndexFactorEntity is the base factor for entity domain Index, while IndexPriceReturnFactor isn't
 
+---
+
+## Factor.GROUPS — canonical group keys
+
+Valid group values (validated in `Factor.__init__`):
+
+| Key | Typical use | Added |
+|-----|-------------|-------|
+| `price` | Market price data (OHLCV) | original |
+| `return` | Price return / P&L | original |
+| `holding` | Single holding metrics | original |
+| `portfolio` | Aggregated portfolio metrics | original |
+| `value` | Market value / portfolio value metrics (PortfolioValueFactor, CurrencyValueFactor, CompanyShareValueFactor, …) | 2026-07-29 |
+| `momentum` | Momentum / trend signals | original |
+| `technical` | Technical indicator signals | original |
+| `volatility` | Risk / volatility metrics (use `subgroup="implied"` for implied vol; `"implied_volatility"` is NOT a group) | original |
+| `volume` | Volume and turnover metrics | 2026-07-29 |
+| `order` | Order-level factors | 2026-07-29 |
+| `transaction` | Transaction-level factors | 2026-07-29 |
+| `position` | Position-level factors | 2026-07-29 |
+| `price_model` | Option pricing model outputs (BSM, Heston, CRR, …) | 2026-07-29 |
+| `fundamental` | Fundamental financial data | original |
+| `economic` | Macro-economic indicators | original |
+| `risk` | Risk measures (VaR, CVaR…) | original |
+| `valuation` | Valuation ratios and metrics | original |
+| `greek` | Options / structured product Greeks | original |
+| `liquidity` | Liquidity metrics | original |
+
+**`"value"` was added 2026-07-29** — it was missing from the dict but widely used across value factors. Its absence caused `Invalid group 'value'` errors that silently broke `get_portfolio_value()` on every bar.
+
+**`"volume"`, `"order"`, `"transaction"`, `"position"`, `"price_model"` were added 2026-07-29** to accommodate existing factor libraries that reference these groups (avg_turnover_6m, trading lifecycle factors, option pricing models).
+
+**Do NOT add to `SOURCES`** — that dict is frozen. For a new data source use one of the existing canonical keys (`ibkr`, `calculated`, `fmp`, `yahoo`, `alpha_vantage`, `quandl`).
+
+**`'option'` added 2026-07-31** — subgroup for the base `CompanyShareOptionFactor` OHLCV price points (close, open, high, low, volume for an option contract). This disambiguates them from share price factors that share the same `group='price'`.
+
+## Factor.SUBGROUPS — new canonical keys (2026-07-29)
+
+Added alongside the new groups above:
+
+| Key | Typical group | Notes |
+|-----|--------------|-------|
+| `asset` | `value` | Asset-level value (CompanyShareValueFactor, CurrencyValueFactor) |
+| `weekly` | `return` / `price` | Weekly frequency bars |
+| `monthly` | `return` / `price` | Monthly frequency bars |
+| `turnover` | `volume` | Average share turnover |
+| `trend` | `volume` | Volume Price Trend |
+| `range` | `price` | Price range (high − low) |
+| `price` | `order` | Price subgroup in order context |
+| `black_scholes` | `price_model` | BSM option pricing |
+| `binomial_tree` | `price_model` | CRR binomial tree |
+| `stochastic_volatility` | `price_model` | Heston model |
+| `stochastic_rates` | `price_model` | Hull-White model |
+| `sabr` | `price_model` | SABR model |
+| `jump_diffusion` | `price_model` | Bates model |
+| `local_volatility` | `price_model` | Dupire local vol |
+
+---
+
+## CompanyShareMidPriceFactor — special constraints
+
+File: src/domain/entities/factor/finance/financial_assets/share_factor/company_share/company_share_mid_price_factor.py
+
+This is a **leaf factor** (no `@property calculate_dependencies`) resolved by IBKR (Branch B).
+Its `calculate()` signature differs from every other factor in the chain.
+
+### calculate() signature
+```python
+def calculate(self, source_prices: List[Dict[str, Any]]) -> Optional[Decimal]:
+```
+Takes a list of price dicts, NOT a `dependencies: dict`. Each dict must contain:
+- `'source'`: str (data provider name)
+- `'price'`: Decimal
+- `'timestamp'`: datetime
+- `'group'`: str  — must equal `self.group` ('price')
+- `'subgroup'`: str — must equal `self.subgroup` ('mid_price_true')
+
+### min_sources constraint (line 69)
+```python
+if not source_prices or len(source_prices) < self.min_sources:
+    return None
+```
+- `min_sources` default = **2**
+- `outlier_threshold` default = **2.0** (modified Z-score cutoff)
+- `_filter_same_group_subgroup` runs first: only prices with matching `group` + `subgroup` survive.
+- After filtering, if fewer than `min_sources` prices remain → returns `None`.
+- If exactly `min_sources` survive → average used. If more → median used (after outlier removal).
+- `_remove_outliers` only activates when `len(prices) > 2`; with ≤2 prices no outlier removal occurs.
+
+### Propagation of None
+`None` from this factor propagates up as `Decimal('0')` at each consumer:
+- `CompanyShareValueFactor.calculate()` coerces via `Decimal(str(raw or '0'))` → `0`
+- `CompanySharePortfolioHoldingValueFactor.calculate()` → `price * quantity = 0`
+- `CompanySharePortfolioValueFactor.calculate()` → sum of zeros = `0`
+- `CompanySharePortfolioPortfolioHoldingValueFactor.calculate()` → `0`
+
+If company share values are unexpectedly zero, check that IBKR is returning at least
+`min_sources` price entries tagged with `group='price'` and `subgroup='mid_price_true'`.
+
+---
+
+## CompanyShareOptionMidPriceFactor — same rules as CompanyShareMidPriceFactor
+
+File: `src/domain/entities/factor/finance/financial_assets/derivatives/option/company_share_option/company_share_option_mid_price_factor.py`
+
+This is the option equivalent of `CompanyShareMidPriceFactor`. It obeys exactly the same
+leaf factor rules:
+
+### Fixes applied (2026-07-31)
+
+| Field | Old (broken) | New (correct) | Rule |
+|-------|-------------|---------------|------|
+| `frequency` | `None` | `"1d"` | Rule 1 — `None` causes NULL DB INSERT |
+| `source` | `"multiple"` | `"ibkr"` | Rule 2 — `"multiple"` not in `Factor.SOURCES` whitelist |
+
+### ORM discriminator fix (2026-07-31)
+
+`CompanyShareOptionModel.polymorphic_identity` was `"company_share_options"` (snake_case, plural)
+but `CompanyShareOptionMapper.discriminator` is `"CompanyShareOption"` (PascalCase, singular).
+
+**Fix**: Changed `polymorphic_identity` in
+`src/infrastructure/models/finance/financial_assets/derivative/option/company_share_option.py`
+to `"CompanyShareOption"` — consistent with the convention for all other polymorphic identities
+in this codebase.
+
+---
+
+## CompanyShareOption universe support
+
+When `CompanyShareOption: ["AAPL  281215C00260000"]` appears in the algorithm universe config,
+`UnifiedPortfolioManager._ensure_asset_container(ticker, now)` is called. Since a
+`CompanyShareOptionModel` is not a `CompanyShareModel`, the original code returned `None` and
+the option was silently ignored.
+
+### Fix (2026-07-31)
+
+`_ensure_asset_container` now falls through to `_ensure_option_asset_container(ticker, now)`
+when the `CompanyShareModel` query returns nothing:
+
+```python
+if not share:
+    return self._ensure_option_asset_container(ticker, now)
+```
+
+`_ensure_option_asset_container` sets up the holding hierarchy for an option ticker:
+
+1. **Resolve** `CompanyShareOptionModel` by `symbol` (OCC format, e.g. `"AAPL  281215C00260000"`)
+   — the option **must already be in the DB** (fetched from IBKR during initialisation).
+   If not found, logs a warning and returns `None`.
+
+2. **Create/get** a `CompanyShareOptionPortfolio` sub-portfolio named `{main_portfolio_name}_CSO`
+   (one per main portfolio, shared by all options).
+
+3. **Create** `CompanyShareOptionPortfolioHolding` + `PositionModel` for the specific option
+   (idempotent — skipped if holding already exists).
+
+4. **Return** `sub_portfolio_id` for use as `portfolio_id` in `execute_trade`.
+
+### Pre-requisite: option must be in the DB
+
+The option resolution in step 1 queries the DB directly. The IBKR feed must have already
+persisted the `CompanyShareOptionModel` row (via `IBKRCompanyShareOptionRepository`) before
+the universe initialises its holdings. If the option is missing from the DB, the holding
+is NOT created and the ticker is effectively excluded from the portfolio.
+
+### Portfolio factory registration (2026-07-31)
+
+`CompanyShareOptionPortfolioHoldingRepository` is now registered in `RepositoryFactory`:
+```python
+'CompanyShareOptionPortfolioHolding': CompanyShareOptionPortfolioHoldingRepository(self.session, factory=self),
+```
+
+### Additional fixes (2026-07-31)
+
+**`Invalid subgroup 'option'` in `CompanyShareOptionFactorRepository._create_or_get`**
+
+The default `subgroup='option'` was rejected by `Factor.__init__` because `'option'` was not in
+`Factor.SUBGROUPS`. Fix: added `'option'` as a canonical subgroup in `factor.py` (typical group:
+`price`). It identifies OHLCV price points belonging to an option contract as distinct from share
+price factors in the same `price` group.
+
+**`_create_or_get() got multiple values for argument 'entity_cls'` in batch creation**
+
+`EntityService.create_or_get_batch_local` passes `entity_cls` as both a positional argument
+and — when the factor library config dict contains an `'entity_cls'` or `'class'` key — as a
+keyword argument in `**data`. Fix: pop both `'entity_cls'` and `'class'` from `data` before
+calling `_create_or_get` in `src/application/services/data/entities/entity_service.py`.
+
+### Additional fixes (2026-07-31 — second round)
+
+**`CompanyShareOptionFactorRepository._create_or_get` invalid default group**
+
+Default `group='company_share_option'` is NOT in `Factor.GROUPS`. Every call that relied on
+the fallback default raised `ValueError: Invalid group 'company_share_option'` inside
+`Factor.__init__`, causing `_create_or_get` to catch the exception and return `None`. The
+result: no `CompanyShareOptionFactor` records were ever persisted to the DB.
+Fix: changed default to `group='price'` (correct and in `Factor.GROUPS`). Applies to both
+the existence-check `get_by_all(...)` call and the `domain_factor = get_factor_entity()(...)` call.
+
+File: `src/infrastructure/repositories/local_repo/factor/finance/financial_assets/derivatives/option/company_share_option/company_share_option_factor_repository.py`
+
+**`IBKRCompanyShareOptionFactorRepository._create_or_get` two bugs**
+
+1. Calling convention: `self.local_repo._create_or_get(primary_key=name, **enhanced_kwargs)` omitted
+   the required `entity_cls` first positional argument. Local repo signature is
+   `_create_or_get(entity_cls, primary_key, **kwargs)`.
+   Fix: `self.local_repo._create_or_get(CompanyShareOptionFactor, name, **enhanced_kwargs)`.
+
+2. `source='ibkr_api'` in `_enhance_with_ibkr_option_data` is NOT in `Factor.SOURCES`.
+   Fix: `source='ibkr'`.
+
+File: `src/infrastructure/repositories/ibkr_repo/factor/finance/financial_assets/derivatives/option/company_share_option/ibkr_company_share_option_factor_repository.py`
+
+**`CompanyShareOptionMidPriceFactor` routed to Branch B instead of Branch A**
+
+`get_dependencies()` (plain method) is NOT detected by `hasattr(entity, 'calculate_dependencies')`
+— so the resolution service routed this factor to Branch B (IBKR/direct fetch) instead of
+Branch A (dependency chain). In a backtest, Branch B returns `None` for option prices, causing
+option holding values to be incorrectly resolved via share-factor fallbacks.
+
+Three changes applied:
+1. `source='calculated'` (was `'ibkr'`): matches `CompanyShareMidPriceFactor`'s convention;
+   also prevents self-inclusion in its own `DependencySpec source_not_in=["calculated"]` filter.
+2. `calculate(self, dependencies: dict)` now accepts `{'CompanyShareOptionFactor': [list of floats]}`
+   — same contract as `CompanyShareMidPriceFactor.calculate` — instead of the old `List[Dict]` format.
+3. Replaced `get_dependencies()` with `@property calculate_dependencies` returning a `DependencySpec`
+   querying `CompanyShareOptionFactor` with `group='price'` and `source_not_in=['calculated']`.
+
+File: `src/domain/entities/factor/finance/financial_assets/derivatives/option/company_share_option/company_share_option_mid_price_factor.py`
+
+### Regression tests
+
+`src/tests/unit/test_factor_value_chain.py` now covers (22 tests total):
+- `test_company_share_option_mid_price_factor_frequency_not_none` — `frequency='1d'` ✓
+- `test_company_share_option_mid_price_factor_source_in_whitelist` — `source='calculated'` ✓
+- `TestOptionMidPriceFactorResolution` class (5 tests):
+  - `test_has_calculate_dependencies_property` — Branch A routing ✓
+  - `test_calculate_dependencies_references_option_factor` — DependencySpec targets CompanyShareOptionFactor ✓
+  - `test_calculate_returns_average_of_two_prices` — arithmetic ✓
+  - `test_calculate_returns_none_when_insufficient_sources` — min_sources guard ✓
+  - `test_calculate_wrong_key_returns_none` — share keys don't contaminate option resolution ✓
+
+---
+
+## CompanySharePortfolioPriceReturnFactor (added 2026-08-03)
+
+File: `src/domain/entities/factor/finance/portfolio/company_share_portfolio_factor/company_share_portfolio_price_return_factor.py`
+
+**Purpose**: Price return of a `CompanySharePortfolio` between two observations (start_price and end_price).
+
+### Defaults
+| Field | Value |
+|-------|-------|
+| `group` | `return` |
+| `subgroup` | `daily` |
+| `frequency` | `1d` |
+| `data_type` | `numeric` |
+| `source` | `calculated` |
+
+### Resolution branch: A (has `calculate_dependencies`)
+```python
+@property
+def calculate_dependencies(self) -> list:
+    return ["CompanySharePortfolioFactor"]
+```
+Dependencies resolve two `CompanySharePortfolioFactor` records (close price) with different lags,
+keyed as `"start_price"` and `"end_price"` in the factor library config.
+
+### calculate() contract
+```python
+def calculate(self, dependencies: dict) -> Optional[Decimal]:
+    start = dependencies.get("start_price")
+    end   = dependencies.get("end_price")
+    # returns (end - start) / start, or None if either is missing / start == 0
+```
+
+### ORM discriminator
+`polymorphic_identity = "company_share_portfolio_price_return_factor"`
+
+### Infrastructure layer artefacts
+| Artefact | Path |
+|----------|------|
+| Mapper | `src/infrastructure/repositories/mappers/factor/company_share_portfolio_price_return_factor_mapper.py` |
+| Port | `src/domain/ports/factor/finance/portfolio/company_share_portfolio_factor/company_share_portfolio_price_return_factor_port.py` |
+| Local repo | `src/infrastructure/repositories/local_repo/factor/finance/portfolio/company_share_portfolio/company_share_portfolio_price_return_factor_repository.py` |
+| ORM model | `src/infrastructure/models/factor/factor.py` — `CompanySharePortfolioPriceReturnFactorModel` |
+| Factory key | `'CompanySharePortfolioPriceReturnFactor'` in `RepositoryFactory.create_local_repositories` |
+| Factory property | `company_share_portfolio_price_return_factor_local_repo` |
+
+### FactorMapper dispatch (factor_mapper.py)
+```python
+elif factor_type == 'company_share_portfolio_price_return_factor':
+    return CompanySharePortfolioPriceReturnFactor(**base_args)
+```
+
+### Factor library entry
+Library: `COMPANY_SHARE_PORTFOLIO_LIBRARY` in `src/application/services/data/entities/factor/factor_library/finance/portfolio/company_share_portfolio.py`
+
+Key `"return_daily_3"`:
+- two `CompanySharePortfolioFactor` deps keyed `"start_price"` (lag 5d) and `"end_price"` (lag 1d)
+
+---
+
+## CompanySharePortfolioEqualWeightReturnFactor (added 2026-08-03)
+
+File: `src/domain/entities/factor/finance/portfolio/company_share_portfolio_factor/company_share_portfolio_equal_weight_return_factor.py`
+
+**Purpose**: Equal-weight average of all component `CompanyShare` daily price returns over a period.
+Unlike `CompanySharePortfolioPriceReturnFactor` (portfolio-level price ratio), this averages the
+individual share returns — so each constituent contributes equally regardless of weight.
+
+### Defaults
+| Field | Value |
+|-------|-------|
+| `group` | `return` |
+| `subgroup` | `daily` |
+| `frequency` | `1d` |
+| `data_type` | `numeric` |
+| `source` | `calculated` |
+
+### Resolution branch: A (has `calculate_dependencies`)
+```python
+@property
+def calculate_dependencies(self) -> list:
+    return ["CompanySharePriceReturnFactor"]
+```
+The resolution service collects a `CompanySharePriceReturnFactor` value for **each** component
+share in the portfolio and delivers them as a list under key `"CompanySharePriceReturnFactor"`.
+
+### calculate() contract
+```python
+def calculate(self, dependencies: dict) -> Optional[Decimal]:
+    raw = dependencies.get("CompanySharePriceReturnFactor")
+    # raw can be a scalar (single share) or list (multiple shares)
+    # filters out None, averages the rest; returns None if no valid values
+```
+
+### ORM discriminator
+`polymorphic_identity = "company_share_portfolio_equal_weight_return_factor"`
+
+### Infrastructure layer artefacts
+| Artefact | Path |
+|----------|------|
+| Mapper | `src/infrastructure/repositories/mappers/factor/company_share_portfolio_equal_weight_return_factor_mapper.py` |
+| Port | `src/domain/ports/factor/finance/portfolio/company_share_portfolio_factor/company_share_portfolio_equal_weight_return_factor_port.py` |
+| Local repo | `src/infrastructure/repositories/local_repo/factor/finance/portfolio/company_share_portfolio/company_share_portfolio_equal_weight_return_factor_repository.py` |
+| ORM model | `src/infrastructure/models/factor/factor.py` — `CompanySharePortfolioEqualWeightReturnFactorModel` |
+| Factory key | `'CompanySharePortfolioEqualWeightReturnFactor'` in `RepositoryFactory.create_local_repositories` |
+| Factory property | `company_share_portfolio_equal_weight_return_factor_local_repo` |
+
+### FactorMapper dispatch (factor_mapper.py)
+```python
+elif factor_type == 'company_share_portfolio_equal_weight_return_factor':
+    return CompanySharePortfolioEqualWeightReturnFactor(**base_args)
+```
+
+### Factor library entry
+Library: `COMPANY_SHARE_PORTFOLIO_LIBRARY` in `src/application/services/data/entities/factor/factor_library/finance/portfolio/company_share_portfolio.py`
+
+Key `"return_eq_w_daily_3"`:
+- one `CompanySharePriceReturnFactor` dep keyed `"CompanySharePriceReturnFactor"` (lag 5d)
+
 
 
 

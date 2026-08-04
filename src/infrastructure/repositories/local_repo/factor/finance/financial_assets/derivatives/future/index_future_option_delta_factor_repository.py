@@ -1,10 +1,10 @@
-"""
+﻿"""
 Repository class for Index Future Option Delta factor entities.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_delta_factor_mapper import IndexFutureOptionDeltaFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.future.index_future_option_delta_factor_mapper import IndexFutureOptionDeltaFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from .....base_factor_repository import BaseFactorRepository
 
@@ -72,7 +72,7 @@ class IndexFutureOptionDeltaFactorRepository(BaseFactorRepository):
                 subgroup=kwargs.get('subgroup', 'delta'),
                 factor_type=kwargs.get('factor_type', 'greek'),
                 data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data')
+                source=kwargs.get('source', 'ibkr')
             )
             if existing:
                 return self._to_entity(existing)
@@ -82,7 +82,7 @@ class IndexFutureOptionDeltaFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'index_future_option'),
                 subgroup=kwargs.get('subgroup', 'delta'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
             )
             

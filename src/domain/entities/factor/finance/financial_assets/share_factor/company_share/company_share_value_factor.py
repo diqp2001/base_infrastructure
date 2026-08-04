@@ -52,10 +52,11 @@ class CompanyShareValueFactor(CompanyShareFactor):
             dependencies: dict containing:
                 'company_share_mid_price_factor': Decimal or object with .value
         """
-        raw = dependencies.get('company_share_mid_price_factor', Decimal('0'))
+        raw = dependencies.get('CompanyShareMidPriceFactor', Decimal('0'))
         if hasattr(raw, 'value'):
             return Decimal(str(raw.value))
         return Decimal(str(raw))
 
-    def get_dependencies(self) -> List[str]:
-        return ['company_share_mid_price_factor']
+    @property
+    def calculate_dependencies(self) -> List[str]:
+        return ['CompanyShareMidPriceFactor']

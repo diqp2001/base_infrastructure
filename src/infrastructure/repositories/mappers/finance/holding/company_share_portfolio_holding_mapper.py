@@ -34,32 +34,22 @@ class CompanySharePortfolioHoldingMapper:
     def to_entity(
         self,
         model: Optional[CompanySharePortfolioHoldingModel],
-    ) -> Optional[CompanySharePortfolioHoldingModel]:
+    ) -> Optional[CompanySharePortfolioHolding]:
         """Convert PortfolioCompanyShareHoldingModel to domain entity"""
         if not model:
             return None
 
-        # --- Lazy imports to avoid circular dependencies --------------------
-      
-
-        # Placeholder PortfolioCompanyShare asset
-        asset = CompanySharePortfolio(
-            id=model.asset_id,
-            name=model.name,
-            start_date=model.start_date,
-            end_date=model.end_date,
-        )
-
-        # Placeholder portfolio container
-        portfolio = type("Portfolio", (), {"id": model.portfolio_id})()
+        # Minimal stubs — resolution service only needs .id on the returned entity
+        asset_stub = type("CompanyShare", (), {"id": model.asset_id})()
+        portfolio_stub = type("CompanySharePortfolio", (), {"id": model.company_share_portfolio_id})()
 
         return CompanySharePortfolioHolding(
             id=model.id,
-            asset=asset,
-            container=portfolio,
-            quantity=model.quantity,
+            asset=asset_stub,
+            portfolio=portfolio_stub,
+            position=None,
             start_date=model.start_date,
-            end_date=model.end_date,
+            end_date=getattr(model, 'end_date', None),
         )
 
     def to_model(

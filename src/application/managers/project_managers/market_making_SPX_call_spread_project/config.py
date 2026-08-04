@@ -41,8 +41,11 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
+        CompanySharePortfolio: {"name": "Large_US_BANK", "components": {CompanyShare:["JPM","BAC","WFC","C","GS","MS"]}},
+        #CompanySharePortfolioOption: {"name": "Large_US_BANK_Portfolio_Option", "components": {CompanySharePortfolio:["Large_US_BANK"]}},
+        CompanyShareOption: ["AAPL  281215C00300000"],
         CompanyShare: ["AAPL","MSFT"],
-        #CompanyShareOption: ["AAPL  281215C00260000"],
+        
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
         # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
@@ -99,6 +102,8 @@ DEFAULT_CONFIG = {
 
     'backtest_start': '2026-05-19 09:30:00',
     'backtest_end': '2026-05-19 10:30:00',
+    # 'backtest_start': '2026-07-29 09:30:00',
+    # 'backtest_end': '2026-07-29 10:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
@@ -126,7 +131,12 @@ DEFAULT_CONFIG = {
         # FACTOR_LIBRARY["index_library"]["return_daily"],
         # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
         FACTOR_LIBRARY["company_share_library"]["return_daily_3"],
-        #FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
+        
+        FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
+        FACTOR_LIBRARY["company_share_portfolio_library"]["return_daily_3"],
+        FACTOR_LIBRARY["company_share_portfolio_library"]["return_eq_w_daily_3"],
+        #FACTOR_LIBRARY["company_share_portfolio_option_library"]["return_eq_w_daily_3"],
+        
         #FACTOR_LIBRARY["company_share_option_library"]["option_price"],
         #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],

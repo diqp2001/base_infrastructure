@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
+﻿from abc import ABC, abstractmethod
 from typing import List, Optional
-from domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
+from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 
 
 class CompanySharePortfolioHoldingPort(ABC):

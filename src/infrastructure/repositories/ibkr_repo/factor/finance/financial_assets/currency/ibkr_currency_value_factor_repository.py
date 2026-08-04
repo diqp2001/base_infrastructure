@@ -1,11 +1,11 @@
-"""
+﻿"""
 IBKR repository for CurrencyValueFactor — delegates to local repo.
 """
 
 from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor
-from src.domain.ports.factor.currency_value_factor_port import CurrencyValueFactorPort
+from src.domain.ports.factor.finance.financial_assets.currency.currency_value_factor_port import CurrencyValueFactorPort
 
 
 class IBKRCurrencyValueFactorRepository(CurrencyValueFactorPort):

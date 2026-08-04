@@ -1,7 +1,7 @@
-from typing import Optional, List
+﻿from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor
-from src.domain.ports.factor.company_share_vpt_52w_20d_lag_factor_port import CompanyShareVpt52w20dLagFactorPort
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor_port import CompanyShareVpt52w20dLagFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

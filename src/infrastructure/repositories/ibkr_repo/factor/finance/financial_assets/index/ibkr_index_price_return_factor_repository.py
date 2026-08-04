@@ -1,4 +1,4 @@
-"""
+﻿"""
 IBKR Index Price Return Factor Repository - Interactive Brokers implementation for IndexPriceReturnFactor entities.
 
 This repository handles index price return factor data from IBKR API,
@@ -8,7 +8,7 @@ applying IBKR-specific business rules before delegating persistence to local rep
 from typing import Optional, List, Dict, Any
 from datetime import date
 
-from src.domain.ports.factor.index_price_return_factor_port import IndexPriceReturnFactorPort
+from src.domain.ports.factor.finance.financial_assets.index.index_price_return_factor_port import IndexPriceReturnFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.finance.financial_assets.index.index_price_return_factor import IndexPriceReturnFactor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickFactorMapper, IBKRTickType

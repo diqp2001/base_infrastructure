@@ -1,4 +1,4 @@
-"""
+﻿"""
 Base broker implementation following QuantConnect Lean architecture.
 
 This module provides the abstract base class for all broker implementations,
@@ -14,8 +14,8 @@ import logging
 
 from ..algorithm.order import Order, OrderEvent
 from ..algorithm.symbol import Symbol
-#from application.services.misbuffet.common.symbol import Symbol
-from domain.entities.finance.holding.holding import Holding
+#from src.application.services.misbuffet.common.symbol import Symbol
+from src.domain.entities.finance.holding.holding import Holding
 
 
 from ..engine.interfaces import IBrokerage

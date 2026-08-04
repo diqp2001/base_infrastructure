@@ -23,8 +23,9 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
         name: str = "Portfolio Company Share Holding Value",
         group: str = "holding",
         subgroup: Optional[str] = "value",
+        frequency: Optional[str] = "1d",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of company share holding (quantity × price)",
         factor_id: Optional[int] = None,
     ):
@@ -32,6 +33,7 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,
@@ -39,53 +41,14 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
         )
 
     def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        """
-        Calculate the total value of company share holdings in a portfolio.
-        
-        Args:
-            dependencies: Dictionary containing:
-                - 'company_share_price_factor': CompanySharePriceFactor (or CompanyShareMidPriceFactor)
-                - 'position': Position providing quantity of shares
-                
-        Returns:
-            Total value as Decimal (price × quantity)
-        """
         try:
-            # Get the company share price
-            price_factor = dependencies.get('company_share_mid_price_factor', Decimal('0'))
-            if hasattr(price_factor, 'value'):
-                price = price_factor.value
-            else:
-                price = Decimal(str(price_factor))
-            
-            # Get the position quantity
-            position = dependencies.get('position')
-            quantity = Decimal('0')
-            
-            if position:
-                if hasattr(position, 'quantity'):
-                    quantity = Decimal(str(position.quantity))
-                elif isinstance(position, (int, float, Decimal)):
-                    quantity = Decimal(str(position))
-                elif isinstance(position, dict) and 'quantity' in position:
-                    quantity = Decimal(str(position['quantity']))
-            
-            total_value = price * quantity
-            
-            return total_value
-            
+            price = Decimal(str(dependencies.get('CompanyShareValueFactor', '0') or '0'))
+            quantity = Decimal(str(dependencies.get('Position', '0') or '0'))
+            return price * quantity
         except Exception as e:
             print(f"Error calculating company share portfolio holding value: {e}")
             return Decimal('0.0')
-    
-    def get_dependencies(self) -> List[str]:
-        """
-        Define the dependencies for this factor calculation.
-        
-        Returns:
-            List of dependency factor names
-        """
-        return [
-            "company_share_mid_price_factor",  # CompanySharePriceFactor (using mid price)
-            "position"  # Position providing quantity
-        ]
+
+    @property
+    def calculate_dependencies(self) -> List[str]:
+        return ['CompanyShareValueFactor', 'Position']

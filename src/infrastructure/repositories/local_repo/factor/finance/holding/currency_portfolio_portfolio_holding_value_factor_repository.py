@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.holding.currency_portfolio_portfolio.currency_portfolio_portfolio_holding_value_factor import CurrencyPortfolioPortfolioHoldingValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.currency_portfolio_portfolio_holding_value_factor_port import CurrencyPortfolioPortfolioHoldingValueFactorPort
+from src.domain.ports.factor.finance.holding.currency_portfolio_portfolio.currency_portfolio_portfolio_holding_value_factor_port import CurrencyPortfolioPortfolioHoldingValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.currency_portfolio_portfolio_holding_value_factor_mapper import CurrencyPortfolioPortfolioHoldingValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -38,12 +38,12 @@ class CurrencyPortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepositor
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'portfolio_value'),
-                frequency=kwargs.get('frequency', None),
-                data_type=kwargs.get('data_type', 'decimal'),
-                source=kwargs.get('source', 'portfolio_management'),
-                definition=kwargs.get('definition', 'Total value of CurrencyPortfolio holding within Portfolio'),
+                group=kwargs.get('group') or 'holding',
+                subgroup=kwargs.get('subgroup') or 'value',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'decimal',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or 'Total value of CurrencyPortfolio holding within Portfolio',
             )
 
             orm_factor = self._to_model(domain_factor)
@@ -113,6 +113,15 @@ class CurrencyPortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepositor
         return self._to_entity(
             self.session.query(self.model_class).filter(self.model_class.id == id).one_or_none()
         )
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

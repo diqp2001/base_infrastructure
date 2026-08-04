@@ -103,8 +103,90 @@ resolve_factor_value(CurrencyPortfolioHoldingValueFactor, holding, date)
 
 ## Adding a New Factor with Dynamic Dependencies
 
-1. Add `@property calculate_dependencies` returning the list of dep class names.
+1. Add `@property calculate_dependencies` returning the list of dep class names (strings)
+   or `DependencySpec` instances (see below).
 2. Update `calculate(self, dependencies: dict)` to look up values by those names.
 3. Register the dep factor's repo in `RepositoryFactory` under its class name key.
 4. No changes needed in `FactorValueResolutionService` — the recursive algorithm
    handles arbitrary depth automatically.
+
+---
+
+## DependencySpec — Filtered Multi-Value Dependencies
+
+`src/domain/entities/factor/dependency_spec.py`
+
+`DependencySpec` replaces a bare class-name string in `calculate_dependencies` when you
+need **parameter-filtered** or **multi-value** dependency resolution.
+
+### When to use
+
+| Use a string | Use DependencySpec |
+|---|---|
+| Exactly one dep factor class, any source | Filter by group / source / frequency |
+| Values summed across related entities | Collect **list** of values (e.g. prices from N sources) |
+| No inheritance of parent's own params | `DependencySpec.SELF` to inherit parent's param |
+
+### API
+
+```python
+@dataclass
+class DependencySpec:
+    factor_type: type            # dep factor class (e.g. CompanyShareFactor)
+    group: Any = None            # exact match, SELF sentinel, or None (skip)
+    subgroup: Any = None
+    frequency: Any = None
+    data_type: Any = None
+    source: Any = None
+    source_in: List[str] = []    # whitelist
+    source_not_in: List[str] = []
+    frequency_in: List[str] = []
+    frequency_not_in: List[str] = []
+
+    SELF: ClassVar = <sentinel>  # inherit value from parent factor
+```
+
+### How the resolution service handles DependencySpec
+
+1. `dep_name = spec.factor_type.__name__`
+2. Calls `dep_repo.get_all()` to retrieve all factor records of that type.
+3. Filters by `spec.matches_factor(parent_factor, candidate)` — SELF sentinels
+   are resolved from `parent_factor`'s own attributes at call time.
+4. For each matching factor × related entity, calls `resolve_factor_value` recursively.
+5. Collects results as a **flat list** of floats in `dependency_values[dep_name]`.
+
+The parent factor's `calculate(dependencies)` then receives:
+```python
+{'CompanyShareFactor': [12.34, 12.36, 12.35]}  # one per matching source
+```
+instead of the scalar sum used for string deps.
+
+### Example — CompanyShareMidPriceFactor
+
+```python
+@property
+def calculate_dependencies(self) -> list:
+    from src.domain.entities.factor.dependency_spec import DependencySpec
+    from ...company_share_factor import CompanyShareFactor
+    return [
+        DependencySpec(
+            factor_type=CompanyShareFactor,
+            group="price",
+            frequency=DependencySpec.SELF,           # match parent's frequency
+            source_not_in=["calculated", "portfolio_management"],
+        )
+    ]
+
+def calculate(self, dependencies: dict) -> Optional[Decimal]:
+    raw = dependencies.get("CompanyShareFactor", [])
+    # raw is a list of floats — apply outlier filtering + median/average
+    ...
+```
+
+### Key rules
+
+- The dep repo must support `get_all()` (all standard factor repos do).
+- A `DependencySpec` dep delivers a **list** value; a string dep delivers a **scalar** (sum).
+  `calculate()` must handle accordingly.
+- `source_not_in` and `source_in` reference `Factor.SOURCES` canonical keys.
+- `DependencySpec.SELF` is the singleton `_SELF` object — compare with `is`, not `==`.

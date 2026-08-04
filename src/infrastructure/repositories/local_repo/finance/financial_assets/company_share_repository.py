@@ -115,9 +115,9 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         return True
 
     def get_by_ticker(self, ticker: str):
-        """Retrieve CompanyShare records by ticker."""
+        """Retrieve CompanyShare records by ticker (symbol)."""
         shares = self.session.query(CompanyShareModel).filter(
-            CompanyShareModel.ticker == ticker
+            CompanyShareModel.symbol == ticker
         ).all()
         return [self._to_domain(share) for share in shares]
 
@@ -599,59 +599,6 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             return 'NASDAQ'
         else:
             return 'NYSE'
-
-    def _create_or_get(self, ticker: str, exchange_id: Optional[int] = None, company_id: Optional[int] = None) -> Optional[CompanyShareEntity]:
-        """
-        Get or create a company share with dependency resolution.
-        Integrates the functionality from to_orm_with_dependencies.
-        
-        Args:
-            ticker: Company share ticker symbol
-            exchange_id: Exchange ID (optional, will resolve if not provided)
-            company_id: Company ID (optional, will resolve if not provided)
-            
-        Returns:
-            Domain company share entity or None if creation failed
-        """
-        try:
-            # First try to get existing company share
-            existing = self.get_by_ticker(ticker)
-            if existing:
-                return existing
-            
-            # Get or create company dependency
-            if not company_id:
-                # Use factory if available
-                if self.factory:
-                    local_repos = self.factory.create_local_repositories()
-                    company_repo = local_repos.get('company')
-                    if not company_repo:
-                        company_repo = self.factory.company_local_repo
-                else:
-                    company_repo = self.factory.company_local_repo
-                company = company_repo.get_or_create(name=f"Company for {ticker}")
-                company_id = company.id if company else 1
-            
-            # Get or create exchange dependency  
-            if not exchange_id:
-                # Use factory if available
-                if self.factory:
-                    local_repos = self.factory.create_local_repositories()
-                    exchange_repo = local_repos.get('exchange')
-                    if not exchange_repo:
-                        exchange_repo = self.factory.exchange_local_repo
-                else:
-                    exchange_repo = self.factory.exchange_local_repo
-                exchange_name = self._get_default_exchange_for_ticker(ticker)
-                exchange = exchange_repo.get_or_create(name=exchange_name)
-                exchange_id = exchange.id if exchange else 1
-            
-            # Use the existing _create_or_get method
-            return self._create_or_get(symbol=ticker, exchange_id=exchange_id, company_id=company_id)
-            
-        except Exception as e:
-            logger.error(f"Error in get_or_create for company share {ticker}: {e}")
-            return None
 
     # ----------------------------- Standard CRUD Interface -----------------------------
     def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:

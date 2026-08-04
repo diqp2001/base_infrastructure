@@ -417,7 +417,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
 
             # Get configurable parameters with defaults
-            what_to_show = self._resolve_what_to_show_from_group(factor_entity.group)
+            what_to_show = self._resolve_what_to_show_from_group(
+                factor_entity.group, factor_subgroup=getattr(factor_entity, 'subgroup', '')
+            )
             duration_str = kwargs.get('duration_str', '1 M')
             bar_size_setting = kwargs.get('bar_size_setting', '1 day')
 
@@ -611,9 +613,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             for entity_id in factor_batch.entity_ids:
                 symbol_group_factors_frequency = self._group_factors_by_symbol_factor_group_and_frequency(factor_batch, financial_asset_entity)
                 
-                for (symbol, factor_group, bar_size_setting), factors in symbol_group_factors_frequency.items():
+                for (symbol, factor_group, factor_subgroup, bar_size_setting), factors in symbol_group_factors_frequency.items():
                     try:
-                        what_to_show = self._resolve_what_to_show_from_group(factor_group)
+                        what_to_show = self._resolve_what_to_show_from_group(factor_group, factor_subgroup=factor_subgroup)
 
                         bulk_ibkr_data = self._fetch_bulk_historical_data(
                             symbol,
@@ -666,12 +668,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in IBKR bulk data processing: {e}")
             return None
         
-    def _resolve_what_to_show_from_group(self, factor_group: str) -> str:
-        group_config = WHAT_TO_SHOW_MAP.get(factor_group, {})
+    # (group, subgroup) → IBKR whatToShow.  Must stay in sync with
+    # MarketDataHistoryService._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.
+    _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
+        ('volatility', 'implied'):    'OPTION_IMPLIED_VOLATILITY',
+        ('volatility', 'historical'): 'HISTORICAL_VOLATILITY',
+    }
 
-        primary = group_config.get("primary", "TRADES")
-
-        return primary
+    def _resolve_what_to_show_from_group(self, factor_group: str, factor_subgroup: str = '') -> str:
+        key = (factor_group, factor_subgroup or '')
+        return self._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.get(key, 'TRADES')
 
     def _process_factor_chunk(self, factor_chunk: FactorBatch) -> List[FactorValue]:
         """
@@ -856,9 +862,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
             for factor in factor_batch.factors:
                 factor_group = getattr(factor, "group", "unknown")
+                factor_subgroup = getattr(factor, "subgroup", "")
                 frequency = getattr(factor, "frequency", "1d")
                 frequency_ibkr = factor.FREQUENCIES[frequency]["ibkr_label"]
-                key = (symbol, factor_group, frequency_ibkr)
+                key = (symbol, factor_group, factor_subgroup, frequency_ibkr)
                 grouped[key].append(factor)
 
             return dict(grouped)
@@ -1852,14 +1859,19 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         try:
             factor_name = factor.name.lower()
             
-            # Map factor names to IBKR bar fields
+            # Map factor names to IBKR bar fields.
+            # For OPTION_IMPLIED_VOLATILITY and HISTORICAL_VOLATILITY requests, IBKR
+            # returns the value in the bar's 'close' field (open/high/low are also
+            # populated but close is the canonical single value per bar).
             field_mapping = {
                 'open': 'open',
-                'high': 'high', 
+                'high': 'high',
                 'low': 'low',
                 'close': 'close',
                 'volume': 'volume',
-                'barcount': 'barCount'
+                'barcount': 'barCount',
+                'implied_volatility': 'close',
+                'historical_volatility': 'close',
             }
             
             bar_field = field_mapping.get(factor_name)
@@ -2388,26 +2400,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
             contract = repo._fetch_contract(symbol)
 
-            # contract = Contract()
-            # contract.symbol = symbol.upper()
-            # exchange = self.factory.exchange_local_repo.get_by_id(
-            #     getattr(financial_asset_entity, 'exchange_id', None)
-            # )
-            # contract.exchange = exchange.symbol
-            # # # --- secType routing ---
-            # # if isinstance(financial_asset_entity, self.factory.index_local_repo.entity_class):
-            # #     contract.secType = "IND"
-            # #     contract.exchange = "CBOE"   # or SMART, see note below
-            # # else:
-            # #     contract.secType = "STK"
-            # #     contract.exchange = "SMART"
-            # #     contract.primaryExchange = "NASDAQ"  # optional but recommended
-
-            # # --- currency ---
-            # currency = self.factory.currency_local_repo.get_by_id(
-            #     getattr(financial_asset_entity, 'currency_id', None)
-            # )
-            # contract.currency = currency.symbol if currency else "USD"
+            
 
             return contract
                 

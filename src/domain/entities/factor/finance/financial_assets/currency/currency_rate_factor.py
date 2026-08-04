@@ -32,7 +32,7 @@ class CurrencyRateFactor(CurrencyFactor):
         subgroup: Optional[str] = "mid_price_true",
         frequency: Optional[str] = None,
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "multiple",
+        source: Optional[str] = "ibkr",
         definition: Optional[str] = "True mid exchange rate calculated from multiple data sources with outlier filtering",
         factor_id: Optional[int] = None,
         outlier_threshold: float = 2.0,
@@ -43,12 +43,12 @@ class CurrencyRateFactor(CurrencyFactor):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,
             factor_id=factor_id,
         )
-        self.frequency = frequency
         self.outlier_threshold = outlier_threshold
         self.min_sources = min_sources
 

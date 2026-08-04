@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Portfolio Company Share Option Delta Factor Repository - Retrieval and creation of portfolio company share option delta factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_delta_factor import CompanySharePortfolioOptionDeltaFactor
-from src.domain.ports.factor.company_share_portfolio_option_delta_factor_port import CompanySharePortfolioOptionDeltaFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_delta_factor_port import CompanySharePortfolioOptionDeltaFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

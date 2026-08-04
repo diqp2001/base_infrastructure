@@ -14,7 +14,7 @@ class FactorValueModel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     factor_id = Column(Integer, ForeignKey("factors.id"), nullable=False)
     entity_id = Column(Integer, nullable=False)   # Generic entity reference
-    entity_type = Column(String(100), nullable=True, index=True)  # Entity class name discriminator
+    entity_type = Column(String(100), nullable=False, index=True)  # Entity class name discriminator
     date = Column(DateTime(timezone=True), nullable=False)
     value = Column(String(255), nullable=False)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)

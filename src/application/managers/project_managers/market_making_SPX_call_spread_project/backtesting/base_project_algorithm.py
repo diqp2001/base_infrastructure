@@ -1,4 +1,4 @@
-"""
+﻿"""
 SPX Call Spread Algorithm for Market Making
 
 This module implements the core trading algorithm for SPX call spread market making,
@@ -12,9 +12,9 @@ from typing import Dict, List, Optional, Any
 
 import pandas as pd
 
-from application.managers.project_managers.market_making_SPX_call_spread_project.config import get_config
-from application.services.misbuffet.algorithm.base import QCAlgorithm
-from application.services.misbuffet.algorithm.enums import Resolution
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.config import get_config
+from src.application.services.misbuffet.algorithm.base import QCAlgorithm
+from src.application.services.misbuffet.algorithm.enums import Resolution
 
 from ..strategy.market_making_strategy import Strategy
 from ..strategy.risk_manager import RiskManager
@@ -84,11 +84,11 @@ class Algorithm(QCAlgorithm):
             )
             if portfolio_entity:
                 self.portfolio_entity = portfolio_entity
-                self.log("✅ SPX portfolio registered with EntityService system")
+                self.log("âœ… SPX portfolio registered with EntityService system")
             else:
-                self.warning("⚠️ Failed to register SPX portfolio")
+                self.warning("âš ï¸ Failed to register SPX portfolio")
         else:
-            self.warning("⚠️ No EntityService available - portfolio tracking disabled")
+            self.warning("âš ï¸ No EntityService available - portfolio tracking disabled")
         
         # Define universe and store Security objects
         self.universe = self.config['universe']
@@ -203,7 +203,7 @@ class Algorithm(QCAlgorithm):
             
             # Step 1: Execute model training pipeline for data creation and verification
             if hasattr(self, 'trainer') and self.trainer:
-                self.logger.info("🚀 Running model training pipeline for data preparation...")
+                self.logger.info("ðŸš€ Running model training pipeline for data preparation...")
                 
                 training_result = self.trainer.train_complete_pipeline(
                     tickers=self.universe,
@@ -212,16 +212,16 @@ class Algorithm(QCAlgorithm):
                 )
                 
                 if training_result.get('error'):
-                    self.logger.error(f"❌ Model training failed: {training_result['error']}")
+                    self.logger.error(f"âŒ Model training failed: {training_result['error']}")
                     return
                 
                 self._model_trained = True
-                self.logger.info("✅ Model training pipeline completed successfully")
+                self.logger.info("âœ… Model training pipeline completed successfully")
             
             # ============================
             # MARKET MAKING LOGIC
             # ============================
-            # Random AAPL/MSFT allocation via UnifiedPortfolioManager → TradeManager
+            # Random AAPL/MSFT allocation via UnifiedPortfolioManager â†’ TradeManager
             random_pct = random.random()
             if self._unified_portfolio_manager:
                 self._unified_portfolio_manager.set_holdings(
@@ -276,7 +276,7 @@ class Algorithm(QCAlgorithm):
                 
                 # Import data if missing
                 if not has_data:
-                    self.logger.info("💾 Importing SPX historical data via IBKR...")
+                    self.logger.info("ðŸ’¾ Importing SPX historical data via IBKR...")
                     import_results = data_loader.import_spx_historical_data()
                     has_data = import_results.get('success', False)
                 
@@ -287,7 +287,7 @@ class Algorithm(QCAlgorithm):
                     'data_available': has_data,
                 }
             else:
-                self.logger.warning("⚠️ No database service available for data verification")
+                self.logger.warning("âš ï¸ No database service available for data verification")
                 return {'success': False, 'error': 'No database service available'}
                 
         except Exception as e:
@@ -305,7 +305,7 @@ class Algorithm(QCAlgorithm):
             if self.is_unified_portfolio_enabled():
                 # Get unified portfolio value directly from domain entities
                 self.portfolio_value = self.get_unified_portfolio_value()
-                self.log(f"📊 Portfolio value (unified via EntityService): ${self.portfolio_value:,.2f}")
+                self.log(f"ðŸ“Š Portfolio value (unified via EntityService): ${self.portfolio_value:,.2f}")
                 return
             
             # # Legacy calculation as fallback
@@ -318,7 +318,7 @@ class Algorithm(QCAlgorithm):
             
             # # Update portfolio value
             # self.portfolio_value = self.cash + total_position_value
-            # self.log(f"📊 Portfolio value (legacy): ${self.portfolio_value:,.2f}")
+            # self.log(f"ðŸ“Š Portfolio value (legacy): ${self.portfolio_value:,.2f}")
             
         except Exception as e:
             self.logger.error(f"Error updating portfolio value: {e}")
@@ -443,11 +443,11 @@ class Algorithm(QCAlgorithm):
             
             # Repository tracking is handled automatically in the enhanced market_order method
             
-            self.logger.info(f"✅ Executed {position['type']} spread: {position['strikes']}, size: {position_size}")
+            self.logger.info(f"âœ… Executed {position['type']} spread: {position['strikes']}, size: {position_size}")
             
             # Log EntityService integration status
             if self._entity_service and self._current_portfolio_entity:
-                self.logger.info(f"📊 Order tracking enabled via EntityService portfolio: {self._current_portfolio_entity.id}")
+                self.logger.info(f"ðŸ“Š Order tracking enabled via EntityService portfolio: {self._current_portfolio_entity.id}")
             
         except Exception as e:
             self.logger.error(f"Error executing spread trade: {e}")
@@ -536,7 +536,7 @@ class Algorithm(QCAlgorithm):
     def _log_daily_summary(self):
         """Log daily performance summary."""
         try:
-            self.logger.info(f"📊 Daily Summary:")
+            self.logger.info(f"ðŸ“Š Daily Summary:")
             self.logger.info(f"   Portfolio Value: ${self.portfolio_value:,.2f}")
             self.logger.info(f"   Cash: ${self.cash:,.2f}")
             self.logger.info(f"   Daily P&L: ${self.daily_pnl:,.2f}")
@@ -607,20 +607,20 @@ class Algorithm(QCAlgorithm):
             if missing_repos:
                 self.warning(f"Missing repositories in EntityService factory: {missing_repos}")
             else:
-                self.log("✅ All required repositories available through EntityService")
+                self.log("âœ… All required repositories available through EntityService")
     
     def set_factor_manager(self, factor_manager):
         """Inject factor manager from the BacktestRunner."""
         self.factor_manager = factor_manager
-        self.log("✅ Factor manager injected successfully")
+        self.log("âœ… Factor manager injected successfully")
     
     def set_trainer(self, trainer):
         """Inject  trainer from the BacktestRunner."""
         self.trainer = trainer
-        self.log("✅  trainer injected successfully")
+        self.log("âœ…  trainer injected successfully")
     
     def set_strategy(self, strategy):
         """Inject momentum strategy from the BacktestRunner."""
         self.strategy = strategy
-        self.log("✅ Momentum strategy injected successfully")
+        self.log("âœ… Momentum strategy injected successfully")
     

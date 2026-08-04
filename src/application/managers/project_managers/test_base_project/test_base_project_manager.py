@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test Base Project Manager - Main orchestrator class.
 
 Combines spatiotemporal momentum modeling, factor creation, and backtesting
@@ -28,7 +28,7 @@ from src.application.managers.project_managers.project_manager import ProjectMan
 
 # Interactive Brokers integration
 from src.application.services.misbuffet.brokers.broker_factory import BrokerFactory, create_interactive_brokers_broker
-from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
 
 # Backtesting components
 from .backtesting.backtest_runner import BacktestRunner
@@ -114,7 +114,7 @@ class TestBaseProjectManager(ProjectManager):
         self.mlflow_run = None
         self._setup_mlflow_tracking()
         
-        self.logger.info("🚀 TestBaseProjectManager initialized with Misbuffet integration and MLflow tracking")
+        self.logger.info("ðŸš€ TestBaseProjectManager initialized with Misbuffet integration and MLflow tracking")
 
     def _setup_mlflow_tracking(self):
         """
@@ -128,15 +128,15 @@ class TestBaseProjectManager(ProjectManager):
             experiment = mlflow.get_experiment_by_name(self.mlflow_experiment_name)
             if experiment is None:
                 experiment_id = mlflow.create_experiment(self.mlflow_experiment_name)
-                self.logger.info(f"✅ Created MLflow experiment: {self.mlflow_experiment_name}")
+                self.logger.info(f"âœ… Created MLflow experiment: {self.mlflow_experiment_name}")
             else:
                 experiment_id = experiment.experiment_id
-                self.logger.info(f"✅ Using existing MLflow experiment: {self.mlflow_experiment_name}")
+                self.logger.info(f"âœ… Using existing MLflow experiment: {self.mlflow_experiment_name}")
             
             mlflow.set_experiment(self.mlflow_experiment_name)
             
         except Exception as e:
-            self.logger.warning(f"⚠️ MLflow setup failed: {str(e)}")
+            self.logger.warning(f"âš ï¸ MLflow setup failed: {str(e)}")
     
     def _start_mlflow_run(self, run_name: str = None):
         """
@@ -150,14 +150,14 @@ class TestBaseProjectManager(ProjectManager):
                 run_name = f"simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
             self.mlflow_run = mlflow.start_run(run_name=run_name)
-            self.logger.info(f"🎯 Started MLflow run: {run_name}")
+            self.logger.info(f"ðŸŽ¯ Started MLflow run: {run_name}")
             
             # Log basic system information
             mlflow.log_param("manager_class", self.__class__.__name__)
             mlflow.log_param("start_timestamp", datetime.now().isoformat())
             
         except Exception as e:
-            self.logger.warning(f"⚠️ Failed to start MLflow run: {str(e)}")
+            self.logger.warning(f"âš ï¸ Failed to start MLflow run: {str(e)}")
     
     def _end_mlflow_run(self):
         """
@@ -167,10 +167,10 @@ class TestBaseProjectManager(ProjectManager):
             if self.mlflow_run:
                 mlflow.log_param("end_timestamp", datetime.now().isoformat())
                 mlflow.end_run()
-                self.logger.info("✅ Ended MLflow run")
+                self.logger.info("âœ… Ended MLflow run")
                 self.mlflow_run = None
         except Exception as e:
-            self.logger.warning(f"⚠️ Failed to end MLflow run: {str(e)}")
+            self.logger.warning(f"âš ï¸ Failed to end MLflow run: {str(e)}")
     
     def _log_mlflow_metrics(self, metrics: Dict[str, Any], step: int = None):
         """
@@ -186,7 +186,7 @@ class TestBaseProjectManager(ProjectManager):
                     if isinstance(value, (int, float)):
                         mlflow.log_metric(key, value, step=step)
         except Exception as e:
-            self.logger.warning(f"⚠️ Failed to log MLflow metrics: {str(e)}")
+            self.logger.warning(f"âš ï¸ Failed to log MLflow metrics: {str(e)}")
     
     def _log_mlflow_params(self, params: Dict[str, Any]):
         """
@@ -200,7 +200,7 @@ class TestBaseProjectManager(ProjectManager):
                 for key, value in params.items():
                     mlflow.log_param(key, str(value))
         except Exception as e:
-            self.logger.warning(f"⚠️ Failed to log MLflow params: {str(e)}")
+            self.logger.warning(f"âš ï¸ Failed to log MLflow params: {str(e)}")
 
     def run(self, 
             tickers: Optional[List[str]] = None,
@@ -230,7 +230,7 @@ class TestBaseProjectManager(ProjectManager):
         Returns:
             Complete backtest results
         """
-        self.logger.info("🚀 Starting TestBaseProjectManager with Misbuffet integration...")
+        self.logger.info("ðŸš€ Starting TestBaseProjectManager with Misbuffet integration...")
         
         # Use default tickers if not provided
         if tickers is None:
@@ -298,7 +298,7 @@ class TestBaseProjectManager(ProjectManager):
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ Error in run method: {str(e)}")
+            self.logger.error(f"âŒ Error in run method: {str(e)}")
             
             # Log error to MLflow
             if self.mlflow_run:
@@ -323,7 +323,7 @@ class TestBaseProjectManager(ProjectManager):
         
         Integrates our spatiotemporal momentum system with the Misbuffet framework.
         """
-        self.logger.info("🏗️ Setting up enhanced factor system...")
+        self.logger.info("ðŸ—ï¸ Setting up enhanced factor system...")
         
         # Send initial progress message
         if self.web_interface:
@@ -437,7 +437,7 @@ class TestBaseProjectManager(ProjectManager):
         Returns:
             Summary of factor system setup
         """
-        self.logger.info("🏗️ Setting up enhanced factor system...")
+        self.logger.info("ðŸ—ï¸ Setting up enhanced factor system...")
         start_time = time.time()
         
         if tickers is None:
@@ -470,11 +470,11 @@ class TestBaseProjectManager(ProjectManager):
                 }
                 self._log_mlflow_metrics(factor_metrics)
             
-            self.logger.info(f"✅ Enhanced factor system setup complete in {elapsed:.2f}s")
+            self.logger.info(f"âœ… Enhanced factor system setup complete in {elapsed:.2f}s")
             return setup_results
             
         except Exception as e:
-            self.logger.error(f"❌ Enhanced factor system setup failed: {str(e)}")
+            self.logger.error(f"âŒ Enhanced factor system setup failed: {str(e)}")
             
             # Log error metrics
             if self.mlflow_run:
@@ -505,7 +505,7 @@ class TestBaseProjectManager(ProjectManager):
         Returns:
             Complete training results
         """
-        self.logger.info("🧠 Training enhanced spatiotemporal models...")
+        self.logger.info("ðŸ§  Training enhanced spatiotemporal models...")
         start_time = time.time()
         
         if tickers is None:
@@ -531,7 +531,7 @@ class TestBaseProjectManager(ProjectManager):
             
             if not training_results.get('error'):
                 self.trained_model = self.model_trainer.get_trained_model()
-                self.logger.info("✅ Enhanced model training completed successfully")
+                self.logger.info("âœ… Enhanced model training completed successfully")
                 
                 # Log training metrics
                 if self.mlflow_run:
@@ -544,7 +544,7 @@ class TestBaseProjectManager(ProjectManager):
                     }
                     self._log_mlflow_metrics(training_metrics)
             else:
-                self.logger.error(f"❌ Enhanced model training failed: {training_results['error']}")
+                self.logger.error(f"âŒ Enhanced model training failed: {training_results['error']}")
                 
                 # Log failure metrics
                 if self.mlflow_run:
@@ -556,7 +556,7 @@ class TestBaseProjectManager(ProjectManager):
             return training_results
             
         except Exception as e:
-            self.logger.error(f"❌ Enhanced model training error: {str(e)}")
+            self.logger.error(f"âŒ Enhanced model training error: {str(e)}")
             
             # Log error metrics
             if self.mlflow_run:
@@ -610,7 +610,7 @@ class TestBaseProjectManager(ProjectManager):
         Returns:
             Complete pipeline results
         """
-        self.logger.info("🚀 Starting complete enhanced Test Base Project pipeline...")
+        self.logger.info("ðŸš€ Starting complete enhanced Test Base Project pipeline...")
         if tickers is None:
                 tickers = get_config('test')['DATA']['DEFAULT_UNIVERSE']
         
@@ -642,7 +642,7 @@ class TestBaseProjectManager(ProjectManager):
         Args:
             ib_config: Optional configuration dictionary. Uses defaults if not provided.
         """
-        self.logger.info("🔌 Setting up Interactive Brokers connection...")
+        self.logger.info("ðŸ”Œ Setting up Interactive Brokers connection...")
         
         try:
             # Use default IB configuration if not provided
@@ -664,7 +664,7 @@ class TestBaseProjectManager(ProjectManager):
             self.logger.info(f"Connecting to IB TWS/Gateway at {ib_config['host']}:{ib_config['port']}...")
             
             if self.ib_broker.connect():
-                self.logger.info("✅ Successfully connected to Interactive Brokers")
+                self.logger.info("âœ… Successfully connected to Interactive Brokers")
                 
                 # Update web interface with connection status
                 if self.web_interface:
@@ -679,7 +679,7 @@ class TestBaseProjectManager(ProjectManager):
                 self.logger.info(f"IB Broker Status: {broker_info}")
                 
             else:
-                self.logger.error("❌ Failed to connect to Interactive Brokers")
+                self.logger.error("âŒ Failed to connect to Interactive Brokers")
                 if self.web_interface:
                     self.web_interface.progress_queue.put({
                         'timestamp': datetime.now().isoformat(),
@@ -688,7 +688,7 @@ class TestBaseProjectManager(ProjectManager):
                     })
                 
         except Exception as e:
-            self.logger.error(f"❌ Error setting up Interactive Brokers connection: {str(e)}")
+            self.logger.error(f"âŒ Error setting up Interactive Brokers connection: {str(e)}")
             if self.web_interface:
                 self.web_interface.progress_queue.put({
                     'timestamp': datetime.now().isoformat(),
@@ -703,7 +703,7 @@ class TestBaseProjectManager(ProjectManager):
                 self.logger.info("Disconnecting from Interactive Brokers...")
                 self.ib_broker.disconnect()
                 self.ib_broker = None
-                self.logger.info("✅ Disconnected from Interactive Brokers")
+                self.logger.info("âœ… Disconnected from Interactive Brokers")
                 
                 if self.web_interface:
                     self.web_interface.progress_queue.put({
@@ -751,7 +751,7 @@ class TestBaseProjectManager(ProjectManager):
             return {'error': 'Not connected to Interactive Brokers'}
         
         try:
-            self.logger.info("📊 Retrieving IB account information and balance...")
+            self.logger.info("ðŸ“Š Retrieving IB account information and balance...")
             
             # Get comprehensive account information
             account_info = self.get_ib_account_info()
@@ -765,7 +765,7 @@ class TestBaseProjectManager(ProjectManager):
                 net_liquidation = account_summary.get('NetLiquidation', {}).get('value', '0')
                 buying_power = account_summary.get('BuyingPower', {}).get('value', '0')
                 
-                self.logger.info(f"💰 Account Balance Information:")
+                self.logger.info(f"ðŸ’° Account Balance Information:")
                 self.logger.info(f"   Cash Value: ${cash_value}")
                 self.logger.info(f"   Net Liquidation: ${net_liquidation}")
                 self.logger.info(f"   Buying Power: ${buying_power}")
@@ -783,7 +783,7 @@ class TestBaseProjectManager(ProjectManager):
                 
                 return account_info
             else:
-                self.logger.error(f"❌ Failed to retrieve account info: {account_info['error']}")
+                self.logger.error(f"âŒ Failed to retrieve account info: {account_info['error']}")
                 if self.web_interface:
                     self.web_interface.progress_queue.put({
                         'timestamp': datetime.now().isoformat(),
@@ -793,7 +793,7 @@ class TestBaseProjectManager(ProjectManager):
                 return account_info
                 
         except Exception as e:
-            self.logger.error(f"❌ Error getting IB account info: {str(e)}")
+            self.logger.error(f"âŒ Error getting IB account info: {str(e)}")
             if self.web_interface:
                 self.web_interface.progress_queue.put({
                     'timestamp': datetime.now().isoformat(),
@@ -814,7 +814,7 @@ class TestBaseProjectManager(ProjectManager):
             return {'error': 'Not connected to Interactive Brokers'}
         
         try:
-            self.logger.info("📈 Retrieving S&P 500 data for today...")
+            self.logger.info("ðŸ“ˆ Retrieving S&P 500 data for today...")
             
             # Use SPY as S&P 500 proxy (most liquid ETF)
             sp500_symbol = 'SPY'
@@ -844,7 +844,7 @@ class TestBaseProjectManager(ProjectManager):
                     'req_id': market_data.get('req_id', 'N/A')
                 }
                 
-                self.logger.info(f"📊 S&P 500 (SPY) Data for {sp500_data['date']}:")
+                self.logger.info(f"ðŸ“Š S&P 500 (SPY) Data for {sp500_data['date']}:")
                 self.logger.info(f"   Open: {sp500_data['open']}")
                 self.logger.info(f"   Close: {sp500_data['close']}")
                 self.logger.info(f"   High: {sp500_data['high']}")
@@ -867,7 +867,7 @@ class TestBaseProjectManager(ProjectManager):
                 
                 return sp500_data
             else:
-                self.logger.warning("⚠️ No market data available for S&P 500 (SPY)")
+                self.logger.warning("âš ï¸ No market data available for S&P 500 (SPY)")
                 
                 # Try alternative approach - get data from database if available
                 try:
@@ -887,7 +887,7 @@ class TestBaseProjectManager(ProjectManager):
                 return {'error': 'Market data not available', 'symbol': sp500_symbol}
                 
         except Exception as e:
-            self.logger.error(f"❌ Error extracting S&P 500 data: {str(e)}")
+            self.logger.error(f"âŒ Error extracting S&P 500 data: {str(e)}")
             if self.web_interface:
                 self.web_interface.progress_queue.put({
                     'timestamp': datetime.now().isoformat(),

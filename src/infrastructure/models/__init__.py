@@ -133,9 +133,9 @@ def ensure_models_registered():
 # Register models immediately on import
 try:
     ensure_models_registered()
-    print(f"✅ SQLAlchemy models successfully registered: {len(ModelBase.registry._class_registry)} models")
+    print(f"[OK] SQLAlchemy models successfully registered: {len(ModelBase.registry._class_registry)} models")
 except RuntimeError as e:
-    print(f"❌ SQLAlchemy model registration error: {e}")
+    print(f"[ERROR] SQLAlchemy model registration error: {e}")
     raise
 
 # =============================================================================

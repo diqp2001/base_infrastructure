@@ -1,4 +1,4 @@
-
+﻿
 
 from abc import ABC, abstractmethod
 import os
@@ -23,7 +23,7 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
 
         super().__init__(session)
         self.factory = kwargs.get('factory')
-        from application.services.api_service.ibkr_service.market_data import MarketData
+        from src.application.services.api_service.ibkr_service.market_data import MarketData
         self.market_data = MarketData()
         self.mapper = FinancialAssetMapper()
     @property

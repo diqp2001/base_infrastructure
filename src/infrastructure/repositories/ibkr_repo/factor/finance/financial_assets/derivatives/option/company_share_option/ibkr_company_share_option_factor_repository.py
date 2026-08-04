@@ -4,7 +4,7 @@ IBKR Company Share Option Factor Repository - Retrieval and creation of company 
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
-from src.domain.ports.factor.company_share_option_factor_port import CompanyShareOptionFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor_port import CompanyShareOptionFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 
@@ -43,7 +43,7 @@ class IBKRCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, CompanySh
             
             # Persist to local database
             if self.local_repo:
-                created_factor = self.local_repo._create_or_get(primary_key=name, **enhanced_kwargs)
+                created_factor = self.local_repo._create_or_get(CompanyShareOptionFactor, name, **enhanced_kwargs)
                 if created_factor:
                     return created_factor
             
@@ -69,7 +69,7 @@ class IBKRCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, CompanySh
         
         # Add IBKR-specific enhancements if available
         if 'source' not in enhanced:
-            enhanced['source'] = 'ibkr_api'
+            enhanced['source'] = 'ibkr'
         
         if 'definition' not in enhanced:
             enhanced['definition'] = f'IBKR Company Share Option factor: {primary_key}'
@@ -225,3 +225,8 @@ class IBKRCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, CompanySh
 
     def delete(self, entity_id: int) -> bool:
         return self.local_repo.delete(entity_id) if self.local_repo else False
+
+    def get_by_group(self, group: str):
+        if self.local_repo and hasattr(self.local_repo, 'get_by_group'):
+            return self.local_repo.get_by_group(group)
+        return []

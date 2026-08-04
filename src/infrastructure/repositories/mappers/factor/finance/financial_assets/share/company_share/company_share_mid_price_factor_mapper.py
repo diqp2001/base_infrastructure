@@ -7,18 +7,25 @@ Mapper for CompanyShareMidPriceFactor domain entity to ORM model.
 from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
 from src.infrastructure.models.factor.factor import CompanyShareMidPriceFactorModel
+from src.infrastructure.repositories.mappers.factor.base_factor_mapper import BaseFactorMapper
 
 
-class CompanyShareMidPriceFactorMapper:
+class CompanyShareMidPriceFactorMapper(BaseFactorMapper):
     """Mapper between CompanyShareMidPriceFactor domain entity and ORM model."""
 
     @property
     def discriminator(self):
-        return "CompanyShareMidPriceFactor"
+        return "CompanyShare"
 
     @property
     def model_class(self):
         return CompanyShareMidPriceFactorModel
+
+    def get_factor_model(self):
+        return CompanyShareMidPriceFactorModel
+
+    def get_factor_entity(self):
+        return CompanyShareMidPriceFactor
 
     def get_entity(self):
         return CompanyShareMidPriceFactor
@@ -50,5 +57,5 @@ class CompanyShareMidPriceFactorMapper:
             data_type=entity.data_type,
             source=entity.source,
             definition=entity.definition,
-            factor_type=self.discriminator,
+            factor_type='company_share_mid_price_factor',
         )

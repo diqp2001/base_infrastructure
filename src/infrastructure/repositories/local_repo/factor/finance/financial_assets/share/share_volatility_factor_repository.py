@@ -1,9 +1,9 @@
-"""
+﻿"""
 Repository class for ShareVolatility factor entities.
 """
 
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_volatility_factor_mapper import ShareVolatilityFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_volatility_factor_mapper import ShareVolatilityFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ....base_factor_repository import BaseFactorRepository
 
@@ -61,7 +61,7 @@ class ShareVolatilityFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'volatility'),
                 subgroup=kwargs.get('subgroup', 'share'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Share volatility factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'share_volatility')
             )

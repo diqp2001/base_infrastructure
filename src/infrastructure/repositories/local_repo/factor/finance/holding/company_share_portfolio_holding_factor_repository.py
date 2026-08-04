@@ -58,7 +58,7 @@ class CompanySharePortfolioHoldingFactorRepository(BaseFactorRepository):
             return self._create_or_get(
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
-                subgroup=kwargs.get('subgroup', 'portfolio_company_share'),
+                subgroup=kwargs.get('subgroup', 'value'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'portfolio_holding_analysis'),
                 definition=kwargs.get('definition', f'Portfolio company share holding factor: {primary_key}'),

@@ -18,7 +18,7 @@ class CompanySharePortfolioHoldingQuantityFactor(CompanySharePortfolioHoldingFac
         group: str = "holding",
         subgroup: Optional[str] = "quantity",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Number of shares held in portfolio for specific company",
         factor_id: Optional[int] = None,
     ):

@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor import CurrencyRateFactor
-from src.domain.ports.factor.currency_rate_factor_port import CurrencyRateFactorPort
+from src.domain.ports.factor.finance.financial_assets.currency.currency_rate_factor_port import CurrencyRateFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.finance.financial_assets.currency.currency_rate_factor_mapper import CurrencyRateFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -42,12 +42,12 @@ class CurrencyRateFactorRepository(BaseFactorRepository, CurrencyRateFactorPort)
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'price'),
-                subgroup=kwargs.get('subgroup', 'mid_price_true'),
-                frequency=kwargs.get('frequency', None),
-                data_type=kwargs.get('data_type', 'decimal'),
-                source=kwargs.get('source', 'multiple'),
-                definition=kwargs.get('definition', f'True mid exchange rate: {primary_key}'),
+                group=kwargs.get('group') or 'price',
+                subgroup=kwargs.get('subgroup') or 'mid_price_true',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'decimal',
+                source=kwargs.get('source') or 'ibkr',
+                definition=kwargs.get('definition') or f'True mid exchange rate: {primary_key}',
             )
 
             orm_factor = self._to_model(domain_factor)
@@ -97,6 +97,15 @@ class CurrencyRateFactorRepository(BaseFactorRepository, CurrencyRateFactorPort)
             .filter(self.model_class.id == id)
             .one_or_none()
         )
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

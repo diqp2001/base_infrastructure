@@ -1,4 +1,4 @@
-"""
+﻿"""
 Consolidated Factor Service - unified service layer for all factor operations.
 
 This service consolidates functionality from:
@@ -33,7 +33,7 @@ from src.domain.entities.finance.financial_assets.share.company_share.company_sh
 
 # Infrastructure repositories
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
 
 # IBKR repositories and types
@@ -182,7 +182,7 @@ class FactorService(EntityService):
             # Get the 'Close' price factor from database
             close_factor = self.share_factor_repository.get_by_name('Close')
             if not close_factor:
-                print(f"    ⚠️  'Close' price factor not found in database")
+                print(f"    âš ï¸  'Close' price factor not found in database")
                 return None
             
             # Get factor values as DataFrame
@@ -192,7 +192,7 @@ class FactorService(EntityService):
             )
             
             if df.empty:
-                print(f"    ⚠️  No price data found for entity_id: {entity_id}")
+                print(f"    âš ï¸  No price data found for entity_id: {entity_id}")
                 return None
             
             # Convert and clean data
@@ -209,7 +209,7 @@ class FactorService(EntityService):
             )
             
         except Exception as e:
-            print(f"    ❌ Error extracting price data for entity_id {entity_id}: {str(e)}")
+            print(f"    âŒ Error extracting price data for entity_id {entity_id}: {str(e)}")
             return None
 
     def calculate_and_store_momentum(
@@ -379,9 +379,9 @@ class FactorService(EntityService):
         Get or create a factor value for a financial asset by symbol using IBKR API with instrument flow.
         
         This method follows the new architecture:
-        1. Create IBKR Contract → Instrument
-        2. Extract tick data → Factor Values 
-        3. Map Instrument Factor Values → Financial Asset Factor Values
+        1. Create IBKR Contract â†’ Instrument
+        2. Extract tick data â†’ Factor Values 
+        3. Map Instrument Factor Values â†’ Financial Asset Factor Values
         
         Args:
             symbol_or_name: Stock symbol or asset name

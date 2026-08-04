@@ -15,6 +15,7 @@ import logging
 from decimal import Decimal
 
 from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.entities.factor.dependency_spec import DependencySpec
 from src.dto.factor.factor_batch import FactorBatch
 from src.dto.factor.factor_value_batch import FactorValueBatch
 
@@ -562,11 +563,32 @@ class FactorValueResolutionService:
             if hasattr(factor_entity, 'calculate_dependencies'):
                 # ── Branch A: resolve via named dependency factor classes ──────────
                 #
-                # For each declared dependency:
-                #   Step 1 — _create_or_get guarantees the factor row exists in DB.
-                #   Step 2 — resolve_factor_value recursively materialises the factor
-                #             value (and any of its own dependencies) bottom-up.
-                for dep_name in factor_entity.calculate_dependencies:
+                # Each entry in calculate_dependencies is either:
+                #   • a str (class name) → single-value aggregation path
+                #   • a DependencySpec   → multi-value filtered collection path
+                for dep in factor_entity.calculate_dependencies:
+
+                    # ── DependencySpec path ────────────────────────────────────────
+                    if isinstance(dep, DependencySpec):
+                        dep_name = dep.dep_name
+                        spec_values = self._resolve_dependency_spec(
+                            dep, factor_entity, related_entities,
+                            target_date, repository_type, **kwargs
+                        )
+                        if spec_values is not None:
+                            dependency_values[dep_name] = spec_values
+                            self.logger.info(
+                                f"DependencySpec {dep_name}: collected "
+                                f"{len(spec_values)} values"
+                            )
+                        else:
+                            self.logger.warning(
+                                f"DependencySpec {dep_name}: no values resolved"
+                            )
+                        continue
+
+                    # ── String (class name) path ───────────────────────────────────
+                    dep_name = dep
                     dep_repo = (
                         self.factory.get_local_repository(dep_name) if self.factory else None
                     )
@@ -647,19 +669,14 @@ class FactorValueResolutionService:
                     else:
                         # ── Entity value dependency path ───────────────────────────
                         # dep_repo is a plain entity repo (no get_factor_entity).
-                        # Find the related entity on the current entity or via the
-                        # holding repo's get_related_{name} method, then extract
-                        # the primary numeric attribute (quantity, value, amount, price).
                         dep_entity_name = dep_name.lower()
                         related_obj = None
 
-                        # 1. Direct attribute on the entity model (e.g. holding.position_rel)
                         for attr in (f'{dep_entity_name}_rel', dep_entity_name):
                             related_obj = getattr(entity, attr, None)
                             if related_obj is not None:
                                 break
 
-                        # 2. Holding repo get_related_{dep_name.lower()} method
                         if related_obj is None:
                             entity_type_key = type(entity).__name__
                             if entity_type_key.endswith('Model'):
@@ -703,6 +720,82 @@ class FactorValueResolutionService:
         except Exception as e:
             self.logger.error(f"Error resolving dynamic dependencies: {e}")
             return None
+
+    def _resolve_dependency_spec(
+        self,
+        spec: DependencySpec,
+        parent_factor,
+        related_entities: List[Any],
+        target_date: datetime,
+        repository_type: str,
+        **kwargs
+    ) -> Optional[List[float]]:
+        """
+        Resolve a DependencySpec dependency.
+
+        Finds all factor records of spec.factor_type that match the spec's
+        filters, then resolves a FactorValue for each matching factor ×
+        related entity.  Returns a flat list of float values (one per
+        successfully resolved (factor, entity) pair).
+
+        Returns None on hard failure (repo not found).
+        Returns [] when the repo exists but no values could be resolved
+        (resolution service treats this the same as None for the dependency).
+        """
+        dep_name = spec.dep_name
+        dep_repo = self.factory.get_local_repository(dep_name) if self.factory else None
+        if dep_repo is None:
+            self.logger.warning(
+                f"_resolve_dependency_spec: no repository for '{dep_name}'"
+            )
+            return None
+
+        # Collect all factor records of the target type
+        all_dep_factors: List[Any] = []
+        if hasattr(dep_repo, 'get_all'):
+            try:
+                all_dep_factors = dep_repo.get_all() or []
+            except Exception as e:
+                self.logger.error(
+                    f"_resolve_dependency_spec: get_all() failed for '{dep_name}': {e}"
+                )
+                return None
+
+        # Filter by the spec (exact-match + whitelist/blacklist)
+        matching_factors = [
+            f for f in all_dep_factors
+            if spec.matches_factor(parent_factor, f)
+        ]
+
+        if not matching_factors:
+            self.logger.warning(
+                f"_resolve_dependency_spec: no '{dep_name}' factors match the spec "
+                f"(total in repo: {len(all_dep_factors)})"
+            )
+            return []
+
+        values: List[float] = []
+        for dep_factor in matching_factors:
+            for related_entity in related_entities:
+                related_id = getattr(related_entity, 'id', None)
+                if not related_id:
+                    continue
+                fv = self.resolve_factor_value(
+                    factor_entity=dep_factor,
+                    entity=related_entity,
+                    time_date=target_date,
+                    repository_type=repository_type,
+                    **kwargs,
+                )
+                if fv is not None:
+                    val = self._convert_to_float(fv.value)
+                    values.append(val)
+                    self.logger.info(
+                        f"DependencySpec '{dep_name}': factor '{dep_factor.name}' "
+                        f"(source={dep_factor.source}) entity {related_id} → {val}"
+                    )
+
+        return values
 
     def _find_matching_factors(self, factor_entity, repository_type: str) -> List[Any]:
         """
@@ -767,7 +860,7 @@ class FactorValueResolutionService:
             currency_id = kwargs.get('currency_id', None)
             entity_id = getattr(entity, 'id', None)
 
-            # Identity shortcut: anything valued in its own unit = 1
+            # Identity shortcut: anything valued in its own unit = 1... this needs to changed since it's own currency is not always 1, for example CAD/CAD = 1 but CAD/USD != 1, we need to check the country location of the exchange and the currency of the exchange to know in which currency the value correspondsto
             if currency_id is not None and entity_id is not None and currency_id == entity_id:
                 return self._create_factor_value(
                     factor_entity, entity, target_date, '1', repository_type,

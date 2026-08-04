@@ -1,10 +1,10 @@
-"""
+﻿"""
 Repository class for Company Share Portfolio Option Price factor entities.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_factor_mapper import CompanySharePortfolioOptionPriceFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_factor_mapper import CompanySharePortfolioOptionPriceFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ......base_factor_repository import BaseFactorRepository
 
@@ -72,7 +72,7 @@ class CompanySharePortfolioOptionPriceFactorRepository(BaseFactorRepository):
                 subgroup=kwargs.get('subgroup', 'price'),
                 factor_type=kwargs.get('factor_type', 'pricing'),
                 data_type=self.mapper.discriminator,
-                source=kwargs.get('source', 'market_data')
+                source=kwargs.get('source', 'ibkr')
             )
             if existing:
                 return self._to_entity(existing)
@@ -82,7 +82,7 @@ class CompanySharePortfolioOptionPriceFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'company_share_portfolio_option'),
                 subgroup=kwargs.get('subgroup', 'price'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
             )
             

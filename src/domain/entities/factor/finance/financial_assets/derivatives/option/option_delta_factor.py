@@ -1,6 +1,6 @@
-from typing import Optional
+﻿from typing import Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 class OptionDeltaFactor(OptionFactor):
     """Delta factor associated with a company share option."""

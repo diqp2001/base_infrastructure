@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Company Share Option Heston Price Factor Repository - Retrieval and creation of company share option Heston price factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_price_factor import CompanyShareOptionHestonPriceFactor
-from src.domain.ports.factor.company_share_option_heston_price_factor_port import CompanyShareOptionHestonPriceFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_price_factor_port import CompanyShareOptionHestonPriceFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

@@ -17,12 +17,12 @@ class PortfolioValueFactor(PortfolioFactor):
 
     def __init__(
         self,
-        name: str,
+        name: str = "Portfolio Value",
         group: str = "value",
-        subgroup: Optional[str] = "portfolio",
-        frequency: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        subgroup: Optional[str] = "daily",
+        frequency: Optional[str] = '1d',
+        data_type: Optional[str] = 'numeric',
+        source: Optional[str] = 'calculated',
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
     ):

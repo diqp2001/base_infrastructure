@@ -19,8 +19,9 @@ class CompanySharePortfolioHoldingFactor(PortfolioHoldingFactor):
         name: str,
         group: str = "holding",
         subgroup: Optional[str] = "company_share",
+        frequency: Optional[str] = None,
         data_type: Optional[str] = "identifier",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Company share holding within portfolio",
         factor_id: Optional[int] = None,
     ):
@@ -28,6 +29,7 @@ class CompanySharePortfolioHoldingFactor(PortfolioHoldingFactor):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.currency_value_factor_port import CurrencyValueFactorPort
+from src.domain.ports.factor.finance.financial_assets.currency.currency_value_factor_port import CurrencyValueFactorPort
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.infrastructure.repositories.mappers.factor.finance.financial_assets.currency.currency_value_factor_mapper import CurrencyValueFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
@@ -126,6 +126,15 @@ class CurrencyValueFactorRepository(BaseFactorRepository, CurrencyValueFactorPor
             .filter(self.model_class.id == id)
             .one_or_none()
         )
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

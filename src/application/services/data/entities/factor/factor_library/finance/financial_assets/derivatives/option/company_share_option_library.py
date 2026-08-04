@@ -97,13 +97,13 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                     "parameters": {"independent_factor_related_entity_key":"underlying_asset_id"}
                 },
                         "implied_volatility": {
-                    "class": CompanyShareFactor, 
-                    "name": "close",#needs to be close open volume or
-                    "group": "implied_volatility",
-                    "subgroup": "minutes",
+                    "class": CompanyShareFactor,
+                    "name": "implied_volatility",
+                    "group": "volatility",
+                    "subgroup": "implied",
                     "frequency": "1m",
                     "data_type": "numeric",
-                    "description": "Minute-level open volatility",
+                    "description": "Minute-level implied volatility",
                     "dependencies": [],
                     "parameters": {"independent_factor_related_entity_key":"underlying_asset_id"}
                 },
@@ -146,7 +146,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
     },
 
     "return_open": {
-        "class": CompanyShareOptionPriceReturnFactor, 
+        "class": CompanyShareOptionPriceReturnFactor,
         "name": "return_open",
         "group": "return",
         "subgroup": "minutes",
@@ -156,9 +156,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "dependencies": {
             "start_price": {
                 "class": CompanyShareOptionFactor,
-                    "name": "open", 
+                    "name": "open",
                     "group": "price",
                     "subgroup": "minutes",
+                    "frequency": "1m",
                     "data_type": "numeric",
                     "description": "Minute-level open price",
                     "dependencies": [],
@@ -166,9 +167,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 },
             "end_price": {
                 "class": CompanyShareOptionFactor,
-                    "name": "open", 
+                    "name": "open",
                     "group": "price",
                     "subgroup": "minutes",
+                    "frequency": "1m",
                     "data_type": "numeric",
                     "description": "Minute-level open price",
                     "dependencies": [],
@@ -177,7 +179,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 },
         "parameters": {}
     },
-    
+
     # Daily return factors
     "return_daily": {
         "class": CompanyShareOptionPriceReturnFactor,
@@ -193,6 +195,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 "name": "close",
                 "group": "price",
                 "subgroup": "daily",
+                "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": [],
@@ -203,6 +206,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 "name": "close",
                 "group": "price",
                 "subgroup": "daily",
+                "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Daily close price",
                 "dependencies": [],
@@ -237,7 +241,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 "class": CompanyShareFactor,
                 "name": "implied_volatility",
                 "group": "volatility",
-                "subgroup": "minutes",
+                "subgroup": "implied",
                 "frequency": "1m",
                 "data_type": "numeric",
                 "description": "Implied volatility",

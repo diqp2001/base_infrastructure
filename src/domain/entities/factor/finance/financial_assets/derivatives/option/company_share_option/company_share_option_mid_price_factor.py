@@ -27,9 +27,9 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         name: str = "mid_price",
         group: str = "price",
         subgroup: Optional[str] = "mid_price_true",
-        frequency: Optional[str] = None,
+        frequency: Optional[str] = "1d",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "multiple",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "True mid price calculated from multiple data sources with outlier filtering",
         factor_id: Optional[int] = None,
         outlier_threshold: float = 2.0,
@@ -51,47 +51,39 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         self.outlier_threshold = outlier_threshold
         self.min_sources = min_sources
 
-    def calculate(self, source_prices: List[Dict[str, Any]]) -> Optional[Decimal]:
+    def calculate(self, dependencies: dict) -> Optional[Decimal]:
         """
-        Calculate true mid price from multiple data sources.
-        
-        Args:
-            source_prices: List of price dictionaries with keys:
-                - 'source': str (data provider name)
-                - 'price': Decimal (mid price)
-                - 'timestamp': datetime
-                - 'group': str
-                - 'subgroup': str
-                - 'strike': Optional[Decimal] (for options)
-                - 'expiry': Optional[date] (for options)
-                
-        Returns:
-            Optional[Decimal]: Calculated true mid price or None if insufficient data
+        Calculate true mid price from the resolved dependency values.
+
+        dependencies['CompanyShareOptionFactor'] is a list of float values,
+        one per external-source CompanyShareOptionFactor whose value was resolved
+        for this option entity.  Built by the resolution service via DependencySpec.
         """
-        if not source_prices or len(source_prices) < self.min_sources:
+        raw_values = dependencies.get("CompanyShareOptionFactor", [])
+        if isinstance(raw_values, (int, float)):
+            raw_values = [raw_values]
+
+        source_prices = [
+            {
+                "source": f"source_{i}",
+                "price": Decimal(str(v)),
+                "group": self.group,
+                "subgroup": self.subgroup,
+            }
+            for i, v in enumerate(raw_values)
+            if v is not None
+        ]
+
+        if len(source_prices) < self.min_sources:
             return None
 
-        filtered_prices = self._filter_same_group_subgroup(source_prices)
-        
-        if len(filtered_prices) < self.min_sources:
+        valid_prices = self._remove_outliers(source_prices)
+        if not valid_prices:
             return None
-        if len(filtered_prices) == self.min_sources:
 
-            valid_prices = self._remove_outliers(filtered_prices)
-            
-            if not valid_prices:
-                return None
-
+        if len(source_prices) <= self.min_sources:
             return self._calculate_average_price(valid_prices)
-        
-        elif len(filtered_prices) > self.min_sources:
-
-            valid_prices = self._remove_outliers(filtered_prices)
-            
-            if not valid_prices:
-                return None
-
-            return self._calculate_median_price(valid_prices)
+        return self._calculate_median_price(valid_prices)
 
     def _filter_same_group_subgroup(self, source_prices: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter prices that match the same group and subgroup."""
@@ -151,15 +143,17 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         else:
             return (sorted_prices[mid - 1] + sorted_prices[mid]) / Decimal(2)
 
-    def get_dependencies(self) -> List[str]:
-        """
-        Return list of factor dependencies.
-        
-        This factor depends on multiple price sources for the same option contract.
-        """
+    @property
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
         return [
-            f"company_share_option_price_{source}" 
-            for source in ["ibkr", "fmp", "yahoo", "alpha_vantage", "quandl"]
+            DependencySpec(
+                factor_type=CompanyShareOptionFactor,
+                group="price",
+                frequency=DependencySpec.SELF,
+                source_not_in=["calculated"],
+            )
         ]
 
     def __repr__(self):

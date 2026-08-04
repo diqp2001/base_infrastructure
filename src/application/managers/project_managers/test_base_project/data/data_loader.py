@@ -1,4 +1,4 @@
-"""
+﻿"""
 Data loading component for spatiotemporal momentum analysis.
 
 Combines CSV data loading capabilities from test_project_factor_creation
@@ -15,7 +15,7 @@ from pathlib import Path
 from src.application.services.data_service.train_val_test_splitter_service import MultivariateTrainValTestSplitterService, UnivariateTrainValTestSplitterService
 from src.application.services.database_service.database_service import DatabaseService
 from src.infrastructure.repositories.local_repo.finance.financial_assets.company_share_repository import CompanyShareRepository as CompanyShareRepositoryLocal
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 
 from ..config import DEFAULT_CONFIG
 
@@ -66,7 +66,7 @@ class SpatiotemporalDataLoader:
         if tickers is None:
             tickers = self.config['DEFAULT_UNIVERSE']
         
-        print(f"📊 Loading historical data for {len(tickers)} tickers from CSV files...")
+        print(f"ðŸ“Š Loading historical data for {len(tickers)} tickers from CSV files...")
         
         # Load data from CSV files instead of factor system
         combined_data = {}
@@ -77,9 +77,9 @@ class SpatiotemporalDataLoader:
             
             if csv_data is not None and not csv_data.empty:
                 combined_data[ticker] = csv_data
-                print(f"  ✅ Loaded {len(csv_data)} records for {ticker}")
+                print(f"  âœ… Loaded {len(csv_data)} records for {ticker}")
             else:
-                print(f"  ❌ No CSV data found for {ticker}")
+                print(f"  âŒ No CSV data found for {ticker}")
         
         if not combined_data:
             raise ValueError("No data loaded for any ticker. Check that CSV files exist in /data/stock_data/.")
@@ -97,7 +97,7 @@ class SpatiotemporalDataLoader:
         csv_file = self.stock_data_path / f"{ticker}.csv"
         
         if not csv_file.exists():
-            print(f"  ⚠️  CSV file not found: {csv_file}")
+            print(f"  âš ï¸  CSV file not found: {csv_file}")
             return None
         
         try:
@@ -125,7 +125,7 @@ class SpatiotemporalDataLoader:
             return df
             
         except Exception as e:
-            print(f"  ❌ Error loading CSV for {ticker}: {str(e)}")
+            print(f"  âŒ Error loading CSV for {ticker}: {str(e)}")
             return None
     
     def _load_factor_data(self, ticker: str, start_date: Optional[str], end_date: Optional[str]) -> Optional[pd.DataFrame]:
@@ -134,7 +134,7 @@ class SpatiotemporalDataLoader:
             # Get the company share entity
             share = self.company_share_repository.get_by_ticker(ticker)[0]
             if not share:
-                print(f"  ⚠️  Company share not found for ticker: {ticker}")
+                print(f"  âš ï¸  Company share not found for ticker: {ticker}")
                 return None
             
             # Get factor values for this share
@@ -154,12 +154,12 @@ class SpatiotemporalDataLoader:
                             pd.to_datetime(v.date): float(v.value) for v in values
                         }
                     else:
-                        print(f"  ⚠️  No values found for factor '{factor_name}' for {ticker}")
+                        print(f"  âš ï¸  No values found for factor '{factor_name}' for {ticker}")
                 else:
-                    print(f"  ⚠️  Factor '{factor_name}' not found in database")
+                    print(f"  âš ï¸  Factor '{factor_name}' not found in database")
             
             if not factor_data:
-                print(f"  ❌ No factor data found for {ticker}. Check if setup_factor_system() was run.")
+                print(f"  âŒ No factor data found for {ticker}. Check if setup_factor_system() was run.")
                 return None
             
             # Convert to DataFrame
@@ -169,11 +169,11 @@ class SpatiotemporalDataLoader:
             df = df.sort_index()
             df.index.name = 'Date'
             
-            print(f"  📈 Loaded {len(df)} factor records for {ticker} with columns: {list(df.columns)}")
+            print(f"  ðŸ“ˆ Loaded {len(df)} factor records for {ticker} with columns: {list(df.columns)}")
             return df
             
         except Exception as e:
-            print(f"  ❌ Error loading factor data for {ticker}: {str(e)}")
+            print(f"  âŒ Error loading factor data for {ticker}: {str(e)}")
             import traceback
             traceback.print_exc()
             return None

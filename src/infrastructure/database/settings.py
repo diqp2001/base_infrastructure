@@ -8,8 +8,7 @@ connection_string = f"{connection_string_1}{connection_string_2}{connection_stri
         
 SSMS_url= URL.create("mssql+pyodbc",query={"odbc_connect":connection_string})
 DATABASES = {
-    'sqlite': "sqlite:///./test.db",
-    'sqlite_CrossSectionalMLStockReturns': "sqlite:///./CrossSectionalMLStockReturns.db",
+    
     'sql_server': SSMS_url
 }
 

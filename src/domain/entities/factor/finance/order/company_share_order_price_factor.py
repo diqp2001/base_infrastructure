@@ -25,7 +25,7 @@ class CompanyShareOrderPriceFactor(CompanyShareFactor):
         group: str = "order",
         subgroup: Optional[str] = "price",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "order_system",
+        source: Optional[str] = "ibkr",
         definition: Optional[str] = "Price per share in company share order",
         factor_id: Optional[int] = None,
     ):

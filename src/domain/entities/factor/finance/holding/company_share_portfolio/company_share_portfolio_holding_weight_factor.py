@@ -18,7 +18,7 @@ class CompanySharePortfolioHoldingWeightFactor(CompanySharePortfolioHoldingFacto
         group: str = "holding",
         subgroup: Optional[str] = "weight",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Weight of company share holding within portfolio",
         factor_id: Optional[int] = None,
     ):

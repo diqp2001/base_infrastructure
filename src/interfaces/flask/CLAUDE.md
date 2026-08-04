@@ -24,6 +24,43 @@ src/interfaces/flask/
 
 ## 🎯 New Features Implemented
 
+### 0. Entity & Factor Upload (`/entity-upload`)
+
+**Blueprint**: `entity_upload_bp` in `src/interfaces/flask/web/controllers/entity_upload_controller.py`
+
+**Routes**:
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/entity-upload` | Upload form page — select entity type, download template, upload file |
+| `GET` | `/entity-upload/template/<entity_type>` | Stream an Excel template (.xlsx) as attachment download |
+| `POST` | `/entity-upload` | Process uploaded .xlsx; reads sheet `Data`; returns JSON `{success, processed, errors}` |
+
+**Application service**: `src/application/services/data/entities/entity_upload_service.py`
+- `ENTITY_SCHEMAS` — dict of entity type → `{columns, required, example_row, description}`
+- `generate_template(entity_type)` — produces a two-sheet openpyxl workbook (Data + Instructions) as `io.BytesIO`
+- `process_upload(entity_type, df, session)` — iterates DataFrame rows, resolves FK references by name, persists via `RepositoryFactory`
+
+**Supported entity types** (11 total):
+- `Continent` — name only
+- `Country` — name, iso_code; FK: continent_name → Continent
+- `Exchange` — name, legal_name, start_date; FK: country_name → Country
+- `Sector` — name, description
+- `Industry` — name, description; FK: sector_name → Sector
+- `Currency` — name, symbol; optional FK: country_name → Country
+- `Index` — name, symbol; optional FK: currency_symbol → Currency.symbol
+- `CompanyShare` — symbol; FK: currency_symbol → Currency.symbol, exchange_name → Exchange
+- `Model` — name (backtest model / algorithm)
+- `Universe` — name, creation_date, description
+- `BacktestFactor` — name, group, and optional subgroup/frequency/data_type/source/definition
+
+**FK resolution**: Name lookups (`get_by_name`) are used for all FK columns. Symbol lookups query `model_class.symbol` directly for Currency and CompanyShare.
+
+**Adding a new entity type**:
+1. Add a new key to `ENTITY_SCHEMAS` in `entity_upload_service.py` with `columns`, `required`, `example_row`, and `description`.
+2. Add a corresponding handler `_handle_<type>(row)` inside `_build_handlers()`.
+3. Add the handler to the returned dict in `_build_handlers()`.
+No controller or template changes needed.
+
 ### 1. Comprehensive Trading Dashboard Hub (`/dashboard`)
 - **7-View Navigation System**: Algorithm Management, Portfolio Overview, Database Explorer, Entity Management, Order History, Backtest Results
 - **Interactive Parameter Controls**: Sliders, dropdowns, and form inputs for algorithm configuration

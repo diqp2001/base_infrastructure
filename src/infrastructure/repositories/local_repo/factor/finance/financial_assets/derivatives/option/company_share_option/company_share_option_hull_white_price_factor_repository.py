@@ -5,8 +5,8 @@ Repository class for Company Share Option Hull White Price factor entities.
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.company_share_option_hull_white_price_factor_port import CompanyShareOptionHullWhitePriceFactorPort
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor_mapper import CompanyShareOptionHullWhitePriceFactorMapper
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor_port import CompanyShareOptionHullWhitePriceFactorPort
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor_mapper import CompanyShareOptionHullWhitePriceFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ......base_factor_repository import BaseFactorRepository
 
@@ -22,6 +22,15 @@ class CompanyShareOptionHullWhitePriceFactorRepository(BaseFactorRepository, Com
     @property
     def entity_class(self):
         return self.get_factor_entity()
+
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
 
     def get_factor_model(self):
         return self.mapper.get_factor_model()

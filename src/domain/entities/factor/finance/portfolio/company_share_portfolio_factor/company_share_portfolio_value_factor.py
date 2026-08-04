@@ -2,9 +2,7 @@ from __future__ import annotations
 from typing import Optional, List
 from decimal import Decimal
 
-from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor
-from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
 
 
 class CompanySharePortfolioValueFactor(CompanySharePortfolioFactor):
@@ -20,12 +18,13 @@ class CompanySharePortfolioValueFactor(CompanySharePortfolioFactor):
 
     def __init__(
         self,
-        name: str = "Portfolio Company Share Value",
-        group: str = "portfolio",
+        name: str = "Company Share Portfolio Value",
+        group: str = "value",
         subgroup: Optional[str] = "value",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of all company share holdings in portfolio",
+        frequency: Optional[str] = '1d',
         factor_id: Optional[int] = None,
     ):
         super().__init__(
@@ -35,19 +34,23 @@ class CompanySharePortfolioValueFactor(CompanySharePortfolioFactor):
             data_type=data_type,
             source=source,
             definition=definition,
+            frequency=frequency,
             factor_id=factor_id,
         )
 
-    def calculate(self, holdings_values: List[FactorValue]) -> Decimal:
-        """
-        Calculate the total portfolio value by summing the values of all holdings. factor values of factor CompanySharePortfolioHoldingValueFactor
-        """
-        
-            
-        total_value = Decimal('0')
-        
-        for holding_value in holdings_values:
-            
-            total_value += holding_value
-            
-        return total_value
+    def calculate(self, dependencies: dict) -> Decimal:
+        try:
+            total_value = Decimal('0.0')
+            for dependency_value in dependencies.values():
+                if isinstance(dependency_value, (int, float, Decimal)):
+                    total_value += Decimal(str(dependency_value))
+                elif hasattr(dependency_value, 'value'):
+                    total_value += Decimal(str(dependency_value.value))
+            return total_value
+        except Exception as e:
+            print(f"Error calculating company share portfolio value: {e}")
+            return Decimal('0.0')
+
+    @property
+    def calculate_dependencies(self) -> List[str]:
+        return ['CompanySharePortfolioHoldingValueFactor']

@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Company Share Option Gamma Factor Repository - Retrieval and creation of company share option gamma factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor import CompanyShareOptionGammaFactor
-from src.domain.ports.factor.company_share_option_gamma_factor_port import CompanyShareOptionGammaFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor_port import CompanyShareOptionGammaFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

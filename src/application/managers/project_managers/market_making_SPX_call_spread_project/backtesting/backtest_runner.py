@@ -281,7 +281,7 @@ class BacktestRunner:
                     self.logger.info("✅ EntityService injected into algorithm from ModelTrainer")
                 else:
                     self.logger.warning("⚠️ EntityService not found in ModelTrainer's data loader")
-                self.logger.info("✅ Spatiotemporal trainer injected into algorithm")
+                self.logger.info("✅ Trainer injected into algorithm")
             else:
                 self.logger.warning("⚠️ Model trainer is None")
             

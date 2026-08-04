@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Index Future Price Return Factor Repository - Retrieval and creation of index future price return factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor import IndexFuturePriceReturnFactor
-from src.domain.ports.factor.index_future_price_return_factor_port import IndexFuturePriceReturnFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor_port import IndexFuturePriceReturnFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

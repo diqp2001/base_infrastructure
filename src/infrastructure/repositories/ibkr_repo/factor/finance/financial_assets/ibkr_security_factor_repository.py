@@ -8,7 +8,7 @@ applying IBKR-specific business rules before delegating persistence to local rep
 from typing import Optional, List, Dict, Any
 from datetime import date
 
-from src.domain.ports.factor.security_factor_port import SecurityFactorPort
+from src.domain.ports.factor.finance.financial_assets.security_factor_port import SecurityFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.finance.financial_assets.security_factor import SecurityFactor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickFactorMapper, IBKRTickType
@@ -264,3 +264,8 @@ class IBKRSecurityFactorRepository(BaseIBKRFactorRepository, SecurityFactorPort)
         except Exception as e:
             print(f"Error extracting security factor value: {e}")
             return None
+
+    def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
+        if self.local_repo:
+            return self.local_repo._create_or_get(entity_cls, primary_key, **kwargs)
+        return None

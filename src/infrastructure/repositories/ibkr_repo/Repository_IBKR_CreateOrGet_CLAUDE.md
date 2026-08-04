@@ -949,3 +949,28 @@ class TestIBKRRepository(unittest.TestCase):
 ```
 
 The IBKR repository pattern extends the local `_create_or_get` pattern with real-time market data integration, contract validation, and comprehensive error handling while maintaining compatibility with the local repository infrastructure.
+
+---
+
+## Confirmed Contract Construction Rules (production-verified)
+
+### Option contracts — exchange must be "SMART"
+
+**Applies to**: `IBKRCompanyShareOptionRepository._fetch_contract` (and any future option repo).
+
+American equity options must be requested with `exchange = "SMART"` (IBKR smart routing),
+**not** `"CBOE"` or any specific exchange. This mirrors exactly how American stock contracts
+are constructed (`contract.exchange = "SMART"`).
+
+```python
+contract.secType = "OPT"
+contract.exchange = "SMART"   # ← correct for all American equity options
+```
+
+This has been **confirmed working in production since at least 3 months before 2026-08-03**.
+Do not change the exchange to `"CBOE"`, `"ISE"`, or any other specific venue — IBKR smart
+routing selects the best venue automatically and returning contract details fails without it.
+
+The example in the "Option Contract Handling" section above shows
+`'exchange': kwargs.get('exchange', 'CBOE')` — that default is **incorrect** for company
+share options. Always hardcode `"SMART"` for `secType = "OPT"` on American underlyings.

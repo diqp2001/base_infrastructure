@@ -1,11 +1,11 @@
-"""
+﻿"""
 IBKR repository for CompanyShareValueFactor — delegates to local repo.
 """
 
 from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
-from src.domain.ports.factor.company_share_value_factor_port import CompanyShareValueFactorPort
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor_port import CompanyShareValueFactorPort
 
 
 class IBKRCompanyShareValueFactorRepository(CompanyShareValueFactorPort):

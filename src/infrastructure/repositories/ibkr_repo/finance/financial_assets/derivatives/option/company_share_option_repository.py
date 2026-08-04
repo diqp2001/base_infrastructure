@@ -156,7 +156,7 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             underlying_symbol = kwargs.get('underlying_symbol', symbol.split(' ')[0] if ' ' in symbol else symbol)
             contract.symbol = underlying_symbol
             contract.secType = "OPT"
-            contract.exchange = "CBOE" #kwargs.get('exchange', "SMART")  # IBKR smart routing
+            contract.exchange = "SMART" #kwargs.get('exchange', "SMART")  # IBKR smart routing #or CBOE for options
             contract.currency = kwargs.get('currency', "USD")
             contract.includeExpired = kwargs.get('include_expired', True)
             

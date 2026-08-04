@@ -1,8 +1,8 @@
-import math
+﻿import math
 import random
 from typing import List, Optional
 
-from domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
 
 class OptionPriceFactor(OptionFactor):
     """Price factor associated with a company share option."""
@@ -99,7 +99,7 @@ class OptionPriceFactor(OptionFactor):
     ) -> Optional[float]:
         """
         Calculate option price using finite difference method (explicit) from Black-Scholes PDE:
-        ∂V/∂t + 0.5*sigma^2*S^2*∂²V/∂S² + r*S*∂V/∂S - r*V = 0
+        âˆ‚V/âˆ‚t + 0.5*sigma^2*S^2*âˆ‚Â²V/âˆ‚SÂ² + r*S*âˆ‚V/âˆ‚S - r*V = 0
         """
         if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
             return None

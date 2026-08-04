@@ -1,6 +1,6 @@
-from datetime import date
+﻿from datetime import date
 from typing import Optional
-from domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.index.index import Index
 
 
 class Vix(Index):

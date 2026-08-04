@@ -12,7 +12,7 @@ class CurrencyPortfolioValueFactor(PortfolioFactor):
         self,
         name: str = "Currency Portfolio Value",
         group: str = "value",
-        subgroup: Optional[str] = "portfolio",
+        subgroup: Optional[str] = "value",
         frequency: Optional[str] = None,
         data_type: Optional[str] = None,
         source: Optional[str] = None,

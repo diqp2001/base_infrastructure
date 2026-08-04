@@ -9,7 +9,7 @@ from src.infrastructure.repositories.mappers.factor.factor_value_mapper import F
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
 from src.domain.entities.factor.finance.transaction.company_share_transaction_value_factor import CompanyShareTransactionValueFactor
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from src.domain.ports.factor.company_share_transaction_value_factor_port import CompanyShareTransactionValueFactorPort
+from src.domain.ports.factor.finance.transaction.company_share_transaction_value_factor_port import CompanyShareTransactionValueFactorPort
 
 
 class CompanyShareTransactionValueFactorRepository(BaseFactorRepository, CompanyShareTransactionValueFactorPort):
@@ -140,6 +140,15 @@ class CompanyShareTransactionValueFactorRepository(BaseFactorRepository, Company
             .one_or_none())
         return entity
     
+
+    def get_by_name(self, name: str):
+        orm = (
+            self.session.query(self.model_class)
+            .filter(self.model_class.name == name)
+            .first()
+        )
+        return self._to_entity(orm) if orm else None
+
     def get_factor_model(self):
         return self.mapper.get_factor_model()
     

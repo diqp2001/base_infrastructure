@@ -1,7 +1,7 @@
-from typing import Optional, List
+﻿from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor import CompanyShareMonthlyPriceRangeFactor
-from src.domain.ports.factor.company_share_monthly_price_range_factor_port import CompanyShareMonthlyPriceRangeFactorPort
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor_port import CompanyShareMonthlyPriceRangeFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

@@ -1,11 +1,11 @@
-"""
+﻿"""
 Repository class for Company Share Option factor entities.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
 from src.domain.entities.factor.factor_dependency import FactorDependency
-from infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor_mapper import CompanyShareOptionFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor_mapper import CompanyShareOptionFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ......base_factor_repository import BaseFactorRepository
 
@@ -69,7 +69,7 @@ class CompanyShareOptionFactorRepository(BaseFactorRepository):
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
+                group=kwargs.get('group', 'price'),
                 subgroup=kwargs.get('subgroup', 'option'),
                 factor_type=kwargs.get('factor_type', 'company_share_option_factor'),
                 data_type=kwargs.get('data_type', 'numeric'),
@@ -80,7 +80,7 @@ class CompanyShareOptionFactorRepository(BaseFactorRepository):
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
+                group=kwargs.get('group', 'price'),
                 subgroup=kwargs.get('subgroup', 'option'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),

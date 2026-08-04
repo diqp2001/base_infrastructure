@@ -1,8 +1,9 @@
-"""
+﻿"""
 Financial Asset Service - handles creation and management of financial asset entities.
 Provides a service layer for creating financial asset domain entities like Company, CompanyShare, Currency, etc.
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 from decimal import Decimal
 from datetime import date, datetime
@@ -10,6 +11,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -20,7 +23,7 @@ from sqlalchemy.orm import Session
 
 
 from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
-from infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.application.services.database_service.database_service import DatabaseService
 
 from src.domain.entities.finance.financial_assets.index.index import Index
@@ -282,7 +285,23 @@ class EntityService:
             
             for entity_data in entities_data:
                 try:
-                    entity = repository._create_or_get(entity_cls, **entity_data)
+                    data = dict(entity_data)
+                    # _create_or_get expects (entity_cls, primary_key, **kwargs).
+                    # Callers may pass the name as 'primary_key', 'entity_symbol', or 'name'.
+                    primary_key = (
+                        data.pop('primary_key', None)
+                        or data.pop('entity_symbol', None)
+                        or data.pop('name', None)
+                    )
+                    # Remove keys that would collide with positional args already passed.
+                    # Factor library configs store the class under 'class' or 'entity_cls';
+                    # either key in **data would duplicate the positional entity_cls arg.
+                    data.pop('entity_cls', None)
+                    data.pop('class', None)
+                    if primary_key:
+                        entity = repository._create_or_get(entity_cls, primary_key, **data)
+                    else:
+                        entity = repository._create_or_get(entity_cls, **data)
                     if entity:
                         results.append(entity)
                 except Exception as e:
@@ -316,8 +335,7 @@ class EntityService:
             ibkr_repository = self.get_ibkr_repository(entity_cls)
             
             if not ibkr_repository:
-                print(f"No IBKR repository available for {entity_cls.__name__}")
-                # Fallback to local batch operation
+                logger.debug("No IBKR repository for %s — falling back to local", entity_cls.__name__)
                 return self.create_or_get_batch_local(entities_data, entity_cls)
             
             # Check if repository supports optimized batch operations
@@ -368,7 +386,7 @@ class EntityService:
             ibkr_repository = self.get_ibkr_repository(entity_cls)
             
             if not ibkr_repository:
-                print(f"No IBKR repository available for {entity_cls.__name__}")
+                logger.debug("No IBKR repository for %s — skipping IBKR create", entity_cls.__name__)
                 return None
 
             # Special handling for IndexFutureOption which requires option parameters
@@ -425,7 +443,7 @@ class EntityService:
             ibkr_repository = self.get_ibkr_repository(entity_cls)
             
             if not ibkr_repository:
-                print(f"No IBKR repository available for {entity_cls.__name__}")
+                logger.debug("No IBKR repository for %s — skipping contract fetch", entity_cls.__name__)
                 return None
 
             # Get entity information from IBKR API

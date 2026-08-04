@@ -1,9 +1,9 @@
-"""
+﻿"""
 Repository class for FinancialAsset factor entities.
 """
 
 from sqlalchemy.orm import Session
-from infrastructure.repositories.mappers.financial_asset_factor_mapper import FinancialAssetFactorMapper
+from src.infrastructure.repositories.mappers.financial_asset_factor_mapper import FinancialAssetFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ...base_factor_repository import BaseFactorRepository
 
@@ -61,7 +61,7 @@ class FinancialAssetFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'financial_asset'),
                 subgroup=kwargs.get('subgroup', 'general'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Financial asset factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'financial_asset')
             )

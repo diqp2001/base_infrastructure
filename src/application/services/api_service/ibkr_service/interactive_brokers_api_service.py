@@ -1,4 +1,4 @@
-"""
+﻿"""
 DEPRECATED: This InteractiveBrokersApiService is deprecated.
 Use src.application.services.misbuffet.brokers.interactive_brokers_broker.InteractiveBrokersBroker instead.
 
@@ -15,7 +15,7 @@ import warnings
 from ibapi.contract import Contract
 from ibapi.order import Order
 
-from application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
+from src.application.services.misbuffet.brokers.broker_factory import create_interactive_brokers_broker
 
 
 

@@ -1,7 +1,7 @@
-from datetime import date
+﻿from datetime import date
 from typing import Optional
 
-from domain.entities.finance.financial_assets.share.share import Share
+from src.domain.entities.finance.financial_assets.share.share import Share
 
 
 class CompanyShare(Share):

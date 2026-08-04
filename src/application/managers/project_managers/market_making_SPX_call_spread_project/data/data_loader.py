@@ -1,4 +1,4 @@
-"""
+﻿"""
 SPX Data Loader for Market Making Call Spread Project
 
 This module handles loading SPX index data and option chain data from the database
@@ -12,9 +12,9 @@ from typing import Dict, List, NamedTuple, Optional, Any, Tuple
 from pathlib import Path
 
 
-from application.services.data.entities.factor.factor_service import FactorService
-from application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
-from application.services.misbuffet.data.market_data_service import MarketDataService
+from src.application.services.data.entities.factor.factor_service import FactorService
+from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
+from src.application.services.misbuffet.data.market_data_service import MarketDataService
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.domain.entities.finance.financial_assets.index.index import Index
 from src.application.services.database_service.database_service import DatabaseService
@@ -97,7 +97,7 @@ class DataLoader:
                 'timestamp': datetime.now().isoformat(),
             }
             
-            self.logger.info("✅ Retrieved SPX option chain data")
+            self.logger.info("âœ… Retrieved SPX option chain data")
             return result
             
         except Exception as e:

@@ -20,6 +20,8 @@ import logging
 import io
 import base64
 import numpy as np
+from sqlalchemy import create_engine, text, inspect as sa_inspect
+from src.infrastructure.database.settings import DATABASES
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +48,30 @@ class PowerBuffetService:
             "Security Price Comparison": self._plot_security_price_comparison
         }
     
+    _SQL_SERVER_PATH = "sql_server"
+
+    def _get_sql_server_engine(self):
+        """Return a SQLAlchemy engine for the base_infra SQL Server."""
+        url = DATABASES.get('sql_server')
+        if url is None:
+            raise RuntimeError("sql_server not configured in settings.DATABASES")
+        return create_engine(url)
+
     def get_available_databases(self) -> List[Dict[str, str]]:
         """Get list of available database connections"""
         databases = []
-        
+
+        # Always surface the base_infra SQL Server first
+        databases.append({
+            "name": "base_infra (SQL Server)",
+            "type": "SQLServer",
+            "path": self._SQL_SERVER_PATH,
+            "connection_string": "mssql+pyodbc (localhost\\base_infra)",
+        })
+
         # Check for SQLite databases in the project
         sqlite_files = list(self.project_root.rglob("*.db")) + list(self.project_root.rglob("*.sqlite"))
-        
+
         for db_file in sqlite_files:
             databases.append({
                 "name": db_file.name,
@@ -85,8 +104,37 @@ class PowerBuffetService:
     def get_database_tables(self, database_path: str) -> List[Dict[str, Any]]:
         """Get tables from the selected database with section organization"""
         tables = []
-        
+
         try:
+            if database_path == self._SQL_SERVER_PATH:
+                engine = self._get_sql_server_engine()
+                inspector = sa_inspect(engine)
+                for table_name in inspector.get_table_names():
+                    cols = inspector.get_columns(table_name)
+                    section = self._categorize_table(table_name)
+                    with engine.connect() as conn:
+                        row_count = conn.execute(
+                            text(f"SELECT COUNT(*) FROM [{table_name}]")
+                        ).scalar()
+                        preview_rows = conn.execute(
+                            text(f"SELECT TOP 10 * FROM [{table_name}]")
+                        ).fetchall()
+                    column_names = [c["name"] for c in cols]
+                    cleaned_preview = [
+                        [None if v is None else v for v in row]
+                        for row in preview_rows
+                    ]
+                    tables.append({
+                        "name": table_name,
+                        "section": section,
+                        "columns": [{"name": c["name"], "type": str(c["type"])} for c in cols],
+                        "row_count": row_count,
+                        "preview_data": cleaned_preview,
+                        "column_names": column_names,
+                    })
+                engine.dispose()
+                return tables
+
             if database_path.endswith(('.db', '.sqlite')):
                 conn = sqlite3.connect(database_path)
                 cursor = conn.cursor()
@@ -142,16 +190,12 @@ class PowerBuffetService:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
                     full_df = pd.read_csv(csv_file)
-                    # Clean NaN values to prevent fillna() issues
-                    full_df = full_df.fillna(value=None)
                     row_count = len(full_df)
-                    
+
                     # Get preview data (first 10 rows)
-                    preview_df = full_df.head(10)
-                    # Replace NaN values with None for JSON serialization
-                    preview_df = preview_df.fillna(None)
+                    preview_df = full_df.head(10).where(pd.notnull(full_df.head(10)), other=None)
                     preview_data = [list(row) for row in preview_df.values]
-                    
+
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
                     section = "Stock Data"
                     
@@ -174,16 +218,12 @@ class PowerBuffetService:
                     # Read first few rows to get column info
                     df = pd.read_csv(csv_file, nrows=5)
                     full_df = pd.read_csv(csv_file)
-                    # Clean NaN values to prevent fillna() issues
-                    full_df = full_df.fillna(value=None)
                     row_count = len(full_df)
-                    
+
                     # Get preview data (first 10 rows)
-                    preview_df = full_df.head(10)
-                    # Replace NaN values with None for JSON serialization
-                    preview_df = preview_df.fillna(None)
+                    preview_df = full_df.head(10).where(pd.notnull(full_df.head(10)), other=None)
                     preview_data = [list(row) for row in preview_df.values]
-                    
+
                     columns = [{"name": col, "type": str(df[col].dtype)} for col in df.columns]
                     section = "FX Data"
                     
@@ -229,6 +269,23 @@ class PowerBuffetService:
     def get_table_preview(self, database_path: str, table_name: str) -> Dict[str, Any]:
         """Get preview data for a specific table (SELECT TOP 10)"""
         try:
+            if database_path == self._SQL_SERVER_PATH:
+                engine = self._get_sql_server_engine()
+                inspector = sa_inspect(engine)
+                cols = inspector.get_columns(table_name)
+                column_names = [c["name"] for c in cols]
+                with engine.connect() as conn:
+                    rows = conn.execute(
+                        text(f"SELECT TOP 10 * FROM [{table_name}]")
+                    ).fetchall()
+                engine.dispose()
+                return {
+                    "table_name": table_name,
+                    "column_names": column_names,
+                    "data": [[None if v is None else v for v in row] for row in rows],
+                    "row_count": len(rows),
+                }
+
             if database_path.endswith(('.db', '.sqlite')):
                 conn = sqlite3.connect(database_path)
                 cursor = conn.cursor()
@@ -258,12 +315,8 @@ class PowerBuffetService:
                 
                 if csv_file.exists():
                     df = pd.read_csv(csv_file)
-                    # Clean NaN values to prevent fillna() issues
-                    df = df.fillna(value=None)
-                    preview_df = df.head(10)
-                    # Replace NaN values with None for JSON serialization
-                    preview_df = preview_df.fillna(None)
-                    
+                    preview_df = df.head(10).where(pd.notnull(df.head(10)), other=None)
+
                     return {
                         "table_name": table_name,
                         "column_names": list(df.columns),
@@ -337,8 +390,6 @@ class PowerBuffetService:
             
             if csv_file.exists():
                 data = pd.read_csv(csv_file)
-                # Clean NaN values to prevent fillna() issues
-                data = data.fillna(value=None)
                 # Convert Date column to datetime if it exists
                 if 'Date' in data.columns:
                     data['Date'] = pd.to_datetime(data['Date'])
@@ -346,8 +397,14 @@ class PowerBuffetService:
                 return data.head(limit)
             else:
                 raise FileNotFoundError(f"CSV file {csv_file} not found")
+        elif database_path == self._SQL_SERVER_PATH:
+            engine = self._get_sql_server_engine()
+            with engine.connect() as conn:
+                query = text(f"SELECT TOP {limit} * FROM [{table_name}]")
+                data = pd.read_sql_query(query, conn)
+            return data
         else:
-            raise NotImplementedError("Only SQLite databases and CSV files are currently supported")
+            raise NotImplementedError(f"Unsupported database path: {database_path}")
     
     def _create_plot_base64(self, fig) -> str:
         """Convert matplotlib figure to base64 string"""
@@ -615,7 +672,86 @@ class PowerBuffetService:
         except Exception as e:
             return {"error": f"Error generating security price comparison: {str(e)}"}
     
-    def run_custom_visualization(self, chart_type: str, x_columns: List[Dict], 
+    def run_sql_visualization(
+        self,
+        query: str,
+        database_path: str,
+        chart_type: str,
+        x_cols: List[str],
+        y_cols: List[str],
+    ) -> Dict[str, Any]:
+        """Execute a user-provided SQL query and chart the result using the named columns."""
+        try:
+            if database_path.endswith(('.db', '.sqlite')):
+                conn = sqlite3.connect(database_path)
+                df = pd.read_sql_query(query, conn)
+                conn.close()
+            elif "stock_data" in database_path or "fx_data" in database_path:
+                conn = sqlite3.connect(':memory:')
+                data_dir = Path(database_path)
+                for csv_file in data_dir.glob("*.csv"):
+                    try:
+                        df_csv = pd.read_csv(csv_file)
+                        df_csv.to_sql(csv_file.stem.lower(), conn, if_exists='replace', index=False)
+                    except Exception:
+                        pass
+                df = pd.read_sql_query(query, conn)
+                conn.close()
+            elif database_path == self._SQL_SERVER_PATH:
+                engine = self._get_sql_server_engine()
+                with engine.connect() as conn:
+                    df = pd.read_sql_query(text(query), conn)
+            else:
+                return {"success": False, "error": f"Unsupported database path: {database_path}"}
+
+            if df.empty:
+                return {"success": False, "error": "Query returned no rows"}
+
+            # Fall back to first/remaining columns if caller names are missing from result
+            result_cols = list(df.columns)
+            effective_x = [c for c in x_cols if c in result_cols] or result_cols[:1]
+            effective_y = [c for c in y_cols if c in result_cols] or result_cols[1:]
+
+            fig, ax = plt.subplots(figsize=(14, 8))
+            if chart_type == 'scatter':
+                r = self._create_scatter_plot(ax, df, effective_x, effective_y)
+            elif chart_type == 'line':
+                r = self._create_line_plot(ax, df, effective_x, effective_y)
+            elif chart_type == 'bar':
+                r = self._create_bar_plot(ax, df, effective_x, effective_y)
+            elif chart_type == 'histogram':
+                r = self._create_histogram_plot(ax, df, effective_x, effective_y)
+            elif chart_type == 'correlation':
+                r = self._create_correlation_plot(ax, df, effective_x, effective_y)
+            else:
+                return {"success": False, "error": f"Unsupported chart type: {chart_type}"}
+
+            if 'error' in r:
+                plt.close(fig)
+                return {"success": False, "error": r['error']}
+
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plot_image = self._create_plot_base64(fig)
+            stats = self._calculate_multi_column_stats(df, effective_x, effective_y)
+
+            return {
+                "success": True,
+                "visualization": {
+                    "plot_image": plot_image,
+                    "summary_stats": stats,
+                    "chart_info": {"type": chart_type, "rows": len(df)},
+                },
+                "metadata": {
+                    "row_count": len(df),
+                    "result_columns": result_cols,
+                },
+            }
+        except Exception as e:
+            logger.error(f"Error running SQL visualization: {e}")
+            return {"success": False, "error": str(e)}
+
+    def run_custom_visualization(self, chart_type: str, x_columns: List[Dict],
                                 y_columns: List[Dict], params: Optional[Dict] = None) -> Dict[str, Any]:
         """Execute custom multi-column visualization and return the result"""
         try:
@@ -963,7 +1099,9 @@ class PowerBuffetService:
                     }
             
             # If specific database provided, use it; otherwise, try to determine from query
-            if database_path and database_path.endswith(('.db', '.sqlite')):
+            if database_path == self._SQL_SERVER_PATH:
+                result = self._execute_sql_server_query(query)
+            elif database_path and database_path.endswith(('.db', '.sqlite')):
                 result = self._execute_sqlite_query(query, database_path)
             elif database_path and ("stock_data" in database_path or "fx_data" in database_path):
                 result = self._execute_csv_query(query, database_path)
@@ -980,6 +1118,26 @@ class PowerBuffetService:
                 "error": f"Query execution error: {str(e)}"
             }
     
+    def _execute_sql_server_query(self, query: str) -> Dict[str, Any]:
+        """Execute a SELECT query against the base_infra SQL Server."""
+        try:
+            engine = self._get_sql_server_engine()
+            df = pd.read_sql_query(query, engine)
+            engine.dispose()
+            df_cleaned = df.where(pd.notnull(df), None)
+            return {
+                "success": True,
+                "data": df_cleaned.to_dict('records'),
+                "columns": [{"name": col, "type": str(df[col].dtype)} for col in df.columns],
+                "column_names": list(df.columns),
+                "row_count": len(df),
+                "query": query,
+                "source_type": "SQLServer",
+                "source_path": self._SQL_SERVER_PATH,
+            }
+        except Exception as e:
+            return {"success": False, "error": f"SQL Server query error: {str(e)}"}
+
     def _execute_sqlite_query(self, query: str, database_path: str) -> Dict[str, Any]:
         """Execute query against SQLite database"""
         try:
@@ -988,10 +1146,7 @@ class PowerBuffetService:
             # Execute query with pandas for better handling
             df = pd.read_sql_query(query, conn)
             conn.close()
-            
-            # Clean data for JSON serialization
-            df_cleaned = df.fillna(None)
-            
+            df_cleaned = df.where(pd.notnull(df), other=None)
             return {
                 "success": True,
                 "data": df_cleaned.to_dict('records'),
@@ -1023,8 +1178,6 @@ class PowerBuffetService:
             for csv_file in csv_files:
                 try:
                     df = pd.read_csv(csv_file)
-                    # Clean NaN values before loading to SQLite to prevent fillna() issues
-                    df = df.fillna(value=None)
                     table_name = csv_file.stem.lower()  # Use lowercase table name
                     df.to_sql(table_name, conn, if_exists='replace', index=False)
                     table_info[table_name] = {
@@ -1038,10 +1191,7 @@ class PowerBuffetService:
             # Execute the query
             df = pd.read_sql_query(query, conn)
             conn.close()
-            
-            # Clean data for JSON serialization
-            df_cleaned = df.fillna(None)
-            
+            df_cleaned = df.where(pd.notnull(df), other=None)
             return {
                 "success": True,
                 "data": df_cleaned.to_dict('records'),

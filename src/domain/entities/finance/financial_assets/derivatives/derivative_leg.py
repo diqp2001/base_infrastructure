@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from typing import Optional
 from decimal import Decimal
 
-from domain.entities.finance.financial_assets.derivatives.derivative import Derivative
+from src.domain.entities.finance.financial_assets.derivatives.derivative import Derivative
 
 
 class DerivativeLeg:

@@ -1,4 +1,4 @@
-"""
+﻿"""
 src/infrastructure/repositories/local_repo/factor/finance/financial_assets/company_share_mid_price_factor_repository.py
 
 Local repository for CompanyShareMidPriceFactor operations.
@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
-from src.domain.ports.factor.company_share_mid_price_factor_port import CompanyShareMidPriceFactorPort
-from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_mapper import CompanyShareMidPriceFactorMapper
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor_port import CompanyShareMidPriceFactorPort
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_mapper import CompanyShareMidPriceFactorMapper
 
 
 class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
@@ -22,15 +22,22 @@ class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
 
     @property
     def entity_class(self):
-        return self.mapper.get_entity()
+        return self.mapper.get_factor_entity()
+
+    def get_factor_entity(self):
+        return self.mapper.get_factor_entity()
+
+    def get_factor_model(self):
+        return self.mapper.get_factor_model()
 
     @property
     def model_class(self):
         return self.mapper.model_class
 
-    def _create_or_get(self, name: str, **kwargs) -> Optional[CompanyShareMidPriceFactor]:
+    def _create_or_get(self, entity_cls, primary_key: str = None, **kwargs) -> Optional[CompanyShareMidPriceFactor]:
         """Create new factor or get existing one."""
         try:
+            name = primary_key or kwargs.get("name", "company_share_mid_price")
             existing = self.get_by_name(name)
             if existing:
                 return existing
@@ -41,10 +48,8 @@ class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
                 subgroup=kwargs.get("subgroup", "mid_price_true"),
                 frequency=kwargs.get("frequency"),
                 data_type=kwargs.get("data_type", "decimal"),
-                source=kwargs.get("source", "multiple"),
+                source=kwargs.get("source", "calculated"),
                 definition=kwargs.get("definition", "True mid price calculated from multiple data sources with outlier filtering"),
-                outlier_threshold=kwargs.get("outlier_threshold", 2.0),
-                min_sources=kwargs.get("min_sources", 2),
             )
 
             orm_obj = self.mapper.to_orm(entity)

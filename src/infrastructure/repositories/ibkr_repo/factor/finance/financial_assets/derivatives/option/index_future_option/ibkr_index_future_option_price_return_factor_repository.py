@@ -4,7 +4,7 @@ IBKR Index Future Option Price Return Factor Repository - Retrieval and creation
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_price_return_factor import IndexFutureOptionPriceReturnFactor
-from src.domain.ports.factor.index_future_option_price_return_factor_port import IndexFutureOptionPriceReturnFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.index_future_option_price_return_factor_port import IndexFutureOptionPriceReturnFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 
@@ -319,3 +319,8 @@ class IBKRIndexFutureOptionPriceReturnFactorRepository(BaseIBKRFactorRepository,
     def delete(self, factor_id: int) -> bool:
         """Delete factor entity (delegates to local repo)."""
         return self.local_repo.delete(factor_id) if self.local_repo else False
+
+    def get_by_subgroup(self, subgroup: str):
+        if self.local_repo and hasattr(self.local_repo, 'get_by_subgroup'):
+            return self.local_repo.get_by_subgroup(subgroup)
+        return []

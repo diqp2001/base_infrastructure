@@ -1,4 +1,4 @@
-"""
+﻿"""
 Model training pipeline for spatiotemporal models.
 
 Coordinates the training of TFT and MLP models with factor-enhanced data,
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from application.managers.project_managers.market_making_SPX_call_spread_project.models.pricing_model import PricingModel
+from src.application.managers.project_managers.market_making_SPX_call_spread_project.models.pricing_model import PricingModel
 from src.domain.entities.factor.factor import Factor
 from src.dto.factor.factor_batch import FactorBatch
 
@@ -62,7 +62,7 @@ class ModelTrainer:
         Returns:
             Complete training results
         """
-        print("🚀 Starting complete  training pipeline...")
+        print("ðŸš€ Starting complete  training pipeline...")
         
         # if tickers is None:
         #     tickers = DEFAULT_CONFIG['DATA']['DEFAULT_UNIVERSE']
@@ -73,24 +73,24 @@ class ModelTrainer:
         bar_size_setting = data.bar_size_setting
         duration_str = data.duration_str
         # Step 1: Prepare factor data (store in database, don't create tensors)
-        print("\n📊 Step 1: Preparing factor-enhanced data...")
+        print("\nðŸ“Š Step 1: Preparing factor-enhanced data...")
         factor_data = self._prepare_factor_data(date,bar_size_setting,duration_str)
         
         # Step 2: NEW - Apply comprehensive normalization and factor enhancement
-        print("\n🔧 Step 2: Normalizing and enhancing factors...")
+        print("\nðŸ”§ Step 2: Normalizing and enhancing factors...")
         #normalized_factor_data = self._normalize_and_enhance_factors()
         
         # Step 3: Create training tensors (separate step as requested)
-        print("\n🔧 Step 3: Creating training tensors...")
+        print("\nðŸ”§ Step 3: Creating training tensors...")
         #tensor_data = self._create_training_tensors(normalized_factor_data, model_type)
         
         # Step 4: Train models
-        print("\n🚀 Step 4: Training spatiotemporal models...")
+        print("\nðŸš€ Step 4: Training spatiotemporal models...")
         #  and not hasattr(self, '_model_trained')
         #training_results = self._train_models(normalized_factor_data, model_type)
         
         # Step 5: Evaluate performance
-        print("\n📈 Step 5: Evaluating model performance...")
+        print("\nðŸ“ˆ Step 5: Evaluating model performance...")
         #performance_summary = self._evaluate_model_performance(training_results)
         
         # Compile final results
@@ -105,10 +105,10 @@ class ModelTrainer:
             'factors_stored_in_database': True  # Indicating database-driven approach
         }
         
-        print(f"\n✅ Complete training pipeline finished!")
-        print(f"   📊 Processed {len(tickers)} tickers")
-        print(f"   🧠 Trained {len(seeds)} model ensembles")
-        #print(f"   📈 Overall performance: {performance_summary.get('overall_score', 'N/A')}")
+        print(f"\nâœ… Complete training pipeline finished!")
+        print(f"   ðŸ“Š Processed {len(tickers)} tickers")
+        print(f"   ðŸ§  Trained {len(seeds)} model ensembles")
+        #print(f"   ðŸ“ˆ Overall performance: {performance_summary.get('overall_score', 'N/A')}")
         
         return final_results
     
@@ -145,17 +145,17 @@ class ModelTrainer:
                 factor_results = self.create_factors(factors_config)
                 results['config_factors_created'] = factor_results['factors_created']
                 results['config_factor_details'] = factor_results['factor_details']
-                print(f"    🔗 Created {factor_results['factors_created']} factors from config")
+                print(f"    ðŸ”— Created {factor_results['factors_created']} factors from config")
             
             
             
-            print(f"✅ Factor population complete: {results['factors_created']} batch factors created in {len(results['factor_batches'])} batches, {results.get('config_factors_created', 0)} config factors created, {results['factors_skipped']} skipped")
+            print(f"âœ… Factor population complete: {results['factors_created']} batch factors created in {len(results['factor_batches'])} batches, {results.get('config_factors_created', 0)} config factors created, {results['factors_skipped']} skipped")
             return results
             
         except Exception as e:
             error_msg = f"Error in populate_factors: {str(e)}"
             results['errors'].append(error_msg)
-            print(f"❌ {error_msg}")
+            print(f"âŒ {error_msg}")
             return results
         
         
@@ -198,8 +198,8 @@ class ModelTrainer:
                         'group': factor_config.get('group', 'unknown'),
                         'subgroup': factor_config.get('subgroup', 'default'),
                         'data_type': factor_config.get('data_type', 'numeric'),
-                        'source': 'config',
-                        
+                        'source': factor_config.get('source', 'calculated'),
+
                         'frequency': factor_config.get('frequency'),
                         'definition': factor_config.get('definition', f'Factor {factor_name} from config'),
                         'factor_index': results['factors_created'],
@@ -221,23 +221,23 @@ class ModelTrainer:
                             'subgroup': factor_config.get('subgroup', 'default'),
                             'status': 'created'
                         })
-                        print(f"    ✅ Created factor: {factor_name}")
+                        print(f"    âœ… Created factor: {factor_name}")
                     else:
                         error_msg = f"Failed to create factor {factor_name}"
                         results['errors'].append(error_msg)
-                        print(f"    ❌ {error_msg}")
+                        print(f"    âŒ {error_msg}")
                         
                 except Exception as e:
                     error_msg = f"Error creating factor {factor_name}: {str(e)}"
                     results['errors'].append(error_msg)
-                    print(f"    ❌ {error_msg}")
+                    print(f"    âŒ {error_msg}")
             
             return results
             
         except Exception as e:
             error_msg = f"Error in create_factors: {str(e)}"
             results['errors'].append(error_msg)
-            print(f"❌ {error_msg}")
+            print(f"âŒ {error_msg}")
             return results
     
     def _create_price_dependencies_for_return_factor(self, return_factor: Any, symbol: str, 
@@ -289,16 +289,16 @@ class ModelTrainer:
                         # TODO: Persist dependency using appropriate repository
                         # For now, just count it as created
                         dependencies_created += 1
-                        print(f"      🔗 Created dependency: {return_factor.name} -> {price_factor.name}")
+                        print(f"      ðŸ”— Created dependency: {return_factor.name} -> {price_factor.name}")
                     
                 except Exception as e:
-                    print(f"      ❌ Error creating dependency for {price_factor_name}: {str(e)}")
+                    print(f"      âŒ Error creating dependency for {price_factor_name}: {str(e)}")
                     continue
             
             return dependencies_created
             
         except Exception as e:
-            print(f"❌ Error in _create_price_dependencies_for_return_factor: {str(e)}")
+            print(f"âŒ Error in _create_price_dependencies_for_return_factor: {str(e)}")
             return dependencies_created
     
     def _create_factor_from_config(self, name: str, group: str, subgroup: str, 
@@ -325,7 +325,7 @@ class ModelTrainer:
                     group=group,
                     subgroup=subgroup,
                     data_type=data_type,
-                    source='config',
+                    source='calculated',
                     definition=f'Factor {name} from {group}/{subgroup} configuration'
                 )
                 return factor_entity
@@ -336,7 +336,7 @@ class ModelTrainer:
                     group=group,
                     subgroup=subgroup,
                     data_type=data_type,
-                    source='config',
+                    source='calculated',
                     definition=f'Factor {name} from {group}/{subgroup} configuration'
                 )
                 return factor_entity
@@ -355,7 +355,7 @@ class ModelTrainer:
             # Get company entity
             company = self.factor_manager.company_share_repository.get_by_ticker(ticker)
             if not company:
-                print(f"  ⚠️  Company not found for ticker: {ticker}")
+                print(f"  âš ï¸  Company not found for ticker: {ticker}")
                 return None
             company = company[0] if isinstance(company, list) else company
             
@@ -387,7 +387,7 @@ class ModelTrainer:
                         price_data[column_mapping.get(factor_name, factor_name.lower())] = df['value']
             
             if not price_data:
-                print(f"  ⚠️  No price data found in database for {ticker}")
+                print(f"  âš ï¸  No price data found in database for {ticker}")
                 return None
             
             # Combine into single DataFrame
@@ -396,7 +396,7 @@ class ModelTrainer:
             return price_df
                 
         except Exception as e:
-            print(f"  ⚠️  Error loading price data for {ticker}: {str(e)}")
+            print(f"  âš ï¸  Error loading price data for {ticker}: {str(e)}")
             return None
     
     def _prepare_factor_data(self,date,bar_size_setting,duration_str) -> Dict[str, pd.DataFrame]:
@@ -426,7 +426,7 @@ class ModelTrainer:
         
         
         
-        #print(f"✅ Factor data preparation complete: {len(factor_data)} tickers processed")
+        #print(f"âœ… Factor data preparation complete: {len(factor_data)} tickers processed")
         return factor_data
     
     def _normalize_and_enhance_factors(self, factor_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
@@ -442,7 +442,7 @@ class ModelTrainer:
         Returns:
             Dictionary of {ticker: DataFrame} with normalized and enhanced factor data
         """
-        print("🔧 Applying comprehensive factor normalization and enhancement...")
+        print("ðŸ”§ Applying comprehensive factor normalization and enhancement...")
         
         # Apply the comprehensive normalization pipeline
         enhanced_factor_data = self.factor_normalizer.apply_comprehensive_normalization(factor_data)
@@ -451,9 +451,9 @@ class ModelTrainer:
         for ticker, df in enhanced_factor_data.items():
             original_cols = len(factor_data[ticker].columns) if ticker in factor_data else 0
             new_cols = len(df.columns)
-            print(f"  ✅ {ticker}: {original_cols} → {new_cols} factors")
+            print(f"  âœ… {ticker}: {original_cols} â†’ {new_cols} factors")
         
-        print("✅ Factor normalization and enhancement complete")
+        print("âœ… Factor normalization and enhancement complete")
         return enhanced_factor_data
     
     def _create_training_tensors(self, factor_data: Dict[str, pd.DataFrame], model_type: str) -> Dict[str, Any]:
@@ -471,7 +471,7 @@ class ModelTrainer:
         
         if model_type in ['tft', 'both']:
             # Create multivariate tensors for TFT
-            print("  🔄 Creating multivariate tensors for TFT...")
+            print("  ðŸ”„ Creating multivariate tensors for TFT...")
             
             # Combine all ticker data for multivariate processing
             combined_data = self._combine_data_for_multivariate(factor_data)
@@ -489,7 +489,7 @@ class ModelTrainer:
         
         if model_type in ['mlp', 'both']:
             # Create univariate tensors for MLP
-            print("  🔄 Creating univariate tensors for MLP...")
+            print("  ðŸ”„ Creating univariate tensors for MLP...")
             
             univariate_splitter = self.tensor_splitter.create_univariate_tensors(
                 data=factor_data,
@@ -554,13 +554,13 @@ class ModelTrainer:
                         
                         if matched_name:
                             mapped_features.append(matched_name)
-                            print(f"  🔄 Mapped {expected_name} → {matched_name}")
+                            print(f"  ðŸ”„ Mapped {expected_name} â†’ {matched_name}")
                         else:
-                            print(f"  ⚠️  Could not find mapping for {expected_name}")
+                            print(f"  âš ï¸  Could not find mapping for {expected_name}")
                             # Still add expected name to let tensor creation handle the missing column
                             mapped_features.append(expected_name)
                     else:
-                        print(f"  ⚠️  Invalid MACD factor name format: {expected_name}")
+                        print(f"  âš ï¸  Invalid MACD factor name format: {expected_name}")
                         mapped_features.append(expected_name)
                 else:
                     # For non-MACD factors, try some common alternatives
@@ -587,13 +587,13 @@ class ModelTrainer:
                     
                     if matched_name:
                         mapped_features.append(matched_name)
-                        print(f"  🔄 Mapped {expected_name} → {matched_name}")
+                        print(f"  ðŸ”„ Mapped {expected_name} â†’ {matched_name}")
                     else:
-                        print(f"  ⚠️  Could not find mapping for {expected_name}")
+                        print(f"  âš ï¸  Could not find mapping for {expected_name}")
                         # Still add expected name to let tensor creation handle the missing column
                         mapped_features.append(expected_name)
         
-        print(f"  📋 Feature mapping complete: {len(mapped_features)}/{len(expected_features)} features mapped")
+        print(f"  ðŸ“‹ Feature mapping complete: {len(mapped_features)}/{len(expected_features)} features mapped")
         return mapped_features
     
     def _train_models(self, tensor_data: Dict[str, Any], model_type: str, seeds: List[int]) -> Dict[str, Any]:
@@ -606,7 +606,7 @@ class ModelTrainer:
         date_range = [pd.to_datetime(d) for d in date_range]
         
         if model_type in ['tft', 'both'] and 'multivariate' in tensor_data:
-            print("  🧠 Training TFT models...")
+            print("  ðŸ§  Training TFT models...")
             tft_results = self.model.train_rolling_window_models(
                 data_splitter=tensor_data['multivariate'],
                 date_range=date_range,
@@ -616,7 +616,7 @@ class ModelTrainer:
             training_results['tft'] = tft_results
         
         if model_type in ['mlp', 'both'] and 'univariate' in tensor_data:
-            print("  🧠 Training MLP models...")
+            print("  ðŸ§  Training MLP models...")
             mlp_results = self.model.train_rolling_window_models(
                 data_splitter=tensor_data['univariate'], 
                 date_range=date_range,
@@ -775,7 +775,7 @@ class ModelTrainer:
         with open(filepath, 'wb') as f:
             pickle.dump(results, f)
         
-        print(f"💾 Training results saved to: {filepath}")
+        print(f"ðŸ’¾ Training results saved to: {filepath}")
         return filepath
     
     def get_trained_model(self) -> PricingModel:

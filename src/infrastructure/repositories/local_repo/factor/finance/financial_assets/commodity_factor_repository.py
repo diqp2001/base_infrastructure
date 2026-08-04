@@ -52,7 +52,7 @@ class CommodityFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'commodity'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Commodity factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'CommodityFactor')
             )

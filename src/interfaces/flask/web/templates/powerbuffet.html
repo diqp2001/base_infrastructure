@@ -55,6 +55,59 @@
             margin: 15px 0;
         }
         
+        /* SQL Preview Panel */
+        .sql-preview-panel {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 16px 0 8px;
+        }
+        .sql-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .sql-preview-label {
+            color: #a6adc8;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .sql-preview-textarea {
+            width: 100%;
+            background: #181825;
+            color: #cdd6f4;
+            border: 1px solid #313244;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            padding: 10px 12px;
+            resize: vertical;
+            min-height: 80px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .sql-preview-textarea:focus {
+            border-color: #89b4fa;
+        }
+        .sql-preview-textarea.user-edited {
+            border-color: #f9e2af;
+            box-shadow: 0 0 0 2px rgba(249,226,175,0.15);
+        }
+        .sql-badge-edited {
+            display: none;
+            font-size: 0.7rem;
+            background: #f9e2af22;
+            color: #f9e2af;
+            border: 1px solid #f9e2afaa;
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-left: 8px;
+        }
+
         /* Drag and Drop Styles */
         .drag-drop-area {
             background: #f8f9fa;
@@ -321,7 +374,15 @@ LIMIT 100</textarea>
                                     </div>
                                     
                                     <!-- Database Schema -->
-                                    <h6 class="mb-2 mt-4">🗄️ Database Schema</h6>
+                                    <div class="d-flex align-items-center justify-content-between mb-2 mt-4">
+                                        <h6 class="mb-0">🗄️ Database Schema</h6>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="filterWithDataSQL" onchange="setFilterWithData(this.checked)">
+                                            <label class="form-check-label small text-muted" for="filterWithDataSQL">
+                                                Show only tables with data
+                                            </label>
+                                        </div>
+                                    </div>
                                     <div class="accordion" id="schemaAccordion">
                                         <!-- Schema will be loaded here -->
                                     </div>
@@ -336,7 +397,15 @@ LIMIT 100</textarea>
                         <!-- Available Databases and Columns -->
                         <div class="row mb-4">
                             <div class="col-12">
-                                <h6 class="mb-2">Available Data Sources & Columns</h6>
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <h6 class="mb-0">Available Data Sources & Columns</h6>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="filterWithDataDrag" onchange="setFilterWithData(this.checked)">
+                                        <label class="form-check-label small text-muted" for="filterWithDataDrag">
+                                            Show only tables with data
+                                        </label>
+                                    </div>
+                                </div>
                                 <div id="availableColumnsContainer" class="database-columns">
                                     <div class="text-muted p-3 text-center">
                                         <i>Loading data sources...</i>
@@ -382,6 +451,30 @@ LIMIT 100</textarea>
                             </div>
                         </div>
                         
+                        <!-- SQL Preview Panel -->
+                        <div class="sql-preview-panel" id="sqlPreviewPanel" style="display:none;">
+                            <div class="sql-preview-header">
+                                <span class="sql-preview-label">
+                                    🗃 Generated SQL
+                                    <span class="sql-badge-edited" id="sqlEditedBadge">edited</span>
+                                </span>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem;padding:2px 8px;" onclick="resetSqlPreview()" title="Reset to auto-generated query">↺ Reset</button>
+                                    <button class="btn btn-outline-light btn-sm" style="font-size:0.75rem;padding:2px 8px;" onclick="copySqlToClipboard()" title="Copy SQL">⧉ Copy</button>
+                                </div>
+                            </div>
+                            <textarea
+                                id="sqlPreviewTextarea"
+                                class="sql-preview-textarea"
+                                spellcheck="false"
+                                oninput="onSqlEdited()"
+                                placeholder="Drop columns above to generate a SELECT query…"
+                            ></textarea>
+                            <div class="mt-1" style="font-size:0.73rem;color:#6c7086;">
+                                Edit freely — clicking <strong style="color:#89b4fa;">Generate</strong> will run this exact SQL when it has been modified.
+                            </div>
+                        </div>
+
                         <!-- Visualization Controls -->
                         <div class="row mt-4">
                             <div class="col-md-6">
@@ -541,38 +634,64 @@ LIMIT 100</textarea>
             y: []   // Array of {database, table, column, data, stats}
         };
 
+        // Shared "show only tables with data" flag — kept in sync across both toggles
+        let filterWithData = false;
+
+        function setFilterWithData(checked) {
+            filterWithData = checked;
+            // Sync both checkboxes
+            ['filterWithDataDrag', 'filterWithDataSQL'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = checked;
+            });
+            // Re-render wherever data is already loaded
+            if (currentTables.length) populateTableSelect(currentTables);
+            if (lastDbResults) displayAvailableColumns(lastDbResults);
+            if (window.lastSchemaData) loadDatabaseSchema();
+        }
+
+        function populateTableSelect(tables) {
+            const tableSelect = document.getElementById('tableSelect');
+            if (!tableSelect) return;
+            tableSelect.innerHTML = '<option value="">Select a table...</option>';
+            const visible = filterWithData ? tables.filter(t => t.row_count > 0) : tables;
+            visible.forEach(table => {
+                const option = document.createElement('option');
+                option.value = table.name;
+                option.textContent = `${table.name} (${table.row_count} rows)`;
+                tableSelect.appendChild(option);
+            });
+            tableSelect.disabled = visible.length === 0;
+        }
+
+        let lastDbResults = null;   // stores latest drag-drop db+tables results for re-filtering
+
         function loadTables() {
             const databaseSelect = document.getElementById('databaseSelect');
             const tableSelect = document.getElementById('tableSelect');
             const visualizationSelect = document.getElementById('visualizationSelect');
             const generateBtn = document.getElementById('generateBtn');
             const tableInfoPanel = document.getElementById('tableInfoPanel');
-            
+
             // Reset dependent selectors
             tableSelect.innerHTML = '<option value="">Select a table...</option>';
             tableSelect.disabled = true;
-            visualizationSelect.disabled = true;
-            generateBtn.disabled = true;
-            tableInfoPanel.style.display = 'none';
-            
+            if (visualizationSelect) visualizationSelect.disabled = true;
+            if (generateBtn) generateBtn.disabled = true;
+            if (tableInfoPanel) tableInfoPanel.style.display = 'none';
+
             if (!databaseSelect.value) return;
-            
+
             // Show loading
             showMessage('Loading tables...', 'info');
-            
+
             fetch(`/api/powerbuffet/tables/${encodeURIComponent(databaseSelect.value)}`)
                 .then(response => response.json())
                 .then(data => {
                     hideMessages();
                     if (data.success) {
                         currentTables = data.tables;
-                        data.tables.forEach(table => {
-                            const option = document.createElement('option');
-                            option.value = table.name;
-                            option.textContent = `${table.name} (${table.row_count} rows)`;
-                            tableSelect.appendChild(option);
-                        });
-                        tableSelect.disabled = false;
+                        populateTableSelect(currentTables);
                     } else {
                         showMessage(`Error loading tables: ${data.error}`, 'error');
                     }
@@ -748,31 +867,33 @@ LIMIT 100</textarea>
             //"""Load columns from all databases"""
             const container = document.getElementById('availableColumnsContainer');
             container.innerHTML = '<div class="text-muted p-3 text-center">Loading columns...</div>';
-            
-            Promise.all(allDatabases.map(db => 
+
+            Promise.all(allDatabases.map(db =>
                 fetch(`/api/powerbuffet/tables/${encodeURIComponent(db.path)}`)
                     .then(response => response.json())
                     .then(data => ({ db, tables: data.success ? data.tables : [] }))
             ))
             .then(results => {
+                lastDbResults = results;    // cache for re-filtering without re-fetching
                 displayAvailableColumns(results);
             })
             .catch(error => {
                 container.innerHTML = `<div class="text-danger p-3">Error loading columns: ${error.message}</div>`;
             });
         }
-        
+
         function displayAvailableColumns(dbResults) {
             //"""Display all available columns in draggable format organized by sections"""
             const container = document.getElementById('availableColumnsContainer');
             let html = '';
-            
+
             // Group tables by section
             const sectionMap = {};
-            
+
             dbResults.forEach(({ db, tables }) => {
-                if (tables.length > 0) {
-                    tables.forEach(table => {
+                const visibleTables = filterWithData ? tables.filter(t => t.row_count > 0) : tables;
+                if (visibleTables.length > 0) {
+                    visibleTables.forEach(table => {
                         const section = table.section || 'Other Data';
                         if (!sectionMap[section]) {
                             sectionMap[section] = [];
@@ -1003,60 +1124,86 @@ LIMIT 100</textarea>
         }
         
         function generateCustomVisualization() {
-            //"""Generate visualization using selected columns"""
+            //"""Generate visualization using selected columns (or the edited SQL)"""
             if (selectedColumns.x.length === 0 && selectedColumns.y.length === 0) {
                 showMessage('Please select at least one column for X or Y axis', 'error');
                 return;
             }
-            
+
             const welcomeMessage = document.getElementById('welcomeMessage');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const plotContainer = document.getElementById('plotContainer');
             const statsContainer = document.getElementById('statsContainer');
             const chartType = document.getElementById('chartTypeSelect').value;
-            
-            // Show loading state
+
             welcomeMessage.style.display = 'none';
             loadingSpinner.style.display = 'block';
             plotContainer.innerHTML = '';
             statsContainer.style.display = 'none';
             hideMessages();
-            
+
+            // If the user edited the SQL, run via the SQL visualization endpoint
+            if (_sqlUserEdited) {
+                const query = document.getElementById('sqlPreviewTextarea').value.trim();
+                const dbPath = getSqlDatabasePath();
+                if (!dbPath) {
+                    loadingSpinner.style.display = 'none';
+                    showMessage('Edited SQL can only be run when all selected columns share the same database.', 'error');
+                    return;
+                }
+                const xCols = selectedColumns.x.map(c => c.column);
+                const yCols = selectedColumns.y.map(c => c.column);
+                fetch('/api/powerbuffet/run_sql_visualization', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query, database_path: dbPath, chart_type: chartType, x_cols: xCols, y_cols: yCols})
+                })
+                .then(r => r.json())
+                .then(data => {
+                    loadingSpinner.style.display = 'none';
+                    if (data.success) {
+                        showMessage(`SQL visualization generated (${data.metadata?.row_count ?? '?'} rows).`, 'success');
+                        if (data.visualization?.plot_image) {
+                            plotContainer.innerHTML = `<img src="data:image/png;base64,${data.visualization.plot_image}" class="img-fluid" alt="SQL Visualization" style="max-width:100%;height:auto;">`;
+                        }
+                        if (data.visualization?.summary_stats) displayStats(data.visualization.summary_stats);
+                    } else {
+                        showMessage(`SQL Error: ${data.error}`, 'error');
+                    }
+                })
+                .catch(err => {
+                    loadingSpinner.style.display = 'none';
+                    showMessage(`Error: ${err.message}`, 'error');
+                });
+                return;
+            }
+
+            // Standard path: let backend load columns from their respective sources
             const requestData = {
                 chart_type: chartType,
                 x_columns: selectedColumns.x,
                 y_columns: selectedColumns.y,
                 visualization_name: 'Custom Multi-Column Chart'
             };
-            
+
             fetch('/api/powerbuffet/run_custom_visualization', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(requestData)
             })
             .then(response => response.json())
             .then(data => {
                 loadingSpinner.style.display = 'none';
-                
                 if (data.success) {
                     if (data.visualization.error) {
                         showMessage(`Visualization Error: ${data.visualization.error}`, 'error');
                     } else {
                         showMessage(`Custom ${chartType} visualization generated successfully!`, 'success');
-                        
-                        // Display the plot
                         if (data.visualization.plot_image) {
-                            document.getElementById('plotContainer').innerHTML = 
-                                `<img src="data:image/png;base64,${data.visualization.plot_image}" 
-                                 class="img-fluid" alt="Custom Visualization" style="max-width: 100%; height: auto;">`;
+                            plotContainer.innerHTML =
+                                `<img src="data:image/png;base64,${data.visualization.plot_image}" class="img-fluid" alt="Custom Visualization" style="max-width:100%;height:auto;">`;
                         }
-                        
-                        // Display summary statistics if available
-                        if (data.visualization.summary_stats) {
-                            displayStats(data.visualization.summary_stats);
-                        }
+                        if (data.visualization.summary_stats) displayStats(data.visualization.summary_stats);
                     }
                 } else {
                     showMessage(`Error: ${data.error}`, 'error');
@@ -1073,7 +1220,121 @@ LIMIT 100</textarea>
             const button = document.getElementById('generateCustomBtn');
             const hasSelections = selectedColumns.x.length > 0 || selectedColumns.y.length > 0;
             button.disabled = !hasSelections;
+            updateSqlPreview();
         }
+
+        // ── SQL Preview ─────────────────────────────────────────────────────────
+        let _sqlUserEdited = false;
+        let _autoGeneratedSql = '';
+
+        function buildAutoSql() {
+            const allCols = [...selectedColumns.x, ...selectedColumns.y];
+            if (allCols.length === 0) return '';
+
+            // Group by dbPath + table
+            const groups = {};
+            allCols.forEach(col => {
+                const key = col.dbPath + '|||' + col.table;
+                if (!groups[key]) groups[key] = { dbPath: col.dbPath, dbName: col.dbName, table: col.table, xCols: [], yCols: [] };
+                if (selectedColumns.x.includes(col)) groups[key].xCols.push(col.column);
+                else groups[key].yCols.push(col.column);
+            });
+
+            const groupList = Object.values(groups);
+            const isSqlServer = groupList.every(g => g.dbPath === 'sql_server');
+            const isSqlite  = groupList.every(g => g.dbPath.endsWith('.db') || g.dbPath.endsWith('.sqlite'));
+            const isCsv     = groupList.every(g => g.dbPath.includes('stock_data') || g.dbPath.includes('fx_data'));
+            const singleDb  = isSqlServer || isSqlite || isCsv;
+
+            if (!singleDb) {
+                // Multi-database: show one SELECT block per source
+                return groupList.map(g => {
+                    const cols = [...g.xCols, ...g.yCols].join(', ');
+                    const prefix = isSqlServer ? `[${g.table}]` : g.table;
+                    return `-- ${g.dbName}: ${g.table}\nSELECT ${cols}\nFROM ${prefix}`;
+                }).join('\n\n');
+            }
+
+            if (groupList.length === 1) {
+                const g = groupList[0];
+                const cols = [...g.xCols, ...g.yCols].join(', ');
+                const tbl  = isSqlServer ? `[${g.table}]` : g.table;
+                return `SELECT ${cols}\nFROM ${tbl}`;
+            }
+
+            // Multiple tables, same database — JOIN suggestion
+            const aliases = groupList.map((g, i) => String.fromCharCode(97 + i)); // a, b, c …
+            const selectParts = groupList.flatMap((g, i) =>
+                [...g.xCols, ...g.yCols].map(c => {
+                    const col = isSqlServer ? `[${c}]` : c;
+                    return `${aliases[i]}.${col}`;
+                })
+            );
+            const fromPart = groupList.map((g, i) => {
+                const tbl = isSqlServer ? `[${g.table}]` : g.table;
+                return `${tbl} ${aliases[i]}`;
+            }).join('\n  JOIN ');
+            return `SELECT ${selectParts.join(', ')}\nFROM ${fromPart}\n  -- add ON clause to join tables`;
+        }
+
+        function updateSqlPreview() {
+            const panel = document.getElementById('sqlPreviewPanel');
+            const textarea = document.getElementById('sqlPreviewTextarea');
+            const allCols = [...selectedColumns.x, ...selectedColumns.y];
+
+            if (allCols.length === 0) {
+                panel.style.display = 'none';
+                _autoGeneratedSql = '';
+                _sqlUserEdited = false;
+                return;
+            }
+
+            panel.style.display = 'block';
+            const newSql = buildAutoSql();
+
+            if (!_sqlUserEdited) {
+                _autoGeneratedSql = newSql;
+                textarea.value = newSql;
+                textarea.classList.remove('user-edited');
+                document.getElementById('sqlEditedBadge').style.display = 'none';
+            } else {
+                // Keep user's edits but update the stored auto-generated version silently
+                _autoGeneratedSql = newSql;
+            }
+        }
+
+        function onSqlEdited() {
+            const textarea = document.getElementById('sqlPreviewTextarea');
+            const isEdited = textarea.value.trim() !== _autoGeneratedSql.trim();
+            _sqlUserEdited = isEdited;
+            textarea.classList.toggle('user-edited', isEdited);
+            document.getElementById('sqlEditedBadge').style.display = isEdited ? 'inline' : 'none';
+        }
+
+        function resetSqlPreview() {
+            const textarea = document.getElementById('sqlPreviewTextarea');
+            _sqlUserEdited = false;
+            textarea.value = _autoGeneratedSql;
+            textarea.classList.remove('user-edited');
+            document.getElementById('sqlEditedBadge').style.display = 'none';
+        }
+
+        function copySqlToClipboard() {
+            const textarea = document.getElementById('sqlPreviewTextarea');
+            navigator.clipboard.writeText(textarea.value).catch(() => {
+                textarea.select();
+                document.execCommand('copy');
+            });
+        }
+
+        function getSqlDatabasePath() {
+            // Return the common dbPath of all selected columns, or 'sql_server' if all are SQL Server
+            const allCols = [...selectedColumns.x, ...selectedColumns.y];
+            if (allCols.length === 0) return null;
+            const paths = [...new Set(allCols.map(c => c.dbPath))];
+            return paths.length === 1 ? paths[0] : null;
+        }
+        // ── End SQL Preview ──────────────────────────────────────────────────────
         
         function clearAllSelections() {
             //"""Clear all column selections"""
@@ -1091,6 +1352,9 @@ LIMIT 100</textarea>
             });
             
             updateGenerateCustomButton();
+            // also reset SQL preview state
+            _sqlUserEdited = false;
+            _autoGeneratedSql = '';
             showMessage('All selections cleared', 'success');
         }
         
@@ -1468,6 +1732,7 @@ LIMIT 100</textarea>
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        window.lastSchemaData = data.schema;
                         displayDatabaseSchema(data.schema);
                     }
                 })
@@ -1475,26 +1740,29 @@ LIMIT 100</textarea>
                     console.error('Error loading schema:', error);
                 });
         }
-        
+
         function displayDatabaseSchema(schema) {
             const container = document.getElementById('schemaAccordion');
             let html = '';
-            
+
             if (schema.databases) {
                 schema.databases.forEach((db, index) => {
+                    const visibleTables = filterWithData
+                        ? (db.tables || []).filter(t => t.row_count > 0)
+                        : (db.tables || []);
                     html += `
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#schema${index}" aria-expanded="false">
-                                    ${db.name} (${db.tables.length} tables)
+                                    ${db.name} (${visibleTables.length} tables)
                                 </button>
                             </h2>
                             <div id="schema${index}" class="accordion-collapse collapse">
                                 <div class="accordion-body">
                     `;
-                    
-                    db.tables.forEach(table => {
+
+                    visibleTables.forEach(table => {
                         html += `
                             <div class="mb-2">
                                 <strong>${table.name}</strong> (${table.row_count} rows)
@@ -1504,7 +1772,7 @@ LIMIT 100</textarea>
                             </div>
                         `;
                     });
-                    
+
                     html += `
                                 </div>
                             </div>
@@ -1512,7 +1780,7 @@ LIMIT 100</textarea>
                     `;
                 });
             }
-            
+
             container.innerHTML = html;
         }
         

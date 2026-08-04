@@ -62,7 +62,7 @@ class EquityFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'equity'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Equity factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'EquityFactor')
             )

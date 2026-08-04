@@ -1,9 +1,9 @@
-"""
+﻿"""
 IBKR Equity Factor Repository - Interactive Brokers implementation for EquityFactor entities.
 """
 
 from typing import Optional, List, Dict, Any
-from src.domain.ports.factor.equity_factor_port import EquityFactorPort
+from src.domain.ports.factor.finance.financial_assets.equity_factor_port import EquityFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.finance.financial_assets.equity_factor import EquityFactor
 from src.infrastructure.repositories.ibkr_repo.tick_types.ibkr_tick_mapping import IBKRTickFactorMapper, IBKRTickType

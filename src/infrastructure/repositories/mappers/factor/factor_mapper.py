@@ -10,6 +10,8 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.inde
 from src.domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor as CompanyShareOptionPortfolioFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor as CompanyShareFactorEntity
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor as CompanySharePortfolioFactorEntity
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_price_return_factor import CompanySharePortfolioPriceReturnFactor
+from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_equal_weight_return_factor import CompanySharePortfolioEqualWeightReturnFactor
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
@@ -177,6 +179,8 @@ ENTITY_FACTOR_MAPPING = {
 
 }
 
+# Backtest entities are registered at runtime via local import to avoid circular deps.
+
 
 
 def _get_entity_type_from_factor(factor) -> str:
@@ -284,6 +288,10 @@ class FactorMapper:
             return CompanyShareOptionFactorEntity(**base_args)
         elif factor_type == 'company_share_portfolio_factor':
             return CompanySharePortfolioFactorEntity(**base_args)
+        elif factor_type == 'company_share_portfolio_price_return_factor':
+            return CompanySharePortfolioPriceReturnFactor(**base_args)
+        elif factor_type == 'company_share_portfolio_equal_weight_return_factor':
+            return CompanySharePortfolioEqualWeightReturnFactor(**base_args)
         elif factor_type == 'company_share_portfolio_option_factor':
             return CompanyShareOptionPortfolioFactorEntity(**base_args)
         elif factor_type == 'currency':
@@ -354,8 +362,11 @@ class FactorMapper:
         elif factor_type == 'portfolio_value_factor':
             return PortfolioValueFactorEntity(
                 **base_args,
-                
+
             )
+        elif factor_type == 'backtest_factor':
+            from src.domain.entities.factor.backtest.backtest_factor import BacktestFactor
+            return BacktestFactor(**base_args)
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation

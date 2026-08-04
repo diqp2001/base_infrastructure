@@ -62,34 +62,61 @@ This directory contains **SQLAlchemy ORM models** that handle data persistence a
 src/infrastructure/models/
 ├── __init__.py                 # Base model configuration
 ├── factor/
-│   └── factor_model.py        # Unified factor models with discriminator
+│   └── factor.py              # Unified factor models with discriminator
 └── [other domain models]/
 ```
 
-### Unified Factor Model Design:
+### Actual FactorModel Schema (single-table inheritance)
+
 ```python
-# Single table with discriminator for all factor types
 class FactorModel(Base):
     __tablename__ = 'factors'
-    
-    # Core columns
-    id = Column(Integer, primary_key=True)
-    factor_type = Column(String(50), nullable=False, index=True)  # Discriminator
-    name = Column(String(255), nullable=False, index=True)
-    
-    # Specialized columns (nullable for base factors)
-    continent_code = Column(String(10), nullable=True)
-    ticker_symbol = Column(String(20), nullable=True)
-    period = Column(Integer, nullable=True)
-    momentum_type = Column(String(50), nullable=True)
-    # ... and many more specialized columns
-    
-    # Polymorphic configuration
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    name        = Column(String(255),  nullable=False)
+    group       = Column(String(100),  nullable=False)
+    subgroup    = Column(String(100),  nullable=False)
+    frequency   = Column(String(50),   nullable=False)
+    data_type   = Column(String(100),  nullable=False)
+    source      = Column(String(255),  nullable=False)
+    definition  = Column(Text,         nullable=False)
+    factor_type = Column(String(100),  nullable=False, index=False)  # discriminator; NOT indexed
+
     __mapper_args__ = {
         'polymorphic_identity': 'factor',
-        'polymorphic_on': factor_type
+        'polymorphic_on': factor_type,
     }
 ```
+
+#### Key constraints
+| Rule | Detail |
+|------|--------|
+| **All columns `nullable=False`** | Every factor persisted to DB must supply non-None values for all eight columns. The domain entity allows `Optional` for `subgroup`, `frequency`, `data_type`, `source`, `definition` — repos must provide explicit defaults in `_create_or_get` rather than forwarding `None`. |
+| **`factor_type` is NOT indexed** (`index=False`) | Intentional — single-table inheritance lookups are done by primary key or name+group filter, not by discriminator scan. Adding an index would add write overhead with no read benefit for this access pattern. |
+| **`frequency` must always be explicit** | Callers must always pass `frequency` as a named argument to repos. Never use a fallback default (e.g. `"1d"`) that silently misrepresents what the factor actually covers. |
+
+### Actual FactorValueModel Schema
+
+```python
+class FactorValueModel(Base):
+    __tablename__ = 'factor_values'
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    factor_id   = Column(Integer, ForeignKey("factors.id"),       nullable=False)
+    entity_id   = Column(Integer,                                 nullable=False)   # generic entity reference
+    entity_type = Column(String(100),                             nullable=False, index=True)  # entity class name
+    date        = Column(DateTime(timezone=True),                 nullable=False)
+    value       = Column(String(255),                             nullable=False)
+    currency_id = Column(Integer, ForeignKey("currencies.id"),    nullable=False)
+```
+
+#### Key constraints
+| Rule | Detail |
+|------|--------|
+| **All columns `nullable=False`** | Every factor value persisted to DB must supply non-None values for all columns. Persisting a value without `currency_id`, `entity_type`, or `value` will raise an `IntegrityError`. |
+| **`entity_type` is indexed** | Used for discriminator-based lookups across entity classes. |
+| **`value` stored as `String(255)`** | Financial values are serialised to string for precision; deserialise with `Decimal(str_val)` at the domain layer. |
+| **`date` includes timezone** (`DateTime(timezone=True)`) | All datetimes stored with tz info; naive datetimes may cause comparison issues. |
 
 ---
 

@@ -12,12 +12,12 @@ class FactorModel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     group = Column(String(100), nullable=False)
-    subgroup = Column(String(100), nullable=True)
-    frequency = Column(String(50), nullable=True)
-    data_type = Column(String(100), nullable=True)
-    source = Column(String(255), nullable=True)
-    definition = Column(Text, nullable=True)
-    factor_type = Column(String(100), nullable=False, index=True)  # Discriminator for inheritance
+    subgroup = Column(String(100), nullable=False)
+    frequency = Column(String(50), nullable=False)
+    data_type = Column(String(100), nullable=False)
+    source = Column(String(255), nullable=False)
+    definition = Column(Text, nullable=False)
+    factor_type = Column(String(100), nullable=False, index=False)  # Discriminator for inheritance
     # Relationships
     factor_values = relationship("src.infrastructure.models.factor.factor_value.FactorValueModel",back_populates="factors")
 
@@ -170,6 +170,18 @@ class CompanySharePortfolioFactorModel(FactorModel):
 class CompanySharePortfolioValueFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_portfolio_value_factor"
+    }
+
+
+class CompanySharePortfolioPriceReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_price_return_factor"
+    }
+
+
+class CompanySharePortfolioEqualWeightReturnFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_equal_weight_return_factor"
     }
 
 
@@ -387,4 +399,11 @@ class CompanyShareOrderQuantityFactorModel(FactorModel):
 class CompanyShareOrderPriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_order_price_factor"
+    }
+
+
+# Backtest Factor Model
+class BacktestFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "backtest_factor"
     }

@@ -1,9 +1,9 @@
-import math
+﻿import math
 import random
 from typing import Optional
 import numpy as np
 
-from domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor
+from src.domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor
 
 
 class CompanyShareOptionPortfolioBatesPriceFactor(CompanyShareOptionPortfolioFactor):
@@ -135,7 +135,7 @@ class CompanyShareOptionPortfolioBatesPriceFactor(CompanyShareOptionPortfolioFac
         r: float,              # risk-free rate
         T: float,              # time to maturity
         correlations: list,    # correlation matrix for assets
-        volatilities: list,    # [σ1, σ2, ..., σn] individual volatilities
+        volatilities: list,    # [Ïƒ1, Ïƒ2, ..., Ïƒn] individual volatilities
         v0_individual: list,   # initial volatility squared for each asset
         kappa_individual: list, # mean reversion speeds
         theta_individual: list, # long-term volatilities

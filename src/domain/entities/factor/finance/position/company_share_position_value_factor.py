@@ -29,7 +29,7 @@ class CompanySharePositionValueFactor(CompanySharePortfolioHoldingFactor):
         group: str = "position",
         subgroup: Optional[str] = "value",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "transaction_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of company share position from transactions",
         factor_id: Optional[int] = None,
     ):

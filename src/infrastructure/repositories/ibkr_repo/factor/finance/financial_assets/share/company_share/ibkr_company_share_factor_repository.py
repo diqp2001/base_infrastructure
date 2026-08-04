@@ -8,8 +8,8 @@ for company shares using IBKR data.
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
-from infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_factor_mapper import CompanyShareFactorMapper
-from src.domain.ports.factor.company_share_factor_port import CompanyShareFactorPort
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_factor_mapper import CompanyShareFactorMapper
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_factor_port import CompanyShareFactorPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
 from src.domain.entities.factor.factor_value import FactorValue
@@ -275,3 +275,27 @@ class IBKRCompanyShareFactorRepository(BaseIBKRFactorRepository, CompanyShareFac
         except Exception as e:
             print(f"Error checking existing factor value: {e}")
             return None
+
+    def get_by_id(self, id: int):
+        return self.local_repo.get_by_id(id) if self.local_repo else None
+
+    def get_by_name(self, name: str):
+        return self.local_repo.get_by_name(name) if self.local_repo else None
+
+    def get_by_group(self, group: str):
+        return self.local_repo.get_by_group(group) if self.local_repo else []
+
+    def get_by_subgroup(self, subgroup: str):
+        return self.local_repo.get_by_subgroup(subgroup) if self.local_repo else []
+
+    def get_all(self):
+        return self.local_repo.get_all() if self.local_repo else []
+
+    def add(self, entity):
+        return self.local_repo.add(entity) if self.local_repo else None
+
+    def update(self, entity):
+        return self.local_repo.update(entity) if self.local_repo else None
+
+    def delete(self, id: int) -> bool:
+        return self.local_repo.delete(id) if self.local_repo else False

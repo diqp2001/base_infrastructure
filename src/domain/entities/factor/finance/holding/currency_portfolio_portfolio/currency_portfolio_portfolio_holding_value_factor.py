@@ -12,10 +12,10 @@ class CurrencyPortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
         self,
         name: str = "Currency Portfolio Portfolio Holding Value",
         group: str = "holding",
-        subgroup: Optional[str] = "portfolio_value",
-        frequency: Optional[str] = None,
+        subgroup: Optional[str] = "value",
+        frequency: Optional[str] = '1d',
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of CurrencyPortfolio holding within Portfolio",
         factor_id: Optional[int] = None,
     ):

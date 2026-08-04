@@ -2,7 +2,26 @@
   "permissions": {
     "allow": [
       "Bash(python -m unittest discover tests)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(python -c ' *)",
+      "Bash(dir \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\domain\\\\entities\\\\finance\" /b /ad)",
+      "Bash(dir \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\domain\\\\entities\\\\factor\" /b /ad)",
+      "Bash(dir \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\domain\\\\entities\\\\finance\\\\financial_assets\" /b /ad)",
+      "Bash(dir \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\domain\\\\entities\\\\finance\\\\holding\" /b /ad)",
+      "Bash(dir \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\domain\\\\entities\\\\finance\\\\portfolio\" /b /ad)",
+      "Bash(python -c \"import xlsxwriter; print\\('xlsxwriter ok'\\)\")",
+      "Bash(python -c \"import pandas; print\\('pandas engine check'\\); import io; buf = io.BytesIO\\(\\); import pandas as pd; df = pd.DataFrame\\({'a':[1]}\\); df.to_excel\\(buf, engine='xlsxwriter'\\); print\\('xlsxwriter with pandas ok'\\)\")",
+      "Bash(.venv/Scripts/pip install *)",
+      "Bash(python -c \"import openpyxl; print\\('openpyxl', openpyxl.__version__, 'ok'\\)\")",
+      "Bash(python -m unittest discover src/tests/unit -v)",
+      "Bash(python -m unittest discover src/tests/context -v)",
+      "Bash(python -m unittest discover src/tests/unit src/tests/context -v)",
+      "Bash(python -m unittest src.tests.unit.test_backtest_factor_repository -v)",
+      "Bash(python -m unittest discover src/tests -v)",
+      "Bash(python -)",
+      "Bash(python -m unittest src.tests.unit.test_backtest_factor_repository src.tests.unit.test_base_local_repository src.tests.unit.test_model_repository src.tests.context.test_backtest_repository_integration -v)",
+      "Bash(python -m unittest src.tests.unit.test_backtest_factor_repository src.tests.unit.test_base_local_repository src.tests.unit.test_model_repository src.tests.context.test_backtest_repository_integration)",
+      "Bash(python -m unittest discover tests -v)"
     ]
   }
 }

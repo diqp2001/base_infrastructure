@@ -13,8 +13,9 @@ class CurrencyPortfolioHoldingValueFactor(PortfolioHoldingFactor):
         name: str = "Currency Portfolio Holding Value",
         group: str = "holding",
         subgroup: Optional[str] = "value",
+        frequency: Optional[str] = "1d",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of currency portfolio holding",
         factor_id: Optional[int] = None,
     ):
@@ -22,6 +23,7 @@ class CurrencyPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             name=name,
             group=group,
             subgroup=subgroup,
+            frequency=frequency,
             data_type=data_type,
             source=source,
             definition=definition,

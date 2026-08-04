@@ -27,7 +27,7 @@ class CompanySharePortfolioReturnFactor(CompanySharePortfolioFactor):
         group: str = "portfolio",
         subgroup: Optional[str] = "return",
         data_type: Optional[str] = "decimal",
-        source: Optional[str] = "portfolio_management",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = "Value-weighted return of all company share holdings in portfolio",
         factor_id: Optional[int] = None,
     ):

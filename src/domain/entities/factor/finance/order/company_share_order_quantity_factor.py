@@ -25,7 +25,7 @@ class CompanyShareOrderQuantityFactor(CompanyShareFactor):
         group: str = "order",
         subgroup: Optional[str] = "quantity",
         data_type: Optional[str] = "numeric",
-        source: Optional[str] = "order_system",
+        source: Optional[str] = "ibkr",
         definition: Optional[str] = "Number of shares in company share order",
         factor_id: Optional[int] = None,
     ):

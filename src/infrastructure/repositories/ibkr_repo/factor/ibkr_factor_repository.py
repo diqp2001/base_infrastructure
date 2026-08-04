@@ -31,7 +31,7 @@ class IBKRFactorRepository(BaseIBKRFactorRepository, FactorPort):
         """
         super().__init__(ibkr_client)
         self.factory = factory
-        self.local_repo = self.factory.factor_local_repo
+        self.local_repo = self.factory.factor_local_repo if factory else None
     # FactorPort interface implementation (delegate to local repository)
     @property
     def entity_class(self):
@@ -199,4 +199,9 @@ class IBKRFactorRepository(BaseIBKRFactorRepository, FactorPort):
         """
         # Factors are typically static metadata, so IBKR extraction
         # is less relevant here compared to FactorValue
+        return None
+
+    def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
+        if self.local_repo:
+            return self.local_repo._create_or_get(entity_cls, primary_key, **kwargs)
         return None

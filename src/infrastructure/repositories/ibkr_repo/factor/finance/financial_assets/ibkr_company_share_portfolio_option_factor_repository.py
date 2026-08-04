@@ -4,7 +4,7 @@ IBKR Portfolio Company Share Option Factor Repository - Retrieval and creation o
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
-from src.domain.ports.factor.company_share_portfolio_option_factor_port import CompanySharePortfolioOptionFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor_port import CompanySharePortfolioOptionFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 
@@ -230,3 +230,8 @@ class IBKRPortfolioCompanyShareOptionFactorRepository(BaseIBKRFactorRepository, 
 
     def delete(self, entity_id: int) -> bool:
         return self.local_repo.delete(entity_id) if self.local_repo else False
+
+    def get_by_group(self, group: str):
+        if self.local_repo and hasattr(self.local_repo, 'get_by_group'):
+            return self.local_repo.get_by_group(group)
+        return []

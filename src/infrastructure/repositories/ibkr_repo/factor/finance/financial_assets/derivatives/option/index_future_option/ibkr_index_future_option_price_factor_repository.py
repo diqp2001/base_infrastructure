@@ -1,10 +1,10 @@
-"""
+﻿"""
 IBKR Index Future Option Price Factor Repository - Retrieval and creation of index future option price factors via IBKR.
 """
 
 from typing import Optional, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_price_factor import IndexFutureOptionPriceFactor
-from src.domain.ports.factor.index_future_option_price_factor_port import IndexFutureOptionPriceFactorPort
+from src.domain.ports.factor.finance.financial_assets.derivatives.option.index_future_option_price_factor_port import IndexFutureOptionPriceFactorPort
 from src.infrastructure.repositories.ibkr_repo.factor.base_ibkr_factor_repository import BaseIBKRFactorRepository
 
 

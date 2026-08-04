@@ -1,4 +1,4 @@
-
+﻿
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -61,7 +61,7 @@ class ShareRepository(FinancialAssetRepository,SharePort):
         Returns:
             List of enhanced share entities
         """
-        from infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
+        from src.infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
         
         enhanced_entities = []
         
@@ -76,7 +76,7 @@ class ShareRepository(FinancialAssetRepository,SharePort):
                 enhanced_entities.append(enhanced_entity)
                 
             except Exception as e:
-                print(f"❌ Error enhancing share {share_entity.ticker}: {str(e)}")
+                print(f"âŒ Error enhancing share {share_entity.ticker}: {str(e)}")
                 # Include unenhanced entity to maintain list integrity
                 enhanced_entities.append(share_entity)
         

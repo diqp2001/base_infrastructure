@@ -1,8 +1,8 @@
-"""
+﻿"""
 Repository class for Share factor entities.
 """
 
-from infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_factor_mapper import ShareFactorMapper
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.share_factor_mapper import ShareFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from ....base_factor_repository import BaseFactorRepository
 from sqlalchemy.orm import Session
@@ -63,7 +63,7 @@ class ShareFactorRepository(BaseFactorRepository):
                 group=kwargs.get('group', 'share'),
                 subgroup=kwargs.get('subgroup', 'daily'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market_data'),
+                source=kwargs.get('source', 'ibkr'),
                 definition=kwargs.get('definition', f'Share factor: {primary_key}'),
                 entity_type=kwargs.get('entity_type', 'ShareFactor')
             )

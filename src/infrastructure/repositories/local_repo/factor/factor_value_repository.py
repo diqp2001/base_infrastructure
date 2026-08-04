@@ -76,6 +76,8 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
     def add(self, entity: FactorValue) -> Optional[FactorValue]:
         """Add/persist a factor value entity."""
         try:
+            if entity.currency_id is None:
+                entity.currency_id = self._resolve_currency_id(entity)
             model = self._to_model(entity)
             self.session.add(model)
             self.session.commit()
@@ -84,6 +86,22 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             print(f"Error adding factor value: {e}")
             self.session.rollback()
             return None
+
+    def _resolve_currency_id(self, entity: FactorValue) -> Optional[int]:
+        """Look up currency_id from the associated entity when not explicitly provided."""
+        try:
+            if entity.entity_id is not None:
+                from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+                cs = self.session.get(CompanyShareModel, entity.entity_id)
+                if cs is not None and cs.currency_id is not None:
+                    return cs.currency_id
+            from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
+            first_currency = self.session.query(CurrencyModel).first()
+            if first_currency:
+                return first_currency.id
+        except Exception:
+            pass
+        return None
     
     def update(self, entity: FactorValue) -> Optional[FactorValue]:
         """Update a factor value entity."""

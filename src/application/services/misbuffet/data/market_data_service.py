@@ -52,45 +52,71 @@ class MarketDataService:
             # Get data for each symbol in the universe
             for entity_class, entities in universe.items():
                 
-                for entity in entities:
-                    try:
-                        point_in_time_data = self._get_point_in_time_data(
-                            entity,entity_class, current_date,bar_size_setting,duration_str
-                        )
 
-                        
-                        if point_in_time_data is not None and not point_in_time_data.empty:
-                            # Create Symbol object
-                            symbol = Symbol.create_equity(entity)
-                            
-                            # Use the most recent data point
-                            latest_data = point_in_time_data.iloc[-1]
-                            
-                            # Create TradeBar with actual market data
-                            trade_bar = TradeBar(
-                                symbol=symbol,
-                                time=current_date,
-                                end_time=current_date,
-                                open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
-                                high=float(latest_data.get('High', latest_data.get('high', 0.0))),
-                                low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
-                                close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
-                                volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
-                            )
-                            
-                            # Add to slice
-                            slice_data.bars[symbol] = trade_bar
-                            
-                            # Also add to data dictionary for has_data() compatibility
-                            if symbol not in slice_data._data:
-                                slice_data._data[symbol] = []
-                            slice_data._data[symbol].append(trade_bar)
-                            
-                    except Exception as e:
-                        self.logger.debug(f"Error creating data slice for {symbol} on {current_date}: {e}")
-                        if self.on_error:
-                            self.on_error(f"Error getting data for {symbol}: {str(e)}")
+                    # Portfolio dict: {"name": "...", "components": {EntityClass: [tickers]}}
+                    if isinstance(entities, dict) and 'components' in entities:
+                        portfolio_repo = self.entity_service.repository_factory.get_local_repository(entity_class)
+                        portfolio = portfolio_repo._create_or_get(entities.get('name'))
+                        for component_class, component_tickers in entities['components'].items():
+                            for component_ticker in component_tickers:
+                                component_entity = self._get_entity_by_ticker(component_ticker, component_class)
+                                if component_entity and portfolio:
+                                    portfolio_repo.set_holding_for_entity(portfolio.id, component_entity.id)
+                                try:
+                                    result = self._get_point_in_time_data(
+                                        component_ticker, component_class, current_date, bar_size_setting, duration_str
+                                    )
+                                    if result is not None:
+                                        component_data, _ = result
+                                        if component_data is not None and not component_data.empty:
+                                            component_symbol = Symbol.create_equity(component_ticker)
+                                            latest = component_data.iloc[-1]
+                                            trade_bar = TradeBar(
+                                                symbol=component_symbol,
+                                                time=current_date,
+                                                end_time=current_date,
+                                                open=float(latest.get('Open', latest.get('open', 0.0))),
+                                                high=float(latest.get('High', latest.get('high', 0.0))),
+                                                low=float(latest.get('Low', latest.get('low', 0.0))),
+                                                close=float(latest.get('Close', latest.get('close', 0.0))),
+                                                volume=int(latest.get('Volume', latest.get('volume', 0)))
+                                            )
+                                            slice_data.bars[component_symbol] = trade_bar
+                                            if component_symbol not in slice_data._data:
+                                                slice_data._data[component_symbol] = []
+                                            slice_data._data[component_symbol].append(trade_bar)
+                                except Exception as e:
+                                    self.logger.debug(f"Error fetching component {component_ticker} for portfolio {entities.get('name')}: {e}")
                         continue
+                    else:
+                        # Normal string ticker
+                        for entity in entities:
+                            try:
+                                
+                                point_in_time_data = self._get_point_in_time_data(
+                                    entity, entity_class, current_date, bar_size_setting, duration_str
+                                )
+                                if point_in_time_data is not None and not point_in_time_data.empty:
+                                    symbol = Symbol.create_equity(entity)
+                                    latest_data = point_in_time_data.iloc[-1]
+                                    trade_bar = TradeBar(
+                                        symbol=symbol,
+                                        time=current_date,
+                                        end_time=current_date,
+                                        open=float(latest_data.get('Open', latest_data.get('open', 0.0))),
+                                        high=float(latest_data.get('High', latest_data.get('high', 0.0))),
+                                        low=float(latest_data.get('Low', latest_data.get('low', 0.0))),
+                                        close=float(latest_data.get('Close', latest_data.get('close', 0.0))),
+                                        volume=int(latest_data.get('Volume', latest_data.get('volume', 0)))
+                                    )
+                                    slice_data.bars[symbol] = trade_bar
+                                    if symbol not in slice_data._data:
+                                        slice_data._data[symbol] = []
+                                    slice_data._data[symbol].append(trade_bar)
+                            except Exception as e:
+                                self.logger.debug(f"Error creating data slice for {entity} on {current_date}: {e}")
+                                    
+                        
         
             self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")
         else:
@@ -209,7 +235,7 @@ class MarketDataService:
             if factor_data:
                 factor_data['Date'] = point_in_time
                 df = pd.DataFrame([factor_data])
-                return df
+                return df,entity
             
             return None
             
@@ -354,7 +380,7 @@ class MarketDataService:
                         'strike_price': ticker_item.get('strike_price'),
                         'expiry': ticker_item.get('expiry'),  
                         'option_type': ticker_item.get('option_type'),
-                        'source': 'config'
+                        'source': 'ibkr'
                     }
                     entity = self._create_or_get(entity_config)
                 else:

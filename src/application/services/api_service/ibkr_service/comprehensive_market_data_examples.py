@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive Interactive Brokers Market Data Examples
 
 This module demonstrates all the enhanced market data capabilities of the
@@ -20,9 +20,9 @@ ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
 with your current account setup, market data subscriptions, and permissions.
 It provides a detailed report showing:
-- What's working (✅)
-- What's limited or requires subscriptions (⚠️)  
-- What's not available (❌)
+- What's working (âœ…)
+- What's limited or requires subscriptions (âš ï¸)  
+- What's not available (âŒ)
 - Specific recommendations for upgrades
 
 This is especially useful for:
@@ -41,8 +41,8 @@ from ibapi.contract import Contract
 from ibapi.scanner import ScannerSubscription
 
 from src.application.services.api_service.ibkr_service.interactive_brokers_api_service import InteractiveBrokersApiService
-from application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
-from application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -108,7 +108,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # es_contract.lastTradeDateOrContractMonth = "202403"
 
             # Example 1a: Market Data Snapshots
-            logger.info("📊 Getting market data snapshots...")
+            logger.info("ðŸ“Š Getting market data snapshots...")
             
             spy_snapshot = self.ib_broker.get_market_data_snapshot(
                 contract=spy_contract,
@@ -124,7 +124,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 logger.warning(f"SPY snapshot failed: {spy_snapshot.get('error', 'Unknown error')}")
             
             # Example 1b: Streaming Market Data
-            logger.info("📈 Subscribing to streaming market data...")
+            logger.info("ðŸ“ˆ Subscribing to streaming market data...")
             es_contract = self.ib_broker.ib_connection.contract_details.contract 
             subscription_id = self.ib_broker.subscribe_market_data(es_contract, "225,232,236")
             
@@ -179,9 +179,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             )
             es_contract.currency = "USD"
             # IMPORTANT:
-            # No lastTradeDateOrContractMonth specified → IB returns front month
+            # No lastTradeDateOrContractMonth specified â†’ IB returns front month
 
-            logger.info("📊 Fetching 5-minute ES futures data (last 6 months)...")
+            logger.info("ðŸ“Š Fetching 5-minute ES futures data (last 6 months)...")
             logger.info(f"Contract details: symbol={es_contract.symbol}, secType={es_contract.secType}, "
                        f"exchange={es_contract.exchange}, currency={es_contract.currency}")
 
@@ -200,14 +200,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 return
 
             logger.info(
-                f"✅ Received {len(es_bars)} 5-minute bars for ES (front month)"
+                f"âœ… Received {len(es_bars)} 5-minute bars for ES (front month)"
             )
 
             first_bar = es_bars[0]
             last_bar = es_bars[-1]
 
             logger.info(
-                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+                f"ðŸ“ˆ Date range: {first_bar['date']} â†’ {last_bar['date']}"
             )
 
             logger.info(
@@ -248,7 +248,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 currency="USD"
             )
 
-            logger.info("📊 Fetching 5-minute SPX index data (last 6 months)...")
+            logger.info("ðŸ“Š Fetching 5-minute SPX index data (last 6 months)...")
             logger.info(
                 f"Contract details: symbol={spx_contract.symbol}, "
                 f"secType={spx_contract.secType}, "
@@ -261,7 +261,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 end_date_time="",          # now
                 duration_str="6 M",
                 bar_size_setting="5 mins",
-                what_to_show="TRADES",      # 🔴 REQUIRED for indices
+                what_to_show="TRADES",      # ðŸ”´ REQUIRED for indices
                 use_rth=True,              # SPX only trades during RTH
                 timeout=30
             )
@@ -271,14 +271,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 return
 
             logger.info(
-                f"✅ Received {len(spx_bars)} 5-minute bars for SPX"
+                f"âœ… Received {len(spx_bars)} 5-minute bars for SPX"
             )
 
             first_bar = spx_bars[0]
             last_bar = spx_bars[-1]
 
             logger.info(
-                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+                f"ðŸ“ˆ Date range: {first_bar['date']} â†’ {last_bar['date']}"
             )
 
             logger.info(
@@ -320,9 +320,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             )
             zn_contract.currency = "USD"
             # IMPORTANT:
-            # No lastTradeDateOrContractMonth specified → IB returns front month
+            # No lastTradeDateOrContractMonth specified â†’ IB returns front month
 
-            logger.info("📊 Fetching 5-minute ZN futures data (last 6 months)...")
+            logger.info("ðŸ“Š Fetching 5-minute ZN futures data (last 6 months)...")
             logger.info(f"Contract details: symbol={zn_contract.symbol}, secType={zn_contract.secType}, "
                        f"exchange={zn_contract.exchange}, currency={zn_contract.currency}")
 
@@ -341,14 +341,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 return
 
             logger.info(
-                f"✅ Received {len(zn_bars)} 5-minute bars for ZN (front month)"
+                f"âœ… Received {len(zn_bars)} 5-minute bars for ZN (front month)"
             )
 
             first_bar = zn_bars[0]
             last_bar = zn_bars[-1]
 
             logger.info(
-                f"📈 Date range: {first_bar['date']} → {last_bar['date']}"
+                f"ðŸ“ˆ Date range: {first_bar['date']} â†’ {last_bar['date']}"
             )
 
             logger.info(
@@ -393,9 +393,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             aapl_contract.primaryExchange = "NASDAQ"
 
             # =========================================================
-            # 2a — Daily bars (1 month)
+            # 2a â€” Daily bars (1 month)
             # =========================================================
-            logger.info("📊 Fetching daily historical data for AAPL (1 month)...")
+            logger.info("ðŸ“Š Fetching daily historical data for AAPL (1 month)...")
 
             daily_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
@@ -423,9 +423,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 logger.warning("No daily bars received for AAPL")
 
             # =========================================================
-            # 2b — Intraday 5-minute bars (1 day)
+            # 2b â€” Intraday 5-minute bars (1 day)
             # =========================================================
-            logger.info("📊 Fetching 5-minute historical data for AAPL (1 day)...")
+            logger.info("ðŸ“Š Fetching 5-minute historical data for AAPL (1 day)...")
 
             minute_bars = self.ib_broker.get_historical_data(
                 contract=aapl_contract,
@@ -446,9 +446,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 logger.warning("No 5-minute bars received for AAPL")
 
             # =========================================================
-            # 2c — Futures historical data (ES weekly)
+            # 2c â€” Futures historical data (ES weekly)
             # =========================================================
-            logger.info("📊 Fetching weekly historical data for ES futures...")
+            logger.info("ðŸ“Š Fetching weekly historical data for ES futures...")
 
             es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
 
@@ -468,7 +468,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # Lookback discovery helper
             # =========================================================
             def probe_lookback(bar_size: str, duration: str, label: str):
-                logger.info(f"🔎 Probing {label} lookback "
+                logger.info(f"ðŸ”Ž Probing {label} lookback "
                             f"(bar={bar_size}, duration={duration})")
 
                 bars = self.ib_broker.get_historical_data(
@@ -488,14 +488,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 last_bar = bars[-1]["date"]
 
                 logger.info(
-                    f"✅ {label}: {len(bars)} bars | "
-                    f"From {first_bar} → {last_bar}"
+                    f"âœ… {label}: {len(bars)} bars | "
+                    f"From {first_bar} â†’ {last_bar}"
                 )
 
             # =========================================================
             # Lookback discovery (AAPL)
             # =========================================================
-            logger.info("\n📐 Discovering IB historical lookback limits...")
+            logger.info("\nðŸ“ Discovering IB historical lookback limits...")
 
             probe_lookback("1 day", "20 Y", "Daily bars")
             """probe_lookback("1 hour", "2 Y", "Hourly bars")
@@ -503,7 +503,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             probe_lookback("5 mins", "6 M", "5-minute bars")
             probe_lookback("1 min", "2 M", "1-minute bars")"""
 
-            logger.info("📊 Historical lookback discovery complete")
+            logger.info("ðŸ“Š Historical lookback discovery complete")
 
         except Exception as e:
             logger.error(f"Error in historical data example: {e}")
@@ -529,7 +529,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             spy_contract.primaryExchange = "ARCA"
             
             # Get market depth data
-            logger.info("📊 Fetching market depth for SPY...")
+            logger.info("ðŸ“Š Fetching market depth for SPY...")
             
             depth_data = self.ib_broker.get_market_depth(spy_contract, num_rows=10, timeout=15)
             
@@ -584,7 +584,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # Example 4a: Stock contract details
             aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
             
-            logger.info("📊 Fetching contract details for AAPL...")
+            logger.info("ðŸ“Š Fetching contract details for AAPL...")
             
             aapl_details = self.ib_broker.get_contract_details(aapl_contract, timeout=15)
             
@@ -604,7 +604,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # Example 4b: Futures contract details
             es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
             
-            logger.info("📊 Fetching contract details for ES futures...")
+            logger.info("ðŸ“Š Fetching contract details for ES futures...")
             
             es_details = self.ib_broker.get_contract_details(es_contract, timeout=15)
             
@@ -644,7 +644,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             scanner_sub.numberOfRows = 20  # Get top 20 results
             scanner_sub.aboveVolume = 1000000  # Above 1M volume
             
-            logger.info("📊 Running market scanner for top volume stocks...")
+            logger.info("ðŸ“Š Running market scanner for top volume stocks...")
             
             scanner_results = self.ib_broker.get_market_scanner_results(scanner_sub, timeout=30)
             
@@ -682,7 +682,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             msft_contract.primaryExchange = "NASDAQ"
             
             # Request delayed market data (15-minute delay)
-            logger.info("📊 Requesting delayed market data for MSFT...")
+            logger.info("ðŸ“Š Requesting delayed market data for MSFT...")
             
             success = self.ib_broker.request_delayed_market_data(msft_contract, delay_type=3)
             
@@ -722,7 +722,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             tsla_contract = self.ib_broker.create_stock_contract("TSLA", "STK", "SMART")
             tsla_contract.primaryExchange = "NASDAQ"
             
-            logger.info("📊 Requesting news data for TSLA...")
+            logger.info("ðŸ“Š Requesting news data for TSLA...")
             
             news_items = self.ib_broker.get_news_data(tsla_contract, timeout=15)
             
@@ -744,7 +744,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         """
         Run all market data examples in sequence.
         """
-        logger.info("🚀 Starting Comprehensive IB Market Data Examples")
+        logger.info("ðŸš€ Starting Comprehensive IB Market Data Examples")
         logger.info("=" * 60)
         if not self.connected:
             self.ib_broker.connect()
@@ -776,7 +776,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # time.sleep(2)
             
             
-            logger.info("\\n✅ All examples completed successfully!")
+            logger.info("\\nâœ… All examples completed successfully!")
             
         except KeyboardInterrupt:
             logger.info("Examples interrupted by user")
@@ -785,7 +785,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         finally:
             # Cleanup
             self.ib_broker._disconnect_impl()
-            logger.info("\\n🏁 Examples session finished")
+            logger.info("\\nðŸ Examples session finished")
     
     def test_access_level_pipeline(self):
         """
@@ -795,12 +795,12 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         This pipeline systematically tests each capability and provides a detailed
         report of what is working and what requires additional subscriptions or permissions.
         """
-        logger.info("\\n🧪 === Access Level Test Pipeline ===")
+        logger.info("\\nðŸ§ª === Access Level Test Pipeline ===")
         logger.info("=" * 60)
         
         # Connect to IB
         if not self.ib_broker.connect():
-            logger.error("❌ Cannot run access level tests - failed to connect to Interactive Brokers")
+            logger.error("âŒ Cannot run access level tests - failed to connect to Interactive Brokers")
             return
         
         test_results = {
@@ -819,7 +819,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         try:
             # Test 1: Basic Account Information
-            logger.info("\\n🔍 Test 1: Account Information Access")
+            logger.info("\\nðŸ” Test 1: Account Information Access")
             try:
                 if hasattr(self.broker, 'get_broker_specific_info'):
                     account_info = self.ib_broker.get_broker_specific_info()
@@ -828,19 +828,19 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'status': 'success', 
                             'details': f"Account accessible - Connection: {account_info.get('connection_state', 'unknown')}"
                         }
-                        logger.info(f"  ✅ Account Info: {account_info.get('connection_state', 'Connected')}")
+                        logger.info(f"  âœ… Account Info: {account_info.get('connection_state', 'Connected')}")
                     else:
                         test_results['account_info'] = {'status': 'limited', 'details': 'Account info access limited'}
-                        logger.warning("  ⚠️  Account info access limited")
+                        logger.warning("  âš ï¸  Account info access limited")
                 else:
                     test_results['account_info'] = {'status': 'unavailable', 'details': 'Account info method not available'}
-                    logger.warning("  ❌ Account info method not available")
+                    logger.warning("  âŒ Account info method not available")
             except Exception as e:
                 test_results['account_info'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Account info error: {e}")
+                logger.error(f"  âŒ Account info error: {e}")
             
             # Test 2: Live Market Data Snapshots
-            logger.info("\\n🔍 Test 2: Live Market Data Snapshots")
+            logger.info("\\nðŸ” Test 2: Live Market Data Snapshots")
             try:
                 spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
@@ -852,22 +852,22 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Live data available - Last: {snapshot.get('LAST')}"
                     }
-                    logger.info(f"  ✅ Live Market Data: SPY Last = {snapshot.get('LAST')}")
+                    logger.info(f"  âœ… Live Market Data: SPY Last = {snapshot.get('LAST')}")
                 elif snapshot and snapshot.get('error'):
                     test_results['live_market_data'] = {
                         'status': 'limited',
                         'details': f"Error: {snapshot.get('error', 'Unknown error')}"
                     }
-                    logger.warning(f"  ⚠️  Live market data limited: {snapshot.get('error')}")
+                    logger.warning(f"  âš ï¸  Live market data limited: {snapshot.get('error')}")
                 else:
                     test_results['live_market_data'] = {'status': 'unavailable', 'details': 'No live market data received'}
-                    logger.warning("  ❌ No live market data received - may need subscription")
+                    logger.warning("  âŒ No live market data received - may need subscription")
             except Exception as e:
                 test_results['live_market_data'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Live market data error: {e}")
+                logger.error(f"  âŒ Live market data error: {e}")
             
             # Test 3: Historical Data
-            logger.info("\\n🔍 Test 3: Historical Data Access")
+            logger.info("\\nðŸ” Test 3: Historical Data Access")
             try:
                 aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
                 aapl_contract.primaryExchange = "NASDAQ"
@@ -885,16 +885,16 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Historical data available - {len(historical)} bars received"
                     }
-                    logger.info(f"  ✅ Historical Data: {len(historical)} AAPL daily bars")
+                    logger.info(f"  âœ… Historical Data: {len(historical)} AAPL daily bars")
                 else:
                     test_results['historical_data'] = {'status': 'limited', 'details': 'No historical data received'}
-                    logger.warning("  ⚠️  No historical data received")
+                    logger.warning("  âš ï¸  No historical data received")
             except Exception as e:
                 test_results['historical_data'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Historical data error: {e}")
+                logger.error(f"  âŒ Historical data error: {e}")
             
             # Test 4: Market Depth (Level 2)
-            logger.info("\\n🔍 Test 4: Market Depth (Level 2) Access")
+            logger.info("\\nðŸ” Test 4: Market Depth (Level 2) Access")
             try:
                 spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
@@ -908,17 +908,17 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Level 2 data available - {bid_count} bids, {ask_count} asks"
                     }
-                    logger.info(f"  ✅ Market Depth: {bid_count} bids, {ask_count} asks")
+                    logger.info(f"  âœ… Market Depth: {bid_count} bids, {ask_count} asks")
                 else:
                     error_msg = depth.get('error', 'No depth data received') if depth else 'No response'
                     test_results['market_depth'] = {'status': 'limited', 'details': f'Limited: {error_msg}'}
-                    logger.warning(f"  ⚠️  Market depth limited: {error_msg}")
+                    logger.warning(f"  âš ï¸  Market depth limited: {error_msg}")
             except Exception as e:
                 test_results['market_depth'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Market depth error: {e}")
+                logger.error(f"  âŒ Market depth error: {e}")
             
             # Test 5: Contract Details
-            logger.info("\\n🔍 Test 5: Contract Details Access")
+            logger.info("\\nðŸ” Test 5: Contract Details Access")
             try:
                 spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 details = self.ib_broker.get_contract_details(spy_contract, timeout=10)
@@ -928,16 +928,16 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Contract details available - {len(details)} matches found"
                     }
-                    logger.info(f"  ✅ Contract Details: {len(details)} SPY contract matches")
+                    logger.info(f"  âœ… Contract Details: {len(details)} SPY contract matches")
                 else:
                     test_results['contract_details'] = {'status': 'limited', 'details': 'No contract details received'}
-                    logger.warning("  ⚠️  No contract details received")
+                    logger.warning("  âš ï¸  No contract details received")
             except Exception as e:
                 test_results['contract_details'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Contract details error: {e}")
+                logger.error(f"  âŒ Contract details error: {e}")
             
             # Test 6: Market Scanner
-            logger.info("\\n🔍 Test 6: Market Scanner Access")
+            logger.info("\\nðŸ” Test 6: Market Scanner Access")
             try:
                 scanner_sub = ScannerSubscription()
                 scanner_sub.instrument = "STK"
@@ -952,16 +952,16 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Market scanner available - {len(scanner_results)} results"
                     }
-                    logger.info(f"  ✅ Market Scanner: {len(scanner_results)} results")
+                    logger.info(f"  âœ… Market Scanner: {len(scanner_results)} results")
                 else:
                     test_results['market_scanner'] = {'status': 'limited', 'details': 'No scanner results received'}
-                    logger.warning("  ⚠️  No scanner results received")
+                    logger.warning("  âš ï¸  No scanner results received")
             except Exception as e:
                 test_results['market_scanner'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Market scanner error: {e}")
+                logger.error(f"  âŒ Market scanner error: {e}")
             
             # Test 7: Futures Data
-            logger.info("\\n🔍 Test 7: Futures Data Access")
+            logger.info("\\nðŸ” Test 7: Futures Data Access")
             try:
                 es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
                 
@@ -972,17 +972,17 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"Futures data available - ES Last: {futures_snapshot.get('LAST')}"
                     }
-                    logger.info(f"  ✅ Futures Data: ES Last = {futures_snapshot.get('LAST')}")
+                    logger.info(f"  âœ… Futures Data: ES Last = {futures_snapshot.get('LAST')}")
                 else:
                     error_msg = futures_snapshot.get('error', 'No futures data') if futures_snapshot else 'No response'
                     test_results['futures_data'] = {'status': 'limited', 'details': f'Limited: {error_msg}'}
-                    logger.warning(f"  ⚠️  Futures data limited: {error_msg}")
+                    logger.warning(f"  âš ï¸  Futures data limited: {error_msg}")
             except Exception as e:
                 test_results['futures_data'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Futures data error: {e}")
+                logger.error(f"  âŒ Futures data error: {e}")
             
             # Test 8: Streaming Data Subscriptions
-            logger.info("\\n🔍 Test 8: Streaming Data Subscriptions")
+            logger.info("\\nðŸ” Test 8: Streaming Data Subscriptions")
             try:
                 spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
                 spy_contract.primaryExchange = "ARCA"
@@ -1009,22 +1009,22 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'status': 'success',
                             'details': 'Streaming data subscriptions working'
                         }
-                        logger.info("  ✅ Streaming Data: Subscriptions working")
+                        logger.info("  âœ… Streaming Data: Subscriptions working")
                     else:
                         test_results['streaming_data'] = {
                             'status': 'partial',
                             'details': 'Subscription created but no data received'
                         }
-                        logger.warning("  ⚠️  Streaming: Subscription created but no data received")
+                        logger.warning("  âš ï¸  Streaming: Subscription created but no data received")
                 else:
                     test_results['streaming_data'] = {'status': 'limited', 'details': 'Failed to create subscription'}
-                    logger.warning("  ❌ Failed to create streaming data subscription")
+                    logger.warning("  âŒ Failed to create streaming data subscription")
             except Exception as e:
                 test_results['streaming_data'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ Streaming data error: {e}")
+                logger.error(f"  âŒ Streaming data error: {e}")
             
             # Test 9: News Data
-            logger.info("\\n🔍 Test 9: News Data Access")
+            logger.info("\\nðŸ” Test 9: News Data Access")
             try:
                 aapl_contract = self.ib_broker.create_stock_contract("AAPL", "STK", "SMART")
                 aapl_contract.primaryExchange = "NASDAQ"
@@ -1036,13 +1036,13 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'success',
                         'details': f"News data available - {len(news_data)} items received"
                     }
-                    logger.info(f"  ✅ News Data: {len(news_data)} news items for AAPL")
+                    logger.info(f"  âœ… News Data: {len(news_data)} news items for AAPL")
                 else:
                     test_results['news_data'] = {'status': 'limited', 'details': 'No news data received'}
-                    logger.warning("  ⚠️  No news data received - may require subscription")
+                    logger.warning("  âš ï¸  No news data received - may require subscription")
             except Exception as e:
                 test_results['news_data'] = {'status': 'error', 'details': f'Error: {str(e)[:100]}'}
-                logger.error(f"  ❌ News data error: {e}")
+                logger.error(f"  âŒ News data error: {e}")
             
             # Generate comprehensive report
             self._generate_access_level_report(test_results)
@@ -1053,7 +1053,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             logger.error(f"Error in access level pipeline: {e}")
         finally:
             self.disconnect_from_ib()
-            logger.info("\\n🏁 Access Level Test Pipeline Complete")
+            logger.info("\\nðŸ Access Level Test Pipeline Complete")
     
     def _generate_access_level_report(self, test_results: Dict[str, Dict[str, str]]):
         """
@@ -1063,13 +1063,13 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             test_results: Dictionary containing test results for each capability
         """
         logger.info("\\n" + "=" * 60)
-        logger.info("📊 === COMPREHENSIVE ACCESS LEVEL REPORT ===")
+        logger.info("ðŸ“Š === COMPREHENSIVE ACCESS LEVEL REPORT ===")
         logger.info("=" * 60)
         
         # Count results by status
         status_counts = {'success': 0, 'limited': 0, 'partial': 0, 'unavailable': 0, 'error': 0, 'unknown': 0}
         
-        logger.info("\\n🎯 CAPABILITY STATUS SUMMARY:")
+        logger.info("\\nðŸŽ¯ CAPABILITY STATUS SUMMARY:")
         logger.info("-" * 40)
         
         for capability, result in test_results.items():
@@ -1079,68 +1079,68 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             
             # Choose emoji based on status
             emoji_map = {
-                'success': '✅',
-                'limited': '⚠️',
-                'partial': '🟡',
-                'unavailable': '❌',
-                'error': '🔥',
-                'unknown': '❓'
+                'success': 'âœ…',
+                'limited': 'âš ï¸',
+                'partial': 'ðŸŸ¡',
+                'unavailable': 'âŒ',
+                'error': 'ðŸ”¥',
+                'unknown': 'â“'
             }
             
-            emoji = emoji_map.get(status, '❓')
+            emoji = emoji_map.get(status, 'â“')
             capability_name = capability.replace('_', ' ').title()
             
             logger.info(f"{emoji} {capability_name:<20} | {status.upper():<12} | {details}")
         
         # Overall assessment
         logger.info("\\n" + "-" * 60)
-        logger.info("📈 OVERALL ASSESSMENT:")
+        logger.info("ðŸ“ˆ OVERALL ASSESSMENT:")
         logger.info("-" * 60)
         
         total_tests = len(test_results)
         success_rate = (status_counts['success'] / total_tests) * 100
         
         logger.info(f"Total Tests Performed: {total_tests}")
-        logger.info(f"✅ Fully Working:      {status_counts['success']} ({status_counts['success']/total_tests*100:.1f}%)")
-        logger.info(f"⚠️  Limited Access:     {status_counts['limited']} ({status_counts['limited']/total_tests*100:.1f}%)")
-        logger.info(f"🟡 Partial Working:    {status_counts['partial']} ({status_counts['partial']/total_tests*100:.1f}%)")
-        logger.info(f"❌ Not Available:      {status_counts['unavailable']} ({status_counts['unavailable']/total_tests*100:.1f}%)")
-        logger.info(f"🔥 Errors:            {status_counts['error']} ({status_counts['error']/total_tests*100:.1f}%)")
+        logger.info(f"âœ… Fully Working:      {status_counts['success']} ({status_counts['success']/total_tests*100:.1f}%)")
+        logger.info(f"âš ï¸  Limited Access:     {status_counts['limited']} ({status_counts['limited']/total_tests*100:.1f}%)")
+        logger.info(f"ðŸŸ¡ Partial Working:    {status_counts['partial']} ({status_counts['partial']/total_tests*100:.1f}%)")
+        logger.info(f"âŒ Not Available:      {status_counts['unavailable']} ({status_counts['unavailable']/total_tests*100:.1f}%)")
+        logger.info(f"ðŸ”¥ Errors:            {status_counts['error']} ({status_counts['error']/total_tests*100:.1f}%)")
         
         # Recommendations
         logger.info("\\n" + "-" * 60)
-        logger.info("💡 RECOMMENDATIONS:")
+        logger.info("ðŸ’¡ RECOMMENDATIONS:")
         logger.info("-" * 60)
         
         if status_counts['success'] >= 6:
-            logger.info("🎉 EXCELLENT: Your access level supports most IB API capabilities!")
-            logger.info("   • Consider upgrading any limited features for full functionality")
+            logger.info("ðŸŽ‰ EXCELLENT: Your access level supports most IB API capabilities!")
+            logger.info("   â€¢ Consider upgrading any limited features for full functionality")
         elif status_counts['success'] >= 4:
-            logger.info("👍 GOOD: Your access level supports core IB API capabilities")
-            logger.info("   • Some advanced features may require additional subscriptions")
+            logger.info("ðŸ‘ GOOD: Your access level supports core IB API capabilities")
+            logger.info("   â€¢ Some advanced features may require additional subscriptions")
         elif status_counts['success'] >= 2:
-            logger.info("⚠️  BASIC: Limited access detected")
-            logger.info("   • Consider checking your IB account permissions and subscriptions")
+            logger.info("âš ï¸  BASIC: Limited access detected")
+            logger.info("   â€¢ Consider checking your IB account permissions and subscriptions")
         else:
-            logger.info("🚨 MINIMAL: Very limited access detected")
-            logger.info("   • Check IB Gateway/TWS connection and account status")
-            logger.info("   • Verify market data subscriptions and permissions")
+            logger.info("ðŸš¨ MINIMAL: Very limited access detected")
+            logger.info("   â€¢ Check IB Gateway/TWS connection and account status")
+            logger.info("   â€¢ Verify market data subscriptions and permissions")
         
         # Specific recommendations based on failures
         if test_results['live_market_data']['status'] in ['limited', 'unavailable']:
-            logger.info("   📡 Consider upgrading to live market data subscriptions")
+            logger.info("   ðŸ“¡ Consider upgrading to live market data subscriptions")
         
         if test_results['market_depth']['status'] in ['limited', 'unavailable']:
-            logger.info("   📊 Level 2 market depth may require additional subscription")
+            logger.info("   ðŸ“Š Level 2 market depth may require additional subscription")
         
         if test_results['news_data']['status'] in ['limited', 'unavailable']:
-            logger.info("   📰 News data requires specific market data subscriptions")
+            logger.info("   ðŸ“° News data requires specific market data subscriptions")
         
         if test_results['futures_data']['status'] in ['limited', 'unavailable']:
-            logger.info("   📈 Futures data may require futures trading permissions")
+            logger.info("   ðŸ“ˆ Futures data may require futures trading permissions")
         
         logger.info("\\n" + "=" * 60)
-        logger.info("✨ Access Level Analysis Complete!")
+        logger.info("âœ¨ Access Level Analysis Complete!")
         logger.info("=" * 60)
 
     def test_comprehensive_market_access(self):
@@ -1155,7 +1155,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         Returns:
             Dict: Comprehensive summary of all market access test results
         """
-        logger.info("\n🚀 === COMPREHENSIVE MARKET ACCESS TEST ===")
+        logger.info("\nðŸš€ === COMPREHENSIVE MARKET ACCESS TEST ===")
         logger.info("=" * 70)
         
         # Initialize results structure
@@ -1202,7 +1202,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'status': 'success', 
                 'details': 'Successfully connected to IB Gateway/TWS'
             }
-            logger.info("✅ Connected to Interactive Brokers")
+            logger.info("âœ… Connected to Interactive Brokers")
             
         except Exception as e:
             market_access_results['connection_status'] = {
@@ -1213,27 +1213,27 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             return self._generate_market_access_summary(market_access_results)
         
         # Test 1: STOCKS Asset Class
-        logger.info("\n📈 Testing STOCKS Asset Class...")
+        logger.info("\nðŸ“ˆ Testing STOCKS Asset Class...")
         stock_results = self._test_stocks_market_access()
         market_access_results['asset_classes']['stocks'] = stock_results
         
         # Test 2: COMMODITIES Asset Class  
-        logger.info("\n🥇 Testing COMMODITIES Asset Class...")
+        logger.info("\nðŸ¥‡ Testing COMMODITIES Asset Class...")
         commodity_results = self._test_commodities_market_access()
         market_access_results['asset_classes']['commodities'] = commodity_results
         
         # Test 3: BONDS Asset Class
-        logger.info("\n🏛️ Testing BONDS Asset Class...")
+        logger.info("\nðŸ›ï¸ Testing BONDS Asset Class...")
         bond_results = self._test_bonds_market_access()
         market_access_results['asset_classes']['bonds'] = bond_results
         
         # Test 4: FUTURES Asset Class
-        logger.info("\n📊 Testing FUTURES Asset Class...")
+        logger.info("\nðŸ“Š Testing FUTURES Asset Class...")
         futures_results = self._test_futures_market_access()
         market_access_results['asset_classes']['futures'] = futures_results
         
         # Test 5: Data Types Comprehensive Testing
-        logger.info("\n🔍 Testing DATA TYPES across all assets...")
+        logger.info("\nðŸ” Testing DATA TYPES across all assets...")
         self._test_data_types_comprehensive(market_access_results)
         
         # Finalize summary
@@ -1283,11 +1283,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
                     if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
                         test_result['live_data'] = True
-                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                        logger.info(f"    âœ… Live data: Last = {snapshot.get('LAST')}")
                     else:
                         error_msg = snapshot.get('error', 'No live data') if snapshot else 'No response'
                         test_result['error_messages'].append(f"Live data: {error_msg}")
-                        logger.info(f"    ⚠️  Live data limited: {error_msg}")
+                        logger.info(f"    âš ï¸  Live data limited: {error_msg}")
                 except Exception as e:
                     test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
                 
@@ -1302,10 +1302,10 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     )
                     if historical and len(historical) > 0:
                         test_result['historical_data'] = True
-                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                        logger.info(f"    âœ… Historical: {len(historical)} bars")
                     else:
                         test_result['error_messages'].append("Historical: No data received")
-                        logger.info("    ⚠️  No historical data")
+                        logger.info("    âš ï¸  No historical data")
                 except Exception as e:
                     test_result['error_messages'].append(f"Historical error: {str(e)[:50]}")
                 
@@ -1314,7 +1314,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     details = self.ib_broker.get_contract_details(contract, timeout=5)
                     if details and len(details) > 0:
                         test_result['contract_details'] = True
-                        logger.info(f"    ✅ Contract details: {len(details)} matches")
+                        logger.info(f"    âœ… Contract details: {len(details)} matches")
                     else:
                         test_result['error_messages'].append("Contract details: No details received")
                 except Exception as e:
@@ -1328,7 +1328,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     successful_tests += 1
                     
             except Exception as e:
-                logger.error(f"    ❌ Error testing {stock_info['symbol']}: {e}")
+                logger.error(f"    âŒ Error testing {stock_info['symbol']}: {e}")
                 result['test_results'][stock_info['symbol']] = {
                     'live_data': False, 'historical_data': False, 'contract_details': False,
                     'error_messages': [f"General error: {str(e)[:50]}"]
@@ -1383,11 +1383,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
                     if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
                         test_result['live_data'] = True
-                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                        logger.info(f"    âœ… Live data: Last = {snapshot.get('LAST')}")
                     else:
                         error_msg = snapshot.get('error', 'No commodity data') if snapshot else 'No response'
                         test_result['error_messages'].append(f"Live data: {error_msg}")
-                        logger.info(f"    ⚠️  Commodity data limited: {error_msg}")
+                        logger.info(f"    âš ï¸  Commodity data limited: {error_msg}")
                 except Exception as e:
                     test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
                 
@@ -1402,7 +1402,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     )
                     if historical and len(historical) > 0:
                         test_result['historical_data'] = True
-                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                        logger.info(f"    âœ… Historical: {len(historical)} bars")
                     else:
                         test_result['error_messages'].append("Historical: No commodity historical data")
                 except Exception as e:
@@ -1413,7 +1413,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     details = self.ib_broker.get_contract_details(contract, timeout=8)
                     if details and len(details) > 0:
                         test_result['contract_details'] = True
-                        logger.info(f"    ✅ Contract details: {len(details)} commodity contracts")
+                        logger.info(f"    âœ… Contract details: {len(details)} commodity contracts")
                     else:
                         test_result['error_messages'].append("Contract details: No commodity contracts found")
                 except Exception as e:
@@ -1427,7 +1427,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     successful_tests += 1
                     
             except Exception as e:
-                logger.error(f"    ❌ Error testing {commodity_info['symbol']}: {e}")
+                logger.error(f"    âŒ Error testing {commodity_info['symbol']}: {e}")
                 result['test_results'][commodity_info['symbol']] = {
                     'live_data': False, 'historical_data': False, 'contract_details': False,
                     'error_messages': [f"General error: {str(e)[:50]}"]
@@ -1482,11 +1482,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
                     if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
                         test_result['live_data'] = True
-                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                        logger.info(f"    âœ… Live data: Last = {snapshot.get('LAST')}")
                     else:
                         error_msg = snapshot.get('error', 'No bond data') if snapshot else 'No response'
                         test_result['error_messages'].append(f"Live data: {error_msg}")
-                        logger.info(f"    ⚠️  Bond data limited: {error_msg}")
+                        logger.info(f"    âš ï¸  Bond data limited: {error_msg}")
                 except Exception as e:
                     test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
                 
@@ -1501,7 +1501,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     )
                     if historical and len(historical) > 0:
                         test_result['historical_data'] = True
-                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                        logger.info(f"    âœ… Historical: {len(historical)} bars")
                     else:
                         test_result['error_messages'].append("Historical: No bond historical data")
                 except Exception as e:
@@ -1512,7 +1512,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     details = self.ib_broker.get_contract_details(contract, timeout=8)
                     if details and len(details) > 0:
                         test_result['contract_details'] = True
-                        logger.info(f"    ✅ Contract details: {len(details)} bond contracts")
+                        logger.info(f"    âœ… Contract details: {len(details)} bond contracts")
                     else:
                         test_result['error_messages'].append("Contract details: No bond contracts found")
                 except Exception as e:
@@ -1526,7 +1526,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     successful_tests += 1
                     
             except Exception as e:
-                logger.error(f"    ❌ Error testing {bond_info['symbol']}: {e}")
+                logger.error(f"    âŒ Error testing {bond_info['symbol']}: {e}")
                 result['test_results'][bond_info['symbol']] = {
                     'live_data': False, 'historical_data': False, 'contract_details': False,
                     'error_messages': [f"General error: {str(e)[:50]}"]
@@ -1581,11 +1581,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     snapshot = self.ib_broker.get_market_data_snapshot(contract, timeout=5)
                     if snapshot and not snapshot.get('error') and snapshot.get('LAST'):
                         test_result['live_data'] = True
-                        logger.info(f"    ✅ Live data: Last = {snapshot.get('LAST')}")
+                        logger.info(f"    âœ… Live data: Last = {snapshot.get('LAST')}")
                     else:
                         error_msg = snapshot.get('error', 'No futures data') if snapshot else 'No response'
                         test_result['error_messages'].append(f"Live data: {error_msg}")
-                        logger.info(f"    ⚠️  Futures data limited: {error_msg}")
+                        logger.info(f"    âš ï¸  Futures data limited: {error_msg}")
                 except Exception as e:
                     test_result['error_messages'].append(f"Live data error: {str(e)[:50]}")
                 
@@ -1601,7 +1601,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     )
                     if historical and len(historical) > 0:
                         test_result['historical_data'] = True
-                        logger.info(f"    ✅ Historical: {len(historical)} bars")
+                        logger.info(f"    âœ… Historical: {len(historical)} bars")
                     else:
                         test_result['error_messages'].append("Historical: No futures historical data")
                 except Exception as e:
@@ -1612,7 +1612,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     details = self.ib_broker.get_contract_details(contract, timeout=8)
                     if details and len(details) > 0:
                         test_result['contract_details'] = True
-                        logger.info(f"    ✅ Contract details: {len(details)} futures contracts")
+                        logger.info(f"    âœ… Contract details: {len(details)} futures contracts")
                     else:
                         test_result['error_messages'].append("Contract details: No futures contracts found")
                 except Exception as e:
@@ -1626,7 +1626,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     successful_tests += 1
                     
             except Exception as e:
-                logger.error(f"    ❌ Error testing {futures_info['symbol']}: {e}")
+                logger.error(f"    âŒ Error testing {futures_info['symbol']}: {e}")
                 result['test_results'][futures_info['symbol']] = {
                     'live_data': False, 'historical_data': False, 'contract_details': False,
                     'error_messages': [f"General error: {str(e)[:50]}"]
@@ -1649,7 +1649,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         """Test different data types comprehensively across asset classes."""
         
         # Test Level 2 Market Depth
-        logger.info("  🔍 Testing Level 2 Market Depth...")
+        logger.info("  ðŸ” Testing Level 2 Market Depth...")
         try:
             spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART")
             spy_contract.primaryExchange = "ARCA"
@@ -1663,7 +1663,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     'details': f"Level 2 data available - {bid_count} bids, {ask_count} asks",
                     'symbols_tested': ['SPY']
                 }
-                logger.info(f"    ✅ Level 2: {bid_count} bids, {ask_count} asks")
+                logger.info(f"    âœ… Level 2: {bid_count} bids, {ask_count} asks")
             else:
                 error_msg = depth.get('error', 'No depth data') if depth else 'No response'
                 market_access_results['data_types']['level2_depth'] = {
@@ -1671,7 +1671,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     'details': f"Limited: {error_msg}",
                     'symbols_tested': ['SPY']
                 }
-                logger.info(f"    ⚠️  Level 2 limited: {error_msg}")
+                logger.info(f"    âš ï¸  Level 2 limited: {error_msg}")
         except Exception as e:
             market_access_results['data_types']['level2_depth'] = {
                 'tested': True, 'status': 'error',
@@ -1680,7 +1680,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             }
         
         # Test Streaming Data Subscriptions
-        logger.info("  📡 Testing Streaming Data Subscriptions...")
+        logger.info("  ðŸ“¡ Testing Streaming Data Subscriptions...")
         try:
             spy_contract = self.ib_broker.create_stock_contract("SPY", "STK", "SMART") 
             spy_contract.primaryExchange = "ARCA"
@@ -1705,14 +1705,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'details': 'Streaming data subscriptions working',
                         'symbols_tested': ['SPY']
                     }
-                    logger.info("    ✅ Streaming: Working")
+                    logger.info("    âœ… Streaming: Working")
                 else:
                     market_access_results['data_types']['streaming_data'] = {
                         'tested': True, 'status': 'partial',
                         'details': 'Subscription created but no data received',
                         'symbols_tested': ['SPY']
                     }
-                    logger.info("    ⚠️  Streaming: Subscription created but no data")
+                    logger.info("    âš ï¸  Streaming: Subscription created but no data")
             else:
                 market_access_results['data_types']['streaming_data'] = {
                     'tested': True, 'status': 'failed',
@@ -1730,42 +1730,42 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         """Generate comprehensive summary of market access test results."""
         
         logger.info("\n" + "=" * 70)
-        logger.info("📊 === COMPREHENSIVE MARKET ACCESS SUMMARY ===")
+        logger.info("ðŸ“Š === COMPREHENSIVE MARKET ACCESS SUMMARY ===")
         logger.info("=" * 70)
         
         summary = market_access_results['test_summary']
         summary['end_time'] = datetime.now()
         
         # Connection Status
-        logger.info(f"\n🔌 CONNECTION STATUS:")
+        logger.info(f"\nðŸ”Œ CONNECTION STATUS:")
         conn = market_access_results['connection_status']
-        status_icon = "✅" if conn['status'] == 'success' else "❌"
+        status_icon = "âœ…" if conn['status'] == 'success' else "âŒ"
         logger.info(f"  {status_icon} {conn['details']}")
         
         # Asset Classes Summary
-        logger.info(f"\n📈 ASSET CLASSES ACCESS:")
+        logger.info(f"\nðŸ“ˆ ASSET CLASSES ACCESS:")
         logger.info("-" * 40)
         
         asset_summary = {}
         for asset_type, result in market_access_results['asset_classes'].items():
             if result['tested']:
-                icon = {"success": "✅", "partial": "🟡", "failed": "❌", "error": "🔥"}.get(result['status'], "❓")
+                icon = {"success": "âœ…", "partial": "ðŸŸ¡", "failed": "âŒ", "error": "ðŸ”¥"}.get(result['status'], "â“")
                 logger.info(f"  {icon} {asset_type.upper():<12} | {result['status'].upper():<8} | {result['details']}")
                 asset_summary[asset_type] = result['status']
         
         # Data Types Summary
-        logger.info(f"\n🔍 DATA TYPES ACCESS:")
+        logger.info(f"\nðŸ” DATA TYPES ACCESS:")
         logger.info("-" * 40)
         
         data_summary = {}
         for data_type, result in market_access_results['data_types'].items():
             if result.get('tested', False):
-                icon = {"success": "✅", "partial": "🟡", "failed": "❌", "limited": "⚠️", "error": "🔥"}.get(result['status'], "❓")
+                icon = {"success": "âœ…", "partial": "ðŸŸ¡", "failed": "âŒ", "limited": "âš ï¸", "error": "ðŸ”¥"}.get(result['status'], "â“")
                 logger.info(f"  {icon} {data_type.replace('_', ' ').upper():<18} | {result['status'].upper():<8} | {result['details']}")
                 data_summary[data_type] = result['status']
         
         # Overall Statistics
-        logger.info(f"\n📊 OVERALL STATISTICS:")
+        logger.info(f"\nðŸ“Š OVERALL STATISTICS:")
         logger.info("-" * 40)
         
         # Count successes
@@ -1784,29 +1784,29 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         # Generate Recommendations
         recommendations = []
         if asset_summary.get('stocks') == 'failed':
-            recommendations.append("📈 Check stock market data subscriptions - core equity access limited")
+            recommendations.append("ðŸ“ˆ Check stock market data subscriptions - core equity access limited")
         if asset_summary.get('futures') in ['failed', 'partial']:
-            recommendations.append("📊 Consider enabling futures trading permissions for full futures access")
+            recommendations.append("ðŸ“Š Consider enabling futures trading permissions for full futures access")
         if asset_summary.get('commodities') in ['failed', 'partial']:
-            recommendations.append("🥇 Commodity futures may require specific exchange data subscriptions")
+            recommendations.append("ðŸ¥‡ Commodity futures may require specific exchange data subscriptions")
         if asset_summary.get('bonds') in ['failed', 'partial']:
-            recommendations.append("🏛️ Treasury futures access may require bond market data subscriptions")
+            recommendations.append("ðŸ›ï¸ Treasury futures access may require bond market data subscriptions")
         if data_summary.get('level2_depth') in ['failed', 'limited']:
-            recommendations.append("📊 Level 2 market depth requires additional market data subscriptions")
+            recommendations.append("ðŸ“Š Level 2 market depth requires additional market data subscriptions")
         if data_summary.get('streaming_data') in ['failed', 'partial']:
-            recommendations.append("📡 Streaming data issues may indicate market data permission limits")
+            recommendations.append("ðŸ“¡ Streaming data issues may indicate market data permission limits")
         
-        logger.info(f"\n💡 RECOMMENDATIONS:")
+        logger.info(f"\nðŸ’¡ RECOMMENDATIONS:")
         logger.info("-" * 40)
         if recommendations:
             for i, rec in enumerate(recommendations, 1):
                 logger.info(f"  {i}. {rec}")
         else:
-            logger.info("  🎉 Excellent! All tested market access types are working well.")
+            logger.info("  ðŸŽ‰ Excellent! All tested market access types are working well.")
         
-        logger.info(f"\n⏱️  Test Duration: {summary.get('duration', 0):.1f} seconds")
+        logger.info(f"\nâ±ï¸  Test Duration: {summary.get('duration', 0):.1f} seconds")
         logger.info("=" * 70)
-        logger.info("✨ Comprehensive Market Access Test Complete!")
+        logger.info("âœ¨ Comprehensive Market Access Test Complete!")
         logger.info("=" * 70)
         
         # Clean up connection
@@ -1831,7 +1831,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         Returns:
             Dict: Comprehensive summary of all tick access test results
         """
-        logger.info("\n🎯 === COMPREHENSIVE TICK ACCESS TEST ====")
+        logger.info("\nðŸŽ¯ === COMPREHENSIVE TICK ACCESS TEST ====")
         logger.info("=" * 70)
         
         # Initialize tick test results structure
@@ -1878,7 +1878,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'status': 'success', 
                 'details': 'Successfully connected to IB Gateway/TWS'
             }
-            logger.info("✅ Connected to Interactive Brokers for tick testing")
+            logger.info("âœ… Connected to Interactive Brokers for tick testing")
             
         except Exception as e:
             tick_test_results['connection_status'] = {
@@ -1889,37 +1889,37 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             return self._generate_tick_access_summary(tick_test_results)
         
         # Test 1: Basic Price Ticks
-        logger.info("\n💰 Testing BASIC PRICE TICKS...")
+        logger.info("\nðŸ’° Testing BASIC PRICE TICKS...")
         basic_price_results = self._test_basic_price_ticks()
         tick_test_results['tick_categories']['basic_price_ticks'] = basic_price_results
         
         # Test 2: Size Ticks
-        logger.info("\n📊 Testing SIZE TICKS...")
+        logger.info("\nðŸ“Š Testing SIZE TICKS...")
         size_results = self._test_size_ticks()
         tick_test_results['tick_categories']['size_ticks'] = size_results
         
         # Test 3: Extended Price Ticks
-        logger.info("\n📈 Testing EXTENDED PRICE TICKS...")
+        logger.info("\nðŸ“ˆ Testing EXTENDED PRICE TICKS...")
         extended_results = self._test_extended_price_ticks()
         tick_test_results['tick_categories']['extended_price_ticks'] = extended_results
         
         # Test 4: Generic Ticks
-        logger.info("\n🔧 Testing GENERIC TICKS...")
+        logger.info("\nðŸ”§ Testing GENERIC TICKS...")
         generic_results = self._test_generic_ticks()
         tick_test_results['tick_categories']['generic_ticks'] = generic_results
         
         # Test 5: String Ticks
-        logger.info("\n📝 Testing STRING TICKS...")
+        logger.info("\nðŸ“ Testing STRING TICKS...")
         string_results = self._test_string_ticks()
         tick_test_results['tick_categories']['string_ticks'] = string_results
         
         # Test 6: Option Ticks (if option data is available)
-        logger.info("\n📋 Testing OPTION TICKS...")
+        logger.info("\nðŸ“‹ Testing OPTION TICKS...")
         option_results = self._test_option_ticks()
         tick_test_results['tick_categories']['option_ticks'] = option_results
         
         # Test 7: Asset-Tick Compatibility
-        logger.info("\n🎯 Testing ASSET-TICK COMPATIBILITY...")
+        logger.info("\nðŸŽ¯ Testing ASSET-TICK COMPATIBILITY...")
         self._test_asset_tick_compatibility(tick_test_results)
         
         # Finalize summary
@@ -1974,7 +1974,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {snapshot[tick_name]}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -1982,7 +1982,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': None,
                             'details': 'No data received'
                         }
-                        logger.info(f"    ⚠️ {tick_name} (ID:{tick_id}): No data")
+                        logger.info(f"    âš ï¸ {tick_name} (ID:{tick_id}): No data")
             else:
                 error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
                 for tick_name in basic_price_ticks.values():
@@ -1990,7 +1990,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'error',
                         'details': f'Snapshot failed: {error_msg}'
                     }
-                logger.warning(f"  ❌ Basic price tick test failed: {error_msg}")
+                logger.warning(f"  âŒ Basic price tick test failed: {error_msg}")
             
             # Determine overall status
             if successful_ticks == total_ticks:
@@ -2006,7 +2006,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'error'
             result['details'] = f'Error testing basic price ticks: {str(e)[:100]}'
-            logger.error(f"  ❌ Error in basic price tick testing: {e}")
+            logger.error(f"  âŒ Error in basic price tick testing: {e}")
         
         return result
 
@@ -2048,7 +2048,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {snapshot[tick_name]}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {snapshot[tick_name]}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -2056,7 +2056,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': None,
                             'details': 'No data received'
                         }
-                        logger.info(f"    ⚠️ {tick_name} (ID:{tick_id}): No data")
+                        logger.info(f"    âš ï¸ {tick_name} (ID:{tick_id}): No data")
             else:
                 error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
                 for tick_name in size_ticks.values():
@@ -2064,7 +2064,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'error',
                         'details': f'Snapshot failed: {error_msg}'
                     }
-                logger.warning(f"  ❌ Size tick test failed: {error_msg}")
+                logger.warning(f"  âŒ Size tick test failed: {error_msg}")
             
             # Determine overall status
             if successful_ticks == total_ticks:
@@ -2080,7 +2080,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'error'
             result['details'] = f'Error testing size ticks: {str(e)[:100]}'
-            logger.error(f"  ❌ Error in size tick testing: {e}")
+            logger.error(f"  âŒ Error in size tick testing: {e}")
         
         return result
 
@@ -2131,7 +2131,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {tick_value}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {tick_value}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -2139,7 +2139,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': None,
                             'details': 'Extended tick may require specific subscription'
                         }
-                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited access")
+                        logger.info(f"    ðŸŸ¡ {tick_name} (ID:{tick_id}): Limited access")
             else:
                 error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
                 for tick_name in extended_price_ticks.values():
@@ -2147,7 +2147,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'error',
                         'details': f'Snapshot failed: {error_msg}'
                     }
-                logger.warning(f"  ❌ Extended price tick test failed: {error_msg}")
+                logger.warning(f"  âŒ Extended price tick test failed: {error_msg}")
             
             # Extended ticks are often limited - be lenient with success criteria
             if successful_ticks > 0:
@@ -2160,7 +2160,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'error'
             result['details'] = f'Error testing extended price ticks: {str(e)[:100]}'
-            logger.error(f"  ❌ Error in extended price tick testing: {e}")
+            logger.error(f"  âŒ Error in extended price tick testing: {e}")
         
         return result
 
@@ -2219,7 +2219,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {tick_value}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {tick_value}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -2227,7 +2227,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': tick_value,
                             'details': 'Generic tick may require subscription or market conditions'
                         }
-                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited/No data")
+                        logger.info(f"    ðŸŸ¡ {tick_name} (ID:{tick_id}): Limited/No data")
                 
                 # Also check for any other generic ticks that might be present
                 for key, value in snapshot.items():
@@ -2240,7 +2240,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': value,
                             'details': f'Unexpected generic tick found: {value}'
                         }
-                        logger.info(f"    ✨ {generic_name}: {value}")
+                        logger.info(f"    âœ¨ {generic_name}: {value}")
                         
             else:
                 error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
@@ -2251,7 +2251,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'error',
                         'details': f'Snapshot failed: {error_msg}'
                     }
-                logger.warning(f"  ❌ Generic tick test failed: {error_msg}")
+                logger.warning(f"  âŒ Generic tick test failed: {error_msg}")
             
             # Generic ticks are often subscription-dependent - be realistic with expectations
             if successful_ticks >= total_ticks // 2:
@@ -2267,7 +2267,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'error'
             result['details'] = f'Error testing generic ticks: {str(e)[:100]}'
-            logger.error(f"  ❌ Error in generic tick testing: {e}")
+            logger.error(f"  âŒ Error in generic tick testing: {e}")
         
         return result
 
@@ -2315,7 +2315,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {tick_value}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {tick_value}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -2323,7 +2323,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': None,
                             'details': 'String tick not available or empty'
                         }
-                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): No string data")
+                        logger.info(f"    ðŸŸ¡ {tick_name} (ID:{tick_id}): No string data")
             else:
                 error_msg = snapshot.get('error', 'No response') if snapshot else 'No response'
                 for tick_name in string_ticks.values():
@@ -2331,7 +2331,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'error',
                         'details': f'Snapshot failed: {error_msg}'
                     }
-                logger.warning(f"  ❌ String tick test failed: {error_msg}")
+                logger.warning(f"  âŒ String tick test failed: {error_msg}")
             
             # String ticks are often optional - be lenient
             if successful_ticks > 0:
@@ -2344,7 +2344,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'error'
             result['details'] = f'Error testing string ticks: {str(e)[:100]}'
-            logger.error(f"  ❌ Error in string tick testing: {e}")
+            logger.error(f"  âŒ Error in string tick testing: {e}")
         
         return result
 
@@ -2407,7 +2407,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'details': f'Received: {tick_value}'
                         }
                         successful_ticks += 1
-                        logger.info(f"    ✅ {tick_name} (ID:{tick_id}): {tick_value}")
+                        logger.info(f"    âœ… {tick_name} (ID:{tick_id}): {tick_value}")
                     else:
                         result['ticks_tested'][tick_name] = {
                             'tick_id': tick_id,
@@ -2415,7 +2415,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             'value': None,
                             'details': 'Option tick requires option trading permissions'
                         }
-                        logger.info(f"    🟡 {tick_name} (ID:{tick_id}): Limited access")
+                        logger.info(f"    ðŸŸ¡ {tick_name} (ID:{tick_id}): Limited access")
             else:
                 error_msg = snapshot.get('error', 'No option data') if snapshot else 'No response'
                 for tick_name in option_ticks.values():
@@ -2423,7 +2423,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'status': 'limited',
                         'details': f'Option access limited: {error_msg}'
                     }
-                logger.info(f"  🟡 Option tick access limited: {error_msg}")
+                logger.info(f"  ðŸŸ¡ Option tick access limited: {error_msg}")
             
             # Option ticks often require special permissions
             if successful_ticks > 0:
@@ -2436,7 +2436,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             result['status'] = 'limited'
             result['details'] = f'Option access limited - requires option permissions: {str(e)[:50]}'
-            logger.info(f"  🟡 Option tick testing limited: {str(e)[:50]}")
+            logger.info(f"  ðŸŸ¡ Option tick testing limited: {str(e)[:50]}")
         
         return result
 
@@ -2444,7 +2444,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         """Test tick compatibility across different asset classes."""
         
         # Test Stocks
-        logger.info("  📋 Testing tick compatibility with STOCKS...")
+        logger.info("  ðŸ“‹ Testing tick compatibility with STOCKS...")
         try:
             tsla_contract = self.ib_broker.create_stock_contract("TSLA", "STK", "SMART")
             tsla_contract.primaryExchange = "NASDAQ"
@@ -2468,7 +2468,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     'details': f'{len(successful_ticks)} basic ticks working with stocks',
                     'successful_ticks': successful_ticks
                 }
-                logger.info(f"    ✅ Stocks: {len(successful_ticks)} ticks working")
+                logger.info(f"    âœ… Stocks: {len(successful_ticks)} ticks working")
             else:
                 tick_test_results['asset_tick_compatibility']['stocks'] = {
                     'tested': True, 'status': 'failed',
@@ -2482,7 +2482,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             }
         
         # Test Futures
-        logger.info("  📈 Testing tick compatibility with FUTURES...")
+        logger.info("  ðŸ“ˆ Testing tick compatibility with FUTURES...")
         try:
             es_contract = self.ib_broker.create_stock_contract("ES", "FUT", "CME")
             es_contract.currency = "USD"
@@ -2506,7 +2506,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     'details': f'{len(successful_ticks)} basic ticks working with futures',
                     'successful_ticks': successful_ticks
                 }
-                logger.info(f"    ✅ Futures: {len(successful_ticks)} ticks working")
+                logger.info(f"    âœ… Futures: {len(successful_ticks)} ticks working")
             else:
                 tick_test_results['asset_tick_compatibility']['futures'] = {
                     'tested': True, 'status': 'limited',
@@ -2520,32 +2520,32 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             }
         
         # Test Options (limited test due to complexity)
-        logger.info("  📋 Testing tick compatibility with OPTIONS...")
+        logger.info("  ðŸ“‹ Testing tick compatibility with OPTIONS...")
         tick_test_results['asset_tick_compatibility']['options'] = {
             'tested': True, 'status': 'limited',
             'details': 'Option tick testing requires specific option contracts and permissions',
             'successful_ticks': []
         }
-        logger.info("    🟡 Options: Testing limited due to contract complexity")
+        logger.info("    ðŸŸ¡ Options: Testing limited due to contract complexity")
 
     def _generate_tick_access_summary(self, tick_test_results):
         """Generate comprehensive summary of tick access test results."""
         
         logger.info("\\n" + "=" * 70)
-        logger.info("🎯 === COMPREHENSIVE TICK ACCESS SUMMARY ===")
+        logger.info("ðŸŽ¯ === COMPREHENSIVE TICK ACCESS SUMMARY ===")
         logger.info("=" * 70)
         
         summary = tick_test_results['test_summary']
         summary['end_time'] = datetime.now()
         
         # Connection Status
-        logger.info(f"\\n🔌 CONNECTION STATUS:")
+        logger.info(f"\\nðŸ”Œ CONNECTION STATUS:")
         conn = tick_test_results['connection_status']
-        status_icon = "✅" if conn['status'] == 'success' else "❌"
+        status_icon = "âœ…" if conn['status'] == 'success' else "âŒ"
         logger.info(f"  {status_icon} {conn['details']}")
         
         # Tick Categories Summary
-        logger.info(f"\\n🎯 TICK CATEGORIES ACCESS:")
+        logger.info(f"\\nðŸŽ¯ TICK CATEGORIES ACCESS:")
         logger.info("-" * 50)
         
         category_summary = {}
@@ -2555,10 +2555,10 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         for category, result in tick_test_results['tick_categories'].items():
             if result['tested']:
                 icon_map = {
-                    "success": "✅", "partial": "🟡", "limited": "⚠️", 
-                    "failed": "❌", "error": "🔥"
+                    "success": "âœ…", "partial": "ðŸŸ¡", "limited": "âš ï¸", 
+                    "failed": "âŒ", "error": "ðŸ”¥"
                 }
-                icon = icon_map.get(result['status'], "❓")
+                icon = icon_map.get(result['status'], "â“")
                 logger.info(f"  {icon} {category.replace('_', ' ').upper():<20} | {result['status'].upper():<8} | {result['details']}")
                 category_summary[category] = result['status']
                 
@@ -2570,21 +2570,21 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             total_successful_ticks += 1
         
         # Asset Compatibility Summary
-        logger.info(f"\\n📋 ASSET TICK COMPATIBILITY:")
+        logger.info(f"\\nðŸ“‹ ASSET TICK COMPATIBILITY:")
         logger.info("-" * 50)
         
         for asset_type, result in tick_test_results['asset_tick_compatibility'].items():
             if result['tested']:
                 icon_map = {
-                    "success": "✅", "partial": "🟡", "limited": "⚠️", 
-                    "failed": "❌", "error": "🔥"
+                    "success": "âœ…", "partial": "ðŸŸ¡", "limited": "âš ï¸", 
+                    "failed": "âŒ", "error": "ðŸ”¥"
                 }
-                icon = icon_map.get(result['status'], "❓")
+                icon = icon_map.get(result['status'], "â“")
                 successful_count = len(result.get('successful_ticks', []))
                 logger.info(f"  {icon} {asset_type.upper():<12} | {result['status'].upper():<8} | {successful_count} ticks | {result['details']}")
         
         # Overall Statistics
-        logger.info(f"\\n📊 OVERALL TICK STATISTICS:")
+        logger.info(f"\\nðŸ“Š OVERALL TICK STATISTICS:")
         logger.info("-" * 50)
         
         if total_tested_ticks > 0:
@@ -2596,42 +2596,42 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             logger.info("  No tick data collected - connection or access issues")
         
         # Generate Recommendations
-        logger.info(f"\\n💡 TICK ACCESS RECOMMENDATIONS:")
+        logger.info(f"\\nðŸ’¡ TICK ACCESS RECOMMENDATIONS:")
         logger.info("-" * 50)
         
         recommendations = []
         
         if category_summary.get('basic_price_ticks') == 'failed':
-            recommendations.append("💰 Basic price tick access failed - check market data permissions")
+            recommendations.append("ðŸ’° Basic price tick access failed - check market data permissions")
         if category_summary.get('size_ticks') == 'failed':
-            recommendations.append("📊 Size tick access failed - verify Level 1 data subscription")
+            recommendations.append("ðŸ“Š Size tick access failed - verify Level 1 data subscription")
         if category_summary.get('generic_ticks') == 'limited':
-            recommendations.append("🔧 Generic ticks limited - consider upgrading market data packages")
+            recommendations.append("ðŸ”§ Generic ticks limited - consider upgrading market data packages")
         if category_summary.get('option_ticks') == 'limited':
-            recommendations.append("📋 Option ticks require option trading permissions and data subscriptions")
+            recommendations.append("ðŸ“‹ Option ticks require option trading permissions and data subscriptions")
         if category_summary.get('extended_price_ticks') == 'limited':
-            recommendations.append("📈 Extended price ticks may require premium market data subscriptions")
+            recommendations.append("ðŸ“ˆ Extended price ticks may require premium market data subscriptions")
         
         # Asset-specific recommendations
         asset_compat = tick_test_results['asset_tick_compatibility']
         if asset_compat['stocks']['status'] in ['failed', 'error']:
-            recommendations.append("📋 Stock tick compatibility issues - verify equity market data access")
+            recommendations.append("ðŸ“‹ Stock tick compatibility issues - verify equity market data access")
         if asset_compat['futures']['status'] in ['limited', 'error']:
-            recommendations.append("📈 Futures tick access limited - may require futures data subscriptions")
+            recommendations.append("ðŸ“ˆ Futures tick access limited - may require futures data subscriptions")
         
         if recommendations:
             for i, rec in enumerate(recommendations, 1):
                 logger.info(f"  {i}. {rec}")
         else:
-            logger.info("  🎉 Excellent! Your tick access configuration is working well across all tested categories.")
+            logger.info("  ðŸŽ‰ Excellent! Your tick access configuration is working well across all tested categories.")
         
         # Test Duration
         duration = summary.get('duration', 0)
-        #logger.info(f"\\n⏱️  Test Duration: {duration:.1f} seconds")
+        #logger.info(f"\\nâ±ï¸  Test Duration: {duration:.1f} seconds")
         #logger.info(f"Performance: {total_tested_ticks / max(duration, 1):.1f} ticks tested per second")
         
         logger.info("=" * 70)
-        logger.info("✨ Comprehensive Tick Access Test Complete!")
+        logger.info("âœ¨ Comprehensive Tick Access Test Complete!")
         logger.info("=" * 70)
         
         # Clean up connection
@@ -2656,7 +2656,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             Dict: Comprehensive summary of account access test results
         """
 
-        logger.info("\n🏦 === ACCOUNT ACCESS TEST ===")
+        logger.info("\nðŸ¦ === ACCOUNT ACCESS TEST ===")
         logger.info("=" * 70)
 
         account_results = {
@@ -2695,7 +2695,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'status': 'success',
                 'details': 'Connected to IBKR'
             }
-            logger.info("✅ Connected to IBKR")
+            logger.info("âœ… Connected to IBKR")
 
         except Exception as e:
             account_results['connection_status'] = {
@@ -2711,7 +2711,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         # ---------------------------
         # Test 1: Account Summary
         # ---------------------------
-        logger.info("\n💰 Testing Account Summary...")
+        logger.info("\nðŸ’° Testing Account Summary...")
         try:
             summary = self.accountSummary()
 
@@ -2729,7 +2729,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'CashBalance': extracted.get('TotalCashValue')
                     }
                 }
-                logger.info(f"✅ Account summary retrieved ({len(summary)} fields)")
+                logger.info(f"âœ… Account summary retrieved ({len(summary)} fields)")
             else:
                 account_results['account_summary'] = {
                     'tested': True,
@@ -2747,7 +2747,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         # ---------------------------
         # Test 2: Positions
         # ---------------------------
-        logger.info("\n📊 Testing Positions...")
+        logger.info("\nðŸ“Š Testing Positions...")
         try:
             positions = self.positions()
 
@@ -2758,7 +2758,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'count': len(positions)
             }
 
-            logger.info(f"✅ Positions retrieved: {len(positions)}")
+            logger.info(f"âœ… Positions retrieved: {len(positions)}")
 
         except Exception as e:
             account_results['positions'] = {
@@ -2771,7 +2771,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         # ---------------------------
         # Test 3: Account Values
         # ---------------------------
-        logger.info("\n📋 Testing Account Values...")
+        logger.info("\nðŸ“‹ Testing Account Values...")
         try:
             values = ib.accountValues()
 
@@ -2784,7 +2784,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'keys': keys[:10]  # limit output
             }
 
-            logger.info(f"✅ Account values retrieved: {len(values)}")
+            logger.info(f"âœ… Account values retrieved: {len(values)}")
 
         except Exception as e:
             account_results['account_values'] = {
@@ -2797,7 +2797,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         # ---------------------------
         # Test 4: Multi-account detection
         # ---------------------------
-        logger.info("\n🏢 Testing Multi-Account Access...")
+        logger.info("\nðŸ¢ Testing Multi-Account Access...")
         try:
             accounts = self.managedAccounts()
 
@@ -2808,7 +2808,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 'accounts_found': accounts
             }
 
-            logger.info(f"✅ Accounts detected: {accounts}")
+            logger.info(f"âœ… Accounts detected: {accounts}")
 
         except Exception as e:
             account_results['multi_account'] = {
@@ -2867,25 +2867,25 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
 
         success_rate = (passed / total * 100) if total > 0 else 0
 
-        logger.info("\n📊 === ACCOUNT ACCESS SUMMARY ===")
+        logger.info("\nðŸ“Š === ACCOUNT ACCESS SUMMARY ===")
         logger.info("=" * 70)
         logger.info(f"Total Tests   : {total}")
-        logger.info(f"✅ Passed     : {passed}")
-        logger.info(f"❌ Failed     : {failed}")
-        logger.info(f"⚠️ Partial    : {partial}")
-        logger.info(f"📈 Success %  : {success_rate:.2f}%")
-        logger.info(f"⏱ Duration   : {summary['duration']}")
+        logger.info(f"âœ… Passed     : {passed}")
+        logger.info(f"âŒ Failed     : {failed}")
+        logger.info(f"âš ï¸ Partial    : {partial}")
+        logger.info(f"ðŸ“ˆ Success %  : {success_rate:.2f}%")
+        logger.info(f"â± Duration   : {summary['duration']}")
 
         # Log key account info if available
         acc_summary = results.get('account_summary', {}).get('data', {})
         if acc_summary:
-            logger.info("\n💰 Account Snapshot:")
+            logger.info("\nðŸ’° Account Snapshot:")
             for k, v in acc_summary.items():
                 logger.info(f"   {k}: {v}")
 
         # Recommendations
         if results['recommendations']:
-            logger.info("\n💡 Recommendations:")
+            logger.info("\nðŸ’¡ Recommendations:")
             for rec in results['recommendations']:
                 logger.info(f" - {rec}")
 
@@ -2971,7 +2971,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             contract.conId = conid
             
             # First, get contract details to fully populate the contract
-            logger.info(f"📋 Fetching contract details for CONID {conid}...")
+            logger.info(f"ðŸ“‹ Fetching contract details for CONID {conid}...")
             contract_details = self.ib_broker.get_contract_details(contract, timeout=timeout)
             
             result = {
@@ -2983,7 +2983,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             }
             
             if contract_details:
-                logger.info(f"✅ Found contract details for CONID {conid}")
+                logger.info(f"âœ… Found contract details for CONID {conid}")
                 
                 # Log basic contract info
                 if len(contract_details) > 0:
@@ -2995,7 +2995,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     
                     # If market data is requested, fetch it using the first contract detail
                     if get_market_data:
-                        logger.info(f"📊 Fetching market data for CONID {conid}...")
+                        logger.info(f"ðŸ“Š Fetching market data for CONID {conid}...")
                         
                         try:
                             # Create a proper contract from the details for market data request
@@ -3014,7 +3014,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             
                             if market_data:
                                 result['market_data'] = market_data
-                                logger.info(f"✅ Market data retrieved for CONID {conid}")
+                                logger.info(f"âœ… Market data retrieved for CONID {conid}")
                                 
                                 # Log key market data points
                                 if 'bid' in market_data:
@@ -3026,24 +3026,24 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                                 if 'volume' in market_data:
                                     logger.info(f"  Volume: {market_data.get('volume', 'N/A')}")
                             else:
-                                logger.warning(f"⚠️ No market data available for CONID {conid}")
+                                logger.warning(f"âš ï¸ No market data available for CONID {conid}")
                                 result['market_data'] = {'status': 'no_data', 'message': 'Market data not available'}
                                 
                         except Exception as market_data_error:
-                            logger.error(f"❌ Error fetching market data for CONID {conid}: {market_data_error}")
+                            logger.error(f"âŒ Error fetching market data for CONID {conid}: {market_data_error}")
                             result['market_data'] = {
                                 'status': 'error', 
                                 'message': f'Market data error: {str(market_data_error)}'
                             }
             else:
-                logger.warning(f"⚠️ No contract details found for CONID {conid}")
+                logger.warning(f"âš ï¸ No contract details found for CONID {conid}")
                 result['status'] = 'not_found'
                 result['message'] = f'No contract found for CONID {conid}'
                 
             return result
             
         except Exception as e:
-            logger.error(f"❌ Error fetching data for CONID {conid}: {e}")
+            logger.error(f"âŒ Error fetching data for CONID {conid}: {e}")
             return {
                 'status': 'error',
                 'message': f'Error: {str(e)}',
@@ -3112,7 +3112,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         try:
             # 1. Create and validate underlying contract
-            logger.info(f"📋 Creating underlying contract for {symbol}...")
+            logger.info(f"ðŸ“‹ Creating underlying contract for {symbol}...")
             underlying_contract = Contract()
             underlying_contract.symbol = symbol
             underlying_contract.secType = sec_type
@@ -3127,7 +3127,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 underlying_contract.lastTradeDateOrContractMonth = contract_month
             
             # 2. Get underlying contract details
-            logger.info(f"🔍 Fetching underlying contract details...")
+            logger.info(f"ðŸ” Fetching underlying contract details...")
             underlying_details = self.ib_broker.get_contract_details(underlying_contract, timeout=timeout)
             
             if not underlying_details:
@@ -3136,12 +3136,12 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 return result
             
             result['underlying_data'] = underlying_details[0] if underlying_details else None
-            logger.info(f"✅ Found underlying: {symbol}")
+            logger.info(f"âœ… Found underlying: {symbol}")
             
             # 3. Get underlying market data for reference price
             underlying_price = None
             try:
-                logger.info(f"📊 Fetching underlying market data...")
+                logger.info(f"ðŸ“Š Fetching underlying market data...")
                 underlying_market_data = self.ib_broker.get_market_data_snapshot(
                     underlying_contract, timeout=timeout
                 )
@@ -3151,11 +3151,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     result['underlying_data']['market_data'] = underlying_market_data
                     logger.info(f"  Underlying price: {underlying_price}")
             except Exception as e:
-                logger.warning(f"⚠️ Could not get underlying market data: {e}")
+                logger.warning(f"âš ï¸ Could not get underlying market data: {e}")
                 result['error_messages'].append(f'Underlying market data error: {str(e)}')
             
             # 4. Search for options contracts
-            logger.info(f"🔎 Searching for options on {symbol}...")
+            logger.info(f"ðŸ”Ž Searching for options on {symbol}...")
             options_contract = Contract()
             options_contract.symbol = symbol
             options_contract.secType = "OPT"
@@ -3168,10 +3168,10 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             if not options_details:
                 result['status'] = 'partial'
                 result['error_messages'].append(f'No options found for {symbol}')
-                logger.warning(f"⚠️ No options contracts found for {symbol}")
+                logger.warning(f"âš ï¸ No options contracts found for {symbol}")
                 return result
                 
-            logger.info(f"📈 Found {len(options_details)} options contracts")
+            logger.info(f"ðŸ“ˆ Found {len(options_details)} options contracts")
             
             # 5. Organize options by expiration date and strike
             options_by_expiry = {}
@@ -3193,11 +3193,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     continue
             
             result['options_chains'] = options_by_expiry
-            logger.info(f"📊 Organized options into {len(options_by_expiry)} expiration dates")
+            logger.info(f"ðŸ“Š Organized options into {len(options_by_expiry)} expiration dates")
             
             # 6. Build volatility surface by fetching market data for key options
             if get_implied_volatility:
-                logger.info(f"🌊 Building volatility surface...")
+                logger.info(f"ðŸŒŠ Building volatility surface...")
                 vol_surface = {}
                 processed_count = 0
                 
@@ -3245,7 +3245,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                                 processed_count += 1
                                 
                         except Exception as e:
-                            logger.warning(f"⚠️ Error processing call option {strike}: {e}")
+                            logger.warning(f"âš ï¸ Error processing call option {strike}: {e}")
                             continue
                     
                     # Process puts
@@ -3287,11 +3287,11 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                                 processed_count += 1
                                 
                         except Exception as e:
-                            logger.warning(f"⚠️ Error processing put option {strike}: {e}")
+                            logger.warning(f"âš ï¸ Error processing put option {strike}: {e}")
                             continue
                 
                 result['volatility_surface'] = vol_surface
-                logger.info(f"✅ Built volatility surface with {processed_count} option data points")
+                logger.info(f"âœ… Built volatility surface with {processed_count} option data points")
                 
                 # 7. Calculate summary statistics
                 all_ivs = []
@@ -3311,12 +3311,12 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         'max_implied_vol': max(all_ivs),
                         'underlying_price': underlying_price
                     }
-                    logger.info(f"📈 Average implied volatility: {result['summary_stats']['avg_implied_vol']:.2%}")
+                    logger.info(f"ðŸ“ˆ Average implied volatility: {result['summary_stats']['avg_implied_vol']:.2%}")
             
             return result
             
         except Exception as e:
-            logger.error(f"❌ Error building volatility surface for {symbol}: {e}")
+            logger.error(f"âŒ Error building volatility surface for {symbol}: {e}")
             return {
                 'status': 'error',
                 'message': f'Error: {str(e)}',
@@ -3365,7 +3365,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         
         try:
             # 1. Create ESZ6 futures contract
-            logger.info("📊 Creating ESZ6 futures contract...")
+            logger.info("ðŸ“Š Creating ESZ6 futures contract...")
             esz6_contract = Contract()
             esz6_contract.symbol = "ES"
             esz6_contract.secType = "FUT"
@@ -3376,7 +3376,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             esz6_contract.tradingClass = "ES"
             
             # 2. Get ESZ6 futures contract details
-            logger.info("🔍 Fetching ESZ6 contract details...")
+            logger.info("ðŸ” Fetching ESZ6 contract details...")
             futures_details = self.ib_broker.get_contract_details(esz6_contract, timeout=timeout)
             
             if futures_details:
@@ -3389,14 +3389,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 # Log basic contract info
                 if len(futures_details) > 0:
                     detail = futures_details[0]
-                    logger.info(f"✅ Found ESZ6 contract:")
+                    logger.info(f"âœ… Found ESZ6 contract:")
                     logger.info(f"  Contract: {detail.get('contract_summary', {}).get('localSymbol', 'ESZ26')}")
                     logger.info(f"  Exchange: {detail.get('contract_summary', {}).get('exchange', 'CME')}")
                     logger.info(f"  Last Trading Date: {detail.get('contract_summary', {}).get('lastTradeDateOrContractMonth', '202612')}")
                     logger.info(f"  Multiplier: {detail.get('contract_summary', {}).get('multiplier', '50')}")
                     
                     # 3. Get current market data for ESZ6
-                    logger.info("💰 Fetching ESZ6 current market data...")
+                    logger.info("ðŸ’° Fetching ESZ6 current market data...")
                     try:
                         market_data = self.ib_broker.get_market_data_snapshot(
                             esz6_contract,
@@ -3405,7 +3405,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         
                         if market_data:
                             result['futures_data']['market_data'] = market_data
-                            logger.info(f"✅ ESZ6 Market Data Retrieved:")
+                            logger.info(f"âœ… ESZ6 Market Data Retrieved:")
                             if 'bid' in market_data:
                                 logger.info(f"  Bid: {market_data.get('bid', 'N/A')}")
                             if 'ask' in market_data:
@@ -3415,20 +3415,20 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                             if 'volume' in market_data:
                                 logger.info(f"  Volume: {market_data.get('volume', 'N/A')}")
                         else:
-                            logger.warning("⚠️ No market data available for ESZ6")
+                            logger.warning("âš ï¸ No market data available for ESZ6")
                             result['futures_data']['market_data'] = {'status': 'no_data'}
                             
                     except Exception as market_error:
-                        logger.error(f"❌ Error fetching ESZ6 market data: {market_error}")
+                        logger.error(f"âŒ Error fetching ESZ6 market data: {market_error}")
                         result['futures_data']['market_data'] = {'status': 'error', 'message': str(market_error)}
                         result['error_messages'].append(f"Market data error: {market_error}")
             else:
-                logger.warning("⚠️ No contract details found for ESZ6")
+                logger.warning("âš ï¸ No contract details found for ESZ6")
                 result['futures_data'] = {'status': 'not_found', 'message': 'ESZ6 contract not found'}
                 result['error_messages'].append("ESZ6 contract not found")
             
             # 4. Search for options on ESZ6
-            logger.info("🔍 Searching for options contracts on ESZ6...")
+            logger.info("ðŸ” Searching for options contracts on ESZ6...")
             
             # Note: Options on futures typically use the underlying futures contract
             # For ES futures, options would be on the same contract structure
@@ -3458,7 +3458,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                     option_details = self.ib_broker.get_contract_details(option_search, timeout=timeout//3)
                     
                     if option_details and len(option_details) > 0:
-                        logger.info(f"    ✅ Found {len(option_details)} option contracts with pattern {i+1}")
+                        logger.info(f"    âœ… Found {len(option_details)} option contracts with pattern {i+1}")
                         options_found = True
                         
                         # Add first few options to result (limit to avoid overwhelming output)
@@ -3497,33 +3497,33 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                         if len(option_details) > 5:
                             logger.info(f"    (Total {len(option_details)} options available - showing first 5)")
                     else:
-                        logger.info(f"    🟡 No options found with pattern {i+1}")
+                        logger.info(f"    ðŸŸ¡ No options found with pattern {i+1}")
                         
                 except Exception as option_error:
                     logger.debug(f"  Error searching options pattern {i+1}: {option_error}")
                     result['error_messages'].append(f"Options search pattern {i+1}: {option_error}")
             
             if not options_found:
-                logger.info("🟡 No options contracts found for ESZ6")
+                logger.info("ðŸŸ¡ No options contracts found for ESZ6")
                 result['options_data'] = []
                 result['error_messages'].append("No options found - options on ES futures may require special permissions or may not be available for this expiry")
             
             # 5. Summary
-            futures_status = "✅" if result['futures_data'] and result['futures_data']['status'] == 'found' else "❌"
+            futures_status = "âœ…" if result['futures_data'] and result['futures_data']['status'] == 'found' else "âŒ"
             options_count = len(result['options_data'])
-            options_status = "✅" if options_count > 0 else "🟡"
+            options_status = "âœ…" if options_count > 0 else "ðŸŸ¡"
             
-            logger.info(f"\n📋 Summary:")
+            logger.info(f"\nðŸ“‹ Summary:")
             logger.info(f"  {futures_status} ESZ6 Futures: {result['futures_data']['status'] if result['futures_data'] else 'not found'}")
             logger.info(f"  {options_status} ESZ6 Options: {options_count} contracts found")
             
             if result['error_messages']:
-                logger.info(f"  ⚠️ Errors: {len(result['error_messages'])} issues encountered")
+                logger.info(f"  âš ï¸ Errors: {len(result['error_messages'])} issues encountered")
             
             return result
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving ESZ6 options/futures data: {e}")
+            logger.error(f"âŒ Error retrieving ESZ6 options/futures data: {e}")
             result['status'] = 'error'
             result['error_messages'].append(f"General error: {str(e)}")
             return result
@@ -3545,22 +3545,22 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                                                    timeout=30)
             
             if result['status'] == 'success':
-                print(f"\n✅ Volatility Surface Built Successfully for {result['symbol']}")
+                print(f"\nâœ… Volatility Surface Built Successfully for {result['symbol']}")
                 
                 # Display underlying data
                 if result['underlying_data'] and result['underlying_data'].get('market_data'):
                     underlying_price = result['underlying_data']['market_data'].get('last')
-                    print(f"\n📊 Underlying ({result['symbol']}):")
+                    print(f"\nðŸ“Š Underlying ({result['symbol']}):")
                     print(f"  Current Price: ${underlying_price}" if underlying_price else "  Price: Not available")
                 
                 # Display options chains summary
                 total_chains = len(result['options_chains'])
-                print(f"\n📈 Options Chains: {total_chains} expirations found")
+                print(f"\nðŸ“ˆ Options Chains: {total_chains} expirations found")
                 
                 # Display volatility surface summary
                 if result.get('summary_stats'):
                     stats = result['summary_stats']
-                    print(f"\n🌊 Volatility Surface Summary:")
+                    print(f"\nðŸŒŠ Volatility Surface Summary:")
                     print(f"  Options Processed: {stats.get('total_options_processed', 0)}")
                     print(f"  Expirations: {stats.get('total_expirations', 0)}")
                     print(f"  Avg Implied Vol: {stats.get('avg_implied_vol', 0):.2%}")
@@ -3568,7 +3568,7 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 
                 # Display sample volatility data
                 if result.get('volatility_surface'):
-                    print(f"\n📋 Sample Volatility Data:")
+                    print(f"\nðŸ“‹ Sample Volatility Data:")
                     sample_count = 0
                     for expiry, expiry_data in list(result['volatility_surface'].items())[:2]:
                         print(f"\n  Expiry: {expiry}")
@@ -3598,14 +3598,14 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
                 
                 # Display any error messages
                 if result.get('error_messages'):
-                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    print(f"\nâš ï¸ Issues encountered ({len(result['error_messages'])}):")
                     for error in result['error_messages'][:3]:  # Show first 3 errors
                         print(f"  - {error}")
                         
             elif result['status'] == 'error':
-                print(f"❌ Error building volatility surface: {result.get('message', 'Unknown error')}")
+                print(f"âŒ Error building volatility surface: {result.get('message', 'Unknown error')}")
             elif result['status'] == 'partial':
-                print(f"🟡 Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
+                print(f"ðŸŸ¡ Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
 
 
 def main():
@@ -3657,13 +3657,13 @@ def main():
                 
                 if result['status'] == 'success' and result['contract_details']:
                     detail = result['contract_details'][0]
-                    print(f"  ✅ {detail.get('symbol', 'N/A')} ({detail.get('sec_type', 'N/A')}) on {detail.get('exchange', 'N/A')}")
+                    print(f"  âœ… {detail.get('symbol', 'N/A')} ({detail.get('sec_type', 'N/A')}) on {detail.get('exchange', 'N/A')}")
                     if result.get('market_data') and 'last' in result['market_data']:
                         print(f"     Last Price: {result['market_data']['last']}")
                 elif result['status'] == 'error':
-                    print(f"  ❌ Error: {result.get('message', 'Unknown error')}")
+                    print(f"  âŒ Error: {result.get('message', 'Unknown error')}")
                 elif result['status'] == 'not_found':
-                    print(f"  ⚠️ Contract not found: {result.get('message', 'No details')}")
+                    print(f"  âš ï¸ Contract not found: {result.get('message', 'No details')}")
             
             return
         elif sys.argv[1] == 'esz6':
@@ -3676,11 +3676,11 @@ def main():
             result = examples.get_esz6_options_futures_prices(timeout=30)
             
             if result['status'] == 'success':
-                print(f"\n✅ ESZ6 Data Retrieved Successfully")
+                print(f"\nâœ… ESZ6 Data Retrieved Successfully")
                 
                 # Display futures data
                 if result['futures_data'] and result['futures_data']['status'] == 'found':
-                    print(f"\n📊 ESZ6 Futures:")
+                    print(f"\nðŸ“Š ESZ6 Futures:")
                     futures_market = result['futures_data']['market_data']
                     if futures_market and futures_market.get('last'):
                         print(f"  Last Price: {futures_market['last']}")
@@ -3690,12 +3690,12 @@ def main():
                     else:
                         print(f"  Status: Contract found but no current market data")
                 else:
-                    print(f"\n❌ ESZ6 Futures: Not found or error")
+                    print(f"\nâŒ ESZ6 Futures: Not found or error")
                 
                 # Display options data
                 options_count = len(result['options_data'])
                 if options_count > 0:
-                    print(f"\n📋 ESZ6 Options: Found {options_count} contracts")
+                    print(f"\nðŸ“‹ ESZ6 Options: Found {options_count} contracts")
                     for i, option in enumerate(result['options_data'][:3], 1):  # Show first 3
                         opt_detail = option['contract_detail']
                         opt_summary = opt_detail.get('contract_summary', {})
@@ -3705,18 +3705,18 @@ def main():
                     if options_count > 3:
                         print(f"  ... and {options_count - 3} more options")
                 else:
-                    print(f"\n🟡 ESZ6 Options: No options contracts found")
+                    print(f"\nðŸŸ¡ ESZ6 Options: No options contracts found")
                 
                 # Display any errors
                 if result['error_messages']:
-                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    print(f"\nâš ï¸ Issues encountered ({len(result['error_messages'])}):")
                     for error in result['error_messages'][:3]:  # Show first 3 errors
                         print(f"  - {error}")
                     if len(result['error_messages']) > 3:
                         print(f"  ... and {len(result['error_messages']) - 3} more issues")
                         
             elif result['status'] == 'error':
-                print(f"❌ Error retrieving ESZ6 data: {result.get('error_messages', ['Unknown error'])[0]}")
+                print(f"âŒ Error retrieving ESZ6 data: {result.get('error_messages', ['Unknown error'])[0]}")
             
             return
         elif sys.argv[1] == 'volsurf':
@@ -3732,22 +3732,22 @@ def main():
                                                    timeout=30)
             
             if result['status'] == 'success':
-                print(f"\n✅ Volatility Surface Built Successfully for {result['symbol']}")
+                print(f"\nâœ… Volatility Surface Built Successfully for {result['symbol']}")
                 
                 # Display underlying data
                 if result['underlying_data'] and result['underlying_data'].get('market_data'):
                     underlying_price = result['underlying_data']['market_data'].get('last')
-                    print(f"\n📊 Underlying ({result['symbol']}):")
+                    print(f"\nðŸ“Š Underlying ({result['symbol']}):")
                     print(f"  Current Price: ${underlying_price}" if underlying_price else "  Price: Not available")
                 
                 # Display options chains summary
                 total_chains = len(result['options_chains'])
-                print(f"\n📈 Options Chains: {total_chains} expirations found")
+                print(f"\nðŸ“ˆ Options Chains: {total_chains} expirations found")
                 
                 # Display volatility surface summary
                 if result.get('summary_stats'):
                     stats = result['summary_stats']
-                    print(f"\n🌊 Volatility Surface Summary:")
+                    print(f"\nðŸŒŠ Volatility Surface Summary:")
                     print(f"  Options Processed: {stats.get('total_options_processed', 0)}")
                     print(f"  Expirations: {stats.get('total_expirations', 0)}")
                     print(f"  Avg Implied Vol: {stats.get('avg_implied_vol', 0):.2%}")
@@ -3755,7 +3755,7 @@ def main():
                 
                 # Display sample volatility data
                 if result.get('volatility_surface'):
-                    print(f"\n📋 Sample Volatility Data:")
+                    print(f"\nðŸ“‹ Sample Volatility Data:")
                     sample_count = 0
                     for expiry, expiry_data in list(result['volatility_surface'].items())[:2]:
                         print(f"\n  Expiry: {expiry}")
@@ -3785,14 +3785,14 @@ def main():
                 
                 # Display any error messages
                 if result.get('error_messages'):
-                    print(f"\n⚠️ Issues encountered ({len(result['error_messages'])}):")
+                    print(f"\nâš ï¸ Issues encountered ({len(result['error_messages'])}):")
                     for error in result['error_messages'][:3]:  # Show first 3 errors
                         print(f"  - {error}")
                         
             elif result['status'] == 'error':
-                print(f"❌ Error building volatility surface: {result.get('message', 'Unknown error')}")
+                print(f"âŒ Error building volatility surface: {result.get('message', 'Unknown error')}")
             elif result['status'] == 'partial':
-                print(f"🟡 Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
+                print(f"ðŸŸ¡ Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
             
             return
         elif sys.argv[1] == 'help':
