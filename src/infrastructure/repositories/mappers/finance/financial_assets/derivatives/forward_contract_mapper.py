@@ -4,7 +4,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 """
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 from src.domain.entities.finance.financial_assets.derivatives.forward import Forward as DomainForwardContract
 from src.infrastructure.models.finance.financial_assets.derivative.forward_contract import ForwardContractModel as ORMForwardContract
@@ -46,7 +46,9 @@ class ForwardContractMapper:
         
         # Map basic fields
         orm_obj.id = domain_obj.id
-        
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
+
         # Map optional financial asset attributes
         if hasattr(domain_obj, 'ticker'):
             orm_obj.ticker = domain_obj.ticker

@@ -41,10 +41,10 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanySharePortfolio: {"name": "Large_US_BANK", "components": {CompanyShare:["JPM","BAC","WFC","C","GS","MS"]}},
-        #CompanySharePortfolioOption: {"name": "Large_US_BANK_Portfolio_Option", "components": {CompanySharePortfolio:["Large_US_BANK"]}},
+        CompanySharePortfolio: {"args": {"name": "Large_US_BANK"}, "components": {CompanyShare:["JPM","BAC"]}},#["JPM","BAC","WFC","C","GS","MS"]
+        CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["Large_US_BANK"]},"args": {"option_type": "CALL", "start_date": "20260818","start_date": "20261218", "strike_price": 100.0,"name": "Large_US_BANK_Portfolio_Option_C_20261218_100","underlying_name":"Large_US_BANK"}},#["JPM  281215C00300000","BAC  281215C00030000"]
         CompanyShareOption: ["AAPL  281215C00300000"],
-        CompanyShare: ["AAPL","MSFT"],
+        CompanyShare: ["AAPL","MSFT"],#
         
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],

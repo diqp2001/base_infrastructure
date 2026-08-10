@@ -24,7 +24,17 @@ class CompanySharePortfolioRepository(CompanySharePortfolioPort):
     # -------------------------
     # CREATE OR GET
     # -------------------------
-    def _create_or_get(self, name: str, **kwargs) -> Optional[CompanySharePortfolio]:
+    def _create_or_get(self, name_or_cls=None, name_str=None, **kwargs) -> Optional[CompanySharePortfolio]:
+        # Resolve name from whichever calling form was used:
+        #   _create_or_get('Large_US_BANK')           → name_or_cls is the str
+        #   _create_or_get(EntityCls, 'Large_US_BANK') → name_or_cls is the class, name_str has it
+        #   _create_or_get(name='Large_US_BANK')       → name_or_cls=None, name in kwargs
+        if isinstance(name_or_cls, str):
+            name = name_or_cls
+        elif name_str is not None:
+            name = name_str
+        else:
+            name = kwargs.get('name')
 
         try:
             existing = self.get_by_name(name)
@@ -46,6 +56,7 @@ class CompanySharePortfolioRepository(CompanySharePortfolioPort):
             return self.mapper.to_domain(orm_obj)
 
         except Exception as e:
+            self.session.rollback()
             print(f"Error creating portfolio company share option {name}: {e}")
             return None
 

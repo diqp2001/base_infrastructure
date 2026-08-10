@@ -456,6 +456,7 @@ class IBKRIndexFutureOptionRepository(IBKRFinancialAssetRepository, IndexFutureO
                 multiplier=Decimal(str(multiplier)),
                 index_symbol=underlying_index,
                 option_type=option_type,
+                start_date=date.today(),
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")

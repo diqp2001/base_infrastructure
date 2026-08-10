@@ -12,8 +12,17 @@ class CompanySharePortfolioModel(PortfolioModel):
     id = Column(Integer, ForeignKey("portfolios.id"), primary_key=True)
 
     
-    company_share_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_holding.CompanySharePortfolioHoldingModel", back_populates="company_share_portfolios")
-    company_share_portfolio_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding.CompanySharePortfolioPortfolioHoldingModel", back_populates="company_share_portfolio")
+    company_share_portfolio_holdings = relationship(
+        "src.infrastructure.models.finance.holding.company_share_portfolio_holding.CompanySharePortfolioHoldingModel",
+        back_populates="company_share_portfolios",
+    )
+    company_share_portfolio_portfolio_holdings = relationship(
+        "src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding.CompanySharePortfolioPortfolioHoldingModel",
+        primaryjoin="CompanySharePortfolioModel.id == CompanySharePortfolioPortfolioHoldingModel.asset_id",
+        foreign_keys="[src.infrastructure.models.finance.holding.holding.HoldingModel.asset_id]",
+        back_populates="company_share_portfolio",
+        viewonly=True,
+    )
     __mapper_args__ = {
         "polymorphic_identity": "CompanySharePortfolio",
     }

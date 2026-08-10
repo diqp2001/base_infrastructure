@@ -188,37 +188,48 @@ class IBKRCompanySharePortfolioOptionRepository(IBKRFinancialAssetRepository, Co
             print(f"Error fetching IBKR contract details: {e}_{os.path.abspath(__file__)}")
             return None
 
-    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict]) -> Optional[CompanySharePortfolioOption]:
+    def _contract_to_domain(self, contract: Contract, contract_details_list: List[dict], **kwargs) -> Optional[CompanySharePortfolioOption]:
         """
         Convert IBKR contract and details directly to domain entity.
-        
+
         Args:
             contract: IBKR Contract object
             contract_details_list: IBKR ContractDetails list
-            
+            **kwargs: Extra args; 'underlying_portfolio_name' resolved via factory if present
+
         Returns:
             PortfolioCompanyShareOption domain entity or None if conversion failed
         """
         try:
             # Use the first contract details result
             contract_details = contract_details_list[0] if contract_details_list else {}
-            
+
             # Extract data from IBKR API response
             symbol = contract_details.get('symbol', contract.symbol)
             name = contract_details.get('long_name', f"Portfolio Company Share Option {symbol}")
             currency_iso_code = contract_details.get('currency', 'USD')
-            
+
             # Get or create dependencies
             currency = self._get_or_create_currency(iso_code=currency_iso_code)
-            exchange = self._get_or_create_exchange(contract_details.get("exchange"))
-            
+            self._get_or_create_exchange(contract_details.get("exchange"))
+
+            # Resolve underlying portfolio from factory if a name was supplied
+            underlying_asset_id = None
+            portfolio_name = kwargs.get('underlying_portfolio_name')
+            if portfolio_name and self.factory and hasattr(self.factory, 'company_share_portfolio_local_repo'):
+                portfolio_repo = self.factory.company_share_portfolio_local_repo
+                portfolio = portfolio_repo.get_by_name(portfolio_name)
+                if portfolio:
+                    underlying_asset_id = portfolio.id
+
             return self.entity_class(
-                id=None,  # Let database generate
+                id=None,
                 name=name,
                 symbol=symbol,
                 currency_id=currency.id if currency and hasattr(currency, 'id') else None,
-                underlying_asset_id=None,  # Can be set later if needed
-                option_type=contract.right.lower() if hasattr(contract, 'right') else 'call'
+                underlying_asset_id=underlying_asset_id,
+                option_type=contract.right.lower() if hasattr(contract, 'right') else 'call',
+                start_date=date.today(),
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")

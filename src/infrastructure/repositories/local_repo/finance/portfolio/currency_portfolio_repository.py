@@ -24,7 +24,18 @@ class CurrencyPortfolioRepository(CurrencyPortfolioPort):
     def model_class(self):
         return self.mapper.model_class
 
-    def _create_or_get(self, name: str, **kwargs) -> Optional[CurrencyPortfolio]:
+    def _create_or_get(self, name_or_cls=None, name_str=None, **kwargs) -> Optional[CurrencyPortfolio]:
+        # Resolve name from whichever calling form was used:
+        #   _create_or_get('USD_cash')            → name_or_cls is the str
+        #   _create_or_get(EntityCls, 'USD_cash') → name_or_cls is the class, name_str has it
+        #   _create_or_get(name='USD_cash')        → name_or_cls=None, name in kwargs
+        if isinstance(name_or_cls, str):
+            name = name_or_cls
+        elif name_str is not None:
+            name = name_str
+        else:
+            name = kwargs.get('name')
+
         try:
             existing = self.get_by_name(name)
             if existing:
@@ -42,6 +53,7 @@ class CurrencyPortfolioRepository(CurrencyPortfolioPort):
             return self.mapper.to_domain(orm_obj)
 
         except Exception as e:
+            self.session.rollback()
             print(f"Error creating CurrencyPortfolio '{name}': {e}")
             return None
 

@@ -328,10 +328,12 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
                 name=name,
                 symbol=iso_code.upper(),
                 country_id=country_id,
+                start_date=datetime.now().date(),
             )
-            
+
             return self.add(new_currency)
-            
+
         except Exception as e:
+            self.session.rollback()
             logger.error(f"Error in get_or_create_by_code for {iso_code}: {e}_{os.path.abspath(__file__)}")
             return None

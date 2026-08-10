@@ -8,6 +8,11 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.comp
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_return_factor import CompanyShareOptionPriceReturnFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor import CompanyShareOptionVolFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor import CompanyShareOptionVarFactor
 
 # Pricing model factors
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_black_scholes_merton_price_factor import CompanyShareOptionBlackScholesMertonPriceFactor
@@ -216,6 +221,66 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "parameters": {"period": "1D"}
     },
     
+    "implied_vol": {
+        "class": CompanyShareOptionImpliedVolFactor,
+        "name": "implied_vol",
+        "group": "volatility",
+        "subgroup": "implied",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Implied volatility of a single company share option via Newton-Raphson B-S inversion; depends on CompanyShareOptionFactor price from IBKR",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "implied_div_yield": {
+        "class": CompanyShareOptionImpliedDivYieldFactor,
+        "name": "implied_div_yield",
+        "group": "fundamental",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Implied dividend yield of a company share derived from put-call parity; depends on CompanyShareOptionFactor price from IBKR",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "implied_corr": {
+        "class": CompanyShareOptionImpliedCorrFactor,
+        "name": "implied_corr",
+        "group": "volatility",
+        "subgroup": "implied",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Implied correlation across correlated underlyings derived from option vol surface; depends on CompanyShareOptionFactor price from IBKR; returns None until cross-asset vol surface is integrated",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "vol": {
+        "class": CompanyShareOptionVolFactor,
+        "name": "vol",
+        "group": "volatility",
+        "subgroup": "realized",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Annualised realised volatility of option price series (std of log-returns * sqrt(252)); depends on CompanyShareOptionFactor price series from IBKR",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "var": {
+        "class": CompanyShareOptionVarFactor,
+        "name": "var",
+        "group": "volatility",
+        "subgroup": "realized",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Annualised realised variance of option price series (var of log-returns * 252); depends on CompanyShareOptionFactor price series from IBKR",
+        "dependencies": {},
+        "parameters": {}
+    },
+
     # Advanced Pricing Model Factors
     "black_scholes_merton_price": {
         "class": CompanyShareOptionBlackScholesMertonPriceFactor,

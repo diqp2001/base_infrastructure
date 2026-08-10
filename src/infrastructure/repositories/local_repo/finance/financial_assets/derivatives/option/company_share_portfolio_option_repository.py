@@ -4,6 +4,7 @@ Repository for portfolio company share option entities
 from typing import List, Optional
 from datetime import date, datetime
 
+from fastapi import logger
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import logging
@@ -43,27 +44,32 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
             if currency_id is None:
                 currency_code = kwargs.get("currency_code", "USD")
                 currency_local_repo = self.factory.currency_local_repo
-                currency = currency_local_repo.get_or_create(iso_code=currency_code)
-                currency_id = currency.asset_id if currency else 1  # Default to 1 if currency service fails
+                currency = currency_local_repo._create_or_get(currency_code)
+                currency_id = currency.id if currency else 1
             
-            # Set default underlying_asset_id if not provided (SPX index for SPX options)
-            underlying_asset_id = kwargs.get("underlying_asset_id")
-            if underlying_asset_id is None:
-                # For SPX options, try to get SPX index as underlying
-                if "SPX" in name.upper():
-                    try:
-                        from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
-                        index_repo = IndexRepository(self.session, self.factory)
-                        spx_index = index_repo.get_by_symbol("SPX")
-                        if spx_index:
-                            underlying_asset_id = spx_index.id
-                        else:
-                            underlying_asset_id = 1  # Default fallback
-                    except Exception as idx_e:
-                        logging.warning(f"Could not resolve SPX index as underlying: {idx_e}")
-                        underlying_asset_id = 1  # Default fallback
-                else:
-                    underlying_asset_id = 1  # Default fallback for non-SPX options
+            # # Set default underlying_asset_id if not provided (SPX index for SPX options)
+            # underlying_asset_id = kwargs.get("underlying_asset_id")
+            # if underlying_asset_id:
+            #                 from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+            #                 # Query to check if underlying company share exists
+            #                 underlying_exists = self.session.query(CompanySharePortfolioModel).filter(
+            #                     CompanySharePortfolioModel.id == underlying_asset_id
+            #                 ).first()
+                            
+            #                 if not underlying_exists:
+            #                     logger.error(f"Underlying company share with ID {underlying_asset_id} does not exist")
+            #                     return None
+            underlying_name = kwargs.get("underlying_name")
+            if underlying_name:
+                            from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+                            # Query to check if underlying company share exists
+                            underlying = self.session.query(CompanySharePortfolioModel).filter(
+                                CompanySharePortfolioModel.name == underlying_name
+                            ).first()
+                            
+                            if not underlying:
+                                logger.error(f"Underlying company share with ID {name} does not exist")
+                                return None
 
             # Create entity with proper fields based on domain entity constructor
             entity = self.entity_class(
@@ -71,7 +77,7 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
                 name=name,
                 symbol=kwargs.get("symbol", name),
                 currency_id=currency_id,
-                underlying_asset_id=underlying_asset_id,
+                underlying_asset_id=underlying.id if underlying else None,
                 option_type=kwargs.get("option_type", "CALL"),
                 start_date=kwargs.get("start_date", datetime.now().date()),
                 end_date=kwargs.get("end_date", None),

@@ -954,11 +954,13 @@ class UnifiedPortfolioManager:
            init (currency asset, position.quantity = initial_cash).
         3. Falls back to 0 so callers always receive a valid number.
         """
-        # 1. Algorithm in-memory cash (most accurate during simulation)
+        # 1. Algorithm in-memory cash (most accurate during simulation).
+        # Only use if strictly positive — zero likely means the QC portfolio hasn't
+        # been initialised from the real cash source yet (live/paper trading startup).
         if self._algorithm is not None:
             try:
                 cash = float(self._algorithm.portfolio.cash)
-                if cash >= 0:
+                if cash > 0:
                     return Decimal(str(cash))
             except Exception:
                 pass
@@ -1298,6 +1300,12 @@ class UnifiedPortfolioManager:
                     price = self._algorithm._resolve_asset_price(ticker)
 
             if not price or price <= 0:
+                price = self._get_mid_price_from_factor_db(ticker)
+
+            if not price or price <= 0:
+                price = self._get_price_from_market_data(ticker, current_time)
+
+            if not price or price <= 0:
                 if self.logger:
                     self.logger.warning(f"set_holdings: no price for {ticker}, skipping")
                 results[ticker] = False
@@ -1441,6 +1449,107 @@ class UnifiedPortfolioManager:
                 close = getattr(bar, "close", None)
                 if close is not None:
                     return float(close)
+        return None
+
+    def _get_mid_price_from_factor_db(self, ticker: str) -> Optional[float]:
+        """
+        Fallback price lookup: query the most-recently persisted mid_price factor value
+        for `ticker` from the factor_values table.  Used when data.bars has no bar for
+        the ticker (e.g. live trading with no QC subscription, or backtest with no feed).
+        """
+        try:
+            from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+            from src.infrastructure.models.factor.factor import FactorModel
+            from src.infrastructure.models.factor.factor_value import FactorValueModel
+
+            session = self.portfolio_repo.session
+            asset = session.query(FinancialAssetModel).filter(
+                FinancialAssetModel.symbol == ticker
+            ).first()
+            if not asset:
+                return None
+
+            factor = session.query(FactorModel).filter(
+                FactorModel.name == 'mid_price'
+            ).first()
+            if not factor:
+                return None
+
+            fv = (
+                session.query(FactorValueModel)
+                .filter(
+                    FactorValueModel.factor_id == factor.id,
+                    FactorValueModel.entity_id == asset.id,
+                )
+                .order_by(FactorValueModel.date.desc())
+                .first()
+            )
+            if fv and fv.value:
+                val = float(fv.value)
+                if val > 0:
+                    return val
+        except Exception:
+            pass
+        return None
+
+    def _get_price_from_market_data(self, ticker: str, current_time: datetime) -> Optional[float]:
+        """
+        Last-resort price fetch via MarketDataService.
+
+        Resolves the domain entity class for `ticker` dynamically by matching
+        the ORM model type name against ENTITY_FACTOR_MAPPING, then delegates
+        to market_data_service._get_point_in_time_data which handles IBKR and
+        local factor-value paths transparently for any asset type.
+
+        Returns the close price (or open/high/low in that order) as a float,
+        or None if the price cannot be resolved.
+        """
+        if not self.market_data_service:
+            return None
+        try:
+            from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+            from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
+
+            session = self.portfolio_repo.session
+            asset_model = session.query(FinancialAssetModel).filter(
+                FinancialAssetModel.symbol == ticker
+            ).first()
+            if not asset_model:
+                return None
+
+            # Derive domain entity class name from ORM model type
+            domain_type_name = type(asset_model).__name__.removesuffix('Model')
+
+            entity_class = None
+            for cls in ENTITY_FACTOR_MAPPING:
+                if cls.__name__ == domain_type_name:
+                    entity_class = cls
+                    break
+
+            result = self.market_data_service._get_point_in_time_data(
+                ticker=ticker,
+                entity_class=entity_class,
+                point_in_time=current_time,
+                bar_size_setting="5 mins",
+                duration_str="1 D",
+            )
+            if not result:
+                return None
+            df, _ = result
+            if df is None or df.empty:
+                return None
+            for col in ('close', 'open', 'high', 'low'):
+                if col in df.columns:
+                    val = float(df[col].iloc[-1])
+                    if val > 0:
+                        if self.logger:
+                            self.logger.info(
+                                f"_get_price_from_market_data: {ticker} {col}={val:.4f}"
+                            )
+                        return val
+        except Exception as exc:
+            if self.logger:
+                self.logger.debug(f"_get_price_from_market_data failed for {ticker}: {exc}")
         return None
 
     def _get_current_position_qty(self, ticker: str) -> int:

@@ -5,7 +5,7 @@ Enhanced with get_or_create functionality for related models.
 """
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 from src.domain.entities.finance.financial_assets.derivatives.option.option import Option as DomainOptions
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel as ORMOptions
@@ -44,11 +44,13 @@ class OptionsMapper:
         
         # Map basic fields
         orm_obj.id = domain_obj.id
-        
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
+
         # Map options-specific fields
         if hasattr(domain_obj, 'option_type'):
             orm_obj.option_type = domain_obj.option_type
-        
+
         # Map optional financial asset attributes
         if hasattr(domain_obj, 'ticker'):
             orm_obj.ticker = domain_obj.ticker

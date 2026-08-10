@@ -161,6 +161,54 @@ class CompanySharePortfolioOptionHestonPriceFactorModel(FactorModel):
     }
 
 
+class CompanySharePortfolioOptionValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_option_value_factor"
+    }
+
+
+class CompanySharePortfolioOptionImpliedVolFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_option_implied_vol_factor"
+    }
+
+
+class CompanySharePortfolioOptionImpliedDivYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_portfolio_option_implied_div_yield_factor"
+    }
+
+
+class CompanyShareOptionImpliedVolFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_implied_vol_factor"
+    }
+
+
+class CompanyShareOptionImpliedDivYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_implied_div_yield_factor"
+    }
+
+
+class CompanyShareOptionImpliedCorrFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_implied_corr_factor"
+    }
+
+
+class CompanyShareOptionVolFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_vol_factor"
+    }
+
+
+class CompanyShareOptionVarFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_var_factor"
+    }
+
+
 class CompanySharePortfolioFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_portfolio_factor"

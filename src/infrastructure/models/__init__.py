@@ -18,6 +18,9 @@ class ModelBase(DeclarativeBase):
 # MODEL REGISTRATION - Required for SQLAlchemy string relationship resolution
 # =============================================================================
 
+# FinancialEntityModel must be first — it is the root of both FinancialAsset and Portfolio
+from src.infrastructure.models.finance.financial_entity import FinancialEntityModel
+
 # Core geographical and organizational models (no dependencies)
 # Geographic models
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_portfolio_option import CompanySharePortfolioOptionModel
@@ -39,6 +42,8 @@ from src.infrastructure.models.finance.financial_statements.cash_flow_statement 
 
 # Basic financial assets (depends on exchange/company)
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+from src.infrastructure.models.finance.financial_assets.index import IndexModel
+from src.infrastructure.models.finance.financial_assets.crypto import CryptoModel
 from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
 from src.infrastructure.models.finance.financial_assets.cash import CashModel
 from src.infrastructure.models.finance.financial_assets.commodity import CommodityModel
@@ -116,6 +121,7 @@ def ensure_models_registered():
     
     # Core models that must be registered for string relationships to work
     required_models = {
+        'FinancialEntityModel',
         'CountryModel', 'IndustryModel', 'SectorModel', 'ExchangeModel', 'CompanyModel',
         'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
         'ShareModel', 'CompanyShareModel',
@@ -143,7 +149,7 @@ except RuntimeError as e:
 # =============================================================================
 
 __all__ = [
-    'ModelBase',
+    'ModelBase', 'FinancialEntityModel',
     'CountryModel', 'IndustryModel', 'SectorModel', 'ContinentModel',
     'ExchangeModel', 'CompanyModel',
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',

@@ -81,11 +81,9 @@ class FactorValueResolutionService:
                 self.logger.error("Entity with valid ID is required for factor value resolution")
                 return None
 
-            entity_type = type(entity).__name__ if entity is not None else None
+            entity_type = type(entity).__name__.removesuffix('Model') if entity is not None else None
 
-            
 
-            
             # Ensure time_date is properly formatted
             formatted_date = self._format_date(time_date)
             parsed_date = self._parse_date(formatted_date)
@@ -291,7 +289,7 @@ class FactorValueResolutionService:
         """Resolve factor value when dependencies exist."""
         try:
             entity_id = getattr(entity, 'id', None) if entity is not None else None
-            entity_type = type(entity).__name__ if entity is not None else None
+            entity_type = type(entity).__name__.removesuffix('Model') if entity is not None else None
 
             dependency_values = {}
             missing_dependencies = []
@@ -592,12 +590,12 @@ class FactorValueResolutionService:
                     dep_repo = (
                         self.factory.get_local_repository(dep_name) if self.factory else None
                     )
-                    if dep_repo is None:
-                        self.logger.warning(f"No repository found for dependency: {dep_name}")
-                        continue
 
                     # Step 1: determine whether this is a factor dep or a plain entity dep
-                    if hasattr(dep_repo, 'get_factor_entity'):
+                    # When dep_repo is None, fall through to the entity-attribute path so
+                    # dependencies like 'Position' (no dedicated repo) are still resolved
+                    # via the holding's relationship attributes.
+                    if dep_repo is not None and hasattr(dep_repo, 'get_factor_entity'):
                         # ── Factor dependency path ─────────────────────────────────
                         dep_factor_entity = None
                         if hasattr(dep_repo, '_create_or_get'):
@@ -668,7 +666,13 @@ class FactorValueResolutionService:
 
                     else:
                         # ── Entity value dependency path ───────────────────────────
-                        # dep_repo is a plain entity repo (no get_factor_entity).
+                        # Handles: plain entity repo (no get_factor_entity) OR dep_repo is None
+                        # (e.g. 'Position' has no dedicated factor repo but lives as a
+                        # relationship attribute on the holding entity).
+                        if dep_repo is None:
+                            self.logger.info(
+                                f"No repository for '{dep_name}' — trying entity-attribute path"
+                            )
                         dep_entity_name = dep_name.lower()
                         related_obj = None
 

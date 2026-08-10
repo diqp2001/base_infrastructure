@@ -38,7 +38,7 @@ class CurrencyPortfolioPortfolioHoldingRepository(BaseLocalRepository):
         if model is None:
             return []
         currency_portfolio = self.session.query(CurrencyPortfolioModel).filter_by(
-            id=model.currency_portfolio_id
+            id=model.asset_id
         ).first()
         return [currency_portfolio] if currency_portfolio else []
 

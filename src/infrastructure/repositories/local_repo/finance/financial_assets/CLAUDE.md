@@ -19,6 +19,46 @@ financial_assets/
 
 ---
 
+## ⚠️ Cross-repo calls must use `_create_or_get`, never `get_or_create`
+
+All repositories in this codebase expose `_create_or_get(primary_key, **kwargs)` as the
+idempotent creation method.  **There is no `get_or_create` method anywhere.**  Any repo that
+needs to resolve a sibling entity (e.g. `CurrencyRepository` inside
+`CompanySharePortfolioOptionRepository`) must call `_create_or_get`, not `get_or_create`.
+
+```python
+# WRONG — CurrencyRepository has no get_or_create
+currency = currency_local_repo.get_or_create(iso_code=currency_code)
+
+# CORRECT — positional primary_key, matches CurrencyRepository._create_or_get signature
+currency = currency_local_repo._create_or_get(currency_code)
+```
+
+This was the root cause of:
+> `'CurrencyRepository' object has no attribute 'get_or_create'`
+> in `CompanySharePortfolioOptionRepository._create_or_get` (line 46, fixed 2026-08-05).
+
+### Domain entity ID field is always `.id`, never `.asset_id`
+
+All domain entities in `src/domain/entities/finance/` store their primary key as `.id`.
+There is no `.asset_id` attribute on any domain entity.  ORM models may have both `id` and
+`asset_id` columns (e.g. for joined-table inheritance), but those never leak into the domain
+layer.
+
+```python
+# WRONG
+currency_id = currency.asset_id if currency else 1
+
+# CORRECT
+currency_id = currency.id if currency else 1
+```
+
+Root cause of:
+> `'Currency' object has no attribute 'asset_id'`
+> in `CompanySharePortfolioOptionRepository._create_or_get` (line 47, fixed 2026-08-05).
+
+---
+
 ## 🎯 Standardized Entity Creation Pattern
 
 ### Implementation Standard

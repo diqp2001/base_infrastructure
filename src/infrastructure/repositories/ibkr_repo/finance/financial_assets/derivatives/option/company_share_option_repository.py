@@ -275,16 +275,17 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             elif contract.right == "P":
                 option_type = "PUT"
             return self.entity_class(
-                id=None,  # Let database generate
+                id=None,
                 name=name,
                 symbol=symbol,
-                currency_id=currency.id ,
-                underlying_asset_id=underlying.id ,  # Can be set later if needed
-                exchange_id=exchange.id ,
-                option_type = option_type,
+                currency_id=currency.id,
+                underlying_asset_id=underlying.id,
+                exchange_id=exchange.id,
+                option_type=option_type,
                 strike_price=Decimal(str(contract.strike)) if hasattr(contract, 'strike') and contract.strike else None,
                 multiplier=int(contract.multiplier) if hasattr(contract, 'multiplier') and contract.multiplier else 100,
-                expiry=contract.lastTradeDateOrContractMonth if hasattr(contract, 'lastTradeDateOrContractMonth') and contract.lastTradeDateOrContractMonth else None
+                expiry=contract.lastTradeDateOrContractMonth if hasattr(contract, 'lastTradeDateOrContractMonth') and contract.lastTradeDateOrContractMonth else None,
+                start_date=date.today(),
             )
         except Exception as e:
             print(f"Error converting IBKR option contract to domain entity: {e}_{os.path.abspath(__file__)}")

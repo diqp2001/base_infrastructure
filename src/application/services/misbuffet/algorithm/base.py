@@ -5,6 +5,7 @@ from decimal import Decimal
 import uuid
 import pandas as pd
 
+from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
 from src.application.services.misbuffet.data.market_data_service import MarketDataService
 
 from .symbol import Symbol, SymbolProperties
@@ -807,6 +808,7 @@ class QCAlgorithm:
         """Inject EntityService for unified portfolio management."""
         self._entity_service = entity_service
         self._market_data_service = MarketDataService(self._entity_service)
+        self._market_data_history_service = MarketDataHistoryService(self._market_data_service)
         
         # Initialize unified portfolio manager with repository factory from EntityService
         if entity_service and entity_service.repository_factory and not self._unified_portfolio_manager:

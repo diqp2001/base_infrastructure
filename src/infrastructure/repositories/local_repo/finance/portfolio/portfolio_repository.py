@@ -305,7 +305,7 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
                 .first()
             )
             if existing_link:
-                sub_portfolio_id = existing_link.currency_portfolio_id
+                sub_portfolio_id = existing_link.asset_id
             else:
                 sub_name = f"{getattr(portfolio, 'name', 'portfolio')}_cash"
                 sub_portfolio = currency_portfolio_repo._create_or_get(name=sub_name)

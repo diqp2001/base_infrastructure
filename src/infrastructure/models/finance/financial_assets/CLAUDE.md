@@ -1,36 +1,84 @@
 # CLAUDE.md - Financial Assets Joined-Table Inheritance
 
-## 🏛️ Financial Asset Polymorphic Architecture
+## 🏛️ Financial Entity Polymorphic Architecture
 
-This document outlines the **joined-table inheritance** pattern used for modeling polymorphic financial assets in the `base_infrastructure` project.
+This document outlines the **joined-table inheritance** pattern used for modeling all
+financial entities (assets and portfolios) in the `base_infrastructure` project.
 
 ---
 
-## 📊 Architecture Overview: Joined-Table Inheritance
+## 📊 Architecture Overview: Unified Root — `FinancialEntityModel`
 
-We implement **Option 1: Joined-Table Inheritance** to model polymorphic financial assets using SQLAlchemy's advanced inheritance capabilities.
+`FinancialEntityModel` (`financial_entities` table) is the **single SQLAlchemy inheritance
+root** for the entire financial object hierarchy.  Both `FinancialAssetModel` and
+`PortfolioModel` are joined-table children of this root.
 
 ```
-financial_assets (root table)
-├── FinancialAssetModel
-│   ├── id (PK)
-│   ├── asset_type (discriminator)
-│   ├── name, description
-│   └── start_date, end_date
-│
-├── company_shares (child table)
-│   ├── id (PK, FK → financial_assets.id)
-│   ├── ticker, exchange_id, company_id
-│   └── start_date, end_date, is_tradeable
-│
-├── index_futures (child table)
-│   ├── id (PK, FK → financial_assets.id)
-│   └── [future-specific columns]
-│
-└── [other asset types...]
-    ├── id (PK, FK → financial_assets.id)
-    └── [type-specific columns]
+financial_entities (root table — polymorphic_on = entity_type)
+├── id (PK, autoincrement)
+└── entity_type (single discriminator for the FULL hierarchy)
+
+    ├── financial_assets (child table — FK → financial_entities.id)
+    │   ├── FinancialAssetModel  (polymorphic_identity = "financial_asset")
+    │   │   ├── asset_type (informational copy of entity_type — no longer discriminator)
+    │   │   ├── name, symbol, description
+    │   │   └── start_date, end_date
+    │   │
+    │   ├── company_shares       (polymorphic_identity = "company_share")
+    │   ├── currencies           (polymorphic_identity = "currency")
+    │   ├── derivatives          (polymorphic_identity = "derivatives")
+    │   │   └── underlying_asset_id (FK → financial_entities.id)  ← any entity
+    │   └── [other asset types...]
+    │
+    └── portfolios (child table — FK → financial_entities.id)
+        ├── PortfolioModel       (polymorphic_identity = "Portfolio")
+        │   ├── portfolio_type (informational copy of entity_type — no longer discriminator)
+        │   ├── name, start_date, end_date
+        │
+        ├── company_share_portfolios  (polymorphic_identity = "CompanySharePortfolio")
+        └── currency_portfolios       (polymorphic_identity = "CurrencyPortfolio")
 ```
+
+### Why the unified root?
+
+`DerivativeModel.underlying_asset_id` previously FK'd to `financial_assets.id`,
+making it impossible for `CompanySharePortfolioOption` to reference its underlying
+`CompanySharePortfolio` (a Portfolio, not a FinancialAsset).
+
+`HoldingModel.asset_id` also previously had no FK at all, requiring each concrete holding
+subclass to declare its own child-table FK column aliased to `asset_id` and merge both
+via `column_property`.
+
+With `financial_entities` as the root:
+- `DerivativeModel.underlying_asset_id` FKs to `financial_entities.id` → any financial
+  entity (asset **or** portfolio) can be an underlying.
+- `HoldingModel.asset_id` FKs to `financial_entities.id` → no more child-table FK
+  column overrides or `column_property` merges needed for portfolio-holding models.
+
+### Single discriminator
+
+`financial_entities.entity_type` is the sole `polymorphic_on` column.  SQLAlchemy
+maps every leaf class's `polymorphic_identity` to this column:
+
+| Class | `entity_type` value |
+|-------|---------------------|
+| `FinancialAssetModel` | `"financial_asset"` |
+| `CompanyShareModel` | `"company_share"` |
+| `CurrencyModel` | `"currency"` |
+| `DerivativeModel` | `"derivatives"` |
+| `PortfolioModel` | `"Portfolio"` |
+| `CompanySharePortfolioModel` | `"CompanySharePortfolio"` |
+| `CurrencyPortfolioModel` | `"CurrencyPortfolio"` |
+
+### `asset_type` / `portfolio_type` backward compat
+
+These columns are kept **as informational copies** only.  They are auto-populated by
+each model's `__init__` from `sa_inspect(type(self)).polymorphic_identity` so that
+queries filtering on `asset_type` or `portfolio_type` continue to work without changes.
+
+---
+
+## 🎯 Core Design Principles
 
 ---
 
@@ -45,7 +93,7 @@ class FinancialAssetModel(Base):
     asset_type = Column(String(50), nullable=False, index=True)  # Discriminator
     name = Column(String(200), nullable=True)
     description = Column(Text, nullable=True)
-    start_date = Column(Date, nullable=True)
+    start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     
     __mapper_args__ = {

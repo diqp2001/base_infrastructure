@@ -101,7 +101,7 @@ with `PortfolioPortfolioHolding` (double "Portfolio").  Examples:
 | `CurrencyPortfolioPortfolioHoldingRepository` | Returns the `CurrencyPortfolioModel` **asset** the holding points to |
 | `CompanySharePortfolioPortfolioHoldingRepository` | Returns the `CompanySharePortfolioModel` **asset** the holding points to |
 | `CurrencyPortfolioHoldingRepository` | Returns the `CurrencyModel` **asset** (currency) the holding holds |
-| `CompanySharePortfolioHoldingRepository` | Returns `CompanySharePortfolioHolding` domain entities filtered by `company_share_portfolio_id` |
+| `CompanySharePortfolioHoldingRepository` | Returns the `CompanyShare` **domain entity** (the underlying asset the holding holds) — used by factor resolution to resolve `CompanyShareValueFactor` |
 
 **Factor value resolution chain for a base Portfolio:**
 ```

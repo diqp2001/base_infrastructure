@@ -415,12 +415,18 @@ class ModelTrainer:
         
         universe = self.config.get('universe', {})
         for entity_class, tickers_list in universe.items():
-            for ticker_item in tickers_list:
-                
-                entity = self.data_loader.market_data_history_service.market_data_service.create_entity_from_ticker_item(ticker_item, entity_class)
-                
+            if isinstance(tickers_list, dict):
+                # Portfolio-style entry: {"args": {...}, "components": {...}}
+                # Use args dict so create_entity_from_ticker_item can resolve the container by name
+                args = tickers_list.get('args', {})
+                entity = self.data_loader.market_data_history_service.market_data_service.create_entity_from_ticker_item(args, entity_class)
                 if entity:
                     entities.append(entity)
+            else:
+                for ticker_item in tickers_list:
+                    entity = self.data_loader.market_data_history_service.market_data_service.create_entity_from_ticker_item(ticker_item, entity_class)
+                    if entity:
+                        entities.append(entity)
 
         factor_data = self.data_loader.market_data_history_service._create_or_get_factor_value_batch(factor_groups=factor_groups,entities=entities,date=date,duration_str=duration_str, bar_size_setting=bar_size_setting)
         

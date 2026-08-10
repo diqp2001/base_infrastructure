@@ -29,22 +29,21 @@ from src.application.services.api_service.ibkr_service.interactive_brokers_api_s
 
 
 if __name__ == '__main__':
-    #TestBaseProjectManager().web_interface.start_interface_and_open_browser()
-    #TestBaseProjectManager().run()
-    #CrossSectionnal().run()
+    
     #ibkr_service = ComprehensiveIBMarketDataExamples()
     #results_market_access = ibkr_service.test_account_access()
     #results = ibkr_service.test_comprehensive_tick_access()
     # print("")
     #ibkr_service.get_by_conid(745214300)
     #ibkr_service.vol_surf()
-    MarketMakingSPXCallSpreadProjectManager().run()
+    
+    #MarketMakingSPXCallSpreadProjectManager().run()
 
-    # import webbrowser, threading
-    # from src.interfaces.flask.flask import FlaskApp
-    # PORT = 5000
-    # threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/dashboard")).start()
-    # FlaskApp().run(debug=False, port=PORT)
+    import webbrowser, threading
+    from src.interfaces.flask.flask import FlaskApp
+    PORT = 5000
+    threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/dashboard")).start()
+    FlaskApp().run(debug=False, port=PORT)
 
 
     

@@ -3,6 +3,75 @@
 ## General Role
 The `Algorithm` folder contains core trading strategy logic. It defines user-created algorithms, specifying how data is processed and trades are executed. These algorithms subclass the `QCAlgorithm` class.
 
+---
+
+## Data Service Component Chain
+
+Each project's `BacktestRunner` wires the following chain during initialisation.  The algorithm can access all services through `self.model_trainer` once injected.
+
+```
+DatabaseService
+  └─ DataLoader.__init__(database_service)
+       ├─ self.financial_asset_service  = EntityService(database_service)
+       │                                  # entity CRUD + IBKR repo registration
+       ├─ self.market_data_service      = MarketDataService(financial_asset_service)
+       │                                  # _get_point_in_time_data, _create_or_get
+       └─ self.market_data_history_service = MarketDataHistoryService(market_data_service)
+                                          # _create_or_get_factor_value_batch (IBKR batch)
+
+ModelTrainer.__init__(database_service)
+  └─ self.data_loader = DataLoader(database_service)
+
+BacktestRunner.create_algorithm_instance()
+  ├─ algorithm.set_trainer(self.model_trainer)
+  └─ entity_service = self.model_trainer.data_loader.financial_asset_service
+     algorithm.set_entity_service(entity_service)   # injected for entity lookups
+```
+
+### Accessing market data services from within the algorithm
+
+The QCAlgorithm **base class** (`algorithm/base.py`) creates both services directly as
+instance attributes — no trainer or data-loader traversal required:
+
+```python
+# set in base.py during algorithm initialisation
+self._market_data_service         # MarketDataService
+self._market_data_history_service # MarketDataHistoryService(self._market_data_service)
+```
+
+`UnifiedPortfolioManager` receives `market_data_service` at construction time via
+`self._algorithm._market_data_service` and exposes it as `self.market_data_service`.
+From the portfolio manager you can call:
+
+```python
+market_data_service._get_point_in_time_data(ticker, entity_class, point_in_time, ...)
+```
+
+The trainer chain (`self._trainer.data_loader.market_data_history_service`) provides
+the **same** `MarketDataHistoryService` type but is a separate instance.  Prefer the
+algorithm's own `self._market_data_history_service` to avoid redundant construction.
+
+### Price fallback in `set_holdings` (`_get_price_from_market_data`)
+
+When the primary price sources (Slice bar, IBKR resolve, factor DB) all fail for a
+ticker, `UnifiedPortfolioManager._get_price_from_market_data` is called as a last
+resort.  It:
+
+1. Looks up the `FinancialAssetModel` for the ticker in the DB.
+2. Derives the domain entity class name by stripping the `Model` suffix and matching
+   against `ENTITY_FACTOR_MAPPING` keys.
+3. Calls `market_data_service._get_point_in_time_data(ticker, entity_class, ...)`.
+4. Returns the close (or open/high/low) price from the resulting DataFrame.
+
+This works for any asset type because `ENTITY_FACTOR_MAPPING` provides the
+domain-class → factor-class lookup dynamically — no asset-type hard-coding needed.
+
+To extend to batch IBKR fetches (e.g. for pre-loading factor values before a bar),
+use `market_data_history_service._create_or_get_factor_value_batch(...)` instead,
+accessible via `self._trainer.data_loader.market_data_history_service`.
+
+---
+
 ## Dependencies
 - **Depends On**: 
   - `Common`: For base classes like `QCAlgorithm`, `Security`, and indicators.

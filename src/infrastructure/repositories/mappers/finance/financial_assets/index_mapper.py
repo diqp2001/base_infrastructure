@@ -52,6 +52,8 @@ class IndexMapper:
         orm_obj.symbol = domain_obj.symbol
         orm_obj.name = domain_obj.name
         orm_obj.currency_id = domain_obj.currency_id
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
 
         return orm_obj
 

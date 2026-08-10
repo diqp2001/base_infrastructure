@@ -6,6 +6,14 @@ from abc import abstractmethod
 from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor as CompanyShareOptionFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor as CompanyShareOptionImpliedVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor as CompanyShareOptionImpliedDivYieldFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor as CompanyShareOptionImpliedCorrFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor import CompanyShareOptionVolFactor as CompanyShareOptionVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor import CompanyShareOptionVarFactor as CompanyShareOptionVarFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_value_factor import CompanySharePortfolioOptionValueFactor as CompanySharePortfolioOptionValueFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_vol_factor import CompanySharePortfolioOptionImpliedVolFactor as CompanySharePortfolioOptionImpliedVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_div_yield_factor import CompanySharePortfolioOptionImpliedDivYieldFactor as CompanySharePortfolioOptionImpliedDivYieldFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor import IndexFutureOptionFactor as IndexFutureOptionFactorEntity
 from src.domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor as CompanyShareOptionPortfolioFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor as CompanyShareFactorEntity
@@ -294,6 +302,22 @@ class FactorMapper:
             return CompanySharePortfolioEqualWeightReturnFactor(**base_args)
         elif factor_type == 'company_share_portfolio_option_factor':
             return CompanyShareOptionPortfolioFactorEntity(**base_args)
+        elif factor_type == 'company_share_portfolio_option_value_factor':
+            return CompanySharePortfolioOptionValueFactorEntity(**base_args)
+        elif factor_type == 'company_share_portfolio_option_implied_vol_factor':
+            return CompanySharePortfolioOptionImpliedVolFactorEntity(**base_args)
+        elif factor_type == 'company_share_portfolio_option_implied_div_yield_factor':
+            return CompanySharePortfolioOptionImpliedDivYieldFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_implied_vol_factor':
+            return CompanyShareOptionImpliedVolFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_implied_div_yield_factor':
+            return CompanyShareOptionImpliedDivYieldFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_implied_corr_factor':
+            return CompanyShareOptionImpliedCorrFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_vol_factor':
+            return CompanyShareOptionVolFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_var_factor':
+            return CompanyShareOptionVarFactorEntity(**base_args)
         elif factor_type == 'currency':
             return CurrencyFactorEntity(
                 **base_args,

@@ -2,10 +2,8 @@
 ORM model for Derivatives - separate from src.domain entity to avoid metaclass conflicts.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, Date, Text
-from sqlalchemy import ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from src.infrastructure.models import ModelBase as Base
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
 class DerivativeModel(FinancialAssetModel):
@@ -15,12 +13,13 @@ class DerivativeModel(FinancialAssetModel):
     """
     __tablename__ = 'derivatives'
 
-    
     id = Column(Integer, ForeignKey("financial_assets.id"), primary_key=True)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
-    underlying_asset_id = Column(Integer, ForeignKey('financial_assets.id'), nullable=False)
+    # FK to financial_entities so the underlying can be any FinancialEntity
+    # (FinancialAsset or Portfolio), not just a financial asset.
+    underlying_asset_id = Column(Integer, ForeignKey('financial_entities.id'), nullable=False)
     underlying_asset = relationship(
-        "src.infrastructure.models.finance.financial_assets.financial_asset.FinancialAssetModel",
+        "src.infrastructure.models.finance.financial_entity.FinancialEntityModel",
         foreign_keys=[underlying_asset_id],
         back_populates="underlying_derivatives"
     )

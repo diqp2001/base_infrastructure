@@ -168,7 +168,7 @@ class IBKRShareRepository(IBKRFinancialAssetRepository, SharePort):
                 name=contract.symbol,  # Use symbol as name
                 symbol=contract.symbol,
                 exchange_id=self._resolve_exchange_id(contract.exchange),
-                start_date=None,
+                start_date=date.today(),
                 end_date=None
             )
         except Exception as e:

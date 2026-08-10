@@ -4,7 +4,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 """
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 from src.domain.entities.finance.financial_assets.cash import Cash as DomainCash
 from src.infrastructure.models.finance.financial_assets.cash import CashModel as ORMCash
@@ -43,7 +43,9 @@ class CashMapper:
         # Map basic fields
         orm_obj.id = domain_obj.id
         orm_obj.currency_id = domain_obj.currency_id
-        
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
+
         # Map optional financial asset attributes
         if hasattr(domain_obj, 'name'):
             orm_obj.name = domain_obj.name

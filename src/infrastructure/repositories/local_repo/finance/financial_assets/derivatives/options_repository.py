@@ -65,12 +65,11 @@ class OptionsRepository(DerivativesRepository):
                 if existing:
                     return existing
             
-            # Validate underlying asset exists if provided
+            # Validate underlying entity exists if provided (can be a FinancialAsset or Portfolio)
             if underlying_asset_id:
-                from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
-                # Query to check if underlying asset exists
-                underlying_exists = self.session.query(FinancialAssetModel).filter(
-                    FinancialAssetModel.id == underlying_asset_id
+                from src.infrastructure.models.finance.financial_entity import FinancialEntityModel
+                underlying_exists = self.session.query(FinancialEntityModel).filter(
+                    FinancialEntityModel.id == underlying_asset_id
                 ).first()
                 
                 if not underlying_exists:

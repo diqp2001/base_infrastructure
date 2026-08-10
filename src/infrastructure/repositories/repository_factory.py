@@ -111,6 +111,14 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_delta_factor_repository import CompanySharePortfolioOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_factor_repository import CompanySharePortfolioOptionPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor_repository import CompanySharePortfolioOptionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_value_factor_repository import CompanySharePortfolioOptionValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_vol_factor_repository import CompanySharePortfolioOptionImpliedVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_div_yield_factor_repository import CompanySharePortfolioOptionImpliedDivYieldFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor_repository import CompanyShareOptionImpliedVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor_repository import CompanyShareOptionImpliedDivYieldFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor_repository import CompanyShareOptionImpliedCorrFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor_repository import CompanyShareOptionVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor_repository import CompanyShareOptionVarFactorRepository
 
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_delta_factor_repository import CompanyShareOptionDeltaFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor_repository import CompanyShareOptionFactorRepository
@@ -294,6 +302,14 @@ class RepositoryFactory:
                 'CompanySharePortfolioOptionDeltaFactor': CompanySharePortfolioOptionDeltaFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionPriceFactor': CompanySharePortfolioOptionPriceFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionFactor': CompanySharePortfolioOptionFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionValueFactor': CompanySharePortfolioOptionValueFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionImpliedVolFactor': CompanySharePortfolioOptionImpliedVolFactorRepository(self.session, factory=self),
+                'CompanySharePortfolioOptionImpliedDivYieldFactor': CompanySharePortfolioOptionImpliedDivYieldFactorRepository(self.session, factory=self),
+                'CompanyShareOptionImpliedVolFactor': CompanyShareOptionImpliedVolFactorRepository(self.session, factory=self),
+                'CompanyShareOptionImpliedDivYieldFactor': CompanyShareOptionImpliedDivYieldFactorRepository(self.session, factory=self),
+                'CompanyShareOptionImpliedCorrFactor': CompanyShareOptionImpliedCorrFactorRepository(self.session, factory=self),
+                'CompanyShareOptionVolFactor': CompanyShareOptionVolFactorRepository(self.session, factory=self),
+                'CompanyShareOptionVarFactor': CompanyShareOptionVarFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioOption': CompanySharePortfolioOptionRepository(self.session, factory=self),
                 'CompanyShareOptionDeltaFactor': CompanyShareOptionDeltaFactorRepository(self.session, factory=self),
                 'CompanyShareOptionFactor': CompanyShareOptionFactorRepository(self.session, factory=self),

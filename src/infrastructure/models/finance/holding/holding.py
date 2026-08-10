@@ -14,17 +14,14 @@ class HoldingModel(Base):
     Base SQLAlchemy model for holdings.
     Maps to domain.entities.finance.holding.holding.Holding
 
-    asset_id is a plain integer with no FK to financial_assets — the "asset"
-    of a holding can be a financial asset OR a portfolio, so no single FK
-    target covers all subclasses.  Each concrete subclass declares its own
-    typed FK column (pointing to the specific asset table) and merges it with
-    this column via column_property where needed.
+    asset_id FKs to financial_entities.id so it can reference any FinancialEntity
+    (FinancialAsset or Portfolio) from the unified root table.
     """
     __tablename__ = 'holdings'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     holding_type = Column(String(50), nullable=False)
-    asset_id = Column(Integer, nullable=False)
+    asset_id = Column(Integer, ForeignKey('financial_entities.id'), nullable=False)
     container_id = Column(Integer, nullable=False)
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=True)

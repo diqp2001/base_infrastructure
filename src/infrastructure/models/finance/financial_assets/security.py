@@ -27,7 +27,11 @@ class SecurityModel(FinancialAssetModel):
     
 
     # Relationships
-    portfolios = relationship("src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel", back_populates="securities")
+    portfolios = relationship(
+        "src.infrastructure.models.finance.portfolio.portfolio.PortfolioModel",
+        foreign_keys=[portfolio_id],
+        back_populates="securities",
+    )
     __mapper_args__ = {
     "polymorphic_identity": "securities",
 }

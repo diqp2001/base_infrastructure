@@ -18,7 +18,10 @@ class CurrencyPortfolioModel(PortfolioModel):
     )
     currency_portfolio_portfolio_holdings = relationship(
         "src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding.CurrencyPortfolioPortfolioHoldingModel",
+        primaryjoin="CurrencyPortfolioModel.id == CurrencyPortfolioPortfolioHoldingModel.asset_id",
+        foreign_keys="[src.infrastructure.models.finance.holding.holding.HoldingModel.asset_id]",
         back_populates="currency_portfolio",
+        viewonly=True,
     )
 
     __mapper_args__ = {

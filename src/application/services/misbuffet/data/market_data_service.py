@@ -7,6 +7,7 @@ from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_
 from src.application.services.misbuffet.common.data_types import Slice, TradeBar, Symbol
 from src.application.services.data.entities.entity_service import EntityService
 from src.domain.entities.factor.factor import Factor
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
 from src.domain.entities.factor.factor_value import FactorValue
 
 
@@ -54,14 +55,14 @@ class MarketDataService:
                 
 
                     # Portfolio dict: {"name": "...", "components": {EntityClass: [tickers]}}
-                    if isinstance(entities, dict) and 'components' in entities:
-                        portfolio_repo = self.entity_service.repository_factory.get_local_repository(entity_class)
-                        portfolio = portfolio_repo._create_or_get(entities.get('name'))
+                    if isinstance(entities, dict) :
+                        container_repo = self.entity_service.repository_factory.get_local_repository(entity_class)
+                        container = container_repo._create_or_get( **entities.get('args', {}))
                         for component_class, component_tickers in entities['components'].items():
                             for component_ticker in component_tickers:
                                 component_entity = self._get_entity_by_ticker(component_ticker, component_class)
-                                if component_entity and portfolio:
-                                    portfolio_repo.set_holding_for_entity(portfolio.id, component_entity.id)
+                                if component_entity and container and isinstance(container, Portfolio):
+                                    container_repo.set_holding_for_entity(container.id, component_entity.id)
                                 try:
                                     result = self._get_point_in_time_data(
                                         component_ticker, component_class, current_date, bar_size_setting, duration_str

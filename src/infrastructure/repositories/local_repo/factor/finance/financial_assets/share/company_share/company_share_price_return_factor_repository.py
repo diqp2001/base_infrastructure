@@ -41,23 +41,20 @@ class CompanySharePriceReturnFactorRepository(BaseFactorRepository, CompanyShare
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share'),
-                subgroup=kwargs.get('subgroup', 'return'),
-                frequency=kwargs.get('frequency'),
-                factor_type=kwargs.get('factor_type', "company_share_price_return_factor"),
-              
+                group=kwargs.get('group') or 'price',
+                factor_type=kwargs.get('factor_type') or 'company_share_price_return_factor',
             )
             if existing:
                 return self._to_entity(existing)
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share'),
-                subgroup=kwargs.get('subgroup', 'return'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'ibkr'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+                group=kwargs.get('group') or 'price',
+                subgroup=kwargs.get('subgroup') or 'daily',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'ibkr',
+                definition=kwargs.get('definition') or f'CompanySharePriceReturnFactor: {primary_key}',
             )
             
             # Use FactorMapper to convert domain entity to ORM model

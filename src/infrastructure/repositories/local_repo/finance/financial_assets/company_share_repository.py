@@ -513,12 +513,13 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             next_id = self._get_next_available_company_share_id()
             
             # Create new company share entity
+            from datetime import date as _date
             new_share = CompanyShareEntity(
                 id=next_id,
                 symbol=symbol,
                 exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
                 company_id=company_id or 1,   # Default to 1 if resolution fails
-                start_date=start_date,
+                start_date=start_date or _date.today(),
                 end_date=end_date
             )
             

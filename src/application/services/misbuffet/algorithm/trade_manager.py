@@ -268,14 +268,28 @@ class TradeManager:
         self, ticker: str, order_qty: int, portfolio_id: int
     ) -> None:
         """
-        Update the Position quantity linked through the Holding for this ticker.
+        Update the Position quantity for this ticker.
 
-        Navigation: FinancialAsset → Holding (by container+asset) → Position (via position_id FK)
-        PositionModel no longer carries symbol/is_active — the holding is the lookup key.
+        CompanyShare tickers live inside a CompanySharePortfolio sub-portfolio, not
+        directly under the main portfolio.  Navigation:
+          main portfolio
+            → CompanySharePortfolioPortfolioHolding (container_id=portfolio_id)
+              → CompanySharePortfolio (asset_id)
+                → CompanySharePortfolioHolding (container_id=sub_portfolio_id, asset_id=share.id)
+                  → Position.quantity += order_qty
+
+        Falls back to a direct HoldingModel lookup for holdings that live directly
+        under the main portfolio (e.g. currency holdings).
         """
         try:
             from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
             from src.infrastructure.models.finance.holding.holding import HoldingModel
+            from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
+                CompanySharePortfolioPortfolioHoldingModel,
+            )
+            from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
+                CompanySharePortfolioHoldingModel,
+            )
             from src.infrastructure.models.finance.position import PositionModel
 
             session = self.order_repo.session
@@ -286,6 +300,25 @@ class TradeManager:
             if not asset:
                 return
 
+            # Sub-portfolio path: main portfolio → CompanySharePortfolio → holding
+            cs_pp = session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(
+                container_id=portfolio_id
+            ).first()
+            if cs_pp:
+                cs_holding = session.query(CompanySharePortfolioHoldingModel).filter_by(
+                    container_id=cs_pp.asset_id,
+                    asset_id=asset.id,
+                ).first()
+                if cs_holding and cs_holding.position_id:
+                    pos = session.query(PositionModel).filter_by(
+                        id=cs_holding.position_id
+                    ).first()
+                    if pos:
+                        pos.quantity = int(pos.quantity or 0) + order_qty
+                        session.commit()
+                        return
+
+            # Direct fallback for holdings sitting directly under the main portfolio
             holding = session.query(HoldingModel).filter(
                 HoldingModel.container_id == portfolio_id,
                 HoldingModel.asset_id == asset.id,

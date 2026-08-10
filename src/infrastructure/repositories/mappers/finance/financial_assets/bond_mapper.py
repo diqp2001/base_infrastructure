@@ -59,6 +59,8 @@ class BondMapper:
         orm_obj.issuer = domain_obj.issuer
         orm_obj.bond_type = domain_obj.bond_type
         orm_obj.currency = 'USD'  # Default currency
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
         
         # Bond terms
         orm_obj.face_value = domain_obj.par_value

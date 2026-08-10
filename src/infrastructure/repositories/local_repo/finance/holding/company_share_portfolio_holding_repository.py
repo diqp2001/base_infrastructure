@@ -35,13 +35,16 @@ class CompanySharePortfolioHoldingRepository(BaseLocalRepository, CompanySharePo
         return [self.mapper.to_entity(model) for model in models]
 
     def get_related_entities(self, holding_id: int):
-        """Return the underlying CompanyShare asset that this holding holds."""
+        """Return the underlying CompanyShare domain entity that this holding holds."""
         from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        from src.infrastructure.repositories.mappers.finance.financial_assets.share.company_share.company_share_mapper import CompanyShareMapper
         model = self.session.query(CompanySharePortfolioHoldingModel).filter_by(id=holding_id).first()
-        if not model:
+        if not model or not model.asset_id:
             return []
-        company_share = self.session.query(CompanyShareModel).filter_by(id=model.asset_id).first()
-        return [company_share] if company_share else []
+        company_share_model = self.session.query(CompanyShareModel).filter_by(id=model.asset_id).first()
+        if company_share_model is None:
+            return []
+        return [CompanyShareMapper().to_domain(company_share_model)]
 
     def get_related_position(self, holding_id: int):
         """Return the Position linked to this holding (used by factor resolution)."""

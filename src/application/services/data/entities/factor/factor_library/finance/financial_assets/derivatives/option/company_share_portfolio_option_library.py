@@ -4,6 +4,9 @@ from typing import Dict, List
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_factor import CompanySharePortfolioOptionPriceFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_price_return_factor import CompanySharePortfolioOptionPriceReturnFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_value_factor import CompanySharePortfolioOptionValueFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_vol_factor import CompanySharePortfolioOptionImpliedVolFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_div_yield_factor import CompanySharePortfolioOptionImpliedDivYieldFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
 
 # Portfolio Pricing model factors
@@ -176,6 +179,42 @@ COMPANY_SHARE_PORTFOLIO_OPTION_LIBRARY: Dict[str, Dict] = {
         "parameters": {"period": "1D"}
     },
     
+    "value": {
+        "class": CompanySharePortfolioOptionValueFactor,
+        "name": "value",
+        "group": "value",
+        "subgroup": "asset",
+        "frequency": "1d",
+        "data_type": "decimal",
+        "description": "Market value of the portfolio option position (price × multiplier × contracts)",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "implied_vol": {
+        "class": CompanySharePortfolioOptionImpliedVolFactor,
+        "name": "implied_vol",
+        "group": "volatility",
+        "subgroup": "implied",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Equal-weight average of implied volatility across all options in the portfolio",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "implied_div_yield": {
+        "class": CompanySharePortfolioOptionImpliedDivYieldFactor,
+        "name": "implied_div_yield",
+        "group": "fundamental",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Equal-weight average of implied dividend yield across all options in the portfolio",
+        "dependencies": {},
+        "parameters": {}
+    },
+
     # Advanced Portfolio Pricing Model Factors
     "portfolio_black_scholes_merton_price": {
         "class": CompanySharePortfolioOptionBlackScholesMertonPriceFactor,

@@ -38,7 +38,7 @@ class CompanySharePortfolioPortfolioHoldingRepository(BaseLocalRepository):
         if model is None:
             return []
         company_share_portfolio = self.session.query(CompanySharePortfolioModel).filter_by(
-            id=model.company_share_portfolio_id
+            id=model.asset_id
         ).first()
         return [company_share_portfolio] if company_share_portfolio else []
 

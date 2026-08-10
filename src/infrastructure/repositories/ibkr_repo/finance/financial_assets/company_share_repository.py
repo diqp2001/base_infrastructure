@@ -128,6 +128,10 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             return self.local_repo.add(entity)
             
         except Exception as e:
+            try:
+                self.local_repo.session.rollback()
+            except Exception:
+                pass
             print(f"Error in IBKR _create_or_get for symbol {symbol}: {e}")
             return None
 
@@ -246,12 +250,13 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             company=self._get_or_create_company(contract.symbol)
             
             return self.entity_class(
-                id=None,  # Let database generate
+                id=None,
                 name=name,
                 symbol=symbol,
                 currency_id=currency.id,
                 exchange_id=exchange.id,
                 company_id=company.id,
+                start_date=date.today(),
             )
         except Exception as e:
             print(f"Error converting IBKR index contract to domain entity: {e}_{os.path.abspath(__file__)}")

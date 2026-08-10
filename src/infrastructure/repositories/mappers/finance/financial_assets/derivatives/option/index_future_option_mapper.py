@@ -3,7 +3,7 @@ Mapper for IndexFutureOption domain entity and ORM model.
 Converts between domain entities and ORM models to avoid metaclass conflicts.
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional
 
@@ -57,6 +57,8 @@ class IndexFutureOptionMapper:
         # Basic identification
         orm_obj.symbol = domain_obj.symbol
         orm_obj.name = domain_obj.name
+        orm_obj.start_date = getattr(domain_obj, 'start_date', None) or date.today()
+        orm_obj.end_date = getattr(domain_obj, 'end_date', None)
         
         # Option-specific fields
         if hasattr(domain_obj, 'option_type') and domain_obj.option_type:
