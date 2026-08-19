@@ -1,0 +1,479 @@
+<title>Base Project Config Editor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+<style>
+  body { background: #f8f9fa; }
+  .save-bar { position: sticky; top: 0; z-index: 100; }
+  .section-card { border-left: 4px solid #0d6efd; }
+  .field-label { font-size: .82rem; color: #6c757d; margin-bottom: 3px; }
+  .factor-card { border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; background: #fff; }
+  .factor-card .badge { font-size: .72rem; }
+  .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid #ced4da; border-radius: 4px; padding: 4px 8px; background: #fff; min-height: 38px; align-items: center; cursor: text; }
+  .tag-input-wrap:focus-within { border-color: #86b7fe; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+  .tag-item { background: #0d6efd; color: #fff; border-radius: 4px; padding: 1px 6px; font-size: .8rem; display: flex; align-items: center; gap: 4px; }
+  .tag-item button { background: none; border: none; color: #fff; font-size: .7rem; padding: 0; cursor: pointer; line-height: 1; }
+  .tag-input-wrap input { border: none; outline: none; flex: 1; min-width: 80px; font-size: .9rem; }
+  #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; min-width: 280px; z-index: 9999; }
+</style>
+
+<div class="save-bar bg-white border-bottom shadow-sm px-4 py-2 d-flex align-items-center gap-3">
+  <span class="fw-semibold">Base Project Config</span>
+  <small class="text-muted">Changes apply in-memory; restart resets to file defaults.</small>
+  <a href="/dashboard" class="btn btn-outline-dark btn-sm ms-auto">← Dashboard</a>
+</div>
+
+<div class="container py-4" style="max-width:960px">
+  <ul class="nav nav-tabs mb-4" id="cfg-tabs">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-settings">Settings</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-universe">Universe & Portfolio</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-factors">Factors</button></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ── Tab 1: Settings ─────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="tab-settings">
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+          Backtest
+          <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
+        </div>
+        <div class="card-body row g-3">
+          <div class="col-md-6">
+            <div class="field-label">backtest_start</div>
+            <input class="form-control form-control-sm cfg-field" data-field="backtest_start" type="text" placeholder="2026-05-19 09:30:00">
+          </div>
+          <div class="col-md-6">
+            <div class="field-label">backtest_end</div>
+            <input class="form-control form-control-sm cfg-field" data-field="backtest_end" type="text" placeholder="2026-05-19 10:30:00">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">initial_capital</div>
+            <input class="form-control form-control-sm cfg-field" data-field="initial_capital" type="number" step="1000">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">config_interval (minutes)</div>
+            <input class="form-control form-control-sm cfg-field" data-field="config_interval__custom_interval_minutes" type="number" step="1" min="1">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">commission_per_contract</div>
+            <input class="form-control form-control-sm cfg-field" data-field="commission_per_contract" type="number" step="0.01">
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold">Market Data</div>
+        <div class="card-body row g-3">
+          <div class="col-md-4">
+            <div class="field-label">bar_size_setting</div>
+            <input class="form-control form-control-sm cfg-field" data-field="bar_size_setting" type="text">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">duration_str</div>
+            <input class="form-control form-control-sm cfg-field" data-field="duration_str" type="text">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">historical_data_duration</div>
+            <input class="form-control form-control-sm cfg-field" data-field="historical_data_duration" type="text">
+          </div>
+          <div class="col-md-4">
+            <div class="field-label">option_data_duration</div>
+            <input class="form-control form-control-sm cfg-field" data-field="option_data_duration" type="text">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input cfg-field" data-field="max_import_ibkr" type="checkbox" id="chk-ibkr">
+              <label class="form-check-label" for="chk-ibkr">max_import_ibkr</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold">Risk Management</div>
+        <div class="card-body row g-3">
+          <div class="col-md-3">
+            <div class="field-label">max_position_size</div>
+            <input class="form-control form-control-sm cfg-field" data-field="max_position_size" type="number" step="1">
+          </div>
+          <div class="col-md-3">
+            <div class="field-label">max_daily_loss ($)</div>
+            <input class="form-control form-control-sm cfg-field" data-field="max_daily_loss" type="number" step="100">
+          </div>
+          <div class="col-md-3">
+            <div class="field-label">max_gamma_exposure</div>
+            <input class="form-control form-control-sm cfg-field" data-field="max_gamma_exposure" type="number" step="10">
+          </div>
+          <div class="col-md-3">
+            <div class="field-label">min_time_to_expiry (days)</div>
+            <input class="form-control form-control-sm cfg-field" data-field="min_time_to_expiry" type="number" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold">Pricing & Trading Hours</div>
+        <div class="card-body row g-3">
+          <div class="col-md-3">
+            <div class="field-label">interest_rate</div>
+            <input class="form-control form-control-sm cfg-field" data-field="interest_rate" type="number" step="0.001">
+          </div>
+          <div class="col-md-3">
+            <div class="field-label">dividend_yield</div>
+            <input class="form-control form-control-sm cfg-field" data-field="dividend_yield" type="number" step="0.001">
+          </div>
+          <div class="col-md-2">
+            <div class="field-label">market open</div>
+            <input class="form-control form-control-sm cfg-field" data-field="trading_hours__start" type="text" placeholder="09:30">
+          </div>
+          <div class="col-md-2">
+            <div class="field-label">market close</div>
+            <input class="form-control form-control-sm cfg-field" data-field="trading_hours__end" type="text" placeholder="16:00">
+          </div>
+          <div class="col-md-2">
+            <div class="field-label">timezone</div>
+            <input class="form-control form-control-sm cfg-field" data-field="trading_hours__timezone" type="text">
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-settings -->
+
+    <!-- ── Tab 2: Universe & Portfolio ────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-universe">
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+          Portfolio Name
+          <button class="btn btn-primary btn-sm" onclick="saveUniverse()">Save Universe</button>
+        </div>
+        <div class="card-body row g-3">
+          <div class="col-md-6">
+            <div class="field-label">Top-level portfolio name</div>
+            <input class="form-control form-control-sm" id="portfolio_name" type="text" placeholder="SPX_Call_Spread_Portfolio">
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold">CompanyShare — Individual Tickers</div>
+        <div class="card-body">
+          <div class="field-label mb-1">Tickers (press Enter or comma to add)</div>
+          <div class="tag-input-wrap" id="cs-tag-wrap">
+            <input id="cs-tag-input" type="text" placeholder="e.g. AAPL">
+          </div>
+          <small class="text-muted">These tickers are added as standalone CompanyShare entries in the universe.</small>
+        </div>
+      </div>
+
+      <div class="card section-card mb-4">
+        <div class="card-header fw-semibold">CompanySharePortfolio</div>
+        <div class="card-body row g-3">
+          <div class="col-md-5">
+            <div class="field-label">Portfolio name</div>
+            <input class="form-control form-control-sm" id="csp_name" type="text" placeholder="Large_US_BANK">
+          </div>
+          <div class="col-12">
+            <div class="field-label mb-1">Component tickers (press Enter or comma to add)</div>
+            <div class="tag-input-wrap" id="csp-tag-wrap">
+              <input id="csp-tag-input" type="text" placeholder="e.g. JPM">
+            </div>
+            <small class="text-muted">These tickers form the CompanySharePortfolio basket.</small>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-universe -->
+
+    <!-- ── Tab 3: Factors ─────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-factors">
+      <div class="row g-4">
+
+        <!-- Left: factor builder -->
+        <div class="col-md-5">
+          <div class="card section-card h-100">
+            <div class="card-header fw-semibold">Add a Factor</div>
+            <div class="card-body">
+              <div class="field-label">Factor type</div>
+              <select class="form-select form-select-sm mb-3" id="cat-select">
+                <option value="">— choose —</option>
+                {% for entry in catalogue %}
+                <option value="{{ entry.id }}" data-desc="{{ entry.description }}">{{ entry.label }}</option>
+                {% endfor %}
+              </select>
+
+              <div id="cat-description" class="text-muted small mb-3"></div>
+
+              <div id="cat-params" class="mb-3"></div>
+
+              <button class="btn btn-primary btn-sm w-100" id="btn-add-factor" disabled onclick="addFactor()">
+                + Add to list
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: selected factors -->
+        <div class="col-md-7">
+          <div class="card section-card">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+              Selected Factors
+              <button class="btn btn-success btn-sm" onclick="saveFactors()">Save Factors</button>
+            </div>
+            <div class="card-body p-2" id="factor-list">
+              <div class="text-muted small px-2 py-3" id="factor-empty">No factors selected.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /tab-factors -->
+
+  </div><!-- /tab-content -->
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast align-items-center border-0" role="alert">
+  <div class="d-flex">
+    <div class="toast-body" id="toast-msg"></div>
+    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Inline server-side data ──────────────────────────────────────────────────
+const INIT_SETTINGS  = {{ config    | tojson }};
+const INIT_UNIVERSE  = {{ universe  | tojson }};
+const INIT_FACTORS   = {{ factors   | tojson }};
+const CATALOGUE      = {{ catalogue | tojson }};
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, ok) {
+  const el = document.getElementById('toast');
+  el.className = `toast align-items-center border-0 text-white bg-${ok ? 'success' : 'danger'}`;
+  document.getElementById('toast-msg').textContent = msg;
+  bootstrap.Toast.getOrCreateInstance(el, {delay: 3500}).show();
+}
+
+// ── Settings tab ─────────────────────────────────────────────────────────────
+function populateSettings(cfg) {
+  document.querySelectorAll('.cfg-field').forEach(el => {
+    const val = cfg[el.dataset.field];
+    if (el.type === 'checkbox') el.checked = !!val;
+    else el.value = val ?? '';
+  });
+}
+
+function collectSettings() {
+  const out = {};
+  document.querySelectorAll('.cfg-field').forEach(el => {
+    if (el.type === 'checkbox') out[el.dataset.field] = el.checked;
+    else if (el.type === 'number') out[el.dataset.field] = el.value === '' ? null : parseFloat(el.value);
+    else out[el.dataset.field] = el.value;
+  });
+  // Strip nulls
+  return Object.fromEntries(Object.entries(out).filter(([,v]) => v !== null));
+}
+
+async function saveSettings() {
+  const resp = await fetch('/api/config/base_project', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(collectSettings()),
+  });
+  const d = await resp.json();
+  d.success ? showToast('Settings saved.', true) : showToast('Error: ' + (d.errors||[d.error]).join('; '), false);
+}
+
+// ── Tag-input widget ─────────────────────────────────────────────────────────
+function makeTagWidget(wrapId, inputId) {
+  const wrap  = document.getElementById(wrapId);
+  const input = document.getElementById(inputId);
+  const tags  = [];
+
+  function render() {
+    wrap.querySelectorAll('.tag-item').forEach(t => t.remove());
+    tags.forEach((t, i) => {
+      const el = document.createElement('span');
+      el.className = 'tag-item';
+      el.innerHTML = `${t} <button onclick="this.closest('.tag-item').remove()" data-idx="${i}">✕</button>`;
+      el.querySelector('button').addEventListener('click', () => { tags.splice(i, 1); render(); });
+      wrap.insertBefore(el, input);
+    });
+  }
+
+  function add(val) {
+    val = val.trim().toUpperCase();
+    if (val && !tags.includes(val)) { tags.push(val); render(); }
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input.value); input.value = ''; }
+    if (e.key === 'Backspace' && input.value === '' && tags.length) { tags.pop(); render(); }
+  });
+  input.addEventListener('blur', () => { if (input.value) { add(input.value); input.value = ''; } });
+  wrap.addEventListener('click', () => input.focus());
+
+  return { get: () => [...tags], set: (arr) => { tags.length = 0; arr.forEach(t => tags.push(t.trim().toUpperCase())); render(); } };
+}
+
+const csWidget  = makeTagWidget('cs-tag-wrap',  'cs-tag-input');
+const cspWidget = makeTagWidget('csp-tag-wrap', 'csp-tag-input');
+
+function populateUniverse(data) {
+  document.getElementById('portfolio_name').value = data.portfolio_name || '';
+  document.getElementById('csp_name').value       = data.csp_name || '';
+  csWidget.set(data.cs_tickers  || []);
+  cspWidget.set(data.csp_tickers || []);
+}
+
+async function saveUniverse() {
+  const payload = {
+    portfolio_name: document.getElementById('portfolio_name').value,
+    csp_name:       document.getElementById('csp_name').value,
+    cs_tickers:     csWidget.get(),
+    csp_tickers:    cspWidget.get(),
+  };
+  const resp = await fetch('/api/config/universe', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
+  });
+  const d = await resp.json();
+  d.success ? showToast('Universe saved.', true) : showToast('Error: ' + (d.errors||[d.error]).join('; '), false);
+}
+
+// ── Factor builder ────────────────────────────────────────────────────────────
+let selectedFactors = [];
+
+// Rebuild the "selected factors" panel
+function renderFactorList() {
+  const list  = document.getElementById('factor-list');
+  const empty = document.getElementById('factor-empty');
+  list.querySelectorAll('.factor-card').forEach(c => c.remove());
+
+  if (!selectedFactors.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  selectedFactors.forEach((f, idx) => {
+    const card = document.createElement('div');
+    card.className = 'factor-card';
+
+    const deps = f.dependencies || {};
+    const depsHtml = Object.entries(deps).map(([k, v]) =>
+      `<span class="badge bg-secondary me-1">${k}: <em>${v.name}</em> lag ${v.lag_days ?? '?'}d</span>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <span class="fw-semibold">${f.class_name}</span>
+          <span class="badge bg-info text-dark ms-2">${f.frequency || ''}</span>
+          <div class="mt-1 small text-muted">${f.description || ''}</div>
+          <div class="mt-1">${depsHtml}</div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm ms-2" onclick="removeFactor(${idx})">✕</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function removeFactor(idx) {
+  selectedFactors.splice(idx, 1);
+  renderFactorList();
+}
+
+// Catalogue selector → render param inputs
+document.getElementById('cat-select').addEventListener('change', function () {
+  const id = this.value;
+  const desc = this.options[this.selectedIndex]?.dataset.desc || '';
+  document.getElementById('cat-description').textContent = desc;
+  document.getElementById('btn-add-factor').disabled = !id;
+
+  const container = document.getElementById('cat-params');
+  container.innerHTML = '';
+  if (!id) return;
+
+  const entry = CATALOGUE.find(c => c.id === id);
+  if (!entry) return;
+
+  entry.parameters.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'mb-2';
+    div.innerHTML = `<div class="field-label">${p.label}</div>`;
+    if (p.type === 'select') {
+      const sel = document.createElement('select');
+      sel.className = 'form-select form-select-sm';
+      sel.dataset.paramKey = p.key;
+      p.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.label;
+        if (o.value === p.default) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      div.appendChild(sel);
+    } else {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.step = '1'; inp.min = '0';
+      inp.className = 'form-control form-control-sm';
+      inp.dataset.paramKey = p.key;
+      inp.value = p.default;
+      div.appendChild(inp);
+    }
+    container.appendChild(div);
+  });
+});
+
+function collectCatParams() {
+  const out = {};
+  document.querySelectorAll('#cat-params [data-param-key]').forEach(el => {
+    const key = el.dataset.paramKey;
+    out[key] = el.tagName === 'SELECT' ? el.value : parseInt(el.value, 10);
+  });
+  return out;
+}
+
+async function addFactor() {
+  const catId  = document.getElementById('cat-select').value;
+  const params = collectCatParams();
+  const resp   = await fetch('/api/config/factors', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ factors: [
+      ...selectedFactors
+        .filter(f => f._catalogue_id)
+        .map(f => ({ catalogue_id: f._catalogue_id, params: f._params || {} })),
+      { catalogue_id: catId, params }
+    ]}),
+  });
+  const d = await resp.json();
+  if (d.success) {
+    selectedFactors = d.factors;
+    renderFactorList();
+    showToast('Factor added.', true);
+  } else {
+    showToast('Error: ' + (d.errors || [d.error]).join('; '), false);
+  }
+}
+
+async function saveFactors() {
+  const specs = selectedFactors
+    .filter(f => f._catalogue_id)
+    .map(f => ({ catalogue_id: f._catalogue_id, params: f._params || {} }));
+  const resp = await fetch('/api/config/factors', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({factors: specs}),
+  });
+  const d = await resp.json();
+  if (d.success) {
+    selectedFactors = d.factors;
+    renderFactorList();
+    showToast('Factors saved.', true);
+  } else {
+    showToast('Error: ' + (d.errors || [d.error]).join('; '), false);
+  }
+}
+
+// ── Bootstrap on load ─────────────────────────────────────────────────────────
+populateSettings(INIT_SETTINGS);
+populateUniverse(INIT_UNIVERSE);
+selectedFactors = INIT_FACTORS;
+renderFactorList();
+</script>

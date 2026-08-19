@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
+from src.domain.entities.finance.financial_assets.index.index_bond import IndexBond
+from src.domain.entities.finance.financial_assets.derivatives.future.bond_future import BondFuture
 from src.domain.entities.finance.holding.company_share_portfolio_option_portfolio_holding import CompanySharePortfolioOptionPortfolioHolding
 from src.domain.entities.finance.portfolio.company_share_portfolio_option_portfolio import CompanySharePortfolioOptionPortfolio
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
@@ -41,10 +43,21 @@ DEFAULT_CONFIG = {
     'project_name': 'market_making_spx_call_spread',
     'version': '1.0.0',
     'universe' : {
-        CompanySharePortfolio: {"args": {"name": "Large_US_BANK"}, "components": {CompanyShare:["JPM","BAC"]}},#["JPM","BAC","WFC","C","GS","MS"]
-        CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["Large_US_BANK"]},"args": {"option_type": "CALL", "start_date": "20260818","start_date": "20261218", "strike_price": 100.0,"name": "Large_US_BANK_Portfolio_Option_C_20261218_100","underlying_name":"Large_US_BANK"}},#["JPM  281215C00300000","BAC  281215C00030000"]
-        CompanyShareOption: ["AAPL  281215C00300000"],
-        CompanyShare: ["AAPL","MSFT"],#
+        # CompanySharePortfolio: {"args": {"name": "Large_US_BANK"}, "components": {CompanyShare:["JPM","BAC"]}},#["JPM","BAC","WFC","C","GS","MS"]
+        # CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["Large_US_BANK"]},"args": {"option_type": "CALL", "start_date": "20260818","end_date": "20261218", "strike_price": 100.0,"name": "Large_US_BANK_Portfolio_Option_C_20261218_100","underlying_name":"Large_US_BANK"}},
+
+        # CompanySharePortfolio: {"args": {"name": "SPY_ETF"}, "components": {CompanyShare:["SPY"]}},
+        # CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["SPY_ETF"]},
+        #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_ETF_Portfolio_Option_C_20281215_100","underlying_name":"SPY_ETF"}
+        #    
+        #                            },
+        BondFuture: ["SR3Z6"],
+        IndexBond :["SOFR3"],
+        
+        # CompanyShareOption: ["SPY  281215C00770000","AAPL  281215C00300000",{"components": {CompanyShare:["SPY"]},
+        #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}
+        #                               }],
+        # CompanyShare: ["AAPL","MSFT","SPY"],
         
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
@@ -100,10 +113,10 @@ DEFAULT_CONFIG = {
     # 'backtest_start': '2026-02-02 09:30:00',
     # 'backtest_end': '2026-02-04 14:30:00',
 
-    'backtest_start': '2026-05-19 09:30:00',
-    'backtest_end': '2026-05-19 10:30:00',
-    # 'backtest_start': '2026-07-29 09:30:00',
-    # 'backtest_end': '2026-07-29 10:30:00',
+    # 'backtest_start': '2026-05-19 09:30:00',
+    # 'backtest_end': '2026-05-19 10:30:00',
+    'backtest_start': '2026-08-06 09:30:00',
+    'backtest_end': '2026-08-06 10:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
@@ -123,21 +136,24 @@ DEFAULT_CONFIG = {
         # FACTOR_LIBRARY["future_index_library"]["low"],
         # FACTOR_LIBRARY["future_index_library"]["close"],
         # FACTOR_LIBRARY["future_index_library"]["volume"],
-        
         # # Future return factors (daily, weekly, monthly)
         # FACTOR_LIBRARY["future_index_library"]["return_daily"],
-        
         # # Index return factors (daily, weekly, monthly)
         # FACTOR_LIBRARY["index_library"]["return_daily"],
         # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
+
+        FACTOR_LIBRARY["currency_library"]["currency_yield"],
+
         FACTOR_LIBRARY["company_share_library"]["return_daily_3"],
-        
         FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
-        FACTOR_LIBRARY["company_share_portfolio_library"]["return_daily_3"],
-        FACTOR_LIBRARY["company_share_portfolio_library"]["return_eq_w_daily_3"],
-        #FACTOR_LIBRARY["company_share_portfolio_option_library"]["return_eq_w_daily_3"],
-        
-        #FACTOR_LIBRARY["company_share_option_library"]["option_price"],
+
+        # FACTOR_LIBRARY["company_share_portfolio_library"]["return_daily_3"],
+        # FACTOR_LIBRARY["company_share_portfolio_library"]["return_eq_w_daily_3"],
+
+        # FACTOR_LIBRARY["company_share_portfolio_option_library"]["portfolio_option_price"],
+        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
+        FACTOR_LIBRARY["company_share_option_library"]["option_price"],
+        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility"],
         #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
@@ -194,27 +210,7 @@ def get_config() -> Dict[str, Any]:
     """Get the current configuration."""
     return DEFAULT_CONFIG.copy()
 
-# def get_spx_contract_config() -> Dict[str, Any]:
-#     """Get SPX-specific contract configuration."""
-#     return {
-#         'symbol': DEFAULT_CONFIG['underlying_symbol'],
-#         'exchange': DEFAULT_CONFIG['underlying_exchange'],
-#         'currency': DEFAULT_CONFIG['underlying_currency'],
-#         'sec_type': 'IND',  # Index
-#         'multiplier': 100,
-#     }
 
-# def get_option_chain_config() -> Dict[str, Any]:
-#     """Get option chain configuration for SPX options."""
-#     return {
-#         'symbol': 'SPX',
-#         'exchange': 'CBOE', 
-#         'currency': 'USD',
-#         'sec_type': 'OPT',
-#         'multiplier': 100,
-#         'dte_range': DEFAULT_CONFIG['default_dte_range'],
-#         'delta_range': DEFAULT_CONFIG['default_delta_range'],
-#     }
 
 def get_trading_config() -> Dict[str, Any]:
     """Get trading configuration."""

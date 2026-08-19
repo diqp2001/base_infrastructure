@@ -135,13 +135,17 @@ class IBKRBondRepository(IBKRFinancialAssetRepository, BondPort):
             print(f"Error fetching IBKR bond contract for {symbol}: {e}")
             return None
 
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """BOND contracts work for both reqContractDetails and reqHistoricalData."""
+        return self._fetch_contract(symbol)
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch bond contract details from IBKR API using broker method.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             List of contract details dictionaries or None if not found
         """

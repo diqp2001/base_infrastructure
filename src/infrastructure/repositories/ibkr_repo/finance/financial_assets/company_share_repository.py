@@ -200,13 +200,17 @@ class IBKRCompanyShareRepository(IBKRFinancialAssetRepository, CompanySharePort)
             print(f"Error fetching IBKR contract for {symbol}: {e}")
             return None
 
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """STK contracts work for both reqContractDetails and reqHistoricalData."""
+        return self._fetch_contract(symbol)
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[ContractDetails]:
         """
         Fetch contract details from IBKR API.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             ContractDetails object or None if not found
         """

@@ -1,0 +1,8 @@
+{
+  "backtest_metadata": {
+    "timestamp": "20260814_122830",
+    "start_date": "2026-08-06",
+    "end_date": "2026-08-06",
+    "initial_capital": 100000,
+    "algorithm_name": "MyAlgorithm",
+    "universe": {

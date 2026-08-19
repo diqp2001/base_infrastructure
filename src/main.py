@@ -37,13 +37,13 @@ if __name__ == '__main__':
     #ibkr_service.get_by_conid(745214300)
     #ibkr_service.vol_surf()
     
-    #MarketMakingSPXCallSpreadProjectManager().run()
+    MarketMakingSPXCallSpreadProjectManager().run()
 
-    import webbrowser, threading
-    from src.interfaces.flask.flask import FlaskApp
-    PORT = 5000
-    threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/dashboard")).start()
-    FlaskApp().run(debug=False, port=PORT)
+    # import webbrowser, threading
+    # from src.interfaces.flask.flask import FlaskApp
+    # PORT = 5000
+    # threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/dashboard")).start()
+    # FlaskApp().run(debug=False, port=PORT)
 
 
     

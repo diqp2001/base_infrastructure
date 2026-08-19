@@ -43,7 +43,7 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        return ["CompanyShareOptionFactor"]
+        return ["CompanyShareOptionFactor"]#get price, 
 
     def calculate(self, dependencies: dict) -> Optional[float]:
         """Compute implied vol from option market price (IBKR) via Newton-Raphson B-S inversion.

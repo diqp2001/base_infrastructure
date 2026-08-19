@@ -135,13 +135,17 @@ class IBKRCommodityRepository(IBKRFinancialAssetRepository, CommodityPort):
             print(f"Error fetching IBKR commodity contract for {symbol}: {e}")
             return None
 
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """Commodity contracts (FUT/CMDTY with expiry already set) work for reqHistoricalData."""
+        return self._fetch_contract(symbol)
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch commodity contract details from IBKR API using broker method.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             List of contract details dictionaries or None if not found
         """

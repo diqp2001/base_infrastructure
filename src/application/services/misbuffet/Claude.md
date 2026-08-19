@@ -151,6 +151,177 @@ src/application/services/misbuffet/
 └── algorithm/      # Algorithm base classes and utilities
 ```
 
+---
+
+## Reusable Base Classes for Project Managers
+
+In addition to the engine core, misbuffet provides **four base classes and one utility
+function** that project managers in `application/managers/project_managers/` extend.
+These eliminate boilerplate from every concrete trading project.
+
+### `data/base_data_loader.py` — `BaseDataLoader`
+
+Standard service-chain wiring.  Every project's `DataLoader` extends this.
+
+```python
+class DataServices(NamedTuple):
+    entity_service: EntityService
+    market_data_service: MarketDataService
+    history_service: MarketDataHistoryService
+    database_service: DatabaseService
+
+class BaseDataLoader:
+    def __init__(self, database_service: DatabaseService, factor_manager=None):
+        # wires EntityService → MarketDataService → MarketDataHistoryService → FactorService
+    def get_data_services(self) -> DataServices: ...
+```
+
+Projects subclass and add only their domain-specific fetchers.
+
+---
+
+### `data/factor_normalizer.py` — `FactorNormalizer`
+
+Canonical normalisation suite.  Projects import from here; never duplicate it.
+
+```python
+class NormalizationMethod(Enum):   Z_SCORE | MIN_MAX | RANK | QUANTILE
+class NormalizationScope(Enum):    CROSS_SECTIONAL | TIME_SERIES | GLOBAL
+
+@dataclass
+class NormalizationConfig:
+    method: NormalizationMethod
+    scope: NormalizationScope
+    lookback_window: int = 252
+    clip_outliers: bool = True
+    outlier_std: float = 3.0
+
+class FactorNormalizer:
+    def normalize_factor_data(self, data, config) -> pd.DataFrame: ...
+    def apply_comprehensive_normalization(self, factor_dict, config) -> Dict: ...
+```
+
+---
+
+### `engine/performance_metrics.py` — `calculate_performance_metrics`
+
+Pure standalone function used by `BaseBacktestRunner` and available directly.
+
+```python
+def calculate_performance_metrics(
+    daily_returns: List[float],
+    initial_capital: float,
+    final_value: float,
+) -> Dict[str, Any]:
+    # Returns: total_return, annualized_return, volatility, sharpe_ratio,
+    #          max_drawdown, win_rate, total_trading_days, best_day, worst_day
+```
+
+---
+
+### `engine/base_backtest_runner.py` — `BaseBacktestRunner`
+
+Abstract orchestrator.  Projects implement two hooks and inherit everything else.
+
+```python
+class BaseBacktestRunner(ABC):
+    # Must implement:
+    @abstractmethod
+    def setup_components(self, config: Dict) -> bool: ...
+    @abstractmethod
+    def create_algorithm_instance(self): ...
+
+    # Inherited as-is:
+    def run_backtest(self, config) -> Dict          # Misbuffet launcher
+    def run_backtest_async(self, config) -> Thread  # daemon thread
+    def get_backtest_status(self) -> Dict
+    def get_backtest_results(self) -> Optional[Dict]
+    def stop_backtest(self): ...
+    def _calculate_performance_metrics(...): ...
+```
+
+---
+
+### `algorithm/base_project_algorithm.py` — `BaseProjectAlgorithm`
+
+Generic algorithm shell.  Projects implement `initialize()` (with `super()` call) and
+`on_data()`.  All infrastructure helpers are inherited.
+
+```python
+class BaseProjectAlgorithm(QCAlgorithm):
+    # Managed state: portfolio_value, cash, positions, orders, performance_history,
+    #                lookback_window, train_window, models, initialized
+
+    def initialize(self): ...             # sets defaults; call super() in subclass
+    def _update_portfolio_value(self, data): ...
+    def _update_performance_tracking(self, data): ...
+    def _log_daily_summary(self): ...
+    def _is_end_of_day(self, data) -> bool: ...
+    def get_algorithm_state(self) -> Dict: ...
+    def set_entity_service(self, es): ...
+    def set_factor_manager(self, fm): ...
+    def set_trainer(self, trainer): ...
+    def set_strategy(self, strategy): ...
+```
+
+---
+
+### `engine/base_model_trainer.py` — `BaseModelTrainer`
+
+Generic factor pipeline shared by every project.  **Only** the factor creation / data
+preparation layer lives here — normalisation, tensor format, training loop, and
+evaluation metrics are project-specific and must be implemented in each project's own
+`ModelTrainer` subclass.
+
+```python
+class BaseModelTrainer(ABC):
+    def __init__(self, database_service, config: Dict, training_config: Optional[Dict] = None):
+        # Wires BaseDataLoader, FactorManager, FactorNormalizer.
+        # Sets self.model = None, self.tensor_splitter = None.
+
+    # ── Factor creation layer (always generic, never duplicate) ─────────────
+    def _ensure_factors_exist(self) -> Dict:
+        """Reads config['factors'], calls create_factors, returns summary dict."""
+    def create_factors(self, factors_config: List[Dict]) -> Dict:
+        """Creates or fetches each factor from DB via _create_factor_from_config."""
+    def _create_factor_from_config(self, name, group, subgroup, data_type, tickers, overwrite) -> Factor: ...
+    def _create_price_dependencies_for_return_factor(self, return_factor, symbol, asset_class, price_factor_names) -> int: ...
+    def _load_ticker_price_data(self, ticker) -> Optional[pd.DataFrame]: ...
+
+    # ── Full factor pipeline (call this from train_complete_pipeline) ────────
+    def _prepare_factor_data(self, date, bar_size_setting, duration_str) -> Dict[str, pd.DataFrame]:
+        """ensure_factors → set_frontier → build entities → batch fetch values."""
+```
+
+**Layer boundary rule:**  Only `_prepare_factor_data` and everything it calls belongs in
+`BaseModelTrainer`.  Steps 2–5 of the training pipeline (normalise, tensors, train,
+evaluate) vary per project and must be implemented by the project's subclass.
+
+```
+misbuffet/engine/base_model_trainer.py   ← _prepare_factor_data + factor creation
+        │
+        └── base_project/models/model_trainer.py   ← stubs for all project-specific steps
+                │
+                └── market_making_SPX_call_spread_project/models/model_trainer.py  ← full impl
+```
+
+---
+
+### How projects wire these together
+
+```
+project_managers/my_project/
+├── backtesting/
+│   ├── backtest_runner.py   # BacktestRunner(BaseBacktestRunner)
+│   └── my_algorithm.py      # Algorithm(BaseProjectAlgorithm)
+└── data/
+    └── data_loader.py       # DataLoader(BaseDataLoader)
+```
+
+See `market_making_SPX_call_spread_project/CLAUDE.md` for the full reference implementation.
+
+---
+
 ## Core Modules
 
 ### 1. Common Module

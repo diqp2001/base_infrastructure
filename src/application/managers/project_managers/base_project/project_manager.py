@@ -1,0 +1,307 @@
+﻿import os
+import time
+import logging
+import pandas as pd
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from pathlib import Path
+import mlflow
+
+# Base classes
+#from src.application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
+from src.application.services.database_service.database_service import DatabaseService
+from src.application.managers.project_managers.project_manager import ProjectManager
+
+# Interactive Brokers integration
+from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+
+# Backtesting components
+
+from src.application.services.misbuffet.engine.base_backtest_runner import BaseBacktestRunner as BacktestRunner
+
+
+# Data components
+
+
+
+
+# Configuration
+from .config import DEFAULT_CONFIG, get_config
+from . import config
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class BaseProjectManager(ProjectManager):
+    """
+    Enhanced Project Manager for backtesting operations.
+    Implements a complete backtesting pipeline using  Misbuffet framework integration.
+    
+    
+    """
+    
+    def __init__(self):
+        """
+        Initialize the Test Base Project Manager following TestProjectBacktestManager pattern.
+        """
+        super().__init__()
+        self.config=get_config()
+        # Initialize required managers - use TEST config like test_project_backtest
+        self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
+        self.database_service.set_ext_db()
+        # Backtesting components — subclasses must assign a concrete BacktestRunner
+        self.backtest_runner: BacktestRunner = None
+        self.algorithm = None
+        self.results = None
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Web interface manager
+        try:
+            from src.application.services.misbuffet.web.web_interface import WebInterfaceManager
+            self.web_interface = WebInterfaceManager()
+        except ImportError:
+            self.logger.warning("Web interface not available")
+            self.web_interface = None
+        
+        # Runtime state
+        self.trained_model = None
+        self.strategy = None
+        self.signal_generator = None
+        self.pipeline_results = {}
+        
+        # Interactive Brokers broker
+        self.ib_broker: Optional[InteractiveBrokersBroker] = None
+        
+        # MLflow tracking setup
+        self.mlflow_experiment_name = "market_making_call_spread_spx_project_manager"
+        self.mlflow_run = None
+        self._setup_mlflow_tracking()
+        
+        self.logger.info("ðŸš€ Market making Call Spread SPX ProjectManager initialized with Misbuffet integration and MLflow tracking")
+    
+    def _setup_mlflow_tracking(self):
+        """Setup MLflow experiment tracking."""
+        try:
+            mlflow.set_experiment(self.mlflow_experiment_name)
+            self.logger.info(f"MLflow experiment set: {self.mlflow_experiment_name}")
+        except Exception as e:
+            self.logger.warning(f"Could not setup MLflow tracking: {e}")
+    
+    def run(
+        self,
+        initial_capital: float = 100000,
+        start_date: str = "2025-08-01",
+        end_date: str = "2025-12-31",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Run the complete SPX call spread market making pipeline.
+        
+        Args:
+            initial_capital: Initial capital for trading
+            start_date: Backtest start date
+            end_date: Backtest end date
+            check_data: Whether to check for existing data
+            import_data: Whether to import data if missing
+            run_backtest: Whether to run backtest
+            **kwargs: Additional configuration
+            
+        Returns:
+            Dict containing comprehensive results
+        """
+        try:
+            self.logger.info("ðŸš€ Starting SPX Call Spread Market Making Pipeline")
+            
+            # Start MLflow run
+            self.mlflow_run = mlflow.start_run()
+            
+            # Log parameters
+            mlflow.log_params({
+                'initial_capital': initial_capital,
+                'start_date': start_date,
+                'end_date': end_date,
+                **kwargs
+            })
+            
+            pipeline_results = {
+                'pipeline_start': datetime.now().isoformat(),
+                'parameters': {
+                    'initial_capital': initial_capital,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                },
+                'stages': {},
+                'success': False,
+            }
+            
+            # Data verification and strategy setup are now handled in Algorithm.on_data()
+            # This simplifies the pipeline and follows the requested architecture
+            
+            
+            
+            backtest_stage = self._run_backtest_stage(initial_capital, start_date, end_date)
+            pipeline_results['stages']['backtest_stage'] = backtest_stage
+            
+            # Log backtest metrics
+            if backtest_stage.get('success', False):
+                results = backtest_stage.get('results', {})
+                performance = results.get('performance_metrics', {})
+                
+                mlflow.log_metrics({
+                    'total_return': performance.get('total_return', 0),
+                    'sharpe_ratio': performance.get('sharpe_ratio', 0),
+                    'max_drawdown': performance.get('max_drawdown', 0),
+                    'win_rate': performance.get('win_rate', 0),
+                })
+            
+            
+            results_stage = self._compile_final_results(pipeline_results)
+            pipeline_results['stages']['results_stage'] = results_stage
+            
+            pipeline_results['success'] = True
+            pipeline_results['pipeline_end'] = datetime.now().isoformat()
+            
+            # Log artifacts
+            mlflow.log_dict(pipeline_results, "pipeline_results.json")
+            
+            self.logger.info("âœ… SPX Call Spread Market Making Pipeline completed successfully")
+            return pipeline_results
+            
+        except Exception as e:
+            self.logger.error(f"Pipeline failed: {e}")
+            pipeline_results['error'] = str(e)
+            pipeline_results['success'] = False
+            
+            # Log error to MLflow
+            mlflow.log_param("error", str(e))
+            
+            return pipeline_results
+            
+        finally:
+            # End MLflow run
+            if self.mlflow_run:
+                mlflow.end_run()
+    
+    # _run_data_stage method removed - functionality moved to Algorithm.on_data()
+    # This follows the requested architecture where data verification and import
+    # are handled within the algorithm's on_data method
+    
+    def _run_strategy_setup_stage(self) -> Dict[str, Any]:
+        """Run the strategy setup stage."""
+        try:
+            self.logger.info("âš™ï¸ Setting up Market Making Strategy...")
+            
+            # Initialize strategy components
+            from .strategy.market_making_strategy import Strategy
+            
+            strategy = Strategy(self.config)
+            
+            # Store references
+            self.strategy = strategy
+            
+            return {
+                'success': True,
+                'components_initialized': [
+                    'CallSpreadMarketMakingStrategy',
+                    'RiskManager', 
+                    'CallSpreadPricingEngine',
+                    'VolatilityModel'
+                ],
+                'stage_timestamp': datetime.now().isoformat(),
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in strategy setup stage: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'stage_timestamp': datetime.now().isoformat(),
+            }
+    
+    def _run_backtest_stage(
+        self,
+        initial_capital: float,
+        start_date: str,
+        end_date: str
+    ) -> Dict[str, Any]:
+        """Run the backtesting stage."""
+        try:
+            self.logger.info("ðŸŽ¯ Running Backtest Stage...")
+            
+            if self.backtest_runner is None:
+                raise RuntimeError("backtest_runner is not set — assign a concrete BacktestRunner in the subclass __init__")
+            runner = self.backtest_runner
+
+            # Configure backtest
+            backtest_config = {
+                'initial_capital': initial_capital,
+                'backtest_start': start_date,
+                'backtest_end': end_date,
+                **self.config
+            }
+            
+            # Run backtest
+            backtest_results = runner.run_backtest(backtest_config)
+            
+            return {
+                'success': backtest_results.get('success', False),
+                'results': backtest_results,
+                'stage_timestamp': datetime.now().isoformat(),
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in backtest stage: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'stage_timestamp': datetime.now().isoformat(),
+            }
+    
+    def _compile_final_results(self, pipeline_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Compile final results from all stages."""
+        try:
+            self.logger.info("ðŸ“‹ Compiling Final Results...")
+            
+            # Extract key metrics from each stage
+            data_stage = pipeline_results['stages'].get('data_stage', {})
+            strategy_stage = pipeline_results['stages'].get('strategy_stage', {})
+            backtest_stage = pipeline_results['stages'].get('backtest_stage', {})
+            
+            summary = {
+                'data_available': data_stage.get('data_available', False),
+                'strategy_setup_success': strategy_stage.get('success', False),
+                'backtest_success': backtest_stage.get('success', False),
+            }
+            
+            # Performance summary if backtest ran
+            if backtest_stage.get('success', False):
+                results = backtest_stage.get('results', {})
+                performance = results.get('portfolio_performance', {})
+                metrics = results.get('performance_metrics', {})
+                
+                summary.update({
+                    'final_portfolio_value': performance.get('final_value'),
+                    'total_return': performance.get('total_return'),
+                    'sharpe_ratio': metrics.get('sharpe_ratio'),
+                    'max_drawdown': metrics.get('max_drawdown'),
+                    'total_trades': results.get('trading_activity', {}).get('total_trades'),
+                })
+            
+            return {
+                'success': True,
+                'summary': summary,
+                'compilation_timestamp': datetime.now().isoformat(),
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error compiling results: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'compilation_timestamp': datetime.now().isoformat(),
+            }

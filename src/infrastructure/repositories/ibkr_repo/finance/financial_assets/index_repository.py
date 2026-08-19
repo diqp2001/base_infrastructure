@@ -137,13 +137,17 @@ class IBKRIndexRepository(IBKRFinancialAssetRepository, IndexPort):
             print(f"Error creating IBKR index contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """IND contracts work for both reqContractDetails and reqHistoricalData."""
+        return self._fetch_contract(symbol)
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch index contract details from IBKR API using broker method.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             List of contract details dictionaries or None if not found
         """

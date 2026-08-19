@@ -48,6 +48,7 @@ from src.domain.entities.factor.finance.financial_assets.bond_factor.bond_factor
 from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_factor import DerivativeFactor as DerivativeFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor as OptionFactorEntity  
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor as FutureFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_factor import BondFutureFactor as BondFutureFactorEntity
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor as IndexFutureFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor import IndexFuturePriceReturnFactor as IndexFuturePriceReturnFactorEntity
@@ -58,8 +59,10 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_avg_turnover_6m_factor import CompanyShareAvgTurnover6mFactor as CompanyShareAvgTurnover6mFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor import CompanyShareMonthlyPriceRangeFactor as CompanyShareMonthlyPriceRangeFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor as CompanyShareVpt52w20dLagFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_atm_implied_vol_factor import CompanyShareATMImpliedVolFactor as CompanyShareATMImpliedVolFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor as CurrencyValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor import CurrencyRateFactor as CurrencyRateFactorEntity
+from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor as CurrencyYieldFactorEntity
 
 # Import portfolio and holding value factors
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor as CompanySharePortfolioValueFactorEntity
@@ -80,6 +83,9 @@ from src.domain.entities.country import Country
 from src.domain.entities.finance.financial_assets.financial_asset import FinancialAsset
 from src.domain.entities.finance.financial_assets.security import Security
 from src.domain.entities.finance.financial_assets.index.index import Index
+from src.domain.entities.finance.financial_assets.index.index_bond import IndexBond
+from src.domain.entities.finance.financial_assets.index.index_company_share import IndexCompanyShare
+from src.domain.entities.finance.financial_assets.index.index_company_share_portfolio import IndexCompanySharePortfolio
 from src.domain.entities.finance.financial_assets.currency import Currency
 from src.domain.entities.finance.financial_assets.equity import Equity
 from src.domain.entities.finance.financial_assets.share.share import Share
@@ -87,6 +93,7 @@ from src.domain.entities.finance.financial_assets.bond import Bond
 from src.domain.entities.finance.financial_assets.derivatives.derivative import Derivative
 from src.domain.entities.finance.financial_assets.derivatives.option.option import Option
 from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
+from src.domain.entities.finance.financial_assets.derivatives.future.bond_future import BondFuture
 
 
 # Factor Entity to Entity Type Mapping Dictionary
@@ -138,6 +145,18 @@ ENTITY_FACTOR_MAPPING = {
     Index: [
         IndexFactorEntity
     ],
+
+    IndexBond: [
+        IndexFactorEntity
+    ],
+
+    IndexCompanyShare: [
+        IndexFactorEntity
+    ],
+
+    IndexCompanySharePortfolio: [
+        IndexFactorEntity
+    ],
     
     Currency: [
         CurrencyFactorEntity
@@ -181,6 +200,11 @@ ENTITY_FACTOR_MAPPING = {
     Future: [
         FutureFactorEntity
     ],
+
+    BondFuture: [
+        BondFutureFactorEntity
+    ],
+
     IndexFuture: [
         IndexFutureFactorEntity
     ],
@@ -268,6 +292,8 @@ class FactorMapper:
             )
         elif factor_type == 'index_future_factor':
             return IndexFutureFactorEntity(**base_args)
+        elif factor_type == 'bond_future_factor':
+            return BondFutureFactorEntity(**base_args)
         elif factor_type == 'index_future_price_return_factor':
             return IndexFuturePriceReturnFactorEntity(**base_args)
         elif factor_type == 'future_price_return_factor':
@@ -286,10 +312,14 @@ class FactorMapper:
             return CompanyShareMonthlyPriceRangeFactorEntity(**base_args)
         elif factor_type == 'company_share_vpt_52w_20d_lag_factor':
             return CompanyShareVpt52w20dLagFactorEntity(**base_args)
+        elif factor_type == 'company_share_atm_implied_vol_factor':
+            return CompanyShareATMImpliedVolFactorEntity(**base_args)
         elif factor_type == 'currency_value_factor':
             return CurrencyValueFactorEntity(**base_args)
         elif factor_type == 'currency_rate_factor':
             return CurrencyRateFactorEntity(**base_args)
+        elif factor_type == 'currency_yield_factor':
+            return CurrencyYieldFactorEntity(**base_args)
         elif factor_type == 'index_future_option_factor':
             return IndexFutureOptionFactorEntity(**base_args)
         elif factor_type == 'company_share_option_factor':
@@ -312,6 +342,9 @@ class FactorMapper:
             return CompanyShareOptionImpliedVolFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_div_yield_factor':
             return CompanyShareOptionImpliedDivYieldFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_rf_yield_factor':
+            from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor as CompanyShareOptionRFYieldFactorEntity
+            return CompanyShareOptionRFYieldFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_corr_factor':
             return CompanyShareOptionImpliedCorrFactorEntity(**base_args)
         elif factor_type == 'company_share_option_vol_factor':

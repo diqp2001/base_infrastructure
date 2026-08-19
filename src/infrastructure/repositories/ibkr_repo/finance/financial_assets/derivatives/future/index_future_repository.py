@@ -190,26 +190,50 @@ class IBKRIndexFutureRepository(IBKRFinancialAssetRepository,IndexFuturePort):
         
 
         return expiry
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """Contract for reqHistoricalData: resolved via conId to avoid IBKR ambiguity."""
+        try:
+            details_contract = self._fetch_contract(symbol)
+            contract_details_list = self._fetch_contract_details(details_contract)
+            if not contract_details_list:
+                return None
+            detail = next(
+                (c for c in contract_details_list if c.get('local_symbol') == symbol),
+                None,
+            )
+            if not detail:
+                return None
+            con_id = detail.get('contract_id')
+            if not con_id:
+                return None
+            contract = Contract()
+            contract.conId = con_id
+            contract.exchange = detail.get('exchange', 'CME')
+            return contract
+        except Exception as e:
+            print(f"Error building historical IBKR contract for index future {symbol}: {e}")
+            return None
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch contract details from IBKR API using broker method.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             List of contract details dictionaries or None if not found
         """
         try:
             # Use the broker's get_contract_details method (like in reference implementation)
             contract_details = self.ib_broker.get_contract_details(contract, timeout=15)
-            
+
             if contract_details and len(contract_details) > 0:
                 return contract_details
             else:
                 print(f"No contract details received for {contract.symbol}")
                 return None
-                
+
         except Exception as e:
             print(f"Error fetching IBKR contract details: {e}")
             return None

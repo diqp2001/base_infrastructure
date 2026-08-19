@@ -126,13 +126,17 @@ class IBKREquityRepository(IBKRFinancialAssetRepository, EquityPort):
             print(f"Error fetching IBKR equity contract for {symbol}: {e}")
             return None
 
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """STK contracts work for both reqContractDetails and reqHistoricalData."""
+        return self._fetch_contract(symbol)
+
     def _fetch_contract_details(self, contract: Contract) -> Optional[List[dict]]:
         """
         Fetch equity contract details from IBKR API using broker method.
-        
+
         Args:
             contract: IBKR Contract object
-            
+
         Returns:
             List of contract details dictionaries or None if not found
         """

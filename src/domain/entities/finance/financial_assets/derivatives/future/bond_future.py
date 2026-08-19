@@ -1,9 +1,8 @@
-from src.domain.entities.finance.financial_assets.bond import Bond
 from src.domain.entities.finance.financial_assets.derivatives.future.future import Future
 
 
 class BondFuture(Future):
-    """Future contract for a bond."""
-    def __init__(self, underlying_asset: Bond, **kwargs):
-        super().__init__(underlying_asset=underlying_asset,**kwargs)
+    """Future contract on a fixed-income (bond) underlying."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         

@@ -33,6 +33,7 @@ class CustomJSONProvider(DefaultJSONProvider):
 from src.application.managers.project_managers.test_base_project.test_base_project_manager import TestBaseProjectManager
 #from src.application.managers.project_managers.test_project_live_trading.test_project_live_trading_manager import TestProjectLiveTradingManager
 from src.application.services.misbuffet.web.powerbuffet.powerbuffet import PowerBuffetService
+import src.application.managers.project_managers.base_project.config as _base_config
 
 web_bp = Blueprint("web", __name__)
 logger = logging.getLogger(__name__)
@@ -749,6 +750,343 @@ def shutdown_system():
     except Exception as e:
         logger.error(f"Error shutting down system: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ------------------------------------------------------------------
+# Base-project config editor
+# ------------------------------------------------------------------
+
+# Fields we expose for editing: name → (type, optional nested key)
+_CONFIG_FIELDS = {
+    'backtest_start':            (str,   None),
+    'backtest_end':              (str,   None),
+    'initial_capital':           (float, None),
+    'bar_size_setting':          (str,   None),
+    'duration_str':              (str,   None),
+    'historical_data_duration':  (str,   None),
+    'option_data_duration':      (str,   None),
+    'max_import_ibkr':           (bool,  None),
+    'spread_type':               (str,   None),
+    'underlying_symbol':         (str,   None),
+    'underlying_exchange':       (str,   None),
+    'max_position_size':         (int,   None),
+    'max_daily_loss':            (float, None),
+    'max_gamma_exposure':        (float, None),
+    'min_time_to_expiry':        (int,   None),
+    'commission_per_contract':   (float, None),
+    'interest_rate':             (float, None),
+    'dividend_yield':            (float, None),
+    'volatility_model':          (str,   None),
+    'training_window':           (int,   None),
+    'validation_split':          (float, None),
+    'test_split':                (float, None),
+    'trading_hours__start':      (str,   ('trading_hours', 'start')),
+    'trading_hours__end':        (str,   ('trading_hours', 'end')),
+    'trading_hours__timezone':   (str,   ('trading_hours', 'timezone')),
+    'config_interval__custom_interval_minutes': (int, ('config_interval', 'custom_interval_minutes')),
+}
+
+
+def _read_config() -> dict:
+    """Return a flat, JSON-serialisable snapshot of the editable fields."""
+    cfg = _base_config.DEFAULT_CONFIG
+    result = {}
+    for field, (ftype, nested) in _CONFIG_FIELDS.items():
+        if nested:
+            parent_key, child_key = nested
+            result[field] = cfg.get(parent_key, {}).get(child_key)
+        else:
+            result[field] = cfg.get(field)
+    return result
+
+
+def _apply_config(updates: dict) -> list:
+    """
+    Apply a dict of flat field→value pairs to DEFAULT_CONFIG in-place.
+    Returns a list of error strings for unknown or badly-typed fields.
+    """
+    cfg = _base_config.DEFAULT_CONFIG
+    errors = []
+    for field, raw_value in updates.items():
+        if field not in _CONFIG_FIELDS:
+            errors.append(f"Unknown field: {field}")
+            continue
+        ftype, nested = _CONFIG_FIELDS[field]
+        try:
+            if ftype is bool:
+                value = bool(raw_value) if not isinstance(raw_value, str) else raw_value.lower() in ('true', '1', 'yes')
+            else:
+                value = ftype(raw_value)
+        except (ValueError, TypeError) as exc:
+            errors.append(f"{field}: {exc}")
+            continue
+        if nested:
+            parent_key, child_key = nested
+            cfg.setdefault(parent_key, {})[child_key] = value
+        else:
+            cfg[field] = value
+    return errors
+
+
+@web_bp.route("/config")
+def config_editor():
+    """Render the base-project config editor page."""
+    return render_template(
+        "config_editor.html",
+        config=_read_config(),
+        universe=_read_universe_config(),
+        factors=_read_factors_config(),
+        catalogue=_FACTOR_CATALOGUE,
+    )
+
+
+@web_bp.route("/api/config/base_project", methods=["GET"])
+def api_get_config():
+    """Return the current editable config as JSON."""
+    return jsonify({"success": True, "config": _read_config()})
+
+
+@web_bp.route("/api/config/base_project", methods=["POST"])
+def api_update_config():
+    """Apply partial updates to base_project DEFAULT_CONFIG (in-memory)."""
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+    errors = _apply_config(data)
+    if errors:
+        return jsonify({"success": False, "errors": errors}), 422
+    return jsonify({"success": True, "config": _read_config()})
+
+
+# ------------------------------------------------------------------
+# Universe helpers
+# ------------------------------------------------------------------
+
+def _get_class_map():
+    """Lazy-import the entity classes referenced in the universe config."""
+    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+    from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+    from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
+    return {
+        'CompanyShare': CompanyShare,
+        'CompanySharePortfolio': CompanySharePortfolio,
+        'CompanyShareOption': CompanyShareOption,
+    }
+
+
+def _read_universe_config() -> dict:
+    """Return universe + portfolio names as a JSON-serialisable dict."""
+    cfg = _base_config.DEFAULT_CONFIG
+    universe = cfg.get('universe', {})
+    class_map = _get_class_map()
+    cs_cls = class_map['CompanyShare']
+    csp_cls = class_map['CompanySharePortfolio']
+
+    result = {
+        'portfolio_name': cfg.get('Portfolio', {}).get('name', ''),
+        'cs_tickers': [],
+        'csp_name': '',
+        'csp_tickers': [],
+    }
+
+    if cs_cls in universe:
+        val = universe[cs_cls]
+        result['cs_tickers'] = val if isinstance(val, list) else []
+
+    if csp_cls in universe:
+        entry = universe[csp_cls]
+        if isinstance(entry, dict):
+            result['csp_name'] = entry.get('args', {}).get('name', '')
+            comps = entry.get('components', {})
+            if cs_cls in comps:
+                result['csp_tickers'] = comps[cs_cls] if isinstance(comps[cs_cls], list) else []
+
+    return result
+
+
+def _apply_universe_config(data: dict) -> list:
+    """Apply universe/portfolio updates to DEFAULT_CONFIG in-place."""
+    cfg = _base_config.DEFAULT_CONFIG
+    class_map = _get_class_map()
+    cs_cls = class_map['CompanyShare']
+    csp_cls = class_map['CompanySharePortfolio']
+    universe = cfg.setdefault('universe', {})
+    errors = []
+
+    if 'portfolio_name' in data:
+        cfg.setdefault('Portfolio', {})['name'] = str(data['portfolio_name'])
+
+    if 'cs_tickers' in data:
+        tickers = [t.strip() for t in data['cs_tickers'] if isinstance(t, str) and t.strip()]
+        universe[cs_cls] = tickers
+
+    if 'csp_name' in data or 'csp_tickers' in data:
+        entry = universe.setdefault(csp_cls, {'args': {}, 'components': {}})
+        if not isinstance(entry, dict):
+            entry = {'args': {}, 'components': {}}
+            universe[csp_cls] = entry
+        if 'csp_name' in data:
+            entry.setdefault('args', {})['name'] = str(data['csp_name'])
+        if 'csp_tickers' in data:
+            tickers = [t.strip() for t in data['csp_tickers'] if isinstance(t, str) and t.strip()]
+            entry.setdefault('components', {})[cs_cls] = tickers
+
+    return errors
+
+
+@web_bp.route("/api/config/universe", methods=["GET"])
+def api_get_universe():
+    return jsonify({"success": True, "data": _read_universe_config()})
+
+
+@web_bp.route("/api/config/universe", methods=["POST"])
+def api_update_universe():
+    data = request.json or {}
+    errors = _apply_universe_config(data)
+    if errors:
+        return jsonify({"success": False, "errors": errors}), 422
+    return jsonify({"success": True, "data": _read_universe_config()})
+
+
+# ------------------------------------------------------------------
+# Factor helpers
+# ------------------------------------------------------------------
+
+_FACTOR_CATALOGUE = [
+    {
+        "id": "company_share_price_return",
+        "class_name": "CompanySharePriceReturnFactor",
+        "label": "Company Share — Price Return",
+        "description": "Return between two close-price observations with configurable lags.",
+        "parameters": [
+            {"key": "start_price_lag_days", "label": "Start price lag (days)", "type": "int", "default": 3},
+            {"key": "end_price_lag_days",   "label": "End price lag (days)",   "type": "int", "default": 1},
+            {"key": "frequency", "label": "Frequency", "type": "select",
+             "options": [
+                 {"value": "1d",   "label": "Daily"},
+                 {"value": "1m",   "label": "Minute"},
+                 {"value": "1w",   "label": "Weekly"},
+                 {"value": "1mth", "label": "Monthly"},
+             ],
+             "default": "1d"},
+        ],
+    },
+]
+
+_FREQ_META = {
+    "1d":   {"subgroup": "daily",   "price_name": "close"},
+    "1m":   {"subgroup": "minutes", "price_name": "open"},
+    "1w":   {"subgroup": "weekly",  "price_name": "close"},
+    "1mth": {"subgroup": "monthly", "price_name": "close"},
+}
+
+
+def _build_factor_from_spec(catalogue_id: str, params: dict):
+    """Build the domain-layer factor config dict from user params."""
+    from datetime import timedelta
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_price_return_factor import CompanySharePriceReturnFactor
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
+
+    if catalogue_id == "company_share_price_return":
+        start_lag = max(1, int(params.get("start_price_lag_days", 3)))
+        end_lag   = max(0, int(params.get("end_price_lag_days", 1)))
+        freq      = params.get("frequency", "1d")
+        meta      = _FREQ_META.get(freq, _FREQ_META["1d"])
+        sg        = meta["subgroup"]
+        pn        = meta["price_name"]
+        price_dep = {
+            "class": CompanyShareFactor,
+            "name": pn,
+            "group": "price",
+            "subgroup": sg,
+            "frequency": freq,
+            "data_type": "numeric",
+            "description": f"{sg} {pn} price",
+            "dependencies": {},
+        }
+        return {
+            "class": CompanySharePriceReturnFactor,
+            "name": f"return_{sg}",
+            "group": "return",
+            "subgroup": sg,
+            "frequency": freq,
+            "data_type": "numeric",
+            "description": f"Price return ({start_lag}d → {end_lag}d)",
+            "dependencies": {
+                "start_price": {**price_dep, "parameters": {"lag": timedelta(days=start_lag)}},
+                "end_price":   {**price_dep, "parameters": {"lag": timedelta(days=end_lag)}},
+            },
+            "parameters": {"period": freq.upper()},
+            # Keep serialisable metadata for round-trip
+            "_catalogue_id": catalogue_id,
+            "_params": {
+                "start_price_lag_days": start_lag,
+                "end_price_lag_days": end_lag,
+                "frequency": freq,
+            },
+        }
+    return None
+
+
+def _read_factors_config() -> list:
+    """Return the current factors list as JSON-serialisable."""
+    cfg = _base_config.DEFAULT_CONFIG
+    factors = cfg.get('factors', [])
+    result = []
+    for f in factors:
+        cls = f.get('class')
+        entry = {
+            "class_name": cls.__name__ if cls else None,
+            "name": f.get("name"),
+            "group": f.get("group"),
+            "subgroup": f.get("subgroup"),
+            "frequency": f.get("frequency"),
+            "description": f.get("description", ""),
+            "_catalogue_id": f.get("_catalogue_id"),
+            "_params": f.get("_params", {}),
+        }
+        deps = f.get("dependencies", {})
+        if deps:
+            dep_info = {}
+            for dep_key, dep_val in deps.items():
+                params = dep_val.get("parameters", {})
+                lag = params.get("lag")
+                dep_info[dep_key] = {
+                    "name": dep_val.get("name"),
+                    "lag_days": lag.days if hasattr(lag, "days") else None,
+                }
+            entry["dependencies"] = dep_info
+        result.append(entry)
+    return result
+
+
+@web_bp.route("/api/config/factor_catalogue", methods=["GET"])
+def api_get_factor_catalogue():
+    return jsonify({"success": True, "catalogue": _FACTOR_CATALOGUE})
+
+
+@web_bp.route("/api/config/factors", methods=["GET"])
+def api_get_factors():
+    return jsonify({"success": True, "factors": _read_factors_config()})
+
+
+@web_bp.route("/api/config/factors", methods=["POST"])
+def api_update_factors():
+    data = request.json or {}
+    specs = data.get("factors", [])
+    new_factors, errors = [], []
+    for spec in specs:
+        cat_id = spec.get("catalogue_id")
+        params = spec.get("params", {})
+        built = _build_factor_from_spec(cat_id, params)
+        if built:
+            new_factors.append(built)
+        else:
+            errors.append(f"Unknown catalogue entry: {cat_id!r}")
+    if errors:
+        return jsonify({"success": False, "errors": errors}), 422
+    _base_config.DEFAULT_CONFIG["factors"] = new_factors
+    return jsonify({"success": True, "factors": _read_factors_config()})
 
 
 # MLflow-style Backtest Tracking API Endpoints

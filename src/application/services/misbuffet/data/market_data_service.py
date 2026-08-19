@@ -4,6 +4,7 @@ import pandas as pd
 import logging
 from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
 from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
+from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
 from src.application.services.misbuffet.common.data_types import Slice, TradeBar, Symbol
 from src.application.services.data.entities.entity_service import EntityService
 from src.domain.entities.factor.factor import Factor
@@ -149,6 +150,11 @@ class MarketDataService:
             if self.entity_service.repository_factory.ibkr_client.ib_connection.connected_flag:
                 # Create factors first
                 entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
+
+                # Rate/benchmark indices (IndexFactorEntity) don't have OHLCV bar data
+                if entity_factor_class_input is IndexFactorEntity:
+                    return None
+
                 factors = []
                 
                 # Get or create all factors in batch
@@ -160,11 +166,14 @@ class MarketDataService:
                         'entity_cls': entity_factor_class_input
                     })
                 
+                # Indices (IND secType) don't support TRADES — use MIDPOINT
+                what_to_show = "MIDPOINT" if entity_factor_class_input is IndexFactorEntity else "TRADES"
+
                 # Use batch method to get/create factors with seconds bar_size for point-in-time data
                 created_factors = self.entity_service.create_or_get_batch_ibkr(
                     factors_data, entity_factor_class_input,
-                    what_to_show="TRADES",
-                    duration_str="1 D", 
+                    what_to_show=what_to_show,
+                    duration_str="1 D",
                     bar_size_setting=bar_size_setting
                 )
                 
@@ -371,27 +380,17 @@ class MarketDataService:
         """
         try:
             if isinstance(ticker_item, dict):
-                # New format: {"symbol": "EW", "strike_price": 2250.0, "expiry": "20260320", "option_type": "C"}
-                # For IndexFutureOption, we need to create entity with specific parameters
-                if entity_class.__name__ == 'IndexFutureOption':
-                    # Use the entity creation service with option parameters
-                    entity_config = {
-                        'entity_class': entity_class,
-                        'entity_symbol': ticker_item['symbol'],
-                        'strike_price': ticker_item.get('strike_price'),
-                        'expiry': ticker_item.get('expiry'),  
-                        'option_type': ticker_item.get('option_type'),
-                        'source': 'ibkr'
-                    }
-                    entity = self._create_or_get(entity_config)
-                else:
-                    # For other entity types with dict format, use symbol field
-                    ticker = ticker_item.get('symbol', ticker_item.get('name', str(ticker_item)))
-                    entity = self._get_entity_by_ticker(ticker, entity_class)
+                # Dict config — always delegate to _create_or_get so repos handle creation
+                symbol = ticker_item.get('symbol', ticker_item.get('name'))
+                entity_config = {
+                    'entity_class': entity_class,
+                    'entity_symbol': symbol,
+                    **ticker_item,
+                }
+                entity = self._create_or_get(entity_config)
             else:
-                # Legacy string format: "EW" or "SPX"
-                ticker = ticker_item
-                entity = self._get_entity_by_ticker(ticker, entity_class)
+                # String ticker — entity must already exist in DB
+                entity = self._get_entity_by_ticker(ticker_item, entity_class)
             
             if not entity:
                 self.logger.warning(f"Failed to create/get entity for {ticker_item} (class: {entity_class.__name__})")

@@ -933,7 +933,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             contract = self._fetch_contract(financial_asset_entity = asset)
             if not contract:
                 return None
-            
+
             # Use instrument factor repository to get historical data
             if self.factory and hasattr(self.factory, 'instrument_factor_ibkr_repo'):
                 instrument_factor_repo = self.factory.instrument_factor_ibkr_repo
@@ -2398,9 +2398,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if not symbol:
                 print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
-            contract = repo._fetch_contract(symbol)
-
-            
+            if hasattr(repo, '_fetch_historical_contract'):
+                contract = repo._fetch_historical_contract(symbol)
+            else:
+                contract = repo._fetch_contract(symbol)
 
             return contract
                 

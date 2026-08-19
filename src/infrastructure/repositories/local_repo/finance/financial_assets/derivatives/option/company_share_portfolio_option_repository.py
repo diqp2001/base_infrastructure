@@ -32,8 +32,13 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
     # -------------------------
     # CREATE OR GET
     # -------------------------
-    def _create_or_get(self, name: str, **kwargs) -> Optional[CompanySharePortfolioOptionEntity]:
+    def _create_or_get(self, entity_cls_or_name=None, name: str = None, **kwargs) -> Optional[CompanySharePortfolioOptionEntity]:
         """Create or get an existing company share portfolio option by name"""
+        # entity_service passes (entity_cls, name, **kwargs); plain callers pass (name, **kwargs)
+        if isinstance(entity_cls_or_name, str):
+            name = entity_cls_or_name
+        elif name is None:
+            name = kwargs.pop('name', None)
         try:
             existing = self.get_by_name(name)
             if existing:
@@ -59,17 +64,26 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
             #                 if not underlying_exists:
             #                     logger.error(f"Underlying company share with ID {underlying_asset_id} does not exist")
             #                     return None
+            underlying = None
             underlying_name = kwargs.get("underlying_name")
             if underlying_name:
-                            from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
-                            # Query to check if underlying company share exists
-                            underlying = self.session.query(CompanySharePortfolioModel).filter(
-                                CompanySharePortfolioModel.name == underlying_name
-                            ).first()
-                            
-                            if not underlying:
-                                logger.error(f"Underlying company share with ID {name} does not exist")
-                                return None
+                from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+                underlying = self.session.query(CompanySharePortfolioModel).filter(
+                    CompanySharePortfolioModel.name == underlying_name
+                ).first()
+                if not underlying:
+                    logging.error(f"Underlying portfolio '{underlying_name}' not found for option {name}")
+                    return None
+
+            def _to_date(val):
+                if val is None:
+                    return None
+                if isinstance(val, (date, datetime)):
+                    return val if isinstance(val, date) else val.date()
+                s = str(val)
+                if len(s) == 8 and s.isdigit():
+                    return datetime.strptime(s, "%Y%m%d").date()
+                return datetime.fromisoformat(s).date()
 
             # Create entity with proper fields based on domain entity constructor
             entity = self.entity_class(
@@ -79,8 +93,8 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
                 currency_id=currency_id,
                 underlying_asset_id=underlying.id if underlying else None,
                 option_type=kwargs.get("option_type", "CALL"),
-                start_date=kwargs.get("start_date", datetime.now().date()),
-                end_date=kwargs.get("end_date", None),
+                start_date=_to_date(kwargs.get("start_date")) or datetime.now().date(),
+                end_date=_to_date(kwargs.get("end_date")),
                 strike_price=kwargs.get("strike_price", None),
                 multiplier=kwargs.get("multiplier", None),
             )
@@ -176,6 +190,24 @@ class CompanySharePortfolioOptionRepository(FinancialAssetRepository, CompanySha
         """Get options by type (CALL or PUT)"""
         models = self.session.query(CompanySharePortfolioOptionModel).filter_by(option_type=option_type).all()
         return [self.mapper.to_domain(model) for model in models]
+
+    def get_related_entities(self, option_id: int) -> List:
+        """Return the underlying CompanySharePortfolio entity for this option."""
+        try:
+            model = self.session.query(CompanySharePortfolioOptionModel).filter_by(id=option_id).first()
+            if not model or not model.underlying_asset_id:
+                return []
+            from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+            from src.infrastructure.repositories.mappers.finance.portfolio.company_share_portfolio_mapper import CompanySharePortfolioMapper
+            portfolio_model = self.session.query(CompanySharePortfolioModel).filter_by(
+                id=model.underlying_asset_id
+            ).first()
+            if not portfolio_model:
+                return []
+            return [CompanySharePortfolioMapper().to_domain(portfolio_model)]
+        except Exception as e:
+            logging.error(f"Error getting related entities for option {option_id}: {e}")
+            return []
 
     def save(self, option: CompanySharePortfolioOptionEntity) -> CompanySharePortfolioOptionEntity:
         """Save or update an option"""

@@ -93,7 +93,7 @@ class BacktestConfig:
             self.strategy_params = {}
         
         if self.universe is None:
-            self.universe = ["AAPL", "MSFT", "GOOGL", "AMZN"]
+            self.universe = []
         
         if self.factors is None:
             self.factors = ["momentum", "mean_reversion", "volatility"]

@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -m unittest src.tests.unit.test_entity_factor_mapping)",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\")",
+      "Bash(New-Item -ItemType File -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\\\\__init__.py\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\mappers\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\")",
+      "PowerShell(New-Item -ItemType File -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\mappers\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\\\\__init__.py\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\")",
+      "PowerShell(New-Item -ItemType File -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\\\\__init__.py\")",
+      "PowerShell(\"done\")",
+      "Bash(python -m unittest src.tests.unit.test_entity_factor_mapping -v)"
     ]
   }
 }

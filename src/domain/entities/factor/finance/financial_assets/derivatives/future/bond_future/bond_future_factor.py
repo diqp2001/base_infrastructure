@@ -5,18 +5,28 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.future.futu
 
 
 class BondFutureFactor(FutureFactor):
-    """Base factor for bond futures."""
-    
-    def __init__(self, name: str, subgroup: Optional[str] = None, factor_id: Optional[int] = None, **kwargs):
+    """Base factor for bond futures (OHLCV price data)."""
+
+    def __init__(
+        self,
+        name: str,
+        group: str = "price",
+        subgroup: Optional[str] = None,
+        frequency: Optional[str] = None,
+        data_type: Optional[str] = None,
+        source: Optional[str] = None,
+        definition: Optional[str] = None,
+        factor_id: Optional[int] = None,
+    ):
         super().__init__(
             name=name,
-            group="Bond Future Factor",
+            group=group,
             subgroup=subgroup,
-            data_type="float",
-            source="model",
-            definition=f"Bond future factor: {name}",
+            frequency=frequency,
+            data_type=data_type,
+            source=source,
+            definition=definition,
             factor_id=factor_id,
-            **kwargs
         )
 
 

@@ -68,6 +68,12 @@ class CompanyShareVpt52w20dLagFactorModel(FactorModel):
         "polymorphic_identity": "company_share_vpt_52w_20d_lag_factor"
     }
 
+
+class CompanyShareATMImpliedVolFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_atm_implied_vol_factor"
+    }
+
 class IndexFutureFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "index_future_factor"
@@ -90,6 +96,12 @@ class IndexPriceReturnFactorModel(FactorModel):
 class FuturePriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "future_price_return_factor"
+    }
+
+
+class BondFutureFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "bond_future_factor"
     }
 
 
@@ -188,6 +200,12 @@ class CompanyShareOptionImpliedVolFactorModel(FactorModel):
 class CompanyShareOptionImpliedDivYieldFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_implied_div_yield_factor"
+    }
+
+
+class CompanyShareOptionRFYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_rf_yield_factor"
     }
 
 
@@ -373,6 +391,12 @@ class CurrencyValueFactorModel(FactorModel):
 class CurrencyRateFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "currency_rate_factor"
+    }
+
+
+class CurrencyYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "currency_yield_factor"
     }
 
 

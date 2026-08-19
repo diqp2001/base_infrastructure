@@ -30,26 +30,67 @@ class CompanySharePortfolioOptionPriceFactor(CompanySharePortfolioOptionFactor):
             **kwargs,
         )
 
-    def calculate(
+    @property
+    def calculate_dependencies(self) -> list:
+        return ["CompanySharePortfolioValueFactor"]
+
+    def calculate(self, dependencies: dict) -> Optional[float]:
+        """
+        Calculate the theoretical portfolio option price using Black-Scholes.
+
+        Reads portfolio value from resolved dependency; all other BSM inputs use
+        sensible defaults that can be overridden by including them in the dependencies
+        dict (e.g. strike_price, time_to_expiry, option_type, risk_free_rate,
+        dividend_yield, multiplier).
+        """
+        stock_price    = dependencies.get("CompanySharePortfolioValueFactor")
+        volatility     = dependencies.get("implied_volatility", 0.20)
+        strike_price   = dependencies.get("strike_price")
+        time_to_expiry = float(dependencies.get("time_to_expiry", 30 / 365))
+        option_type    = dependencies.get("option_type", "call")
+        risk_free_rate = float(dependencies.get("risk_free_rate", 0.05))
+        dividend_yield = float(dependencies.get("dividend_yield", 0.0))
+        multiplier     = int(dependencies.get("multiplier", 100))
+
+        if stock_price is None or stock_price <= 0:
+            return None
+        if volatility <= 0 or time_to_expiry <= 0:
+            return None
+        if strike_price is None:
+            strike_price = stock_price  # ATM default when strike unknown
+
+        return self._bsm_price(
+            stock_price, strike_price, risk_free_rate, volatility,
+            time_to_expiry, option_type, dividend_yield, multiplier,
+        )
+
+    def _norm_cdf(self, x: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2)))
+
+    def _d1_d2(self, S, K, r, sigma, T):
+        try:
+            d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+            d2 = d1 - sigma * math.sqrt(T)
+            return d1, d2
+        except (ValueError, ZeroDivisionError):
+            return None, None
+
+    def _bsm_price(
         self,
-        stock_price: float,        # current stock price
-        strike_price: float,       # strike price
-        risk_free_rate: float,     # risk-free rate
-        volatility: float,         # implied volatility
-        time_to_expiry: float,     # time to expiration in years
+        stock_price: float,
+        strike_price: float,
+        risk_free_rate: float,
+        volatility: float,
+        time_to_expiry: float,
         option_type: str = "call",
-        dividend_yield: float = 0.0,  # dividend yield of underlying stock
-        multiplier: int = 100,        # contract multiplier
+        dividend_yield: float = 0.0,
+        multiplier: int = 100,
     ) -> Optional[float]:
-        """
-        Calculate the theoretical company share portfolio option price using Black-Scholes formula.
-        """
+        """Black-Scholes-Merton price (internal helper)."""
         if stock_price <= 0 or strike_price <= 0 or volatility <= 0 or time_to_expiry <= 0:
             return None
 
-        # Adjust for dividend yield
         adjusted_stock = stock_price * math.exp(-dividend_yield * time_to_expiry)
-        
         d1, d2 = self._d1_d2(adjusted_stock, strike_price, risk_free_rate, volatility, time_to_expiry)
         if d1 is None or d2 is None:
             return None
@@ -58,7 +99,7 @@ class CompanySharePortfolioOptionPriceFactor(CompanySharePortfolioOptionFactor):
 
         if option_type.lower() == "call":
             price = adjusted_stock * self._norm_cdf(d1) - strike_price * discount_factor * self._norm_cdf(d2)
-        else:  # put
+        else:
             price = strike_price * discount_factor * self._norm_cdf(-d2) - adjusted_stock * self._norm_cdf(-d1)
 
         return price * multiplier

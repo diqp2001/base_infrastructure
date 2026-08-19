@@ -80,36 +80,15 @@ COMPANY_SHARE_PORTFOLIO_OPTION_LIBRARY: Dict[str, Dict] = {
     "portfolio_option_price": {
         "class": CompanySharePortfolioOptionPriceFactor,
         "name": "portfolio_option_price",
-        "group": "price",
-        "subgroup": "minutes",
+        "group": "price_model",
+        "subgroup": "black_scholes",
         "frequency": "1m",
         "data_type": "numeric",
-        "description": "Portfolio option price with underlying dependencies",
-        "dependencies": {
-            "portfolio_value": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Portfolio underlying value",
-                "dependencies": {},
-                "parameters": {"independent_factor_related_entity_key":"underlying_portfolio_id"}
-            },
-            "implied_volatility": {
-                "class": CompanyShareFactor, 
-                "name": "implied_volatility",
-                "group": "volatility",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Portfolio implied volatility",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key":"underlying_portfolio_id"}
-            }
-        },
-        "parameters": {}
+        "description": "Portfolio option price computed via BSM using underlying portfolio value",
+        "dependencies": {},
+        "parameters": {
+            "independent_factor_related_entity_key": "underlying_asset_id",
+        }
     },
 
     "return_open": {

@@ -8,6 +8,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_atm_implied_vol_factor import CompanyShareATMImpliedVolFactor
 
 
 COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
@@ -36,6 +37,18 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
     },
     
 
+
+    "atm_implied_vol": {
+        "class": CompanyShareATMImpliedVolFactor,
+        "name": "atm_implied_vol",
+        "group": "volatility",
+        "subgroup": "implied",
+        "frequency": "1d",
+        "data_type": "decimal",
+        "description": "At-the-money implied volatility derived from IBKR option chain",
+        "dependencies": {},
+        "parameters": {}
+    },
 
     "implied_volatility": {
         "class": CompanyShareFactor,

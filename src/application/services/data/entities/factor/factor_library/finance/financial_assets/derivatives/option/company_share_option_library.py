@@ -10,6 +10,7 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.comp
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_return_factor import CompanyShareOptionPriceReturnFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor import CompanyShareOptionVolFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor import CompanyShareOptionVarFactor
@@ -79,6 +80,55 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "data_type": "numeric",
         "description": "Minute-level traded volume",
         "dependencies": [],
+        "parameters": {}
+    },
+    "implied_volatility": {
+            "class": CompanyShareOptionFactor,
+            "name": "implied_volatility",
+            "group": "volatility",
+            "subgroup": "implied",
+            "frequency": "1m",
+            "data_type": "numeric",
+            "description": "Minute-level implied volatility",
+            "source": "ibkr",
+            "dependencies": [],
+            "parameters": {}
+        },
+
+        "implied_volatility_calculated": {
+                    "class": CompanyShareOptionImpliedVolFactor,
+                    "name": "implied_volatility_calculated",
+                    "group": "volatility",
+                    "subgroup": "implied",
+                    "frequency": "1m",
+                    "data_type": "numeric",
+                    "description": "Minute-level implied volatility",
+                    "source": "calculated",
+                    "dependencies": [],
+                    "parameters": {}
+                },
+
+    "rf_yield": {
+        "class": CompanyShareOptionRFYieldFactor,
+        "name": "rf_yield",
+        "group": "fundamental",
+        "subgroup": "yield",
+        "frequency": "1d",
+        "data_type": "decimal",
+        "description": "Risk-free overnight repo yield derived from the option currency's CurrencyYieldFactor (SOFR, ESTR, SONIA, etc.)",
+        "dependencies": {
+            "CurrencyYieldFactor": {
+                "class": "CurrencyYieldFactor",
+                "name": "currency_yield",
+                "group": "fundamental",
+                "subgroup": "yield",
+                "frequency": "1d",
+                "data_type": "decimal",
+                "description": "Short-term repo / risk-free yield for the option settlement currency",
+                "dependencies": {},
+                "parameters": {}
+            }
+        },
         "parameters": {}
     },
     "option_price": {

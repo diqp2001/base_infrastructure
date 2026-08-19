@@ -1,22 +1,36 @@
 import math
-import random
-from typing import List, Optional
+from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
 class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
-    """Price factor associated with a company share option."""
+    """BSM price factor for a company share option.
+
+    Contract attributes (K, T, option_type) are read directly from the option entity
+    and stored on this factor instance at creation time — they are not resolved as
+    factor dependencies because they are static contract fields, not time-varying values.
+
+    Dynamic dependencies (S, r, sigma) are resolved by the resolution service:
+      - S     ← CompanyShareValueFactor   (underlying mid price × quantity)
+      - r     ← CompanyShareOptionRFYieldFactor  (→ CurrencyYieldFactor chain)
+      - sigma ← CompanyShareOptionImpliedVolFactor
+    """
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "option_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "black_scholes",
+        data_type: Optional[str] = "decimal",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
+        # Contract-level fields sourced from the option entity
+        K: Optional[float] = None,
+        T: float = 1.0,
+        option_type: str = "call",
         **kwargs,
     ):
         super().__init__(
@@ -27,40 +41,49 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
+        self.K = K
+        self.T = T
+        self.option_type = option_type
 
-    def calculate(
-        self,
-        S: float,          # underlying price
-                 
-        sigma: float, 
-        r: float = 0.01,      # risk-free rate
-        T: float = 1,          # time to maturity in years
-        K: float = None,          # strike
-        option_type: str = "call",
-    ) -> Optional[float]:
-        """
-        Calculate the theoretical option price using Black-Scholes formula.
-        """
-        if K == None:
-            K = S
+    @property
+    def calculate_dependencies(self) -> list:
+        return ["CompanyShareValueFactor", "CompanyShareOptionRFYieldFactor", "CompanyShareOptionImpliedVolFactor"]
+
+    def calculate(self, dependencies: dict) -> Optional[float]:
+        """Compute BSM price from resolved factor dependencies + option contract attributes."""
+        S = dependencies.get("CompanyShareValueFactor")
+        r = dependencies.get("CompanyShareOptionRFYieldFactor")
+        sigma = dependencies.get("CompanyShareOptionImpliedVolFactor")
+
+        if S is None or r is None or sigma is None:
+            return None
+
+        S = float(S)
+        r = float(r)
+        sigma = float(sigma)
+
+        K = self.K if self.K is not None else S  # ATM default
+        T = self.T
+        option_type = self.option_type
 
         d1, d2 = self._d1_d2(S, K, r, sigma, T)
         if d1 is None or d2 is None:
             return None
 
         if option_type.lower() == "call":
-            price = S * self._norm_cdf(d1) - K * math.exp(-r * T) * self._norm_cdf(d2)
-        else:  # put
-            price = K * math.exp(-r * T) * self._norm_cdf(-d2) - S * self._norm_cdf(-d1)
+            return S * self._norm_cdf(d1) - K * math.exp(-r * T) * self._norm_cdf(d2)
+        else:
+            return K * math.exp(-r * T) * self._norm_cdf(-d2) - S * self._norm_cdf(-d1)
 
-        return price
     def _norm_cdf(self, x: float) -> float:
         """
         Standard normal cumulative distribution function.
         """
         return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
     def _d1_d2(
         self,
         S: float,
