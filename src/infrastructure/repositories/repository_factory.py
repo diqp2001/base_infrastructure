@@ -106,6 +106,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.futures_factor_repository import FuturesFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_factor_repository import IndexFutureFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.bond_future_factor_repository import BondFutureFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.bond_future_forward_price_factor_repository import BondFutureForwardPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.bond_future_discounted_value_factor_repository import BondFutureDiscountedValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.bond_future_annualized_roll_yield_factor_repository import BondFutureAnnualizedRollYieldFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.bond_future_annualized_yield_factor_repository import BondFutureAnnualizedYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_factor_repository import IndexFutureOptionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_price_return_factor_repository import IndexFutureOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.future.index_future_option_price_factor_repository import IndexFutureOptionPriceFactorRepository
@@ -123,6 +127,8 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor_repository import CompanyShareOptionImpliedDivYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor_repository import CompanyShareOptionRFYieldFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_rf_yield_factor_repository import IBKRCompanyShareOptionRFYieldFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_value_factor_repository import CompanyShareOptionValueFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_value_factor_repository import IBKRCompanyShareOptionValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor_repository import CompanyShareOptionImpliedCorrFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor_repository import CompanyShareOptionVolFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor_repository import CompanyShareOptionVarFactorRepository
@@ -169,6 +175,7 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.i
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_delta_factor_repository import IBKRCompanyShareOptionDeltaFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_factor_repository import IBKRCompanyShareOptionFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_gamma_factor_repository import IBKRCompanyShareOptionGammaFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_mid_price_factor_repository import IBKRCompanyShareOptionMidPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_price_factor_repository import IBKRCompanyShareOptionPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_price_return_factor_repository import IBKRCompanyShareOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_rho_factor_repository import IBKRCompanyShareOptionRhoFactorRepository
@@ -201,6 +208,10 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.ibkr_derivative_fa
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.ibkr_future_factor_repository import IBKRFutureFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.index_future.ibkr_index_future_factor_repository import IBKRIndexFutureFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.bond_future.ibkr_bond_future_factor_repository import IBKRBondFutureFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.bond_future.ibkr_bond_future_forward_price_factor_repository import IBKRBondFutureForwardPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.bond_future.ibkr_bond_future_discounted_value_factor_repository import IBKRBondFutureDiscountedValueFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.bond_future.ibkr_bond_future_annualized_roll_yield_factor_repository import IBKRBondFutureAnnualizedRollYieldFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.future.bond_future.ibkr_bond_future_annualized_yield_factor_repository import IBKRBondFutureAnnualizedYieldFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_factor_repository import IBKRIndexFutureOptionFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_price_return_factor_repository import IBKRIndexFutureOptionPriceReturnFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.index_future_option.ibkr_index_future_option_price_factor_repository import IBKRIndexFutureOptionPriceFactorRepository
@@ -309,6 +320,10 @@ class RepositoryFactory:
                 'FutureFactor': FuturesFactorRepository(self.session, factory=self),
                 'IndexFutureFactor': IndexFutureFactorRepository(self.session, factory=self),
                 'BondFutureFactor': BondFutureFactorRepository(self.session, factory=self),
+                'BondFutureForwardPriceFactor': BondFutureForwardPriceFactorRepository(self.session, factory=self),
+                'BondFutureDiscountedValueFactor': BondFutureDiscountedValueFactorRepository(self.session, factory=self),
+                'BondFutureAnnualizedRollYieldFactor': BondFutureAnnualizedRollYieldFactorRepository(self.session, factory=self),
+                'BondFutureAnnualizedYieldFactor': BondFutureAnnualizedYieldFactorRepository(self.session, factory=self),
                 'IndexFutureOptionFactor': IndexFutureOptionFactorRepository(self.session, factory=self),
                 'IndexFutureOptionPriceReturnFactor': IndexFutureOptionPriceReturnFactorRepository(self.session, factory=self),
                 'IndexFutureOptionPriceFactor': IndexFutureOptionPriceFactorRepository(self.session, factory=self),
@@ -325,6 +340,7 @@ class RepositoryFactory:
                 'CompanyShareOptionImpliedVolFactor': CompanyShareOptionImpliedVolFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedDivYieldFactor': CompanyShareOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionRFYieldFactor': CompanyShareOptionRFYieldFactorRepository(self.session, factory=self),
+                'CompanyShareOptionValueFactor': CompanyShareOptionValueFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedCorrFactor': CompanyShareOptionImpliedCorrFactorRepository(self.session, factory=self),
                 'CompanyShareOptionVolFactor': CompanyShareOptionVolFactorRepository(self.session, factory=self),
                 'CompanyShareOptionVarFactor': CompanyShareOptionVarFactorRepository(self.session, factory=self),
@@ -512,12 +528,14 @@ class RepositoryFactory:
                 'PortfolioCompanyShareOptionFactor': IBKRPortfolioCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionDeltaFactor': IBKRCompanyShareOptionDeltaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionFactor': IBKRCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionMidPriceFactor': IBKRCompanyShareOptionMidPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionGammaFactor': IBKRCompanyShareOptionGammaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionPriceFactor': IBKRCompanyShareOptionPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionPriceReturnFactor': IBKRCompanyShareOptionPriceReturnFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionRhoFactor': IBKRCompanyShareOptionRhoFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionVegaFactor': IBKRCompanyShareOptionVegaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionRFYieldFactor': IBKRCompanyShareOptionRFYieldFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionValueFactor': IBKRCompanyShareOptionValueFactorRepository(ibkr_client=client, factory=self),
                 # Advanced Options Pricing Model Repositories - IBKR
                 'CompanyShareOptionBlackScholesMertonPriceFactor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionCoxRossRubinsteinPriceFactor': IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository(ibkr_client=client, factory=self),
@@ -534,6 +552,10 @@ class RepositoryFactory:
                 'FutureFactor': IBKRFutureFactorRepository(ibkr_client=client, factory=self),
                 'IndexFutureFactor': IBKRIndexFutureFactorRepository(ibkr_client=client, factory=self),
                 'BondFutureFactor': IBKRBondFutureFactorRepository(ibkr_client=client, factory=self),
+                'BondFutureForwardPriceFactor': IBKRBondFutureForwardPriceFactorRepository(ibkr_client=client, factory=self),
+                'BondFutureDiscountedValueFactor': IBKRBondFutureDiscountedValueFactorRepository(ibkr_client=client, factory=self),
+                'BondFutureAnnualizedRollYieldFactor': IBKRBondFutureAnnualizedRollYieldFactorRepository(ibkr_client=client, factory=self),
+                'BondFutureAnnualizedYieldFactor': IBKRBondFutureAnnualizedYieldFactorRepository(ibkr_client=client, factory=self),
                 'IndexFutureOptionFactor': IBKRIndexFutureOptionFactorRepository(ibkr_client=client, factory=self),
                 'IndexFutureOptionPriceReturnFactor': IBKRIndexFutureOptionPriceReturnFactorRepository(ibkr_client=client, factory=self),
                 'IndexFutureOptionPriceFactor': IBKRIndexFutureOptionPriceFactorRepository(ibkr_client=client, factory=self),
@@ -759,6 +781,22 @@ class RepositoryFactory:
     def bond_future_factor_local_repo(self):
         """Get bond_future_factor repository for dependency injection."""
         return self.get_local_repository('BondFutureFactor')
+
+    @property
+    def bond_future_forward_price_factor_local_repo(self):
+        return self.get_local_repository('BondFutureForwardPriceFactor')
+
+    @property
+    def bond_future_discounted_value_factor_local_repo(self):
+        return self.get_local_repository('BondFutureDiscountedValueFactor')
+
+    @property
+    def bond_future_annualized_roll_yield_factor_local_repo(self):
+        return self.get_local_repository('BondFutureAnnualizedRollYieldFactor')
+
+    @property
+    def bond_future_annualized_yield_factor_local_repo(self):
+        return self.get_local_repository('BondFutureAnnualizedYieldFactor')
 
     @property
     def option_factor_local_repo(self):
@@ -1096,6 +1134,22 @@ class RepositoryFactory:
     def bond_future_factor_ibkr_repo(self):
         """Get bond_future_factor repository for dependency injection."""
         return self.get_ibkr_repository('BondFutureFactor')
+
+    @property
+    def bond_future_forward_price_factor_ibkr_repo(self):
+        return self.get_ibkr_repository('BondFutureForwardPriceFactor')
+
+    @property
+    def bond_future_discounted_value_factor_ibkr_repo(self):
+        return self.get_ibkr_repository('BondFutureDiscountedValueFactor')
+
+    @property
+    def bond_future_annualized_roll_yield_factor_ibkr_repo(self):
+        return self.get_ibkr_repository('BondFutureAnnualizedRollYieldFactor')
+
+    @property
+    def bond_future_annualized_yield_factor_ibkr_repo(self):
+        return self.get_ibkr_repository('BondFutureAnnualizedYieldFactor')
 
     @property
     def option_factor_ibkr_repo(self):
@@ -1505,6 +1559,11 @@ class RepositoryFactory:
         return self.get_local_repository('CompanyShareValueFactor')
 
     @property
+    def company_share_option_value_factor_local_repo(self):
+        """Get company_share_option_value_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareOptionValueFactor')
+
+    @property
     def currency_value_factor_local_repo(self):
         """Get currency_value_factor repository for dependency injection."""
         return self.get_local_repository('CurrencyValueFactor')
@@ -1562,6 +1621,11 @@ class RepositoryFactory:
     def company_share_value_factor_ibkr_repo(self):
         """Get company_share_value_factor repository for dependency injection."""
         return self.get_ibkr_repository('CompanyShareValueFactor')
+
+    @property
+    def company_share_option_value_factor_ibkr_repo(self):
+        """Get company_share_option_value_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareOptionValueFactor')
 
     @property
     def currency_value_factor_ibkr_repo(self):

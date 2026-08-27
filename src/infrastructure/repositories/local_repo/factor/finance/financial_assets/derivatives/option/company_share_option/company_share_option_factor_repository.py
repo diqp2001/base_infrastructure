@@ -66,25 +66,25 @@ class CompanyShareOptionFactorRepository(BaseFactorRepository):
             Factor entity or None if creation failed
         """
         try:
-            # Check existing by primary identifier (factor name)
-            existing = self.get_by_all(
-                name=primary_key,
-                group=kwargs.get('group', 'price'),
-                subgroup=kwargs.get('subgroup', 'option'),
-                factor_type=kwargs.get('factor_type', 'company_share_option_factor'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated')
-            )
+            kwargs = self._normalize_kwargs({**{'subgroup': 'ohlc', 'data_type': 'numeric', 'source': 'ibkr'}, **kwargs})
+            group     = kwargs.get('group')
+            subgroup  = kwargs.get('subgroup')
+            frequency = kwargs.get('frequency')
+            existing = self.get_by_all(name=primary_key,
+                                        group=group,
+                                        subgroup=subgroup,
+                                        frequency=frequency,
+                                        factor_type=kwargs.get('factor_type', 'company_share_option_factor'))
             if existing:
                 return self._to_entity(existing)
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'price'),
-                subgroup=kwargs.get('subgroup', 'option'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated'),
+                group=kwargs.get('group'),
+                subgroup=kwargs.get('subgroup'),
+                frequency=kwargs.get('frequency'),
+                data_type=kwargs.get('data_type'),
+                source=kwargs.get('source'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
             )
             
@@ -122,6 +122,7 @@ class CompanyShareOptionFactorRepository(BaseFactorRepository):
                 return self._to_entity(orm_factor)
             
         except Exception as e:
+            self.session.rollback()
             print(f"Error in get_or_create for company share option factor {primary_key}: {e}")
             return None
         

@@ -193,13 +193,15 @@ class IBKRCompanyShareFactorRepository(BaseIBKRFactorRepository, CompanyShareFac
             
             # Persist to local database
             if self.local_repo:
-                created_factor = self.local_repo._create_or_get(primary_key=name, **kwargs)
+                created_factor = self.local_repo._create_or_get(
+                    self.local_repo.get_factor_entity(), primary_key=name, **kwargs
+                )
                 if created_factor:
                     return created_factor
-            
-            print(f"Failed to create index factor: {name}")
+
+            print(f"Failed to create company_share factor: {name}")
             return None
-                
+
         except Exception as e:
             print(f"Error in get_or_create for company_share factor {name}: {e}")
             return None

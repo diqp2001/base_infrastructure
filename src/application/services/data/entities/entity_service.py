@@ -334,9 +334,6 @@ class EntityService:
         try:
             ibkr_repository = self.get_ibkr_repository(entity_cls)
             
-            if not ibkr_repository:
-                logger.debug("No IBKR repository for %s — falling back to local", entity_cls.__name__)
-                return self.create_or_get_batch_local(entities_data, entity_cls)
             
             # Check if repository supports optimized batch operations
             if hasattr(ibkr_repository, 'get_or_create_batch_optimized'):
@@ -356,6 +353,7 @@ class EntityService:
                     )
                     data.pop('entity_cls', None)
                     data.pop('class', None)
+                    data["frequency"] = bar_size_setting
 
                     # Standard handling for other entity types
                     entity = ibkr_repository._create_or_get(entity_symbol, **data)

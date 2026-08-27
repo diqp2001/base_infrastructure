@@ -420,8 +420,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             what_to_show = self._resolve_what_to_show_from_group(
                 factor_entity.group, factor_subgroup=getattr(factor_entity, 'subgroup', '')
             )
-            duration_str = kwargs.get('duration_str', '1 M')
-            bar_size_setting = kwargs.get('bar_size_setting', '1 day')
+            duration_str = kwargs.get('duration_str', '5 D')
+            bar_size_setting = kwargs.get('bar_size_setting', '5 mins')
 
             # Map bar_size_setting to seconds so we can detect intraday granularity.
             _bar_size_seconds_map = {
@@ -438,7 +438,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 # IBKR bar timestamps match the instrument's local timezone (not always UTC).
                 # Use the simulation time directly for bar matching.
                 target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
-                bar_tolerance_seconds = bar_seconds // 2
+                # Use a full bar period as tolerance: IBKR labels equity bars at END time, so the
+                # "09:30 bar" for a 5-min series is stamped 09:35 — exactly one bar_size away.
+                # Half-bar (the old value) missed these systematically.
+                bar_tolerance_seconds = bar_seconds
                 # Skip the IBKR round-trip if the bar is already in the DB.
                 early_existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
                 if early_existing:
@@ -456,13 +459,26 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 duration_str=duration_str,
                 bar_size_setting=bar_size_setting
             )
-            
+
+            # # TRADES returns no data for illiquid options (IBKR error 162). Retry with
+            # # MIDPOINT which is always available as long as there is a market maker quote.
+            # if not bulk_ibkr_data and what_to_show == 'TRADES':
+            #     bulk_ibkr_data = self._fetch_bulk_historical_data(
+            #         symbol=symbol,
+            #         target_date=target_date,
+            #         asset=entity,
+            #         what_to_show='MIDPOINT',
+            #         duration_str=duration_str,
+            #         bar_size_setting=bar_size_setting
+            #     )
+
             if not bulk_ibkr_data:
                 print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
                 return None
             target_date = target_date.replace(tzinfo=None)
             max_import_ibkr = getattr(self.ib_client, 'max_import_ibkr', False)
             matched_value = None
+            _matched_diff = float('inf')
 
             for bar_data in bulk_ibkr_data:
                 try:
@@ -483,20 +499,25 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 bar_data=bar_data,
                                 factor=factor_entity,
                                 entity_id=entity_id,
-                                bar_date=bar_date
+                                bar_date=bar_date,
+                                entity_type=type(entity).__name__,
                             )
                             persisted = self.local_repo.add(factor_value) if factor_value else None
                             if persisted:
                                 print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
 
-                        # Track the bar closest to the target date as the return value.
+                        # Track the bar CLOSEST to the target date (not merely the last one
+                        # within tolerance — iterating in chronological order would otherwise
+                        # overwrite the correct match with a later bar of equal distance).
                         tolerance_seconds = (
                             bar_tolerance_seconds
                             if bar_tolerance_seconds is not None
                             else self._calculate_date_tolerance_seconds(factor_entity)
                         )
-                        if persisted and abs((bar_date - target_date).total_seconds()) <= tolerance_seconds:
+                        diff = abs((bar_date - target_date).total_seconds())
+                        if persisted and diff <= tolerance_seconds and diff < _matched_diff:
                             matched_value = persisted
+                            _matched_diff = diff
                     else:
                         # Original behaviour: persist only the bar matching the target date.
                         tolerance_seconds = (
@@ -514,7 +535,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 bar_data=bar_data,
                                 factor=factor_entity,
                                 entity_id=entity_id,
-                                bar_date=bar_date
+                                bar_date=bar_date,
+                                entity_type=type(entity).__name__,
                             )
                             if factor_value:
                                 created_value = self.local_repo.add(factor_value)
@@ -673,6 +695,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
         ('volatility', 'implied'):    'OPTION_IMPLIED_VOLATILITY',
         ('volatility', 'historical'): 'HISTORICAL_VOLATILITY',
+        # Options use MIDPOINT: deep OTM strikes have no TRADES data (IBKR error 162)
+        ('price', 'option'):          'MIDPOINT',
     }
 
     def _resolve_what_to_show_from_group(self, factor_group: str, factor_subgroup: str = '') -> str:
@@ -904,8 +928,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime, asset, 
                                    what_to_show: str = "TRADES", 
-                                   duration_str: str = "1 M", 
-                                   bar_size_setting: str = "1 day") -> Optional[List[Dict[str, Any]]]:
+                                   duration_str: str = "5 D", 
+                                   bar_size_setting: str = "5 mins") -> Optional[List[Dict[str, Any]]]:
         """
         Fetch bulk historical data from IBKR for a symbol.
         
@@ -928,8 +952,20 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             List of historical bar dictionaries from IBKR or None if failed
         """
         try:
-            # Create contract for the symbol
-            #contract = self._create_contract_for_symbol(symbol)
+            # Guard: skip near-expiry options that IBKR won't serve without a subscription
+            expiry = getattr(asset, 'end_date', None)
+            if expiry is not None:
+                expiry_date = expiry.date() if hasattr(expiry, 'date') else expiry
+                dte = (expiry_date - date.today()).days
+                if dte < 5:
+                    import logging as _logging
+                    _logging.getLogger(__name__).warning(
+                        "Skipping historical data request for %s — %d DTE (< 5), "
+                        "IBKR does not serve option price history this close to expiry without a subscription",
+                        symbol, dte
+                    )
+                    return None
+
             contract = self._fetch_contract(financial_asset_entity = asset)
             if not contract:
                 return None
@@ -1020,7 +1056,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     else:
                         # Factor has no dependencies - extract directly from IBKR data
                                 factor_value = self._extract_factor_value_from_input(
-                                     factor, entity_id, time_date
+                                     factor, entity_id, time_date,
+                                     entity_type=type(financial_asset_entity).__name__,
                                 )
                                 
                                 if factor_value:
@@ -1093,7 +1130,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                             else:
                                 # Factor has no dependencies - extract directly from IBKR data
                                 factor_value = self._extract_factor_value_from_bar(
-                                    bar_data, factor, entity_id, bar_date
+                                    bar_data, factor, entity_id, bar_date,
+                                    entity_type=type(financial_asset_entity).__name__,
                                 )
                                 
                                 if factor_value:
@@ -1805,29 +1843,28 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error parsing IBKR date {date_str}: {e}")
             return None
-    def _extract_factor_value_from_input(self,  factor: Any, 
-                                     entity_id: int, date: datetime, input_value: Any = None) -> Optional[FactorValue]:
+    def _extract_factor_value_from_input(self, factor: Any,
+                                     entity_id: int, date: datetime,
+                                     input_value: Any = None,
+                                     entity_type: str = 'FinancialAsset') -> Optional[FactorValue]:
         """
-        Extract a single factor value from an IBKR bar.
-        
+        Extract a single factor value from a raw input value.
+
         Args:
-            input_value: The input value to extract the factor value from (could be bar data or other structure)
             factor: Factor entity to extract value for
             entity_id: Entity ID for the factor value
             date: Date for the factor value
-            
+            input_value: The raw value to store
+            entity_type: Discriminator string for the owning entity class
+
         Returns:
             FactorValue entity or None if extraction failed
         """
         try:
-            factor_name = factor.name.lower()
-            
-            
-            
             value = input_value
             if value is None:
                 return None
-            
+
             # Create FactorValue entity
             return FactorValue(
                 id=None,  # Let database generate
@@ -1836,29 +1873,31 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 date=date,
                 value=str(value),
                 entity_id=entity_id,
-                entity_type='FinancialAsset',
+                entity_type=entity_type,
             )
             
         except Exception as e:
             print(f"Error extracting factor value from input: {e}")
             return None
-    def _extract_factor_value_from_bar(self, bar_data: Dict[str, Any], factor: Any, 
-                                     entity_id: int, bar_date: datetime) -> Optional[FactorValue]:
+    def _extract_factor_value_from_bar(self, bar_data: Dict[str, Any], factor: Any,
+                                     entity_id: int, bar_date: datetime,
+                                     entity_type: str = 'FinancialAsset') -> Optional[FactorValue]:
         """
         Extract a single factor value from an IBKR bar.
-        
+
         Args:
             bar_data: Single bar from IBKR historical data
             factor: Factor entity to extract value for
             entity_id: Entity ID for the factor value
             bar_date: Date of the bar
-            
+            entity_type: Discriminator string for the owning entity class
+
         Returns:
             FactorValue entity or None if extraction failed
         """
         try:
             factor_name = factor.name.lower()
-            
+
             # Map factor names to IBKR bar fields.
             # For OPTION_IMPLIED_VOLATILITY and HISTORICAL_VOLATILITY requests, IBKR
             # returns the value in the bar's 'close' field (open/high/low are also
@@ -1873,16 +1912,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 'implied_volatility': 'close',
                 'historical_volatility': 'close',
             }
-            
+
             bar_field = field_mapping.get(factor_name)
             if not bar_field or bar_field not in bar_data:
                 print(f"Factor {factor_name} not available in IBKR bar data")
                 return None
-            
+
             value = bar_data[bar_field]
             if value is None:
                 return None
-            
+
             # Create FactorValue entity
             return FactorValue(
                 id=None,  # Let database generate
@@ -1891,7 +1930,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 date=bar_date,
                 value=str(value),
                 entity_id=entity_id,
-                entity_type='FinancialAsset',
+                entity_type=entity_type,
             )
             
         except Exception as e:
@@ -2393,20 +2432,27 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 or getattr(financial_asset_entity, 'ticker', None)
                 or getattr(financial_asset_entity, 'name', None)
             )
-            repo = self.factory.get_ibkr_repository(type(financial_asset_entity))
-            
+
             if not symbol:
                 print(f"Could not extract symbol from financial asset entity {financial_asset_entity}")
                 return None
+
+            repo = self.factory.get_ibkr_repository(type(financial_asset_entity)) if self.factory else None
+
+            if repo is None:
+                # No dedicated IBKR repo for this entity type — build a basic contract directly.
+                return self._fetch_contract_for_symbol(symbol)
+
             if hasattr(repo, '_fetch_historical_contract'):
                 contract = repo._fetch_historical_contract(symbol)
             else:
                 contract = repo._fetch_contract(symbol)
 
             return contract
-                
+
         except Exception as e:
-            print(f"Error fetching IBKR contract for factor {factor_entity.name}: {e}")
+            factor_name = getattr(factor_entity, 'name', None) if factor_entity is not None else None
+            print(f"Error fetching IBKR contract for factor {factor_name}: {e}")
             return None
 
     def _fetch_contract_for_symbol(self, symbol_or_name: str) -> Optional['Contract']:

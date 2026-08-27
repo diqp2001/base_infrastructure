@@ -36,6 +36,30 @@ class IBKRIndexBondRepository(IBKRIndexRepository, IndexBondPort):
         contract.currency = kwargs.get('currency', 'USD')
         return contract
 
+    def _fetch_historical_contract(self, symbol: str):
+        """Contract for reqHistoricalData: resolved via conId.
+
+        IND contracts return a single detail result (no expiry chain), so we
+        take contract_details_list[0] directly instead of filtering by local_symbol.
+        """
+        from ibapi.contract import Contract
+        try:
+            details_contract = self._fetch_contract(symbol)
+            contract_details_list = self._fetch_contract_details(details_contract)
+            if not contract_details_list:
+                return None
+            detail = contract_details_list[0]
+            con_id = detail.get('contract_id')
+            if not con_id:
+                return None
+            contract = Contract()
+            contract.conId = con_id
+            contract.exchange = detail.get('exchange', self._get_index_exchange(symbol))
+            return contract
+        except Exception as e:
+            print(f"Error building historical IBKR contract for index bond {symbol}: {e}")
+            return None
+
     def _create_or_get(self, symbol: str = None, **kwargs):
         try:
             existing = self.local_repo.get_by_symbol(symbol)

@@ -91,13 +91,19 @@ class MarketDataService:
                                     self.logger.debug(f"Error fetching component {component_ticker} for portfolio {entities.get('name')}: {e}")
                         continue
                     else:
-                        # Normal string ticker
+                        # Normal list of tickers. Items can also be dicts (synthetic option
+                        # specs with 'components'/'args') — those are initialised elsewhere
+                        # and have no direct IBKR ticker to fetch here, so skip them.
                         for entity in entities:
+                            if isinstance(entity, dict):
+                                continue
                             try:
-                                
-                                point_in_time_data = self._get_point_in_time_data(
+                                result = self._get_point_in_time_data(
                                     entity, entity_class, current_date, bar_size_setting, duration_str
                                 )
+                                if result is None:
+                                    continue
+                                point_in_time_data, _ = result if isinstance(result, tuple) else (result, None)
                                 if point_in_time_data is not None and not point_in_time_data.empty:
                                     symbol = Symbol.create_equity(entity)
                                     latest_data = point_in_time_data.iloc[-1]
@@ -151,9 +157,9 @@ class MarketDataService:
                 # Create factors first
                 entity_factor_class_input = ENTITY_FACTOR_MAPPING[entity.__class__][0]
 
-                # Rate/benchmark indices (IndexFactorEntity) don't have OHLCV bar data
-                if entity_factor_class_input is IndexFactorEntity:
-                    return None
+                # # Rate/benchmark indices (IndexFactorEntity) don't have OHLCV bar data
+                # if entity_factor_class_input is IndexFactorEntity:
+                #     return None
 
                 factors = []
                 
@@ -166,14 +172,13 @@ class MarketDataService:
                         'entity_cls': entity_factor_class_input
                     })
                 
-                # Indices (IND secType) don't support TRADES — use MIDPOINT
-                what_to_show = "MIDPOINT" if entity_factor_class_input is IndexFactorEntity else "TRADES"
+                what_to_show = "TRADES"
 
                 # Use batch method to get/create factors with seconds bar_size for point-in-time data
                 created_factors = self.entity_service.create_or_get_batch_ibkr(
                     factors_data, entity_factor_class_input,
                     what_to_show=what_to_show,
-                    duration_str="1 D",
+                    duration_str=duration_str,
                     bar_size_setting=bar_size_setting
                 )
                 
@@ -192,8 +197,8 @@ class MarketDataService:
                     factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
-                        duration_str=duration_str,#"1 D", 
-                        bar_size_setting=bar_size_setting#"1 day"
+                        duration_str=duration_str,
+                        bar_size_setting=bar_size_setting
                     )
                     
                     # Build factor_data dictionary
@@ -212,7 +217,8 @@ class MarketDataService:
                     for factor_name in factor_names:
                         factors_data.append({
                             'entity_symbol': factor_name,
-                            'group': 'price'
+                            'group': 'price',
+                            'frequency': duration_str
                         })
                     
                     # Use batch method to get/create factors locally

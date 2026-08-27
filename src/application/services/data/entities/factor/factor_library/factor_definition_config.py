@@ -13,11 +13,13 @@ from src.application.services.data.entities.factor.factor_library.finance.financ
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.option.future_index_option_library import FUTURE_INDEX_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.index_library import INDEX_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.future.future_index_library import FUTURE_INDEX_LIBRARY
+from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.future.bond_future_library import BOND_FUTURE_LIBRARY
 
 
 FACTOR_LIBRARY: Dict[str, Dict] = {
     "future_index_option_library": FUTURE_INDEX_OPTION_LIBRARY,
     "future_index_library": FUTURE_INDEX_LIBRARY,
+    "bond_future_library": BOND_FUTURE_LIBRARY,
     "index_library": INDEX_LIBRARY,
     "company_share_library":COMPANY_SHARE_LIBRARY,
     "company_share_portfolio_library":COMPANY_SHARE_PORTFOLIO_LIBRARY,

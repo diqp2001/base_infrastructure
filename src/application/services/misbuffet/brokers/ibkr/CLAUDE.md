@@ -10,6 +10,33 @@
 
 ---
 
+## `format_ib_datetime` — end_date_time conversion rules
+
+`get_historical_data` passes `end_date_time` through `format_ib_datetime` before sending
+to TWS.  The function enforces two invariants:
+
+| Input time component | Adjustment | Reason |
+|----------------------|-----------|--------|
+| Exactly midnight (`00:00:00`) | `+1 day` | IBKR treats a bare date as exclusive for daily bars — without the shift the last day is dropped |
+| Any intraday time | `+1 second` | IBKR end boundary is exclusive for bar start times (`start >= end` is dropped) — without the shift the bar that starts exactly at `end_date_time` is never returned |
+
+**Always pass a naive `datetime` representing the desired Eastern time.**  A UTC-aware
+datetime bypasses the `ET → UTC` conversion inside `format_ib_datetime` and shifts the
+window by 4–5 hours, dropping the intended bars.
+
+```python
+# Correct — naive, treated as US/Eastern, converted to UTC internally
+end_dt = datetime(2026, 8, 6, 13, 35, 0)
+
+# Wrong — already UTC (13:35 UTC = 09:35 ET), almost no data returned for that day
+end_dt = datetime(2026, 8, 6, 13, 35, 0, tzinfo=timezone.utc)
+```
+
+**IBKR UTC wire format:** `yyyymmdd-hh:mm:ss` (dash separator, no `" UTC"` suffix).
+Adding `" UTC"` produces TWS warning 10314 and is rejected.
+
+---
+
 ## whatToShow Routing — (group, subgroup) Convention
 
 `OPTION_IMPLIED_VOLATILITY` must only be sent to IBKR when the factor actually represents

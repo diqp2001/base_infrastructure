@@ -51,20 +51,20 @@ class CurrencyFactorRepository(BaseFactorRepository):
             Factor entity or None if creation failed
         """
         try:
-            # Check existing by primary identifier (factor name)
             existing = self.get_by_name(primary_key)
             if existing:
                 return existing
-            
-            # Create new factor using base _create_or_get method
+            defaults = {'group': 'price', 'subgroup': 'rate', 'frequency': '1d', 'data_type': 'numeric', 'source': 'ibkr'}
+            normalized = self._normalize_kwargs({**defaults, **kwargs})
             return self._create_or_get(
                 name=primary_key,
-                group=kwargs.get('group', 'currency'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'ibkr'),
-                definition=kwargs.get('definition', f'Currency factor: {primary_key}'),
-                entity_type=kwargs.get('entity_type', 'CurrencyFactor')
+                group=normalized.get('group'),
+                subgroup=normalized.get('subgroup'),
+                frequency=normalized.get('frequency'),
+                data_type=normalized.get('data_type'),
+                source=normalized.get('source'),
+                definition=normalized.get('definition', f'Currency factor: {primary_key}'),
+                entity_type=normalized.get('entity_type', 'CurrencyFactor'),
             )
             
         except Exception as e:

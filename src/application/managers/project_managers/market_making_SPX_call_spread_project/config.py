@@ -51,14 +51,14 @@ DEFAULT_CONFIG = {
         #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_ETF_Portfolio_Option_C_20281215_100","underlying_name":"SPY_ETF"}
         #    
         #                            },
+        #
+        #IndexBond :["SOFR3"],
         BondFuture: ["SR3Z6"],
-        IndexBond :["SOFR3"],
-        
-        # CompanyShareOption: ["SPY  281215C00770000","AAPL  281215C00300000",{"components": {CompanyShare:["SPY"]},
-        #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}
-        #                               }],
-        # CompanyShare: ["AAPL","MSFT","SPY"],
-        
+        CompanyShareOption: ["SPY  281215C00770000"
+                            #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
+                             ],
+        CompanyShare: ["AAPL","MSFT","SPY"],
+        #"AAPL  281215C00300000",
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
         # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
@@ -86,8 +86,8 @@ DEFAULT_CONFIG = {
     
     # Market Data Configuration
     'historical_data_duration': '6 M',  # 6 months of historical data
-    'bar_size_setting': '5 mins',
-    'duration_str': '1 D',
+    'bar_size_setting': '5 mins',#5 mins
+    'duration_str': '5 D',
     'option_data_duration': '30 D',  # 30 days of option data
     'max_import_ibkr': True,
     
@@ -115,7 +115,7 @@ DEFAULT_CONFIG = {
 
     # 'backtest_start': '2026-05-19 09:30:00',
     # 'backtest_end': '2026-05-19 10:30:00',
-    'backtest_start': '2026-08-06 09:30:00',
+    'backtest_start': '2026-08-06 09:35:00',
     'backtest_end': '2026-08-06 10:30:00',
     # frequence
     'config_interval' : {'custom_interval_minutes': 5},
@@ -130,31 +130,7 @@ DEFAULT_CONFIG = {
     
     # Factors for modeling - only future_index_library and index_library factors
     'factors': [
-        # Price factors from future_index_library
-        # FACTOR_LIBRARY["future_index_library"]["open"],
-        # FACTOR_LIBRARY["future_index_library"]["high"],
-        # FACTOR_LIBRARY["future_index_library"]["low"],
-        # FACTOR_LIBRARY["future_index_library"]["close"],
-        # FACTOR_LIBRARY["future_index_library"]["volume"],
-        # # Future return factors (daily, weekly, monthly)
-        # FACTOR_LIBRARY["future_index_library"]["return_daily"],
-        # # Index return factors (daily, weekly, monthly)
-        # FACTOR_LIBRARY["index_library"]["return_daily"],
-        # FACTOR_LIBRARY["future_index_option_library"]["return_daily"],
-
-        FACTOR_LIBRARY["currency_library"]["currency_yield"],
-
-        FACTOR_LIBRARY["company_share_library"]["return_daily_3"],
-        FACTOR_LIBRARY["company_share_library"]["implied_volatility"],
-
-        # FACTOR_LIBRARY["company_share_portfolio_library"]["return_daily_3"],
-        # FACTOR_LIBRARY["company_share_portfolio_library"]["return_eq_w_daily_3"],
-
-        # FACTOR_LIBRARY["company_share_portfolio_option_library"]["portfolio_option_price"],
         FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
-        FACTOR_LIBRARY["company_share_option_library"]["option_price"],
-        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility"],
-        #FACTOR_LIBRARY["company_share_option_library"]["open"]
     ],
 
     "Portfolio": {

@@ -7,6 +7,7 @@ from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor as CompanyShareOptionFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor as CompanyShareOptionImpliedVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_value_factor import CompanyShareOptionValueFactor as CompanyShareOptionValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor as CompanyShareOptionImpliedDivYieldFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor as CompanyShareOptionImpliedCorrFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor import CompanyShareOptionVolFactor as CompanyShareOptionVolFactorEntity
@@ -49,6 +50,10 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.derivative_
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor as OptionFactorEntity  
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.future_factor import FutureFactor as FutureFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_factor import BondFutureFactor as BondFutureFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_forward_price_factor import BondFutureForwardPriceFactor as BondFutureForwardPriceFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_discounted_value_factor import BondFutureDiscountedValueFactor as BondFutureDiscountedValueFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_annualized_roll_yield_factor import BondFutureAnnualizedRollYieldFactor as BondFutureAnnualizedRollYieldFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_annualized_yield_factor import BondFutureAnnualizedYieldFactor as BondFutureAnnualizedYieldFactorEntity
 from src.domain.entities.factor.finance.financial_assets.index.index_factor import IndexFactor as IndexFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor as IndexFutureFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_price_return_factor import IndexFuturePriceReturnFactor as IndexFuturePriceReturnFactorEntity
@@ -213,6 +218,78 @@ ENTITY_FACTOR_MAPPING = {
 
 # Backtest entities are registered at runtime via local import to avoid circular deps.
 
+# Discriminator string → factor domain class.  Used by the resolution service to
+# recover the true class when type(factor_entity) returns GenericFactor (missing elif).
+DISCRIMINATOR_CLASS_MAP: dict = {
+    'continent': ContinentFactorEntity,
+    'country': CountryFactorEntity,
+    'financial_asset': FinancialAssetFactorEntity,
+    'security': SecurityFactorEntity,
+    'index': IndexFactorEntity,
+    'index_factor': IndexFactorEntity,
+    'bond_future_factor': BondFutureFactorEntity,
+    'bond_future_forward_price_factor': BondFutureForwardPriceFactorEntity,
+    'bond_future_discounted_value_factor': BondFutureDiscountedValueFactorEntity,
+    'bond_future_annualized_roll_yield_factor': BondFutureAnnualizedRollYieldFactorEntity,
+    'bond_future_annualized_yield_factor': BondFutureAnnualizedYieldFactorEntity,
+    'index_future_factor': IndexFutureFactorEntity,
+    'index_future_price_return_factor': IndexFuturePriceReturnFactorEntity,
+    'future_price_return_factor': FuturePriceReturnFactorEntity,
+    'company_share_factor': CompanyShareFactorEntity,
+    'company_share_price_return_factor': CompanySharePriceReturnFactorEntity,
+    'company_share_mid_price_factor': CompanyShareMidPriceFactorEntity,
+    'company_share_value_factor': CompanyShareValueFactorEntity,
+    'company_share_avg_turnover_6m_factor': CompanyShareAvgTurnover6mFactorEntity,
+    'company_share_monthly_price_range_factor': CompanyShareMonthlyPriceRangeFactorEntity,
+    'company_share_vpt_52w_20d_lag_factor': CompanyShareVpt52w20dLagFactorEntity,
+    'company_share_atm_implied_vol_factor': CompanyShareATMImpliedVolFactorEntity,
+    'currency_value_factor': CurrencyValueFactorEntity,
+    'currency_rate_factor': CurrencyRateFactorEntity,
+    'currency_yield_factor': CurrencyYieldFactorEntity,
+    'index_future_option_factor': IndexFutureOptionFactorEntity,
+    'company_share_option_factor': CompanyShareOptionFactorEntity,
+    'company_share_option_value_factor': CompanyShareOptionValueFactorEntity,
+    'company_share_option_implied_vol_factor': CompanyShareOptionImpliedVolFactorEntity,
+    'company_share_option_implied_div_yield_factor': CompanyShareOptionImpliedDivYieldFactorEntity,
+    'company_share_option_implied_corr_factor': CompanyShareOptionImpliedCorrFactorEntity,
+    'company_share_option_vol_factor': CompanyShareOptionVolFactorEntity,
+    'company_share_option_var_factor': CompanyShareOptionVarFactorEntity,
+    'company_share_portfolio_factor': CompanySharePortfolioFactorEntity,
+    'company_share_portfolio_price_return_factor': CompanySharePortfolioPriceReturnFactor,
+    'company_share_portfolio_equal_weight_return_factor': CompanySharePortfolioEqualWeightReturnFactor,
+    'company_share_portfolio_option_factor': CompanyShareOptionPortfolioFactorEntity,
+    'company_share_portfolio_option_value_factor': CompanySharePortfolioOptionValueFactorEntity,
+    'company_share_portfolio_option_implied_vol_factor': CompanySharePortfolioOptionImpliedVolFactorEntity,
+    'company_share_portfolio_option_implied_div_yield_factor': CompanySharePortfolioOptionImpliedDivYieldFactorEntity,
+    'currency': CurrencyFactorEntity,
+    'equity': EquityFactorEntity,
+    'share': ShareFactorEntity,
+    'share_momentum': ShareMomentumFactorEntity,
+    'share_technical': ShareTechnicalFactorEntity,
+    'share_target': ShareTargetFactorEntity,
+    'share_volatility': ShareVolatilityFactorEntity,
+    'portfolio_company_share_value': CompanySharePortfolioValueFactorEntity,
+    'portfolio_company_share_holding_value': CompanySharePortfolioHoldingValueFactorEntity,
+    'company_share_position_value_factor': CompanySharePositionValueFactorEntity,
+    'company_share_transaction_value_factor': CompanyShareTransactionValueFactorEntity,
+    'company_share_order_quantity_factor': CompanyShareOrderQuantityFactorEntity,
+    'company_share_order_price_factor': CompanyShareOrderPriceFactorEntity,
+    'portfolio_value_factor': PortfolioValueFactorEntity,
+}
+
+# Lazy entries to avoid circular imports at module load time.
+try:
+    from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor as _RFYieldCls
+    DISCRIMINATOR_CLASS_MAP['company_share_option_rf_yield_factor'] = _RFYieldCls
+except ImportError:
+    pass
+
+try:
+    from src.domain.entities.factor.backtest.backtest_factor import BacktestFactor as _BacktestCls
+    DISCRIMINATOR_CLASS_MAP['backtest_factor'] = _BacktestCls
+except ImportError:
+    pass
+
 
 
 def _get_entity_type_from_factor(factor) -> str:
@@ -294,6 +371,14 @@ class FactorMapper:
             return IndexFutureFactorEntity(**base_args)
         elif factor_type == 'bond_future_factor':
             return BondFutureFactorEntity(**base_args)
+        elif factor_type == 'bond_future_forward_price_factor':
+            return BondFutureForwardPriceFactorEntity(**base_args)
+        elif factor_type == 'bond_future_discounted_value_factor':
+            return BondFutureDiscountedValueFactorEntity(**base_args)
+        elif factor_type == 'bond_future_annualized_roll_yield_factor':
+            return BondFutureAnnualizedRollYieldFactorEntity(**base_args)
+        elif factor_type == 'bond_future_annualized_yield_factor':
+            return BondFutureAnnualizedYieldFactorEntity(**base_args)
         elif factor_type == 'index_future_price_return_factor':
             return IndexFuturePriceReturnFactorEntity(**base_args)
         elif factor_type == 'future_price_return_factor':
@@ -338,6 +423,8 @@ class FactorMapper:
             return CompanySharePortfolioOptionImpliedVolFactorEntity(**base_args)
         elif factor_type == 'company_share_portfolio_option_implied_div_yield_factor':
             return CompanySharePortfolioOptionImpliedDivYieldFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_value_factor':
+            return CompanyShareOptionValueFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_vol_factor':
             return CompanyShareOptionImpliedVolFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_div_yield_factor':

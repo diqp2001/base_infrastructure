@@ -37,30 +37,41 @@ class CompanyShareOptionRepository(OptionsRepository):
         """Return the domain entity class for CompanyShareOptions."""
         return DomainCompanyShareOption
 
-    def _create_or_get(self, ticker: str = None, name: str = None, symbol: str = None, 
-                      currency_code: str = "USD", option_type: str = None, 
+    def _create_or_get(self, ticker: str = None, name: str = None, symbol: str = None,
+                      currency_code: str = "USD", option_type: str = None,
                       underlying_asset_id: int = None) -> Optional[DomainCompanyShareOption]:
         """
         Get or create a company share option with dependency resolution.
-        
+
         Args:
-            ticker: Option ticker (optional)
-            name: Option name (optional)
-            symbol: Option symbol (optional) 
+            ticker: Option ticker or OCC symbol (optional). When called via
+                    EntityService the entity class is passed here; we detect
+                    that and fall through to the ``name``/``symbol`` lookup.
+            name: Option name or OCC symbol (optional)
+            symbol: Option symbol (optional)
             currency_code: Currency ISO code (default: USD)
             option_type: Type of option (CALL/PUT)
             underlying_asset_id: Required ID of the underlying company share
-            
+
         Returns:
             Domain company share option entity or None if creation failed
         """
         try:
-            # First try to get existing option by ticker or symbol
+            # EntityService calls _create_or_get(entity_cls, occ_symbol).
+            # entity_cls is a class, not a string → skip ticker lookup and use
+            # the name/symbol argument as the OCC symbol identifier instead.
+            if ticker is not None and not isinstance(ticker, str):
+                symbol = symbol or name
+                ticker = None
+
+            # First try to get existing option by ticker or symbol.
+            # get_by_symbol searches the `symbol` column on financial_assets.
+            # Creation always stores the value in the `symbol` column.
             if ticker:
-                existing = self.get_by_ticker(ticker)
+                existing = self.get_by_symbol(ticker)
                 if existing:
                     return existing
-            elif symbol:
+            if symbol:
                 existing = self.get_by_symbol(symbol)
                 if existing:
                     return existing
@@ -79,14 +90,14 @@ class CompanyShareOptionRepository(OptionsRepository):
             
             # Get or create currency dependency
             currency_local_repo = self.factory.currency_local_repo
-            currency = currency_local_repo.get_or_create(iso_code=currency_code)
-            
+            currency = currency_local_repo._create_or_get(currency_code)
+
             # Create new company share option
             new_option = DomainCompanyShareOption(
                 id=None,
                 name=name or f"Company Share Option {ticker or symbol}",
                 symbol=symbol or ticker,
-                currency_id=currency.asset_id if currency else None,
+                currency_id=currency.id if currency else None,
                 underlying_asset_id=underlying_asset_id,
                 option_type=option_type or "call"
             )
@@ -94,6 +105,7 @@ class CompanyShareOptionRepository(OptionsRepository):
             return self.add(new_option)
             
         except Exception as e:
+            self.session.rollback()
             logger.error(f"Error in get_or_create for company share option {ticker or symbol}: {e}")
             return None
     def add(self, option):
@@ -188,3 +200,44 @@ class CompanyShareOptionRepository(OptionsRepository):
         except Exception as e:
             logger.error(f"Error retrieving active company share options: {e}")
             raise
+
+    def get_related_entities(self, option_id: int) -> list:
+        """Return the underlying CompanyShare and settlement Currency for this option.
+
+        The resolution service uses these to route calculate_dependencies:
+        - CompanyShareValueFactor  → CompanyShare (underlying price)
+        - CompanyShareOptionRFYieldFactor / ImpliedVolFactor → CompanyShareOption itself
+          (appended by _get_resolution_entities after this call)
+        - CurrencyYieldFactor chain (via stored DB deps) → Currency
+        """
+        if not self.factory:
+            return []
+        try:
+            orm_option = (
+                self.session.query(ORMCompanyShareOption)
+                .filter(ORMCompanyShareOption.id == option_id)
+                .one_or_none()
+            )
+            if not orm_option:
+                return []
+
+            result = []
+
+            if orm_option.underlying_asset_id:
+                share_repo = self.factory.get_local_repository('CompanyShare')
+                if share_repo:
+                    underlying = share_repo.get_by_id(orm_option.underlying_asset_id)
+                    if underlying:
+                        result.append(underlying)
+
+            if orm_option.currency_id:
+                currency_repo = self.factory.get_local_repository('Currency')
+                if currency_repo:
+                    currency = currency_repo.get_by_id(orm_option.currency_id)
+                    if currency:
+                        result.append(currency)
+
+            return result
+        except Exception as e:
+            logger.error(f"Error getting related entities for CompanyShareOption (option_id={option_id}): {e}")
+            return []

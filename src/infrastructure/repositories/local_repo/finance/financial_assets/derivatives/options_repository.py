@@ -55,12 +55,14 @@ class OptionsRepository(DerivativesRepository):
             Domain options entity or None if creation failed
         """
         try:
-            # First try to get existing option by ticker or symbol
+            # First try to get existing option by ticker or symbol.
+            # Creation stores the value in `symbol` (symbol = symbol or ticker),
+            # so a ticker-only lookup misses existing records — fall through to symbol lookup too.
             if ticker:
-                existing = self.get_by_ticker(ticker)
+                existing = self.get_by_ticker(ticker) or self.get_by_symbol(ticker)
                 if existing:
                     return existing
-            elif symbol:
+            if symbol:
                 existing = self.get_by_symbol(symbol)
                 if existing:
                     return existing

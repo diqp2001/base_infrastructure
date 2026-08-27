@@ -45,17 +45,36 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
         """Return the domain entity class for CompanyShareOption."""
         return CompanyShareOption
 
+    def _normalize_occ_symbol(self, symbol: str) -> str:
+        """Normalize OCC option symbol to standard 6-char root format.
+
+        Input  'SPY  281215C00770000' (2 spaces) →
+        Output 'SPY   281215C00770000' (3 spaces, root padded to 6 chars).
+        This prevents duplicate-entity creation when the config uses a
+        slightly different spacing than IBKR's OCC local_symbol.
+        """
+        try:
+            sym = symbol.strip()
+            # Match: root(letters) optional-spaces YYMMDD C/P 8-digit-strike
+            match = re.match(r"([A-Z]+)\s*(\d{6})([CP])(\d{8})", sym)
+            if match:
+                root, date, right, strike = match.groups()
+                return f"{root:<6s}{date}{right}{strike}"
+        except Exception:
+            pass
+        return symbol
+
     def _create_or_get(self, symbol: str = None, **kwargs) -> Optional[CompanyShareOption]:
         """
         Get or create a company share option by symbol and parameters using IBKR API.
-        
+
         Args:
             symbol: The option symbol or ticker
             strike_price: Strike price of the option (optional)
             expiry: Expiry date (YYYYMMDD format, optional)
             option_type: 'C' for call, 'P' for put (optional)
             **kwargs: Additional parameters for customization
-            
+
         Returns:
             CompanyShareOption entity or None if creation/retrieval failed
         """
@@ -65,14 +84,20 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
                 print(f"Error: symbol parameter cannot be a dictionary. Received: {symbol}")
                 print("This indicates the entity service is not properly extracting the symbol from configuration.")
                 return None
-            
+
             # Ensure symbol is a string
             if not isinstance(symbol, str):
                 print(f"Error: symbol must be a string, got {type(symbol)}: {symbol}")
                 return None
-            
-            # 1. Check local repository first
-            existing = self.local_repo.get_by_symbol(symbol)
+
+            # Normalize to standard OCC format (6-char root) before any lookup.
+            # Config may have 'SPY  281215C00770000' (2 spaces) while IBKR stores
+            # 'SPY   281215C00770000' (3 spaces).  Without normalization every bar
+            # call fails the dedup check and inserts a new duplicate entity.
+            normalized_symbol = self._normalize_occ_symbol(symbol)
+
+            # 1. Check local repository first (use normalized symbol)
+            existing = self.local_repo.get_by_symbol(normalized_symbol)
             if existing:
                 return existing
             
@@ -181,6 +206,18 @@ class IBKRCompanyShareOptionRepository(IBKRFinancialAssetRepository, CompanyShar
             print(f"Error fetching IBKR option contract for {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
         
+    def _fetch_historical_contract(self, symbol: str) -> Optional[Contract]:
+        """
+        Build an OPT contract for reqHistoricalData.
+
+        Same as _fetch_contract but without includeExpired=True, which can
+        confuse IBKR's historical data service for recently-expired contracts.
+        """
+        contract = self._fetch_contract(symbol)
+        if contract:
+            contract.includeExpired = False
+        return contract
+
     def parse_option_string(self, option_str: str):
         """
         Parse OCC/OPRA option string like:

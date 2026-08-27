@@ -10,7 +10,13 @@
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\")",
       "PowerShell(New-Item -ItemType File -Force \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\\\\src\\\\infrastructure\\\\repositories\\\\ibkr_repo\\\\factor\\\\finance\\\\financial_assets\\\\derivatives\\\\future\\\\bond_future\\\\__init__.py\")",
       "PowerShell(\"done\")",
-      "Bash(python -m unittest src.tests.unit.test_entity_factor_mapping -v)"
+      "Bash(python -m unittest src.tests.unit.test_entity_factor_mapping -v)",
+      "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" diff --stat HEAD)",
+      "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" log --oneline -5)",
+      "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" diff HEAD --name-only)",
+      "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" diff HEAD -- \"src/infrastructure/repositories/ibkr_repo/finance/financial_assets/derivatives/option/company_share_option_repository.py\")",
+      "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" diff HEAD -- \"src/infrastructure/repositories/local_repo/finance/financial_assets/derivatives/option/company_share_option_repository.py\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\"; python \"C:\\\\Users\\\\Philippe\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Philippe-coding-git-base-infrastructure\\\\e43f4d2f-fde8-48a6-9fba-82f67b5fc87e\\\\scratchpad\\\\check_entities.py\" 2>&1 | Where-Object { $_ -notmatch \"^\\\\[OK\\\\]\" })"
     ]
   }
 }

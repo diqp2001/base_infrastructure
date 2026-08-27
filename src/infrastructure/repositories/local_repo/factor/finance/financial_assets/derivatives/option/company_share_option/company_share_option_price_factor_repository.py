@@ -101,15 +101,18 @@ class CompanyShareOptionPriceFactorRepository(BaseFactorRepository):
                     repo = self.factory.get_local_repository(entity_class)
                     
                     dependency_config = dependency[1]
+                    dep_kwargs = {k: v for k, v in {
+                        'group': dependency_config.get("group"),
+                        'subgroup': dependency_config.get("subgroup"),
+                        'frequency': dependency_config.get("frequency") or "1d",
+                        'data_type': dependency_config.get("data_type"),
+                        'source': dependency_config.get("source"),
+                        'definition': dependency_config.get("definition"),
+                    }.items() if v is not None}
                     dependency_entity = repo._create_or_get(
                             entity_class,
                             primary_key=dependency_config.get("name"),
-                            group=dependency_config.get("group"),
-                            subgroup=dependency_config.get("subgroup"),
-                            frequency=dependency_config.get("frequency", "1d"),
-                            data_type=dependency_config.get("data_type"),
-                            source=dependency_config.get("source"),
-                            definition=dependency_config.get("definition"),)
+                            **dep_kwargs)
 
 
                     repo_factor_dependency = self.factory.get_local_repository(FactorDependency)

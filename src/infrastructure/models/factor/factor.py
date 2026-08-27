@@ -105,6 +105,30 @@ class BondFutureFactorModel(FactorModel):
     }
 
 
+class BondFutureForwardPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "bond_future_forward_price_factor"
+    }
+
+
+class BondFutureDiscountedValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "bond_future_discounted_value_factor"
+    }
+
+
+class BondFutureAnnualizedRollYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "bond_future_annualized_roll_yield_factor"
+    }
+
+
+class BondFutureAnnualizedYieldFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "bond_future_annualized_yield_factor"
+    }
+
+
 # Index Future Option Factor Models
 class IndexFutureOptionFactorModel(FactorModel):
     __mapper_args__ = {
@@ -188,6 +212,12 @@ class CompanySharePortfolioOptionImpliedVolFactorModel(FactorModel):
 class CompanySharePortfolioOptionImpliedDivYieldFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_portfolio_option_implied_div_yield_factor"
+    }
+
+
+class CompanyShareOptionValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_value_factor"
     }
 
 

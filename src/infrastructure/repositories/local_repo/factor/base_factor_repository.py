@@ -2,23 +2,92 @@
 Base repository class for factor entities with common CRUD operations.
 """
 
-
-
+import logging
 from abc import ABC
+from typing import Optional
 from sqlalchemy.orm import Session
 from src.infrastructure.models.factor.factor import FactorModel as FactorModel
 
 from ..base_repository import BaseLocalRepository
 from src.domain.entities.factor.factor import Factor as FactorEntity
 
+logger = logging.getLogger(__name__)
+
 
 class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
     """Repository managing Factor entities, their values."""
 
-    def __init__(self,session: Session):
+    def __init__(self, session: Session):
         """Initialize repository with a database type."""
-        # Call parent constructor with session
         super().__init__(session)
+
+    # ── Field normalizers ────────────────────────────────────────────────────
+    # All concrete factor repos inherit these.  They convert non-canonical
+    # values (legacy aliases, IBKR bar-size strings) to the canonical keys
+    # defined in Factor.FREQUENCIES / GROUPS / SUBGROUPS / DATA_TYPES / SOURCES.
+    # Unknown values that have no alias are passed through unchanged so that
+    # Factor.__init__ can raise a clear ValueError — except for frequency and
+    # data_type which have safe domain-agnostic fallbacks.
+
+    def _normalize_field(
+        self,
+        value: Optional[str],
+        field_dict: dict,
+        field_name: str,
+        fallback: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return a canonical key from field_dict, following 'canonical' redirects."""
+        if value is None:
+            return None
+        if value in field_dict:
+            canonical = field_dict[value].get("canonical")
+            return canonical if canonical else value
+        if fallback is not None:
+            logger.warning("Unknown %s '%s'; falling back to '%s'", field_name, value, fallback)
+            return fallback
+        logger.warning("Unknown %s '%s'; passing through for domain validation", field_name, value)
+        return value
+
+    def _normalize_frequency(self, frequency: Optional[str]) -> Optional[str]:
+        """Convert IBKR bar-size strings or unknown values to a canonical FREQUENCIES key."""
+        if frequency is None:
+            return None
+        valid = FactorEntity.FREQUENCIES
+        if frequency in valid:
+            return frequency
+        alias_map = {v["ibkr_label"]: k for k, v in valid.items()}
+        normalized = alias_map.get(frequency.strip())
+        if normalized:
+            return normalized
+        logger.warning("Unknown frequency '%s'; falling back to '1d'", frequency)
+        return "1d"
+
+    def _normalize_group(self, group: Optional[str]) -> Optional[str]:
+        return self._normalize_field(group, FactorEntity.GROUPS, "group")
+
+    def _normalize_subgroup(self, subgroup: Optional[str]) -> Optional[str]:
+        return self._normalize_field(subgroup, FactorEntity.SUBGROUPS, "subgroup")
+
+    def _normalize_data_type(self, data_type: Optional[str]) -> Optional[str]:
+        return self._normalize_field(data_type, FactorEntity.DATA_TYPES, "data_type", fallback="numeric")
+
+    def _normalize_source(self, source: Optional[str]) -> Optional[str]:
+        return self._normalize_field(source, FactorEntity.SOURCES, "source")
+
+    def _normalize_kwargs(self, kwargs: dict) -> dict:
+        """Normalize all standard factor fields present in a kwargs dict in-place copy."""
+        out = dict(kwargs)
+        normalizers = {
+            "frequency": self._normalize_frequency,
+            "group":     self._normalize_group,
+            "subgroup":  self._normalize_subgroup,
+            "data_type": self._normalize_data_type,
+            "source":    self._normalize_source,
+        }
+        for key, fn in normalizers.items():
+            if key in out:
+                out[key] = fn(out[key])
+        return out
     
 
 

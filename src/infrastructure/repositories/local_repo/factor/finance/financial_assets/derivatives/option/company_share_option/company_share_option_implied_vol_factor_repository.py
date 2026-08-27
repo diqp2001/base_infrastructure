@@ -91,7 +91,7 @@ class CompanyShareOptionImpliedVolFactorRepository(BaseFactorRepository, Company
                 name=primary_key,
                 group=kwargs.get('group') or 'volatility',
                 subgroup=kwargs.get('subgroup') or 'implied',
-                frequency=kwargs.get('frequency') or '1d',
+                frequency=kwargs.get('frequency') ,
                 data_type=kwargs.get('data_type') or 'numeric',
                 source=kwargs.get('source') or 'calculated',
                 definition=kwargs.get('definition') or f'CompanyShareOptionImpliedVolFactor: {primary_key}',

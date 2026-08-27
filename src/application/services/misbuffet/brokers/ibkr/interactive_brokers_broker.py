@@ -703,7 +703,7 @@ class InteractiveBrokersBroker(BaseBroker):
             return {'error': str(e)}
     
     def get_historical_data(self, contract: Contract, end_date_time: str = "",
-                           duration_str: str = "1 W", bar_size_setting: str = "5 mins",
+                           duration_str: str = "5 D", bar_size_setting: str = "5 mins",
                            what_to_show: str = "TRADES", use_rth: bool = True,
                            format_date: int = 1, timeout: int = 90) -> List[Dict[str, Any]]:
         """
@@ -723,6 +723,12 @@ class InteractiveBrokersBroker(BaseBroker):
             List of bar objects with OHLCV data
         """
         self.validate_end_date_within_6_months(end_date_time)
+        # format_ib_datetime converts to UTC (yyyymmdd-hh:mm:ss) and adds +1 s
+        # for intraday times so the bar that starts exactly at end_date_time is
+        # included — IBKR end boundary is exclusive (start >= end is dropped).
+        # Always pass a naive datetime representing the desired Eastern time;
+        # a UTC-aware datetime bypasses the ET→UTC conversion and will shift
+        # the window by 4–5 hours, dropping the intended bars.
         end_date_time = self.format_ib_datetime(end_date_time)
 
         if not self.ib_connection or not self.ib_connection.is_connected():
@@ -874,8 +880,15 @@ class InteractiveBrokersBroker(BaseBroker):
         else:
             raise TypeError("end_date_time must be datetime, str, or None")
 
-        # Add one day because if you specify an end date of "2024-06-01", IB returns data up to 2024-05-31. This is a quirk of their API. By adding one day, we ensure we get data through the intended end date.
-        dt = dt + timedelta(days=1)
+        # IBKR end_date_time is exclusive: bars whose start time >= end are dropped.
+        # • Bare date (midnight): add 1 day so the last daily bar is included.
+        # • Intraday time: add 1 second so the bar that starts exactly at the
+        #   requested time is included (e.g. backtest_start = 09:35 ET must
+        #   return the 09:35 bar, not just the 09:30 bar).
+        if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
+            dt = dt + timedelta(days=1)
+        else:
+            dt = dt + timedelta(seconds=1)
 
         # If naive datetime → assume provided timezone
         if dt.tzinfo is None:
@@ -884,7 +897,7 @@ class InteractiveBrokersBroker(BaseBroker):
         # Convert to UTC
         dt_utc = dt.astimezone(timezone.utc)
 
-        # Return IB UTC format
+        # IB UTC format: yyyymmdd-hh:mm:ss (dash separator, no timezone suffix)
         return dt_utc.strftime("%Y%m%d-%H:%M:%S")
     
     def get_contract_details(self, contract: Contract, timeout: int = 10) -> List[Dict[str, Any]]:

@@ -57,32 +57,24 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
         return self._to_entity(infra_factor)
     
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
-        """
-        Get or create an 
-        
-        Args:
-            entity_cls: The entity class (not used but required for interface consistency)
-            primary_key: Factor name identifier
-            **kwargs: Additional parameters for factor creation
-            
-        Returns:
-            Factor entity or None if creation failed
-        """
         try:
-            # Check existing by primary identifier (factor name)
-            existing = self.get_by_all(name =primary_key,
-                                       group=kwargs.get('group'),
-                                       subgroup=kwargs.get('subgroup'),
-                frequency=kwargs.get('frequency'),
-                factor_type=kwargs.get('factor_type', 'company_share_factor'))
+            kwargs = self._normalize_kwargs({**{'subgroup': 'ohlc', 'data_type': 'numeric', 'source': 'ibkr'}, **kwargs})
+            group     = kwargs.get('group')
+            subgroup  = kwargs.get('subgroup')
+            frequency = kwargs.get('frequency')
+            existing = self.get_by_all(name=primary_key,
+                                       group=group,
+                                       subgroup=subgroup,
+                                       frequency=frequency,
+                                       factor_type=kwargs.get('factor_type', 'company_share_factor'))
             if existing:
                 return self._to_entity(existing)
             domain_factor = self.get_factor_entity()(name=primary_key,
-                group=kwargs.get('group', 'index'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'ibkr'),
+                group=group,
+                subgroup=subgroup,
+                frequency=frequency,
+                data_type=kwargs.get('data_type'),
+                source=kwargs.get('source'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
                 )
             
@@ -99,6 +91,7 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
             
             
         except Exception as e:
+            self.session.rollback()
             print(f"Error in get_or_create for index factor {primary_key}: {e}")
             return None
 

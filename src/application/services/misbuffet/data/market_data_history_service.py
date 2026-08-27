@@ -508,15 +508,21 @@ class MarketDataHistoryService:
             self.logger.error(f"Error in local date range processing: {e}")
             return []
         
-    # (group, subgroup) → IBKR whatToShow.  Only pairs that differ from "TRADES".
+    # (group, subgroup, source) → IBKR whatToShow.  Only entries that differ from
+    # "TRADES".  source='ibkr' is required: calculated factors are never fetched
+    # from IBKR so they must not appear here.
     _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
-        ('volatility', 'implied'):    'OPTION_IMPLIED_VOLATILITY',
-        ('volatility', 'historical'): 'HISTORICAL_VOLATILITY',
+        ('volatility', 'implied',    'ibkr'): 'OPTION_IMPLIED_VOLATILITY',
+        ('volatility', 'historical', 'ibkr'): 'HISTORICAL_VOLATILITY',
     }
 
     def _resolve_what_to_show_for_factor(self, factor) -> str:
-        """Return the IBKR whatToShow string driven by (group, subgroup)."""
-        key = (getattr(factor, 'group', ''), getattr(factor, 'subgroup', ''))
+        """Return the IBKR whatToShow string driven by (group, subgroup, source)."""
+        key = (
+            getattr(factor, 'group',   ''),
+            getattr(factor, 'subgroup', ''),
+            getattr(factor, 'source',   ''),
+        )
         return self._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.get(key, 'TRADES')
 
     def _create_or_get_factor_value_batch(self, factor_groups: Any, entities: Any,
@@ -535,6 +541,16 @@ class MarketDataHistoryService:
             if entity is None:
                 break
             for factor in created_factors:
+                # Calculated factors are always scoped to their host entity — skip the
+                # discriminator check (their own discriminator never matches the entity's).
+                if getattr(factor, 'source', '') == 'calculated':
+                    factor_values_data.append({
+                        'factor': factor,
+                        'entity': entity,
+                        'entity_id': entity.id,
+                        'time_date': time_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    })
+                    continue
                 factor_discriminator = self.market_data_service.entity_service.get_discriminator_by_domain_entity(factor)
                 entity_discriminator = self.market_data_service.entity_service.get_discriminator_by_domain_entity(entity)
                 if factor_discriminator == entity_discriminator:

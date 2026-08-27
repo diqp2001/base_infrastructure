@@ -7,7 +7,7 @@ from ......base_factor_mapper import BaseFactorMapper
 class CompanyShareOptionImpliedVolFactorMapper(BaseFactorMapper):
     @property
     def discriminator(self):
-        return 'CompanyShareOptionImpliedVol'
+        return 'CompanyShareOption'
 
     @property
     def model_class(self):

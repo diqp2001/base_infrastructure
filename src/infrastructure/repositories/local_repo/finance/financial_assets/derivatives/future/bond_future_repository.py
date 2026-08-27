@@ -22,6 +22,19 @@ class BondFutureRepository(FutureRepository, BondFuturePort):
     def model_class(self):
         return self.mapper.model_class
 
+    def get_by_root_symbol(self, root: str) -> Optional[BondFuture]:
+        """Return the first BondFuture whose symbol starts with `root` (e.g. 'SR3' → 'SR3Z6')."""
+        try:
+            orm_obj = (
+                self.session.query(self.model_class)
+                .filter(self.model_class.symbol.like(f"{root}%"))
+                .first()
+            )
+            return self.mapper.to_domain(orm_obj)
+        except Exception as e:
+            print(f"Error retrieving BondFuture by root symbol {root}: {e}_{os.path.abspath(__file__)}")
+            return None
+
     def get_by_symbol(self, symbol: str) -> Optional[BondFuture]:
         try:
             orm_obj = (

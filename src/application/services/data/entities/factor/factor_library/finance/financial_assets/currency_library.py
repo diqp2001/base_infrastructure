@@ -50,7 +50,8 @@ CURRENCY_LIBRARY: Dict[str, Dict] = {
         "subgroup": "yield",
         "frequency": "1d",
         "data_type": "decimal",
-        "description": "Short-term repo / risk-free yield for the currency (SOFR, ESTR, SONIA, etc.)",
+        "source": "calculated",
+        "description": "Risk-free yield derived from benchmark rate futures (USD→SR3 SOFR, CAD→CORRA)",
         "dependencies": {},
         "parameters": {}
     },

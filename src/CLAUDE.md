@@ -9,7 +9,7 @@ read for that task, in reading order.
 ## 1. Creating a new Factor
 
 A factor is a computed or fetched numeric value attached to a domain entity (e.g. price,
-value, rate, return).  Every factor requires **8 artefacts** across 5 layers.
+value, rate, return).  Every factor requires **9 artefacts** across 5 layers.
 
 | Step | Artefact | Location |
 |------|----------|----------|
@@ -21,6 +21,7 @@ value, rate, return).  Every factor requires **8 artefacts** across 5 layers.
 | 6 | Local repo (`*FactorRepository` with `_create_or_get`, `get_by_all`) | `src/infrastructure/repositories/local_repo/factor/` |
 | 7 | IBKR repo (`IBKR*FactorRepository`) | `src/infrastructure/repositories/ibkr_repo/factor/` |
 | 8 | Factory registration (local + IBKR dicts) | `src/infrastructure/repositories/repository_factory.py` |
+| 9 | `DISCRIMINATOR_CLASS_MAP` entry (`'discriminator_string': NewFactorClass`) | `src/infrastructure/repositories/mappers/factor/factor_mapper.py` |
 
 **Read in this order:**
 - [`src/domain/entities/factor/CLAUDE.md`](domain/entities/factor/CLAUDE.md) — full step-by-step with code templates
@@ -35,6 +36,12 @@ value, rate, return).  Every factor requires **8 artefacts** across 5 layers.
 - `polymorphic_identity` on the ORM model must match the mapper `discriminator` exactly.
 - Every `elif` branch in `FactorMapper.to_domain` needs to cover each new `polymorphic_identity`;
   missing cases silently return `GenericFactor` — see [`src/infrastructure/repositories/mappers/factor/CLAUDE.md`](infrastructure/repositories/mappers/factor/CLAUDE.md).
+- **Every new factor class must also be added to `DISCRIMINATOR_CLASS_MAP`** in
+  `src/infrastructure/repositories/mappers/factor/factor_mapper.py`. The resolution
+  service uses this map to recover the true Python class from the DB discriminator when
+  `type(factor_entity)` would otherwise return `GenericFactor`. A missing entry means the
+  compatibility check in `_is_factor_compatible_with_entity` falls back to `GenericFactor`
+  and the factor is filtered out as incompatible.
 - If the factor has `calculate_dependencies`, it uses **Branch A** of the resolution service
   (no IBKR call).  Without it (or with `get_dependencies` instead of `@property calculate_dependencies`),
   the service falls through to IBKR — see Factor Value Resolution below.

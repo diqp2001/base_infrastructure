@@ -1,20 +1,20 @@
 import math
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
 class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
     """Implied volatility of a single company share option via Newton-Raphson inversion.
 
-    Resolution branch: A — depends on CompanyShareOptionFactor for the option market price
-    fetched directly from IBKR.  The resolution service delivers the IBKR price through
-    dependencies["CompanyShareOptionFactor"].
+    Resolution branch: A.  Dependencies:
+    - CompanyShareOptionFactor (IBKR option market price)
+    - CompanyShareValueFactor  (underlying stock price S)
+    - CompanyShareOptionRFYieldFactor (risk-free rate r; required — returns None if unavailable)
 
-    Full Newton-Raphson computation also requires stock price (S), strike (K), risk-free
-    rate (r), and time to expiry (T) from the option contract entity.  Those parameters are
-    not yet threaded through the factor resolution chain; until they are, calculate() returns
-    None and the value is not persisted.
+    Strike K and time-to-expiry T are read directly from the option entity passed via
+    the entity= kwarg injected by the resolution service.
     """
 
     def __init__(
@@ -40,18 +40,28 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
             frequency=frequency,
             **kwargs,
         )
-
     @property
     def calculate_dependencies(self) -> list:
-        return ["CompanyShareOptionFactor"]#get price, 
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        return [
+            DependencySpec(
+                factor_type=CompanyShareOptionFactor,
+                group="price",
+                frequency=DependencySpec.SELF,
+                source_not_in=["calculated"],
+            ),
+            DependencySpec(
+                factor_type=CompanyShareValueFactor,
+                group="value",
+                frequency=DependencySpec.SELF,
+                source_in=["calculated"],
+            ),
+            "CompanyShareOptionRFYieldFactor",
+        ]
+    
 
-    def calculate(self, dependencies: dict) -> Optional[float]:
-        """Compute implied vol from option market price (IBKR) via Newton-Raphson B-S inversion.
-
-        Requires stock price, strike, risk-free rate, and time to expiry from the option
-        contract entity — not yet available via the resolution chain; returns None until
-        those parameters are integrated.
-        """
+    def calculate(self, dependencies: dict, entity=None, target_date=None) -> Optional[float]:
+        """Compute implied vol from option market price (IBKR) via Newton-Raphson B-S inversion."""
         raw = dependencies.get("CompanyShareOptionFactor")
         if raw is None:
             return None
@@ -62,8 +72,63 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
         market_price = sum(prices) / len(prices)
         if market_price <= 0:
             return None
-        # S, K, r, T come from the option contract entity — not yet integrated
-        return None
+
+        # stock price S from CompanyShareValueFactor dependency
+        raw_s = dependencies.get("CompanyShareValueFactor")
+        if raw_s is None:
+            return None
+        s_values = raw_s if isinstance(raw_s, list) else [raw_s]
+        s_values = [float(v) for v in s_values if v is not None and float(v) > 0]
+        if not s_values:
+            return None
+        stock_price = sum(s_values) / len(s_values)
+
+        # strike K and time-to-expiry T from option entity attributes
+        if entity is None:
+            return None
+        strike_price = getattr(entity, 'strike_price', None)
+        if strike_price is None:
+            return None
+        strike_price = float(strike_price)
+
+        expiry_date = getattr(entity, 'end_date', None)
+        if expiry_date is None:
+            return None
+
+        if target_date is not None:
+            ref_date = target_date.date() if hasattr(target_date, 'date') else target_date
+        else:
+            from datetime import date as _date
+            ref_date = _date.today()
+
+        if hasattr(expiry_date, 'date'):
+            expiry_date = expiry_date.date()
+
+        days_to_expiry = (expiry_date - ref_date).days
+        if days_to_expiry <= 0:
+            return None
+        time_to_expiry = days_to_expiry / 365.0
+
+        # risk-free rate r — must come from CompanyShareOptionRFYieldFactor dependency
+        raw_r = dependencies.get("CompanyShareOptionRFYieldFactor")
+        if raw_r is None:
+            return None
+        r_values = raw_r if isinstance(raw_r, list) else [raw_r]
+        r_values = [float(v) for v in r_values if v is not None]
+        if not r_values:
+            return None
+        risk_free_rate = sum(r_values) / len(r_values)
+
+        option_type = getattr(entity, 'option_type', 'call') or 'call'
+
+        return self.compute_iv(
+            market_price=market_price,
+            stock_price=stock_price,
+            strike_price=strike_price,
+            risk_free_rate=risk_free_rate,
+            time_to_expiry=time_to_expiry,
+            option_type=option_type,
+        )
 
     def compute_iv(
         self,

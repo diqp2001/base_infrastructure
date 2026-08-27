@@ -6,6 +6,51 @@ This directory contains the BaseFactorRepository, which handles CRUD operations 
 
 ---
 
+## Field Normalizers — `BaseFactorRepository`
+
+Every concrete factor repo inherits a set of normalizer helpers from `BaseFactorRepository`.
+They convert non-canonical strings (IBKR bar-size labels, legacy PascalCase subgroups, etc.)
+to the canonical keys defined in `Factor.FREQUENCIES / GROUPS / SUBGROUPS / DATA_TYPES / SOURCES`.
+No data is duplicated — the source of truth is always the `Factor` class-level dicts.
+
+### Methods
+
+| Method | Source dict | Fallback for unknowns |
+|--------|------------|----------------------|
+| `_normalize_frequency(v)` | `Factor.FREQUENCIES` + `ibkr_label` reverse map | `'1d'` |
+| `_normalize_group(v)` | `Factor.GROUPS` | pass-through (domain raises `ValueError`) |
+| `_normalize_subgroup(v)` | `Factor.SUBGROUPS` — follows `"canonical"` redirect for legacy entries | pass-through |
+| `_normalize_data_type(v)` | `Factor.DATA_TYPES` — `"float"` → `"numeric"` etc. | `'numeric'` |
+| `_normalize_source(v)` | `Factor.SOURCES` | pass-through |
+| `_normalize_kwargs(kwargs)` | Applies all five normalizers to matching keys in a dict copy | — |
+
+### How to use in a concrete `_create_or_get`
+
+Apply defaults first (so they also get normalized), then call `_normalize_kwargs` once:
+
+```python
+def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
+    kwargs = self._normalize_kwargs({
+        'group': 'price', 'subgroup': 'daily',
+        'frequency': '1d', 'data_type': 'numeric', 'source': 'ibkr',
+        **kwargs,           # caller values override defaults
+    })
+    group     = kwargs.get('group')
+    subgroup  = kwargs.get('subgroup')
+    frequency = kwargs.get('frequency')
+    data_type = kwargs.get('data_type')
+    source    = kwargs.get('source')
+    ...
+```
+
+### Rule: never duplicate the alias tables in a concrete repo
+
+If a new frequency alias or subgroup canonical redirect is needed, add it to
+`Factor.FREQUENCIES` / `Factor.SUBGROUPS` in `src/domain/entities/factor/factor.py`.
+The normalizers pick it up automatically — no repo changes required.
+
+---
+
 ## 🏗️ Repository Architecture
 
 ### **Enhanced Verification System**

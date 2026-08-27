@@ -7,7 +7,7 @@ from ......base_factor_mapper import BaseFactorMapper
 class CompanyShareOptionRFYieldFactorMapper(BaseFactorMapper):
     @property
     def discriminator(self):
-        return 'CompanyShareOptionRFYield'
+        return 'CompanyShareOption'
 
     @property
     def model_class(self):

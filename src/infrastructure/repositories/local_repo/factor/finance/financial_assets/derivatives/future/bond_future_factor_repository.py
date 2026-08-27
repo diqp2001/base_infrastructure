@@ -53,9 +53,10 @@ class BondFutureFactorRepository(BaseFactorRepository, BondFutureFactorPort):
 
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
+            kwargs = self._normalize_kwargs({**{'group': 'price', 'subgroup': 'daily', 'frequency': '1d', 'data_type': 'numeric', 'source': 'ibkr'}, **kwargs})
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'price'),
+                group=kwargs.get('group'),
                 factor_type=kwargs.get('factor_type', 'bond_future_factor'),
             )
             if existing:
@@ -63,11 +64,11 @@ class BondFutureFactorRepository(BaseFactorRepository, BondFutureFactorPort):
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'price'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'ibkr'),
+                group=kwargs.get('group'),
+                subgroup=kwargs.get('subgroup'),
+                frequency=kwargs.get('frequency'),
+                data_type=kwargs.get('data_type'),
+                source=kwargs.get('source'),
                 definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}'),
             )
 

@@ -290,6 +290,34 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             logger.error(f"Error counting currencies: {e}_{os.path.abspath(__file__)}")
             raise
     
+    def get_related_entities(self, currency_id: int) -> list:
+        """Return the benchmark BondFuture for this currency (e.g. SR3 for USD, CORRA for CAD).
+
+        Called by the factor value resolution service when resolving CurrencyYieldFactor
+        dependencies — the resolution service maps Currency:USD → BondFuture:SR3 so that
+        BondFutureAnnualizedYieldFactor can be looked up for the correct instrument.
+        """
+        if not self.factory:
+            return []
+        try:
+            from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor
+            currency = self.get_by_id(currency_id)
+            if not currency or not getattr(currency, 'symbol', None):
+                return []
+            benchmark_ticker = CurrencyYieldFactor.BENCHMARK_MAP.get(currency.symbol.upper())
+            if not benchmark_ticker:
+                return []
+            bond_future_repo = self.factory.get_local_repository('BondFuture')
+            if not bond_future_repo:
+                return []
+            bond_future = bond_future_repo.get_by_root_symbol(benchmark_ticker)
+            if bond_future:
+                return [bond_future]
+            return []
+        except Exception as e:
+            logger.error(f"Error getting related entities for Currency (currency_id={currency_id}): {e}")
+            return []
+
     def _create_or_get(self, iso_code: str, name: Optional[str] = None, country_id: Optional[int] = None) -> Optional[DomainCurrency]:
         """
         Get or create a currency by ISO code with dependency resolution.

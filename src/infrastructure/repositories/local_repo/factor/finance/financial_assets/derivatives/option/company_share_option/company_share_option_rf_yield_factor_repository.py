@@ -1,5 +1,10 @@
-from typing import Optional
+from datetime import timedelta
+from typing import List, Optional
 from sqlalchemy.orm import Session
+
+from src.domain.entities.factor.factor_dependency import FactorDependency
+from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
 from src.infrastructure.repositories.mappers.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor_mapper import CompanyShareOptionRFYieldFactorMapper
 from src.infrastructure.repositories.mappers.factor.factor_value_mapper import FactorValueMapper
 from src.domain.ports.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor_port import CompanyShareOptionRFYieldFactorPort
@@ -85,7 +90,9 @@ class CompanyShareOptionRFYieldFactorRepository(BaseFactorRepository, CompanySha
                 factor_type=kwargs.get('factor_type') or 'company_share_option_rf_yield_factor',
             )
             if existing:
-                return self._to_entity(existing)
+                factor_entity = self._to_entity(existing)
+                self._ensure_dependency(factor_entity)
+                return factor_entity
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
@@ -99,10 +106,43 @@ class CompanyShareOptionRFYieldFactorRepository(BaseFactorRepository, CompanySha
             orm_factor = self._to_model(domain_factor)
             self.session.add(orm_factor)
             self.session.commit()
-            return self._to_entity(orm_factor)
+            factor_entity = self._to_entity(orm_factor)
+            self._ensure_dependency(factor_entity)
+            return factor_entity
         except Exception as e:
             print(f"Error in _create_or_get CompanyShareOptionRFYieldFactor {primary_key}: {e}")
             return None
+
+    def _ensure_dependency(self, factor_entity: CompanyShareOptionRFYieldFactor) -> None:
+        """Create a FactorDependency → CurrencyYieldFactor if absent."""
+        if not self.factory or not factor_entity or not factor_entity.id:
+            return
+        try:
+            currency_yield_repo = self.factory.get_local_repository('CurrencyYieldFactor')
+            if not currency_yield_repo:
+                return
+            dep_factor = currency_yield_repo._create_or_get(
+                CurrencyYieldFactor,
+                primary_key='currency_yield',
+                group='fundamental',
+                subgroup='yield',
+                frequency='1d',
+                data_type='decimal',
+                source='calculated',
+            )
+            if not dep_factor:
+                return
+
+            dep_dep_repo = self.factory.get_local_repository(FactorDependency)
+            if dep_dep_repo:
+                dep_dep_repo._create_or_get(
+                    independent_factor=dep_factor,
+                    dependent_factor=factor_entity,
+                    lag=timedelta(days=1),
+                    dependency_name='CurrencyYieldFactor',
+                )
+        except Exception as e:
+            print(f"Error ensuring dependency for CompanyShareOptionRFYieldFactor: {e}")
 
     def get_by_all(self, name: str, group: str, factor_type: str = None,
                    subgroup: Optional[str] = None, frequency: Optional[str] = None,

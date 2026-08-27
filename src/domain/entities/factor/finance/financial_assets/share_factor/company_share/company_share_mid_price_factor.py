@@ -149,7 +149,8 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
             DependencySpec(
                 factor_type=CompanyShareFactor,
                 group="price",
-                frequency=DependencySpec.SELF,
+                # Raw CompanyShareFactor records (close/open/high/low) are stored
+                # with frequency=None, so filtering by SELF ("1d") drops everything.
                 source_not_in=["calculated"],
             )
         ]

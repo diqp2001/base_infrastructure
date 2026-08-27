@@ -39,6 +39,7 @@ class CompanyShareValueFactorRepository(BaseFactorRepository, CompanyShareValueF
             existing = self.get_by_all(
                 name=primary_key,
                 group=kwargs.get('group', 'value'),
+                frequency=kwargs.get('frequency'),
                 factor_type=kwargs.get('factor_type', 'company_share_value_factor'),
             )
             if existing:

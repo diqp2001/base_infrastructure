@@ -88,17 +88,15 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             return None
 
     def _resolve_currency_id(self, entity: FactorValue) -> Optional[int]:
-        """Look up currency_id from the associated entity when not explicitly provided."""
+        """Look up currency_id from the associated financial entity (any type)."""
         try:
             if entity.entity_id is not None:
-                from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
-                cs = self.session.get(CompanyShareModel, entity.entity_id)
-                if cs is not None and cs.currency_id is not None:
-                    return cs.currency_id
-            from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
-            first_currency = self.session.query(CurrencyModel).first()
-            if first_currency:
-                return first_currency.id
+                from src.infrastructure.models.finance.financial_entity import FinancialEntityModel
+                fe = self.session.get(FinancialEntityModel, entity.entity_id)
+                if fe is not None:
+                    currency_id = getattr(fe, 'currency_id', None)
+                    if currency_id is not None:
+                        return currency_id
         except Exception:
             pass
         return None
@@ -210,7 +208,37 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 f"entity {entity_type}:{entity_id}, date {date_str}: {e}"
             )
             return None
-    
+
+    def get_most_recent_before(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        entity_type: Optional[str] = None,
+    ) -> Optional[FactorValue]:
+        """Return the most recent stored value for (factor, entity) with date ≤ target.
+
+        Used as a fallback for IBKR-sourced factors whose stored bar timestamp
+        (e.g. 09:30:00) lags behind the algorithm's resolution time (e.g. 09:35:00).
+        """
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            query = self.session.query(FactorValueModel).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id == entity_id,
+                FactorValueModel.date <= date_obj,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+            model = query.order_by(FactorValueModel.date.desc()).first()
+            return self._to_entity(model)
+        except Exception as e:
+            print(
+                f"Error in get_most_recent_before for factor {factor_id}, "
+                f"entity {entity_type}:{entity_id}, date {date_str}: {e}"
+            )
+            return None
+
     def _create_or_get(self, entity_symbol, primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
         Enhanced get_or_create with automatic dependency resolution via FactorValueResolutionService.
