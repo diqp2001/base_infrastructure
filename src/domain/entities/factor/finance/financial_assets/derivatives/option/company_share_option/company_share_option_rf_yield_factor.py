@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
@@ -57,5 +57,13 @@ class CompanyShareOptionRFYieldFactor(CompanyShareOptionFactor):
             return None
         return sum(valid) / len(valid)
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ['CurrencyYieldFactor']
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor
+        return [
+            DependencySpec(
+                factor_type=CurrencyYieldFactor,
+                group="fundamental",
+                source_in=["calculated"],
+            )
+        ]

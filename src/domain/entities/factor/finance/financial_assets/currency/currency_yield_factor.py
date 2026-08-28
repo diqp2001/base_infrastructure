@@ -16,7 +16,7 @@ Resolution path:
 
 from __future__ import annotations
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.currency.currency_factor import CurrencyFactor
 
@@ -62,16 +62,29 @@ class CurrencyYieldFactor(CurrencyFactor):
 
     def calculate(self, dependencies: dict) -> Optional[Decimal]:
         """Pass through the benchmark annualized rate unchanged."""
-        rate = dependencies.get("BondFutureAnnualizedYieldFactor")
-        if rate is None:
+        raw = dependencies.get("BondFutureAnnualizedYieldFactor")
+        if raw is None:
             return None
-        return Decimal(str(rate))
+        values = raw if isinstance(raw, list) else [raw]
+        valid = [Decimal(str(v)) for v in values if v is not None]
+        if not valid:
+            return None
+        return sum(valid) / len(valid)
 
     def __repr__(self):
         return (
             f"CurrencyYieldFactor(name={self.name!r}, group={self.group!r}, "
             f"subgroup={self.subgroup!r})"
         )
+
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ['BondFutureAnnualizedYieldFactor']
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_annualized_yield_factor import BondFutureAnnualizedYieldFactor
+        return [
+            DependencySpec(
+                factor_type=BondFutureAnnualizedYieldFactor,
+                group="return",
+                source_in=["calculated"],
+            )
+        ]

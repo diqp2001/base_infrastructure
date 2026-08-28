@@ -479,6 +479,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             max_import_ibkr = getattr(self.ib_client, 'max_import_ibkr', False)
             matched_value = None
             _matched_diff = float('inf')
+            # Tracks the nearest persisted bar (even outside tolerance) for fallback.
+            _nearest_value = None
+            _nearest_diff = float('inf')
 
             for bar_data in bulk_ibkr_data:
                 try:
@@ -518,6 +521,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if persisted and diff <= tolerance_seconds and diff < _matched_diff:
                             matched_value = persisted
                             _matched_diff = diff
+                        # Always track the nearest persisted bar for fallback.
+                        if persisted and diff < _nearest_diff:
+                            _nearest_value = persisted
+                            _nearest_diff = diff
                     else:
                         # Original behaviour: persist only the bar matching the target date.
                         tolerance_seconds = (
@@ -552,6 +559,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if max_import_ibkr:
                 if matched_value:
                     return matched_value
+                # Fallback: return the closest persisted bar even when it falls
+                # outside the strict tolerance window.  Covers paper-trading
+                # gaps (e.g. SPY with no intraday bar at the exact backtest time)
+                # where the nearest available bar is the best approximation.
+                if _nearest_value is not None:
+                    print(
+                        f"Nearest-bar fallback for factor {factor_entity.name}: "
+                        f"using bar (diff={_nearest_diff:.0f}s from target)"
+                    )
+                    return _nearest_value
                 print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
                 return None
 
@@ -885,6 +902,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             grouped = defaultdict(list)
 
             for factor in factor_batch.factors:
+                # Branch A factors (calculate_dependencies) are resolved via the
+                # resolution service dependency chain — never via IBKR bar extraction.
+                if hasattr(factor, 'calculate_dependencies'):
+                    continue
                 factor_group = getattr(factor, "group", "unknown")
                 factor_subgroup = getattr(factor, "subgroup", "")
                 frequency = getattr(factor, "frequency", "1d")
@@ -1128,6 +1149,10 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                     factor_values.append(calculated_factor_value)
                                     created_factor_values.append(calculated_factor_value)
                             else:
+                                # Skip Branch A factors (calculate_dependencies property) —
+                                # they are resolved via the dependency chain, not from bars.
+                                if hasattr(factor, 'calculate_dependencies'):
+                                    continue
                                 # Factor has no dependencies - extract directly from IBKR data
                                 factor_value = self._extract_factor_value_from_bar(
                                     bar_data, factor, entity_id, bar_date,
@@ -1175,13 +1200,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if not factor_entity:
                 return []
             
-            # Check if factor supports dynamic dependencies
+            # Check if factor supports dynamic dependencies (old API)
             if hasattr(factor_entity, 'get_dependency_requirements'):
-                print(f"Factor {factor_entity.name} supports dynamic dependencies - using dynamic resolver")
                 return self._get_dynamic_dependencies(factor_entity)
-            
+
+            # Branch A factors (calculate_dependencies property) are resolved by the
+            # resolution service — they don't use bar extraction at all.
+            if hasattr(factor_entity, 'calculate_dependencies'):
+                return []
+
             # Fallback to static database dependencies for backward compatibility
-            print(f"Factor {factor_entity.name} using static database dependencies")
             return self._get_static_dependencies_from_db(factor_id)
             
         except Exception as e:

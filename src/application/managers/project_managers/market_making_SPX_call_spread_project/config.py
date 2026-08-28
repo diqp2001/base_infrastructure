@@ -87,7 +87,7 @@ DEFAULT_CONFIG = {
     # Market Data Configuration
     'historical_data_duration': '6 M',  # 6 months of historical data
     'bar_size_setting': '5 mins',#5 mins
-    'duration_str': '5 D',
+    'duration_str': '2 D',
     'option_data_duration': '30 D',  # 30 days of option data
     'max_import_ibkr': True,
     
@@ -130,6 +130,11 @@ DEFAULT_CONFIG = {
     
     # Factors for modeling - only future_index_library and index_library factors
     'factors': [
+        # Branch A dependency chain for implied_volatility_calculated, deepest first
+        FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
+        FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
+        FACTOR_LIBRARY["company_share_library"]["company_share_value"],      # CompanyShareValueFactor (depends on CompanyShareMidPriceFactor, Branch B leaf)
+        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
         FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
     ],
 

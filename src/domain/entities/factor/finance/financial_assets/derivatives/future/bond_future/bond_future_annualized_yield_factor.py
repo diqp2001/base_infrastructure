@@ -21,6 +21,9 @@ class BondFutureAnnualizedYieldFactor(BondFutureFactor):
     def __init__(self, name: str = "Annualized Yield", factor_id: Optional[int] = None, **kwargs):
         kwargs.setdefault('subgroup', 'daily')
         kwargs.setdefault('group', 'return')
+        kwargs.setdefault('frequency', '1d')
+        kwargs.setdefault('data_type', 'decimal')
+        kwargs.setdefault('source', 'calculated')
         super().__init__(name=name, factor_id=factor_id, **kwargs)
 
     @property

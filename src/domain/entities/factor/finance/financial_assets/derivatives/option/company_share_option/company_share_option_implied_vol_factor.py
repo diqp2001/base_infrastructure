@@ -43,6 +43,7 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
         return [
             DependencySpec(
                 factor_type=CompanyShareOptionFactor,
@@ -53,10 +54,15 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
             DependencySpec(
                 factor_type=CompanyShareValueFactor,
                 group="value",
-                frequency=DependencySpec.SELF,
+                # Do NOT inherit parent's frequency (5m) — the underlying stock value
+                # is a daily (1d) factor and the parent frequency would exclude it.
                 source_in=["calculated"],
             ),
-            "CompanyShareOptionRFYieldFactor",
+            DependencySpec(
+                factor_type=CompanyShareOptionRFYieldFactor,
+                group="fundamental",
+                source_in=["calculated"],
+            ),
         ]
     
 
@@ -142,25 +148,55 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
         max_iterations: int = 100,
         tolerance: float = 1e-6,
     ) -> Optional[float]:
-        """Newton-Raphson inversion of Black-Scholes to find implied volatility."""
+        """Newton-Raphson inversion of Black-Scholes; bisection fallback for deep OTM."""
         if market_price <= 0 or stock_price <= 0 or strike_price <= 0 or time_to_expiry <= 0:
             return None
 
-        vol = 0.2
+        # Improved initial guess: Brenner-Subrahmanyam approximation
+        vol = math.sqrt(2 * math.pi / time_to_expiry) * market_price / stock_price
+        vol = max(0.01, min(vol, 10.0))
+
         for _ in range(max_iterations):
             price, vega = self._bs_price_and_vega(
                 stock_price, strike_price, risk_free_rate, vol, time_to_expiry,
                 option_type, dividend_yield,
             )
             if price is None or vega is None or abs(vega) < 1e-10:
-                return None
+                break
             diff = price - market_price
             if abs(diff) < tolerance:
                 return vol
-            vol -= diff / vega
-            if vol <= 0:
+            step = diff / vega
+            vol -= step
+            # Clamp to avoid divergence on deep OTM options
+            vol = max(0.0001, min(vol, 20.0))
+
+        # N-R did not converge — fall back to bisection on [0.0001, 20.0]
+        lo, hi = 0.0001, 20.0
+        price_lo, _ = self._bs_price_and_vega(
+            stock_price, strike_price, risk_free_rate, lo, time_to_expiry, option_type, dividend_yield)
+        price_hi, _ = self._bs_price_and_vega(
+            stock_price, strike_price, risk_free_rate, hi, time_to_expiry, option_type, dividend_yield)
+        if price_lo is None or price_hi is None:
+            return None
+        # Market price must be bracketed
+        if not (price_lo <= market_price <= price_hi or price_hi <= market_price <= price_lo):
+            return None
+        for _ in range(100):
+            mid = (lo + hi) / 2.0
+            price_mid, _ = self._bs_price_and_vega(
+                stock_price, strike_price, risk_free_rate, mid, time_to_expiry, option_type, dividend_yield)
+            if price_mid is None:
                 return None
-        return vol
+            if abs(price_mid - market_price) < tolerance:
+                return mid
+            if (price_mid - market_price) * (price_lo - market_price) < 0:
+                hi = mid
+                price_hi = price_mid
+            else:
+                lo = mid
+                price_lo = price_mid
+        return (lo + hi) / 2.0
 
     def _norm_cdf(self, x: float) -> float:
         return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))

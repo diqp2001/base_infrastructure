@@ -8,7 +8,7 @@ than being tied to a specific price factor name.
 """
 
 from __future__ import annotations
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from decimal import Decimal
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor
@@ -44,19 +44,24 @@ class CompanyShareValueFactor(CompanyShareFactor):
             factor_id=factor_id,
         )
 
-    def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        """
-        Return the mid price as the value of the company share.
-
-        Args:
-            dependencies: dict containing:
-                'company_share_mid_price_factor': Decimal or object with .value
-        """
+    def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
         raw = dependencies.get('CompanyShareMidPriceFactor')
-        if hasattr(raw, 'value'):
-            return Decimal(str(raw.value))
-        return Decimal(str(raw))
+        if raw is None:
+            return None
+        values = raw if isinstance(raw, list) else [raw]
+        valid = [Decimal(str(v)) for v in values if v is not None]
+        if not valid:
+            return None
+        return sum(valid) / len(valid)
 
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ['CompanyShareMidPriceFactor']
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import CompanyShareMidPriceFactor
+        return [
+            DependencySpec(
+                factor_type=CompanyShareMidPriceFactor,
+                group="price",
+                source_in=["calculated"],
+            )
+        ]

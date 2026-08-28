@@ -72,6 +72,18 @@ class FactorValueResolutionService:
         if entity is None and financial_asset_entity is not None:
             entity = financial_asset_entity
 
+        # If factor_entity is a raw ORM model (SQLAlchemy instance), convert it to the
+        # proper domain entity so that @property calculate_dependencies and calculate()
+        # are available.  FactorMapper.to_domain dispatches via the factor_type discriminator.
+        if hasattr(factor_entity, '_sa_class_manager'):
+            try:
+                from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper as _FactorMapper
+                _converted = _FactorMapper.to_domain(factor_entity)
+                if _converted is not None:
+                    factor_entity = _converted
+            except Exception:
+                pass
+
         try:
             if not factor_entity or not factor_entity.id:
                 self.logger.error("Factor entity is required for factor value resolution")
@@ -108,10 +120,32 @@ class FactorValueResolutionService:
             # Get factor dependencies from database
             dependencies = self._get_factor_dependencies(factor_entity.id)
 
+            # Resolve the true domain class for this factor.  When factor_entity is an ORM
+            # model (SQLAlchemy instance), type(factor_entity) is e.g. CurrencyYieldFactorModel
+            # which has neither `calculate` nor `calculate_dependencies`.  Use the discriminator
+            # stored in the DB to look up the real domain class in DISCRIMINATOR_CLASS_MAP so
+            # that both flags below reflect the domain logic, not the ORM scaffold.
+            _factor_domain_cls = type(factor_entity)
+            try:
+                from src.infrastructure.repositories.mappers.factor.factor_mapper import DISCRIMINATOR_CLASS_MAP
+                from src.infrastructure.models.factor.factor import FactorModel as _FactorModel
+                _session = getattr(self.factory, 'session', None)
+                _fid = getattr(factor_entity, 'factor_id', None) or getattr(factor_entity, 'id', None)
+                if _session is not None and _fid is not None:
+                    _disc = (
+                        _session.query(_FactorModel.factor_type)
+                        .filter(_FactorModel.id == _fid)
+                        .scalar()
+                    )
+                    if _disc and _disc in DISCRIMINATOR_CLASS_MAP:
+                        _factor_domain_cls = DISCRIMINATOR_CLASS_MAP[_disc]
+            except Exception:
+                pass
+
             # True when the factor can compute its own value from dependency inputs.
-            has_calculate_function = callable(getattr(type(factor_entity), 'calculate', None))
+            has_calculate_function = callable(getattr(_factor_domain_cls, 'calculate', None))
             # True only when the factor declares its deps programmatically (calculate_dependencies).
-            has_dynamic_dependencies = hasattr(factor_entity, 'calculate_dependencies')
+            has_dynamic_dependencies = hasattr(_factor_domain_cls, 'calculate_dependencies')
 
             if dependencies or has_dynamic_dependencies:
                 self.logger.info(
@@ -390,12 +424,7 @@ class FactorValueResolutionService:
             if dependency_value:
                 dependency_values[dependency_name] = self._convert_to_float(dependency_value.value)
             else:
-                dependency_resolved = self._handle_missing_dependency(
-                    independent_factor_id, entity, dependency_date_str, repository_type
-                )
-                if dependency_resolved:
-                    dependency_values[dependency_name] = self._convert_to_float(dependency_resolved.value)
-                else:
+                
                     missing_dependencies.append(dependency["dependency_entity"])
                     self.logger.error(
                         f"Failed to resolve dependency factor {independent_factor_id} "
@@ -428,10 +457,13 @@ class FactorValueResolutionService:
                 dynamic_dependency_values = self._resolve_dynamic_dependencies(
                     factor_entity, entity, target_date, repository_type, **kwargs
                 )
-                if dynamic_dependency_values is not None:
+                if dynamic_dependency_values:
                     dependency_values.update(dynamic_dependency_values)
                 else:
-                    self.logger.error(f"Failed to resolve dynamic dependencies for factor {factor_entity.name}")
+                    self.logger.error(
+                        f"Failed to resolve dynamic dependencies for factor {factor_entity.name}"
+                        f" (got: {dynamic_dependency_values!r})"
+                    )
                     return None
 
             if missing_dependencies and not (has_calculate_function and dependency_values):
@@ -775,9 +807,21 @@ class FactorValueResolutionService:
                     if value is not None:
                         dependency_values[dep] = value
 
-            if dependency_values:
-                self.logger.info(f"Successfully resolved {len(dependency_values)} dynamic dependencies")
-                return dependency_values
+            # A dep whose value is [] means resolution failed for that dep — treat as
+            # missing rather than "resolved with no data".  Only return if every dep
+            # that was registered actually produced at least one value.
+            non_empty = {
+                k: v for k, v in dependency_values.items()
+                if (isinstance(v, list) and len(v) > 0) or (not isinstance(v, list) and v is not None)
+            }
+            if non_empty:
+                if len(non_empty) < len(dependency_values):
+                    empty_keys = [k for k in dependency_values if k not in non_empty]
+                    self.logger.warning(
+                        f"Dynamic dependencies with no resolved values (excluded): {empty_keys}"
+                    )
+                self.logger.info(f"Successfully resolved {len(non_empty)} dynamic dependencies")
+                return non_empty
 
             self.logger.warning("No dynamic dependencies could be resolved")
             return {}
@@ -864,21 +908,34 @@ class FactorValueResolutionService:
                         f"'{dep_name}'; using 'ibkr' as fallback source"
                     )
                     resolved_source = 'ibkr'
-                # Build kwargs, omitting None values so the repo's own defaults
-                # (defined in its _create_or_get) fill in missing fields such as
-                # subgroup and data_type rather than inserting NULL.
+                # Instantiate the dep type to get its class-level defaults for any
+                # attribute not specified in the spec (e.g. frequency='1d').
+                # This prevents NULL being passed to NOT NULL DB columns when the
+                # spec omits a field.
+                try:
+                    _dep_obj = spec.factor_type()
+                    dep_default_name = _dep_obj.name
+                    _dep_defaults = {
+                        'group':     getattr(_dep_obj, 'group',     None),
+                        'subgroup':  getattr(_dep_obj, 'subgroup',  None),
+                        'frequency': getattr(_dep_obj, 'frequency', None),
+                        'data_type': getattr(_dep_obj, 'data_type', None),
+                    }
+                except Exception:
+                    dep_default_name = spec.factor_type.__name__
+                    _dep_defaults = {}
                 create_kwargs = {
                     k: v for k, v in {
-                        'group':     _resolve(spec.group,     'group'),
-                        'subgroup':  _resolve(spec.subgroup,  'subgroup'),
-                        'frequency': _resolve(spec.frequency, 'frequency'),
-                        'data_type': _resolve(spec.data_type, 'data_type'),
+                        'group':     _resolve(spec.group,     'group')     or _dep_defaults.get('group'),
+                        'subgroup':  _resolve(spec.subgroup,  'subgroup')  or _dep_defaults.get('subgroup'),
+                        'frequency': _resolve(spec.frequency, 'frequency') or _dep_defaults.get('frequency'),
+                        'data_type': _resolve(spec.data_type, 'data_type') or _dep_defaults.get('data_type'),
                         'source':    resolved_source,
                     }.items() if v is not None
                 }
                 created = dep_repo._create_or_get(
                     spec.factor_type,
-                    parent_factor.name,
+                    dep_default_name,
                     **create_kwargs,
                 )
                 if created:
@@ -922,8 +979,7 @@ class FactorValueResolutionService:
                         f"{type(related_entity).__name__} — skipping resolution"
                     )
                     continue
-                if type(dep_factor) in[CompanyShareValueFactor,CompanyShareOptionRFYieldFactor]:
-                                                    self.logger.info(f"Resolving dynamic dependencies for factor {dep_factor.name}")
+               
                 fv = self.resolve_factor_value(
                     factor_entity=dep_factor,
                     entity=related_entity,
@@ -1480,7 +1536,12 @@ class FactorValueResolutionService:
                         if param_name in dependency_values:
                             call_kwargs[param_name] = dependency_values[param_name]
 
-                # Add any extra kwargs that match remaining method parameters
+                # Explicitly pass entity and target_date when the method declares them
+                if 'entity' in method_params and 'entity' not in call_kwargs:
+                    call_kwargs['entity'] = kwargs.get('entity')
+                if 'target_date' in method_params and 'target_date' not in call_kwargs:
+                    call_kwargs['target_date'] = kwargs.get('target_date')
+                # Add any remaining extra kwargs that match method parameters
                 for key, value in kwargs.items():
                     if key in method_params and key not in call_kwargs:
                         call_kwargs[key] = value
