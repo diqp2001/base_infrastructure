@@ -33,7 +33,7 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
         definition: Optional[str] = "True mid price calculated from multiple data sources with outlier filtering",
         factor_id: Optional[int] = None,
         outlier_threshold: float = 2.0,
-        min_sources: int = 2,
+        min_sources: int = 1,
         **kwargs,
     ):
         super().__init__(
@@ -71,11 +71,20 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
                 "subgroup": self.subgroup,
             }
             for i, v in enumerate(raw_values)
-            if v is not None
+            if v is not None and float(v) > 0
         ]
 
         if len(source_prices) < self.min_sources:
             return None
+
+        # When prices span a very wide range (mixed option + underlying OHLCV from IBKR),
+        # the option price is always the minimum — take it directly rather than letting
+        # outlier removal discard it as the "lone outlier" in a cluster of underlying prices.
+        price_values = [float(p['price']) for p in source_prices]
+        if len(price_values) > 1:
+            min_p, max_p = min(price_values), max(price_values)
+            if max_p > 0 and (max_p - min_p) / max_p > 0.5:
+                return Decimal(str(min_p))
 
         valid_prices = self._remove_outliers(source_prices)
         if not valid_prices:
@@ -151,9 +160,10 @@ class CompanyShareOptionMidPriceFactor(CompanyShareOptionFactor):
             DependencySpec(
                 factor_type=CompanyShareOptionFactor,
                 group="price",
-                frequency=DependencySpec.SELF,
-                source_not_in=["calculated"],
-            )
+                                # Raw CompanyShareFactor records (close/open/high/low) are stored
+                                # with frequency=None, so filtering by SELF ("1d") drops everything.
+                                source_not_in=["calculated"],
+                            )
         ]
 
     def __repr__(self):

@@ -19,9 +19,9 @@ class BondFutureAnnualizedYieldFactor(BondFutureFactor):
     """
 
     def __init__(self, name: str = "Annualized Yield", factor_id: Optional[int] = None, **kwargs):
-        kwargs.setdefault('subgroup', 'daily')
+        kwargs.setdefault('subgroup', 'yield')
         kwargs.setdefault('group', 'return')
-        kwargs.setdefault('frequency', '1d')
+        kwargs.setdefault('frequency', "5m")
         kwargs.setdefault('data_type', 'decimal')
         kwargs.setdefault('source', 'calculated')
         super().__init__(name=name, factor_id=factor_id, **kwargs)
@@ -33,7 +33,7 @@ class BondFutureAnnualizedYieldFactor(BondFutureFactor):
             DependencySpec(
                 factor_type=BondFutureFactor,
                 group="price",
-                
+                frequency=DependencySpec.SELF,
                 source_not_in=["calculated"],
             )
         ]

@@ -44,12 +44,12 @@ class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
 
             entity = CompanyShareMidPriceFactor(
                 name=name,
-                group=kwargs.get("group", "price"),
-                subgroup=kwargs.get("subgroup", "mid_price_true"),
-                frequency=kwargs.get("frequency"),
-                data_type=kwargs.get("data_type", "decimal"),
-                source=kwargs.get("source", "calculated"),
-                definition=kwargs.get("definition", "True mid price calculated from multiple data sources with outlier filtering"),
+                group=kwargs.get("group") or "price",
+                subgroup=kwargs.get("subgroup") or "mid_price_true",
+                frequency=kwargs.get("frequency") or "1d",
+                data_type=kwargs.get("data_type") or "decimal",
+                source=kwargs.get("source") or "calculated",
+                definition=kwargs.get("definition") or "True mid price calculated from multiple data sources with outlier filtering",
             )
 
             orm_obj = self.mapper.to_orm(entity)

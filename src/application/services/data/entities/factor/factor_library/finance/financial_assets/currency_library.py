@@ -48,7 +48,7 @@ CURRENCY_LIBRARY: Dict[str, Dict] = {
         "name": "currency_yield",
         "group": "fundamental",
         "subgroup": "yield",
-        "frequency": "1d",
+        "frequency": "5m",
         "data_type": "decimal",
         "source": "calculated",
         "description": "Risk-free yield derived from benchmark rate futures (USD→SR3 SOFR, CAD→CORRA)",

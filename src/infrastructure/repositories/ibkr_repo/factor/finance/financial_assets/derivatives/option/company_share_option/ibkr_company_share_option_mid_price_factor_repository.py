@@ -18,14 +18,15 @@ class IBKRCompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceF
     def __init__(self, ibkr_client, factory=None):
         self.ibkr_client = ibkr_client
         self.factory = factory
-        self.local_repo = factory._local_repositories.get('company_share_option_mid_price_factor') if factory else None
+        self.local_repo = factory._local_repositories.get('CompanyShareOptionMidPriceFactor') if factory else None
 
     def _create_or_get(self, name: str, **kwargs) -> Optional[CompanyShareOptionMidPriceFactor]:
         """Create new factor or get existing one with IBKR integration."""
         try:
             if self.local_repo:
                 return self.local_repo._create_or_get(
-                    name=name,
+                    CompanyShareOptionMidPriceFactor,
+                    primary_key=name,
                     **kwargs
                 )
             return None

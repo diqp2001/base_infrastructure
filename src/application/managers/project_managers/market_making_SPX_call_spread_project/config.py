@@ -54,10 +54,11 @@ DEFAULT_CONFIG = {
         #
         #IndexBond :["SOFR3"],
         BondFuture: ["SR3Z6"],
+        CompanyShare: ["AAPL","MSFT","SPY"],
         CompanyShareOption: ["SPY  281215C00770000"
                             #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
                              ],
-        CompanyShare: ["AAPL","MSFT","SPY"],
+        
         #"AAPL  281215C00300000",
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
@@ -134,7 +135,8 @@ DEFAULT_CONFIG = {
         FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
         FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
         FACTOR_LIBRARY["company_share_library"]["company_share_value"],      # CompanyShareValueFactor (depends on CompanyShareMidPriceFactor, Branch B leaf)
-        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
+        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],
+        FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
         FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
     ],
 

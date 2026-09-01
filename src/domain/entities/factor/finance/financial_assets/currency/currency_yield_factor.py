@@ -84,6 +84,7 @@ class CurrencyYieldFactor(CurrencyFactor):
         return [
             DependencySpec(
                 factor_type=BondFutureAnnualizedYieldFactor,
+                frequency=DependencySpec.SELF,
                 group="return",
                 source_in=["calculated"],
             )

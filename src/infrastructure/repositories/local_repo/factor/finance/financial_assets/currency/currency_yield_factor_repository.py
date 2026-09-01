@@ -83,11 +83,7 @@ class CurrencyYieldFactorRepository(BaseFactorRepository, CurrencyYieldFactorPor
             dep_factor = annualized_yield_repo._create_or_get(
                 BondFutureAnnualizedYieldFactor,
                 primary_key='Annualized Yield',
-                group='return',
-                subgroup='daily',
-                frequency='1d',
-                data_type='numeric',
-                source='calculated',
+                frequency=factor_entity.frequency,
             )
             if not dep_factor:
                 return

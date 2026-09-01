@@ -734,7 +734,14 @@ class InteractiveBrokersBroker(BaseBroker):
         if not self.ib_connection or not self.ib_connection.is_connected():
             return []
 
-        cache_key = f"{contract.symbol}_{end_date_time}_{duration_str}_{bar_size_setting}_{what_to_show}"
+        contract_id = (
+            f"{contract.symbol}_{contract.secType}"
+            f"_{getattr(contract, 'lastTradeDateOrContractMonth', '')}"
+            f"_{getattr(contract, 'strike', '')}"
+            f"_{getattr(contract, 'right', '')}"
+            f"_{getattr(contract, 'tradingClass', '')}"
+        )
+        cache_key = f"{contract_id}_{end_date_time}_{duration_str}_{bar_size_setting}_{what_to_show}"
         if self.max_import_ibkr and cache_key in self._historical_data_cache:
             self.logger.debug(f"Cache hit for {contract.symbol} ({duration_str}, {bar_size_setting})")
             return self._historical_data_cache[cache_key]

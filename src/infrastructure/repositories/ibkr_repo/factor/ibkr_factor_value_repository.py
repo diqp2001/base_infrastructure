@@ -402,6 +402,15 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             # Check if factor value already exists
             existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
             if existing:
+                # Skip stale 0.0 price values — stored from no-trade IBKR bars before
+                # MIDPOINT routing was in place; force re-fetch so MIDPOINT is used.
+                if getattr(factor_entity, 'group', '') == 'price':
+                    try:
+                        if float(existing.value or 0) <= 0:
+                            existing = None
+                    except (TypeError, ValueError):
+                        pass
+            if existing:
                 return existing
 
             # Extract symbol from entity
@@ -444,6 +453,13 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 bar_tolerance_seconds = bar_seconds
                 # Skip the IBKR round-trip if the bar is already in the DB.
                 early_existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
+                if early_existing:
+                    if getattr(factor_entity, 'group', '') == 'price':
+                        try:
+                            if float(early_existing.value or 0) <= 0:
+                                early_existing = None
+                        except (TypeError, ValueError):
+                            pass
                 if early_existing:
                     return early_existing
             else:

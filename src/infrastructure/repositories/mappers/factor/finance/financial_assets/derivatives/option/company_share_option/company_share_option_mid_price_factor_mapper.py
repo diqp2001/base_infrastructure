@@ -50,5 +50,4 @@ class CompanyShareOptionMidPriceFactorMapper:
             data_type=entity.data_type,
             source=entity.source,
             definition=entity.definition,
-            factor_type=self.discriminator,
         )

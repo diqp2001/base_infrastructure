@@ -62,6 +62,7 @@ class CompanyShareValueFactor(CompanyShareFactor):
             DependencySpec(
                 factor_type=CompanyShareMidPriceFactor,
                 group="price",
+                frequency=DependencySpec.SELF,
                 source_in=["calculated"],
             )
         ]

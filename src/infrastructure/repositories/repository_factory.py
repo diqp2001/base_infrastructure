@@ -124,6 +124,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_vol_factor_repository import CompanySharePortfolioOptionImpliedVolFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_div_yield_factor_repository import CompanySharePortfolioOptionImpliedDivYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor_repository import CompanyShareOptionImpliedVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor_repository import CompanyShareOptionMidPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor_repository import CompanyShareOptionImpliedDivYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor_repository import CompanyShareOptionRFYieldFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_rf_yield_factor_repository import IBKRCompanyShareOptionRFYieldFactorRepository
@@ -338,6 +339,7 @@ class RepositoryFactory:
                 'CompanySharePortfolioOptionImpliedVolFactor': CompanySharePortfolioOptionImpliedVolFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionImpliedDivYieldFactor': CompanySharePortfolioOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedVolFactor': CompanyShareOptionImpliedVolFactorRepository(self.session, factory=self),
+                'CompanyShareOptionMidPriceFactor': CompanyShareOptionMidPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedDivYieldFactor': CompanyShareOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionRFYieldFactor': CompanyShareOptionRFYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionValueFactor': CompanyShareOptionValueFactorRepository(self.session, factory=self),

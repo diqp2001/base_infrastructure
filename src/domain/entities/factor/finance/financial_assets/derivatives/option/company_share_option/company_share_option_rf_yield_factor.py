@@ -64,6 +64,7 @@ class CompanyShareOptionRFYieldFactor(CompanyShareOptionFactor):
             DependencySpec(
                 factor_type=CurrencyYieldFactor,
                 group="fundamental",
+                frequency=DependencySpec.SELF,
                 source_in=["calculated"],
             )
         ]

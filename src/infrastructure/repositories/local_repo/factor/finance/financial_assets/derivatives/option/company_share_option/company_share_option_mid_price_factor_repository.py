@@ -34,24 +34,20 @@ class CompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceFacto
 
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'price'),
-                frequency=kwargs.get('frequency'),
-                factor_type=kwargs.get('factor_type', 'company_share_option_mid_price_factor'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market')
+                group=kwargs.get('group') or 'price',
+                factor_type=kwargs.get('factor_type') or 'company_share_option_mid_price_factor',
             )
             if existing:
                 return self._to_entity(existing)
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'price'),
-                frequency=kwargs.get('frequency'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'market'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+                group=kwargs.get('group') or 'price',
+                subgroup=kwargs.get('subgroup') or 'mid_price_true',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'decimal',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or f'{self.mapper.discriminator} factor: {primary_key}',
             )
             # Use FactorMapper to convert domain entity to ORM model
             orm_factor = self._to_model(domain_factor)
@@ -94,9 +90,39 @@ class CompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceFacto
             return None
         
 
+    def get_factor_entity(self):
+        return self.mapper.get_entity()
+
+    def get_factor_model(self):
+        return self.mapper.model_class
+
+    def get_by_all(self, name: str, group: str, factor_type: Optional[str] = None,
+                   subgroup: Optional[str] = None, frequency: Optional[str] = None,
+                   data_type: Optional[str] = None, source: Optional[str] = None):
+        try:
+            query = self.session.query(self.model_class).filter(
+                self.model_class.name == name,
+                self.model_class.group == group,
+            )
+            if factor_type is not None:
+                query = query.filter(self.model_class.factor_type == factor_type)
+            if subgroup is not None:
+                query = query.filter(self.model_class.subgroup == subgroup)
+            if frequency is not None:
+                query = query.filter(self.model_class.frequency == frequency)
+            if data_type is not None:
+                query = query.filter(self.model_class.data_type == data_type)
+            if source is not None:
+                query = query.filter(self.model_class.source == source)
+            return query.first()
+        except Exception as e:
+            print(f"Error in get_by_all CompanyShareOptionMidPriceFactor: {e}")
+            return None
+
     def _to_entity(self, infra_obj):
         """Convert ORM model to domain entity."""
         return self.mapper.to_domain(infra_obj)
+
     def _to_model(self, entity):
         """Convert domain entity to ORM model."""
         return self.mapper.to_orm(entity)

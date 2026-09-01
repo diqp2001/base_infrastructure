@@ -1,6 +1,7 @@
 import math
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_value_factor import CompanyShareOptionValueFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
@@ -46,29 +47,31 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
         from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
         return [
             DependencySpec(
-                factor_type=CompanyShareOptionFactor,
-                group="price",
+                factor_type=CompanyShareOptionValueFactor,
+                group="value",
                 frequency=DependencySpec.SELF,
-                source_not_in=["calculated"],
+                source_in=["calculated"],
             ),
             DependencySpec(
                 factor_type=CompanyShareValueFactor,
                 group="value",
-                # Do NOT inherit parent's frequency (5m) — the underlying stock value
-                # is a daily (1d) factor and the parent frequency would exclude it.
+                frequency=DependencySpec.SELF,
                 source_in=["calculated"],
             ),
             DependencySpec(
                 factor_type=CompanyShareOptionRFYieldFactor,
                 group="fundamental",
+                frequency=DependencySpec.SELF,
                 source_in=["calculated"],
             ),
         ]
     
 
-    def calculate(self, dependencies: dict, entity=None, target_date=None) -> Optional[float]:
+    def calculate(self, dependencies: dict) -> Optional[float]:
         """Compute implied vol from option market price (IBKR) via Newton-Raphson B-S inversion."""
-        raw = dependencies.get("CompanyShareOptionFactor")
+        entity = dependencies.get("entity")
+        target_date = dependencies.get("target_date")
+        raw = dependencies.get("CompanyShareOptionValueFactor")
         if raw is None:
             return None
         values = raw if isinstance(raw, list) else [raw]
@@ -98,6 +101,11 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
         strike_price = float(strike_price)
 
         expiry_date = getattr(entity, 'end_date', None)
+        if expiry_date is None:
+            expiry_str = getattr(entity, 'expiry', None)
+            if expiry_str:
+                from datetime import datetime as _dt
+                expiry_date = _dt.strptime(str(expiry_str), '%Y%m%d').date()
         if expiry_date is None:
             return None
 

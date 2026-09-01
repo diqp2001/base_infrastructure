@@ -137,7 +137,15 @@ class FactorValueResolutionService:
                         .filter(_FactorModel.id == _fid)
                         .scalar()
                     )
-                    if _disc and _disc in DISCRIMINATOR_CLASS_MAP:
+                    if _disc is None:
+                        # factor_id exists in-memory but has no DB row (was rolled back
+                        # or comes from a stale session object). Cannot save a value.
+                        self.logger.warning(
+                            f"Factor id={_fid} ({getattr(factor_entity, 'name', '?')}) "
+                            f"not found in factors table; skipping resolution."
+                        )
+                        return None
+                    if _disc in DISCRIMINATOR_CLASS_MAP:
                         _factor_domain_cls = DISCRIMINATOR_CLASS_MAP[_disc]
             except Exception:
                 pass
@@ -1528,6 +1536,13 @@ class FactorValueResolutionService:
                 # 1. calculate(dependencies) — receives the whole dict as one arg.
                 # 2. calculate(param_a, param_b, …) — individual named params matched
                 #    from dependency_values by name.
+                # Inject entity and target_date into the dependencies dict so that
+                # calculate(dependencies) can read them without extra parameters.
+                if kwargs.get('entity') is not None:
+                    dependency_values['entity'] = kwargs['entity']
+                if kwargs.get('target_date') is not None:
+                    dependency_values['target_date'] = kwargs['target_date']
+
                 call_kwargs = {}
                 if 'dependencies' in method_params:
                     call_kwargs['dependencies'] = dependency_values
@@ -1536,11 +1551,6 @@ class FactorValueResolutionService:
                         if param_name in dependency_values:
                             call_kwargs[param_name] = dependency_values[param_name]
 
-                # Explicitly pass entity and target_date when the method declares them
-                if 'entity' in method_params and 'entity' not in call_kwargs:
-                    call_kwargs['entity'] = kwargs.get('entity')
-                if 'target_date' in method_params and 'target_date' not in call_kwargs:
-                    call_kwargs['target_date'] = kwargs.get('target_date')
                 # Add any remaining extra kwargs that match method parameters
                 for key, value in kwargs.items():
                     if key in method_params and key not in call_kwargs:

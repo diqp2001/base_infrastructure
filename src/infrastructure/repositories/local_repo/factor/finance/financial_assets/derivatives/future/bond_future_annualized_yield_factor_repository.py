@@ -64,12 +64,12 @@ class BondFutureAnnualizedYieldFactorRepository(BaseFactorRepository, BondFuture
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'return'),
-                subgroup=kwargs.get('subgroup', 'daily'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'calculated'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}'),
+                group=kwargs.get('group') or 'return',
+                subgroup=kwargs.get('subgroup') or 'yield',
+                frequency=kwargs.get('frequency') or '5m',
+                data_type=kwargs.get('data_type') or 'decimal',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or f'{self.mapper.discriminator} factor: {primary_key}',
             )
 
             orm_factor = self._to_model(domain_factor)

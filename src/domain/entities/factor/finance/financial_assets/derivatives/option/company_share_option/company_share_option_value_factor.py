@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Dict, Any, Optional, List
 from decimal import Decimal
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor import CompanyShareOptionMidPriceFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
@@ -51,10 +52,27 @@ class CompanyShareOptionValueFactor(CompanyShareOptionFactor):
         raw = dependencies.get('CompanyShareOptionMidPriceFactor')
         if raw is None:
             return None
+        if isinstance(raw, list):
+            valid = [Decimal(str(v)) for v in raw if v is not None]
+            if not valid:
+                return None
+            return sum(valid) / len(valid)
         if hasattr(raw, 'value'):
             return Decimal(str(raw.value))
         return Decimal(str(raw))
 
+
+
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ['CompanyShareOptionMidPriceFactor']
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        return [
+            
+            DependencySpec(
+                factor_type=CompanyShareOptionMidPriceFactor,
+                group="price",
+                frequency=DependencySpec.SELF,
+                source_in=["calculated"],
+            ),
+            
+        ]
