@@ -258,6 +258,20 @@ from src.infrastructure.repositories.local_repo.backtest.backtest_factor_backtes
 from src.infrastructure.repositories.local_repo.factor.backtest.backtest_factor_repository import BacktestFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.backtest.ibkr_backtest_factor_repository import IBKRBacktestFactorRepository
 
+# Investment Universe repositories
+from src.infrastructure.repositories.local_repo.universe.universe_repository import UniverseRepository as InvestmentUniverseRepository
+from src.infrastructure.repositories.local_repo.universe.universe_constituent_repository import UniverseConstituentRepository
+
+# ML repositories
+from src.infrastructure.repositories.local_repo.ml.ml_model_repository import MLModelRepository
+from src.infrastructure.repositories.local_repo.ml.model_feature_repository import ModelFeatureRepository
+from src.infrastructure.repositories.local_repo.ml.model_training_repository import ModelTrainingRepository
+from src.infrastructure.repositories.local_repo.ml.training_metric_repository import TrainingMetricRepository
+from src.infrastructure.repositories.local_repo.ml.model_artifact_repository import ModelArtifactRepository
+
+# ConstituentScoreFactor repository
+from src.infrastructure.repositories.local_repo.factor.constituent_score_factor_repository import ConstituentScoreFactorRepository
+
 
 class RepositoryFactory:
     """
@@ -460,6 +474,20 @@ class RepositoryFactory:
                 'Universe': UniverseRepository(self.session, factory=self),
                 'BacktestFactorBacktest': BacktestFactorBacktestRepository(self.session, factory=self),
                 'BacktestFactor': BacktestFactorRepository(self.session, factory=self),
+
+                # Investment Universe repositories
+                'InvestmentUniverse': InvestmentUniverseRepository(self.session, factory=self),
+                'UniverseConstituent': UniverseConstituentRepository(self.session, factory=self),
+
+                # ML repositories
+                'MLModel': MLModelRepository(self.session, factory=self),
+                'ModelFeature': ModelFeatureRepository(self.session, factory=self),
+                'ModelTraining': ModelTrainingRepository(self.session, factory=self),
+                'TrainingMetric': TrainingMetricRepository(self.session, factory=self),
+                'ModelArtifact': ModelArtifactRepository(self.session, factory=self),
+
+                # ConstituentScoreFactor
+                'ConstituentScoreFactor': ConstituentScoreFactorRepository(self.session, factory=self),
             }
         return self._local_repositories
 
@@ -1673,3 +1701,37 @@ class RepositoryFactory:
     def company_share_vpt_52w_20d_lag_factor_ibkr_repo(self):
         """Get company_share_vpt_52w_20d_lag_factor repository for dependency injection."""
         return self.get_ibkr_repository('CompanyShareVpt52w20dLagFactor')
+
+    # Investment Universe properties
+    @property
+    def investment_universe_local_repo(self):
+        return self.get_local_repository('InvestmentUniverse')
+
+    @property
+    def universe_constituent_local_repo(self):
+        return self.get_local_repository('UniverseConstituent')
+
+    # ML properties
+    @property
+    def ml_model_local_repo(self):
+        return self.get_local_repository('MLModel')
+
+    @property
+    def model_feature_local_repo(self):
+        return self.get_local_repository('ModelFeature')
+
+    @property
+    def model_training_local_repo(self):
+        return self.get_local_repository('ModelTraining')
+
+    @property
+    def training_metric_local_repo(self):
+        return self.get_local_repository('TrainingMetric')
+
+    @property
+    def model_artifact_local_repo(self):
+        return self.get_local_repository('ModelArtifact')
+
+    @property
+    def constituent_score_factor_local_repo(self):
+        return self.get_local_repository('ConstituentScoreFactor')

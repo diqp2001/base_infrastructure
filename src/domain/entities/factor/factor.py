@@ -70,9 +70,10 @@ class Factor(ABC):
         # volatility
         "realized":       {"label": "Realized",        "typical_group": "volatility"},
         "implied":        {"label": "Implied",         "typical_group": "volatility"},
-        # technical
+        # technical / ML scores
         "signal":         {"label": "Signal",          "typical_group": "technical"},
         "indicator":      {"label": "Indicator",       "typical_group": "technical"},
+        "score":          {"label": "Score",           "typical_group": "fundamental"},
         # bond / fixed income
         "yield":          {"label": "Yield",           "typical_group": "bond"},
         "spread":         {"label": "Spread",          "typical_group": "bond"},

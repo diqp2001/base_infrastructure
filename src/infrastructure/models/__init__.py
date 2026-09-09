@@ -68,6 +68,15 @@ from src.infrastructure.models.finance.financial_assets.derivative.forward_contr
 from src.infrastructure.models.factor.factor import FactorModel
 from src.infrastructure.models.factor.factor_value import FactorValueModel
 from src.infrastructure.models.factor.factor_dependency import FactorDependencyModel
+
+# Investment Universe and ML models (must come after FactorModel for FK resolution)
+from src.infrastructure.models.universe.universe import UniverseModel
+from src.infrastructure.models.universe.universe_constituent import UniverseConstituentModel
+from src.infrastructure.models.ml.ml_model import MLModelModel
+from src.infrastructure.models.ml.model_feature import ModelFeatureModel
+from src.infrastructure.models.ml.model_training import ModelTrainingModel
+from src.infrastructure.models.ml.training_metric import TrainingMetricModel
+from src.infrastructure.models.ml.model_artifact import ModelArtifactModel
 # Swap instruments
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel
@@ -164,5 +173,7 @@ __all__ = [
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
+    'UniverseModel', 'UniverseConstituentModel',
+    'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
     'ensure_models_registered'
 ]

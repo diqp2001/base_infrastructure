@@ -624,11 +624,11 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
     def get_or_create_batch_optimized(self, entities_data, **kwargs):
         """
         Optimized batch method for EntityService integration.
-        
+
         Args:
             entities_data: List of dictionaries containing entity data for batch processing
             **kwargs: Additional parameters for batch processing
-            
+
         Returns:
             List of resolved FactorValue entities
         """
@@ -636,14 +636,35 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             if not entities_data:
                 print("Cannot process empty entities_data")
                 return []
-            
+
             print(f"Processing optimized batch with {len(entities_data)} entities via resolution service")
             return self.resolution_service.resolve_factor_values_optimized_batch(
                 entities_data=entities_data,
                 repository_type="local",
                 **kwargs
             )
-            
+
         except Exception as e:
             print(f"Error in local repository optimized batch processing: {e}")
             return []
+
+    def resolve_batch(self, factor_entity, entities, target_dates, repository_type="local", **kwargs):
+        """
+        Resolve factor values for multiple entities across multiple dates using
+        FactorValueBatchResolutionService (DFS topological order, lag propagation).
+
+        Args:
+            factor_entity: Root Factor domain entity to resolve.
+            entities: List of domain entities (e.g. CompanyShare) to resolve for.
+            target_dates: List of datetime objects — dates to resolve the root factor at.
+            repository_type: "local" (default) or "ibkr".
+            **kwargs: Forwarded to the underlying resolver.
+
+        Returns:
+            BatchResolutionResult with execution_order, resolved_values, and failed entries.
+        """
+        from src.application.services.data.entities.factor.factor_value_batch_resolution_service import (
+            FactorValueBatchResolutionService,
+        )
+        svc = FactorValueBatchResolutionService(factory=self.factory)
+        return svc.resolve_batch(factor_entity, entities, target_dates, repository_type, **kwargs)

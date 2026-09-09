@@ -43,6 +43,11 @@ class FactorModel(Base):
     def __repr__(self):
         return f"<Factor(id={self.id}, name={self.name}, group={self.group})>"
 
+class ConstituentScoreFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "constituent_score_factor"
+    }
+
 class CompanyShareFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_factor"

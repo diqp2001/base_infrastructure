@@ -81,6 +81,7 @@ from src.domain.entities.factor.finance.order.company_share_order_price_factor i
 
 # Import portfolio value factor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor as PortfolioValueFactorEntity
+from src.domain.entities.factor.constituent_score_factor import ConstituentScoreFactor as ConstituentScoreFactorEntity
 
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
@@ -275,6 +276,7 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_order_quantity_factor': CompanyShareOrderQuantityFactorEntity,
     'company_share_order_price_factor': CompanyShareOrderPriceFactorEntity,
     'portfolio_value_factor': PortfolioValueFactorEntity,
+    'constituent_score_factor': ConstituentScoreFactorEntity,
 }
 
 # Lazy entries to avoid circular imports at module load time.
@@ -508,6 +510,8 @@ class FactorMapper:
                 **base_args,
 
             )
+        elif factor_type == 'constituent_score_factor':
+            return ConstituentScoreFactorEntity(**base_args)
         elif factor_type == 'backtest_factor':
             from src.domain.entities.factor.backtest.backtest_factor import BacktestFactor
             return BacktestFactor(**base_args)

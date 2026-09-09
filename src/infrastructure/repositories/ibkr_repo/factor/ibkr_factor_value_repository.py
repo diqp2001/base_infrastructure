@@ -645,8 +645,29 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in optimized get_or_create_batch: {e}")
             return None
     
-    def _process_batch_with_ibkr_bulk_data(self, factor_batch: FactorBatch, 
-                                          what_to_show: str, duration_str: str, 
+    def resolve_batch(self, factor_entity, entities, target_dates, repository_type="ibkr", **kwargs):
+        """
+        Resolve factor values for multiple entities across multiple dates using
+        FactorValueBatchResolutionService (DFS topological order, lag propagation).
+
+        Args:
+            factor_entity: Root Factor domain entity to resolve.
+            entities: List of domain entities (e.g. CompanyShare) to resolve for.
+            target_dates: List of datetime objects — dates to resolve the root factor at.
+            repository_type: "ibkr" (default) or "local".
+            **kwargs: Forwarded to the underlying resolver (e.g. what_to_show, duration_str).
+
+        Returns:
+            BatchResolutionResult with execution_order, resolved_values, and failed entries.
+        """
+        from src.application.services.data.entities.factor.factor_value_batch_resolution_service import (
+            FactorValueBatchResolutionService,
+        )
+        svc = FactorValueBatchResolutionService(factory=self.factory)
+        return svc.resolve_batch(factor_entity, entities, target_dates, repository_type, **kwargs)
+
+    def _process_batch_with_ibkr_bulk_data(self, factor_batch: FactorBatch,
+                                          what_to_show: str, duration_str: str,
                                           bar_size_setting: str) -> Optional[FactorValueBatch]:
         """
         IBKR-specific bulk data processing fallback method.
