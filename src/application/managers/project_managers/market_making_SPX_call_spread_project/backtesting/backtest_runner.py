@@ -44,6 +44,15 @@ class BacktestRunner(BaseBacktestRunner):
             self.model_trainer = ModelTrainer(self.database_service)
             self.logger.info("✅ Model trainer initialized")
 
+            # Wire universe name so MarketDataService registers Universe entities
+            # on the first bar (after all financial entities are created by IBKR fetch)
+            project_name = config.get('project_name', 'market_making_spx_call_spread')
+            try:
+                mds = self.model_trainer.data_loader.market_data_service
+                mds._universe_name = project_name
+            except AttributeError:
+                pass
+
             self.strategy = Strategy(config)
             self.logger.info("✅ Strategy initialized")
 

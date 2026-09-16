@@ -22,8 +22,68 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_atm_implied_vol_factor_repository import CompanyShareATMImpliedVolFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_atm_implied_vol_factor_repository import IBKRCompanyShareATMImpliedVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor_repository import CompanyShareLGBMCSQuintileRankMomentumFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_lgbm_cs_quintile_rank_momentum_factor_repository import IBKRCompanyShareLGBMCSQuintileRankMomentumFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_value_factor_repository import CompanyShareValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_repository import CompanyShareMidPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_technical_momentum_factor_repositories import (
+    CompanyShareReturn1DFactorRepository, CompanyShareReturn5DFactorRepository,
+    CompanyShareReturn10DFactorRepository, CompanyShareReturn20DFactorRepository,
+    CompanyShareReturn1MFactorRepository, CompanyShareReturn2MFactorRepository,
+    CompanyShareReturn3MFactorRepository, CompanyShareReturn4MFactorRepository,
+    CompanyShareReturn5MFactorRepository, CompanyShareReturnYTDFactorRepository,
+    CompanySharePriceVsMA5FactorRepository, CompanySharePriceVsMA10FactorRepository,
+    CompanySharePriceVsMA20FactorRepository, CompanySharePriceVsMA50FactorRepository,
+    CompanySharePriceVsMA100FactorRepository, CompanyShareMA5VsMA10FactorRepository,
+    CompanyShareMA10VsMA20FactorRepository, CompanyShareMA20VsMA50FactorRepository,
+    CompanyShareMA50VsMA100FactorRepository,
+    CompanyShareTrendSlope5DFactorRepository, CompanyShareTrendSlope10DFactorRepository,
+    CompanyShareTrendSlope20DFactorRepository, CompanyShareTrendSlope50DFactorRepository,
+    CompanyShareTrendSlope100DFactorRepository, CompanyShareMomentumSlope10DFactorRepository,
+    CompanyShareMomentumSlope20DFactorRepository, CompanyShareMomentumSlope50DFactorRepository,
+    CompanyShareMomentumAcceleration5D10DFactorRepository, CompanyShareMomentumAcceleration10D20DFactorRepository,
+    CompanyShareMomentumAcceleration20D50DFactorRepository, CompanyShareReturnChange5DFactorRepository,
+    CompanyShareReturnChange10DFactorRepository, CompanyShareReturnChange20DFactorRepository,
+    CompanyShareSharpe10DFactorRepository, CompanyShareSharpe20DFactorRepository,
+    CompanyShareSharpe50DFactorRepository, CompanyShareSharpe100DFactorRepository,
+    CompanyShareSortino20DFactorRepository, CompanyShareSortino50DFactorRepository,
+    CompanyShareSortino100DFactorRepository,
+    CompanyShareDistanceFrom5MHighFactorRepository, CompanyShareDistanceFrom5MLowFactorRepository,
+    CompanyShareDrawdownFrom5MHighFactorRepository, CompanyShareDaysSince5MHighFactorRepository,
+    CompanyShareDaysSince5MLowFactorRepository,
+    CompanyShareShortTermMomentumFactorRepository, CompanyShareMediumTermMomentumFactorRepository,
+    CompanyShareShortVsMediumMomentumFactorRepository, CompanyShareMomentumZScore20DFactorRepository,
+    CompanyShareMomentumZScore50DFactorRepository, CompanyShareMomentumZScore100DFactorRepository,
+)
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_technical_momentum_factor_repositories import (
+    IBKRCompanyShareReturn1DFactorRepository, IBKRCompanyShareReturn5DFactorRepository,
+    IBKRCompanyShareReturn10DFactorRepository, IBKRCompanyShareReturn20DFactorRepository,
+    IBKRCompanyShareReturn1MFactorRepository, IBKRCompanyShareReturn2MFactorRepository,
+    IBKRCompanyShareReturn3MFactorRepository, IBKRCompanyShareReturn4MFactorRepository,
+    IBKRCompanyShareReturn5MFactorRepository, IBKRCompanyShareReturnYTDFactorRepository,
+    IBKRCompanySharePriceVsMA5FactorRepository, IBKRCompanySharePriceVsMA10FactorRepository,
+    IBKRCompanySharePriceVsMA20FactorRepository, IBKRCompanySharePriceVsMA50FactorRepository,
+    IBKRCompanySharePriceVsMA100FactorRepository, IBKRCompanyShareMA5VsMA10FactorRepository,
+    IBKRCompanyShareMA10VsMA20FactorRepository, IBKRCompanyShareMA20VsMA50FactorRepository,
+    IBKRCompanyShareMA50VsMA100FactorRepository,
+    IBKRCompanyShareTrendSlope5DFactorRepository, IBKRCompanyShareTrendSlope10DFactorRepository,
+    IBKRCompanyShareTrendSlope20DFactorRepository, IBKRCompanyShareTrendSlope50DFactorRepository,
+    IBKRCompanyShareTrendSlope100DFactorRepository, IBKRCompanyShareMomentumSlope10DFactorRepository,
+    IBKRCompanyShareMomentumSlope20DFactorRepository, IBKRCompanyShareMomentumSlope50DFactorRepository,
+    IBKRCompanyShareMomentumAcceleration5D10DFactorRepository, IBKRCompanyShareMomentumAcceleration10D20DFactorRepository,
+    IBKRCompanyShareMomentumAcceleration20D50DFactorRepository, IBKRCompanyShareReturnChange5DFactorRepository,
+    IBKRCompanyShareReturnChange10DFactorRepository, IBKRCompanyShareReturnChange20DFactorRepository,
+    IBKRCompanyShareSharpe10DFactorRepository, IBKRCompanyShareSharpe20DFactorRepository,
+    IBKRCompanyShareSharpe50DFactorRepository, IBKRCompanyShareSharpe100DFactorRepository,
+    IBKRCompanyShareSortino20DFactorRepository, IBKRCompanyShareSortino50DFactorRepository,
+    IBKRCompanyShareSortino100DFactorRepository,
+    IBKRCompanyShareDistanceFrom5MHighFactorRepository, IBKRCompanyShareDistanceFrom5MLowFactorRepository,
+    IBKRCompanyShareDrawdownFrom5MHighFactorRepository, IBKRCompanyShareDaysSince5MHighFactorRepository,
+    IBKRCompanyShareDaysSince5MLowFactorRepository,
+    IBKRCompanyShareShortTermMomentumFactorRepository, IBKRCompanyShareMediumTermMomentumFactorRepository,
+    IBKRCompanyShareShortVsMediumMomentumFactorRepository, IBKRCompanyShareMomentumZScore20DFactorRepository,
+    IBKRCompanyShareMomentumZScore50DFactorRepository, IBKRCompanyShareMomentumZScore100DFactorRepository,
+)
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_value_factor_repository import CurrencyValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_rate_factor_repository import CurrencyRateFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_yield_factor_repository import CurrencyYieldFactorRepository
@@ -124,6 +184,8 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_vol_factor_repository import CompanySharePortfolioOptionImpliedVolFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_implied_div_yield_factor_repository import CompanySharePortfolioOptionImpliedDivYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor_repository import CompanyShareOptionImpliedVolFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_ml_factor_repository import CompanyShareOptionImpliedVolMlFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_implied_vol_ml_factor_repository import IBKRCompanyShareOptionImpliedVolMlFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor_repository import CompanyShareOptionMidPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor_repository import CompanyShareOptionImpliedDivYieldFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor_repository import CompanyShareOptionRFYieldFactorRepository
@@ -353,6 +415,7 @@ class RepositoryFactory:
                 'CompanySharePortfolioOptionImpliedVolFactor': CompanySharePortfolioOptionImpliedVolFactorRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionImpliedDivYieldFactor': CompanySharePortfolioOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedVolFactor': CompanyShareOptionImpliedVolFactorRepository(self.session, factory=self),
+                'CompanyShareOptionImpliedVolMlFactor': CompanyShareOptionImpliedVolMlFactorRepository(self.session, factory=self),
                 'CompanyShareOptionMidPriceFactor': CompanyShareOptionMidPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedDivYieldFactor': CompanyShareOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionRFYieldFactor': CompanyShareOptionRFYieldFactorRepository(self.session, factory=self),
@@ -426,6 +489,7 @@ class RepositoryFactory:
                 'CompanyShareMonthlyPriceRangeFactor': CompanyShareMonthlyPriceRangeFactorRepository(self.session, factory=self),
                 'CompanyShareVpt52w20dLagFactor': CompanyShareVpt52w20dLagFactorRepository(self.session, factory=self),
                 'CompanyShareATMImpliedVolFactor': CompanyShareATMImpliedVolFactorRepository(self.session, factory=self),
+                'CompanyShareLGBMCSQuintileRankMomentumFactor': CompanyShareLGBMCSQuintileRankMomentumFactorRepository(self.session, factory=self),
                 'Currency': CurrencyRepository(self.session, factory=self),
                 'Bond': BondRepository(self.session, factory=self),
                 'Index': IndexRepository(self.session, factory=self),
@@ -488,6 +552,59 @@ class RepositoryFactory:
 
                 # ConstituentScoreFactor
                 'ConstituentScoreFactor': ConstituentScoreFactorRepository(self.session, factory=self),
+
+                # Technical / Momentum CompanyShare factors
+                'CompanyShareReturn1DFactor': CompanyShareReturn1DFactorRepository(self.session, factory=self),
+                'CompanyShareReturn5DFactor': CompanyShareReturn5DFactorRepository(self.session, factory=self),
+                'CompanyShareReturn10DFactor': CompanyShareReturn10DFactorRepository(self.session, factory=self),
+                'CompanyShareReturn20DFactor': CompanyShareReturn20DFactorRepository(self.session, factory=self),
+                'CompanyShareReturn1MFactor': CompanyShareReturn1MFactorRepository(self.session, factory=self),
+                'CompanyShareReturn2MFactor': CompanyShareReturn2MFactorRepository(self.session, factory=self),
+                'CompanyShareReturn3MFactor': CompanyShareReturn3MFactorRepository(self.session, factory=self),
+                'CompanyShareReturn4MFactor': CompanyShareReturn4MFactorRepository(self.session, factory=self),
+                'CompanyShareReturn5MFactor': CompanyShareReturn5MFactorRepository(self.session, factory=self),
+                'CompanyShareReturnYTDFactor': CompanyShareReturnYTDFactorRepository(self.session, factory=self),
+                'CompanySharePriceVsMA5Factor': CompanySharePriceVsMA5FactorRepository(self.session, factory=self),
+                'CompanySharePriceVsMA10Factor': CompanySharePriceVsMA10FactorRepository(self.session, factory=self),
+                'CompanySharePriceVsMA20Factor': CompanySharePriceVsMA20FactorRepository(self.session, factory=self),
+                'CompanySharePriceVsMA50Factor': CompanySharePriceVsMA50FactorRepository(self.session, factory=self),
+                'CompanySharePriceVsMA100Factor': CompanySharePriceVsMA100FactorRepository(self.session, factory=self),
+                'CompanyShareMA5VsMA10Factor': CompanyShareMA5VsMA10FactorRepository(self.session, factory=self),
+                'CompanyShareMA10VsMA20Factor': CompanyShareMA10VsMA20FactorRepository(self.session, factory=self),
+                'CompanyShareMA20VsMA50Factor': CompanyShareMA20VsMA50FactorRepository(self.session, factory=self),
+                'CompanyShareMA50VsMA100Factor': CompanyShareMA50VsMA100FactorRepository(self.session, factory=self),
+                'CompanyShareTrendSlope5DFactor': CompanyShareTrendSlope5DFactorRepository(self.session, factory=self),
+                'CompanyShareTrendSlope10DFactor': CompanyShareTrendSlope10DFactorRepository(self.session, factory=self),
+                'CompanyShareTrendSlope20DFactor': CompanyShareTrendSlope20DFactorRepository(self.session, factory=self),
+                'CompanyShareTrendSlope50DFactor': CompanyShareTrendSlope50DFactorRepository(self.session, factory=self),
+                'CompanyShareTrendSlope100DFactor': CompanyShareTrendSlope100DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumSlope10DFactor': CompanyShareMomentumSlope10DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumSlope20DFactor': CompanyShareMomentumSlope20DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumSlope50DFactor': CompanyShareMomentumSlope50DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumAcceleration5D10DFactor': CompanyShareMomentumAcceleration5D10DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumAcceleration10D20DFactor': CompanyShareMomentumAcceleration10D20DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumAcceleration20D50DFactor': CompanyShareMomentumAcceleration20D50DFactorRepository(self.session, factory=self),
+                'CompanyShareReturnChange5DFactor': CompanyShareReturnChange5DFactorRepository(self.session, factory=self),
+                'CompanyShareReturnChange10DFactor': CompanyShareReturnChange10DFactorRepository(self.session, factory=self),
+                'CompanyShareReturnChange20DFactor': CompanyShareReturnChange20DFactorRepository(self.session, factory=self),
+                'CompanyShareSharpe10DFactor': CompanyShareSharpe10DFactorRepository(self.session, factory=self),
+                'CompanyShareSharpe20DFactor': CompanyShareSharpe20DFactorRepository(self.session, factory=self),
+                'CompanyShareSharpe50DFactor': CompanyShareSharpe50DFactorRepository(self.session, factory=self),
+                'CompanyShareSharpe100DFactor': CompanyShareSharpe100DFactorRepository(self.session, factory=self),
+                'CompanyShareSortino20DFactor': CompanyShareSortino20DFactorRepository(self.session, factory=self),
+                'CompanyShareSortino50DFactor': CompanyShareSortino50DFactorRepository(self.session, factory=self),
+                'CompanyShareSortino100DFactor': CompanyShareSortino100DFactorRepository(self.session, factory=self),
+                'CompanyShareDistanceFrom5MHighFactor': CompanyShareDistanceFrom5MHighFactorRepository(self.session, factory=self),
+                'CompanyShareDistanceFrom5MLowFactor': CompanyShareDistanceFrom5MLowFactorRepository(self.session, factory=self),
+                'CompanyShareDrawdownFrom5MHighFactor': CompanyShareDrawdownFrom5MHighFactorRepository(self.session, factory=self),
+                'CompanyShareDaysSince5MHighFactor': CompanyShareDaysSince5MHighFactorRepository(self.session, factory=self),
+                'CompanyShareDaysSince5MLowFactor': CompanyShareDaysSince5MLowFactorRepository(self.session, factory=self),
+                'CompanyShareShortTermMomentumFactor': CompanyShareShortTermMomentumFactorRepository(self.session, factory=self),
+                'CompanyShareMediumTermMomentumFactor': CompanyShareMediumTermMomentumFactorRepository(self.session, factory=self),
+                'CompanyShareShortVsMediumMomentumFactor': CompanyShareShortVsMediumMomentumFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumZScore20DFactor': CompanyShareMomentumZScore20DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumZScore50DFactor': CompanyShareMomentumZScore50DFactorRepository(self.session, factory=self),
+                'CompanyShareMomentumZScore100DFactor': CompanyShareMomentumZScore100DFactorRepository(self.session, factory=self),
             }
         return self._local_repositories
 
@@ -555,6 +672,7 @@ class RepositoryFactory:
                 'CompanyShareMonthlyPriceRangeFactor': IBKRCompanyShareMonthlyPriceRangeFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareVpt52w20dLagFactor': IBKRCompanyShareVpt52w20dLagFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareATMImpliedVolFactor': IBKRCompanyShareATMImpliedVolFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareLGBMCSQuintileRankMomentumFactor': IBKRCompanyShareLGBMCSQuintileRankMomentumFactorRepository(ibkr_client=client, factory=self),
                 'PortfolioCompanyShareOptionFactor': IBKRPortfolioCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionDeltaFactor': IBKRCompanyShareOptionDeltaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionFactor': IBKRCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
@@ -565,6 +683,7 @@ class RepositoryFactory:
                 'CompanyShareOptionRhoFactor': IBKRCompanyShareOptionRhoFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionVegaFactor': IBKRCompanyShareOptionVegaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionRFYieldFactor': IBKRCompanyShareOptionRFYieldFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionImpliedVolMlFactor': IBKRCompanyShareOptionImpliedVolMlFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionValueFactor': IBKRCompanyShareOptionValueFactorRepository(ibkr_client=client, factory=self),
                 # Advanced Options Pricing Model Repositories - IBKR
                 'CompanyShareOptionBlackScholesMertonPriceFactor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(ibkr_client=client, factory=self),
@@ -621,6 +740,59 @@ class RepositoryFactory:
 
                 # Backtest factor IBKR repository
                 'BacktestFactor': IBKRBacktestFactorRepository(ibkr_client=client, factory=self),
+
+                # Technical / Momentum CompanyShare IBKR factor repos
+                'CompanyShareReturn1DFactor': IBKRCompanyShareReturn1DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn5DFactor': IBKRCompanyShareReturn5DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn10DFactor': IBKRCompanyShareReturn10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn20DFactor': IBKRCompanyShareReturn20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn1MFactor': IBKRCompanyShareReturn1MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn2MFactor': IBKRCompanyShareReturn2MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn3MFactor': IBKRCompanyShareReturn3MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn4MFactor': IBKRCompanyShareReturn4MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturn5MFactor': IBKRCompanyShareReturn5MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturnYTDFactor': IBKRCompanyShareReturnYTDFactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceVsMA5Factor': IBKRCompanySharePriceVsMA5FactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceVsMA10Factor': IBKRCompanySharePriceVsMA10FactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceVsMA20Factor': IBKRCompanySharePriceVsMA20FactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceVsMA50Factor': IBKRCompanySharePriceVsMA50FactorRepository(ibkr_client=client, factory=self),
+                'CompanySharePriceVsMA100Factor': IBKRCompanySharePriceVsMA100FactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMA5VsMA10Factor': IBKRCompanyShareMA5VsMA10FactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMA10VsMA20Factor': IBKRCompanyShareMA10VsMA20FactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMA20VsMA50Factor': IBKRCompanyShareMA20VsMA50FactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMA50VsMA100Factor': IBKRCompanyShareMA50VsMA100FactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTrendSlope5DFactor': IBKRCompanyShareTrendSlope5DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTrendSlope10DFactor': IBKRCompanyShareTrendSlope10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTrendSlope20DFactor': IBKRCompanyShareTrendSlope20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTrendSlope50DFactor': IBKRCompanyShareTrendSlope50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTrendSlope100DFactor': IBKRCompanyShareTrendSlope100DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumSlope10DFactor': IBKRCompanyShareMomentumSlope10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumSlope20DFactor': IBKRCompanyShareMomentumSlope20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumSlope50DFactor': IBKRCompanyShareMomentumSlope50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumAcceleration5D10DFactor': IBKRCompanyShareMomentumAcceleration5D10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumAcceleration10D20DFactor': IBKRCompanyShareMomentumAcceleration10D20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumAcceleration20D50DFactor': IBKRCompanyShareMomentumAcceleration20D50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturnChange5DFactor': IBKRCompanyShareReturnChange5DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturnChange10DFactor': IBKRCompanyShareReturnChange10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareReturnChange20DFactor': IBKRCompanyShareReturnChange20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSharpe10DFactor': IBKRCompanyShareSharpe10DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSharpe20DFactor': IBKRCompanyShareSharpe20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSharpe50DFactor': IBKRCompanyShareSharpe50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSharpe100DFactor': IBKRCompanyShareSharpe100DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSortino20DFactor': IBKRCompanyShareSortino20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSortino50DFactor': IBKRCompanyShareSortino50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSortino100DFactor': IBKRCompanyShareSortino100DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareDistanceFrom5MHighFactor': IBKRCompanyShareDistanceFrom5MHighFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareDistanceFrom5MLowFactor': IBKRCompanyShareDistanceFrom5MLowFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareDrawdownFrom5MHighFactor': IBKRCompanyShareDrawdownFrom5MHighFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareDaysSince5MHighFactor': IBKRCompanyShareDaysSince5MHighFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareDaysSince5MLowFactor': IBKRCompanyShareDaysSince5MLowFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareShortTermMomentumFactor': IBKRCompanyShareShortTermMomentumFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMediumTermMomentumFactor': IBKRCompanyShareMediumTermMomentumFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareShortVsMediumMomentumFactor': IBKRCompanyShareShortVsMediumMomentumFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumZScore20DFactor': IBKRCompanyShareMomentumZScore20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumZScore50DFactor': IBKRCompanyShareMomentumZScore50DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMomentumZScore100DFactor': IBKRCompanyShareMomentumZScore100DFactorRepository(ibkr_client=client, factory=self),
             }
         return self._ibkr_repositories
 
@@ -1735,3 +1907,7 @@ class RepositoryFactory:
     @property
     def constituent_score_factor_local_repo(self):
         return self.get_local_repository('ConstituentScoreFactor')
+
+    @property
+    def company_share_option_implied_vol_ml_factor_local_repo(self):
+        return self.get_local_repository('CompanyShareOptionImpliedVolMlFactor')

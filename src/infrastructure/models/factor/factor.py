@@ -232,6 +232,12 @@ class CompanyShareOptionImpliedVolFactorModel(FactorModel):
     }
 
 
+class CompanyShareOptionImpliedVolMlFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_implied_vol_ml_factor"
+    }
+
+
 class CompanyShareOptionImpliedDivYieldFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_implied_div_yield_factor"
@@ -514,3 +520,7 @@ class BacktestFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "backtest_factor"
     }
+
+
+# Technical / Momentum factor models (separate file to keep this file manageable)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import *  # noqa: E402, F401, F403

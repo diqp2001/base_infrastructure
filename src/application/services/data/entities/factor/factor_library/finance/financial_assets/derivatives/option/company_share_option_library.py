@@ -9,6 +9,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_price_return_factor import CompanyShareOptionPriceReturnFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_ml_factor import CompanyShareOptionImpliedVolMlFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor
@@ -107,6 +108,19 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 "dependencies": [],
                 "parameters": {}
             },
+
+            "implied_vol_ml": {
+                    "class": CompanyShareOptionImpliedVolMlFactor,
+                    "name": "implied_vol_ml",
+                    "group": "volatility",
+                    "subgroup": "implied",
+                    "frequency": "5m",
+                    "data_type": "numeric",
+                    "source": "calculated",
+                    "description": "ML-predicted implied volatility of a company share option; trained on analytical implied vol values; auto-trains on regime change",
+                    "dependencies": {},
+                    "parameters": {}
+                },
 
     "rf_yield": {
         "class": CompanyShareOptionRFYieldFactor,
@@ -216,6 +230,8 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "dependencies": {},
         "parameters": {}
     },
+
+    
 
     "implied_div_yield": {
         "class": CompanyShareOptionImpliedDivYieldFactor,

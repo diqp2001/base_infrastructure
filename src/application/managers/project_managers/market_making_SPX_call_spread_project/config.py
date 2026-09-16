@@ -30,7 +30,7 @@ DATA_PATH = BASE_PROJECT_ROOT / "data"
 # Database Configuration
 CONFIG_TEST = {
     'DB_TYPE': 'sql_server',
-    
+
     'DB_PATH': BASE_PROJECT_ROOT / 'base_infrastructure.db',
     'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db'
 }
@@ -49,16 +49,16 @@ DEFAULT_CONFIG = {
         # CompanySharePortfolio: {"args": {"name": "SPY_ETF"}, "components": {CompanyShare:["SPY"]}},
         # CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["SPY_ETF"]},
         #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_ETF_Portfolio_Option_C_20281215_100","underlying_name":"SPY_ETF"}
-        #    
+        #
         #                            },
         #
         #IndexBond :["SOFR3"],
-        BondFuture: ["SR3Z6"],
+        #BondFuture: ["SR3Z6"],
         CompanyShare: ["AAPL","MSFT","SPY"],
-        CompanyShareOption: ["SPY  281215C00770000"
-                            #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
-                             ],
-        
+        # CompanyShareOption: ["SPY  281215C00770000","SPY  281215C00775000","SPY  281215C00780000","SPY  281215C00765000","SPY  281215C00760000"
+        #                     #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
+        #                      ],
+
         #"AAPL  281215C00300000",
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
@@ -78,38 +78,38 @@ DEFAULT_CONFIG = {
     'underlying_symbol': 'SPX',
     'underlying_exchange': 'CBOE',
     'underlying_currency': 'USD',
-    
+
     # Call Spread Configuration
     'spread_type': 'bull_call_spread',  # or 'bear_call_spread'
     'default_dte_range': (7, 45),  # Days to expiration range
     'default_delta_range': (0.15, 0.45),  # Delta range for strikes
     'max_spread_width': 50,  # Maximum spread width in points
-    
+
     # Market Data Configuration
     'historical_data_duration': '6 M',  # 6 months of historical data
-    'bar_size_setting': '5 mins',#5 mins
+    'bar_size_setting': '5 mins',#5 mins 1 day
     'duration_str': '2 D',
     'option_data_duration': '30 D',  # 30 days of option data
     'max_import_ibkr': True,
-    
+
     # Risk Management
     'max_position_size': 10,  # Maximum number of spreads
     'max_daily_loss': 5000,  # Maximum daily loss in USD
     'max_gamma_exposure': 1000,  # Maximum gamma exposure
     'min_time_to_expiry': 7,  # Minimum days to expiry before closing
-    
+
     # Pricing Configuration
     'volatility_model': 'implied',  # 'implied' or 'historical'
     'interest_rate': 0.05,  # Risk-free rate
     'dividend_yield': 0.015,  # SPX dividend yield
-    
+
     # Trading Configuration
     'trading_hours': {
         'start': '09:30',
         'end': '16:00',
         'timezone': 'US/Eastern'
     },
-    
+
     # Backtesting Configuration
     # 'backtest_start': '2026-02-02 09:30:00',
     # 'backtest_end': '2026-02-04 14:30:00',
@@ -122,22 +122,52 @@ DEFAULT_CONFIG = {
     'config_interval' : {'custom_interval_minutes': 5},
     'initial_capital': 100000,
     'commission_per_contract': 0.65,
-    
+
     # Model Training
     'model_type' : "pricing",
     'training_window': 252,  # 1 year of trading days
     'validation_split': 0.2,
     'test_split': 0.2,
-    
+
     # Factors for modeling - only future_index_library and index_library factors
     'factors': [
-        # Branch A dependency chain for implied_volatility_calculated, deepest first
-        FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
-        FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
-        FACTOR_LIBRARY["company_share_library"]["company_share_value"],      # CompanyShareValueFactor (depends on CompanyShareMidPriceFactor, Branch B leaf)
-        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],
-        FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
-        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
+        # ── Branch A dependency chain for implied_volatility_calculated, deepest first ──
+        #FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
+        #FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
+        #FACTOR_LIBRARY["company_share_library"]["company_share_value"],      # CompanyShareValueFactor (depends on CompanyShareMidPriceFactor, Branch B leaf)
+        #FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],
+        #FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
+        #FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
+       #FACTOR_LIBRARY["company_share_option_library"]["implied_vol_ml"],               # ML-predicted IV (trained on implied_volatility_calculated; depends on rf_yield, company_share_value, company_share_option_value)
+
+        # ── Branch A dependency chain for lgbm_cs_quintile_rank_momentum ──────────────
+        #24 momentum features (depend on company_share_value → price chain above)
+        FACTOR_LIBRARY["company_share_library"]["return_1d"],
+        FACTOR_LIBRARY["company_share_library"]["return_5d"],
+        FACTOR_LIBRARY["company_share_library"]["return_20d"],
+        FACTOR_LIBRARY["company_share_library"]["return_1m"],
+        FACTOR_LIBRARY["company_share_library"]["return_3m"],
+        FACTOR_LIBRARY["company_share_library"]["return_5m"],
+        FACTOR_LIBRARY["company_share_library"]["return_ytd"],
+        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_20"],
+        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_50"],
+        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_100"],
+        FACTOR_LIBRARY["company_share_library"]["ma_5_vs_ma_10"],
+        FACTOR_LIBRARY["company_share_library"]["ma_20_vs_ma_50"],
+        FACTOR_LIBRARY["company_share_library"]["trend_slope_20d"],
+        FACTOR_LIBRARY["company_share_library"]["trend_slope_50d"],
+        FACTOR_LIBRARY["company_share_library"]["momentum_slope_20d"],
+        FACTOR_LIBRARY["company_share_library"]["sharpe_20d"],
+        FACTOR_LIBRARY["company_share_library"]["sharpe_50d"],
+        FACTOR_LIBRARY["company_share_library"]["sortino_20d"],
+        FACTOR_LIBRARY["company_share_library"]["distance_from_5m_high"],
+        FACTOR_LIBRARY["company_share_library"]["drawdown_from_5m_high"],
+        FACTOR_LIBRARY["company_share_library"]["days_since_5m_high"],
+        FACTOR_LIBRARY["company_share_library"]["short_term_momentum"],
+        FACTOR_LIBRARY["company_share_library"]["medium_term_momentum"],
+        FACTOR_LIBRARY["company_share_library"]["momentum_zscore_20d"],
+        # LightGBM cross-sectional quintile rank momentum (output: 1=weakest … 5=strongest)
+        FACTOR_LIBRARY["company_share_library"]["lgbm_cs_quintile_rank_momentum"],
     ],
 
     "Portfolio": {
@@ -183,7 +213,7 @@ DEFAULT_CONFIG = {
     # MLflow tracking
     'mlflow_experiment_name': 'market_making_spx_call_spread',
     'mlflow_tracking_uri': './mlruns',
-    
+
     # Web interface
     'web_interface_port': 5001,
     'enable_web_interface': True,
@@ -207,51 +237,51 @@ def get_trading_config() -> Dict[str, Any]:
 
 
 #sp500
-# CompanyShare = [
-# "AAPL","ABBV","ABNB","ABT","ACGL","ACN","ADBE","ADI","ADM","ADP","ADSK",
-# "AEE","AEP","AES","AFL","AIG","AIZ","AJG","AKAM","ALB","ALGN","ALL","AMAT",
-# "AMD","AME","AMGN","AMP","AMT","AMZN","ANET","ANSS","AON","APA","APD","APH",
-# "APTV","ARE","ATO","AVB","AVGO","AVY","AXP","AZO","BA","BAC","BALL","BAX",
-# "BBWI","BBY","BDX","BEN","BF.B","BG","BIIB","BK","BKNG","BKR","BLK","BMY",
-# "BR","BRK.B","BSX","BWA","C","CAG","CAH","CARR","CAT","CB","CBOE","CBRE",
-# "CCI","CCL","CDNS","CDW","CE","CEG","CF","CFG","CHD","CHRW","CHTR","CI",
-# "CINF","CL","CLX","CMA","CMCSA","CME","CMG","CMI","CMS","CNC","CNP","COF",
-# "COO","COP","COST","CPB","CPRT","CPT","CRL","CRM","CSCO","CSGP","CSX","CTAS",
-# "CTLT","CTRA","CTSH","CTVA","CVS","CVX","D","DAL","DD","DE","DFS","DG",
-# "DGX","DHI","DHR","DIS","DLR","DLTR","DOV","DOW","DPZ","DRI","DTE","DUK",
-# "DVA","DVN","DXCM","EA","EBAY","ECL","ED","EFX","EG","EIX","EL","ELV","EMN",
-# "EMR","ENPH","EOG","EPAM","EQIX","EQR","EQT","ES","ESS","ETN","ETR","EVRG",
-# "EW","EXC","EXPD","EXPE","EXR","F","FANG","FAST","FCX","FDS","FDX","FE",
-# "FFIV","FI","FICO","FIS","FITB","FLT","FMC","FOX","FOXA","FRT","FTNT","FTV",
-# "GD","GE","GEHC","GEN","GILD","GIS","GL","GLW","GM","GNRC","GOOG","GOOGL",
-# "GPC","GPN","GRMN","GS","GWW","HAL","HAS","HBAN","HCA","HD","HES","HIG",
-# "HII","HLT","HOLX","HON","HPE","HPQ","HRL","HSIC","HST","HSY","HUM","HWM",
-# "IBM","ICE","IDXX","IEX","IFF","ILMN","INCY","INTC","INTU","INVH","IP","IPG",
-# "IQV","IR","IRM","ISRG","IT","ITW","IVZ","J","JBHT","JBL","JCI","JKHY","JNJ",
-# "JNPR","JPM","K","KDP","KEY","KEYS","KHC","KIM","KLAC","KMB","KMI","KMX",
-# "KO","KR","KVUE","L","LDOS","LEN","LH","LHX","LIN","LKQ","LLY","LMT","LNT",
-# "LOW","LRCX","LULU","LVS","LW","LYB","LYV","MA","MAA","MAR","MAS","MCD",
-# "MCHP","MCK","MCO","MDLZ","MDT","MET","META","MGM","MHK","MKC","MKTX","MLM",
-# "MMC","MMM","MNST","MO","MOS","MPC","MPWR","MRK","MRNA","MRO","MS","MSCI",
-# "MSFT","MSI","MTB","MTCH","MTD","MU","NCLH","NDAQ","NDSN","NEE","NEM","NFLX",
-# "NI","NKE","NOC","NOW","NRG","NSC","NTAP","NTRS","NUE","NVDA","NVR","NWS",
-# "NWSA","NXPI","O","ODFL","OKE","OMC","ON","ORCL","ORLY","OTIS","OXY","PANW",
-# "PARA","PAYC","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PFG","PG","PGR",
-# "PH","PHM","PKG","PLD","PM","PNC","PNR","PNW","PODD","POOL","PPG","PPL",
-# "PRU","PSA","PSX","PTC","PWR","PYPL","QCOM","QRVO","RCL","REG","REGN","RF",
-# "RHI","RJF","RL","RMD","ROK","ROL","ROP","ROST","RSG","RTX","RVTY","SBAC",
-# "SBUX","SCHW","SHW","SJM","SLB","SNA","SNPS","SO","SPG","SPGI","SRE","STE",
-# "STLD","STT","STX","STZ","SWK","SWKS","SYF","SYK","SYY","T","TAP","TDG","TDY",
-# "TECH","TEL","TER","TFC","TFX","TGT","TJX","TMO","TMUS","TPR","TRGP","TRMB",
-# "TROW","TRV","TSCO","TSLA","TSN","TT","TTWO","TXN","TXT","TYL","UAL","UBER",
-# "UDR","UHS","ULTA","UNH","UNP","UPS","URI","USB","V","VICI","VLO","VMC","VRSK",
-# "VRSN","VRTX","VTR","VTRS","VZ","WAB","WAT","WBA","WBD","WDAY","WDC","WEC",
-# "WELL","WFC","WHR","WM","WMB","WMT","WRB","WRK","WST","WTW","WY","WYNN","XEL",
-# "XOM","XRAY","XYL","YUM","ZBH","ZBRA","ZTS"
-# ]
-# #DOW
-# CompanyShare = [
-# "AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
-# "GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
-# "MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
-# ]
+CompanyShare = [
+"AAPL","ABBV","ABNB","ABT","ACGL","ACN","ADBE","ADI","ADM","ADP","ADSK",
+"AEE","AEP","AES","AFL","AIG","AIZ","AJG","AKAM","ALB","ALGN","ALL","AMAT",
+"AMD","AME","AMGN","AMP","AMT","AMZN","ANET","ANSS","AON","APA","APD","APH",
+"APTV","ARE","ATO","AVB","AVGO","AVY","AXP","AZO","BA","BAC","BALL","BAX",
+"BBWI","BBY","BDX","BEN","BF.B","BG","BIIB","BK","BKNG","BKR","BLK","BMY",
+"BR","BRK.B","BSX","BWA","C","CAG","CAH","CARR","CAT","CB","CBOE","CBRE",
+"CCI","CCL","CDNS","CDW","CE","CEG","CF","CFG","CHD","CHRW","CHTR","CI",
+"CINF","CL","CLX","CMA","CMCSA","CME","CMG","CMI","CMS","CNC","CNP","COF",
+"COO","COP","COST","CPB","CPRT","CPT","CRL","CRM","CSCO","CSGP","CSX","CTAS",
+"CTLT","CTRA","CTSH","CTVA","CVS","CVX","D","DAL","DD","DE","DFS","DG",
+"DGX","DHI","DHR","DIS","DLR","DLTR","DOV","DOW","DPZ","DRI","DTE","DUK",
+"DVA","DVN","DXCM","EA","EBAY","ECL","ED","EFX","EG","EIX","EL","ELV","EMN",
+"EMR","ENPH","EOG","EPAM","EQIX","EQR","EQT","ES","ESS","ETN","ETR","EVRG",
+"EW","EXC","EXPD","EXPE","EXR","F","FANG","FAST","FCX","FDS","FDX","FE",
+"FFIV","FI","FICO","FIS","FITB","FLT","FMC","FOX","FOXA","FRT","FTNT","FTV",
+"GD","GE","GEHC","GEN","GILD","GIS","GL","GLW","GM","GNRC","GOOG","GOOGL",
+"GPC","GPN","GRMN","GS","GWW","HAL","HAS","HBAN","HCA","HD","HES","HIG",
+"HII","HLT","HOLX","HON","HPE","HPQ","HRL","HSIC","HST","HSY","HUM","HWM",
+"IBM","ICE","IDXX","IEX","IFF","ILMN","INCY","INTC","INTU","INVH","IP","IPG",
+"IQV","IR","IRM","ISRG","IT","ITW","IVZ","J","JBHT","JBL","JCI","JKHY","JNJ",
+"JNPR","JPM","K","KDP","KEY","KEYS","KHC","KIM","KLAC","KMB","KMI","KMX",
+"KO","KR","KVUE","L","LDOS","LEN","LH","LHX","LIN","LKQ","LLY","LMT","LNT",
+"LOW","LRCX","LULU","LVS","LW","LYB","LYV","MA","MAA","MAR","MAS","MCD",
+"MCHP","MCK","MCO","MDLZ","MDT","MET","META","MGM","MHK","MKC","MKTX","MLM",
+"MMC","MMM","MNST","MO","MOS","MPC","MPWR","MRK","MRNA","MRO","MS","MSCI",
+"MSFT","MSI","MTB","MTCH","MTD","MU","NCLH","NDAQ","NDSN","NEE","NEM","NFLX",
+"NI","NKE","NOC","NOW","NRG","NSC","NTAP","NTRS","NUE","NVDA","NVR","NWS",
+"NWSA","NXPI","O","ODFL","OKE","OMC","ON","ORCL","ORLY","OTIS","OXY","PANW",
+"PARA","PAYC","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PFG","PG","PGR",
+"PH","PHM","PKG","PLD","PM","PNC","PNR","PNW","PODD","POOL","PPG","PPL",
+"PRU","PSA","PSX","PTC","PWR","PYPL","QCOM","QRVO","RCL","REG","REGN","RF",
+"RHI","RJF","RL","RMD","ROK","ROL","ROP","ROST","RSG","RTX","RVTY","SBAC",
+"SBUX","SCHW","SHW","SJM","SLB","SNA","SNPS","SO","SPG","SPGI","SRE","STE",
+"STLD","STT","STX","STZ","SWK","SWKS","SYF","SYK","SYY","T","TAP","TDG","TDY",
+"TECH","TEL","TER","TFC","TFX","TGT","TJX","TMO","TMUS","TPR","TRGP","TRMB",
+"TROW","TRV","TSCO","TSLA","TSN","TT","TTWO","TXN","TXT","TYL","UAL","UBER",
+"UDR","UHS","ULTA","UNH","UNP","UPS","URI","USB","V","VICI","VLO","VMC","VRSK",
+"VRSN","VRTX","VTR","VTRS","VZ","WAB","WAT","WBA","WBD","WDAY","WDC","WEC",
+"WELL","WFC","WHR","WM","WMB","WMT","WRB","WRK","WST","WTW","WY","WYNN","XEL",
+"XOM","XRAY","XYL","YUM","ZBH","ZBRA","ZTS"
+]
+#DOW
+dow = [
+"AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
+"GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
+"MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
+]

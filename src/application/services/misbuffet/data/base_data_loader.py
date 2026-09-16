@@ -32,7 +32,7 @@ class BaseDataLoader:
     check_spx_data_availability) without duplicating the service wiring.
     """
 
-    def __init__(self, database_service: DatabaseService, factor_manager=None):
+    def __init__(self, database_service: DatabaseService, factor_manager=None, universe_name: str = None):
         self.database_service = database_service
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -40,8 +40,19 @@ class BaseDataLoader:
         self.financial_asset_service.create_ibkr_repositories()
 
         self.market_data_service = MarketDataService(self.financial_asset_service)
+        if universe_name:
+            self.market_data_service._universe_name = universe_name
         self.market_data_history_service = MarketDataHistoryService(self.market_data_service)
         self.factor_data_service = FactorService(database_service)
+
+        # Expose history_service on the repository factory so the IV ML repo can
+        # inject it into ImpliedVolMlModelProvider for training data pre-fetch.
+        try:
+            self.financial_asset_service.repository_factory.history_service = (
+                self.market_data_history_service
+            )
+        except Exception:
+            pass
 
         # Injected by the algorithm if factor-based entity management is needed
         self.factor_manager = factor_manager

@@ -857,11 +857,85 @@ class QCAlgorithm:
             
         return portfolio
     
+    def register_universe_entities(
+        self,
+        universe_config: Dict,
+        project_name: str,
+        as_of=None,
+    ):
+        """
+        Persist the algorithm universe as Universe + UniverseConstituent domain entities.
+
+        universe_config: the 'universe' dict from project config — keys are domain entity
+                         *classes* (CompanyShare, BondFuture, CompanyShareOption, …),
+                         values are lists of ticker/symbol strings.
+        project_name:    used as the Universe name so it can be retrieved later.
+        as_of:           membership start date; defaults to today.
+        """
+        factory = self.repository_factory
+        if factory is None:
+            return None
+        try:
+            from datetime import date as _date
+            from src.domain.entities.universe.universe import Universe
+            from src.domain.entities.universe.universe_constituent import UniverseConstituent
+
+            start = as_of or _date.today()
+            universe_repo = factory.investment_universe_local_repo
+            constituent_repo = factory.universe_constituent_local_repo
+
+            universe = universe_repo._create_or_get(
+                Universe,
+                project_name,
+                description=f"Algorithm universe for project '{project_name}'",
+            )
+            if universe is None:
+                self.warning(f"register_universe_entities: could not create Universe '{project_name}'")
+                return None
+
+            registered = 0
+            for entity_cls, symbols in universe_config.items():
+                if not isinstance(entity_cls, type):
+                    continue
+                entity_type = entity_cls.__name__
+                # symbols can be strings or dicts (inline entity definitions)
+                symbol_list = [s for s in symbols if isinstance(s, str)] if isinstance(symbols, list) else []
+                try:
+                    repo = self._entity_service.get_local_repository(entity_cls)
+                except Exception:
+                    continue
+                for symbol in symbol_list:
+                    try:
+                        entity = None
+                        if hasattr(repo, "get_by_symbol"):
+                            entity = repo.get_by_symbol(symbol)
+                        elif hasattr(repo, "get_by_ticker"):
+                            entity = repo.get_by_ticker(symbol)
+                        if entity is None or entity.id is None:
+                            continue
+                        constituent_repo._create_or_get(
+                            UniverseConstituent,
+                            f"{universe.id}_{entity_type}_{entity.id}",
+                            universe_id=universe.id,
+                            entity_id=entity.id,
+                            entity_type=entity_type,
+                            start_date=start,
+                        )
+                        registered += 1
+                    except Exception:
+                        continue
+
+            self.log(f"register_universe_entities: registered {registered} constituents in universe '{project_name}'")
+            return universe
+        except Exception as e:
+            self.warning(f"register_universe_entities error: {e}")
+            return None
+
     def register_order(self, order_ticket) -> Optional[Any]:
         """Register an order using unified portfolio management system."""
         if not self._unified_portfolio_manager:
             return None
-        
+
         # Use unified portfolio manager
         return self._unified_portfolio_manager.register_order(order_ticket)
     

@@ -21,14 +21,18 @@ class MarketDataService:
     def __init__(self, entity_service: EntityService):
         self.entity_service = entity_service
         self.logger = logging.getLogger(self.__class__.__name__)
-        
+
         # Cache for performance
         self._last_time = None
         self._data_cache = {}
-        
+
         # Event callbacks
         self.on_data_slice: Optional[Callable[[Slice], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
+
+        # Universe name to persist after first data slice (set by BaseDataLoader)
+        self._universe_name: Optional[str] = None
+        self._universe_registered: bool = False
         
     def create_data_slice(self, current_date: datetime, universe: List[str],bar_size_setting,duration_str) -> Slice:
         """
@@ -127,6 +131,11 @@ class MarketDataService:
                         
         
             self.logger.debug(f"Created data slice for {current_date} with {len(slice_data.bars)} symbols")
+
+            # Register universe entities once — all entities now exist in the DB
+            if self._universe_name and not self._universe_registered:
+                self._persist_universe_from_config(universe, self._universe_name, current_date.date() if hasattr(current_date, "date") else current_date)
+                self._universe_registered = True
         else:
             self.logger.debug(f"Skipping non-trading day: {current_date}")
         # Trigger callback if set
@@ -286,6 +295,59 @@ class MarketDataService:
             self.logger.debug(f"Error getting entity for ticker {ticker}: {e}")
             return None
     
+    def _persist_universe_from_config(self, universe_config: dict, universe_name: str, start_date) -> None:
+        """
+        Persist Universe + UniverseConstituent domain entities from the universe config.
+
+        Called once after the first create_data_slice() loop, when all entities are
+        guaranteed to exist in the DB (they were just created by _get_entity_by_ticker).
+        """
+        try:
+            from datetime import date as _date
+            from src.domain.entities.universe.universe import Universe
+            from src.domain.entities.universe.universe_constituent import UniverseConstituent
+
+            factory = self.entity_service.repository_factory
+            universe_repo = factory.investment_universe_local_repo
+            constituent_repo = factory.universe_constituent_local_repo
+
+            if isinstance(start_date, str):
+                start_date = _date.fromisoformat(start_date)
+
+            universe = universe_repo._create_or_get(
+                Universe,
+                universe_name,
+                description=f"Algorithm universe for project '{universe_name}'",
+            )
+            if universe is None:
+                return
+
+            registered = 0
+            for entity_cls, symbols in universe_config.items():
+                if not isinstance(entity_cls, type):
+                    continue
+                entity_type = entity_cls.__name__
+                symbol_list = [s for s in symbols if isinstance(s, str)] if isinstance(symbols, list) else []
+                for symbol in symbol_list:
+                    try:
+                        entity = self._get_entity_by_ticker(symbol, entity_cls)
+                        if entity is None or entity.id is None:
+                            continue
+                        constituent_repo._create_or_get(
+                            UniverseConstituent,
+                            f"{universe.id}_{entity_type}_{entity.id}",
+                            universe_id=universe.id,
+                            entity_id=entity.id,
+                            entity_type=entity_type,
+                            start_date=start_date,
+                        )
+                        registered += 1
+                    except Exception:
+                        continue
+            self.logger.info(f"Universe '{universe_name}': registered {registered} constituents")
+        except Exception as e:
+            self.logger.warning(f"_persist_universe_from_config error: {e}")
+
     def _is_valid_trading_day(self, date: datetime) -> bool:
         """
         Check if a given date is a valid trading day.

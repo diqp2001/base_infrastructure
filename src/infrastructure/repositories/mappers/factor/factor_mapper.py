@@ -7,6 +7,7 @@ from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor as CompanyShareOptionFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_factor import CompanyShareOptionImpliedVolFactor as CompanyShareOptionImpliedVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_ml_factor import CompanyShareOptionImpliedVolMlFactor as CompanyShareOptionImpliedVolMlFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_value_factor import CompanyShareOptionValueFactor as CompanyShareOptionValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor as CompanyShareOptionImpliedDivYieldFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor as CompanyShareOptionImpliedCorrFactorEntity
@@ -65,6 +66,43 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_monthly_price_range_factor import CompanyShareMonthlyPriceRangeFactor as CompanyShareMonthlyPriceRangeFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor as CompanyShareVpt52w20dLagFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_atm_implied_vol_factor import CompanyShareATMImpliedVolFactor as CompanyShareATMImpliedVolFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor import CompanyShareLGBMCSQuintileRankMomentumFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_return_factors import (
+    CompanyShareReturn1DFactor, CompanyShareReturn5DFactor, CompanyShareReturn10DFactor,
+    CompanyShareReturn20DFactor, CompanyShareReturn1MFactor, CompanyShareReturn2MFactor,
+    CompanyShareReturn3MFactor, CompanyShareReturn4MFactor, CompanyShareReturn5MFactor,
+    CompanyShareReturnYTDFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_ma_factors import (
+    CompanySharePriceVsMA5Factor, CompanySharePriceVsMA10Factor, CompanySharePriceVsMA20Factor,
+    CompanySharePriceVsMA50Factor, CompanySharePriceVsMA100Factor,
+    CompanyShareMA5VsMA10Factor, CompanyShareMA10VsMA20Factor,
+    CompanyShareMA20VsMA50Factor, CompanyShareMA50VsMA100Factor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_trend_factors import (
+    CompanyShareTrendSlope5DFactor, CompanyShareTrendSlope10DFactor, CompanyShareTrendSlope20DFactor,
+    CompanyShareTrendSlope50DFactor, CompanyShareTrendSlope100DFactor,
+    CompanyShareMomentumSlope10DFactor, CompanyShareMomentumSlope20DFactor, CompanyShareMomentumSlope50DFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_momentum_change_factors import (
+    CompanyShareMomentumAcceleration5D10DFactor, CompanyShareMomentumAcceleration10D20DFactor,
+    CompanyShareMomentumAcceleration20D50DFactor,
+    CompanyShareReturnChange5DFactor, CompanyShareReturnChange10DFactor, CompanyShareReturnChange20DFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_risk_factors import (
+    CompanyShareSharpe10DFactor, CompanyShareSharpe20DFactor, CompanyShareSharpe50DFactor,
+    CompanyShareSharpe100DFactor, CompanyShareSortino20DFactor, CompanyShareSortino50DFactor,
+    CompanyShareSortino100DFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_drawdown_factors import (
+    CompanyShareDistanceFrom5MHighFactor, CompanyShareDistanceFrom5MLowFactor,
+    CompanyShareDrawdownFrom5MHighFactor, CompanyShareDaysSince5MHighFactor, CompanyShareDaysSince5MLowFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_composite_momentum_factors import (
+    CompanyShareShortTermMomentumFactor, CompanyShareMediumTermMomentumFactor,
+    CompanyShareShortVsMediumMomentumFactor, CompanyShareMomentumZScore20DFactor,
+    CompanyShareMomentumZScore50DFactor, CompanyShareMomentumZScore100DFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor as CurrencyValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor import CurrencyRateFactor as CurrencyRateFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor as CurrencyYieldFactorEntity
@@ -251,6 +289,7 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_option_factor': CompanyShareOptionFactorEntity,
     'company_share_option_value_factor': CompanyShareOptionValueFactorEntity,
     'company_share_option_implied_vol_factor': CompanyShareOptionImpliedVolFactorEntity,
+    'company_share_option_implied_vol_ml_factor': CompanyShareOptionImpliedVolMlFactorEntity,
     'company_share_option_implied_div_yield_factor': CompanyShareOptionImpliedDivYieldFactorEntity,
     'company_share_option_implied_corr_factor': CompanyShareOptionImpliedCorrFactorEntity,
     'company_share_option_vol_factor': CompanyShareOptionVolFactorEntity,
@@ -277,6 +316,65 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_order_price_factor': CompanyShareOrderPriceFactorEntity,
     'portfolio_value_factor': PortfolioValueFactorEntity,
     'constituent_score_factor': ConstituentScoreFactorEntity,
+    # Technical / Momentum — Returns
+    'company_share_return_1d_factor': CompanyShareReturn1DFactor,
+    'company_share_return_5d_factor': CompanyShareReturn5DFactor,
+    'company_share_return_10d_factor': CompanyShareReturn10DFactor,
+    'company_share_return_20d_factor': CompanyShareReturn20DFactor,
+    'company_share_return_1m_factor': CompanyShareReturn1MFactor,
+    'company_share_return_2m_factor': CompanyShareReturn2MFactor,
+    'company_share_return_3m_factor': CompanyShareReturn3MFactor,
+    'company_share_return_4m_factor': CompanyShareReturn4MFactor,
+    'company_share_return_5m_factor': CompanyShareReturn5MFactor,
+    'company_share_return_ytd_factor': CompanyShareReturnYTDFactor,
+    # Technical / Momentum — Moving Averages
+    'company_share_price_vs_ma_5_factor': CompanySharePriceVsMA5Factor,
+    'company_share_price_vs_ma_10_factor': CompanySharePriceVsMA10Factor,
+    'company_share_price_vs_ma_20_factor': CompanySharePriceVsMA20Factor,
+    'company_share_price_vs_ma_50_factor': CompanySharePriceVsMA50Factor,
+    'company_share_price_vs_ma_100_factor': CompanySharePriceVsMA100Factor,
+    'company_share_ma_5_vs_ma_10_factor': CompanyShareMA5VsMA10Factor,
+    'company_share_ma_10_vs_ma_20_factor': CompanyShareMA10VsMA20Factor,
+    'company_share_ma_20_vs_ma_50_factor': CompanyShareMA20VsMA50Factor,
+    'company_share_ma_50_vs_ma_100_factor': CompanyShareMA50VsMA100Factor,
+    # Technical / Momentum — Trend Slopes
+    'company_share_trend_slope_5d_factor': CompanyShareTrendSlope5DFactor,
+    'company_share_trend_slope_10d_factor': CompanyShareTrendSlope10DFactor,
+    'company_share_trend_slope_20d_factor': CompanyShareTrendSlope20DFactor,
+    'company_share_trend_slope_50d_factor': CompanyShareTrendSlope50DFactor,
+    'company_share_trend_slope_100d_factor': CompanyShareTrendSlope100DFactor,
+    'company_share_momentum_slope_10d_factor': CompanyShareMomentumSlope10DFactor,
+    'company_share_momentum_slope_20d_factor': CompanyShareMomentumSlope20DFactor,
+    'company_share_momentum_slope_50d_factor': CompanyShareMomentumSlope50DFactor,
+    # Technical / Momentum — Acceleration & Change
+    'company_share_momentum_accel_5d_10d_factor': CompanyShareMomentumAcceleration5D10DFactor,
+    'company_share_momentum_accel_10d_20d_factor': CompanyShareMomentumAcceleration10D20DFactor,
+    'company_share_momentum_accel_20d_50d_factor': CompanyShareMomentumAcceleration20D50DFactor,
+    'company_share_return_change_5d_factor': CompanyShareReturnChange5DFactor,
+    'company_share_return_change_10d_factor': CompanyShareReturnChange10DFactor,
+    'company_share_return_change_20d_factor': CompanyShareReturnChange20DFactor,
+    # Technical / Momentum — Risk
+    'company_share_sharpe_10d_factor': CompanyShareSharpe10DFactor,
+    'company_share_sharpe_20d_factor': CompanyShareSharpe20DFactor,
+    'company_share_sharpe_50d_factor': CompanyShareSharpe50DFactor,
+    'company_share_sharpe_100d_factor': CompanyShareSharpe100DFactor,
+    'company_share_sortino_20d_factor': CompanyShareSortino20DFactor,
+    'company_share_sortino_50d_factor': CompanyShareSortino50DFactor,
+    'company_share_sortino_100d_factor': CompanyShareSortino100DFactor,
+    # Technical / Momentum — Drawdown / Distance
+    'company_share_distance_from_5m_high_factor': CompanyShareDistanceFrom5MHighFactor,
+    'company_share_distance_from_5m_low_factor': CompanyShareDistanceFrom5MLowFactor,
+    'company_share_drawdown_from_5m_high_factor': CompanyShareDrawdownFrom5MHighFactor,
+    'company_share_days_since_5m_high_factor': CompanyShareDaysSince5MHighFactor,
+    'company_share_days_since_5m_low_factor': CompanyShareDaysSince5MLowFactor,
+    # Technical / Momentum — Composite
+    'company_share_short_term_momentum_factor': CompanyShareShortTermMomentumFactor,
+    'company_share_medium_term_momentum_factor': CompanyShareMediumTermMomentumFactor,
+    'company_share_short_vs_medium_momentum_factor': CompanyShareShortVsMediumMomentumFactor,
+    'company_share_momentum_zscore_20d_factor': CompanyShareMomentumZScore20DFactor,
+    'company_share_momentum_zscore_50d_factor': CompanyShareMomentumZScore50DFactor,
+    'company_share_momentum_zscore_100d_factor': CompanyShareMomentumZScore100DFactor,
+    'company_share_lgbm_cs_quintile_rank_momentum_factor': CompanyShareLGBMCSQuintileRankMomentumFactor,
 }
 
 # Lazy entries to avoid circular imports at module load time.
@@ -429,6 +527,8 @@ class FactorMapper:
             return CompanyShareOptionValueFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_vol_factor':
             return CompanyShareOptionImpliedVolFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_implied_vol_ml_factor':
+            return CompanyShareOptionImpliedVolMlFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_div_yield_factor':
             return CompanyShareOptionImpliedDivYieldFactorEntity(**base_args)
         elif factor_type == 'company_share_option_rf_yield_factor':
@@ -515,6 +615,117 @@ class FactorMapper:
         elif factor_type == 'backtest_factor':
             from src.domain.entities.factor.backtest.backtest_factor import BacktestFactor
             return BacktestFactor(**base_args)
+        # ── Technical / Momentum — Returns ──────────────────────────────────
+        elif factor_type == 'company_share_return_1d_factor':
+            return CompanyShareReturn1DFactor(**base_args)
+        elif factor_type == 'company_share_return_5d_factor':
+            return CompanyShareReturn5DFactor(**base_args)
+        elif factor_type == 'company_share_return_10d_factor':
+            return CompanyShareReturn10DFactor(**base_args)
+        elif factor_type == 'company_share_return_20d_factor':
+            return CompanyShareReturn20DFactor(**base_args)
+        elif factor_type == 'company_share_return_1m_factor':
+            return CompanyShareReturn1MFactor(**base_args)
+        elif factor_type == 'company_share_return_2m_factor':
+            return CompanyShareReturn2MFactor(**base_args)
+        elif factor_type == 'company_share_return_3m_factor':
+            return CompanyShareReturn3MFactor(**base_args)
+        elif factor_type == 'company_share_return_4m_factor':
+            return CompanyShareReturn4MFactor(**base_args)
+        elif factor_type == 'company_share_return_5m_factor':
+            return CompanyShareReturn5MFactor(**base_args)
+        elif factor_type == 'company_share_return_ytd_factor':
+            return CompanyShareReturnYTDFactor(**base_args)
+        # ── Technical / Momentum — Moving Averages ───────────────────────────
+        elif factor_type == 'company_share_price_vs_ma_5_factor':
+            return CompanySharePriceVsMA5Factor(**base_args)
+        elif factor_type == 'company_share_price_vs_ma_10_factor':
+            return CompanySharePriceVsMA10Factor(**base_args)
+        elif factor_type == 'company_share_price_vs_ma_20_factor':
+            return CompanySharePriceVsMA20Factor(**base_args)
+        elif factor_type == 'company_share_price_vs_ma_50_factor':
+            return CompanySharePriceVsMA50Factor(**base_args)
+        elif factor_type == 'company_share_price_vs_ma_100_factor':
+            return CompanySharePriceVsMA100Factor(**base_args)
+        elif factor_type == 'company_share_ma_5_vs_ma_10_factor':
+            return CompanyShareMA5VsMA10Factor(**base_args)
+        elif factor_type == 'company_share_ma_10_vs_ma_20_factor':
+            return CompanyShareMA10VsMA20Factor(**base_args)
+        elif factor_type == 'company_share_ma_20_vs_ma_50_factor':
+            return CompanyShareMA20VsMA50Factor(**base_args)
+        elif factor_type == 'company_share_ma_50_vs_ma_100_factor':
+            return CompanyShareMA50VsMA100Factor(**base_args)
+        # ── Technical / Momentum — Trend Slopes ──────────────────────────────
+        elif factor_type == 'company_share_trend_slope_5d_factor':
+            return CompanyShareTrendSlope5DFactor(**base_args)
+        elif factor_type == 'company_share_trend_slope_10d_factor':
+            return CompanyShareTrendSlope10DFactor(**base_args)
+        elif factor_type == 'company_share_trend_slope_20d_factor':
+            return CompanyShareTrendSlope20DFactor(**base_args)
+        elif factor_type == 'company_share_trend_slope_50d_factor':
+            return CompanyShareTrendSlope50DFactor(**base_args)
+        elif factor_type == 'company_share_trend_slope_100d_factor':
+            return CompanyShareTrendSlope100DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_slope_10d_factor':
+            return CompanyShareMomentumSlope10DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_slope_20d_factor':
+            return CompanyShareMomentumSlope20DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_slope_50d_factor':
+            return CompanyShareMomentumSlope50DFactor(**base_args)
+        # ── Technical / Momentum — Acceleration & Change ─────────────────────
+        elif factor_type == 'company_share_momentum_accel_5d_10d_factor':
+            return CompanyShareMomentumAcceleration5D10DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_accel_10d_20d_factor':
+            return CompanyShareMomentumAcceleration10D20DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_accel_20d_50d_factor':
+            return CompanyShareMomentumAcceleration20D50DFactor(**base_args)
+        elif factor_type == 'company_share_return_change_5d_factor':
+            return CompanyShareReturnChange5DFactor(**base_args)
+        elif factor_type == 'company_share_return_change_10d_factor':
+            return CompanyShareReturnChange10DFactor(**base_args)
+        elif factor_type == 'company_share_return_change_20d_factor':
+            return CompanyShareReturnChange20DFactor(**base_args)
+        # ── Technical / Momentum — Risk ───────────────────────────────────────
+        elif factor_type == 'company_share_sharpe_10d_factor':
+            return CompanyShareSharpe10DFactor(**base_args)
+        elif factor_type == 'company_share_sharpe_20d_factor':
+            return CompanyShareSharpe20DFactor(**base_args)
+        elif factor_type == 'company_share_sharpe_50d_factor':
+            return CompanyShareSharpe50DFactor(**base_args)
+        elif factor_type == 'company_share_sharpe_100d_factor':
+            return CompanyShareSharpe100DFactor(**base_args)
+        elif factor_type == 'company_share_sortino_20d_factor':
+            return CompanyShareSortino20DFactor(**base_args)
+        elif factor_type == 'company_share_sortino_50d_factor':
+            return CompanyShareSortino50DFactor(**base_args)
+        elif factor_type == 'company_share_sortino_100d_factor':
+            return CompanyShareSortino100DFactor(**base_args)
+        # ── Technical / Momentum — Drawdown / Distance ────────────────────────
+        elif factor_type == 'company_share_distance_from_5m_high_factor':
+            return CompanyShareDistanceFrom5MHighFactor(**base_args)
+        elif factor_type == 'company_share_distance_from_5m_low_factor':
+            return CompanyShareDistanceFrom5MLowFactor(**base_args)
+        elif factor_type == 'company_share_drawdown_from_5m_high_factor':
+            return CompanyShareDrawdownFrom5MHighFactor(**base_args)
+        elif factor_type == 'company_share_days_since_5m_high_factor':
+            return CompanyShareDaysSince5MHighFactor(**base_args)
+        elif factor_type == 'company_share_days_since_5m_low_factor':
+            return CompanyShareDaysSince5MLowFactor(**base_args)
+        # ── Technical / Momentum — Composite ─────────────────────────────────
+        elif factor_type == 'company_share_short_term_momentum_factor':
+            return CompanyShareShortTermMomentumFactor(**base_args)
+        elif factor_type == 'company_share_medium_term_momentum_factor':
+            return CompanyShareMediumTermMomentumFactor(**base_args)
+        elif factor_type == 'company_share_short_vs_medium_momentum_factor':
+            return CompanyShareShortVsMediumMomentumFactor(**base_args)
+        elif factor_type == 'company_share_momentum_zscore_20d_factor':
+            return CompanyShareMomentumZScore20DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_zscore_50d_factor':
+            return CompanyShareMomentumZScore50DFactor(**base_args)
+        elif factor_type == 'company_share_momentum_zscore_100d_factor':
+            return CompanyShareMomentumZScore100DFactor(**base_args)
+        elif factor_type == 'company_share_lgbm_cs_quintile_rank_momentum_factor':
+            return CompanyShareLGBMCSQuintileRankMomentumFactor(**base_args)
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation
