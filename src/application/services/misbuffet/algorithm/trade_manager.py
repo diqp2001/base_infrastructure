@@ -300,7 +300,26 @@ class TradeManager:
             if not asset:
                 return
 
-            # Sub-portfolio path: main portfolio → CompanySharePortfolio → holding
+            # Option path: CompanyShareOptionPortfolioHolding keyed by company_share_option_id.
+            # The CSO sub-portfolio is NOT linked from the main portfolio via a holding, so we
+            # query the option holding table directly rather than traversing from portfolio_id.
+            from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
+                CompanyShareOptionPortfolioHoldingModel,
+            )
+            cso_holding = session.query(CompanyShareOptionPortfolioHoldingModel).filter_by(
+                company_share_option_id=asset.id,
+            ).first()
+            if cso_holding and cso_holding.position_id:
+                pos = session.query(PositionModel).filter_by(
+                    id=cso_holding.position_id,
+                ).first()
+                if pos:
+                    pos.quantity = int(pos.quantity or 0) + order_qty
+                    pos.position_type = 'SHORT' if pos.quantity < 0 else 'LONG'
+                    session.commit()
+                    return
+
+            # Share sub-portfolio path: main portfolio → CompanySharePortfolio → holding
             cs_pp = session.query(CompanySharePortfolioPortfolioHoldingModel).filter_by(
                 container_id=portfolio_id
             ).first()
@@ -315,6 +334,7 @@ class TradeManager:
                     ).first()
                     if pos:
                         pos.quantity = int(pos.quantity or 0) + order_qty
+                        pos.position_type = 'SHORT' if pos.quantity < 0 else 'LONG'
                         session.commit()
                         return
 
@@ -331,6 +351,7 @@ class TradeManager:
             ).first()
             if pos:
                 pos.quantity = int(pos.quantity or 0) + order_qty
+                pos.position_type = 'SHORT' if pos.quantity < 0 else 'LONG'
                 session.commit()
 
         except Exception as e:

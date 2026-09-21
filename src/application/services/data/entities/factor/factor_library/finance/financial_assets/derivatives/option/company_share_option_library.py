@@ -13,6 +13,9 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.comp
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_div_yield_factor import CompanyShareOptionImpliedDivYieldFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_corr_factor import CompanyShareOptionImpliedCorrFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_delta_factor import CompanyShareOptionDeltaFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor import CompanyShareOptionGammaFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vega_factor import CompanyShareOptionVegaFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vol_factor import CompanyShareOptionVolFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_var_factor import CompanyShareOptionVarFactor
 
@@ -232,6 +235,45 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
     },
 
     
+
+    "delta": {
+        "class": CompanyShareOptionDeltaFactor,
+        "name": "delta",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "source": "calculated",
+        "description": "BSM delta (∂V/∂S) of a company share option; depends on CompanyShareValueFactor (S), CompanyShareOptionImpliedVolFactor (σ), CompanyShareOptionRFYieldFactor (r)",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "gamma": {
+        "class": CompanyShareOptionGammaFactor,
+        "name": "gamma",
+        "group": "greek",
+        "subgroup": "gamma",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "source": "calculated",
+        "description": "BSM gamma (∂²V/∂S²) of a company share option; same dependency chain as delta: S, σ, r",
+        "dependencies": {},
+        "parameters": {}
+    },
+
+    "vega": {
+        "class": CompanyShareOptionVegaFactor,
+        "name": "vega",
+        "group": "greek",
+        "subgroup": "vega",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "source": "calculated",
+        "description": "BSM vega (∂V/∂σ) of a company share option; same dependency chain as delta/gamma: S, σ, r",
+        "dependencies": {},
+        "parameters": {}
+    },
 
     "implied_div_yield": {
         "class": CompanyShareOptionImpliedDivYieldFactor,

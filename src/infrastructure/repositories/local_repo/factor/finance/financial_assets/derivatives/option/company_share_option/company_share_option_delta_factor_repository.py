@@ -69,23 +69,22 @@ class CompanyShareOptionDeltaFactorRepository(BaseFactorRepository):
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'delta'),
-                factor_type=kwargs.get('factor_type', 'greek_calculation'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'model')
+                group=kwargs.get('group') or 'greek',
+                subgroup=kwargs.get('subgroup') or 'delta',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
             )
             if existing:
                 return self._to_entity(existing)
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'delta'),
-                frequency=kwargs.get('frequency', '1d'),
-                data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'model'),
-                definition=kwargs.get('definition', f'{self.mapper.discriminator} factor: {primary_key}')
+                group=kwargs.get('group') or 'greek',
+                subgroup=kwargs.get('subgroup') or 'delta',
+                frequency=kwargs.get('frequency') or '1d',
+                data_type=kwargs.get('data_type') or 'numeric',
+                source=kwargs.get('source') or 'calculated',
+                definition=kwargs.get('definition') or f'{self.mapper.discriminator} factor: {primary_key}',
             )
             
             # Use FactorMapper to convert domain entity to ORM model
@@ -142,12 +141,17 @@ class CompanyShareOptionDeltaFactorRepository(BaseFactorRepository):
             query = self.session.query(FactorModel).filter(
                 FactorModel.name == name,
                 FactorModel.group == group,
-                FactorModel.factor_type == factor_type,
-                FactorModel.subgroup == subgroup,
-                FactorModel.frequency == frequency,
-                FactorModel.data_type == data_type,
-                FactorModel.source == source,
             )
+            if factor_type is not None:
+                query = query.filter(FactorModel.factor_type == factor_type)
+            if subgroup is not None:
+                query = query.filter(FactorModel.subgroup == subgroup)
+            if frequency is not None:
+                query = query.filter(FactorModel.frequency == frequency)
+            if data_type is not None:
+                query = query.filter(FactorModel.data_type == data_type)
+            if source is not None:
+                query = query.filter(FactorModel.source == source)
 
             factor = query.first()
             return factor

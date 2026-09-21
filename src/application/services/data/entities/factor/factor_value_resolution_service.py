@@ -638,9 +638,9 @@ class FactorValueResolutionService:
             self.logger.error(f"Error handling missing dependency: {e}")
             return None
 
-    def _get_resolution_entities(self, entity, entity_id, repository_type: str) -> list:
+    def _get_resolution_entities(self, entity, entity_id, repository_type: str, target_date=None) -> list:
         """Return the list of entities to use for dynamic dep resolution (related + self, or just self)."""
-        related = self._get_related_entities(entity, repository_type)
+        related = self._get_related_entities(entity, repository_type, target_date=target_date)
         if not related:
             self.logger.info(
                 f"No related entities found for {type(entity).__name__}:{entity_id} "
@@ -795,7 +795,7 @@ class FactorValueResolutionService:
                 self.logger.error("Entity ID required for dynamic dependency resolution")
                 return None
 
-            related_entities = self._get_resolution_entities(entity, entity_id, repository_type)
+            related_entities = self._get_resolution_entities(entity, entity_id, repository_type, target_date=target_date)
             dependency_values = {}
 
             for dep in factor_entity.calculate_dependencies:
@@ -1479,18 +1479,24 @@ class FactorValueResolutionService:
             dep_factor_entity, sub_portfolio, parsed_date, str(total), repository_type
         )
 
-    def _get_related_entities(self, entity, repository_type: str) -> List[Any]:
+    def _get_related_entities(self, entity, repository_type: str, target_date=None) -> List[Any]:
         """
         Get entities that are related to the parent entity.
 
         Delegates to the entity's own repository via get_related_entities, so each
         repo decides what "related entities" means for its type.
+        target_date is forwarded when the repo accepts it (e.g. CurrencyRepository
+        uses it to pick the correct front-month bond future contract).
         """
+        import inspect
         try:
             class_name = entity.__class__.__name__
             repo_key = class_name.removesuffix('Model') if class_name.endswith('Model') else class_name
             repo = self.factory.get_local_repository(repo_key)
             if repo is not None and hasattr(repo, 'get_related_entities'):
+                sig = inspect.signature(repo.get_related_entities)
+                if 'target_date' in sig.parameters:
+                    return repo.get_related_entities(entity.id, target_date=target_date) or []
                 return repo.get_related_entities(entity.id) or []
             return []
 
@@ -1684,16 +1690,30 @@ class FactorValueResolutionService:
             
             resolved_factor_values = []
             failed_resolutions = []
-            
+
+            # Class name stored in metadata so we can fetch each entity by its own ID
+            entity_class_name = factor_batch.metadata.get('asset_class')
+
             # Process each entity_id in the batch
             for entity_id in factor_batch.entity_ids:
+                # Resolve the actual entity for this ID (not just the sample)
+                actual_entity = None
+                if entity_class_name and entity_id:
+                    try:
+                        repo = self.factory.get_local_repository(entity_class_name)
+                        if repo and hasattr(repo, 'get_by_id'):
+                            actual_entity = repo.get_by_id(entity_id)
+                    except Exception:
+                        pass
+                entity_to_use = actual_entity or financial_asset_entity
+
                 # Process each factor for the current entity
                 for factor in factor_batch.factors:
                     try:
                         # Use the single factor resolution method for each factor
                         factor_value = self.resolve_factor_value(
                             factor_entity=factor,
-                            entity=financial_asset_entity,
+                            entity=entity_to_use,
                             time_date=time_date,
                             repository_type=repository_type,
                             **kwargs

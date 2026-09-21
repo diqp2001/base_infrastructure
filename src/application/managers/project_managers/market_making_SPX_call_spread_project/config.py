@@ -53,11 +53,11 @@ DEFAULT_CONFIG = {
         #                            },
         #
         #IndexBond :["SOFR3"],
-        #BondFuture: ["SR3Z6"],
+        BondFuture: ["SR3Z6"],
         CompanyShare: ["AAPL","MSFT","SPY"],
-        # CompanyShareOption: ["SPY  281215C00770000","SPY  281215C00775000","SPY  281215C00780000","SPY  281215C00765000","SPY  281215C00760000"
-        #                     #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
-        #                      ],
+        CompanyShareOption: ["SPY   281215C00770000","SPY   281215C00775000","SPY   281215C00780000","SPY   281215C00765000","SPY   281215C00760000"
+                            #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
+                             ],
 
         #"AAPL  281215C00300000",
 
@@ -131,43 +131,46 @@ DEFAULT_CONFIG = {
 
     # Factors for modeling - only future_index_library and index_library factors
     'factors': [
-        # ── Branch A dependency chain for implied_volatility_calculated, deepest first ──
-        #FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
-        #FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
-        #FACTOR_LIBRARY["company_share_library"]["company_share_value"],      # CompanyShareValueFactor (depends on CompanyShareMidPriceFactor, Branch B leaf)
-        #FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],
-        #FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],          # CompanyShareOptionRFYieldFactor (depends on currency_yield)
-        #FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],
-       #FACTOR_LIBRARY["company_share_option_library"]["implied_vol_ml"],               # ML-predicted IV (trained on implied_volatility_calculated; depends on rf_yield, company_share_value, company_share_option_value)
+        # ── Branch A dependency chain for delta, deepest first ──────────────
+        FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
+        FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
+        FACTOR_LIBRARY["company_share_library"]["company_share_value"],        # CompanyShareValueFactor  → S
+        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],            # CompanyShareOptionRFYieldFactor → r
+        FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],  # CompanyShareOptionValueFactor → option price (needed by implied_vol)
+        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],  # CompanyShareOptionImpliedVolFactor → σ
+        FACTOR_LIBRARY["company_share_option_library"]["delta"],               # CompanyShareOptionDeltaFactor → ∂V/∂S
+        FACTOR_LIBRARY["company_share_option_library"]["gamma"],               # CompanyShareOptionGammaFactor → ∂²V/∂S²
+        FACTOR_LIBRARY["company_share_option_library"]["vega"],                # CompanyShareOptionVegaFactor → ∂V/∂σ
+        # FACTOR_LIBRARY["company_share_option_library"]["implied_vol_ml"],    # ML-predicted IV (trained on implied_volatility_calculated)
 
         # ── Branch A dependency chain for lgbm_cs_quintile_rank_momentum ──────────────
         #24 momentum features (depend on company_share_value → price chain above)
-        FACTOR_LIBRARY["company_share_library"]["return_1d"],
-        FACTOR_LIBRARY["company_share_library"]["return_5d"],
-        FACTOR_LIBRARY["company_share_library"]["return_20d"],
-        FACTOR_LIBRARY["company_share_library"]["return_1m"],
-        FACTOR_LIBRARY["company_share_library"]["return_3m"],
-        FACTOR_LIBRARY["company_share_library"]["return_5m"],
-        FACTOR_LIBRARY["company_share_library"]["return_ytd"],
-        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_20"],
-        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_50"],
-        FACTOR_LIBRARY["company_share_library"]["price_vs_ma_100"],
-        FACTOR_LIBRARY["company_share_library"]["ma_5_vs_ma_10"],
-        FACTOR_LIBRARY["company_share_library"]["ma_20_vs_ma_50"],
-        FACTOR_LIBRARY["company_share_library"]["trend_slope_20d"],
-        FACTOR_LIBRARY["company_share_library"]["trend_slope_50d"],
-        FACTOR_LIBRARY["company_share_library"]["momentum_slope_20d"],
-        FACTOR_LIBRARY["company_share_library"]["sharpe_20d"],
-        FACTOR_LIBRARY["company_share_library"]["sharpe_50d"],
-        FACTOR_LIBRARY["company_share_library"]["sortino_20d"],
-        FACTOR_LIBRARY["company_share_library"]["distance_from_5m_high"],
-        FACTOR_LIBRARY["company_share_library"]["drawdown_from_5m_high"],
-        FACTOR_LIBRARY["company_share_library"]["days_since_5m_high"],
-        FACTOR_LIBRARY["company_share_library"]["short_term_momentum"],
-        FACTOR_LIBRARY["company_share_library"]["medium_term_momentum"],
-        FACTOR_LIBRARY["company_share_library"]["momentum_zscore_20d"],
-        # LightGBM cross-sectional quintile rank momentum (output: 1=weakest … 5=strongest)
-        FACTOR_LIBRARY["company_share_library"]["lgbm_cs_quintile_rank_momentum"],
+        # FACTOR_LIBRARY["company_share_library"]["return_1d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_5d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_1m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_3m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_5m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_ytd"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_20"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_50"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_100"],
+        # FACTOR_LIBRARY["company_share_library"]["ma_5_vs_ma_10"],
+        # FACTOR_LIBRARY["company_share_library"]["ma_20_vs_ma_50"],
+        # FACTOR_LIBRARY["company_share_library"]["trend_slope_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["trend_slope_50d"],
+        # FACTOR_LIBRARY["company_share_library"]["momentum_slope_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["sharpe_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["sharpe_50d"],
+        # FACTOR_LIBRARY["company_share_library"]["sortino_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["distance_from_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["drawdown_from_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["days_since_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["short_term_momentum"],
+        # FACTOR_LIBRARY["company_share_library"]["medium_term_momentum"],
+        # FACTOR_LIBRARY["company_share_library"]["momentum_zscore_20d"],
+        # # LightGBM cross-sectional quintile rank momentum (output: 1=weakest … 5=strongest)
+        # FACTOR_LIBRARY["company_share_library"]["lgbm_cs_quintile_rank_momentum"],
     ],
 
     "Portfolio": {

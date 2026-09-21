@@ -58,10 +58,11 @@ class ModelTrainer(BaseModelTrainer):
         # performance_summary = self._evaluate_model_performance(training_results)
 
         return {
-            'tickers': tickers,
-            'model_type': model_type,
-            'training_completed': datetime.now().isoformat(),
-            'factors_stored_in_database': True,
+            "factor_data": factor_data,
+            "tickers": tickers,
+            "model_type": model_type,
+            "training_completed": datetime.now().isoformat(),
+            "factors_stored_in_database": True,
         }
 
     # ------------------------------------------------------------------

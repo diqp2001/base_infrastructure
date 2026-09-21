@@ -7,14 +7,13 @@ including signal generation, position management, and execution logic.
 
 import logging
 import numpy as np
-import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 
 from ..models.pricing_model import PricingModel
 from ..models.volatility_model import VolatilityModel
-
-logger = logging.getLogger(__name__)
+from .hedging.rebalancing_bands import compute_hedge_band, select_hedge_method as _select_hedge_method_fn
+from .hedging.ww_ntbn import WWNTBNHedgePolicy
 
 
 class Strategy:
@@ -39,11 +38,15 @@ class Strategy:
         
         # Strategy state
         self.active_positions = {}
-        self.target_spreads = []
         self.market_regime = 'normal'
-        
+        self.hedge_band_state: Dict[str, Any] = {}
+
+        # WW-NTBN inference policy (loads weights when path is configured)
+        self._ntbn_policy = WWNTBNHedgePolicy(
+            weights_path=config.get('hedge_ntbn_weights_path', None)
+        )
+
         # Performance tracking
-        self.pnl_history = []
         self.trade_history = []
         
         # Risk limits from config
@@ -63,8 +66,16 @@ class Strategy:
         """
         try:
             spx_price = market_data.get('spx_price', 0)
-            vix = market_data.get('vix', 20)
-            
+            vix = market_data.get('vix')
+
+            if vix is None:
+                return {
+                    'regime': self.market_regime,
+                    'analysis_timestamp': datetime.now().isoformat(),
+                }
+
+            vix = float(vix)
+
             # Determine market regime
             if vix > 30:
                 regime = 'high_volatility'
@@ -78,10 +89,9 @@ class Strategy:
                 regime = 'normal'
                 spread_width_multiplier = 1.0
                 position_size_multiplier = 1.0
-            
+
             self.market_regime = regime
-            
-            # Calculate market indicators
+
             analysis = {
                 'regime': regime,
                 'vix_level': vix,
@@ -91,10 +101,10 @@ class Strategy:
                 'recommended_spread_type': self._recommend_spread_type(market_data),
                 'analysis_timestamp': datetime.now().isoformat(),
             }
-            
+
             self.logger.info(f"Market regime: {regime}, VIX: {vix:.1f}")
             return analysis
-            
+
         except Exception as e:
             self.logger.error(f"Error analyzing market conditions: {e}")
             return {
@@ -103,6 +113,22 @@ class Strategy:
                 'analysis_timestamp': datetime.now().isoformat(),
             }
     
+    def select_hedge_method(
+        self,
+        market_analysis: Dict[str, Any],
+        cost_rate: float,
+    ) -> str:
+        """Select the hedging model for the current regime and cost level.
+
+        Delegates to the pure ``select_hedge_method`` function in
+        ``rebalancing_bands``, reading the cost-high threshold from config.
+
+        Returns one of 'whalley_wilmott', 'zakamouline', 'ww_ntbn'.
+        """
+        regime = market_analysis.get('regime', self.market_regime)
+        threshold = float(self.config.get('hedge_cost_high_threshold', 0.005))
+        return _select_hedge_method_fn(regime, cost_rate, threshold)
+
     def generate_spread_opportunities(
         self,
         spx_price: float,
@@ -256,40 +282,59 @@ class Strategy:
                 'evaluation_timestamp': datetime.now().isoformat(),
             }
     
-    def manage_existing_positions(self) -> Dict[str, Any]:
+    def manage_existing_positions(
+        self,
+        market_data: Optional[Dict[str, Any]] = None,
+        positions: Optional[Dict[str, Any]] = None,
+        position_market_data: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
         """
-        Manage existing spread positions (profit taking, loss cutting, etc.).
-        
+        Manage existing spread positions (profit taking, loss cutting, delta hedging).
+
+        Args:
+            market_data: Optional market data forwarded to evaluate_portfolio_delta_hedge.
+                Should contain at minimum spx_price and implied_vol (or vix).
+            positions: The canonical position dict from the algorithm (self.positions).
+                Falls back to self.active_positions when not provided.
+            position_market_data: Market data for each position, used for evaluating P&L and exit criteria.
+
         Returns:
             Dict containing position management results
         """
         try:
             management_results = []
+            exited_position_ids = []
+            _market_data = market_data or {}
+            _positions = positions if positions is not None else self.active_positions
+
             
-            for position_id, position in self.active_positions.items():
-                # Calculate current P&L
-                current_pnl = self._calculate_position_pnl(position)
-                
-                # Check exit criteria
-                exit_decision = self._evaluate_position_exit(position, current_pnl)
-                
-                if exit_decision.get('should_exit', False):
-                    # Execute exit
-                    exit_result = self._execute_position_exit(position_id, exit_decision)
-                    management_results.append(exit_result)
-                else:
-                    # Update position tracking
-                    position['last_update'] = datetime.now()
-                    position['current_pnl'] = current_pnl
-            
+           
+            active_positions = {
+                pid: pos for pid, pos in _positions.items()
+                if pid not in exited_position_ids
+            }
+            portfolio_hedge = self.evaluate_portfolio_delta_hedge(
+                _market_data, active_positions,
+                position_market_data=position_market_data,
+            )
+
+            if (portfolio_hedge.get('should_hedge')
+                    and portfolio_hedge.get('target_hedge_delta') is not None):
+                self.hedge_band_state['_portfolio'] = {
+                    'hedge_delta': portfolio_hedge['target_hedge_delta'],
+                    'last_hedge_time': datetime.now().isoformat(),
+                }
+
             return {
-                'positions_managed': len(self.active_positions),
+                'positions_managed': len(_positions),
                 'exits_executed': len(management_results),
+                'exited_position_ids': exited_position_ids,
                 'management_results': management_results,
-                'total_pnl': sum(pos.get('current_pnl', 0) for pos in self.active_positions.values()),
+                'portfolio_hedge': portfolio_hedge,
+                'total_pnl': sum(pos.get('current_pnl', 0) for pos in _positions.values()),
                 'management_timestamp': datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             self.logger.error(f"Error managing existing positions: {e}")
             return {
@@ -298,17 +343,422 @@ class Strategy:
                 'management_timestamp': datetime.now().isoformat(),
             }
     
+    def evaluate_portfolio_delta_hedge(
+        self,
+        market_data: Dict[str, Any],
+        positions: Optional[Dict[str, Any]] = None,
+        position_market_data: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Evaluate whether the aggregate portfolio delta requires a hedge trade.
+
+        Sums position deltas and gammas across all active positions to get the
+        net book exposure, then applies the no-trade band to that aggregate.
+        This produces ONE hedge decision for the whole portfolio, which is the
+        correct framing for a delta-neutral market-making strategy.
+
+        The implied-vol and time-to-expiry inputs for the band model are computed
+        as |gamma|-weighted averages across positions so the most gamma-sensitive
+        legs dominate the band width.
+
+        Args:
+            market_data: Dict with at minimum:
+                spx_price (float): Current SPX spot price.
+                implied_vol (float, optional): Last-resort fallback vol when no position
+                    greeks and no position_market_data entry carry one.
+            positions: Active position store; falls back to self.active_positions.
+            position_market_data: Per-symbol factor values from _load_position_market_data,
+                keyed by option symbol.  Used as the second-priority IV source (after
+                pos['greeks']['implied_vol'], before market_data['implied_vol']).
+
+        Returns:
+            Dict with keys:
+                should_hedge (bool)
+                portfolio_delta (float): Sum of all position deltas.
+                portfolio_gamma (float): Sum of all position gammas.
+                net_residual_delta (float): portfolio_delta + current_hedge.
+                band_half_width (float)
+                model_used (str)
+                current_hedge_delta (float)
+                position_count (int)
+                evaluation_timestamp (str)
+                hedge_direction, hedge_trade_delta, target_hedge_delta — only when should_hedge.
+        """
+        _PORTFOLIO_KEY = '_portfolio'
+        try:
+            _positions = positions if positions is not None else self.active_positions
+
+            portfolio_delta = 0.0
+            portfolio_gamma = 0.0
+            total_gamma_weight = 0.0
+            weighted_iv = 0.0
+            weighted_tau = 0.0
+
+            _pmd = position_market_data or {}
+
+            for pos in _positions.values():
+                greeks = pos.get('greeks', {})
+                # signed quantity: negative for short positions (quantity stored signed from DB)
+                size = pos.get('size', 1)
+
+                # position delta: ∂V/∂S × signed contracts  (net_ key used when spread legs are pre-netted)
+                # size is negative for short → p_delta is negative for a short call (positive BSM delta)
+                p_delta = greeks.get('net_delta', greeks.get('delta', 0)) * size
+                # position gamma: ∂²V/∂S² × signed contracts
+                p_gamma = greeks.get('net_gamma', greeks.get('gamma', 0)) * size
+                # |gamma| used as the weighting factor for IV and tau averages
+                abs_gamma = abs(p_gamma)
+
+                # running sum: Σ(delta_i × size_i) → net portfolio delta
+                portfolio_delta += p_delta
+                # running sum: Σ(gamma_i × size_i) → net portfolio gamma (signed)
+                portfolio_gamma += p_gamma
+                # running sum: Σ|gamma_i × size_i| → total weight for weighted averages
+                total_gamma_weight += abs_gamma
+
+                # IV priority: stored greek > position_market_data resolved value > market_data fallback later
+                iv = greeks.get('implied_vol')
+                if iv is None:
+                    symbol = pos.get('symbol')
+                    if symbol:
+                        iv = _pmd.get(symbol, {}).get('greeks', {}).get('implied_vol')
+
+                # time to expiry in years; fall back to 30 calendar days if not stored
+                tau = float(pos.get('time_to_expiry', pos.get('days_to_expiry', 30) / 365.25))
+                # accumulate |gamma|-weighted IV numerator: Σ(|gamma_i| × iv_i)
+                if iv is not None:
+                    weighted_iv += abs_gamma * float(iv)
+                # accumulate |gamma|-weighted tau numerator: Σ(|gamma_i| × tau_i)
+                weighted_tau += abs_gamma * tau
+
+            # aggregate gamma = signed sum of all position gammas (used for band width formula)
+            agg_gamma = portfolio_gamma
+            if total_gamma_weight > 0:
+                # |gamma|-weighted average IV: Σ(|γ_i|·σ_i) / Σ|γ_i|  — None if no IV was available
+                implied_vol_agg = weighted_iv / total_gamma_weight if weighted_iv > 0 else None
+                # |gamma|-weighted average time-to-expiry: Σ(|γ_i|·τ_i) / Σ|γ_i|
+                time_to_expiry = weighted_tau / total_gamma_weight
+            else:
+                # no positions with gamma — cannot weight; set sensible defaults
+                implied_vol_agg = None
+                time_to_expiry = 30.0 / 365.25
+
+            # last-resort IV fallback: bar-level market_data (e.g. VIX proxy) if no position supplied one
+            if implied_vol_agg is None:
+                _iv = market_data.get('implied_vol')
+                implied_vol_agg = float(_iv) if _iv is not None else None
+
+            # Extract SPY spot from Slice.bars (Symbol keys; options have spaces, equity does not)
+            _spy_bar = next(
+                (bar for sym, bar in getattr(market_data, 'bars', {}).items()
+                 if str(getattr(sym, 'value', sym)) == 'SPY'),
+                None,
+            )
+            spot = float(_spy_bar.close) if _spy_bar is not None else float(
+                market_data.get('spy_price', market_data.get('spx_price', market_data.get('spot', 500.0)))
+            )
+            cost_rate = float(self.config.get('hedge_transaction_cost_rate', 0.0001))
+            risk_aversion = float(self.config.get('hedge_risk_aversion', 1.0))
+            risk_free_rate = float(self.config.get('interest_rate', 0.05))
+
+            method_name = self.select_hedge_method({'regime': self.market_regime}, cost_rate)
+
+            needs_vol = method_name == 'zakamouline' or (
+                method_name == 'ww_ntbn' and self._ntbn_policy._loaded
+            )
+            if needs_vol and implied_vol_agg is None:
+                self.logger.debug(
+                    "Skipping portfolio delta hedge: implied_vol absent (method=%s)", method_name
+                )
+                return {
+                    'should_hedge': False,
+                    'reason': 'no_implied_vol',
+                    'portfolio_delta': portfolio_delta,
+                    'portfolio_gamma': portfolio_gamma,
+                    'position_count': len(_positions),
+                    'evaluation_timestamp': datetime.now().isoformat(),
+                }
+
+            self.logger.info(
+                "Portfolio delta hedge method: %s (regime=%s, net_delta=%.4f, net_gamma=%.4f)",
+                method_name, self.market_regime, portfolio_delta, portfolio_gamma,
+            )
+
+            if method_name == 'ww_ntbn':
+                ntbn_result = self._ntbn_policy.compute_hedge(
+                    gamma_net=agg_gamma,
+                    spot=spot,
+                    strike=spot,
+                    tau=time_to_expiry,
+                    vol=implied_vol_agg or 0.0,
+                    prev_hedge=float(
+                        self.hedge_band_state.get(_PORTFOLIO_KEY, {}).get('hedge_delta', 0.0)
+                    ),
+                    r=risk_free_rate,
+                    cost_rate=cost_rate,
+                    risk_aversion=risk_aversion,
+                )
+                band_info: Dict[str, Any] = {
+                    'half_width': ntbn_result['half_width'],
+                    'model_used': ntbn_result['model_used'],
+                    'regime': self.market_regime,
+                    'ww_half_width': ntbn_result.get('ww_prior'),
+                    'zakamouline_half_width': None,
+                    'ntbn_residual': ntbn_result.get('residual'),
+                }
+            else:
+                regime_map_override = dict(self.config.get('hedge_band_regime_map', {}))
+                regime_map_override[self.market_regime] = method_name
+                band_info = compute_hedge_band(
+                    gamma=agg_gamma,
+                    spot=spot,
+                    cost_rate=cost_rate,
+                    risk_aversion=risk_aversion,
+                    regime=self.market_regime,
+                    time_to_expiry=time_to_expiry,
+                    implied_vol=implied_vol_agg,
+                    risk_free_rate=risk_free_rate,
+                    regime_map=regime_map_override,
+                )
+
+            half_width = band_info['half_width']
+            current_hedge_delta = float(
+                self.hedge_band_state.get(_PORTFOLIO_KEY, {}).get('hedge_delta', 0.0)
+            )
+            net_residual_delta = portfolio_delta + current_hedge_delta
+
+            base = {
+                'portfolio_delta': portfolio_delta,
+                'portfolio_gamma': portfolio_gamma,
+                'net_residual_delta': net_residual_delta,
+                'band_half_width': half_width,
+                'model_used': band_info['model_used'],
+                'current_hedge_delta': current_hedge_delta,
+                'band_info': band_info,
+                'position_count': len(_positions),
+                'evaluation_timestamp': datetime.now().isoformat(),
+            }
+
+            if abs(net_residual_delta) <= half_width:
+                return {'should_hedge': False, **base}
+
+            # Band breached: hedge all the way to delta=0, not just to the band edge.
+            # target_hedge_delta = -portfolio_delta  →  net residual after hedge = 0
+            target_hedge_delta = -portfolio_delta
+            # incremental SPY trade on top of the hedge already in place
+            hedge_trade_delta = target_hedge_delta - current_hedge_delta
+
+            return {
+                'should_hedge': True,
+                'hedge_direction': 'buy' if hedge_trade_delta > 0 else 'sell',
+                'hedge_trade_delta': abs(hedge_trade_delta),
+                'target_hedge_delta': target_hedge_delta,
+                **base,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error evaluating portfolio delta hedge: {e}")
+            return {
+                'should_hedge': False,
+                'error': str(e),
+                'evaluation_timestamp': datetime.now().isoformat(),
+            }
+
+    def evaluate_delta_hedge(
+        self,
+        position_id: str,
+        market_data: Dict[str, Any],
+        positions: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Evaluate whether the delta hedge for a position needs rebalancing.
+
+        Uses regime-switched no-trade band (NTB) logic to decide if the current
+        unhedged delta is outside the allowable range.  When a hedge is warranted
+        the recommendation targets the nearest band edge, not zero residual delta,
+        to avoid immediately re-triggering the threshold.
+
+        All greeks operate on NETTED spread exposure (both legs combined); per-leg
+        bands are NOT used because their intersection can be empty near ATM.
+
+        Args:
+            position_id: Position key in ``positions`` (or ``self.active_positions``).
+            market_data: Dict with at minimum:
+                spx_price (float): Current SPX spot price.
+                implied_vol (float, optional): Bar-level override; position greeks take precedence.
+            positions: Canonical position store from the algorithm layer.
+                Falls back to ``self.active_positions`` when None.
+
+        Returns:
+            Dict with keys:
+                should_hedge (bool)
+                position_id (str)
+                net_residual_delta (float): Unhedged delta = position delta + current hedge.
+                band_half_width (float)
+                model_used (str): Hedging model that was applied.
+                current_hedge_delta (float)
+                band_info (dict): Full band output from the selected model.
+                evaluation_timestamp (str): ISO timestamp.
+                hedge_direction (str): 'buy' or 'sell' — only when should_hedge is True.
+                hedge_trade_delta (float): Absolute delta to trade — only when should_hedge.
+                target_hedge_delta (float): Target hedge delta — only when should_hedge.
+        """
+        try:
+            _positions = positions if positions is not None else self.active_positions
+            position = _positions.get(position_id, {})
+            greeks = position.get('greeks', {})
+            # signed quantity: negative for short positions (quantity stored signed from DB)
+            size = position.get('size', 1)
+
+            # NETTED spread greeks: both legs already aggregated; scale by signed contracts
+            net_gamma = greeks.get('net_gamma', greeks.get('gamma', 0)) * size
+            net_delta = greeks.get('net_delta', greeks.get('delta', 0)) * size
+
+            _spy_bar = next(
+                (bar for sym, bar in getattr(market_data, 'bars', {}).items()
+                 if str(getattr(sym, 'value', sym)) == 'SPY'),
+                None,
+            )
+            spot = float(_spy_bar.close) if _spy_bar is not None else float(
+                market_data.get('spy_price', market_data.get('spx_price', market_data.get('spot', 500.0)))
+            )
+
+            # Per-option IV stored at pricing time takes precedence;
+            # market_data['implied_vol'] may override it for the current bar.
+            _iv = (
+                greeks.get('implied_vol')
+                or market_data.get('implied_vol')
+            )
+            implied_vol: Optional[float] = float(_iv) if _iv is not None else None
+            time_to_expiry = float(
+                position.get('time_to_expiry', position.get('days_to_expiry', 30) / 365.25)
+            )
+            cost_rate = float(self.config.get('hedge_transaction_cost_rate', 0.0001))
+            risk_aversion = float(self.config.get('hedge_risk_aversion', 1.0))
+            risk_free_rate = float(self.config.get('interest_rate', 0.05))
+
+            # --- Regime dispatch (audit-logged) ---
+            method_name = self.select_hedge_method({'regime': self.market_regime}, cost_rate)
+
+            # Zakamouline requires vol; WW-NTBN with loaded weights also needs vol.
+            # If vol is absent, skip hedging — do not substitute a hardcoded default.
+            needs_vol = method_name == 'zakamouline' or (
+                method_name == 'ww_ntbn' and self._ntbn_policy._loaded
+            )
+            if needs_vol and implied_vol is None:
+                self.logger.debug(
+                    "Skipping delta hedge for %s: implied_vol absent (method=%s)",
+                    position_id, method_name,
+                )
+                return {
+                    'should_hedge': False,
+                    'position_id': position_id,
+                    'reason': 'no_implied_vol',
+                    'evaluation_timestamp': datetime.now().isoformat(),
+                }
+
+            self.logger.info(
+                "Delta hedge method selected: %s "
+                "(regime=%s, cost_rate=%.4f, position_id=%s)",
+                method_name, self.market_regime, cost_rate, position_id,
+            )
+
+            if method_name == 'ww_ntbn':
+                strike = float(
+                    position.get('strikes', {}).get('long', spot)
+                    or position.get('strike', spot)
+                    or spot
+                )
+                ntbn_result = self._ntbn_policy.compute_hedge(
+                    gamma_net=net_gamma,
+                    spot=spot,
+                    strike=strike,
+                    tau=time_to_expiry,
+                    vol=implied_vol or 0.0,  # fallback path (no weights) doesn't use vol
+                    prev_hedge=float(
+                        self.hedge_band_state.get(position_id, {}).get('hedge_delta', 0.0)
+                    ),
+                    r=risk_free_rate,
+                    cost_rate=cost_rate,
+                    risk_aversion=risk_aversion,
+                )
+                band_info: Dict[str, Any] = {
+                    'half_width': ntbn_result['half_width'],
+                    'model_used': ntbn_result['model_used'],
+                    'regime': self.market_regime,
+                    'ww_half_width': ntbn_result['ww_prior'],
+                    'zakamouline_half_width': None,
+                    'ntbn_residual': ntbn_result['residual'],
+                }
+            else:
+                # WW or Zakamouline — force the select_hedge_method decision
+                regime_map_override = dict(self.config.get('hedge_band_regime_map', {}))
+                regime_map_override[self.market_regime] = method_name
+                band_info = compute_hedge_band(
+                    gamma=net_gamma,
+                    spot=spot,
+                    cost_rate=cost_rate,
+                    risk_aversion=risk_aversion,
+                    regime=self.market_regime,
+                    time_to_expiry=time_to_expiry,
+                    implied_vol=implied_vol,
+                    risk_free_rate=risk_free_rate,
+                    regime_map=regime_map_override,
+                )
+
+            half_width = band_info['half_width']
+            current_hedge_delta = float(
+                self.hedge_band_state.get(position_id, {}).get('hedge_delta', 0.0)
+            )
+            net_residual_delta = net_delta + current_hedge_delta
+
+            base = {
+                'position_id': position_id,
+                'net_residual_delta': net_residual_delta,
+                'band_half_width': half_width,
+                'model_used': band_info['model_used'],
+                'current_hedge_delta': current_hedge_delta,
+                'band_info': band_info,
+                'evaluation_timestamp': datetime.now().isoformat(),
+            }
+
+            if abs(net_residual_delta) <= half_width:
+                return {'should_hedge': False, **base}
+
+            # Outside band — trade to the nearest edge, not to zero
+            sign = 1.0 if net_residual_delta > 0 else -1.0
+            target_hedge_delta = sign * half_width - net_delta
+            hedge_trade_delta = target_hedge_delta - current_hedge_delta
+
+            return {
+                'should_hedge': True,
+                'hedge_direction': 'buy' if hedge_trade_delta > 0 else 'sell',
+                'hedge_trade_delta': abs(hedge_trade_delta),
+                'target_hedge_delta': target_hedge_delta,
+                **base,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error evaluating delta hedge for {position_id}: {e}")
+            return {
+                'should_hedge': False,
+                'position_id': position_id,
+                'error': str(e),
+                'evaluation_timestamp': datetime.now().isoformat(),
+            }
+
     def _recommend_spread_type(self, market_data: Dict[str, Any]) -> str:
         """Recommend spread type based on market conditions."""
-        vix = market_data.get('vix', 20)
-        trend = market_data.get('trend', 'neutral')  # bullish, bearish, neutral
-        
+        vix = market_data.get('vix')
+        trend = market_data.get('trend', 'neutral')
+
+        if vix is None:
+            return 'both'
+
+        vix = float(vix)
         if trend == 'bullish' and vix < 25:
             return 'bull_call_spread'
         elif trend == 'bearish' or vix > 30:
             return 'bear_call_spread'
-        else:
-            return 'both'  # Consider both types
+        return 'both'
     
     def _get_target_expiries(self, dte_range: Tuple[int, int]) -> List[datetime]:
         """Get target expiry dates within the specified range."""
@@ -337,9 +787,6 @@ class Strategy:
     ) -> List[Dict[str, Any]]:
         """Generate bull call spread opportunities."""
         opportunities = []
-        
-        # Strike spacing for SPX (typically 5 or 10 points)
-        strike_spacing = 5 if spx_price < 3000 else 10
         
         # Generate potential long strikes around target delta
         for target_delta in np.arange(delta_range[0], delta_range[1], 0.05):
@@ -488,9 +935,10 @@ class Strategy:
         else:
             return 'expiry_approach'
     
-    def _execute_position_exit(self, position_id: str, exit_decision: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_position_exit(self, position_id: str, exit_decision: Dict[str, Any], positions: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute position exit."""
-        position = self.active_positions.pop(position_id, {})
+        _positions = positions if positions is not None else self.active_positions
+        position = _positions.pop(position_id, {})
         
         # Record trade history
         trade_record = {

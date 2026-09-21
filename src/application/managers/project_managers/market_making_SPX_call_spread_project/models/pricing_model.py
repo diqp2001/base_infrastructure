@@ -176,6 +176,7 @@ class PricingModel:
                     'theta': net_theta,
                     'vega': net_vega,
                     'rho': net_rho,
+                    'implied_vol': sigma,
                 },
                 'individual_options': {
                     'long_call': long_call,

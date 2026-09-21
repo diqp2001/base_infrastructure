@@ -56,6 +56,7 @@ class CompanyShareOptionRFYieldFactor(CompanyShareOptionFactor):
         if not valid:
             return None
         return sum(valid) / len(valid)
+
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec

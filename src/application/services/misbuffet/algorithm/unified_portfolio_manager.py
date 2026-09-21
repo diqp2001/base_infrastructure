@@ -919,8 +919,10 @@ class UnifiedPortfolioManager:
         Return True if the portfolio has sufficient resources to execute the trade.
 
         BUY  (order_qty > 0): available cash must cover the full order cost.
-        SELL (order_qty < 0): current position must be >= the sell quantity
-                              (no naked short selling in this implementation).
+        SELL (order_qty < 0): always allowed — short selling is permitted.
+                              Shorting a bond to raise cash before buying another
+                              asset is a valid strategy; the broker enforces margin
+                              requirements at the account level, not here.
         """
         if order_qty > 0:
             required_cash = order_qty * price
@@ -928,17 +930,8 @@ class UnifiedPortfolioManager:
             if available_cash < required_cash:
                 if self.logger:
                     self.logger.warning(
-                        f"Budget check failed â€” need ${required_cash:,.2f}, "
+                        f"Budget check failed - need ${required_cash:,.2f}, "
                         f"available cash ${available_cash:,.2f}"
-                    )
-                return False
-        elif order_qty < 0:
-            sell_qty = abs(order_qty)
-            if current_qty < sell_qty:
-                if self.logger:
-                    self.logger.warning(
-                        f"Budget check failed â€” cannot sell {sell_qty} shares, "
-                        f"only {current_qty} in position"
                     )
                 return False
         return True
@@ -948,24 +941,16 @@ class UnifiedPortfolioManager:
         Return the current available cash balance as a Decimal.
 
         Sources in priority order:
-        1. QC algorithm's in-memory portfolio cash â€” fast and authoritative
-           during backtesting/paper trading.
-        2. Currency holding in the DB â€” the cash holding created at portfolio
-           init (currency asset, position.quantity = initial_cash).
+        1. DB CurrencyPortfolio position — authoritative because every trade
+           (buy or sell/short) is written there by _update_cash_for_trade.
+           portfolio.cash is NOT updated by _submit_order so it goes stale
+           after the first trade and must not be used as primary source.
+        2. QC algorithm's in-memory portfolio.cash — used only when the DB
+           position has not been set up yet (e.g. very first bar before any
+           portfolio initialisation has written to the DB).
         3. Falls back to 0 so callers always receive a valid number.
         """
-        # 1. Algorithm in-memory cash (most accurate during simulation).
-        # Only use if strictly positive — zero likely means the QC portfolio hasn't
-        # been initialised from the real cash source yet (live/paper trading startup).
-        if self._algorithm is not None:
-            try:
-                cash = float(self._algorithm.portfolio.cash)
-                if cash > 0:
-                    return Decimal(str(cash))
-            except Exception:
-                pass
-
-        # 2. DB cash via CurrencyPortfolio sub-portfolio tree
+        # 1. DB cash via CurrencyPortfolio sub-portfolio tree (updated by every trade)
         try:
             if self._current_portfolio_entity:
                 from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
@@ -994,6 +979,15 @@ class UnifiedPortfolioManager:
                             return Decimal(str(pos.quantity))
         except Exception:
             pass
+
+        # 2. Fallback: algorithm in-memory cash (only accurate before any trades execute)
+        if self._algorithm is not None:
+            try:
+                cash = float(self._algorithm.portfolio.cash)
+                if cash > 0:
+                    return Decimal(str(cash))
+            except Exception:
+                pass
 
         return Decimal('0')
 

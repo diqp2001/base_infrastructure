@@ -290,29 +290,56 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             logger.error(f"Error counting currencies: {e}_{os.path.abspath(__file__)}")
             raise
     
-    def get_related_entities(self, currency_id: int) -> list:
-        """Return the benchmark BondFuture for this currency (e.g. SR3 for USD, CORRA for CAD).
+    def get_related_entities(self, currency_id: int, target_date=None) -> list:
+        """Return the front-month benchmark BondFuture for this currency.
 
-        Called by the factor value resolution service when resolving CurrencyYieldFactor
-        dependencies — the resolution service maps Currency:USD → BondFuture:SR3 so that
-        BondFutureAnnualizedYieldFactor can be looked up for the correct instrument.
+        Uses CurrencyYieldFactor.BENCHMARK_MAP (USD→SR3, CAD→CORRA) and target_date
+        to select the correct quarterly contract (e.g. SR3U6 for Sep-2026).
+        If the contract does not exist locally, fetches it from IBKR and persists it.
         """
         if not self.factory:
             return []
         try:
+            from datetime import date as _date
             from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor
+            from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.bond_future_repository import BondFutureRepository
+
             currency = self.get_by_id(currency_id)
             if not currency or not getattr(currency, 'symbol', None):
                 return []
-            benchmark_ticker = CurrencyYieldFactor.BENCHMARK_MAP.get(currency.symbol.upper())
-            if not benchmark_ticker:
+
+            root = CurrencyYieldFactor.BENCHMARK_MAP.get(currency.symbol.upper())
+            if not root:
                 return []
-            bond_future_repo = self.factory.get_local_repository('BondFuture')
-            if not bond_future_repo:
+
+            ref_date = (target_date.date() if hasattr(target_date, 'date') else target_date) if target_date else _date.today()
+
+            local_bond_repo = self.factory.get_local_repository('BondFuture')
+            if not local_bond_repo:
                 return []
-            bond_future = bond_future_repo.get_by_root_symbol(benchmark_ticker)
+
+            # Try to find the exact front-month contract in local DB
+            bond_future = local_bond_repo.get_by_root_symbol(root, ref_date)
             if bond_future:
                 return [bond_future]
+
+            # Not in local DB — compute the expected symbol and fetch from IBKR
+            symbol = BondFutureRepository.front_month_symbol(root, ref_date)
+            ibkr_bond_repo = (
+                self.factory.get_ibkr_repository('BondFuture')
+                if hasattr(self.factory, 'get_ibkr_repository')
+                else None
+            )
+            if ibkr_bond_repo:
+                bond_future = ibkr_bond_repo._create_or_get(symbol)
+                if bond_future:
+                    logger.info(f"Auto-registered BondFuture {symbol} for {currency.symbol} yield resolution")
+                    return [bond_future]
+
+            logger.warning(
+                f"Could not find or create BondFuture {symbol} for currency {currency.symbol}; "
+                f"CurrencyYieldFactor will not resolve"
+            )
             return []
         except Exception as e:
             logger.error(f"Error getting related entities for Currency (currency_id={currency_id}): {e}")

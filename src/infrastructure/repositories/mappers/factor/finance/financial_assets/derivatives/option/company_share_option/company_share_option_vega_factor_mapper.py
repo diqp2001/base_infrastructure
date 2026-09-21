@@ -14,7 +14,7 @@ class CompanyShareOptionVegaFactorMapper(BaseFactorMapper):
     
     @property
     def discriminator(self):
-        return 'CompanyShareOption'
+        return 'CompanyShareOptionVega'
     
     @property
     def model_class(self):

@@ -1,4 +1,5 @@
 import os
+from datetime import date as _date
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -22,9 +23,47 @@ class BondFutureRepository(FutureRepository, BondFuturePort):
     def model_class(self):
         return self.mapper.model_class
 
-    def get_by_root_symbol(self, root: str) -> Optional[BondFuture]:
-        """Return the first BondFuture whose symbol starts with `root` (e.g. 'SR3' → 'SR3Z6')."""
+    # SOFR/CORRA quarterly months — same convention as IBKR local_symbol suffix
+    _QUARTERLY_MONTH_CODES = {3: 'H', 6: 'M', 9: 'U', 12: 'Z'}
+
+    @staticmethod
+    def front_month_symbol(root: str, target_date: _date) -> str:
+        """Return the IBKR local_symbol for the front-month futures contract.
+
+        Uses the same root+month_code+year_digit convention that IBKR uses for
+        CME quarterly futures (e.g. SR3U6 for Sep-2026, SR3Z6 for Dec-2026).
+        Expiry is approximated as the 21st of the contract month (3rd-Wednesday proxy).
+        """
+        q_months = sorted(BondFutureRepository._QUARTERLY_MONTH_CODES.keys())
+        year = target_date.year
+        for q_month in q_months:
+            if q_month >= target_date.month:
+                approx_expiry = _date(year, q_month, 21)
+                if approx_expiry > target_date:
+                    code = BondFutureRepository._QUARTERLY_MONTH_CODES[q_month]
+                    return f"{root}{code}{str(year)[-1]}"
+        # Roll to next year March
+        code = BondFutureRepository._QUARTERLY_MONTH_CODES[3]
+        return f"{root}{code}{str(year + 1)[-1]}"
+
+    def get_by_root_symbol(self, root: str, target_date: Optional[_date] = None) -> Optional[BondFuture]:
+        """Return the front-month BondFuture for root symbol and target_date.
+
+        When target_date is provided, looks for the contract matching the expected
+        front-month symbol (e.g. SR3U6 for Sep-2026).  Falls back to any matching
+        contract if the exact symbol is not found.
+        """
         try:
+            if target_date is not None:
+                symbol = self.front_month_symbol(root, target_date)
+                orm_obj = (
+                    self.session.query(self.model_class)
+                    .filter(self.model_class.symbol == symbol)
+                    .first()
+                )
+                if orm_obj:
+                    return self.mapper.to_domain(orm_obj)
+            # Fallback: any contract with this root
             orm_obj = (
                 self.session.query(self.model_class)
                 .filter(self.model_class.symbol.like(f"{root}%"))

@@ -536,6 +536,15 @@ class FactorMapper:
             return CompanyShareOptionRFYieldFactorEntity(**base_args)
         elif factor_type == 'company_share_option_implied_corr_factor':
             return CompanyShareOptionImpliedCorrFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_delta_factor':
+            from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_delta_factor import CompanyShareOptionDeltaFactor as _CSODelta
+            return _CSODelta(**base_args)
+        elif factor_type == 'company_share_option_gamma_factor':
+            from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_gamma_factor import CompanyShareOptionGammaFactor as _CSOGamma
+            return _CSOGamma(**base_args)
+        elif factor_type == 'company_share_option_vega_factor':
+            from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_vega_factor import CompanyShareOptionVegaFactor as _CSOVega
+            return _CSOVega(**base_args)
         elif factor_type == 'company_share_option_vol_factor':
             return CompanyShareOptionVolFactorEntity(**base_args)
         elif factor_type == 'company_share_option_var_factor':
