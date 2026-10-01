@@ -36,7 +36,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "open",
         "group": "price",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level open price",
         "dependencies": [],
@@ -47,7 +47,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "high",
         "group": "price",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level high price",
         "dependencies": [],
@@ -58,7 +58,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "low",
         "group": "price",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level low price",
         "dependencies": [],
@@ -69,7 +69,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "close",
         "group": "price",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level close price",
         "dependencies": [],
@@ -80,7 +80,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "volume",
         "group": "price",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level traded volume",
         "dependencies": [],
@@ -91,7 +91,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
             "name": "implied_volatility",
             "group": "volatility",
             "subgroup": "implied",
-            "frequency": "5m",
+            "frequency": "1d",
             "data_type": "numeric",
             "description": "Minute-level implied volatility",
             "source": "ibkr",
@@ -104,7 +104,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                 "name": "implied_volatility_calculated",
                 "group": "volatility",
                 "subgroup": "implied",
-                "frequency": "5m",
+                "frequency": "1d",
                 "data_type": "numeric",
                 "description": "Minute-level implied volatility",
                 "source": "calculated",
@@ -117,7 +117,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
                     "name": "implied_vol_ml",
                     "group": "volatility",
                     "subgroup": "implied",
-                    "frequency": "5m",
+                    "frequency": "1d",
                     "data_type": "numeric",
                     "source": "calculated",
                     "description": "ML-predicted implied volatility of a company share option; trained on analytical implied vol values; auto-trains on regime change",
@@ -130,7 +130,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "rf_yield",
         "group": "fundamental",
         "subgroup": "yield",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "decimal",
         "description": "Risk-free overnight repo yield derived from the option currency's CurrencyYieldFactor (SOFR, ESTR, SONIA, etc.)",
         "dependencies": {
@@ -143,7 +143,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "company_share_option_value",
         "group": "value",
                 "subgroup": "asset",
-                "frequency": "5m",
+                "frequency": "1d",
                 "data_type": "decimal",
         
         "description": "Option price ",
@@ -156,33 +156,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "return_open",
         "group": "return",
         "subgroup": "minutes",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Minute-level open price return",
-        "dependencies": {
-            "start_price": {
-                "class": CompanyShareOptionFactor,
-                    "name": "open",
-                    "group": "price",
-                    "subgroup": "minutes",
-                    "frequency": "1m",
-                    "data_type": "numeric",
-                    "description": "Minute-level open price",
-                    "dependencies": [],
-                    "parameters": {"lag":timedelta(days=5, hours=3, minutes=10)}
-                },
-            "end_price": {
-                "class": CompanyShareOptionFactor,
-                    "name": "open",
-                    "group": "price",
-                    "subgroup": "minutes",
-                    "frequency": "1m",
-                    "data_type": "numeric",
-                    "description": "Minute-level open price",
-                    "dependencies": [],
-                    "parameters": {"lag":timedelta(days=4, hours=3, minutes=10)}
-                },
-                },
+        
         "parameters": {}
     },
 
@@ -195,30 +172,7 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "frequency": "1d",
         "data_type": "numeric",
         "description": "Daily price return",
-        "dependencies": {
-            "start_price": {
-                "class": CompanyShareOptionFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "daily",
-                "frequency": "1d",
-                "data_type": "numeric",
-                "description": "Daily close price",
-                "dependencies": [],
-                "parameters": {"lag": timedelta(days=2, hours=0, minutes=0)}
-            },
-            "end_price": {
-                "class": CompanyShareOptionFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "daily",
-                "frequency": "1d",
-                "data_type": "numeric",
-                "description": "Daily close price",
-                "dependencies": [],
-                "parameters": {"lag": timedelta(days=1, hours=0, minutes=0)}
-            }
-        },
+        
         "parameters": {"period": "1D"}
     },
     
@@ -329,33 +283,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "black_scholes_merton_price",
         "group": "price_model",
         "subgroup": "black_scholes",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Black-Scholes-Merton option price with dividend yield",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            },
-            "implied_volatility": {
-                "class": CompanyShareFactor,
-                "name": "implied_volatility",
-                "group": "volatility",
-                "subgroup": "implied",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Implied volatility",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {}
     },
 
@@ -364,22 +295,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "cox_ross_rubinstein_price",
         "group": "price_model",
         "subgroup": "binomial_tree",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Cox-Ross-Rubinstein binomial tree option price",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {"tree_steps": 100}
     },
 
@@ -388,33 +307,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "heston_price",
         "group": "price_model",
         "subgroup": "stochastic_volatility",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Heston stochastic volatility option price",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            },
-            "volatility": {
-                "class": CompanyShareFactor,
-                "name": "volatility",
-                "group": "volatility",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Current volatility",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {"monte_carlo_paths": 10000}
     },
 
@@ -423,22 +319,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "hull_white_price",
         "group": "price_model",
         "subgroup": "stochastic_rates",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Hull-White stochastic interest rate option price",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {}
     },
 
@@ -447,22 +331,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "sabr_price",
         "group": "price_model",
         "subgroup": "sabr",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "SABR model option price with volatility smile",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {}
     },
 
@@ -471,33 +343,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "bates_price",
         "group": "price_model",
         "subgroup": "jump_diffusion",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Bates jump-diffusion option price",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            },
-            "volatility": {
-                "class": CompanyShareFactor,
-                "name": "volatility",
-                "group": "volatility",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Current volatility",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {"monte_carlo_paths": 10000}
     },
 
@@ -506,22 +355,10 @@ COMPANY_SHARE_OPTION_LIBRARY: Dict[str, Dict] = {
         "name": "dupire_local_volatility_price",
         "group": "price_model",
         "subgroup": "local_volatility",
-        "frequency": "1m",
+        "frequency": "1d",
         "data_type": "numeric",
         "description": "Dupire local volatility option price",
-        "dependencies": {
-            "underlying_price": {
-                "class": CompanyShareFactor,
-                "name": "close",
-                "group": "price",
-                "subgroup": "minutes",
-                "frequency": "1m",
-                "data_type": "numeric",
-                "description": "Underlying asset price",
-                "dependencies": [],
-                "parameters": {"independent_factor_related_entity_key": "underlying_asset_id"}
-            }
-        },
+        
         "parameters": {"grid_size": 100}
     },
     

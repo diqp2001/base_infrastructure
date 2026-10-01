@@ -4,7 +4,6 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.comp
 
 
 class CompanyShareOptionValueFactorPort(ABC):
-    """Port interface for CompanyShareOptionValueFactor repositories."""
 
     @abstractmethod
     def get_by_id(self, id: int) -> Optional[CompanyShareOptionValueFactor]: ...

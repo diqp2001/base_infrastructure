@@ -26,7 +26,7 @@ class CurrencyValueFactor(CurrencyFactor):
         name: str = "currency_value",
         group: str = "value",
         subgroup: Optional[str] = "asset",
-        frequency: Optional[str] = "1d",
+        frequency: Optional[str] = "5m",
         data_type: Optional[str] = "decimal",
         source: Optional[str] = "calculated",
         definition: Optional[str] = "Market value of a currency asset derived from mid price",

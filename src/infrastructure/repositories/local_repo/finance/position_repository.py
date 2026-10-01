@@ -53,6 +53,13 @@ class PositionRepository(BaseLocalRepository, PositionPort):
     # Standard reads
     # ------------------------------------------------------------------
 
+    def _delete_by_portfolio_ids(self, ids_csv: str) -> None:
+        """Delete all positions belonging to the given portfolios."""
+        from sqlalchemy import text
+        self.session.execute(text(
+            f"DELETE FROM positions WHERE portfolio_id IN ({ids_csv})"
+        ))
+
     def get_all(self) -> List[PositionEntity]:
         models = self.session.query(PositionModel).all()
         return [self._to_entity(m) for m in models]

@@ -732,6 +732,62 @@ Library: `COMPANY_SHARE_PORTFOLIO_LIBRARY` in `src/application/services/data/ent
 Key `"return_eq_w_daily_3"`:
 - one `CompanySharePriceReturnFactor` dep keyed `"CompanySharePriceReturnFactor"` (lag 5d)
 
+---
+
+## calculate() contract — DependencySpec-only structure
+
+All factor dependencies are declared via `@property calculate_dependencies` returning `DependencySpec` objects (no legacy string dep path). `_resolve_dependency_spec` always delivers values as **`List[float]`**, not scalars.
+
+### What `calculate(dependencies)` receives
+
+| Key | Type | Source |
+|-----|------|--------|
+| `"SomeFactorClassName"` | `List[float]` | DependencySpec dep — always a list, even for a single value |
+| `"Position"` | `float` / `int` | String dep — stays a scalar (quantity from position) |
+| `"entity"` | entity object | Injected by resolution service — skip in value loops |
+| `"target_date"` | datetime | Injected by resolution service — skip in value loops |
+
+### Patterns for calculate()
+
+**Sum-all (portfolio/sub-portfolio value factors)**:
+```python
+def calculate(self, dependencies: dict) -> Decimal:
+    try:
+        total_value = Decimal('0.0')
+        for key, vals in dependencies.items():
+            if key in ('entity', 'target_date'):
+                continue
+            if isinstance(vals, list):
+                for v in vals:
+                    if isinstance(v, (int, float, Decimal)):
+                        total_value += Decimal(str(v))
+        return total_value
+    except Exception as e:
+        return Decimal('0.0')
+```
+
+**Passthrough (sub-portfolio holding value = sub-portfolio value)**:
+```python
+def calculate(self, dependencies: dict) -> Optional[Decimal]:
+    vals = dependencies.get('SomePortfolioValueFactor')
+    if not vals:
+        return None
+    return sum(Decimal(str(v)) for v in vals if isinstance(v, (int, float, Decimal))) or None
+```
+
+**Price × quantity (individual holding value)**:
+```python
+def calculate(self, dependencies: dict) -> Optional[Decimal]:
+    price_vals = dependencies.get('SomeAssetValueFactor')  # list from DependencySpec
+    quantity_raw = dependencies.get('Position')              # scalar from string dep
+    if not price_vals or quantity_raw is None:
+        return None
+    return Decimal(str(price_vals[0])) * Decimal(str(quantity_raw))
+```
+
+### Never write scalar-fallback checks
+Do not write `isinstance(v, (int, float, Decimal))` checks at the top-level dict value — DependencySpec deps are always lists. Scalar checks inside list iteration are fine.
+
 
 
 

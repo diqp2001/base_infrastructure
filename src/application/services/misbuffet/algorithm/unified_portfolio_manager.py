@@ -23,6 +23,7 @@ from src.domain.entities.finance.order.order import Order, OrderType, OrderSide,
 from src.domain.entities.finance.transaction.transaction import Transaction, TransactionType, TransactionStatus
 
 
+
 class UnifiedPortfolioManager:
     """
     Unified portfolio management system that replaces dual portfolio tracking.
@@ -192,8 +193,8 @@ class UnifiedPortfolioManager:
             #                 f"using initial_cash without conversion"
             #             )
             
-            # Create main portfolio
-            main_portfolio = self.portfolio_repo._create_or_get(
+            # Create main portfolio — wipes any prior run with the same name first
+            main_portfolio = self.portfolio_repo._replace_or_create(
                 name=main_name,
                 portfolio_type=main_type,
                 initial_cash=main_cash,
@@ -210,7 +211,7 @@ class UnifiedPortfolioManager:
             # Create market_data_service on demand if it's None
             if self.market_data_service is None and self.entity_service:
                 if self.logger:
-                    self.logger.info("ðŸ”„ Creating MarketDataService on demand...")
+                    self.logger.info("ðŸ"" Creating MarketDataService on demand...")
                 try:
                     from src.application.services.misbuffet.data.market_data_service import MarketDataService
                     self.market_data_service = MarketDataService(self.entity_service)
@@ -227,24 +228,6 @@ class UnifiedPortfolioManager:
             elif not hasattr(self.market_data_service, '_create_or_get'):
                 if self.logger:
                     self.logger.error(f"âŒ Market data service {type(self.market_data_service)} does not have _create_or_get method")
-            else:
-                try:
-                    config = FACTOR_LIBRARY["portfolio_library"]["portfolio_value"]
-                    # if self.logger:
-                    #     self.logger.info(f"ðŸ”„ Creating portfolio value factor with config: {config.get('factor_type', 'unknown')}")
-                    # portfolio_value_factor = self.market_data_service._create_or_get(config)
-                    # self.portfolio_value_factor = portfolio_value_factor
-                    # #initial_portfolio_value = self.get_portfolio_value()
-                    # if self.logger and portfolio_value_factor:
-                    #     self.logger.info(f"âœ… Portfolio value factor created: {portfolio_value_factor.name}")
-                    # elif self.logger:
-                    #     self.logger.warning("âš ï¸ Portfolio value factor creation returned None")
-                        
-                except Exception as e:
-                    if self.logger:
-                        self.logger.error(f"âŒ Error in get_or_create portfolio value factor portfolio_value: {e}")
-                        import traceback
-                        self.logger.error(f"âŒ Full traceback: {traceback.format_exc()}")
             
             if self.logger:
                 self.logger.info(f"âœ… Main portfolio created: {main_portfolio.name} (ID: {main_portfolio.id})")
@@ -257,249 +240,64 @@ class UnifiedPortfolioManager:
             return None
 
     # ---------------------------------------------------------------------------
-    # Lazy asset pipeline â€” called from set_holdings on first trade for a ticker
+    # Lazy asset pipeline â€" called from set_holdings on first trade for a ticker
     # ---------------------------------------------------------------------------
 
-    def _ensure_asset_container(self, ticker: str, now: datetime) -> Optional[int]:
+    def _ensure_asset_container(self, ticker: str, now: datetime, asset_class=None) -> Optional[int]:
         """
-        Idempotently set up the full sub-portfolio hierarchy for a CompanyShare ticker.
+        Idempotently set up the full sub-portfolio hierarchy for a ticker.
 
-        Steps (all idempotent):
-          1. Resolve the CompanyShareModel by symbol.
-          2. Find or create a CompanySharePortfolio sub-portfolio.
-          3. Link it to the main portfolio via CompanySharePortfolioPortfolioHolding.
-          4. Create a CompanySharePortfolioHolding + Position for the ticker.
-          5. Create a value factor for the sub-portfolio (if not already present).
+        Derives the portfolio repo key as asset_class.__name__ + 'Portfolio'
+        (e.g. CompanyShare → 'CompanySharePortfolio') and delegates entirely to
+        that repo's ensure_sub_portfolio_linked / ensure_ticker_holding methods.
+        When asset_class is omitted, probes the DB to determine the asset type.
 
-        Returns the sub-portfolio id to use as portfolio_id in execute_trade,
-        or None if the ticker is not a known CompanyShare.
+        Returns the sub-portfolio id or None.
         """
-        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
-        from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
-            CompanySharePortfolioPortfolioHoldingModel,
+        class_name = (
+            asset_class.__name__ if isinstance(asset_class, type)
+            else type(asset_class).__name__ if asset_class is not None
+            else self._probe_asset_class_name(ticker)
         )
-        from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
-            CompanySharePortfolioHoldingModel,
-        )
-        from src.infrastructure.models.finance.position import PositionModel
-
-        session = self.portfolio_repo.session
-        main_id = self._current_portfolio_entity.id
-
-        # Step 1: resolve the share
-        share = session.query(CompanyShareModel).filter(
-            CompanyShareModel.symbol == ticker
-        ).first()
-        if not share:
-            return self._ensure_option_asset_container(ticker, now)
-
-        # Step 2 & 3: find or create the CompanySharePortfolio + its link to main portfolio
-        link = (
-            session.query(CompanySharePortfolioPortfolioHoldingModel)
-            .filter_by(container_id=main_id)
-            .first()
-        )
-        if link:
-            sub_portfolio_id = link.asset_id
-        else:
-            sub_portfolio = self._create_company_share_sub_portfolio()
-            if sub_portfolio is None:
-                return None
-            sub_portfolio_id = sub_portfolio.id
-
-            # Position for the portfolio-portfolio link (quantity = 1, structural)
-            pp_pos = PositionModel(
-                portfolio_id=main_id,
-                quantity=1,
-                position_type='LONG',
-            )
-            session.add(pp_pos)
-            session.flush()
-
-            link = CompanySharePortfolioPortfolioHoldingModel(
-                asset_id=sub_portfolio_id,
-                portfolio_id=main_id,
-                container_id=main_id,
-                start_date=now,
-                position_id=pp_pos.id,
-            )
-            session.add(link)
-            session.commit()
-
+        if not class_name:
             if self.logger:
-                self.logger.info(
-                    f"Created CompanySharePortfolio '{sub_portfolio.name}' "
-                    f"(id={sub_portfolio_id}) linked to main portfolio {main_id}"
-                )
+                self.logger.warning(f"_ensure_asset_container: unknown asset class for '{ticker}'")
+            return None
 
-        # Step 4: ensure per-ticker holding
-        existing = (
-            session.query(CompanySharePortfolioHoldingModel)
-            .filter_by(company_share_portfolio_id=sub_portfolio_id, asset_id=share.id)
-            .first()
-        )
-        if not existing:
-            pos = PositionModel(
-                portfolio_id=sub_portfolio_id,
-                quantity=0,
-                position_type='LONG',
-            )
-            session.add(pos)
-            session.flush()
-
-            holding = CompanySharePortfolioHoldingModel(
-                asset_id=share.id,
-                company_share_portfolio_id=sub_portfolio_id,
-                container_id=sub_portfolio_id,
-                start_date=now,
-                position_id=pos.id,
-            )
-            session.add(holding)
-            session.commit()
-
+        repo = self.repository_factory.get_local_repository(class_name + 'Portfolio')
+        if repo is None:
             if self.logger:
-                self.logger.info(
-                    f"Created CompanySharePortfolioHolding: {ticker} "
-                    f"(asset_id={share.id}) â†’ sub-portfolio {sub_portfolio_id}"
+                self.logger.warning(
+                    f"_ensure_asset_container: no portfolio repo for '{class_name}Portfolio'"
                 )
+            return None
 
+        sub_portfolio_id = repo.ensure_sub_portfolio_linked(self._current_portfolio_entity, now)
+        if sub_portfolio_id:
+            repo.ensure_ticker_holding(ticker, sub_portfolio_id, now)
         return sub_portfolio_id
 
-    def _find_existing_container(self, ticker: str) -> Optional[int]:
-        """
-        Return the sub-portfolio id for a ticker that already has a holding.
-        Used for liquidation orders where the structure was set up in a prior call.
-        """
+    def _probe_asset_class_name(self, ticker: str) -> Optional[str]:
+        """Probe the DB to determine the asset class name for a ticker (legacy fallback)."""
         from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
-        from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
-            CompanySharePortfolioHoldingModel,
-        )
-
-        session = self.portfolio_repo.session
-        share = session.query(CompanyShareModel).filter(
-            CompanyShareModel.symbol == ticker
-        ).first()
-        if not share:
-            return None
-        holding = (
-            session.query(CompanySharePortfolioHoldingModel)
-            .filter_by(asset_id=share.id)
-            .first()
-        )
-        return holding.company_share_portfolio_id if holding else None
-
-    def _create_company_share_sub_portfolio(self):
-        """Create (or retrieve) a CompanySharePortfolio sub-portfolio for this main portfolio."""
-        try:
-            from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
-            repo = self.repository_factory.get_local_repository(CompanySharePortfolio)
-            main = self._current_portfolio_entity
-            sub_name = f"{main.name}_CS"
-            return repo._create_or_get(
-                name=sub_name,
-                currency_code=getattr(main, 'currency_code', 'USD'),
-                initial_cash=0.0,
-                portfolio_type=getattr(main, 'portfolio_type', 'BACKTEST'),
-            )
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"_create_company_share_sub_portfolio failed: {e}")
-            return None
-
-    def _create_company_share_option_sub_portfolio(self):
-        """Create (or retrieve) a CompanyShareOptionPortfolio sub-portfolio for this main portfolio."""
-        try:
-            from src.domain.entities.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolio
-            repo = self.repository_factory.get_local_repository(CompanyShareOptionPortfolio)
-            main = self._current_portfolio_entity
-            sub_name = f"{main.name}_CSO"
-            return repo._create_or_get(
-                name=sub_name,
-                currency_code=getattr(main, 'currency_code', 'USD'),
-                initial_cash=0.0,
-                portfolio_type=getattr(main, 'portfolio_type', 'BACKTEST'),
-            )
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"_create_company_share_option_sub_portfolio failed: {e}")
-            return None
-
-    def _ensure_option_asset_container(self, ticker: str, now: datetime) -> Optional[int]:
-        """
-        Idempotently set up the holding hierarchy for a CompanyShareOption ticker.
-
-        Steps (all idempotent):
-          1. Resolve the CompanyShareOptionModel by symbol.
-          2. Find or create a CompanyShareOptionPortfolio sub-portfolio.
-          3. Create a CompanyShareOptionPortfolioHolding + Position for the ticker.
-
-        Returns the sub-portfolio id, or None if the option is not found in the DB.
-        """
         from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import (
             CompanyShareOptionModel,
         )
-        from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
-            CompanyShareOptionPortfolioHoldingModel,
-        )
-        from src.infrastructure.models.finance.position import PositionModel
-
         session = self.portfolio_repo.session
+        if session.query(CompanyShareModel).filter_by(symbol=ticker).first():
+            return 'CompanyShare'
+        if session.query(CompanyShareOptionModel).filter_by(symbol=ticker).first():
+            return 'CompanyShareOption'
+        return None
 
-        # Step 1: resolve the option asset
-        option = session.query(CompanyShareOptionModel).filter(
-            CompanyShareOptionModel.symbol == ticker
-        ).first()
-        if not option:
-            if self.logger:
-                self.logger.warning(
-                    f"CompanyShareOption not found for ticker '{ticker}' — "
-                    f"ensure it is fetched from IBKR before the universe initialises"
-                )
-            return None
-
-        # Step 2: find or create the CompanyShareOptionPortfolio sub-portfolio
-        sub_portfolio = self._create_company_share_option_sub_portfolio()
-        if sub_portfolio is None:
-            return None
-        sub_portfolio_id = sub_portfolio.id
-
-        # Step 3: ensure per-ticker holding
-        existing = (
-            session.query(CompanyShareOptionPortfolioHoldingModel)
-            .filter_by(
-                company_share_option_portfolio_id=sub_portfolio_id,
-                company_share_option_id=option.id,
-            )
-            .first()
-        )
-        if not existing:
-            pos = PositionModel(
-                portfolio_id=sub_portfolio_id,
-                quantity=0,
-                position_type='LONG',
-            )
-            session.add(pos)
-            session.flush()
-
-            holding = CompanyShareOptionPortfolioHoldingModel(
-                asset_id=option.id,
-                company_share_option_id=option.id,
-                company_share_option_portfolio_id=sub_portfolio_id,
-                portfolio_id=sub_portfolio_id,
-                container_id=sub_portfolio_id,
-                start_date=now,
-                position_id=pos.id,
-            )
-            session.add(holding)
-            session.commit()
-
-            if self.logger:
-                self.logger.info(
-                    f"Created CompanyShareOptionPortfolioHolding: {ticker} "
-                    f"(asset_id={option.id}) → option sub-portfolio {sub_portfolio_id}"
-                )
-
-        return sub_portfolio_id
+    def _find_existing_container(self, ticker: str) -> Optional[int]:
+        """Return the sub-portfolio id for an already-held ticker (used for liquidation orders)."""
+        for repo in self.repository_factory.create_local_repositories().values():
+            if hasattr(repo, 'find_ticker_sub_portfolio_id'):
+                sub_id = repo.find_ticker_sub_portfolio_id(ticker)
+                if sub_id:
+                    return sub_id
+        return None
 
     def get_current_portfolio(self) -> Optional[Portfolio]:
         """Get the current portfolio entity."""
@@ -678,7 +476,7 @@ class UnifiedPortfolioManager:
         """
         Return current total portfolio value as a float and persist a pre-trade FactorValue snapshot.
 
-        Flow (Option A â€” algorithm-first):
+        Flow (Option A â€" algorithm-first):
           1. Read total_portfolio_value from the QC algorithm (authoritative).
           2. Source active positions via get_active_positions() as factor dependencies.
           3. Compute portfolio_value_factor.calculate(dependencies) from those values.
@@ -693,7 +491,7 @@ class UnifiedPortfolioManager:
             except Exception:
                 pass
 
-        # Persist pre-trade snapshot â€” at most once per algorithm bar, and use the
+        # Persist pre-trade snapshot â€" at most once per algorithm bar, and use the
         # computed value as authoritative total when the QC portfolio reports 0.
         if self._current_portfolio_entity is not None:
             
@@ -703,16 +501,19 @@ class UnifiedPortfolioManager:
                 current_time = backtest_date
            
             elif self._algorithm and hasattr(self._algorithm, 'config') and "backtest_start" in self._algorithm.config:
-                current_time = self._algorithm.config["backtest_start"]
+                try:
+                    current_time = datetime.strptime(self._algorithm.config["backtest_start"], "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    current_time = datetime.now()
             
             else:
                 current_time = datetime.now()
 
             
             try:
-                # Recursively value the full holding tree (main portfolio â†’
-                # sub-portfolios â†’ leaf assets).  Prices come from DB
-                # FactorValues only â€” no market_data_service fallback here,
+                # Recursively value the full holding tree (main portfolio â†'
+                # sub-portfolios â†' leaf assets).  Prices come from DB
+                # FactorValues only â€" no market_data_service fallback here,
                 # because that path calls factor_value_resolution_service which
                 # would re-enter this call stack and cause infinite recursion.
                 # Prices are written to DB by the market-data pipeline before
@@ -723,14 +524,17 @@ class UnifiedPortfolioManager:
                     self.repository_factory,
                     market_data_service=None,
                 )
+                _bar_size = getattr(self._algorithm, 'bar_size_setting', None)
+                _frequency = Factor.bar_size_to_frequency(_bar_size) if _bar_size else None
                 computed = float(portfolio_svc.calculate_value(
                     self._current_portfolio_entity.id,
                     as_of_date=current_time,
+                    frequency=_frequency,
                 ))
                 # Use the computed tree-traversal value when the QC portfolio
                 # object reports zero (happens in custom backtests that don't
                 # populate the in-memory QC portfolio object).
-                if total == 0.0 and computed > 0.0:
+                if computed > 0.0:
                     total = computed
                 # calculate_value already persisted holding_value and
                 # portfolio_value FactorValue rows; no resolve_factor_value
@@ -1209,9 +1013,40 @@ class UnifiedPortfolioManager:
         """Inject the owning QCAlgorithm after construction (avoids circular init)."""
         self._algorithm = algorithm
 
+    @staticmethod
+    def _normalize_target_weights(
+        target_weights: Dict,
+    ):
+        """
+        Normalize target_weights into (weights, classes, quantities).
+
+        Accepts:
+          Old: {ticker_str: weight_float}
+          New: {DomainClass: {'name': ticker, 'weight': weight}      # % of portfolio
+                           or {'name': ticker, 'quantity': int}      # absolute shares
+                           or [list of the above]}
+        Both formats may be mixed in the same dict.
+        """
+        weights: Dict[str, float] = {}
+        classes: Dict[str, type] = {}
+        quantities: Dict[str, int] = {}
+        for key, value in target_weights.items():
+            if isinstance(key, str):
+                weights[key] = float(value)
+            elif isinstance(key, type):
+                entries = value if isinstance(value, list) else [value]
+                for entry in entries:
+                    ticker = entry['name']
+                    classes[ticker] = key
+                    if 'quantity' in entry:
+                        quantities[ticker] = int(entry['quantity'])
+                    else:
+                        weights[ticker] = float(entry['weight'])
+        return weights, classes, quantities
+
     def set_holdings(
         self,
-        target_weights: Dict[str, float],
+        target_weights: Dict,
         data=None,
         tag: str = "",
     ) -> Dict[str, bool]:
@@ -1224,13 +1059,18 @@ class UnifiedPortfolioManager:
         weight = 0 (full liquidation).
 
         Args:
-            target_weights: {ticker: target_weight (0.0 â€“ 1.0)}
+            target_weights: One of two formats —
+              Old: {ticker_str: weight_float}
+              New: {DomainClass: {'name': ticker, 'weight': weight}      # % of portfolio
+                               or {'name': ticker, 'quantity': int}      # absolute shares
+                               or [list of the above, may be mixed]}
             data:           current Slice from on_data (for price resolution)
             tag:            optional order tag
 
         Returns:
             {ticker: True/False} for every ticker where an order was attempted.
         """
+        target_weights, ticker_asset_class, target_quantities = self._normalize_target_weights(target_weights)
         results: Dict[str, bool] = {}
         
             
@@ -1270,11 +1110,14 @@ class UnifiedPortfolioManager:
         # Lazy pipeline: ensure sub-portfolio + holding structures exist for each
         # new ticker before we start computing order quantities.
         ticker_container: Dict[str, int] = {}
-        for ticker in target_weights:
-            cid = self._ensure_asset_container(ticker, current_time)
+        for ticker in set(target_weights.keys()) | set(target_quantities.keys()):
+            cid = self._ensure_asset_container(
+                ticker, current_time,
+                asset_class=ticker_asset_class.get(ticker),
+            )
             ticker_container[ticker] = cid if cid else main_id
 
-        all_tickers = set(target_weights.keys()) | self._get_all_held_tickers()
+        all_tickers = set(target_weights.keys()) | set(target_quantities.keys()) | self._get_all_held_tickers()
 
         # For liquidation tickers (held but not targeted), look up their existing container.
         for ticker in all_tickers - set(target_weights.keys()):
@@ -1286,8 +1129,6 @@ class UnifiedPortfolioManager:
         buys:  List[tuple] = []
 
         for ticker in all_tickers:
-            target_pct = target_weights.get(ticker, 0.0)
-
             price = self._price_from_slice(ticker, data)
             if not price or price <= 0:
                 if hasattr(self._algorithm, "_resolve_asset_price"):
@@ -1306,7 +1147,11 @@ class UnifiedPortfolioManager:
                 continue
 
             current_qty = self._get_current_position_qty(ticker)
-            target_qty  = int(portfolio_value * target_pct / price)
+            if ticker in target_quantities:
+                target_qty = target_quantities[ticker]
+            else:
+                target_pct = target_weights.get(ticker, 0.0)
+                target_qty = int(portfolio_value * target_pct / price)
             order_qty   = target_qty - current_qty
 
             if order_qty == 0:
@@ -1387,10 +1232,10 @@ class UnifiedPortfolioManager:
 
         Portfolio tree structure:
           Portfolio (main)
-            â”œâ”€ PortfolioHolding          â†’ asset is a FinancialAsset (direct)
-            â””â”€ CompanySharePortfolioPortfolioHolding
-                 â””â”€ asset is a CompanySharePortfolio (sub-portfolio)
-                      â””â”€ its own PortfolioHoldings â†’ FinancialAssets
+            â"œâ"€ PortfolioHolding          â†' asset is a FinancialAsset (direct)
+            â""â"€ CompanySharePortfolioPortfolioHolding
+                 â""â"€ asset is a CompanySharePortfolio (sub-portfolio)
+                      â""â"€ its own PortfolioHoldings â†' FinancialAssets
         """
         try:
             from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -1415,7 +1260,7 @@ class UnifiedPortfolioManager:
             )
             tickers.update(symbol for (symbol,) in rows if symbol)
 
-            # Sub-portfolio holdings â€” recurse one level per sub-portfolio
+            # Sub-portfolio holdings â€" recurse one level per sub-portfolio
             sub_holdings = session.query(CompanySharePortfolioPortfolioHoldingModel).filter(
                 CompanySharePortfolioPortfolioHoldingModel.container_id == container_id
             ).all()
@@ -1562,9 +1407,9 @@ class UnifiedPortfolioManager:
 
         Portfolio tree navigation:
           container_id
-            â”œâ”€ HoldingModel(asset_id â†’ FinancialAsset symbol=ticker) â†’ Position.quantity
-            â””â”€ CompanySharePortfolioPortfolioHoldingModel(container_id)
-                 asset_id = sub-portfolio id â†’ recurse with that id as container_id
+            â"œâ"€ HoldingModel(asset_id â†' FinancialAsset symbol=ticker) â†' Position.quantity
+            â""â"€ CompanySharePortfolioPortfolioHoldingModel(container_id)
+                 asset_id = sub-portfolio id â†' recurse with that id as container_id
         """
         try:
             from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
@@ -1591,11 +1436,21 @@ class UnifiedPortfolioManager:
                     if pos:
                         total += int(pos.quantity)
 
-            # Recurse into sub-portfolio holdings
+            # Recurse into CompanyShare sub-portfolio holdings
             sub_holdings = session.query(CompanySharePortfolioPortfolioHoldingModel).filter(
                 CompanySharePortfolioPortfolioHoldingModel.container_id == container_id
             ).all()
             for sh in sub_holdings:
+                total += self._qty_in_container(ticker, sh.asset_id)
+
+            # Recurse into CompanyShareOption sub-portfolio holdings
+            from src.infrastructure.models.finance.holding.company_share_option_portfolio_portfolio_holding import (
+                CompanyShareOptionPortfolioPortfolioHoldingModel,
+            )
+            cso_sub_holdings = session.query(CompanyShareOptionPortfolioPortfolioHoldingModel).filter(
+                CompanyShareOptionPortfolioPortfolioHoldingModel.container_id == container_id
+            ).all()
+            for sh in cso_sub_holdings:
                 total += self._qty_in_container(ticker, sh.asset_id)
 
             return total
@@ -1636,6 +1491,16 @@ class UnifiedPortfolioManager:
                 self.logger.info(
                     f"âœ… Position for {ticker} updated to {new_quantity} shares @ ${fill_price:.2f}"
                 )
+            # Sync quantity to the CSO holding's linked PositionModel so the
+            # factor resolution service (which reads position_rel.quantity) sees
+            # the current fill quantity instead of the initial 0.
+            try:
+                cso_repo = self.repository_factory.get_local_repository('CompanyShareOptionPortfolio')
+                if cso_repo and hasattr(cso_repo, 'update_option_holding_quantity'):
+                    cso_repo.update_option_holding_quantity(ticker, new_quantity)
+            except Exception:
+                pass
+
             return True
         except Exception as e:
             if self.logger:

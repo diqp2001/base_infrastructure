@@ -58,7 +58,7 @@ class CompanyShareOptionPortfolioHoldingRepository(CompanyShareOptionPortfolioHo
     # -------------------------
     def get_by_portfolio_and_asset(self, portfolio_id: int, asset_id: int) -> Optional[CompanyShareOptionPortfolioHolding]:
         obj = self.session.query(self.model_class)\
-            .filter(self.model_class.portfolio_company_share_option_id == portfolio_id)\
+            .filter(self.model_class.company_share_option_portfolio_id == portfolio_id)\
             .filter(self.model_class.company_share_option_id == asset_id)\
             .one_or_none()
         return self.mapper.to_entity(obj)
@@ -71,9 +71,33 @@ class CompanyShareOptionPortfolioHoldingRepository(CompanyShareOptionPortfolioHo
 
     def get_by_portfolio_id(self, portfolio_id: int) -> List[CompanyShareOptionPortfolioHolding]:
         objs = self.session.query(self.model_class)\
-            .filter(self.model_class.portfolio_company_share_option_id == portfolio_id)\
+            .filter(self.model_class.company_share_option_portfolio_id == portfolio_id)\
             .all()
         return [self.mapper.to_entity(o) for o in objs]
+
+    def get_related_entities(self, holding_id: int) -> list:
+        """Return [CompanyShareOption] for the option held — used by the resolution service."""
+        try:
+            orm = self.session.query(self.model_class).filter(self.model_class.id == holding_id).one_or_none()
+            if orm is None or not orm.company_share_option_id:
+                return []
+            option_repo = self.factory.get_local_repository('CompanyShareOption') if self.factory else None
+            if option_repo:
+                option = option_repo.get_by_id(orm.company_share_option_id)
+                return [option] if option else []
+            return []
+        except Exception as e:
+            print(f"Error getting related entities for CSO holding {holding_id}: {e}")
+            return []
+
+    def get_related_position(self, holding_id: int):
+        """Return the PositionModel for this holding (has .quantity) — used by the resolution service."""
+        try:
+            orm = self.session.query(self.model_class).filter(self.model_class.id == holding_id).one_or_none()
+            return orm.position_rel if orm else None
+        except Exception as e:
+            print(f"Error getting position for CSO holding {holding_id}: {e}")
+            return None
 
     def get_all(self) -> List[CompanyShareOptionPortfolioHolding]:
         objs = self.session.query(self.model_class).all()

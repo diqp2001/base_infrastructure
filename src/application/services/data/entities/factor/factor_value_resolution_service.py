@@ -14,8 +14,8 @@ import inspect
 import logging
 from decimal import Decimal
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_rf_yield_factor import CompanyShareOptionRFYieldFactor
-from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
+
+from src.domain.entities.factor.factor import Factor
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.dependency_spec import DependencySpec
 from src.dto.factor.factor_batch import FactorBatch
@@ -41,6 +41,8 @@ class FactorValueResolutionService:
         """
         self.factory = factory
         self.logger = logger or logging.getLogger(__name__)
+        # factor_id -> bar availability offset in seconds (0 = not a raw bar)
+        self._bar_offset_cache: Dict[int, int] = {}
     
     def resolve_factor_value(
         self,
@@ -50,6 +52,7 @@ class FactorValueResolutionService:
         repository_type: str = "local",
         # Backward-compat alias kept so existing callers still work
         financial_asset_entity=None,
+        force_recalculate: bool = False,
         **kwargs
     ) -> Optional[FactorValue]:
         """
@@ -110,12 +113,13 @@ class FactorValueResolutionService:
             formatted_date = self._format_date(time_date)
             parsed_date = self._parse_date(formatted_date)
 
-            # Check if factor value already exists
-            existing_value = self._check_existing_value(
-                factor_entity.id, entity_id, entity_type, formatted_date, repository_type
-            )
-            if existing_value:
-                return existing_value
+            # Check if factor value already exists (skip when caller demands a fresh compute)
+            if not force_recalculate:
+                existing_value = self._check_existing_value(
+                    factor_entity.id, entity_id, entity_type, formatted_date, repository_type
+                )
+                if existing_value:
+                    return existing_value
 
             # Get factor dependencies from database
             dependencies = self._get_factor_dependencies(factor_entity.id)
@@ -312,6 +316,21 @@ class FactorValueResolutionService:
         except Exception:
             return True  # On any import/lookup error, allow through
 
+    def _get_bar_offset_seconds(self, factor_id: int) -> int:
+        """Bar availability offset for a factor (see Factor.bar_availability_offset_seconds)."""
+        if factor_id in self._bar_offset_cache:
+            return self._bar_offset_cache[factor_id]
+        offset = 0
+        try:
+            factor_repo = getattr(self.factory, 'factor_local_repo', None) if self.factory else None
+            factor = factor_repo.get_by_id(factor_id) if factor_repo else None
+            if factor is not None and hasattr(factor, 'bar_availability_offset_seconds'):
+                offset = int(factor.bar_availability_offset_seconds())
+        except Exception as e:
+            self.logger.debug(f"_get_bar_offset_seconds failed for factor {factor_id}: {e}")
+        self._bar_offset_cache[factor_id] = offset
+        return offset
+
     def _check_existing_value(
         self,
         factor_id: int,
@@ -327,6 +346,9 @@ class FactorValueResolutionService:
         2. Exact date without entity_type filter — catches values stored via a
            base-class entity (e.g. entity_type='FinancialAsset' when the caller
            looks for 'CompanyShare').  Only tried when entity_type is not None.
+        Raw IBKR bar factors skip these steps and return the latest bar that
+        had closed by ``date_str`` (no look-ahead).
+
         3. Most-recent-before (date ≤ target) without entity_type filter —
            catches intraday bar timestamp lag (e.g. first bar closes at 09:45
            but algorithm resolves at 09:30).  Only tried for intraday targets
@@ -340,6 +362,24 @@ class FactorValueResolutionService:
 
             if not (repo and hasattr(repo, 'get_by_factor_entity_date')):
                 return None
+
+            # Raw IBKR bars are stamped with their START time, so an exact or
+            # "most recent <= target" match can return a bar that is still open
+            # at the decision time (look-ahead).  Only bars that have closed are
+            # eligible for those factors.
+            bar_offset = self._get_bar_offset_seconds(factor_id)
+            if bar_offset > 0:
+                bar_repo = repo if hasattr(repo, 'get_latest_available_bar') else getattr(
+                    self.factory, 'factor_value_local_repo', None
+                )
+                if bar_repo is None or not hasattr(bar_repo, 'get_latest_available_bar'):
+                    return None
+                return bar_repo.get_latest_available_bar(
+                    factor_id, entity_id, date_str,
+                    bar_seconds=bar_offset,
+                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
+                    entity_type=None,
+                )
 
             # Step 1: exact date + entity_type
             result = repo.get_by_factor_entity_date(factor_id, entity_id, date_str, entity_type=entity_type)
@@ -671,7 +711,10 @@ class FactorValueResolutionService:
                 group=getattr(dep_defaults, 'group', None),
                 subgroup=getattr(dep_defaults, 'subgroup', None),
                 data_type=getattr(dep_defaults, 'data_type', None),
-                frequency=getattr(dep_defaults, 'frequency', None),
+                frequency=(
+                    getattr(dep_defaults, 'frequency', None)
+                    or Factor.bar_size_to_frequency(kwargs.get('bar_size_setting', ''))
+                ),
             )
         elif hasattr(dep_repo, 'get_by_all'):
             dep_defaults = dep_repo.get_factor_entity()()
@@ -936,7 +979,11 @@ class FactorValueResolutionService:
                     k: v for k, v in {
                         'group':     _resolve(spec.group,     'group')     or _dep_defaults.get('group'),
                         'subgroup':  _resolve(spec.subgroup,  'subgroup')  or _dep_defaults.get('subgroup'),
-                        'frequency': _resolve(spec.frequency, 'frequency') or _dep_defaults.get('frequency'),
+                        'frequency': (
+                            _resolve(spec.frequency, 'frequency')
+                            or _dep_defaults.get('frequency')
+                            or Factor.bar_size_to_frequency(kwargs.get('bar_size_setting', ''))
+                        ),
                         'data_type': _resolve(spec.data_type, 'data_type') or _dep_defaults.get('data_type'),
                         'source':    resolved_source,
                     }.items() if v is not None
@@ -1590,28 +1637,51 @@ class FactorValueResolutionService:
         repository_type: str,
         currency_id: Optional[int] = None,
     ) -> Optional[FactorValue]:
-        """Create-or-get a factor value, persisting only when the record is absent.
+        """Upsert a factor value for an exact (factor, entity, date) triple.
 
-        Checks the DB via _check_existing_value before inserting to avoid
-        duplicate rows for the same (factor_id, entity_id, date) triple.
+        Uses exact-date matching only — NOT the most-recent-before fallback used
+        in _check_existing_value — so that each new bar timestamp gets its own
+        INSERT rather than being treated as a duplicate of the prior bar.
+
+        When an exact record already exists (same-bar recalculate), UPDATE its
+        value with the freshly computed result.
         """
         try:
             entity_id = getattr(entity, 'id', None)
             entity_type = type(entity).__name__.removesuffix('Model') if entity is not None else None
             formatted_date = self._format_date(target_date)
 
-            # Return the existing row rather than inserting a duplicate.
-            existing = self._check_existing_value(
-                factor_entity.id, entity_id, entity_type, formatted_date, repository_type
-            )
-            if existing:
-                return existing
-
             if value is None or value == 'None':
                 return None
 
-            # Build FactorValue using the entity object; entity_id and
-            # entity_type are derived automatically in __post_init__.
+            # Get appropriate repository
+            if repository_type == "local":
+                repo = getattr(self.factory, 'factor_value_local_repo', None)
+            else:
+                repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
+
+            if not repo:
+                return None
+
+            # Exact-date duplicate check only (no most-recent-before fallback).
+            # _check_existing_value's step-3 would return a prior bar's record as a
+            # "duplicate" and block the INSERT for the new bar timestamp.
+            existing = None
+            if hasattr(repo, 'get_by_factor_entity_date'):
+                existing = repo.get_by_factor_entity_date(
+                    factor_entity.id, entity_id, formatted_date, entity_type=entity_type
+                )
+                if existing is None and entity_type is not None:
+                    existing = repo.get_by_factor_entity_date(
+                        factor_entity.id, entity_id, formatted_date, entity_type=None
+                    )
+
+            if existing is not None:
+                # Same (factor, entity, date) already in DB — update with latest value.
+                existing.value = value
+                return repo.update(existing) or existing
+
+            # Build FactorValue and INSERT
             factor_value = FactorValue(
                 id=None,
                 factor_id=factor_entity.id,
@@ -1621,13 +1691,7 @@ class FactorValueResolutionService:
                 currency_id=currency_id,
             )
 
-            # Get appropriate repository and persist
-            if repository_type == "local":
-                repo = getattr(self.factory, 'factor_value_local_repo', None)
-            else:
-                repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
-
-            if repo and hasattr(repo, 'add'):
+            if hasattr(repo, 'add'):
                 created_value = repo.add(factor_value)
                 if created_value:
                     self.logger.info(f"Created factor value: {factor_entity.name} = {value}")

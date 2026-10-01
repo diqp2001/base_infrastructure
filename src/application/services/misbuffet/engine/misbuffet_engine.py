@@ -428,13 +428,13 @@ class MisbuffetEngine(BaseEngine):
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
                 try:
 
-                    
+
 
                     # Use MarketDataService to create the data slice
                     if hasattr(self.data_loader, 'market_data_service'):
-                        
+
                         data_slice = self.data_loader.market_data_service.create_data_slice(
-                            current_date, universe,bar_size_setting,duration_str
+                            current_date, universe, bar_size_setting, duration_str
                         )
                     
                     
@@ -727,6 +727,16 @@ class MisbuffetEngine(BaseEngine):
             # Collect comprehensive portfolio data
             portfolio_data = self._collect_portfolio_data()
 
+            # Sanitize universe: class-keyed dicts can't be JSON serialized directly
+            raw_universe = getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
+            if isinstance(raw_universe, dict):
+                serializable_universe = {
+                    getattr(k, '__name__', str(k)): v
+                    for k, v in raw_universe.items()
+                }
+            else:
+                serializable_universe = raw_universe
+
             # Generate report content
             report_content = {
                 'backtest_metadata': {
@@ -735,7 +745,7 @@ class MisbuffetEngine(BaseEngine):
                     'end_date': result.end_date,
                     'initial_capital': result.initial_capital,
                     'algorithm_name': 'MyAlgorithm',
-                    'universe': getattr(self.algorithm, 'universe', ['AAPL', 'MSFT', 'AMZN', 'GOOGL'])
+                    'universe': serializable_universe
                 },
                 'performance_summary': {
                     'total_return': result.total_return,

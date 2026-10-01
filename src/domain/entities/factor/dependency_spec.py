@@ -49,6 +49,8 @@ class DependencySpec:
     source_not_in: List[str] = field(default_factory=list)
     frequency_in: List[str] = field(default_factory=list)
     frequency_not_in: List[str] = field(default_factory=list)
+    name_in: List[str] = field(default_factory=list)
+    name_not_in: List[str] = field(default_factory=list)
 
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF
@@ -101,6 +103,13 @@ class DependencySpec:
         if self.frequency_in and candidate_freq not in self.frequency_in:
             return False
         if self.frequency_not_in and candidate_freq in self.frequency_not_in:
+            return False
+
+        # Whitelist / blacklist on name
+        candidate_name = getattr(candidate_factor, "name", None)
+        if self.name_in and candidate_name not in self.name_in:
+            return False
+        if self.name_not_in and candidate_name in self.name_not_in:
             return False
 
         return True

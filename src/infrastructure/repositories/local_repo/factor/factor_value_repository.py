@@ -239,6 +239,65 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             )
             return None
 
+    def get_latest_available_bar(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        bar_seconds: int,
+        max_staleness_seconds: Optional[float] = None,
+        entity_type: Optional[str] = None,
+    ) -> Optional[FactorValue]:
+        """Return the latest raw bar value whose bar had CLOSED at ``date_str``.
+
+        Bars are stamped with their start time.  A bar has closed at ``target``
+        when either ``start + bar_seconds <= target`` or a later bar has already
+        started by ``target`` (this trims session-truncated bars, e.g. an 8h
+        bar stamped 09:30 that ends when the 12:00 bar starts).  Only closed bars
+        are eligible, which prevents look-ahead.  When ``max_staleness_seconds``
+        is given, a bar that closed longer ago than that is ignored (returns
+        None so the caller can fetch fresh data).
+        """
+        try:
+            target = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            query = self.session.query(FactorValueModel).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id == entity_id,
+                FactorValueModel.date <= target,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+            # The two latest bars that started by target: the newest may still
+            # be open; the one before it is closed because its successor started.
+            rows = query.order_by(FactorValueModel.date.desc()).limit(2).all()
+            if not rows:
+                return None
+
+            def _naive(dt):
+                return dt.replace(tzinfo=None) if getattr(dt, 'tzinfo', None) else dt
+
+            newest = rows[0]
+            newest_start = _naive(newest.date)
+            if newest_start + timedelta(seconds=bar_seconds) <= target:
+                chosen, chosen_close = newest, newest_start + timedelta(seconds=bar_seconds)
+            elif len(rows) > 1:
+                prev_start = _naive(rows[1].date)
+                chosen = rows[1]
+                chosen_close = min(prev_start + timedelta(seconds=bar_seconds), newest_start)
+            else:
+                return None
+
+            if max_staleness_seconds is not None:
+                if (target - chosen_close).total_seconds() > max_staleness_seconds:
+                    return None
+            return self._to_entity(chosen)
+        except Exception as e:
+            print(
+                f"Error in get_latest_available_bar for factor {factor_id}, "
+                f"entity {entity_type}:{entity_id}, date {date_str}: {e}"
+            )
+            return None
+
     def _create_or_get(self, entity_symbol, primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
         Enhanced get_or_create with automatic dependency resolution via FactorValueResolutionService.

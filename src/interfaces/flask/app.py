@@ -36,3 +36,9 @@ class FlaskApp:
     def get_app(self):
         """Expose the underlying Flask app (for testing or WSGI servers)"""
         return self.app
+
+
+app = FlaskApp().app
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

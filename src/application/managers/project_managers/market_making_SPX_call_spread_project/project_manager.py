@@ -86,6 +86,7 @@ class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
     def _setup_mlflow_tracking(self):
         """Setup MLflow experiment tracking."""
         try:
+            mlflow.set_tracking_uri("file:./mlruns")
             mlflow.set_experiment(self.mlflow_experiment_name)
             self.logger.info(f"MLflow experiment set: {self.mlflow_experiment_name}")
         except Exception as e:

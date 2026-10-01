@@ -53,12 +53,12 @@ DEFAULT_CONFIG = {
         #                            },
         #
         #IndexBond :["SOFR3"],
-        BondFuture: ["SR3Z6"],
-        CompanyShare: ["AAPL","MSFT","SPY"],
-        CompanyShareOption: ["SPY   281215C00770000","SPY   281215C00775000","SPY   281215C00780000","SPY   281215C00765000","SPY   281215C00760000"
+        
+        CompanyShareOption: ["SPY   281215C00775000"
                             #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
-                             ],
-
+                             ],#"SPY   281215C00770000","SPY   281215C00780000","SPY   281215C00765000","SPY   281215C00760000"
+        BondFuture: ["SR3Z6"],
+         CompanyShare: ["AAPL","MSFT","SPY"],       
         #"AAPL  281215C00300000",
 
         #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
@@ -86,10 +86,10 @@ DEFAULT_CONFIG = {
     'max_spread_width': 50,  # Maximum spread width in points
 
     # Market Data Configuration
-    'historical_data_duration': '6 M',  # 6 months of historical data
-    'bar_size_setting': '5 mins',#5 mins 1 day
-    'duration_str': '2 D',
-    'option_data_duration': '30 D',  # 30 days of option data
+    #'historical_data_duration': '6 M',  # 6 months of historical data
+    'bar_size_setting': '8 hours',#5 mins 1 day https://www.interactivebrokers.com/docs/tws-api/doc/market-data-historical/historical-bars/historical-bar-sizes
+    'duration_str': '3 D', #'2 D'https://www.interactivebrokers.com/docs/tws-api/doc/market-data-historical/historical-bars/max-duration-per-bar-size
+    #'option_data_duration': '30 D',  # 30 days of option data
     'max_import_ibkr': True,
 
     # Risk Management
@@ -116,10 +116,12 @@ DEFAULT_CONFIG = {
 
     # 'backtest_start': '2026-05-19 09:30:00',
     # 'backtest_end': '2026-05-19 10:30:00',
-    'backtest_start': '2026-08-06 09:35:00',
-    'backtest_end': '2026-08-06 10:30:00',
+    # 'backtest_start': '2026-08-06 12:00:00',
+    # 'backtest_end': '2026-08-06 12:30:00',
+    'backtest_start': '2026-08-05 16:00:00',
+        'backtest_end': '2026-08-30 16:00:00',
     # frequence
-    'config_interval' : {'custom_interval_minutes': 5},
+    'config_interval' : {'custom_interval_days': 1},
     'initial_capital': 100000,
     'commission_per_contract': 0.65,
 
@@ -184,20 +186,20 @@ DEFAULT_CONFIG = {
         "class": Portfolio,
         "holding_class": PortfolioHolding,
 
-        "sub_portfolios": [
-            {
-                "type": "company_share",
-                "name": "SPX_Call_Spread_CompanyShare_Portfolio",
-                "initial_cash": 1000000,
-                "currency_code": "CAD",
-                "portfolio_type": "BACKTEST",
-                "initial_cash_currency_code": "USD",
+        # "sub_portfolios": [
+        #     {
+        #         "type": "company_share",
+        #         "name": "SPX_Call_Spread_CompanyShare_Portfolio",
+        #         "initial_cash": 1000000,
+        #         "currency_code": "CAD",
+        #         "portfolio_type": "BACKTEST",
+        #         "initial_cash_currency_code": "USD",
 
-                "class": CompanySharePortfolio,
-                "holding_class": CompanySharePortfolioHolding,
+        #         "class": CompanySharePortfolio,
+        #         "holding_class": CompanySharePortfolioHolding,
 
-                "sub_portfolios": []
-            },
+        #         "sub_portfolios": []
+        #     },
             # {
             #     "type": "derivative",
             #     "name": "SPX_Call_Spread_CompanyShare_Portfolio_Option_Portfolio",
@@ -210,7 +212,7 @@ DEFAULT_CONFIG = {
 
             #     "sub_portfolios": []
             # }
-        ]
+        #]
     }
     ,
     # MLflow tracking

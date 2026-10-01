@@ -34,7 +34,7 @@ class MarketDataService:
         self._universe_name: Optional[str] = None
         self._universe_registered: bool = False
         
-    def create_data_slice(self, current_date: datetime, universe: List[str],bar_size_setting,duration_str) -> Slice:
+    def create_data_slice(self, current_date: datetime, universe: List[str], bar_size_setting, duration_str) -> Slice:
         """
         Create a data slice for the given date and universe.
         This is the main method called by the engine's _create_data_slice.
@@ -43,7 +43,9 @@ class MarketDataService:
             current_date: The date/time for this slice
             universe: List of tickers/symbols to include
             factor_data_service: Service to get factor data (passed from engine)
-            
+            bar_size_setting: The size of each bar
+            duration_str: The duration of the data
+
         Returns:
             Slice containing market data for the specified time
         """
@@ -145,7 +147,7 @@ class MarketDataService:
         slice_data.duration_str = duration_str
         return slice_data
     
-    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting,duration_str) -> Optional[pd.DataFrame]:
+    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting, duration_str) -> Optional[pd.DataFrame]:
         """
         Get point-in-time data for a specific ticker and date.
         Uses the factor data service to retrieve historical data.
@@ -188,9 +190,9 @@ class MarketDataService:
                     factors_data, entity_factor_class_input,
                     what_to_show=what_to_show,
                     duration_str=duration_str,
-                    bar_size_setting=bar_size_setting
+                    bar_size_setting=bar_size_setting,
                 )
-                
+
                 if created_factors:
                     # Prepare batch data for factor values with metadata for bulk IBKR processing
                     factor_values_data = []
@@ -201,13 +203,13 @@ class MarketDataService:
                             'entity_id': entity.id,
                             'time_date': point_in_time.strftime("%Y-%m-%d %H:%M:%S")
                         })
-                    
+
                     # Use optimized batch method to get factor values from IBKR bulk data with seconds bar_size
                     factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
                         what_to_show="TRADES",
                         duration_str=duration_str,
-                        bar_size_setting=bar_size_setting
+                        bar_size_setting=bar_size_setting,
                     )
                     
                     # Build factor_data dictionary
@@ -227,7 +229,6 @@ class MarketDataService:
                         factors_data.append({
                             'entity_symbol': factor_name,
                             'group': 'price',
-                            'frequency': duration_str
                         })
                     
                     # Use batch method to get/create factors locally

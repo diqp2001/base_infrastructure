@@ -1,0 +1,42 @@
+{
+  "backtest_metadata": {
+    "timestamp": "20261001_121500",
+    "start_date": "2026-08-05",
+    "end_date": "2026-08-30",
+    "initial_capital": 100000,
+    "algorithm_name": "MyAlgorithm",
+    "universe": {
+      "CompanyShareOption": [
+        "SPY   281215C00775000"
+      ],
+      "BondFuture": [
+        "SR3Z6"
+      ],
+      "CompanyShare": [
+        "AAPL",
+        "MSFT",
+        "SPY"
+      ]
+    }
+  },
+  "performance_summary": {
+    "total_return": 9.0,
+    "total_return_pct": "900.00%",
+    "final_portfolio_value": 1000000.0,
+    "sharpe_ratio": 15.874507866387543,
+    "max_drawdown": 0,
+    "win_rate": 0.6,
+    "total_trades": 0
+  },
+  "portfolio_details": {
+    "cash_balance": 1000000.0,
+    "total_value": 1000000.0,
+    "holdings": {}
+  },
+  "runtime_statistics": {
+    "data_points_processed": 18,
+    "algorithm_calls": 18,
+    "total_orders": 0,
+    "trades": 0
+  }
+}

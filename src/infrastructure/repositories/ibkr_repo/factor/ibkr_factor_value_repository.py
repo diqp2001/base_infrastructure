@@ -102,20 +102,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         
         frequency_lower = frequency.lower()
         
-        # Map frequency strings to tolerance in seconds
+        # Tolerance = half a bar (±bar/2), derived from the single source of
+        # truth Factor.FREQUENCIES so every supported frequency (e.g. '8h',
+        # '30m', '10s') is covered.  '1y' is kept as an extra entry because
+        # it is not an IBKR bar size.
         frequency_tolerance_map = {
-    '1s': 1 / 2,            # ±0.5 second
-    '5s': 5 / 2,            # ±2.5 seconds
-    '1m': 60 / 2,           # ±30 seconds
-    '5m': 300 / 2,          # ±150 seconds
-    '15m': 900 / 2,         # ±450 seconds
-    '1h': 3600 / 2,         # ±30 minutes
-    '1d': 86400 / 2,        # ±12 hours
-    '1w': 604800 / 2,       # ±3.5 days
-    '1mth': 2592000 / 2,    # ±15 days
-    '1y': 31536000 / 2,     # ±182.5 days
-}
-        
+            key.lower(): spec["seconds"] / 2
+            for key, spec in Factor.FREQUENCIES.items()
+        }
+        frequency_tolerance_map.setdefault('1y', 31536000 / 2)  # ±182.5 days
+
         return frequency_tolerance_map.get(frequency_lower, 86400)  # Default to 1 day
     
     def get_or_create_factor_value_with_ticks(
@@ -399,17 +395,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             entity_id = getattr(entity, 'id', None) if entity is not None else None
             factor_id = factor_entity.id
 
-            # Check if factor value already exists
-            existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
-            if existing:
-                # Skip stale 0.0 price values — stored from no-trade IBKR bars before
-                # MIDPOINT routing was in place; force re-fetch so MIDPOINT is used.
-                if getattr(factor_entity, 'group', '') == 'price':
-                    try:
-                        if float(existing.value or 0) <= 0:
-                            existing = None
-                    except (TypeError, ValueError):
-                        pass
+            # Check if a usable value already exists (closed bars only — no look-ahead)
+            existing = self._check_existing_available_value(factor_entity, factor_id, entity_id, time_date)
             if existing:
                 return existing
 
@@ -447,23 +434,18 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 # IBKR bar timestamps match the instrument's local timezone (not always UTC).
                 # Use the simulation time directly for bar matching.
                 target_date = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
-                # Use a full bar period as tolerance: IBKR labels equity bars at END time, so the
-                # "09:30 bar" for a 5-min series is stamped 09:35 — exactly one bar_size away.
-                # Half-bar (the old value) missed these systematically.
+                # Staleness tolerance measured from the bar's CLOSE: accept a bar
+                # that closed at most one bar period before the decision time.
                 bar_tolerance_seconds = bar_seconds
-                # Skip the IBKR round-trip if the bar is already in the DB.
-                early_existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
-                if early_existing:
-                    if getattr(factor_entity, 'group', '') == 'price':
-                        try:
-                            if float(early_existing.value or 0) <= 0:
-                                early_existing = None
-                        except (TypeError, ValueError):
-                            pass
-                if early_existing:
-                    return early_existing
             else:
-                target_date = self.get_effective_market_datetime(time_date=time_date, frequency=factor_entity.frequency)
+                # Never let the market-time adjustment move the decision time
+                # forward (e.g. a 09:00 request rolled to 10:50) — that would
+                # admit bars from after the requested time.
+                effective = self.get_effective_market_datetime(
+                    time_date=time_date, frequency=factor_entity.frequency
+                ).replace(tzinfo=None)
+                requested = datetime.strptime(time_date, "%Y-%m-%d %H:%M:%S")
+                target_date = min(effective, requested)
                 bar_tolerance_seconds = None  # use factor-frequency-based tolerance
 
             # Fetch bulk historical data from IBKR
@@ -493,111 +475,100 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
             target_date = target_date.replace(tzinfo=None)
             max_import_ibkr = getattr(self.ib_client, 'max_import_ibkr', False)
-            matched_value = None
-            _matched_diff = float('inf')
-            # Tracks the nearest persisted bar (even outside tolerance) for fallback.
-            _nearest_value = None
-            _nearest_diff = float('inf')
+            tolerance_seconds = (
+                bar_tolerance_seconds
+                if bar_tolerance_seconds is not None
+                else self._calculate_date_tolerance_seconds(factor_entity)
+            )
 
+            # ── Look-ahead guard ────────────────────────────────────────────
+            # IBKR stamps historical bars with their START time, so the bar
+            # stamped 12:00 in an 8h series only closes later.  A bar is
+            # eligible only once it has CLOSED at the decision time:
+            #     bar_close = min(bar_start + bar_seconds, next_bar_start) <= target
+            # (next_bar_start trims session-truncated bars, e.g. 09:30 → 12:00).
+            # Among eligible bars the latest one wins; "staleness" is the time
+            # since that bar closed.
+            parsed_bars = []
             for bar_data in bulk_ibkr_data:
-                try:
-                    # Parse IBKR date format
-                    bar_date = self._parse_ibkr_date(bar_data.get('date'))
-                    if not bar_date:
-                        continue
+                bar_date = self._parse_ibkr_date(bar_data.get('date'))
+                if bar_date:
+                    parsed_bars.append((bar_date.replace(tzinfo=None), bar_data))
+            parsed_bars.sort(key=lambda item: item[0])
 
-                    bar_date_str = bar_date.strftime("%Y-%m-%d %H:%M:%S")
+            best_bar = None      # latest closed bar within tolerance: (staleness, bar_date, bar_data)
+            latest_closed = None  # latest closed bar regardless of tolerance
+            for i, (bar_date, bar_data) in enumerate(parsed_bars):
+                bar_close = bar_date + timedelta(seconds=bar_seconds)
+                if i + 1 < len(parsed_bars):
+                    bar_close = min(bar_close, parsed_bars[i + 1][0])
+                if bar_close > target_date:
+                    continue  # still open at decision time → would be look-ahead
+                staleness = (target_date - bar_close).total_seconds()
+                if latest_closed is None or staleness < latest_closed[0]:
+                    latest_closed = (staleness, bar_date, bar_data)
+                if staleness <= tolerance_seconds and (best_bar is None or staleness < best_bar[0]):
+                    best_bar = (staleness, bar_date, bar_data)
 
-                    if max_import_ibkr:
-                        # Persist every bar from the response, not just the target-date match.
-                        existing_by_bar_date = self._check_existing_factor_value(factor_id, entity_id, bar_date_str)
-                        if existing_by_bar_date:
-                            persisted = existing_by_bar_date
-                        else:
-                            factor_value = self._extract_factor_value_from_bar(
-                                bar_data=bar_data,
-                                factor=factor_entity,
-                                entity_id=entity_id,
-                                bar_date=bar_date,
-                                entity_type=type(entity).__name__,
-                            )
-                            persisted = self.local_repo.add(factor_value) if factor_value else None
-                            if persisted:
-                                print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
-
-                        # Track the bar CLOSEST to the target date (not merely the last one
-                        # within tolerance — iterating in chronological order would otherwise
-                        # overwrite the correct match with a later bar of equal distance).
-                        tolerance_seconds = (
-                            bar_tolerance_seconds
-                            if bar_tolerance_seconds is not None
-                            else self._calculate_date_tolerance_seconds(factor_entity)
-                        )
-                        diff = abs((bar_date - target_date).total_seconds())
-                        if persisted and diff <= tolerance_seconds and diff < _matched_diff:
-                            matched_value = persisted
-                            _matched_diff = diff
-                        # Always track the nearest persisted bar for fallback.
-                        if persisted and diff < _nearest_diff:
-                            _nearest_value = persisted
-                            _nearest_diff = diff
-                    else:
-                        # Original behaviour: persist only the bar matching the target date.
-                        tolerance_seconds = (
-                            bar_tolerance_seconds
-                            if bar_tolerance_seconds is not None
-                            else self._calculate_date_tolerance_seconds(factor_entity)
-                        )
-                        date_diff = abs((bar_date - target_date).total_seconds())
-                        if date_diff <= tolerance_seconds:
-                            existing_by_bar_date = self._check_existing_factor_value(factor_id, entity_id, bar_date_str)
-                            if existing_by_bar_date:
-                                return existing_by_bar_date
-
-                            factor_value = self._extract_factor_value_from_bar(
-                                bar_data=bar_data,
-                                factor=factor_entity,
-                                entity_id=entity_id,
-                                bar_date=bar_date,
-                                entity_type=type(entity).__name__,
-                            )
-                            if factor_value:
-                                created_value = self.local_repo.add(factor_value)
-                                if created_value:
-                                    print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
-                                    return created_value
-                            break
-
-                except Exception as bar_error:
-                    print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
-                    continue
+            def _persist_bar(bar_date, bar_data):
+                bar_date_str = bar_date.strftime("%Y-%m-%d %H:%M:%S")
+                existing_by_bar_date = self._check_existing_factor_value(factor_id, entity_id, bar_date_str)
+                if existing_by_bar_date:
+                    return existing_by_bar_date
+                factor_value = self._extract_factor_value_from_bar(
+                    bar_data=bar_data,
+                    factor=factor_entity,
+                    entity_id=entity_id,
+                    bar_date=bar_date,
+                    entity_type=type(entity).__name__,
+                )
+                created_value = self.local_repo.add(factor_value) if factor_value else None
+                if created_value:
+                    print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
+                return created_value
 
             if max_import_ibkr:
-                if matched_value:
-                    return matched_value
-                # Fallback: return the closest persisted bar even when it falls
-                # outside the strict tolerance window.  Covers paper-trading
-                # gaps (e.g. SPY with no intraday bar at the exact backtest time)
-                # where the nearest available bar is the best approximation.
-                if _nearest_value is not None:
+                # Persist every bar from the response (open bars included — they
+                # are stored by start time and the guard above stops them being
+                # selected before they close).
+                persisted_by_date = {}
+                for bar_date, bar_data in parsed_bars:
+                    try:
+                        persisted_by_date[bar_date] = _persist_bar(bar_date, bar_data)
+                    except Exception as bar_error:
+                        print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
+
+                if best_bar is not None and persisted_by_date.get(best_bar[1]):
+                    return persisted_by_date[best_bar[1]]
+                # Fallback: latest CLOSED bar even when it closed longer ago than
+                # the tolerance (e.g. weekend gaps).  Never a bar from the future.
+                if latest_closed is not None and persisted_by_date.get(latest_closed[1]):
                     print(
-                        f"Nearest-bar fallback for factor {factor_entity.name}: "
-                        f"using bar (diff={_nearest_diff:.0f}s from target)"
+                        f"Latest-closed-bar fallback for factor {factor_entity.name}: "
+                        f"bar closed {latest_closed[0]:.0f}s before target"
                     )
-                    return _nearest_value
-                print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
+                    return persisted_by_date[latest_closed[1]]
+                print(f"No closed bar found for factor {factor_entity.name} at date {time_date}")
                 return None
 
-            print(f"No matching data found for factor {factor_entity.name} at date {time_date}")
+            # Persist only the selected bar.
+            if best_bar is not None:
+                try:
+                    return _persist_bar(best_bar[1], best_bar[2])
+                except Exception as bar_error:
+                    print(f"Error processing bar data for factor {factor_entity.name}: {bar_error}")
+                    return None
+
+            print(f"No closed bar found for factor {factor_entity.name} at date {time_date}")
             return None
             
         except Exception as e:
             print(f"Error fetching factor value from IBKR for {factor_entity.name}: {e}")
             return None
     
-    def get_or_create_batch(self, factor_batch: FactorBatch, 
-                           what_to_show: str = "TRADES", 
-                           duration_str: str = "1 M", 
+    def get_or_create_batch(self, factor_batch: FactorBatch,
+                           what_to_show: str = "TRADES",
+                           duration_str: str = "1 M",
                            bar_size_setting: str = "1 day") -> Optional[FactorValueBatch]:
         """
         Optimized batch get or create factor values with dependency resolution.
@@ -630,7 +601,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 repository_type="ibkr",
                 what_to_show=what_to_show,
                 duration_str=duration_str,
-                bar_size_setting=bar_size_setting
+                bar_size_setting=bar_size_setting,
             )
             
             if resolution_result and resolution_result.factor_values:
@@ -705,7 +676,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if bulk_ibkr_data:
                             # Extract factor values for all factors from the bulk response
                             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
-                                bulk_ibkr_data, factors, entity_id
+                                bulk_ibkr_data, factors, entity_id,
+                                entity_type=(
+                                    type(financial_asset_entity).__name__
+                                    if financial_asset_entity is not None
+                                    else 'FinancialAsset'
+                                ),
                             )
                             created_factor_values.extend(factor_values_from_bulk)
                         else:
@@ -1129,8 +1105,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting factor values from bulk data: {e}")
             return []
 
-    def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]], 
-                                            factors: List[Any], entity_id: int) -> List[FactorValue]:
+    def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]],
+                                            factors: List[Any], entity_id: int,
+                                            entity_type: str = 'FinancialAsset') -> List[FactorValue]:
         """
         Extract multiple factor values from bulk IBKR historical data with dependency management.
         
@@ -1193,7 +1170,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                 # Factor has no dependencies - extract directly from IBKR data
                                 factor_value = self._extract_factor_value_from_bar(
                                     bar_data, factor, entity_id, bar_date,
-                                    entity_type=type(financial_asset_entity).__name__,
+                                    entity_type=entity_type,
                                 )
                                 
                                 if factor_value:
@@ -2002,9 +1979,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting factor value from bar: {e}")
             return None
 
-    def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]], 
-                                     what_to_show: str = "TRADES", 
-                                     duration_str: str = "1 M", 
+    def get_or_create_batch_optimized(self, entities_data: List[Dict[str, Any]],
+                                     what_to_show: str = "TRADES",
+                                     duration_str: str = "1 M",
                                      bar_size_setting: str = "1 day") -> List[FactorValue]:
         """
         Optimized batch method for EntityService integration with dependency resolution.
@@ -2033,7 +2010,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 repository_type="ibkr",
                 what_to_show=what_to_show,
                 duration_str=duration_str,
-                bar_size_setting=bar_size_setting
+                bar_size_setting=bar_size_setting,
             )
             
             if resolved_factor_values:
@@ -2048,8 +2025,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in get_or_create_batch_optimized: {e}")
             return []
     
-    def _process_entities_data_with_factor_batches(self, entities_data: List[Dict[str, Any]], 
-                                                  what_to_show: str, duration_str: str, 
+    def _process_entities_data_with_factor_batches(self, entities_data: List[Dict[str, Any]],
+                                                  what_to_show: str, duration_str: str,
                                                   bar_size_setting: str) -> List[FactorValue]:
         """
         Fallback method for processing entities_data using original FactorBatch approach.
@@ -2455,6 +2432,37 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error validating factor value data: {e}")
             return False
+
+    def _check_existing_available_value(
+        self, factor_entity, factor_id: int, entity_id: int, time_date: str
+    ) -> Optional[FactorValue]:
+        """Return a stored value usable at ``time_date`` without look-ahead.
+
+        Raw bar factors (open/high/low/close/…) are stamped with the bar START,
+        so only bars that had closed by ``time_date`` are eligible.  Other
+        factors use the exact-date lookup.  Non-positive stored prices are
+        ignored (stale 0.0 values from no-trade bars) so a re-fetch happens.
+        """
+        offset = 0
+        if hasattr(factor_entity, 'bar_availability_offset_seconds'):
+            offset = factor_entity.bar_availability_offset_seconds()
+
+        if offset > 0 and hasattr(self.local_repo, 'get_latest_available_bar'):
+            existing = self.local_repo.get_latest_available_bar(
+                factor_id, entity_id, time_date,
+                bar_seconds=offset,
+                max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
+            )
+        else:
+            existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
+
+        if existing and getattr(factor_entity, 'group', '') == 'price':
+            try:
+                if float(existing.value or 0) <= 0:
+                    return None
+            except (TypeError, ValueError):
+                pass
+        return existing
 
     def _check_existing_factor_value(self, factor_id: int, entity_id: int, time_date: str) -> Optional[FactorValue]:
         """

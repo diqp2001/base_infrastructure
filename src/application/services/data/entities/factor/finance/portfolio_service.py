@@ -45,7 +45,8 @@ class PortfolioService:
     # ------------------------------------------------------------------
 
     def calculate_value(
-        self, portfolio_id: int, as_of_date: Optional[datetime] = None
+        self, portfolio_id: int, as_of_date: Optional[datetime] = None,
+        frequency: Optional[str] = None,
     ) -> Decimal:
         """
         Recursively compute total portfolio value by traversing the holding tree.
@@ -61,6 +62,11 @@ class PortfolioService:
 
         if as_of_date is None:
             as_of_date = datetime.now()
+        elif isinstance(as_of_date, str):
+            try:
+                as_of_date = datetime.strptime(as_of_date, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                as_of_date = datetime.now()
 
         from src.domain.entities.finance.portfolio.portfolio import Portfolio as PortfolioDomain
 
@@ -85,7 +91,7 @@ class PortfolioService:
                 subgroup=_pf_defaults.subgroup,
                 data_type=_pf_defaults.data_type,
                 source=_pf_defaults.source,
-                frequency=_pf_defaults.frequency,
+                frequency=frequency ,
             )
         else:
             portfolio_factor = None
@@ -104,8 +110,11 @@ class PortfolioService:
                 continue
             #get the holding type from the holding model
             holding_type = getattr(h, 'holding_type')
+            # Strip trailing 's' — DB stores discriminators like "CurrencyPortfolioPortfolioHoldings"
+            # but factory keys are without the trailing 's'.
+            holding_type_key = holding_type.rstrip('s') if holding_type and holding_type.endswith('s') else holding_type
             #get the repository for the holding type
-            repo = self.factory.get_local_repository(holding_type) if self.factory else None
+            repo = self.factory.get_local_repository(holding_type_key) if self.factory else None
             #get the mapper for the repository
             mapper = getattr(repo, 'mapper', None)
             #check if the mapper's asset_class (an holding always has a asset_class and a container_class) is a subclass of PortfolioDomain
@@ -114,25 +123,24 @@ class PortfolioService:
             )
             #get the entity class from the mapper
             entity_cls = getattr(mapper, 'entity_class', None) if mapper else None
+            holding_factor = None
             if entity_cls is not None:
                 #get the factor name for the holding type
-                factor_name =  entity_cls.__name__ + 'ValueFactor'
-            #get the repository for the factor name for the holding type
-            repo = self.factory.get_local_repository(factor_name)
-            #create or get the factor for the holding type using domain entity canonical defaults
-            if repo is not None:
-                _hf_defaults = repo.get_factor_entity()()
-                holding_factor = repo._create_or_get(
-                    factor_name,
-                    _hf_defaults.name,
-                    group=_hf_defaults.group,
-                    subgroup=_hf_defaults.subgroup,
-                    data_type=_hf_defaults.data_type,
-                    source=_hf_defaults.source,
-                    frequency=_hf_defaults.frequency,
-                )
-            else:
-                holding_factor = None
+                factor_name = entity_cls.__name__ + 'ValueFactor'
+                #get the repository for the factor name for the holding type
+                factor_repo = self.factory.get_local_repository(factor_name)
+                #create or get the factor for the holding type using domain entity canonical defaults
+                if factor_repo is not None:
+                    _hf_defaults = factor_repo.get_factor_entity()()
+                    holding_factor = factor_repo._create_or_get(
+                        factor_name,
+                        _hf_defaults.name,
+                        group=_hf_defaults.group,
+                        subgroup=_hf_defaults.subgroup,
+                        data_type=_hf_defaults.data_type,
+                        source=_hf_defaults.source,
+                        frequency=frequency or _hf_defaults.frequency,
+                    )
 
             # Determine the currency the holding value is denominated in.
             # Prefer the asset's own currency_id; if the asset IS a currency
@@ -144,39 +152,62 @@ class PortfolioService:
                     holding_currency_id = h.asset_id
 
             if is_sub_portfolio:
-                # Sub-portfolio link: asset_id is the child portfolio id — recurse bottom-up
-                holding_value = self.calculate_value(h.asset_id, as_of_date)
-                _holding_fv_kwargs = {'value': str(holding_value)}
+                # Sub-portfolio link: recurse and accumulate
+                holding_value = self.calculate_value(h.asset_id, as_of_date, frequency=frequency)
                 self.logger.debug(
                     f"Holding {h.id} ({holding_type}) → sub-portfolio {h.asset_id}: {holding_value}"
                 )
+                total += holding_value
             else:
                 factor_value = (
                     factor_value_repo._create_or_get(
                         None, None,
                         factor=holding_factor, entity=h, date=as_of_date,
                         currency_id=holding_currency_id,
+                        force_recalculate=True,
                     )
                     if factor_value_repo and holding_factor else None
                 )
+                if factor_value is not None and getattr(factor_value, 'value', None) is not None:
+                    total += Decimal(str(factor_value.value))
 
-            
-            
+        # Persist the portfolio total as a portfolio_value_factor FactorValue.
+        # Written directly (bypassing resolve_factor_value) to avoid recursion:
+        # the resolution service would re-enter dynamic dependency resolution
+        # for the portfolio, which triggers an unbounded recursive loop.
+        if factor_value_repo and portfolio_factor and portfolio_obj is not None:
+            formatted_date = as_of_date.strftime("%Y-%m-%d %H:%M:%S")
+            entity_type = type(portfolio_obj).__name__
+            existing = None
+            if hasattr(factor_value_repo, 'get_by_factor_entity_date'):
+                existing = factor_value_repo.get_by_factor_entity_date(
+                    portfolio_factor.id, portfolio_obj.id, formatted_date, entity_type=entity_type
+                )
+                if existing is None:
+                    existing = factor_value_repo.get_by_factor_entity_date(
+                        portfolio_factor.id, portfolio_obj.id, formatted_date, entity_type=None
+                    )
+            if existing is not None:
+                existing.value = str(total)
+                factor_value_repo.update(existing)
+            else:
+                from src.domain.entities.factor.factor_value import FactorValue as FactorValueDomain
+                factor_value_repo.add(FactorValueDomain(
+                    id=None,
+                    factor_id=portfolio_factor.id,
+                    entity=None,
+                    entity_id=portfolio_obj.id,
+                    entity_type=entity_type,
+                    date=as_of_date,
+                    value=str(total),
+                ))
 
-        if factor_value_repo is not None and portfolio_factor is not None and portfolio_obj is not None:
-            factor_value = factor_value_repo._create_or_get(
-                None,
-                factor=portfolio_factor,
-                entity=portfolio_obj,
-                date=as_of_date,
-            )
-            if factor_value is not None and getattr(factor_value, 'value', None) is not None:
-                total = Decimal(str(factor_value.value))
         self.logger.info(f"Portfolio {portfolio_id} total value: {total}")
         return total
 
     def get_portfolio_breakdown(
-        self, portfolio_id: int, as_of_date: Optional[datetime] = None
+        self, portfolio_id: int, as_of_date: Optional[datetime] = None,
+        frequency: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Breakdown of portfolio value by holding, including sub-portfolios.
@@ -206,7 +237,7 @@ class PortfolioService:
             )
 
             if sub_portfolio is not None:
-                sub_value = self.calculate_value(sub_portfolio.id, as_of_date)
+                sub_value = self.calculate_value(sub_portfolio.id, as_of_date, frequency=frequency)
                 total += sub_value
                 breakdown.append({
                     "holding_id": h.id,

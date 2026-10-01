@@ -55,7 +55,7 @@ class WebInterfaceManager:
         import json
         
         # Create Flask app instance
-        from src.interfaces.flask.flask import FlaskApp
+        from src.interfaces.flask.app import FlaskApp
         self.flask_app = FlaskApp()
         
         # Import jsonify for API endpoints

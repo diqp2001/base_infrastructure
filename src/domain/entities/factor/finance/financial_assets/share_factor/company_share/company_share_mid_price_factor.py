@@ -33,7 +33,7 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
         definition: Optional[str] = "True mid price calculated from multiple data sources with outlier filtering",
         factor_id: Optional[int] = None,
         outlier_threshold: float = 2.0,
-        min_sources: int = 2,
+        min_sources: int = 1,  # dependency is close-only (name_in) → one source per entity
         **kwargs,
     ):
         super().__init__(
@@ -149,6 +149,7 @@ class CompanyShareMidPriceFactor(CompanyShareFactor):
             DependencySpec(
                 factor_type=CompanyShareFactor,
                 group="price",
+                name_in=[ "close"],
                 # Raw CompanyShareFactor records (close/open/high/low) are stored
                 # with frequency=None, so filtering by SELF ("1d") drops everything.
                 source_not_in=["calculated"],

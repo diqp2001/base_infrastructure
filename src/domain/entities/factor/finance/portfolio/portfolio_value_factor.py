@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any, List
 from decimal import Decimal
 
 from src.domain.entities.factor.finance.portfolio.portfolio_factor import PortfolioFactor
+from src.domain.entities.factor.dependency_spec import DependencySpec
 
 
 class PortfolioValueFactor(PortfolioFactor):
@@ -20,7 +21,7 @@ class PortfolioValueFactor(PortfolioFactor):
         name: str = "Portfolio Value",
         group: str = "value",
         subgroup: Optional[str] = "daily",
-        frequency: Optional[str] = '1d',
+        frequency: Optional[str] = '5m',
         data_type: Optional[str] = 'numeric',
         source: Optional[str] = 'calculated',
         definition: Optional[str] = None,
@@ -41,36 +42,42 @@ class PortfolioValueFactor(PortfolioFactor):
         )
 
     def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        """
-        Calculate portfolio value by summing all holding values.
-        
-        Args:
-            dependencies: Dictionary containing holding value factors, including:
-                - CompanySharePortfolioPortfolioHolding values
-                - Other holding types' values
-            
-        Returns:
-            Total portfolio value as Decimal
-        """
         try:
             total_value = Decimal('0.0')
-            
-            # Sum up all holding values from dependencies
-            for dependency_name, dependency_value in dependencies.items():
-                if isinstance(dependency_value, (int, float, Decimal)):
-                    total_value += Decimal(str(dependency_value))
-                elif hasattr(dependency_value, 'value'):
-                    total_value += Decimal(str(dependency_value.value))
-                    
+            for key, vals in dependencies.items():
+                if key in ('entity', 'target_date'):
+                    continue
+                if isinstance(vals, list):
+                    for v in vals:
+                        if isinstance(v, (int, float, Decimal)):
+                            total_value += Decimal(str(v))
             return total_value
-            
         except Exception as e:
             print(f"Error calculating portfolio value: {e}")
             return Decimal('0.0')
     
     @property
-    def calculate_dependencies(self) -> List[str]:
+    def calculate_dependencies(self) -> List[DependencySpec]:
+        from src.domain.entities.factor.finance.holding.currency_portfolio_portfolio.currency_portfolio_portfolio_holding_value_factor import CurrencyPortfolioPortfolioHoldingValueFactor
+        from src.domain.entities.factor.finance.holding.company_share_portfolio_portfolio.company_share_portfolio_portfolio_holding_value_factor import CompanySharePortfolioPortfolioHoldingValueFactor
+        from src.domain.entities.factor.finance.holding.company_share_option_portfolio_portfolio.company_share_option_portfolio_portfolio_holding_value_factor import CompanyShareOptionPortfolioPortfolioHoldingValueFactor
         return [
-            "CurrencyPortfolioPortfolioHoldingValueFactor",
-            "CompanySharePortfolioPortfolioHoldingValueFactor",
+            DependencySpec(
+                factor_type=CurrencyPortfolioPortfolioHoldingValueFactor,
+                group="holding",
+                subgroup="value",
+                source="calculated",
+            ),
+            DependencySpec(
+                factor_type=CompanySharePortfolioPortfolioHoldingValueFactor,
+                group="holding",
+                subgroup="value",
+                source="calculated",
+            ),
+            DependencySpec(
+                factor_type=CompanyShareOptionPortfolioPortfolioHoldingValueFactor,
+                group="holding",
+                subgroup="value",
+                source="calculated",
+            ),
         ]

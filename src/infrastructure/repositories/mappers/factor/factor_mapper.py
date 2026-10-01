@@ -110,6 +110,9 @@ from src.domain.entities.factor.finance.financial_assets.currency.currency_yield
 # Import portfolio and holding value factors
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor as CompanySharePortfolioValueFactorEntity
 from src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor import CompanySharePortfolioHoldingValueFactor as CompanySharePortfolioHoldingValueFactorEntity
+from src.domain.entities.factor.finance.holding.company_share_option_portfolio.company_share_option_portfolio_holding_value_factor import CompanyShareOptionPortfolioHoldingValueFactor as CompanyShareOptionPortfolioHoldingValueFactorEntity
+from src.domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_value_factor import CompanyShareOptionPortfolioValueFactor as CompanyShareOptionPortfolioValueFactorEntity
+from src.domain.entities.factor.finance.holding.company_share_option_portfolio_portfolio.company_share_option_portfolio_portfolio_holding_value_factor import CompanyShareOptionPortfolioPortfolioHoldingValueFactor as CompanyShareOptionPortfolioPortfolioHoldingValueFactorEntity
 
 # Import position, transaction, and order factors
 from src.domain.entities.factor.finance.position.company_share_position_value_factor import CompanySharePositionValueFactor as CompanySharePositionValueFactorEntity
@@ -310,6 +313,9 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'share_volatility': ShareVolatilityFactorEntity,
     'portfolio_company_share_value': CompanySharePortfolioValueFactorEntity,
     'portfolio_company_share_holding_value': CompanySharePortfolioHoldingValueFactorEntity,
+    'company_share_option_portfolio_holding_value_factor': CompanyShareOptionPortfolioHoldingValueFactorEntity,
+    'company_share_option_portfolio_value_factor': CompanyShareOptionPortfolioValueFactorEntity,
+    'company_share_option_portfolio_portfolio_holding_value_factor': CompanyShareOptionPortfolioPortfolioHoldingValueFactorEntity,
     'company_share_position_value_factor': CompanySharePositionValueFactorEntity,
     'company_share_transaction_value_factor': CompanyShareTransactionValueFactorEntity,
     'company_share_order_quantity_factor': CompanyShareOrderQuantityFactorEntity,
@@ -549,6 +555,12 @@ class FactorMapper:
             return CompanyShareOptionVolFactorEntity(**base_args)
         elif factor_type == 'company_share_option_var_factor':
             return CompanyShareOptionVarFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_portfolio_holding_value_factor':
+            return CompanyShareOptionPortfolioHoldingValueFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_portfolio_value_factor':
+            return CompanyShareOptionPortfolioValueFactorEntity(**base_args)
+        elif factor_type == 'company_share_option_portfolio_portfolio_holding_value_factor':
+            return CompanyShareOptionPortfolioPortfolioHoldingValueFactorEntity(**base_args)
         elif factor_type == 'currency':
             return CurrencyFactorEntity(
                 **base_args,

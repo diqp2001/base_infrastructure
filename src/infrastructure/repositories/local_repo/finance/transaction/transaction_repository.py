@@ -51,6 +51,15 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
             return None
         return self.mapper.to_orm(entity)
     
+    def _delete_by_portfolio_ids(self, ids_csv: str) -> None:
+        """Delete all transactions whose orders are linked to holdings in the given portfolios."""
+        from sqlalchemy import text
+        self.session.execute(text(
+            f"DELETE FROM transactions WHERE order_id IN "
+            f"(SELECT id FROM orders WHERE holding_id IN "
+            f"(SELECT id FROM holdings WHERE container_id IN ({ids_csv})))"
+        ))
+
     def get_all(self) -> List[TransactionEntity]:
         """Retrieve all Transaction records."""
         models = self.session.query(TransactionModel).all()

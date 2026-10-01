@@ -51,6 +51,14 @@ class OrderRepository(BaseLocalRepository, OrderPort):
             return None
         return self.mapper.to_orm(entity)
     
+    def _delete_by_portfolio_ids(self, ids_csv: str) -> None:
+        """Delete all orders linked to holdings in the given portfolios."""
+        from sqlalchemy import text
+        self.session.execute(text(
+            f"DELETE FROM orders WHERE holding_id IN "
+            f"(SELECT id FROM holdings WHERE container_id IN ({ids_csv}))"
+        ))
+
     def get_all(self) -> List[OrderEntity]:
         """Retrieve all Order records."""
         models = self.session.query(OrderModel).all()
@@ -239,61 +247,27 @@ class OrderRepository(BaseLocalRepository, OrderPort):
     
     def _handle_order_cascading_relationships(self, order: OrderEntity, **kwargs):
         """
-        Handle cascading relationship creation for orders:
-        1. If order is executed (FILLED), create associated transaction
-        2. Create inactive holding related to the order
-        
+        Handle cascading relationship creation for orders: create the inactive
+        holding related to the order.
+
+        Transactions are NOT created here.  The caller that knows the fill
+        (TradeManager._record_fill / _update_cash_for_trade, or
+        UnifiedPortfolioManager.record_transaction) is the single writer of a
+        transaction, with the simulation date, fill quantity/price and status
+        EXECUTED.  Creating one here too produced a duplicate PENDING row
+        stamped with wall-clock time (transaction repo defaults), one per order.
+
         Args:
             order: The created order entity
             **kwargs: Additional parameters for relationship creation
         """
         try:
-            # 1. Create transaction if order is executed
-            if order.status == order.status.FILLED or (order.filled_quantity > 0 and order.filled_quantity >= order.quantity):
-                logger.info(f"Order {order.id} is executed, creating associated transaction")
-                self._create_transaction_for_order(order, **kwargs)
-            
-            # 2. Create inactive holding for the order
+            # Create inactive holding for the order
             self._create_holding_for_order(order, **kwargs)
             
         except Exception as e:
             logger.error(f"Error handling cascading relationships for order {order.id}: {str(e)}")
             # Don't re-raise as this is post-creation enhancement
-    
-    def _create_transaction_for_order(self, order: OrderEntity, **kwargs):
-        """
-        Create a transaction for an executed order.
-        
-        Args:
-            order: The executed order entity
-            **kwargs: Additional transaction parameters
-        """
-        try:
-            from src.infrastructure.repositories.local_repo.finance.transaction.transaction_repository import TransactionRepository
-            
-            transaction_repo = TransactionRepository(self.session, self.factory)
-            
-            # Generate unique transaction ID
-            import uuid
-            transaction_id = f"TXN_{order.external_order_id or order.id}_{uuid.uuid4().hex[:8]}"
-            
-            # Create transaction with order details
-            transaction_repo._create_or_get(
-                transaction_id=transaction_id,
-                order_id=order.id,
-                portfolio_id=order.portfolio_id,
-                holding_id=order.holding_id,
-                account_id=order.account_id,
-                external_transaction_id=kwargs.get('external_transaction_id'),
-                # Map order type to transaction type
-                transaction_type=self._map_order_to_transaction_type(order.order_type),
-                **{k: v for k, v in kwargs.items() if k.startswith('transaction_')}
-            )
-            
-            logger.info(f"Created transaction {transaction_id} for order {order.id}")
-            
-        except Exception as e:
-            logger.error(f"Error creating transaction for order {order.id}: {str(e)}")
     
     def _create_holding_for_order(self, order: OrderEntity, **kwargs):
         """
@@ -332,28 +306,6 @@ class OrderRepository(BaseLocalRepository, OrderPort):
         except Exception as e:
             logger.error(f"Error creating holding for order {order.id}: {str(e)}")
     
-    def _map_order_to_transaction_type(self, order_type):
-        """
-        Map order type to transaction type.
-        
-        Args:
-            order_type: Order type enum
-            
-        Returns:
-            TransactionType: Corresponding transaction type
-        """
-        from src.domain.entities.finance.transaction.transaction import TransactionType
-        from src.domain.entities.finance.order.order import OrderType
-        
-        mapping = {
-            OrderType.MARKET: TransactionType.MARKET_ORDER,
-            OrderType.LIMIT: TransactionType.LIMIT_ORDER,
-            OrderType.STOP: TransactionType.STOP_ORDER,
-            OrderType.STOP_LIMIT: TransactionType.STOP_LIMIT_ORDER
-        }
-        
-        return mapping.get(order_type, TransactionType.MARKET_ORDER)
-
     def get_related_entities(self, order_id: int) -> List:
         """
         Get all entities related to a specific order using SQLAlchemy inspect

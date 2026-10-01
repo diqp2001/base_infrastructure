@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from src.domain.entities.factor.finance.holding.portfolio_holding_factor import PortfolioHoldingFactor
 from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.entities.factor.dependency_spec import DependencySpec
 
 
 class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
@@ -23,7 +24,7 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
         name: str = "Company Share Portfolio Portfolio Holding Value",
         group: str = "holding",
         subgroup: Optional[str] = "value",
-        frequency: Optional[str] = '1d',
+        frequency: Optional[str] = '5m',
         data_type: Optional[str] = "decimal",
         source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of CompanySharePortfolio holding within Portfolio",
@@ -40,19 +41,23 @@ class CompanySharePortfolioPortfolioHoldingValueFactor(PortfolioHoldingFactor):
             factor_id=factor_id,
         )
 
-    def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        try:
-            portfolio_value = dependencies.get('CompanySharePortfolioValueFactor', Decimal('0'))
-            if hasattr(portfolio_value, 'value'):
-                portfolio_value = portfolio_value.value
-            return Decimal(str(portfolio_value))
-        except Exception as e:
-            print(f"Error calculating CompanySharePortfolio portfolio holding value: {e}")
-            return Decimal('0.0')
+    def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
+        vals = dependencies.get('CompanySharePortfolioValueFactor')
+        if not vals:
+            return None
+        return sum(Decimal(str(v)) for v in vals if isinstance(v, (int, float, Decimal))) or None
 
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ["CompanySharePortfolioValueFactor"]
+    def calculate_dependencies(self) -> List[DependencySpec]:
+        from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor import CompanySharePortfolioValueFactor
+        return [
+            DependencySpec(
+                factor_type=CompanySharePortfolioValueFactor,
+                group="value",
+                subgroup="value",
+                source="calculated",
+            ),
+        ]
 
     def __repr__(self):
         return f"CompanySharePortfolioPortfolioHoldingValueFactor(name={self.name}, group={self.group}, subgroup={self.subgroup})"

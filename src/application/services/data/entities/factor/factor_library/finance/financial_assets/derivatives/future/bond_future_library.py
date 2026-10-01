@@ -164,7 +164,7 @@ BOND_FUTURE_LIBRARY: Dict[str, Dict] = {
         "name": "annualized_yield",
         "group": "return",
         "subgroup": "Yield",
-        "frequency": "5m",
+        "frequency": "1d",
         "data_type": "numeric",
         "source": "calculated",
         "description": "Implied annualized SOFR rate from SR3 futures price: R = (100 - F) / 100. E.g. F=96 → R=4%.",

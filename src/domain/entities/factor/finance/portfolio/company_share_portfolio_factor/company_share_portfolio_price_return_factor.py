@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List
 from decimal import Decimal
 
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor
+from src.domain.entities.factor.dependency_spec import DependencySpec
 
 
 class CompanySharePortfolioPriceReturnFactor(CompanySharePortfolioFactor):
@@ -40,8 +41,12 @@ class CompanySharePortfolioPriceReturnFactor(CompanySharePortfolioFactor):
         )
 
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ["CompanySharePortfolioFactor"]
+    def calculate_dependencies(self) -> List[DependencySpec]:
+        return [
+            DependencySpec(
+                factor_type=CompanySharePortfolioFactor,
+            ),
+        ]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
         try:

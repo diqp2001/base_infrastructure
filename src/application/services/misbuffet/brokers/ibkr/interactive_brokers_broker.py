@@ -214,8 +214,8 @@ class InteractiveBrokersBroker(BaseBroker):
                 
                 # Log account info
                 account_summary = self.ib_connection.account_summary
-                net_liq = account_summary.get('NetLiquidation', {}).get('value', '0')
-                buying_power = account_summary.get('BuyingPower', {}).get('value', '0')
+                net_liq = account_summary.get('NetLiquidation', {}).get('value')
+                buying_power = account_summary.get('BuyingPower', {}).get('value')
                 
                 self.logger.info(f"Account updated - Cash: ${cash_value}, "
                                f"Net Liquidation: ${net_liq}, "
@@ -729,7 +729,7 @@ class InteractiveBrokersBroker(BaseBroker):
         # Always pass a naive datetime representing the desired Eastern time;
         # a UTC-aware datetime bypasses the ET→UTC conversion and will shift
         # the window by 4–5 hours, dropping the intended bars.
-        end_date_time = self.format_ib_datetime(end_date_time)
+        end_date_time = self.format_ib_datetime(date_time=end_date_time, duration=duration_str)
 
         if not self.ib_connection or not self.ib_connection.is_connected():
             return []
@@ -864,9 +864,14 @@ class InteractiveBrokersBroker(BaseBroker):
             raise ValueError("end_date_time must be within the last 6 months.")
 
         return
-    def format_ib_datetime(self, date_time=None, tz="US/Eastern"):
+    def format_ib_datetime(self, date_time=None, tz="US/Eastern", duration: str = None):
         """
         Format datetime for IBKR historical data request.
+
+        When `duration` is provided, the returned end_date_time is `date_time + 7 hours`.
+        This ensures the IBKR window covers the full trading session around `date_time`
+        regardless of asset type (stocks return a bar at 09:35; options may not trade
+        until later in the morning, so ending at ~16:35 captures the whole day).
 
         Returns:
             String in IB UTC format: 'yyyymmdd-hh:mm:ss'
@@ -886,6 +891,10 @@ class InteractiveBrokersBroker(BaseBroker):
             dt = date_time
         else:
             raise TypeError("end_date_time must be datetime, str, or None")
+
+        # Shift end to date_time + 7 h so the window covers the full session.
+        if duration is not None:
+            dt = dt + timedelta(hours=7)
 
         # IBKR end_date_time is exclusive: bars whose start time >= end are dropped.
         # • Bare date (midnight): add 1 day so the last daily bar is included.

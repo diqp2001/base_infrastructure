@@ -447,6 +447,24 @@ class CompanyShareOptionMidPriceFactorModel(FactorModel):
     }
 
 
+class CompanyShareOptionPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_portfolio_holding_value_factor"
+    }
+
+
+class CompanyShareOptionPortfolioValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_portfolio_value_factor"
+    }
+
+
+class CompanyShareOptionPortfolioPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_portfolio_portfolio_holding_value_factor"
+    }
+
+
 # Advanced Options Pricing Models for Company Share Options
 class CompanyShareOptionBlackScholesMertonPriceFactorModel(FactorModel):
     __mapper_args__ = {

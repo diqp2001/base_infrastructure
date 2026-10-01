@@ -112,11 +112,137 @@ class CompanyShareOptionPortfolioRepository(CompanyShareOptionPortfolioPort):
         return True
 
     def get_related_entities(self, portfolio_id: int) -> List:
-        """Return all holdings whose container_id matches this sub-portfolio."""
+        """Return the CompanyShareOptionPortfolioHolding entities for this sub-portfolio."""
         try:
-            from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
-            holding_repo = HoldingRepository(self.session, self.factory)
-            return holding_repo.get_by_container_id(portfolio_id)
+            if self.factory:
+                holding_repo = self.factory.get_local_repository('CompanyShareOptionPortfolioHolding')
+                if holding_repo:
+                    return holding_repo.get_by_portfolio_id(portfolio_id) or []
+            return []
         except Exception as e:
             print(f"Error retrieving holdings for CompanyShareOptionPortfolio {portfolio_id}: {e}")
             return []
+
+    # ------------------------------------------------------------------
+    # Sub-portfolio wiring — called by UnifiedPortfolioManager
+    # ------------------------------------------------------------------
+
+    def ensure_sub_portfolio_linked(self, main_portfolio, now) -> Optional[int]:
+        """Idempotently create (or retrieve) the CompanyShareOptionPortfolio sub-portfolio
+        and ensure it is linked to main_portfolio via a CompanyShareOptionPortfolioPortfolioHolding row.
+        Returns the sub-portfolio id, or None on failure."""
+        from src.infrastructure.models.finance.holding.company_share_option_portfolio_portfolio_holding import (
+            CompanyShareOptionPortfolioPortfolioHoldingModel,
+        )
+
+        main_id = main_portfolio.id
+        sub_name = f"{main_portfolio.name}_CSO"
+
+        sub_portfolio = self._create_or_get(name=sub_name)
+        if sub_portfolio is None:
+            return None
+        sub_portfolio_id = sub_portfolio.id
+
+        link = (
+            self.session.query(CompanyShareOptionPortfolioPortfolioHoldingModel)
+            .filter_by(container_id=main_id, asset_id=sub_portfolio_id)
+            .first()
+        )
+        if not link:
+            self.session.add(CompanyShareOptionPortfolioPortfolioHoldingModel(
+                holding_type="CompanyShareOptionPortfolioPortfolioHoldings",
+                asset_id=sub_portfolio_id,
+                container_id=main_id,
+                portfolio_id=main_id,
+                start_date=now,
+            ))
+            self.session.commit()
+
+        return sub_portfolio_id
+
+    def ensure_ticker_holding(self, ticker: str, sub_portfolio_id: int, now) -> None:
+        """Idempotently create a CompanyShareOptionPortfolioHolding + Position for ticker."""
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import (
+            CompanyShareOptionModel,
+        )
+        from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
+            CompanyShareOptionPortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        option = self.session.query(CompanyShareOptionModel).filter_by(symbol=ticker).first()
+        if not option:
+            return
+
+        existing = (
+            self.session.query(CompanyShareOptionPortfolioHoldingModel)
+            .filter_by(company_share_option_portfolio_id=sub_portfolio_id, company_share_option_id=option.id)
+            .first()
+        )
+        if not existing:
+            pos = PositionModel(portfolio_id=sub_portfolio_id, quantity=0, position_type='LONG')
+            self.session.add(pos)
+            self.session.flush()
+            self.session.add(CompanyShareOptionPortfolioHoldingModel(
+                asset_id=option.id,
+                company_share_option_id=option.id,
+                company_share_option_portfolio_id=sub_portfolio_id,
+                portfolio_id=sub_portfolio_id,
+                container_id=sub_portfolio_id,
+                start_date=now,
+                position_id=pos.id,
+            ))
+            self.session.commit()
+
+    def update_option_holding_quantity(self, ticker: str, new_quantity: float) -> bool:
+        """Update the PositionModel.quantity linked to the CSO holding for `ticker`.
+
+        Called from UnifiedPortfolioManager.update_holding_position so the resolution
+        service (which reads position_rel.quantity) sees the current fill quantity.
+        """
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import (
+            CompanyShareOptionModel,
+        )
+        from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
+            CompanyShareOptionPortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        try:
+            option = self.session.query(CompanyShareOptionModel).filter_by(symbol=ticker).first()
+            if not option:
+                return False
+            holding = (
+                self.session.query(CompanyShareOptionPortfolioHoldingModel)
+                .filter_by(company_share_option_id=option.id)
+                .first()
+            )
+            if not holding or not holding.position_id:
+                return False
+            position = self.session.query(PositionModel).filter_by(id=holding.position_id).first()
+            if not position:
+                return False
+            position.quantity = new_quantity
+            self.session.commit()
+            return True
+        except Exception as e:
+            print(f"Error updating option holding quantity for {ticker}: {e}")
+            return False
+
+    def find_ticker_sub_portfolio_id(self, ticker: str) -> Optional[int]:
+        """Return the sub-portfolio id for an already-held CompanyShareOption ticker, or None."""
+        from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import (
+            CompanyShareOptionModel,
+        )
+        from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import (
+            CompanyShareOptionPortfolioHoldingModel,
+        )
+        option = self.session.query(CompanyShareOptionModel).filter_by(symbol=ticker).first()
+        if not option:
+            return None
+        holding = (
+            self.session.query(CompanyShareOptionPortfolioHoldingModel)
+            .filter_by(company_share_option_id=option.id)
+            .first()
+        )
+        return holding.company_share_option_portfolio_id if holding else None

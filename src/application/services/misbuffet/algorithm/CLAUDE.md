@@ -117,6 +117,18 @@ When `UnifiedPortfolioManager.set_holdings()` triggers a trade, `TradeManager` m
   internally on string values; passing an enum object causes `AttributeError: has no attribute ‘upper’`.
 - **`TradeManager` is called only by `UnifiedPortfolioManager`** — never directly from `QCAlgorithm`.
   `UnifiedPortfolioManager` is the orchestrator; `TradeManager` is the persistence executor.
+- **One transaction per order, written only by the caller that knows the fill** (fixed 2026-10-01).
+  `OrderRepository._create_or_get` must NOT create a transaction — its cascade only creates the
+  inactive holding. Transactions are written by `TradeManager._record_fill` (asset leg, prefix
+  `TXN_`), `TradeManager._update_cash_for_trade` (cash leg, prefix `CASH_TXN_`), or
+  `UnifiedPortfolioManager.record_transaction` (legacy QC order-event path).
+  - **Why:** the old cascade called `TransactionRepository._create_or_get` with only order ids,
+    so the repo defaults applied — `date = datetime.now()`, trade/value/settlement = today,
+    `status = PENDING`. Every order (trade and cash) got a duplicate PENDING row stamped with
+    wall-clock time next to the real EXECUTED row at the simulation date.
+  - **How to apply:** always pass `date`, `trade_date`, `value_date`, `settlement_date` and
+    `status` explicitly when creating a transaction in a backtest — never rely on
+    `TransactionRepository` defaults, which use the wall clock.
 
 ### Orchestration Flow
 
@@ -134,10 +146,11 @@ QCAlgorithm.on_data(data)
             │    │    ├─ INSERT Position (flush → get position.id)
             │    │    └─ INSERT Holding  (commit)
             │    ├─ _resolve_account_id()             → accounts.id
-            │    └─ order_repo._create_or_get(...)    → Order entity
-            ├─ _record_fill(...)                      → Transaction entity
-            └─ _update_position(ticker, qty, portfolio_id)
-                 └─ navigate Holding.position_id → UPDATE positions.quantity
+            │    └─ order_repo._create_or_get(...)    → Order entity (no transaction)
+            ├─ _record_fill(...)                      → Transaction entity (EXECUTED, sim date)
+            ├─ _update_position(ticker, qty, portfolio_id)
+            │    └─ navigate Holding.position_id → UPDATE positions.quantity
+            └─ _update_cash_for_trade(...)            → cash Order + CASH_TXN_ Transaction
 ```
 
 ---

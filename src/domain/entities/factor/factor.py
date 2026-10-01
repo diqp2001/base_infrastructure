@@ -11,17 +11,82 @@ class Factor(ABC):
     """Abstract base class for all factors."""
 
     FREQUENCIES: ClassVar[dict[str, dict]] = {
+        # seconds
         "1s":   {"label": "1 Second",      "seconds": 1,        "ibkr_label": "1 secs"},
         "5s":   {"label": "5 Seconds",     "seconds": 5,        "ibkr_label": "5 secs"},
+        "10s":  {"label": "10 Seconds",    "seconds": 10,       "ibkr_label": "10 secs"},
+        "15s":  {"label": "15 Seconds",    "seconds": 15,       "ibkr_label": "15 secs"},
+        "30s":  {"label": "30 Seconds",    "seconds": 30,       "ibkr_label": "30 secs"},
+        # minutes
         "1m":   {"label": "1 Minute",      "seconds": 60,       "ibkr_label": "1 min"},
+        "2m":   {"label": "2 Minutes",     "seconds": 120,      "ibkr_label": "2 mins"},
+        "3m":   {"label": "3 Minutes",     "seconds": 180,      "ibkr_label": "3 mins"},
         "5m":   {"label": "5 Minutes",     "seconds": 300,      "ibkr_label": "5 mins"},
+        "10m":  {"label": "10 Minutes",    "seconds": 600,      "ibkr_label": "10 mins"},
         "15m":  {"label": "15 Minutes",    "seconds": 900,      "ibkr_label": "15 mins"},
+        "20m":  {"label": "20 Minutes",    "seconds": 1200,     "ibkr_label": "20 mins"},
+        "30m":  {"label": "30 Minutes",    "seconds": 1800,     "ibkr_label": "30 mins"},
+        # hours
         "1h":   {"label": "1 Hour",        "seconds": 3600,     "ibkr_label": "1 hour"},
+        "2h":   {"label": "2 Hours",       "seconds": 7200,     "ibkr_label": "2 hours"},
+        "3h":   {"label": "3 Hours",       "seconds": 10800,    "ibkr_label": "3 hours"},
+        "4h":   {"label": "4 Hours",       "seconds": 14400,    "ibkr_label": "4 hours"},
+        "8h":   {"label": "8 Hours",       "seconds": 28800,    "ibkr_label": "8 hours"},
+        # day / week / month
         "1d":   {"label": "1 Day",         "seconds": 86400,    "ibkr_label": "1 day"},
         "1w":   {"label": "1 Week",        "seconds": 604800,   "ibkr_label": "1 week"},
         "1mth": {"label": "1 Month (30d)", "seconds": 2592000,  "ibkr_label": "1 month"},
-        "1y":   {"label": "1 Year (365d)", "seconds": 31536000, "ibkr_label": "1 month"},
     }
+
+    # Factor names whose values are read straight from an IBKR historical bar
+    # (see IBKRFactorValueRepository._extract_factor_value_from_bar).
+    BAR_FIELD_NAMES: ClassVar[frozenset] = frozenset({
+        "open", "high", "low", "close", "volume", "barcount",
+        "implied_volatility", "historical_volatility",
+    })
+
+    # A closed raw bar older than this is treated as missing so a fresh fetch
+    # is attempted.  4 days covers weekends and single-day holidays.
+    MAX_BAR_STALENESS_SECONDS: ClassVar[float] = 4 * 86400
+
+    @classmethod
+    def frequency_seconds(cls, frequency: Optional[str]) -> Optional[int]:
+        """Length of one bar in seconds for a FREQUENCIES key, or None if unknown."""
+        if not frequency:
+            return None
+        meta = cls.FREQUENCIES.get(frequency) or cls.FREQUENCIES.get(str(frequency).lower())
+        return meta["seconds"] if meta else None
+
+    def bar_availability_offset_seconds(self) -> int:
+        """Seconds between a stored value's timestamp and the moment it is known.
+
+        IBKR stamps historical bars with their START time, so the close of the
+        bar stamped 12:00 in an 8h series is only known at 20:00.  For raw bar
+        factors (non-calculated, name in BAR_FIELD_NAMES) this returns the bar
+        length; a value stamped ``t`` may only be used at decision time
+        ``>= t + offset``.  Calculated factors are stamped at the decision time
+        they were computed for, so their offset is 0.
+        """
+        if self.source == "calculated":
+            return 0
+        if str(self.name).lower() not in self.BAR_FIELD_NAMES:
+            return 0
+        return self.frequency_seconds(self.frequency) or 0
+
+    @classmethod
+    def bar_size_to_frequency(cls, bar_size_setting: str) -> Optional[str]:
+        """Convert an IBKR bar_size_setting string (e.g. '8 hours') to a FREQUENCIES key (e.g. '8h')."""
+        if not bar_size_setting:
+            return None
+        for key, meta in cls.FREQUENCIES.items():
+            if meta.get("ibkr_label") == bar_size_setting:
+                return key
+        # Normalise singular/plural edge case ("1 sec" → "1 secs")
+        normalised = bar_size_setting if bar_size_setting.endswith('s') else bar_size_setting + 's'
+        for key, meta in cls.FREQUENCIES.items():
+            if meta.get("ibkr_label") == normalised:
+                return key
+        return None
 
     GROUPS: ClassVar[dict[str, dict]] = {
         # ── canonical keys (use these for new factors) ──────────────────────

@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from decimal import Decimal
 
 from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.entities.factor.dependency_spec import DependencySpec
 
 from .company_share_portfolio_holding_factor import CompanySharePortfolioHoldingFactor
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
@@ -23,7 +24,7 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
         name: str = "Portfolio Company Share Holding Value",
         group: str = "holding",
         subgroup: Optional[str] = "value",
-        frequency: Optional[str] = "1d",
+        frequency: Optional[str] = "5m",
         data_type: Optional[str] = "decimal",
         source: Optional[str] = "calculated",
         definition: Optional[str] = "Total value of company share holding (quantity × price)",
@@ -40,15 +41,22 @@ class CompanySharePortfolioHoldingValueFactor(CompanySharePortfolioHoldingFactor
             factor_id=factor_id,
         )
 
-    def calculate(self, dependencies: Dict[str, Any]) -> Decimal:
-        try:
-            price = Decimal(str(dependencies.get('CompanyShareValueFactor', '0') or '0'))
-            quantity = Decimal(str(dependencies.get('Position', '0') or '0'))
-            return price * quantity
-        except Exception as e:
-            print(f"Error calculating company share portfolio holding value: {e}")
-            return Decimal('0.0')
+    def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
+        price_vals = dependencies.get('CompanyShareValueFactor')
+        quantity_raw = dependencies.get('Position')
+        if not price_vals or quantity_raw is None:
+            return None
+        return Decimal(str(price_vals[0])) * Decimal(str(quantity_raw))
 
     @property
-    def calculate_dependencies(self) -> List[str]:
-        return ['CompanyShareValueFactor', 'Position']
+    def calculate_dependencies(self) -> list:
+        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import CompanyShareValueFactor
+        return [
+            DependencySpec(
+                factor_type=CompanyShareValueFactor,
+                group="value",
+                subgroup="asset",
+                source="calculated",
+            ),
+            'Position',
+        ]

@@ -14,6 +14,9 @@ from typing import Dict, List, Optional, Any
 
 import pandas as pd
 
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
+
 from src.application.managers.project_managers.market_making_SPX_call_spread_project.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
 from src.infrastructure.models.finance.strategy_position import StrategyPositionModel
@@ -367,16 +370,28 @@ class Algorithm(BaseProjectAlgorithm):
 
                 self._model_trained = True
                 self.logger.info("✅ Model training pipeline completed successfully")
-            if self._unified_portfolio_manager:#and if 'SPY  281215C00765000' position equal 0 or not existent
-                            self._unified_portfolio_manager.set_holdings(
-                                {'SPY   281215C00765000': -0.2},
-                                data=data,
-                            )
+            # Trade the option declared in the config universe so the ticker always
+            # has a financial_assets row and market data (a ticker outside the
+            # universe gets no holding and no price, so no order is ever sent).
+            cso_ticker = self.universe[CompanyShareOption][0]
+            if (
+                self._unified_portfolio_manager
+                and self._unified_portfolio_manager._get_current_position_qty(cso_ticker) == 0
+            ):
+                self._unified_portfolio_manager.set_holdings(
+                    {CompanyShareOption: {'name': cso_ticker, 'weight': -0.2}},
+                    data=data,
+                )
             # Manage open positions (P&L, exits, aggregate delta hedge) — load from DB
             db_positions = self._load_strategy_positions()
 
             # Enrich each position's greeks and price with resolved factor values
-            current_time: datetime = data.get('time', datetime.now()) if isinstance(data, dict) else datetime.now()
+            # Use the simulation time (Slice.time) so greeks resolve at the
+            # backtest date, not wall-clock time.
+            if isinstance(data, dict):
+                current_time: datetime = data.get('time') or self.time
+            else:
+                current_time = getattr(data, 'time', None) or self.time
             position_market_data = self._load_position_market_data(db_positions, current_time)
             for pos in db_positions.values():
                 sym = pos.get('symbol')
@@ -400,18 +415,21 @@ class Algorithm(BaseProjectAlgorithm):
                      if str(getattr(sym, 'value', sym)) == 'SPY'),
                     None,
                 )
-                spy_price = float(_spy_bar.close) if _spy_bar is not None else 500.0
-                pv = self.portfolio_value or 1.0
+                spy_price = float(_spy_bar.close) 
+                
                 target_hedge_delta = float(portfolio_hedge['target_hedge_delta'])
-                # SPY shares needed = target_delta; weight = (shares × SPY_price) / portfolio_value
-                spy_weight = (target_hedge_delta * spy_price) / pv
+                
                 self.logger.info(
-                    "Delta hedge: target_delta=%.4f spy=%.2f pv=%.0f -> SPY weight=%.4f (%s)",
-                    target_hedge_delta, spy_price, pv, spy_weight,
+                    "Delta hedge: target_delta=%.4f spy=%.2f -> SPY qty=%d (%s)",
+                    target_hedge_delta, spy_price,
+                    int(target_hedge_delta),
                     portfolio_hedge.get('hedge_direction', ''),
                 )
-                self._unified_portfolio_manager.set_holdings({'SPY': spy_weight}, data=data)
-            random_pct = random.random()
+                self._unified_portfolio_manager.set_holdings(
+                    {CompanyShare: {'name': 'SPY', 'quantity': target_hedge_delta}},
+                    data=data,
+                )
+            #random_pct = random.random()
             # if self._unified_portfolio_manager:
             #     self._unified_portfolio_manager.set_holdings(
             #         {'AAPL': random_pct, 'MSFT': 1.0 - random_pct},

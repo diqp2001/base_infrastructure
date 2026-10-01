@@ -39,6 +39,44 @@ class HoldingRepository(BaseLocalRepository, HoldingPort):
         model = self.session.query(HoldingModel).filter_by(id=holding_id).first()
         return self.mapper.to_entity(model) if model else None
 
+    def _delete_by_portfolio_ids(self, ids_csv: str) -> None:
+        """
+        Delete all holdings (and their joined subclass rows) for the given portfolio ids.
+        Must be called AFTER transaction, order, and portfolio_holding sub-table deletions.
+        """
+        from sqlalchemy import text
+        h_in_ids = f"(SELECT id FROM holdings WHERE container_id IN ({ids_csv}))"
+        # Null circular FK first
+        self.session.execute(text(
+            f"UPDATE holdings SET position_id = NULL WHERE container_id IN ({ids_csv})"
+        ))
+        # Delete deepest subclasses (id FK → portfolio_holdings.id) first
+        for pp_table in (
+            "currency_portfolio_portfolio_holdings",
+            "company_share_portfolio_portfolio_holdings",
+            "company_share_option_portfolio_portfolio_holdings",
+            "company_share_portfolio_option_portfolio_holdings",
+            "company_share_option_portfolio_holdings",
+            "derivative_portfolio_holdings",
+        ):
+            self.session.execute(text(f"DELETE FROM {pp_table} WHERE id IN {h_in_ids}"))
+        # Delete portfolio_holdings (mid layer, both by holding id and by portfolio_id FK)
+        self.session.execute(text(f"DELETE FROM portfolio_holdings WHERE id IN {h_in_ids}"))
+        self.session.execute(text(
+            f"DELETE FROM portfolio_holdings WHERE portfolio_id IN ({ids_csv})"
+        ))
+        # Delete direct holding subclasses (id FK → holdings.id)
+        for h_table in (
+            "company_share_portfolio_holdings",
+            "currency_portfolio_holdings",
+            "security_holdings",
+        ):
+            self.session.execute(text(f"DELETE FROM {h_table} WHERE id IN {h_in_ids}"))
+        # Delete base holdings
+        self.session.execute(text(
+            f"DELETE FROM holdings WHERE container_id IN ({ids_csv})"
+        ))
+
     def get_all(self) -> List[HoldingModel]:
         """Get all holdings"""
         models = self.session.query(HoldingModel).all()

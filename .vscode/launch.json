@@ -18,14 +18,11 @@
             "name": "Python: Flask App",
             "type": "debugpy",
             "request": "launch",
-            "module": "flask",
+            "program": "${workspaceFolder}/src/interfaces/flask/app.py",
             "env": {
-                "FLASK_APP": "src/application/managers/web_managers/flask/flask_web_manager.py", // Path to Flask main file
+                "PYTHONPATH": "${workspaceFolder}",
                 "FLASK_ENV": "development"
             },
-            "args": [
-                "run"
-            ],
             "jinja": true,
             "justMyCode": true,
             "console": "integratedTerminal"

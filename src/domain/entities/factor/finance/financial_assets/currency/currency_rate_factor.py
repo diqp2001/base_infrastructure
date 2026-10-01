@@ -30,7 +30,7 @@ class CurrencyRateFactor(CurrencyFactor):
         name: str = "mid_price",
         group: str = "price",
         subgroup: Optional[str] = "mid_price_true",
-        frequency: Optional[str] = None,
+        frequency: Optional[str] = "5m",
         data_type: Optional[str] = "decimal",
         source: Optional[str] = "ibkr",
         definition: Optional[str] = "True mid exchange rate calculated from multiple data sources with outlier filtering",

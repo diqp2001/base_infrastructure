@@ -242,7 +242,72 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
             self.session.rollback()
             logger.error(f"Error creating/getting portfolio {name}: {str(e)}")
             raise
-    
+
+    def _replace_or_create(self, name: str, **kwargs):
+        """
+        Clear operational data for portfolios whose name starts with `name`, then
+        return the existing main portfolio (creating it fresh if none exists yet).
+
+        Portfolio entity rows are PRESERVED across runs so factor_value rows
+        accumulate against stable entity IDs. Only transactions, orders, holdings,
+        positions, and factor_values are cleared — the portfolio/financial_entity
+        rows stay intact.
+        """
+        from sqlalchemy import text
+        from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
+        from src.infrastructure.repositories.local_repo.finance.transaction.transaction_repository import TransactionRepository
+        from src.infrastructure.repositories.local_repo.finance.order.order_repository import OrderRepository
+        from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
+        from src.infrastructure.repositories.local_repo.finance.position_repository import PositionRepository
+
+        try:
+            existing = (
+                self.session.query(PortfolioModel)
+                .filter(PortfolioModel.name.like(f"{name}%"))
+                .all()
+            )
+
+            if existing:
+                ids = [p.id for p in existing]
+                ids_csv = ",".join(str(i) for i in ids)
+
+                transaction_repo = TransactionRepository(self.session, self.factory)
+                order_repo = OrderRepository(self.session, self.factory)
+                holding_repo = HoldingRepository(self.session, self.factory)
+                position_repo = PositionRepository(self.session, self.factory)
+
+                # Clear operational data only — preserve portfolio entity rows
+                transaction_repo._delete_by_portfolio_ids(ids_csv)
+                order_repo._delete_by_portfolio_ids(ids_csv)
+                holding_repo._delete_by_portfolio_ids(ids_csv)
+                position_repo._delete_by_portfolio_ids(ids_csv)
+
+                # Clear stale factor_values so current run writes fresh values
+                self.session.execute(text(
+                    f"DELETE FROM factor_values WHERE entity_id IN ({ids_csv})"
+                ))
+                self.session.flush()
+                logger.info(
+                    f"Cleared operational data for {len(ids)} portfolio(s) with base name '{name}'"
+                )
+
+                # Return the exact-name match (main portfolio), preserving its ID
+                main_orm = next((p for p in existing if p.name == name), existing[0])
+                main_domain = self.mapper.to_domain(main_orm)
+                initial_cash = kwargs.get('initial_cash', 0)
+                currency_code = kwargs.get('currency_code', 'USD')
+                if initial_cash:
+                    self._create_cash_holding(main_domain, initial_cash, currency_code)
+                return main_domain
+
+            # No existing portfolios — create fresh
+            return self._create_or_get(name, **kwargs)
+
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error in _replace_or_create for '{name}': {str(e)}")
+            raise
+
     def _create_cash_holding(
         self,
         portfolio,

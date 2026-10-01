@@ -156,3 +156,86 @@ class CompanySharePortfolioRepository(CompanySharePortfolioPort):
         except Exception as e:
             print(f"Error retrieving holdings for CompanySharePortfolio {portfolio_id}: {e}")
             return []
+
+    # ------------------------------------------------------------------
+    # Sub-portfolio wiring — called by UnifiedPortfolioManager
+    # ------------------------------------------------------------------
+
+    def ensure_sub_portfolio_linked(self, main_portfolio, now) -> Optional[int]:
+        """Idempotently create (or retrieve) the CompanySharePortfolio sub-portfolio
+        and ensure it is linked to main_portfolio via a CompanySharePortfolioPortfolioHolding row.
+        Returns the sub-portfolio id, or None on failure."""
+        from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
+            CompanySharePortfolioPortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        main_id = main_portfolio.id
+        sub_name = f"{main_portfolio.name}_CS"
+
+        sub_portfolio = self._create_or_get(name=sub_name)
+        if sub_portfolio is None:
+            return None
+        sub_portfolio_id = sub_portfolio.id
+
+        link = (
+            self.session.query(CompanySharePortfolioPortfolioHoldingModel)
+            .filter_by(container_id=main_id)
+            .first()
+        )
+        if not link:
+            pp_pos = PositionModel(portfolio_id=main_id, quantity=1, position_type='LONG')
+            self.session.add(pp_pos)
+            self.session.flush()
+            self.session.add(CompanySharePortfolioPortfolioHoldingModel(
+                asset_id=sub_portfolio_id,
+                portfolio_id=main_id,
+                container_id=main_id,
+                start_date=now,
+                position_id=pp_pos.id,
+            ))
+            self.session.commit()
+
+        return sub_portfolio_id
+
+    def ensure_ticker_holding(self, ticker: str, sub_portfolio_id: int, now) -> None:
+        """Idempotently create a CompanySharePortfolioHolding + Position for ticker."""
+        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
+            CompanySharePortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        share = self.session.query(CompanyShareModel).filter_by(symbol=ticker).first()
+        if not share:
+            return
+
+        existing = (
+            self.session.query(CompanySharePortfolioHoldingModel)
+            .filter_by(company_share_portfolio_id=sub_portfolio_id, asset_id=share.id)
+            .first()
+        )
+        if not existing:
+            pos = PositionModel(portfolio_id=sub_portfolio_id, quantity=0, position_type='LONG')
+            self.session.add(pos)
+            self.session.flush()
+            self.session.add(CompanySharePortfolioHoldingModel(
+                asset_id=share.id,
+                company_share_portfolio_id=sub_portfolio_id,
+                container_id=sub_portfolio_id,
+                start_date=now,
+                position_id=pos.id,
+            ))
+            self.session.commit()
+
+    def find_ticker_sub_portfolio_id(self, ticker: str) -> Optional[int]:
+        """Return the sub-portfolio id for an already-held CompanyShare ticker, or None."""
+        from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+        from src.infrastructure.models.finance.holding.company_share_portfolio_holding import (
+            CompanySharePortfolioHoldingModel,
+        )
+        share = self.session.query(CompanyShareModel).filter_by(symbol=ticker).first()
+        if not share:
+            return None
+        holding = self.session.query(CompanySharePortfolioHoldingModel).filter_by(asset_id=share.id).first()
+        return holding.company_share_portfolio_id if holding else None

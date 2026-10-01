@@ -29,11 +29,16 @@ class BondFutureAnnualizedYieldFactor(BondFutureFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
+        # Only the raw close price. The frequency is not inherited: the raw
+        # bar frequency follows bar_size_setting (e.g. '8h') while this
+        # calculated yield is published at its own frequency (e.g. '1d').
+        # Inheriting it made the spec match nothing, so the resolver created
+        # a placeholder 'BondFutureFactor' that IBKR bars can never fill.
         return [
             DependencySpec(
                 factor_type=BondFutureFactor,
                 group="price",
-                frequency=DependencySpec.SELF,
+                name_in=["close"],
                 source_not_in=["calculated"],
             )
         ]
