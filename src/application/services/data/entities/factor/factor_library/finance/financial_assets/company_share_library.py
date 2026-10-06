@@ -48,6 +48,12 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor import (
     CompanyShareLGBMCSQuintileRankMomentumFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_momentum_factor import (
+    CompanyShareSpatioTemporalMomentumFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_feature_factor import (
+    CompanyShareSpatioTemporalFeatureFactor,
+)
 
 
 COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
@@ -1062,6 +1068,106 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
         "frequency": "1d",
         "data_type": "numeric",
         "description": "LightGBM cross-sectional quintile rank momentum factor (1=weakest, 5=strongest)",
+        "dependencies": {},
+        "parameters": {}
+    },    # ── Spatio-Temporal Momentum (Tan, Roberts, Zohren 2023) ─────────────────
+    # Signal: joint-universe model output; values produced by the STM provider.
+    "spatio_temporal_momentum_signal": {
+        "class": CompanyShareSpatioTemporalMomentumFactor,
+        "name": "spatio_temporal_momentum_signal",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Spatio-Temporal Momentum model signal (one per universe constituent)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_norm_daily_return": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_norm_daily_return",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: 1-day return / daily EWM vol",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_norm_monthly_return": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_norm_monthly_return",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: 21-day return / daily vol / sqrt(21)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_norm_quarterly_return": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_norm_quarterly_return",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: 63-day return / daily vol / sqrt(63)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_norm_biannual_return": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_norm_biannual_return",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: 126-day return / daily vol / sqrt(126)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_norm_annual_return": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_norm_annual_return",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: 252-day return / daily vol / sqrt(252)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_macd_8_24": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_macd_8_24",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: MACD(8,24) normalised by 63d price std and 252d signal std",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_macd_16_48": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_macd_16_48",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: MACD(16,48) normalised by 63d price std and 252d signal std",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "stm_macd_32_96": {
+        "class": CompanyShareSpatioTemporalFeatureFactor,
+        "name": "stm_macd_32_96",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "STM input feature: MACD(32,96) normalised by 63d price std and 252d signal std",
         "dependencies": {},
         "parameters": {}
     },

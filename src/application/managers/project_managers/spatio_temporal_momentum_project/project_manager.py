@@ -1,317 +1,108 @@
-﻿import os
-import time
+"""
+SpatioTemporalMomentumProjectManager — launches the Misbuffet engine for the
+Spatio-Temporal Momentum strategy.
+
+Everything that decides (data access, retraining, scoring, trading) happens
+inside the engine, bar by bar, in Algorithm.on_data -> STMTradingCycle.step,
+with every read clipped by the MarketDataHistoryService frontier.  The same
+code path is used for live trading; the manager only launches it and, after a
+backtest, summarises what the engine decided.
+"""
+
 import logging
-import pandas as pd
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from pathlib import Path
-import mlflow
+from typing import Any, Dict, Optional
 
-# Base classes
-#from src.application.managers.project_managers.market_making_SPX_call_spread_project.data.factor_manager import FactorManager
-from src.application.services.database_service.database_service import DatabaseService
 from src.application.managers.project_managers.project_manager import ProjectManager
-
-# Interactive Brokers integration
-from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
-
-# Backtesting components
-from .backtesting.backtest_runner import BacktestRunner
-
-
-# Data components
-
-
-
-
-# Configuration
-from .config import DEFAULT_CONFIG, get_config
-from . import config
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+from src.application.managers.project_managers.spatio_temporal_momentum_project import config as project_config
+from src.application.managers.project_managers.spatio_temporal_momentum_project.backtesting.backtest_runner import (
+    BacktestRunner,
 )
-logger = logging.getLogger(__name__)
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_research_report import (
+    build_report,
+)
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_price_history import (
+    STMPriceHistoryReader,
+)
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_progress import (
+    STMProgressTracker,
+)
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_report_store import (
+    progress_path,
+    save_report,
+)
+import pandas as pd
 
 
-class MarketMakingSPXCallSpreadProjectManager(ProjectManager):
-    """
-    Enhanced Project Manager for backtesting operations.
-    Implements a complete backtesting pipeline using  Misbuffet framework integration.
-    
-    
-    """
-    
-    def __init__(self):
-        """
-        Initialize the Test Base Project Manager following TestProjectBacktestManager pattern.
-        """
+class SpatioTemporalMomentumProjectManager(ProjectManager):
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None, database_service=None, progress=None):
         super().__init__()
-        self.config=get_config()
-        # Initialize required managers - use TEST config like test_project_backtest
-        self.setup_database_service(DatabaseService(config.CONFIG_TEST['DB_TYPE']))
-        self.database_service.set_ext_db()
-        # Backtesting components
-        self.backtest_runner = BacktestRunner(self.database_service)
-        self.algorithm = None
-        self.results = None
         self.logger = logging.getLogger(self.__class__.__name__)
-        
-        # Web interface manager
+        self.config = config or project_config.get_config()
+        self.stm_config = project_config.build_stm_configuration(self.config)
+        if database_service is None:
+            from src.application.services.database_service.database_service import DatabaseService
+            database_service = DatabaseService(project_config.CONFIG_TEST['DB_TYPE'])
+            database_service.set_ext_db()
+        self.setup_database_service(database_service)
+        # Progress and results always go to results_dir, so the Flask /stm dashboard can
+        # follow a run started from anywhere (main.py, VS Code, ...).
+        self.results_dir = self.config['results_dir']
+        if progress is None:
+            progress = STMProgressTracker(persist_path=progress_path(self.results_dir))
+        elif not progress.persist_path:
+            progress.persist_path = progress_path(self.results_dir)
+        self.progress = progress
+        self.runner = BacktestRunner(self.database_service)
+        self.runner.progress_tracker = progress
+        self.results: Dict[str, Any] = {}
+
+    def run(self) -> Dict[str, Any]:
+        """Run the Misbuffet backtest; the algorithm trains, scores and trades as time advances."""
+        bars_total = len(pd.bdate_range(self.config['backtest_start'], self.config['backtest_end']))
+        self.progress.start("backtest", bars_total=bars_total)
         try:
-            from src.application.services.misbuffet.web.web_interface import WebInterfaceManager
-            self.web_interface = WebInterfaceManager()
-        except ImportError:
-            self.logger.warning("Web interface not available")
-            self.web_interface = None
-        
-        # Runtime state
-        self.trained_model = None
-        self.strategy = None
-        self.signal_generator = None
-        self.pipeline_results = {}
-        
-        # Interactive Brokers broker
-        self.ib_broker: Optional[InteractiveBrokersBroker] = None
-        
-        # MLflow tracking setup
-        self.mlflow_experiment_name = "market_making_call_spread_spx_project_manager"
-        self.mlflow_run = None
-        self._setup_mlflow_tracking()
-        
-        self.logger.info("ðŸš€ Market making Call Spread SPX ProjectManager initialized with Misbuffet integration and MLflow tracking")
-    
-    def _setup_mlflow_tracking(self):
-        """Setup MLflow experiment tracking."""
-        try:
-            mlflow.set_tracking_uri("file:./mlruns")
-            mlflow.set_experiment(self.mlflow_experiment_name)
-            self.logger.info(f"MLflow experiment set: {self.mlflow_experiment_name}")
+            results = self._run()
         except Exception as e:
-            self.logger.warning(f"Could not setup MLflow tracking: {e}")
-    
-    def run(
-        self,
-        initial_capital: float = 100000,
-        start_date: str = "2025-08-01",
-        end_date: str = "2025-12-31",
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        Run the complete SPX call spread market making pipeline.
-        
-        Args:
-            initial_capital: Initial capital for trading
-            start_date: Backtest start date
-            end_date: Backtest end date
-            check_data: Whether to check for existing data
-            import_data: Whether to import data if missing
-            run_backtest: Whether to run backtest
-            **kwargs: Additional configuration
-            
-        Returns:
-            Dict containing comprehensive results
-        """
-        try:
-            self.logger.info("ðŸš€ Starting SPX Call Spread Market Making Pipeline")
-            
-            # Start MLflow run
-            self.mlflow_run = mlflow.start_run()
-            
-            # Log parameters
-            mlflow.log_params({
-                'initial_capital': initial_capital,
-                'start_date': start_date,
-                'end_date': end_date,
-                **kwargs
-            })
-            
-            pipeline_results = {
-                'pipeline_start': datetime.now().isoformat(),
-                'parameters': {
-                    'initial_capital': initial_capital,
-                    'start_date': start_date,
-                    'end_date': end_date,
-                },
-                'stages': {},
-                'success': False,
-            }
-            
-            # Data verification and strategy setup are now handled in Algorithm.on_data()
-            # This simplifies the pipeline and follows the requested architecture
-            
-            
-            
-            backtest_stage = self._run_backtest_stage(initial_capital, start_date, end_date)
-            pipeline_results['stages']['backtest_stage'] = backtest_stage
-            
-            # Log backtest metrics
-            if backtest_stage.get('success', False):
-                results = backtest_stage.get('results', {})
-                performance = results.get('performance_metrics', {})
-                
-                mlflow.log_metrics({
-                    'total_return': performance.get('total_return', 0),
-                    'sharpe_ratio': performance.get('sharpe_ratio', 0),
-                    'max_drawdown': performance.get('max_drawdown', 0),
-                    'win_rate': performance.get('win_rate', 0),
-                })
-            
-            
-            results_stage = self._compile_final_results(pipeline_results)
-            pipeline_results['stages']['results_stage'] = results_stage
-            
-            pipeline_results['success'] = True
-            pipeline_results['pipeline_end'] = datetime.now().isoformat()
-            
-            # Log artifacts
-            mlflow.log_dict(pipeline_results, "pipeline_results.json")
-            
-            self.logger.info("âœ… SPX Call Spread Market Making Pipeline completed successfully")
-            return pipeline_results
-            
-        except Exception as e:
-            self.logger.error(f"Pipeline failed: {e}")
-            pipeline_results['error'] = str(e)
-            pipeline_results['success'] = False
-            
-            # Log error to MLflow
-            mlflow.log_param("error", str(e))
-            
-            return pipeline_results
-            
-        finally:
-            # End MLflow run
-            if self.mlflow_run:
-                mlflow.end_run()
-    
-    # _run_data_stage method removed - functionality moved to Algorithm.on_data()
-    # This follows the requested architecture where data verification and import
-    # are handled within the algorithm's on_data method
-    
-    def _run_strategy_setup_stage(self) -> Dict[str, Any]:
-        """Run the strategy setup stage."""
-        try:
-            self.logger.info("âš™ï¸ Setting up Market Making Strategy...")
-            
-            # Initialize strategy components
-            from .strategy.market_making_strategy import Strategy
-            from .strategy.risk_manager import RiskManager
-            from .models.pricing_model import PricingModel
-            from .models.volatility_model import VolatilityModel
-            
-            strategy = Strategy(self.config)
-            risk_manager = RiskManager(self.config)
-            pricing_engine = PricingModel()
-            volatility_model = VolatilityModel()
-            
-            # Store references
-            self.strategy = strategy
-            self.risk_manager = risk_manager
-            self.pricing_engine = pricing_engine
-            self.volatility_model = volatility_model
-            
-            return {
-                'success': True,
-                'components_initialized': [
-                    'CallSpreadMarketMakingStrategy',
-                    'RiskManager', 
-                    'CallSpreadPricingEngine',
-                    'VolatilityModel'
-                ],
-                'stage_timestamp': datetime.now().isoformat(),
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error in strategy setup stage: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'stage_timestamp': datetime.now().isoformat(),
-            }
-    
-    def _run_backtest_stage(
-        self,
-        initial_capital: float,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        """Run the backtesting stage."""
-        try:
-            self.logger.info("ðŸŽ¯ Running Backtest Stage...")
-            
-            from .backtesting.backtest_runner import BacktestRunner
-            
-            # Initialize backtest runner
-            runner = BacktestRunner(self.database_service)
-            
-            # Configure backtest
-            backtest_config = {
-                'initial_capital': initial_capital,
-                'backtest_start': start_date,
-                'backtest_end': end_date,
-                **self.config
-            }
-            
-            # Run backtest
-            backtest_results = runner.run_backtest(backtest_config)
-            
-            return {
-                'success': backtest_results.get('success', False),
-                'results': backtest_results,
-                'stage_timestamp': datetime.now().isoformat(),
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error in backtest stage: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'stage_timestamp': datetime.now().isoformat(),
-            }
-    
-    def _compile_final_results(self, pipeline_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Compile final results from all stages."""
-        try:
-            self.logger.info("ðŸ“‹ Compiling Final Results...")
-            
-            # Extract key metrics from each stage
-            data_stage = pipeline_results['stages'].get('data_stage', {})
-            strategy_stage = pipeline_results['stages'].get('strategy_stage', {})
-            backtest_stage = pipeline_results['stages'].get('backtest_stage', {})
-            
-            summary = {
-                'data_available': data_stage.get('data_available', False),
-                'strategy_setup_success': strategy_stage.get('success', False),
-                'backtest_success': backtest_stage.get('success', False),
-            }
-            
-            # Performance summary if backtest ran
-            if backtest_stage.get('success', False):
-                results = backtest_stage.get('results', {})
-                performance = results.get('portfolio_performance', {})
-                metrics = results.get('performance_metrics', {})
-                
-                summary.update({
-                    'final_portfolio_value': performance.get('final_value'),
-                    'total_return': performance.get('total_return'),
-                    'sharpe_ratio': metrics.get('sharpe_ratio'),
-                    'max_drawdown': metrics.get('max_drawdown'),
-                    'total_trades': results.get('trading_activity', {}).get('total_trades'),
-                })
-            
-            return {
-                'success': True,
-                'summary': summary,
-                'compilation_timestamp': datetime.now().isoformat(),
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error compiling results: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'compilation_timestamp': datetime.now().isoformat(),
-            }
+            self.progress.fail(str(e))
+            raise
+        if results.get('report') is None:
+            self.progress.fail("The run produced no decisions to report (no model eligible during the backtest).")
+        else:
+            self.progress.phase("Saving results")
+            save_report(results['report'], self.results_dir)
+            self.progress.complete(results['report'])
+        return results
+
+    def _run(self) -> Dict[str, Any]:
+        self.progress.phase("Misbuffet backtest (train / score / trade bar by bar)")
+        engine_result = self.runner.run_backtest(self.config)
+        # BaseBacktestRunner reports success even when the engine failed; the engine's own
+        # outcome is only in its summary text ("❌ Backtest failed: <error>").
+        if isinstance(engine_result, dict):
+            summary = str(engine_result.get('misbuffet_result') or '')
+            if engine_result.get('success') is False:
+                raise RuntimeError(f"Misbuffet backtest failed: {engine_result.get('error')}")
+            if 'Backtest failed' in summary:
+                raise RuntimeError(f"Misbuffet engine run failed: {summary.split('failed:', 1)[-1].strip()}")
+        algorithm = getattr(self.runner, 'algorithm_instance', None)
+        cycle_results = getattr(algorithm, 'cycle_results', []) if algorithm else []
+        self.progress.phase("Building research report (tables, figures, SHAP)")
+        report = self.report(cycle_results, algorithm)
+        self.results = {
+            'engine': engine_result,
+            'sessions': len(cycle_results),
+            'retrainings': [(str(r.session.date()), r.artifact_id) for r in cycle_results if r.retrained],
+            'report': report,
+        }
+        return self.results
+
+    def report(self, cycle_results, algorithm):
+        """Post-run research report (paper tables and figures) of the engine's decisions."""
+        if not cycle_results or algorithm is None or algorithm.cycle is None:
+            return None
+        cycle = algorithm.cycle
+        reader = STMPriceHistoryReader(cycle.factory)          # after the run: evaluation only
+        id_to_ticker = {eid: t for t, eid in cycle.ticker_to_entity.items()}
+        closes = reader.load_close_panel(id_to_ticker, start=cycle.history_start)
+        return build_report(cycle_results, closes, self.stm_config, factory=cycle.factory)

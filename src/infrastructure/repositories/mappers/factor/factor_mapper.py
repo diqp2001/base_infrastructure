@@ -67,6 +67,8 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_vpt_52w_20d_lag_factor import CompanyShareVpt52w20dLagFactor as CompanyShareVpt52w20dLagFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_atm_implied_vol_factor import CompanyShareATMImpliedVolFactor as CompanyShareATMImpliedVolFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor import CompanyShareLGBMCSQuintileRankMomentumFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_momentum_factor import CompanyShareSpatioTemporalMomentumFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_feature_factor import CompanyShareSpatioTemporalFeatureFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_return_factors import (
     CompanyShareReturn1DFactor, CompanyShareReturn5DFactor, CompanyShareReturn10DFactor,
     CompanyShareReturn20DFactor, CompanyShareReturn1MFactor, CompanyShareReturn2MFactor,
@@ -381,6 +383,8 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_momentum_zscore_50d_factor': CompanyShareMomentumZScore50DFactor,
     'company_share_momentum_zscore_100d_factor': CompanyShareMomentumZScore100DFactor,
     'company_share_lgbm_cs_quintile_rank_momentum_factor': CompanyShareLGBMCSQuintileRankMomentumFactor,
+    'company_share_spatio_temporal_momentum_factor': CompanyShareSpatioTemporalMomentumFactor,
+    'company_share_spatio_temporal_feature_factor': CompanyShareSpatioTemporalFeatureFactor,
 }
 
 # Lazy entries to avoid circular imports at module load time.
@@ -747,6 +751,10 @@ class FactorMapper:
             return CompanyShareMomentumZScore100DFactor(**base_args)
         elif factor_type == 'company_share_lgbm_cs_quintile_rank_momentum_factor':
             return CompanyShareLGBMCSQuintileRankMomentumFactor(**base_args)
+        elif factor_type == 'company_share_spatio_temporal_momentum_factor':
+            return CompanyShareSpatioTemporalMomentumFactor(**base_args)
+        elif factor_type == 'company_share_spatio_temporal_feature_factor':
+            return CompanyShareSpatioTemporalFeatureFactor(**base_args)
         else:
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation

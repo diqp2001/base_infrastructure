@@ -1,8 +1,10 @@
 """
-Market Making SPX Call Spread Project
+Spatio-Temporal Momentum project.
 
-This package implements a comprehensive market making system for SPX call spreads,
-following the architectural patterns established in test_base_project.
+Integration of "Spatio-Temporal Momentum: Jointly Learning Time-Series and
+Cross-Sectional Strategies" (reference: KurochkinAlexey/SpatioTemporalMomentum)
+into base_infrastructure.  The project manager orchestrates reusable
+components from src/application/services/data/entities/factor/spatio_temporal_momentum.
 """
 
 __version__ = "1.0.0"
