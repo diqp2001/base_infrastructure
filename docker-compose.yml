@@ -6,6 +6,7 @@
 #
 #   sqlserver       SQL Server 2022 Developer
 #   sqlserver-init  one-shot: creates the application database DB_NAME if missing
+#   ibkr-init       one-shot: gives the ibkr-settings volume to the Gateway user (uid 1000)
 #   ibkr            IB Gateway (IBC + Xvfb, headless) - ghcr.io/gnzsnz/ib-gateway
 #   app             Python 3.13 dev container (VS Code attaches here; .devcontainer/)
 #
@@ -62,11 +63,24 @@ services:
     networks: [backend]
     restart: "no"
 
+  ibkr-init:
+    # A new named volume is owned by root, but IB Gateway runs as uid 1000 and must write
+    # jts.ini into TWS_SETTINGS_PATH ("Permission denied" otherwise): fix the ownership once.
+    image: ghcr.io/gnzsnz/ib-gateway:${IB_GATEWAY_TAG:-stable}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c", "chown -R 1000:1000 /home/ibgateway/tws_settings && echo ibkr settings volume ready"]
+    volumes:
+      - ibkr-settings:/home/ibgateway/tws_settings
+    networks: [backend]
+    restart: "no"
+
   ibkr:
     image: ghcr.io/gnzsnz/ib-gateway:${IB_GATEWAY_TAG:-stable}
     depends_on:
       sqlserver:
         condition: service_healthy
+      ibkr-init:
+        condition: service_completed_successfully
     environment:
       TWS_USERID: ${TWS_USERID:-}
       TWS_PASSWORD: ${TWS_PASSWORD:-}

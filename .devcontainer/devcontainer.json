@@ -5,7 +5,7 @@
     "name": "base_infrastructure (Linux, Python 3.13)",
     "dockerComposeFile": ["../docker-compose.yml"],
     "service": "app",
-    "runServices": ["sqlserver", "sqlserver-init", "ibkr", "app"],
+    "runServices": ["sqlserver", "sqlserver-init", "ibkr-init", "ibkr", "app"],
     "workspaceFolder": "/workspaces/base_infrastructure",
     "shutdownAction": "stopCompose",
 

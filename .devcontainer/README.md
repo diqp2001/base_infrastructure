@@ -72,6 +72,7 @@ dependency (several minutes); later starts reuse the image.
 |---|---|---|---|---|
 | `sqlserver` | `mcr.microsoft.com/mssql/server:2022-latest` | `sqlserver:1433` | `localhost,14333` | volume `sqlserver-data` |
 | `sqlserver-init` | same | – (one-shot: `CREATE DATABASE base_infra` if missing) | – | – |
+| `ibkr-init` | same as `ibkr` | – (one-shot: makes the settings volume writable for the Gateway user) | – | – |
 | `ibkr` | `ghcr.io/gnzsnz/ib-gateway:stable` | `ibkr:4004` (paper) | `localhost:4002` API, `localhost:5900` VNC | volume `ibkr-settings` |
 | `app` | built from `.devcontainer/Dockerfile` | – | `localhost:5000` (Flask, forwarded) | repository bind mount |
 
