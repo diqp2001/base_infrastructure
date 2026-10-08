@@ -80,8 +80,8 @@ class STMProgressTracker:
             s["current_time"] = str(getattr(result, "time", "") or "")
             session = getattr(result, "session", None)
             s["current_session"] = str(session.date()) if session is not None else None
-            if getattr(result, "scores", None):
-                s["trained_sessions"] += 1
+            if getattr(result, "scores", None) and getattr(result, "new_decision", True):
+                s["trained_sessions"] += 1                 # each decision counted once
             if getattr(result, "retrained", False):
                 s["retrainings"].append({"session": s["current_session"],
                                          "artifact_id": getattr(result, "artifact_id", None)})

@@ -20,7 +20,7 @@ step(now):
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, List, Optional
 
 import numpy as np
@@ -64,6 +64,9 @@ class CycleResult:
     daily_vol: Dict[str, float] = field(default_factory=dict)    # ticker -> daily vol at session
     weights: Dict[str, float] = field(default_factory=dict)      # ticker -> target weight
     note: str = ""
+    # False when the decision session did not change since the previous step (e.g. an
+    # intraday engine clock): the previous decision is returned and must not be re-traded.
+    new_decision: bool = True
 
 
 class STMTradingCycle:
@@ -94,6 +97,7 @@ class STMTradingCycle:
             factory=factory, config=config, price_reader=self.reader, artifact_store=self.artifact_store,
         )
         self.feature_store = STMFeatureStore(factory, config) if persist else None
+        self._last_result: Optional[CycleResult] = None
 
     # ------------------------------------------------------------------
 
@@ -180,7 +184,13 @@ class STMTradingCycle:
             result.note = "no closes known yet"
             return result
         session = closes.index.max()
+        if self._last_result is not None and self._last_result.session == session:
+            # Same decision session as the previous step (intraday clock): nothing new is
+            # known, so reuse the decision instead of re-scoring, retraining or re-trading.
+            return replace(self._last_result, time=now, retrained=False, artifact_id=None,
+                           new_decision=False, note="same session as the previous decision")
         result.session = session
+        self._last_result = result
         eligible = self._eligible(closes, session)
         result.eligible = eligible
 

@@ -8,6 +8,7 @@ from pstats import SortKey, Stats
 
 
 from src.application.managers.project_managers.spatio_temporal_momentum_project.project_manager import SpatioTemporalMomentumProjectManager
+from src.application.managers.project_managers.spatio_temporal_momentum_project_full.project_manager import SpatioTemporalMomentumFullProjectManager
 from src.application.managers.project_managers.market_making_SPX_call_spread_project.project_manager import MarketMakingSPXCallSpreadProjectManager
 from src.application.services.api_service.ibkr_service.comprehensive_market_data_examples import ComprehensiveIBMarketDataExamples
 from src.application.managers.project_managers.cross_sectionnal_project.cross_sectionnal_project_manager import CrossSectionnal
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     
     #MarketMakingSPXCallSpreadProjectManager().run()
 
-    SpatioTemporalMomentumProjectManager().run()
+    SpatioTemporalMomentumFullProjectManager().run()
     # import webbrowser, threading
     # from src.interfaces.flask.flask import FlaskApp
     # PORT = 5000

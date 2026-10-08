@@ -214,6 +214,89 @@ class TestMissingArtifactFiles(unittest.TestCase):
             env.close()
 
 
+class TestIntradayClock(unittest.TestCase):
+    """5-minute engine clock: one decision per daily session, other bars reuse it."""
+
+    def test_same_session_bars_reuse_the_decision(self):
+        env = _Env(synthetic_closes(900))
+        try:
+            cycle = env.cycle(retrain_every_days=365)
+            day1 = pd.Timestamp("2016-08-01")
+            day2 = pd.Timestamp("2016-08-02")
+            day3 = pd.Timestamp("2016-08-03")
+            r_train = cycle.step(day1 + pd.Timedelta(hours=9, minutes=35))      # trains (no scores yet)
+            r_train_rep = cycle.step(day1 + pd.Timedelta(hours=9, minutes=40))
+            self.assertTrue(r_train.retrained)
+            self.assertFalse(r_train_rep.new_decision)
+            self.assertFalse(r_train_rep.retrained, "no retraining on a repeated bar")
+
+            first = cycle.step(day2 + pd.Timedelta(hours=9, minutes=35))
+            repeats = [cycle.step(day2 + pd.Timedelta(hours=9, minutes=35 + 5 * k)) for k in range(1, 6)]
+            self.assertTrue(first.new_decision and first.scores)
+            for r in repeats:
+                self.assertFalse(r.new_decision)
+                self.assertEqual(r.session, first.session)
+                self.assertEqual(r.scores, first.scores)
+                self.assertEqual(r.weights, first.weights)
+            nxt = cycle.step(day3 + pd.Timedelta(hours=9, minutes=35))
+            self.assertTrue(nxt.new_decision)
+            self.assertGreater(nxt.session, first.session)
+        finally:
+            env.close()
+
+    def test_five_minute_project_is_configured_and_separate(self):
+        import importlib.util
+        if importlib.util.find_spec(
+                "src.application.managers.project_managers.spatio_temporal_momentum_project_5m") is None:
+            self.skipTest("spatio_temporal_momentum_project_5m folder not present")
+        from src.application.managers.project_managers.spatio_temporal_momentum_project import config as daily
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_5m import config as five
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_5m.project_manager import (
+            SpatioTemporalMomentum5mProjectManager,  # noqa: F401  (importable)
+        )
+        c5, cd = five.get_config(), daily.get_config()
+        self.assertEqual(c5["config_interval"], {"custom_interval_minutes": 5})
+        self.assertEqual(c5["bar_size_setting"], "5 mins")
+        s5, sd = five.build_stm_configuration(c5), daily.build_stm_configuration(cd)
+        for attr in ("ml_model_name_prefix", "signal_factor_name", "artifact_dir"):
+            self.assertNotEqual(getattr(s5, attr), getattr(sd, attr), attr)
+        self.assertNotEqual(s5.universe.name, sd.universe.name)
+        self.assertNotEqual(c5["results_dir"], cd["results_dir"])
+        self.assertEqual(s5.model_hash(), sd.model_hash(), "same daily-close model, only the clock differs")
+
+
+class TestPaperUniverseProject(unittest.TestCase):
+
+    def test_paper_universe_with_replacements_and_separate_state(self):
+        from src.application.managers.project_managers.spatio_temporal_momentum_project import config as daily
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_full import config as paper
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_full.data.paper_universe import (
+            ADDED_ALONGSIDE,
+            PAPER_US_EQUITIES,
+            REPLACED,
+        )
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_full.project_manager import (
+            SpatioTemporalMomentumFullProjectManager,  # noqa: F401  (importable)
+        )
+        self.assertEqual(len(PAPER_US_EQUITIES), 46)
+        tickers = paper.build_stm_configuration().universe.tickers
+        self.assertGreaterEqual(len(tickers), 46)
+        for gone, (replacement, _) in REPLACED.items():
+            self.assertNotIn(gone, tickers)
+            self.assertIn(replacement, tickers)
+        for kept, (added, _) in ADDED_ALONGSIDE.items():
+            self.assertIn(kept, tickers)
+            self.assertIn(added, tickers)
+        others = set(PAPER_US_EQUITIES) - set(REPLACED)
+        self.assertTrue(others.issubset(tickers))
+        self.assertEqual(len(tickers), len(set(tickers)))
+        self.assertEqual(list(paper.get_config()["universe"].values())[0], tickers)
+        sp, sd = paper.build_stm_configuration(), daily.build_stm_configuration()
+        for attr in ("ml_model_name_prefix", "signal_factor_name", "artifact_dir"):
+            self.assertNotEqual(getattr(sp, attr), getattr(sd, attr), attr)
+        self.assertNotEqual(paper.get_config()["results_dir"], daily.get_config()["results_dir"])
+
+
 class TestFourMonthSetup(unittest.TestCase):
     """Project 4-month configuration: the cycle trades with ~84 sessions of history in total."""
 
