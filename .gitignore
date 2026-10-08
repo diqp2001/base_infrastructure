@@ -20,5 +20,5 @@ mlruns/
 .mlruns/
 mlartifacts/
 
-
-
+# Local environment / secrets (template: .env.example)
+.env

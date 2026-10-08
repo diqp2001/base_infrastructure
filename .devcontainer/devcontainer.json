@@ -1,0 +1,40 @@
+// VS Code Dev Container for base_infrastructure.
+// "Reopen in Container" starts docker-compose.yml (sqlserver, sqlserver-init, ibkr, app) and
+// attaches VS Code to the "app" service: Python, debugging and tests run inside Linux.
+{
+    "name": "base_infrastructure (Linux, Python 3.13)",
+    "dockerComposeFile": ["../docker-compose.yml"],
+    "service": "app",
+    "runServices": ["sqlserver", "sqlserver-init", "ibkr", "app"],
+    "workspaceFolder": "/workspaces/base_infrastructure",
+    "shutdownAction": "stopCompose",
+
+    "remoteUser": "vscode",
+    "updateRemoteUserUID": true,
+
+    // Flask (src/interfaces/flask/app.py listens on 0.0.0.0:5000)
+    "forwardPorts": [5000],
+    "portsAttributes": {
+        "5000": { "label": "Flask", "onAutoForward": "notify" }
+    },
+
+    // environment summary + reachability of sqlserver / ibkr
+    "postStartCommand": "bash .devcontainer/post-start.sh",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "ms-mssql.mssql"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/opt/venv/bin/python",
+                "python.terminal.activateEnvironment": false,
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "files.eol": "\n"
+            }
+        }
+    }
+}

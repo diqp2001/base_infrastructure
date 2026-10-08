@@ -1,104 +1,148 @@
-# Docker Compose for Base Infrastructure Trading Platform
-version: '3.8'
-
-services:
-  # Main trading application
-  trading-platform:
-    build: .
-    container_name: base-infrastructure-trading
-    ports:
-      - "5000:5000"    # Flask application
-      - "8080:8080"    # VS Code server
-      - "5901:5901"    # VNC server
-      - "80:80"        # Nginx reverse proxy
-    environment:
-      # Application settings
-      - PYTHONPATH=/home/trader/app/src
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      
-      # Database settings (customize as needed)
-      - DB_HOST=localhost
-      - DB_PORT=1433
-      - DB_NAME=trading_db
-      - DB_USER=sa
-      - DB_PASSWORD=YourStrongPassword123!
-      
-      # IBKR TWS settings
-      - TWS_HOST=localhost
-      - TWS_PORT=7497
-      - TWS_CLIENT_ID=1
-      
-      # VNC settings
-      - VNC_PASSWORD=trader123
-      - VNC_RESOLUTION=1920x1080
-      - VNC_DEPTH=24
-      
-      # VS Code settings
-      - CODE_SERVER_PASSWORD=trader123
-    
-    volumes:
-      # Persist application data
-      - ./data:/home/trader/app/data
-      - ./reports:/home/trader/app/reports
-      - ./results:/home/trader/app/results
-      - ./mlruns:/home/trader/app/mlruns
-      
-      # Persist VS Code settings
-      - vscode-config:/home/trader/.config/code-server
-      - vscode-extensions:/home/trader/.local/share/code-server/extensions
-      
-      # Persist logs
-      - app-logs:/home/trader/logs
-    
-    networks:
-      - trading-network
-    
-    restart: unless-stopped
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/entities/summary"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # SQL Server (alternative to SSMS)
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: trading-sqlserver
-    ports:
-      - "1433:1433"
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrongPassword123!
-      - MSSQL_PID=Developer
-    volumes:
-      - sqlserver-data:/var/opt/mssql
-    networks:
-      - trading-network
-    restart: unless-stopped
-
-  # Web-based SQL client (alternative to SSMS)
-  adminer:
-    image: adminer:latest
-    container_name: trading-adminer
-    ports:
-      - "8081:8080"
-    environment:
-      - ADMINER_DEFAULT_SERVER=sqlserver
-    networks:
-      - trading-network
-    restart: unless-stopped
-    depends_on:
-      - sqlserver
-
-volumes:
-  vscode-config:
-  vscode-extensions:
-  app-logs:
-  sqlserver-data:
+# Linux development environment of base_infrastructure (Windows -> WSL2 -> Docker).
+#
+#                       network base_infrastructure_net
+#          app ─────────────► sqlserver:1433     (SQL Server 2022, volume sqlserver-data)
+#           └───────────────► ibkr:4004          (IB Gateway paper API, volume ibkr-settings)
+#
+#   sqlserver       SQL Server 2022 Developer
+#   sqlserver-init  one-shot: creates the application database DB_NAME if missing
+#   ibkr            IB Gateway (IBC + Xvfb, headless) - ghcr.io/gnzsnz/ib-gateway
+#   app             Python 3.13 dev container (VS Code attaches here; .devcontainer/)
+#
+# Startup: sqlserver healthy -> sqlserver-init done + ibkr starts -> ibkr API ready -> app.
+# Configuration: .env (copy .env.example). Defaults below are development-only values.
+name: base_infrastructure
 
 networks:
-  trading-network:
-    driver: bridge
+  backend:
+    name: base_infrastructure_net
+
+volumes:
+  sqlserver-data:
+  ibkr-settings:
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}
+    ports:
+      # SSMS / Azure Data Studio on Windows: localhost,14333 (1433 is left to a local instance)
+      - "127.0.0.1:${MSSQL_HOST_PORT:-14333}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}
+      DB_NAME: ${DB_NAME:-base_infra}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -b
+        -Q "IF DB_ID(N'$${DB_NAME}') IS NULL CREATE DATABASE [$${DB_NAME}];"
+        && echo "database $${DB_NAME} ready"
+    networks: [backend]
+    restart: "no"
+
+  ibkr:
+    image: ghcr.io/gnzsnz/ib-gateway:${IB_GATEWAY_TAG:-stable}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      TWS_USERID: ${TWS_USERID:-}
+      TWS_PASSWORD: ${TWS_PASSWORD:-}
+      TRADING_MODE: ${IBKR_ACCOUNT_MODE:-paper}          # paper -> API 4002, relayed on 4004
+      READ_ONLY_API: ${IBKR_READ_ONLY_API:-no}
+      TWS_SETTINGS_PATH: /home/ibgateway/tws_settings    # persisted (volume ibkr-settings)
+      TWS_ACCEPT_INCOMING: accept
+      # Another session of the same IBKR username (e.g. TWS on Windows) keeps priority:
+      # "secondary" makes the container back off instead of disconnecting it.
+      EXISTING_SESSION_DETECTED_ACTION: ${IBKR_EXISTING_SESSION_ACTION:-secondary}
+      TWOFA_TIMEOUT_ACTION: ${IBKR_TWOFA_TIMEOUT_ACTION:-restart}
+      RELOGIN_AFTER_TWOFA_TIMEOUT: ${IBKR_RELOGIN_AFTER_TWOFA_TIMEOUT:-yes}
+      AUTO_RESTART_TIME: ${IBKR_AUTO_RESTART_TIME:-11:45 PM}
+      VNC_SERVER_PASSWORD: ${IBKR_VNC_PASSWORD:-}         # empty = VNC disabled
+      JAVA_HEAP_SIZE: ${IBKR_JAVA_HEAP_SIZE:-1024}
+      TIME_ZONE: ${TIME_ZONE:-America/New_York}
+      TZ: ${TIME_ZONE:-America/New_York}
+    ports:
+      # Optional access from Windows tools (the app uses ibkr:4004 on the Docker network)
+      - "127.0.0.1:${IBKR_HOST_API_PORT:-4002}:4004"
+      - "127.0.0.1:${IBKR_HOST_VNC_PORT:-5900}:5900"
+    volumes:
+      - ibkr-settings:/home/ibgateway/tws_settings
+    networks: [backend]
+    healthcheck:
+      # The relay on 4003/4004 accepts connections before Gateway is logged in, so probe the
+      # Gateway's own API port inside the container: it only listens after a successful login.
+      test: ["CMD", "bash", "-c", "p=4002; [ \"$${TRADING_MODE}\" = live ] && p=4001; exec 3<>/dev/tcp/127.0.0.1/$${p}"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 180s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: base_infrastructure-dev:py3.13
+    command: ["sleep", "infinity"]
+    init: true
+    volumes:
+      - .:/workspaces/base_infrastructure:cached
+    networks: [backend]
+    environment:
+      PYTHONPATH: /workspaces/base_infrastructure
+      # SQL Server (src/infrastructure/database/settings.py) - service name, not localhost
+      DB_HOST: sqlserver
+      DB_PORT: "1433"
+      DB_NAME: ${DB_NAME:-base_infra}
+      DB_USER: ${DB_USER:-sa}
+      DB_PASSWORD: ${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}}
+      DB_DRIVER: ODBC Driver 18 for SQL Server
+      DB_TRUST_SERVER_CERTIFICATE: "yes"
+      # IBKR (src/application/services/misbuffet/brokers/ibkr/ibkr_settings.py) - service name
+      IBKR_HOST: ibkr
+      IBKR_PORT: ${IBKR_PORT:-4004}
+      IBKR_CLIENT_ID: ${IBKR_CLIENT_ID:-1}
+      IBKR_ACCOUNT_MODE: ${IBKR_ACCOUNT_MODE:-paper}
+      IBKR_ALLOW_LIVE: ${IBKR_ALLOW_LIVE:-no}
+      IBKR_CONNECT_RETRIES: ${IBKR_CONNECT_RETRIES:-6}
+      IBKR_CONNECT_RETRY_DELAY: ${IBKR_CONNECT_RETRY_DELAY:-10}
+      IBKR_TEST_CLIENT_ID: ${IBKR_TEST_CLIENT_ID:-999}
+      # Optional API keys used by some services
+      FMP_API_KEY: ${FMP_API_KEY:-}
+      NASDAQ_API_KEY: ${NASDAQ_API_KEY:-}
+      QUANDL_API_KEY: ${QUANDL_API_KEY:-}
+      ERCOT_USERNAME: ${ERCOT_USERNAME:-}
+      ERCOT_PASSWORD: ${ERCOT_PASSWORD:-}
+      ERCOT_SUBSCRIPTION_KEY: ${ERCOT_SUBSCRIPTION_KEY:-}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      ibkr:
+        # service_healthy waits for a logged-in Gateway. Set IBKR_APP_START_CONDITION=service_started
+        # in .env to open the dev container without IBKR credentials / while Gateway is down.
+        condition: ${IBKR_APP_START_CONDITION:-service_healthy}

@@ -1,0 +1,5 @@
+# Development dependencies (installed in the Linux dev container on top of requirements.txt).
+# pytest is already pinned in requirements.txt; debugpy is bundled by the VS Code Python
+# Debugger extension and is pinned here only for command-line use (python -m debugpy ...).
+-r requirements.txt
+debugpy==1.8.14

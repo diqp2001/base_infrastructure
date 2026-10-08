@@ -5,6 +5,7 @@ This module provides the Interactive Brokers brokerage integration following
 the QuantConnect Lean architecture pattern, enabling live trading through IB TWS or Gateway.
 """
 
+import os
 import time
 import threading
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ from zoneinfo import ZoneInfo  # Python 3.9+
 
 from .IBTWSClient import IBTWSClient
 from .contract_resolver import ContractResolver
+from .ibkr_settings import connect_retries, connect_retry_delay, resolve_endpoint
 
 from ..base_broker import BaseBroker, BrokerStatus, BrokerConnectionState
 from ...common import Symbol, Order, OrderEvent
@@ -46,6 +48,16 @@ class InteractiveBrokersBroker(BaseBroker):
         self.port = config.get('port', 7497)  # 7497 for paper, 7496 for live
         self.client_id = config.get('client_id', 1)
         self.timeout = config.get('timeout', 60)
+
+        # Deployment overrides (IBKR_HOST / IBKR_PORT / IBKR_CLIENT_ID / IBKR_ACCOUNT_MODE),
+        # e.g. the Docker "ibkr" IB Gateway service. No variables set -> values above unchanged.
+        endpoint = resolve_endpoint(self.host, self.port, self.client_id)
+        if endpoint.overridden:
+            self.logger.info(f"IBKR endpoint from environment: {self.host}:{self.port} (client {self.client_id}) "
+                             f"-> {endpoint.host}:{endpoint.port} (client {endpoint.client_id})")
+        self.host, self.port, self.client_id = endpoint.host, endpoint.port, endpoint.client_id
+        if os.getenv('IBKR_ACCOUNT_MODE'):
+            config = {**config, 'paper_trading': endpoint.paper}
         
         # Connection and monitoring
         self.ib_connection: Optional[IBTWSClient] = None
@@ -75,12 +87,23 @@ class InteractiveBrokersBroker(BaseBroker):
     def _connect_impl(self) -> bool:
         """Connect to Interactive Brokers TWS/Gateway."""
         try:
-            # Create TWS API client
-            self.ib_connection = IBTWSClient(self.host, self.port, self.client_id)
-            
-            # Establish connection
-            if not self.ib_connection.connect_to_tws():
-                return False
+            # Create TWS API client and connect. IBKR_CONNECT_RETRIES (default 0) adds attempts,
+            # e.g. while the IB Gateway container is still logging in or restarting.
+            attempts = 1 + connect_retries()
+            for attempt in range(1, attempts + 1):
+                self.ib_connection = IBTWSClient(self.host, self.port, self.client_id)
+                if self.ib_connection.connect_to_tws():
+                    break
+                try:
+                    self.ib_connection.disconnect()
+                except Exception:
+                    pass
+                if attempt == attempts:
+                    return False
+                delay = connect_retry_delay()
+                self.logger.warning(f"IBKR API {self.host}:{self.port} not available "
+                                    f"(attempt {attempt}/{attempts}), retrying in {delay:.0f}s")
+                time.sleep(delay)
             
             # Wait a moment for connection to stabilize
             time.sleep(2)
