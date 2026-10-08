@@ -22,6 +22,12 @@ volumes:
   sqlserver-data:
   ibkr-settings:
 
+secrets:
+  # IB Gateway password: a git-ignored local file (secrets/ is in .gitignore), mounted read-only
+  # into the ibkr container only, at /run/secrets/ibkr_password. Never in .env or the environment.
+  ibkr_password:
+    file: ${IBKR_PASSWORD_FILE:-./secrets/ibkr_password.txt}
+
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -83,7 +89,7 @@ services:
         condition: service_completed_successfully
     environment:
       TWS_USERID: ${TWS_USERID:-}
-      TWS_PASSWORD: ${TWS_PASSWORD:-}
+      TWS_PASSWORD_FILE: /run/secrets/ibkr_password   # read by the image at startup
       TRADING_MODE: ${IBKR_ACCOUNT_MODE:-paper}          # paper -> API 4002, relayed on 4004
       READ_ONLY_API: ${IBKR_READ_ONLY_API:-no}
       TWS_SETTINGS_PATH: /home/ibgateway/tws_settings    # persisted (volume ibkr-settings)
@@ -104,6 +110,8 @@ services:
       - "127.0.0.1:${IBKR_HOST_VNC_PORT:-5900}:5900"
     volumes:
       - ibkr-settings:/home/ibgateway/tws_settings
+    secrets:
+      - ibkr_password
     networks: [backend]
     healthcheck:
       # The relay on 4003/4004 accepts connections before Gateway is logged in, so probe the

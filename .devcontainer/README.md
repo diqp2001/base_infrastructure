@@ -59,7 +59,9 @@ mkdir -p ~/code && cd ~/code
 git clone <repo-url> base_infrastructure
 cd base_infrastructure
 cp .env.example .env
-nano .env          # set TWS_USERID / TWS_PASSWORD (IBKR PAPER username), passwords if wanted
+nano .env          # set TWS_USERID (IBKR username)
+mkdir -p secrets && printf '%s' 'your-ibkr-password' > secrets/ibkr_password.txt
+chmod 600 secrets/ibkr_password.txt     # IB Gateway password: git-ignored, readable by you only
 code .             # opens VS Code on Windows, connected to WSL
 ```
 
@@ -128,8 +130,9 @@ docker compose up -d
 
 ## 5. IBKR / IB Gateway
 
-* `ibkr` runs IB Gateway headless: IBC logs in with `TWS_USERID` / `TWS_PASSWORD` inside a
-  virtual X display (Xvfb); `socat` publishes the Gateway API (container-local 4002 paper /
+* `ibkr` runs IB Gateway headless: IBC logs in with `TWS_USERID` (`.env`) and the password from
+  `secrets/ibkr_password.txt` (Docker secret, mounted read-only into `ibkr` only as
+  `/run/secrets/ibkr_password`; `secrets/` is git-ignored) inside a virtual X display (Xvfb); `socat` publishes the Gateway API (container-local 4002 paper /
   4001 live) on 4004 / 4003 of the Docker network. No GUI or IBKR software runs in `app`.
 * Paper trading is the default: `IBKR_ACCOUNT_MODE=paper`, Gateway `TRADING_MODE=paper`,
   app port 4004. Live needs `IBKR_ACCOUNT_MODE=live`, `IBKR_ALLOW_LIVE=yes`, `IBKR_PORT=4003`;

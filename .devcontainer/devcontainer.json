@@ -9,6 +9,10 @@
     "workspaceFolder": "/workspaces/base_infrastructure",
     "shutdownAction": "stopCompose",
 
+    // docker compose needs the secret file to exist: create an empty, owner-only one if missing
+    // (runs on the host, i.e. in WSL when the repository is cloned there).
+    "initializeCommand": "mkdir -p secrets && touch secrets/ibkr_password.txt && chmod 600 secrets/ibkr_password.txt",
+
     "remoteUser": "vscode",
     "updateRemoteUserUID": true,
 
