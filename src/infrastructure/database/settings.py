@@ -13,5 +13,5 @@ DATABASES = {
 }
 
 
-def get_database_url(db_type='sqlite'):
+def get_database_url(db_type='sql_server'):
     return DATABASES.get(db_type)

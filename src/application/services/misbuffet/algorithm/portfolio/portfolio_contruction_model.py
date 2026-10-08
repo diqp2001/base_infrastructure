@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 # Import the IAlgorithm interface to ensure proper relationship
-from ...common.interfaces.ialgorithm import IAlgorithm
+from ...common.interfaces import IAlgorithm
 
 
 class PortfolioConstructionModel(IAlgorithm):

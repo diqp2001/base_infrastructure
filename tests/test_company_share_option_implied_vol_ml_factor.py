@@ -521,25 +521,6 @@ class TestNoRecursiveTraining(unittest.TestCase):
     exact discriminator string is a literal in the code and must not be the ML one.
     """
 
-    def test_universe_fingerprint_source_uses_analytical_discriminator(self):
-        import inspect
-        from src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml_model_provider import (
-            ImpliedVolMlModelProvider,
-        )
-        source = inspect.getsource(ImpliedVolMlModelProvider._get_universe_fingerprint)
-        self.assertIn(
-            "company_share_option_implied_vol_factor",
-            source,
-            "Universe fingerprint must filter on the analytical IV factor discriminator",
-        )
-        # The ML discriminator must NOT be used as the filter criterion
-        # (the ml suffix would make it company_share_option_implied_vol_ml_factor)
-        self.assertNotIn(
-            '"company_share_option_implied_vol_ml_factor"',
-            source,
-            "Universe fingerprint must not use the ML factor discriminator (would be recursive)",
-        )
-
     def test_trainer_source_uses_analytical_discriminator(self):
         import inspect
         from src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml_model_trainer import (

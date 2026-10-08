@@ -157,7 +157,7 @@ for K in [90.0, 95.0, 100.0, 105.0, 110.0]:
     miv  = iv_surface.iv(K, T_eval)
     hiv  = pricer.implied_vol(S0, K, T_eval, calibrated) or float("nan")
     slv_iv = slv_model.implied_vol(
-        S0, K, T_eval, n_paths=10_000, n_steps=100, seed=K_seed := int(K)
+        S0, K, T_eval, n_paths=10_000, n_steps=100, seed=int(K)
     ) or float("nan")
     print(f"  {K:6.1f}  {miv:10.4f}  {hiv:10.4f}  {slv_iv:10.4f}")
 
