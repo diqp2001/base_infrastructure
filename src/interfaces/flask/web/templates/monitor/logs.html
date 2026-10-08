@@ -1,0 +1,30 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<h1>Logs &amp; errors</h1>
+<div class="filters" data-filter-group="logs">
+  <label>Minimum level
+    <select data-param="level">
+      {% for lvl in levels %}<option value="{{ lvl }}"{% if lvl == 'INFO' %} selected{% endif %}>{{ lvl }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Component
+    <select data-param="component">
+      <option value="">all</option>
+      {% for c in components %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Period
+    <select data-param="since_minutes">
+      <option value="">all retained</option>
+      <option value="15">15 min</option>
+      <option value="60">1 hour</option>
+      <option value="360">6 hours</option>
+      <option value="1440">24 hours</option>
+    </select>
+  </label>
+  <label>Search<input type="search" data-param="q" placeholder="text" maxlength="100"></label>
+</div>
+{{ section("Recent records", url_for('monitor.api_logs'), intervals.logs, "logs", filters="logs") }}
+{% endblock %}

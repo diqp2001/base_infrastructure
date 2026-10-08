@@ -1,0 +1,11 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Factors & jobs{% endblock %}
+{% block content %}
+<h1>Factors &amp; background jobs</h1>
+<div class="filters" data-filter-group="fac">
+  <label>Search factors<input type="search" data-param="q" placeholder="name, group, source" maxlength="100"></label>
+</div>
+{{ section("Factors", url_for('monitor.api_factors'), intervals.data, "factors", filters="fac") }}
+{{ section("Background jobs", url_for('monitor.api_jobs'), intervals.data, "jobs") }}
+{% endblock %}

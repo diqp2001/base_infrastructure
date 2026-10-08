@@ -1,0 +1,10 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}IBKR & account{% endblock %}
+{% block content %}
+<h1>IBKR &amp; account</h1>
+{{ section("IB Gateway connection", url_for('monitor.api_ibkr'), intervals.health, "ibkr_connection") }}
+{{ section("Account summary", url_for('monitor.api_account_summary'), intervals.account, "account_summary") }}
+{{ section("Positions", url_for('monitor.api_positions'), intervals.positions, "positions") }}
+{{ section("Open orders (view only)", url_for('monitor.api_orders'), intervals.positions, "orders") }}
+{% endblock %}

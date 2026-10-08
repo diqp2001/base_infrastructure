@@ -1,0 +1,7 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Infrastructure{% endblock %}
+{% block content %}
+<h1>Connections &amp; infrastructure</h1>
+{{ section("Services", url_for('monitor.api_connections'), intervals.health, "connections") }}
+{% endblock %}

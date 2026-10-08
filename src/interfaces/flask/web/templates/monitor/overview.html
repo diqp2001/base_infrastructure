@@ -1,0 +1,7 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<h1>System overview</h1>
+{{ section("Health", url_for('monitor.api_status'), intervals.health, "overview") }}
+{% endblock %}

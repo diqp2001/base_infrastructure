@@ -1,0 +1,16 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Market data{% endblock %}
+{% block content %}
+<h1>Market data</h1>
+<div class="filters" data-filter-group="md">
+  <label>Search<input type="search" data-param="q" placeholder="symbol, factor, source" maxlength="100"></label>
+  <label>Show
+    <select data-param="stale_only">
+      <option value="0">all series</option>
+      <option value="1">stale only</option>
+    </select>
+  </label>
+</div>
+{{ section("Freshness", url_for('monitor.api_market_data'), intervals.data, "market_data", filters="md") }}
+{% endblock %}

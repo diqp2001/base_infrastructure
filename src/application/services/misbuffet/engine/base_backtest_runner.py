@@ -11,6 +11,7 @@ and performance-metric delegation live here so they don't have to be repeated
 in every project.
 """
 
+import functools
 import logging
 import threading
 from abc import ABC, abstractmethod
@@ -23,6 +24,44 @@ from src.application.services.misbuffet.engine.performance_metrics import calcul
 from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
 
 logger = logging.getLogger(__name__)
+
+
+def _record_job(func):
+    """Record backtest start / end for the read-only monitoring dashboard.
+
+    Monitoring never changes the run: recorder errors are swallowed, the result is returned
+    unchanged and exceptions propagate exactly as before.
+    """
+    @functools.wraps(func)
+    def wrapper(self, config, *args, **kwargs):
+        recorder = None
+        try:
+            from src.application.services.monitoring.job_tracker import JobRecorder
+            from src.application.services.monitoring.log_store import install_monitoring_log_handler
+            install_monitoring_log_handler(process_name="backtest")
+            recorder = JobRecorder("backtest", str(config.get("project_name") or type(self).__name__),
+                                   details={"runner": type(self).__name__,
+                                            "backtest_start": str(config.get("backtest_start")),
+                                            "backtest_end": str(config.get("backtest_end"))}).start()
+        except Exception:
+            recorder = None
+        try:
+            result = func(self, config, *args, **kwargs)
+        except BaseException as e:
+            if recorder is not None:
+                recorder.finish(False, error=f"{type(e).__name__}: {e}")
+            raise
+        if recorder is not None:
+            try:
+                summary = str((result or {}).get("misbuffet_result") or "") if isinstance(result, dict) else ""
+                ok = isinstance(result, dict) and result.get("success") is not False and "Backtest failed" not in summary
+                error = None if ok else (result.get("error") if isinstance(result, dict) and result.get("error")
+                                         else summary[:500] or "backtest reported failure")
+                recorder.finish(ok, error=error)
+            except Exception:
+                pass
+        return result
+    return wrapper
 
 
 class BaseBacktestRunner(ABC):
@@ -72,6 +111,7 @@ class BaseBacktestRunner(ABC):
     # Generic backtest execution
     # ------------------------------------------------------------------
 
+    @_record_job
     def run_backtest(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run a synchronous backtest via the Misbuffet engine.

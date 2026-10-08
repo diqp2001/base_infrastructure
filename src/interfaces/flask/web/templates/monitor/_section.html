@@ -1,0 +1,13 @@
+{% macro section(title, endpoint, interval, render, filters=None) -%}
+<section class="panel" data-endpoint="{{ endpoint }}" data-interval="{{ interval }}" data-render="{{ render }}"{% if filters %} data-filters="{{ filters }}"{% endif %}>
+  <div class="panel-head">
+    <h2>{{ title }}</h2>
+    <div class="right">
+      <span class="meta" data-role="meta">loading…</span>
+      <span data-role="badge"></span>
+      <button type="button" class="refresh" data-role="refresh" aria-label="Refresh {{ title }}">Refresh</button>
+    </div>
+  </div>
+  <div data-role="body"><div class="loading">Loading…</div></div>
+</section>
+{%- endmacro %}

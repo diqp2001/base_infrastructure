@@ -9,8 +9,10 @@
 #   ibkr-init       one-shot: gives the ibkr-settings volume to the Gateway user (uid 1000)
 #   ibkr            IB Gateway (IBC + Xvfb, headless) - ghcr.io/gnzsnz/ib-gateway
 #   app             Python 3.13 dev container (VS Code attaches here; .devcontainer/)
+#   monitor         read-only monitoring website (127.0.0.1:8050), same image, hardened
 #
 # Startup: sqlserver healthy -> sqlserver-init done + ibkr starts -> ibkr API ready -> app.
+#          monitor only needs sqlserver: it keeps working (and shows it) when IB Gateway is down.
 # Configuration: .env (copy .env.example). Defaults below are development-only values.
 name: base_infrastructure
 
@@ -59,13 +61,13 @@ services:
     environment:
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}
       DB_NAME: ${DB_NAME:-base_infra}
-    entrypoint:
-      - /bin/bash
-      - -c
-      - >-
-        /opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -b
-        -Q "IF DB_ID(N'$${DB_NAME}') IS NULL CREATE DATABASE [$${DB_NAME}];"
-        && echo "database $${DB_NAME} ready"
+      # read-only login used by the monitoring dashboard (db_datareader only)
+      DB_READONLY_USER: ${DB_READONLY_USER:-monitor_reader}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-Dev_Only_Reader_Passw0rd!}
+    # creates DB_NAME if missing (never drops) + the read-only login: docker/sqlserver/init-db.sh
+    entrypoint: ["/bin/bash", "/init/init-db.sh"]
+    volumes:
+      - ./docker/sqlserver:/init:ro
     networks: [backend]
     restart: "no"
 
@@ -152,6 +154,12 @@ services:
       IBKR_CONNECT_RETRIES: ${IBKR_CONNECT_RETRIES:-6}
       IBKR_CONNECT_RETRY_DELAY: ${IBKR_CONNECT_RETRY_DELAY:-10}
       IBKR_TEST_CLIENT_ID: ${IBKR_TEST_CLIENT_ID:-999}
+      # Monitoring (/monitor in the development Flask app; logs + job status for the dashboard)
+      APP_ENV: ${APP_ENV:-development}
+      MONITOR_STATE_DIR: /workspaces/base_infrastructure/.monitor
+      IBKR_MONITOR_CLIENT_ID: ${IBKR_DEV_MONITOR_CLIENT_ID:-91}
+      DB_READONLY_USER: ${DB_READONLY_USER:-monitor_reader}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-Dev_Only_Reader_Passw0rd!}
       # Optional API keys used by some services
       FMP_API_KEY: ${FMP_API_KEY:-}
       NASDAQ_API_KEY: ${NASDAQ_API_KEY:-}
@@ -168,3 +176,69 @@ services:
         # service_healthy waits for a logged-in Gateway. Set IBKR_APP_START_CONDITION=service_started
         # in .env to open the dev container without IBKR credentials / while Gateway is down.
         condition: ${IBKR_APP_START_CONDITION:-service_healthy}
+
+  monitor:
+    # Read-only monitoring website (no login): only the monitoring blueprint is served
+    # (src/interfaces/flask/monitoring_app.py). Hardened: read-only root filesystem and repository,
+    # no Linux capabilities, read-only SQL Server login, its own IBKR client id, no Docker socket.
+    # Published on 127.0.0.1 only; reach it from a phone through Tailscale (see docs/MONITORING.md).
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: base_infrastructure-dev:py3.13
+    working_dir: /workspaces/base_infrastructure
+    command: ["gunicorn", "--workers", "1", "--threads", "8", "--bind", "0.0.0.0:8050",
+              "--worker-tmp-dir", "/tmp", "--access-logfile", "-", "--timeout", "60",
+              "src.interfaces.flask.monitoring_app:app"]
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    volumes:
+      - .:/workspaces/base_infrastructure:ro
+    networks: [backend]
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8050}:8050"
+    environment:
+      PYTHONPATH: /workspaces/base_infrastructure
+      PYTHONDONTWRITEBYTECODE: "1"
+      HOME: /tmp
+      MPLCONFIGDIR: /tmp
+      APP_ENV: ${APP_ENV:-development}
+      MONITOR_STATE_DIR: /workspaces/base_infrastructure/.monitor
+      MONITOR_RESULTS_DIR: /workspaces/base_infrastructure/results
+      MONITOR_LOG_FILE_ENABLED: "false"        # read-only filesystem: logs stay in memory
+      MONITOR_HEALTH_INTERVAL: ${MONITOR_HEALTH_INTERVAL:-10}
+      MONITOR_ACCOUNT_INTERVAL: ${MONITOR_ACCOUNT_INTERVAL:-30}
+      MONITOR_POSITIONS_INTERVAL: ${MONITOR_POSITIONS_INTERVAL:-30}
+      MONITOR_DATA_INTERVAL: ${MONITOR_DATA_INTERVAL:-30}
+      MONITOR_LOGS_INTERVAL: ${MONITOR_LOGS_INTERVAL:-15}
+      # SQL Server through the read-only login only
+      DB_HOST: sqlserver
+      DB_PORT: "1433"
+      DB_NAME: ${DB_NAME:-base_infra}
+      DB_DRIVER: ODBC Driver 18 for SQL Server
+      DB_TRUST_SERVER_CERTIFICATE: "yes"
+      DB_READONLY_USER: ${DB_READONLY_USER:-monitor_reader}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-Dev_Only_Reader_Passw0rd!}
+      # IB Gateway: read-only monitoring client with its own client id
+      IBKR_HOST: ibkr
+      IBKR_PORT: ${IBKR_PORT:-4004}
+      IBKR_ACCOUNT_MODE: ${IBKR_ACCOUNT_MODE:-paper}
+      IBKR_MONITOR_CLIENT_ID: ${IBKR_MONITOR_CLIENT_ID:-90}
+      MONITOR_IBKR_ENABLED: ${MONITOR_IBKR_ENABLED:-true}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8050/monitor/api/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped

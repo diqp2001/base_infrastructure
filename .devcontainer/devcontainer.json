@@ -1,11 +1,11 @@
 // VS Code Dev Container for base_infrastructure.
-// "Reopen in Container" starts docker-compose.yml (sqlserver, sqlserver-init, ibkr, app) and
-// attaches VS Code to the "app" service: Python, debugging and tests run inside Linux.
+// "Reopen in Container" starts docker-compose.yml (sqlserver, sqlserver-init, ibkr, app, monitor)
+// and attaches VS Code to the "app" service: Python, debugging and tests run inside Linux.
 {
     "name": "base_infrastructure (Linux, Python 3.13)",
     "dockerComposeFile": ["../docker-compose.yml"],
     "service": "app",
-    "runServices": ["sqlserver", "sqlserver-init", "ibkr-init", "ibkr", "app"],
+    "runServices": ["sqlserver", "sqlserver-init", "ibkr-init", "ibkr", "app", "monitor"],
     "workspaceFolder": "/workspaces/base_infrastructure",
     "shutdownAction": "stopCompose",
 
@@ -16,10 +16,12 @@
     "remoteUser": "vscode",
     "updateRemoteUserUID": true,
 
-    // Flask (src/interfaces/flask/app.py listens on 0.0.0.0:5000)
-    "forwardPorts": [5000],
+    // Flask (src/interfaces/flask/app.py listens on 0.0.0.0:5000); the "monitor" service publishes
+    // the read-only dashboard itself on 127.0.0.1:8050; 8051 = "Python: Monitoring Dashboard" (F5)
+    "forwardPorts": [5000, 8051],
     "portsAttributes": {
-        "5000": { "label": "Flask", "onAutoForward": "notify" }
+        "5000": { "label": "Flask (development app)", "onAutoForward": "notify" },
+        "8051": { "label": "Monitoring dashboard (debug)", "onAutoForward": "notify" }
     },
 
     // environment summary + reachability of sqlserver / ibkr

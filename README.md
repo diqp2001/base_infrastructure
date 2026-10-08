@@ -1,3 +1,8 @@
+# base_infrastructure
+
+* **Linux development environment** (WSL2 + Docker + VS Code Dev Containers: app, IB Gateway, SQL Server): see [.devcontainer/README.md](.devcontainer/README.md).
+* **Read-only monitoring dashboard** (no login, private-network access from a phone): see [docs/MONITORING.md](docs/MONITORING.md).
+
 """ 
 base_infra/
 │

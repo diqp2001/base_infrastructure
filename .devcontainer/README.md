@@ -77,6 +77,10 @@ dependency (several minutes); later starts reuse the image.
 | `ibkr-init` | same as `ibkr` | – (one-shot: makes the settings volume writable for the Gateway user) | – | – |
 | `ibkr` | `ghcr.io/gnzsnz/ib-gateway:stable` | `ibkr:4004` (paper) | `localhost:4002` API, `localhost:5900` VNC | volume `ibkr-settings` |
 | `app` | built from `.devcontainer/Dockerfile` | – | `localhost:5000` (Flask, forwarded) | repository bind mount |
+| `monitor` | same image as `app` — read-only dashboard ([docs/MONITORING.md](../docs/MONITORING.md)) | `monitor:8050` | `127.0.0.1:8050` | repository mounted read-only |
+
+`sqlserver-init` also creates the read-only SQL login `monitor_reader` (db_datareader only) used by
+`monitor`; it never drops or recreates the database.
 
 Startup order (health checks, not only `depends_on`):
 `sqlserver` healthy (`sqlcmd SELECT 1`) → `sqlserver-init` completed and `ibkr` started →
@@ -164,6 +168,9 @@ docker compose ps ibkr          # wait for "healthy"
 
 * **Python Debugger: Main File** — `src/main.py`
 * **Python: Flask App** — `src/interfaces/flask/app.py` (http://localhost:5000, Jinja debugging on)
+* **Python: Monitoring Dashboard** — the read-only dashboard app on http://localhost:8051 (the
+  always-on `monitor` service serves the same pages on http://127.0.0.1:8050; phone access and the
+  read-only security model: [docs/MONITORING.md](../docs/MONITORING.md))
 
 Breakpoints, step over / into / out, variables, call stack and the "Raised / Uncaught
 Exceptions" options of the Breakpoints panel work as usual (debugpy runs in the container).

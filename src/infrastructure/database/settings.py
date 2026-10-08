@@ -17,6 +17,20 @@ def _odbc_value(value: str) -> str:
     return "{" + value.replace("}", "}}") + "}"
 
 
+def _sql_auth_connection_string(server: str, user: str, password: str) -> str:
+    port = os.getenv("DB_PORT", "1433")
+    driver = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
+    trust = os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")
+    return (
+        f"DRIVER={_odbc_value(driver)};"
+        f"SERVER={server},{port};"
+        f"DATABASE={os.getenv('DB_NAME', 'base_infra')};"
+        f"UID={user};"
+        f"PWD={_odbc_value(password)};"
+        f"Encrypt=yes;TrustServerCertificate={trust}"
+    )
+
+
 def _sql_server_connection_string() -> str:
     explicit = os.getenv("DB_ODBC_CONNECTION_STRING")
     if explicit:
@@ -24,17 +38,7 @@ def _sql_server_connection_string() -> str:
 
     server = os.getenv("DB_HOST") or os.getenv("DB_SERVER")
     if server:
-        port = os.getenv("DB_PORT", "1433")
-        driver = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
-        trust = os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")
-        return (
-            f"DRIVER={_odbc_value(driver)};"
-            f"SERVER={server},{port};"
-            f"DATABASE={os.getenv('DB_NAME', 'base_infra')};"
-            f"UID={os.getenv('DB_USER', 'sa')};"
-            f"PWD={_odbc_value(os.getenv('DB_PASSWORD', ''))};"
-            f"Encrypt=yes;TrustServerCertificate={trust}"
-        )
+        return _sql_auth_connection_string(server, os.getenv('DB_USER', 'sa'), os.getenv('DB_PASSWORD', ''))
 
     # Original Windows configuration (unchanged)
     connection_string_1 = "driver=ODBC+Driver+17+for+SQL+Server;"
@@ -54,3 +58,19 @@ DATABASES = {
 
 def get_database_url(db_type='sqlite'):
     return DATABASES.get(db_type)
+
+
+def get_readonly_database_url():
+    """SQL Server URL for read-only consumers (monitoring dashboard), or None if not configured.
+
+    Uses the dedicated read-only login DB_READONLY_USER / DB_READONLY_PASSWORD (member of
+    db_datareader only, created by the sqlserver-init compose service), so read-only access is
+    enforced by SQL Server itself, not only by the application.
+    """
+    server = os.getenv("DB_HOST") or os.getenv("DB_SERVER")
+    user = os.getenv("DB_READONLY_USER")
+    if not server or not user:
+        return None
+    password = os.getenv("DB_READONLY_PASSWORD", "")
+    return URL.create("mssql+pyodbc",
+                      query={"odbc_connect": _sql_auth_connection_string(server, user, password)})

@@ -5,6 +5,12 @@ class ProjectManager:
     Base Project Manager class for orchestrating various manager components.
     """
     def __init__(self):
+        # Recent logs of this process for the read-only monitoring dashboard (idempotent, never raises)
+        try:
+            from src.application.services.monitoring.log_store import install_monitoring_log_handler
+            install_monitoring_log_handler(process_name=type(self).__name__)
+        except Exception:
+            pass
         self.api_service = None
         self.database_service = None
         self.data_service = None
