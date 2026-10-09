@@ -24,6 +24,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_atm_implied_vol_factor_repository import IBKRCompanyShareATMImpliedVolFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor_repository import CompanyShareLGBMCSQuintileRankMomentumFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_lgbm_cs_quintile_rank_momentum_factor_repository import IBKRCompanyShareLGBMCSQuintileRankMomentumFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_spatio_temporal_momentum_factor_repository import CompanyShareSpatioTemporalMomentumFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_spatio_temporal_momentum_factor_repository import IBKRCompanyShareSpatioTemporalMomentumFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_spatio_temporal_feature_factor_repository import CompanyShareSpatioTemporalFeatureFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_spatio_temporal_feature_factor_repository import IBKRCompanyShareSpatioTemporalFeatureFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_value_factor_repository import CompanyShareValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_mid_price_factor_repository import CompanyShareMidPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_technical_momentum_factor_repositories import (
@@ -499,6 +503,8 @@ class RepositoryFactory:
                 'CompanyShareVpt52w20dLagFactor': CompanyShareVpt52w20dLagFactorRepository(self.session, factory=self),
                 'CompanyShareATMImpliedVolFactor': CompanyShareATMImpliedVolFactorRepository(self.session, factory=self),
                 'CompanyShareLGBMCSQuintileRankMomentumFactor': CompanyShareLGBMCSQuintileRankMomentumFactorRepository(self.session, factory=self),
+                'CompanyShareSpatioTemporalMomentumFactor': CompanyShareSpatioTemporalMomentumFactorRepository(self.session, factory=self),
+                'CompanyShareSpatioTemporalFeatureFactor': CompanyShareSpatioTemporalFeatureFactorRepository(self.session, factory=self),
                 'Currency': CurrencyRepository(self.session, factory=self),
                 'Bond': BondRepository(self.session, factory=self),
                 'Index': IndexRepository(self.session, factory=self),
@@ -683,6 +689,8 @@ class RepositoryFactory:
                 'CompanyShareVpt52w20dLagFactor': IBKRCompanyShareVpt52w20dLagFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareATMImpliedVolFactor': IBKRCompanyShareATMImpliedVolFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareLGBMCSQuintileRankMomentumFactor': IBKRCompanyShareLGBMCSQuintileRankMomentumFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSpatioTemporalMomentumFactor': IBKRCompanyShareSpatioTemporalMomentumFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareSpatioTemporalFeatureFactor': IBKRCompanyShareSpatioTemporalFeatureFactorRepository(ibkr_client=client, factory=self),
                 'PortfolioCompanyShareOptionFactor': IBKRPortfolioCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionDeltaFactor': IBKRCompanyShareOptionDeltaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionFactor': IBKRCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),

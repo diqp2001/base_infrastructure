@@ -1,0 +1,306 @@
+"""
+Configuration of market_making_SPX_call_spread_project_v2.
+
+Same market-making setup as market_making_SPX_call_spread_project (universe,
+factors, bar size, portfolio tree), restructured like the Spatio-Temporal
+Momentum projects:  the algorithm only calls SPXCallSpreadTradingCycle.step at
+every bar.  Names that identify persisted state (project / universe name,
+portfolio name, results folder) are suffixed ``_v2`` so this project never
+mixes its state with the original one.
+"""
+
+from pathlib import Path
+from typing import Dict, Any, List
+from datetime import datetime
+
+from src.domain.entities.finance.financial_assets.index.index_bond import IndexBond
+from src.domain.entities.finance.financial_assets.derivatives.future.bond_future import BondFuture
+from src.domain.entities.finance.holding.company_share_portfolio_option_portfolio_holding import CompanySharePortfolioOptionPortfolioHolding
+from src.domain.entities.finance.portfolio.company_share_portfolio_option_portfolio import CompanySharePortfolioOptionPortfolio
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
+from src.domain.entities.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHolding
+from src.domain.entities.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHolding
+from src.domain.entities.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHolding
+from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
+from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
+from src.domain.entities.finance.portfolio.derivative_portfolio import DerivativePortfolio
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
+from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import IndexFutureOption
+from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+from src.domain.entities.finance.financial_assets.index.index import Index
+from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
+# Base configuration
+BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
+DATA_PATH = BASE_PROJECT_ROOT / "data"
+# Database Configuration
+CONFIG_TEST = {
+    'DB_TYPE': 'sql_server',
+
+    'DB_PATH': BASE_PROJECT_ROOT / 'base_infrastructure.db',
+    'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db'
+}
+
+# Default configuration for market making SPX call spread project
+
+
+DEFAULT_CONFIG = {
+    # Project settings
+    'project_name': 'market_making_spx_call_spread_v2',
+    'version': '1.0.0',
+    'universe' : {
+        # CompanySharePortfolio: {"args": {"name": "Large_US_BANK"}, "components": {CompanyShare:["JPM","BAC"]}},#["JPM","BAC","WFC","C","GS","MS"]
+        # CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["Large_US_BANK"]},"args": {"option_type": "CALL", "start_date": "20260818","end_date": "20261218", "strike_price": 100.0,"name": "Large_US_BANK_Portfolio_Option_C_20261218_100","underlying_name":"Large_US_BANK"}},
+
+        # CompanySharePortfolio: {"args": {"name": "SPY_ETF"}, "components": {CompanyShare:["SPY"]}},
+        # CompanySharePortfolioOption: { "components": {CompanySharePortfolio:["SPY_ETF"]},
+        #                               "args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_ETF_Portfolio_Option_C_20281215_100","underlying_name":"SPY_ETF"}
+        #
+        #                            },
+        #
+        #IndexBond :["SOFR3"],
+        
+        CompanyShareOption: ["SPY   281215C00775000"
+                            #  ,{"components": {CompanyShare:["SPY"]},"args": {"option_type": "CALL", "start_date": "20260806","end_date": "20281215", "strike_price": 100.0,"name": "SPY_Option_C_20281215_100","underlying_name":"SPY"}}
+                             ],#"SPY   281215C00770000","SPY   281215C00780000","SPY   281215C00765000","SPY   281215C00760000"
+        BondFuture: ["SR3Z6"],
+         CompanyShare: ["AAPL","MSFT","SPY"],       
+        #"AAPL  281215C00300000",
+
+        #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850"],
+        # # ES future options - use underlying root 'ES' for options, not future symbol 'ESZ6'
+            # {"symbol": "ESZ6 C6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "C"},  # ATM Call (December expiry for ES options)
+            # {"symbol": "ESZ6 P6850"},#, "strike_price": 6850.0, "expiry": "20261218", "option_type": "P"},  # ATM Put
+            #   # ITM Call 'future: ESZ6 option type: C strike:6850'
+       # Index: ["SPX"],
+        #IndexFuture: ["ESZ6"]
+    },
+    'target_factor': {
+        #IndexFutureOption: ["ESZ6 C6850","ESZ6 P6850",],
+        #Index: ["SPX"],
+        #IndexFuture: ["ESZ6"]
+    },
+    # SPX Configuration
+    'underlying_symbol': 'SPX',
+    'underlying_exchange': 'CBOE',
+    'underlying_currency': 'USD',
+
+    # Call Spread Configuration
+    'spread_type': 'bull_call_spread',  # or 'bear_call_spread'
+    'default_dte_range': (7, 45),  # Days to expiration range
+    'default_delta_range': (0.15, 0.45),  # Delta range for strikes
+    'max_spread_width': 50,  # Maximum spread width in points
+
+    # Market Data Configuration
+    #'historical_data_duration': '6 M',  # 6 months of historical data
+    'bar_size_setting': '8 hours',#5 mins 1 day https://www.interactivebrokers.com/docs/tws-api/doc/market-data-historical/historical-bars/historical-bar-sizes
+    'duration_str': '3 D', #'2 D'https://www.interactivebrokers.com/docs/tws-api/doc/market-data-historical/historical-bars/max-duration-per-bar-size
+    #'option_data_duration': '30 D',  # 30 days of option data
+    'max_import_ibkr': True,
+
+    # Risk Management
+    'max_position_size': 10,  # Maximum number of spreads
+    'max_daily_loss': 5000,  # Maximum daily loss in USD
+    'max_gamma_exposure': 1000,  # Maximum gamma exposure
+    'min_time_to_expiry': 7,  # Minimum days to expiry before closing
+
+    # Pricing Configuration
+    'volatility_model': 'implied',  # 'implied' or 'historical'
+    'interest_rate': 0.05,  # Risk-free rate
+    'dividend_yield': 0.015,  # SPX dividend yield
+
+    # Trading Configuration
+    'trading_hours': {
+        'start': '09:30',
+        'end': '16:00',
+        'timezone': 'US/Eastern'
+    },
+
+    # Backtesting Configuration
+    # 'backtest_start': '2026-02-02 09:30:00',
+    # 'backtest_end': '2026-02-04 14:30:00',
+
+    # 'backtest_start': '2026-05-19 09:30:00',
+    # 'backtest_end': '2026-05-19 10:30:00',
+    # 'backtest_start': '2026-08-06 12:00:00',
+    # 'backtest_end': '2026-08-06 12:30:00',
+    'backtest_start': '2026-08-05 16:00:00',
+        'backtest_end': '2026-08-30 16:00:00',
+    # frequence
+    'config_interval' : {'custom_interval_days': 1},
+    'initial_capital': 100000,
+    'commission_per_contract': 0.65,
+
+    # Trading cycle (values the original algorithm hard-coded in on_data)
+    'option_entry_weight': -0.2,     # weight of the universe's first CompanyShareOption when flat (short)
+    'hedge_symbol': 'SPY',           # CompanyShare used for the aggregate delta hedge (quantity = target delta)
+
+    # Live progress (progress.json) and final summary (results.json) of every run
+    'results_dir': str(BASE_PROJECT_ROOT / 'results' / 'market_making_spx_call_spread_v2'),
+
+    # Model Training
+    'model_type' : "pricing",
+    'training_window': 252,  # 1 year of trading days
+    'validation_split': 0.2,
+    'test_split': 0.2,
+
+    # Factors for modeling - only future_index_library and index_library factors
+    'factors': [
+        # ── Branch A dependency chain for delta, deepest first ──────────────
+        FACTOR_LIBRARY["bond_future_library"]["annualized_yield"],           # BondFutureAnnualizedYieldFactor (depends on raw IBKR BondFutureFactor)
+        FACTOR_LIBRARY["currency_library"]["currency_yield"],                # CurrencyYieldFactor (depends on annualized_yield)
+        FACTOR_LIBRARY["company_share_library"]["company_share_value"],        # CompanyShareValueFactor  → S
+        FACTOR_LIBRARY["company_share_option_library"]["rf_yield"],            # CompanyShareOptionRFYieldFactor → r
+        FACTOR_LIBRARY["company_share_option_library"]["company_share_option_value"],  # CompanyShareOptionValueFactor → option price (needed by implied_vol)
+        FACTOR_LIBRARY["company_share_option_library"]["implied_volatility_calculated"],  # CompanyShareOptionImpliedVolFactor → σ
+        FACTOR_LIBRARY["company_share_option_library"]["delta"],               # CompanyShareOptionDeltaFactor → ∂V/∂S
+        FACTOR_LIBRARY["company_share_option_library"]["gamma"],               # CompanyShareOptionGammaFactor → ∂²V/∂S²
+        FACTOR_LIBRARY["company_share_option_library"]["vega"],                # CompanyShareOptionVegaFactor → ∂V/∂σ
+        # FACTOR_LIBRARY["company_share_option_library"]["implied_vol_ml"],    # ML-predicted IV (trained on implied_volatility_calculated)
+
+        # ── Branch A dependency chain for lgbm_cs_quintile_rank_momentum ──────────────
+        #24 momentum features (depend on company_share_value → price chain above)
+        # FACTOR_LIBRARY["company_share_library"]["return_1d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_5d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["return_1m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_3m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_5m"],
+        # FACTOR_LIBRARY["company_share_library"]["return_ytd"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_20"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_50"],
+        # FACTOR_LIBRARY["company_share_library"]["price_vs_ma_100"],
+        # FACTOR_LIBRARY["company_share_library"]["ma_5_vs_ma_10"],
+        # FACTOR_LIBRARY["company_share_library"]["ma_20_vs_ma_50"],
+        # FACTOR_LIBRARY["company_share_library"]["trend_slope_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["trend_slope_50d"],
+        # FACTOR_LIBRARY["company_share_library"]["momentum_slope_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["sharpe_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["sharpe_50d"],
+        # FACTOR_LIBRARY["company_share_library"]["sortino_20d"],
+        # FACTOR_LIBRARY["company_share_library"]["distance_from_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["drawdown_from_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["days_since_5m_high"],
+        # FACTOR_LIBRARY["company_share_library"]["short_term_momentum"],
+        # FACTOR_LIBRARY["company_share_library"]["medium_term_momentum"],
+        # FACTOR_LIBRARY["company_share_library"]["momentum_zscore_20d"],
+        # # LightGBM cross-sectional quintile rank momentum (output: 1=weakest … 5=strongest)
+        # FACTOR_LIBRARY["company_share_library"]["lgbm_cs_quintile_rank_momentum"],
+    ],
+
+    "Portfolio": {
+        "name": "SPX_Call_Spread_V2_Portfolio",
+        "initial_cash": 1000000,
+        "initial_cash_currency_code": "CAD",
+        "currency_code": "CAD",
+        "portfolio_type": "BACKTEST",
+        "initial_cash_currency_code": "USD",
+
+        "class": Portfolio,
+        "holding_class": PortfolioHolding,
+
+        # "sub_portfolios": [
+        #     {
+        #         "type": "company_share",
+        #         "name": "SPX_Call_Spread_CompanyShare_Portfolio",
+        #         "initial_cash": 1000000,
+        #         "currency_code": "CAD",
+        #         "portfolio_type": "BACKTEST",
+        #         "initial_cash_currency_code": "USD",
+
+        #         "class": CompanySharePortfolio,
+        #         "holding_class": CompanySharePortfolioHolding,
+
+        #         "sub_portfolios": []
+        #     },
+            # {
+            #     "type": "derivative",
+            #     "name": "SPX_Call_Spread_CompanyShare_Portfolio_Option_Portfolio",
+            #     "initial_cash": 1000000,
+            #     "currency_code": "USD",
+            #     "portfolio_type": "BACKTEST",
+
+            #     "class": CompanySharePortfolioOptionPortfolio,
+            #     "holding_class": CompanySharePortfolioOptionPortfolioHolding,
+
+            #     "sub_portfolios": []
+            # }
+        #]
+    }
+    ,
+    # MLflow tracking
+    'mlflow_experiment_name': 'market_making_spx_call_spread_v2',
+    'mlflow_tracking_uri': './mlruns',
+
+    # Web interface
+    'web_interface_port': 5001,
+    'enable_web_interface': True,
+}
+
+def get_config() -> Dict[str, Any]:
+    """Get the current configuration."""
+    return DEFAULT_CONFIG.copy()
+
+
+
+def get_trading_config() -> Dict[str, Any]:
+    """Get trading configuration."""
+    return {
+        'max_position_size': DEFAULT_CONFIG['max_position_size'],
+        'max_daily_loss': DEFAULT_CONFIG['max_daily_loss'],
+        'max_gamma_exposure': DEFAULT_CONFIG['max_gamma_exposure'],
+        'commission_per_contract': DEFAULT_CONFIG['commission_per_contract'],
+        'trading_hours': DEFAULT_CONFIG['trading_hours'],
+    }
+
+
+#sp500
+CompanyShare = [
+"AAPL","ABBV","ABNB","ABT","ACGL","ACN","ADBE","ADI","ADM","ADP","ADSK",
+"AEE","AEP","AES","AFL","AIG","AIZ","AJG","AKAM","ALB","ALGN","ALL","AMAT",
+"AMD","AME","AMGN","AMP","AMT","AMZN","ANET","ANSS","AON","APA","APD","APH",
+"APTV","ARE","ATO","AVB","AVGO","AVY","AXP","AZO","BA","BAC","BALL","BAX",
+"BBWI","BBY","BDX","BEN","BF.B","BG","BIIB","BK","BKNG","BKR","BLK","BMY",
+"BR","BRK.B","BSX","BWA","C","CAG","CAH","CARR","CAT","CB","CBOE","CBRE",
+"CCI","CCL","CDNS","CDW","CE","CEG","CF","CFG","CHD","CHRW","CHTR","CI",
+"CINF","CL","CLX","CMA","CMCSA","CME","CMG","CMI","CMS","CNC","CNP","COF",
+"COO","COP","COST","CPB","CPRT","CPT","CRL","CRM","CSCO","CSGP","CSX","CTAS",
+"CTLT","CTRA","CTSH","CTVA","CVS","CVX","D","DAL","DD","DE","DFS","DG",
+"DGX","DHI","DHR","DIS","DLR","DLTR","DOV","DOW","DPZ","DRI","DTE","DUK",
+"DVA","DVN","DXCM","EA","EBAY","ECL","ED","EFX","EG","EIX","EL","ELV","EMN",
+"EMR","ENPH","EOG","EPAM","EQIX","EQR","EQT","ES","ESS","ETN","ETR","EVRG",
+"EW","EXC","EXPD","EXPE","EXR","F","FANG","FAST","FCX","FDS","FDX","FE",
+"FFIV","FI","FICO","FIS","FITB","FLT","FMC","FOX","FOXA","FRT","FTNT","FTV",
+"GD","GE","GEHC","GEN","GILD","GIS","GL","GLW","GM","GNRC","GOOG","GOOGL",
+"GPC","GPN","GRMN","GS","GWW","HAL","HAS","HBAN","HCA","HD","HES","HIG",
+"HII","HLT","HOLX","HON","HPE","HPQ","HRL","HSIC","HST","HSY","HUM","HWM",
+"IBM","ICE","IDXX","IEX","IFF","ILMN","INCY","INTC","INTU","INVH","IP","IPG",
+"IQV","IR","IRM","ISRG","IT","ITW","IVZ","J","JBHT","JBL","JCI","JKHY","JNJ",
+"JNPR","JPM","K","KDP","KEY","KEYS","KHC","KIM","KLAC","KMB","KMI","KMX",
+"KO","KR","KVUE","L","LDOS","LEN","LH","LHX","LIN","LKQ","LLY","LMT","LNT",
+"LOW","LRCX","LULU","LVS","LW","LYB","LYV","MA","MAA","MAR","MAS","MCD",
+"MCHP","MCK","MCO","MDLZ","MDT","MET","META","MGM","MHK","MKC","MKTX","MLM",
+"MMC","MMM","MNST","MO","MOS","MPC","MPWR","MRK","MRNA","MRO","MS","MSCI",
+"MSFT","MSI","MTB","MTCH","MTD","MU","NCLH","NDAQ","NDSN","NEE","NEM","NFLX",
+"NI","NKE","NOC","NOW","NRG","NSC","NTAP","NTRS","NUE","NVDA","NVR","NWS",
+"NWSA","NXPI","O","ODFL","OKE","OMC","ON","ORCL","ORLY","OTIS","OXY","PANW",
+"PARA","PAYC","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PFG","PG","PGR",
+"PH","PHM","PKG","PLD","PM","PNC","PNR","PNW","PODD","POOL","PPG","PPL",
+"PRU","PSA","PSX","PTC","PWR","PYPL","QCOM","QRVO","RCL","REG","REGN","RF",
+"RHI","RJF","RL","RMD","ROK","ROL","ROP","ROST","RSG","RTX","RVTY","SBAC",
+"SBUX","SCHW","SHW","SJM","SLB","SNA","SNPS","SO","SPG","SPGI","SRE","STE",
+"STLD","STT","STX","STZ","SWK","SWKS","SYF","SYK","SYY","T","TAP","TDG","TDY",
+"TECH","TEL","TER","TFC","TFX","TGT","TJX","TMO","TMUS","TPR","TRGP","TRMB",
+"TROW","TRV","TSCO","TSLA","TSN","TT","TTWO","TXN","TXT","TYL","UAL","UBER",
+"UDR","UHS","ULTA","UNH","UNP","UPS","URI","USB","V","VICI","VLO","VMC","VRSK",
+"VRSN","VRTX","VTR","VTRS","VZ","WAB","WAT","WBA","WBD","WDAY","WDC","WEC",
+"WELL","WFC","WHR","WM","WMB","WMT","WRB","WRK","WST","WTW","WY","WYNN","XEL",
+"XOM","XRAY","XYL","YUM","ZBH","ZBRA","ZTS"
+]
+#DOW
+dow = [
+"AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
+"GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
+"MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
+]

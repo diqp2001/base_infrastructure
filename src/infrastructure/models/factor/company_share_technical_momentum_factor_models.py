@@ -226,3 +226,13 @@ class CompanyShareMomentumZScore100DFactorModel(FactorModel):
 
 class CompanyShareLGBMCSQuintileRankMomentumFactorModel(FactorModel):
     __mapper_args__ = {"polymorphic_identity": "company_share_lgbm_cs_quintile_rank_momentum_factor"}
+
+
+# ── ML / Spatio-Temporal Momentum ─────────────────────────────────────────────
+
+class CompanyShareSpatioTemporalMomentumFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_spatio_temporal_momentum_factor"}
+
+
+class CompanyShareSpatioTemporalFeatureFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_spatio_temporal_feature_factor"}

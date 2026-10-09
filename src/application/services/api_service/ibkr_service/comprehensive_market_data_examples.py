@@ -15,6 +15,7 @@ USAGE:
     python comprehensive_market_data_examples.py conid    # Test get_by_conid function with example CONIDs
     python comprehensive_market_data_examples.py esz6     # Test ESZ6 options & futures prices
     python comprehensive_market_data_examples.py volsurf  # Test volatility surface for AAPL stock options
+    python comprehensive_market_data_examples.py fundamental [SYMBOL] [CLIENT_ID]  # reqFundamentalData (default AAPL, client id 17)
 
 ACCESS LEVEL TEST PIPELINE:
 The test pipeline systematically checks what IB API functionality is available
@@ -740,6 +741,195 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         except Exception as e:
             logger.error(f"Error in news data example: {e}")
     
+    # ------------------------------------------------------------------
+    # Fundamental data (reqFundamentalData)
+    # ------------------------------------------------------------------
+
+    FUNDAMENTAL_REPORT_TYPES = (
+        "ReportSnapshot",        # company overview + key ratios (price, market cap, P/E, EPS, ...)
+        "ReportsFinSummary",     # financial summary: revenue, EPS, dividend per share by period
+        "ReportsFinStatements",  # full income statement / balance sheet / cash flow
+        "ReportsOwnership",      # ownership (institutional / insider holders)
+        "RESC",                  # analyst estimates
+    )
+
+    def example_fundamental_data(self, symbol: str = "AAPL", report_types: Optional[List[str]] = None,
+                                 primary_exchange: str = "NASDAQ", timeout: int = 20,
+                                 save_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Example 8: Fundamental Data - reqFundamentalData()
+
+        Demonstrates:
+        - reqFundamentalData(reqId, contract, reportType, []) for each report type
+        - receiving the XML report in the EWrapper.fundamentalData(reqId, data) callback
+        - per-request errors from EWrapper.error(reqId, code, message)
+        - cancelFundamentalData(reqId) when no answer arrives in time
+        - parsing the XML into a short summary (and optionally saving the raw XML)
+
+        IBKR returns one XML document per request. Fundamentals need the
+        Reuters / LSEG fundamentals entitlement on the account; without it TWS
+        answers with an error for the request id (typically 430 "fundamentals
+        data ... not available" or 10358 "Fundamentals data is not allowed"),
+        which is reported here per report type instead of waiting for a timeout.
+
+        The broker client (IBTWSClient) has no fundamentalData handler, so the
+        example installs temporary callbacks on the connection and restores
+        them afterwards.
+
+        Args:
+            symbol: stock symbol (SMART routed, USD)
+            report_types: subset of FUNDAMENTAL_REPORT_TYPES (default: all)
+            primary_exchange: primary listing exchange, avoids ambiguous contracts
+            timeout: seconds to wait for each report
+            save_dir: when set, every received XML report is written to
+                      <save_dir>/<symbol>_<reportType>.xml
+
+        Returns:
+            {'symbol', 'reports': {reportType: {'status': 'ok' | 'error' | 'timeout',
+             'error_code', 'message', 'xml_length', 'summary', 'file'}}}
+        """
+        import os
+        import threading
+
+        logger.info(f"\n=== Example 8: Fundamental Data ({symbol}) ===")
+        if not self.connected:
+            logger.info("Connecting to IB...")
+            self.ib_broker.connect()
+            self.connected = True
+        conn = getattr(self.ib_broker, "ib_connection", None)
+        if conn is None or not conn.is_connected():
+            logger.error("Not connected to IB. Cannot run fundamental data example.")
+            return {"symbol": symbol, "reports": {}}
+
+        report_types = list(report_types or self.FUNDAMENTAL_REPORT_TYPES)
+        contract = self.ib_broker.create_stock_contract(symbol, "STK", "SMART")
+        contract.currency = "USD"
+        if primary_exchange:
+            contract.primaryExchange = primary_exchange
+
+        pending: Dict[int, threading.Event] = {}
+        received: Dict[int, str] = {}
+        errors: Dict[int, tuple] = {}
+
+        def on_fundamental_data(reqId: int, data: str):
+            received[reqId] = data
+            if reqId in pending:
+                pending[reqId].set()
+
+        original_error = conn.error
+
+        def on_error(reqId, errorCode, errorString, *args):
+            if reqId in pending:
+                errors[reqId] = (errorCode, errorString)
+                pending[reqId].set()
+            original_error(reqId, errorCode, errorString, *args)
+
+        # EReader dispatches to self.wrapper.<callback>: instance attributes take precedence
+        had_own_error = "error" in vars(conn)
+        conn.fundamentalData = on_fundamental_data
+        conn.error = on_error
+        results: Dict[str, Any] = {"symbol": symbol, "reports": {}}
+        try:
+            base_id = 70000 + int(time.time()) % 10000
+            for i, report_type in enumerate(report_types):
+                req_id = base_id + i
+                pending[req_id] = threading.Event()
+                logger.info(f"Requesting {report_type} for {symbol} (reqId {req_id})...")
+                conn.reqFundamentalData(req_id, contract, report_type, [])
+                pending[req_id].wait(timeout)
+
+                entry: Dict[str, Any] = {"status": "timeout", "error_code": None, "message": None,
+                                         "xml_length": 0, "summary": {}, "file": None}
+                if req_id in received:
+                    xml = received[req_id]
+                    entry.update(status="ok", xml_length=len(xml),
+                                 summary=self._summarize_fundamental_xml(report_type, xml))
+                    if save_dir:
+                        os.makedirs(save_dir, exist_ok=True)
+                        path = os.path.join(save_dir, f"{symbol}_{report_type}.xml")
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(xml)
+                        entry["file"] = path
+                    logger.info(f"  {report_type}: {len(xml):,} characters of XML")
+                    for key, value in list(entry["summary"].items())[:12]:
+                        logger.info(f"    {key}: {value}")
+                elif req_id in errors:
+                    code, message = errors[req_id]
+                    entry.update(status="error", error_code=code, message=message)
+                    logger.warning(f"  {report_type}: error {code} - {message}")
+                else:
+                    logger.warning(f"  {report_type}: no answer within {timeout}s, cancelling")
+                    conn.cancelFundamentalData(req_id)
+                results["reports"][report_type] = entry
+                time.sleep(1)   # stay well inside IBKR request pacing
+        except Exception as e:
+            logger.error(f"Error in fundamental data example: {e}")
+            results["error"] = str(e)
+        finally:
+            vars(conn).pop("fundamentalData", None)
+            if had_own_error:
+                conn.error = original_error
+            else:
+                vars(conn).pop("error", None)
+
+        ok = [rt for rt, r in results["reports"].items() if r["status"] == "ok"]
+        logger.info(f"Fundamental data for {symbol}: {len(ok)}/{len(report_types)} reports received {ok}")
+        return results
+
+    @staticmethod
+    def _summarize_fundamental_xml(report_type: str, xml: str) -> Dict[str, Any]:
+        """A few readable fields of an IBKR fundamentals XML report (structure differs per report type)."""
+        import xml.etree.ElementTree as ET
+
+        def num(text):
+            try:
+                return float(text)
+            except (TypeError, ValueError):
+                return text
+
+        try:
+            root = ET.fromstring(xml)
+        except ET.ParseError as e:
+            return {"parse_error": str(e)}
+        summary: Dict[str, Any] = {"root": root.tag}
+
+        if report_type == "ReportSnapshot":
+            name = root.find(".//CoIDs/CoID[@Type='CompanyName']")
+            summary["company_name"] = name.text if name is not None else None
+            exchange = root.find(".//Issues/Issue/Exchange")
+            summary["exchange"] = exchange.text if exchange is not None else None
+            for tag in ("Employees", "SharesOut"):
+                node = root.find(f".//CoGeneralInfo/{tag}")
+                if node is not None:
+                    summary[tag.lower()] = num(node.text)
+            ratios = {r.get("FieldName"): num(r.text) for r in root.iter("Ratio") if r.get("FieldName")}
+            for field in ("NPRICE", "MKTCAP", "PEEXCLXOR", "TTMEPSXCLX", "TTMREV", "YIELD", "NHIG", "NLOW", "BETA"):
+                if field in ratios:
+                    summary[f"ratio_{field}"] = ratios[field]
+            summary["ratios_count"] = len(ratios)
+        elif report_type == "ReportsFinSummary":
+            for parent, child in (("TotalRevenues", "TotalRevenue"), ("EPSs", "EPS"),
+                                  ("DividendPerShares", "DividendPerShare")):
+                rows = root.findall(f".//{parent}/{child}")
+                summary[f"{child}_rows"] = len(rows)
+                latest = sorted(rows, key=lambda r: r.get("asofDate", ""))[-1:] if rows else []
+                for r in latest:
+                    summary[f"{child}_latest"] = (f"{r.get('asofDate')} {r.get('reportType')} "
+                                                  f"{r.get('period')}: {num(r.text)}")
+        elif report_type == "ReportsFinStatements":
+            periods = root.findall(".//FiscalPeriod")
+            summary["fiscal_periods"] = len(periods)
+            summary["annual_periods"] = sum(p.get("Type") == "Annual" for p in periods)
+            summary["statement_types"] = sorted({st.get("Type") for st in root.iter("Statement") if st.get("Type")})
+            ends = sorted(p.get("EndDate") for p in periods if p.get("EndDate"))
+            summary["latest_period_end"] = ends[-1] if ends else None
+        elif report_type == "ReportsOwnership":
+            summary["owners"] = sum(1 for _ in root.iter("Owner"))
+        else:
+            summary["children"] = sorted({c.tag for c in root})[:20]
+            summary["elements"] = sum(1 for _ in root.iter())
+        return summary
+
     def run_all_examples(self):
         """
         Run all market data examples in sequence.
@@ -773,6 +963,9 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             # time.sleep(2)
             
             # self.example_delayed_market_data()
+            # time.sleep(2)
+
+            # self.example_fundamental_data("AAPL")
             # time.sleep(2)
             
             
@@ -3795,6 +3988,27 @@ def main():
                 print(f"ðŸŸ¡ Partial success: {result.get('error_messages', ['Unknown issue'])[0]}")
             
             return
+        elif sys.argv[1] == 'fundamental':
+            # Test reqFundamentalData: fundamental [SYMBOL] [CLIENT_ID]
+            # A separate client id avoids disconnecting another session (e.g. a backtest on client id 1).
+            symbol = sys.argv[2] if len(sys.argv) > 2 else "AAPL"
+            client_id = int(sys.argv[3]) if len(sys.argv) > 3 else 17
+            examples = ComprehensiveIBMarketDataExamples(client_id=client_id)
+            print(f"\n=== Testing reqFundamentalData for {symbol} (client id {client_id}) ===")
+            print("Note: requires the Reuters / LSEG fundamentals entitlement on the IB account")
+            try:
+                result = examples.example_fundamental_data(symbol, save_dir="results/ibkr_fundamentals")
+                for report_type, r in result['reports'].items():
+                    if r['status'] == 'ok':
+                        print(f"  OK      {report_type}: {r['xml_length']:,} chars -> {r['file']}")
+                    elif r['status'] == 'error':
+                        print(f"  ERROR   {report_type}: {r['error_code']} {r['message']}")
+                    else:
+                        print(f"  TIMEOUT {report_type}")
+            finally:
+                if examples.ib_broker.ib_connection:
+                    examples.ib_broker._disconnect_impl()
+            return result
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
@@ -3804,6 +4018,7 @@ def main():
             print("  python comprehensive_market_data_examples.py conid        # Test get_by_conid function with example CONIDs")
             print("  python comprehensive_market_data_examples.py esz6         # Test ESZ6 options & futures prices")
             print("  python comprehensive_market_data_examples.py volsurf      # Test volatility surface for AAPL stock options")
+            print("  python comprehensive_market_data_examples.py fundamental [SYMBOL] [CLIENT_ID]  # reqFundamentalData reports")
             print("  python comprehensive_market_data_examples.py help         # Show this help")
             return
     else:

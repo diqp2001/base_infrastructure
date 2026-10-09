@@ -266,6 +266,88 @@ class MarketDataHistoryService:
         """Get the current frontier time."""
         return self._frontier.frontier if self._frontier else None
     
+    def get_factor_value_panel(
+        self,
+        entities: Dict[int, str],
+        factor_name: str = "close",
+        factor_type: str = "company_share_factor",
+        frequency: Optional[str] = "1d",
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> pd.DataFrame:
+        """
+        Frontier-enforced history of one stored factor for several entities.
+
+        Returns a DataFrame (index = date, columns = labels from ``entities``,
+        which maps entity_id -> label).  Only values that were KNOWN at the
+        frontier are returned:
+
+          * raw bar factors (open/high/low/close/... from a non-calculated
+            source) are stamped with the bar START, so a bar is returned only
+            when ``bar_start + bar_length <= frontier``
+            (Factor.bar_availability_offset_seconds);
+          * calculated factors are returned when ``date <= frontier``.
+
+        ``end`` can only narrow the window, never extend it past the frontier.
+
+        Raises:
+            ValueError: if the frontier has not been set.
+        """
+        if self._frontier is None:
+            raise ValueError("Frontier must be set before accessing historical data")
+
+        from src.domain.entities.factor.factor import Factor
+        from src.infrastructure.models.factor.factor import FactorModel
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+
+        columns = list(entities.values())
+        if not entities:
+            return pd.DataFrame(columns=columns, dtype=float)
+
+        session = self.market_data_service.entity_service.repository_factory.session
+        q = session.query(FactorModel.id, FactorModel.source, FactorModel.frequency).filter(
+            FactorModel.name == factor_name,
+            FactorModel.factor_type == factor_type,
+        )
+        if frequency is not None:
+            q = q.filter(FactorModel.frequency == frequency)
+        factor_rows = q.all()
+        if not factor_rows:
+            return pd.DataFrame(columns=columns, dtype=float)
+
+        frontier = pd.Timestamp(self._frontier.frontier)
+        if frontier.tzinfo is not None:
+            frontier = frontier.tz_convert(None)
+        frames = []
+        for factor_id, source, freq in factor_rows:
+            is_raw_bar = source != "calculated" and factor_name.lower() in Factor.BAR_FIELD_NAMES
+            offset = (Factor.frequency_seconds(freq) or 0) if is_raw_bar else 0
+            cutoff = frontier - pd.Timedelta(seconds=offset)
+            if end is not None:
+                cutoff = min(cutoff, pd.Timestamp(end))
+            vq = session.query(FactorValueModel.entity_id, FactorValueModel.date, FactorValueModel.value).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id.in_(list(entities.keys())),
+                FactorValueModel.date <= cutoff.to_pydatetime(),
+            )
+            if start is not None:
+                vq = vq.filter(FactorValueModel.date >= pd.Timestamp(start).to_pydatetime())
+            for entity_id, dt, value in vq.all():
+                try:
+                    px = float(str(value))
+                except (TypeError, ValueError):
+                    continue
+                ts = pd.Timestamp(dt)
+                if ts.tzinfo is not None:
+                    ts = ts.tz_localize(None)
+                frames.append((ts, entities[entity_id], px))
+
+        if not frames:
+            return pd.DataFrame(columns=columns, dtype=float)
+        frame = pd.DataFrame(frames, columns=["date", "label", "value"])
+        panel = frame.groupby(["date", "label"])["value"].last().unstack("label")
+        return panel.reindex(columns=columns).sort_index()
+
     def can_access_time(self, requested_time: datetime) -> bool:
         """
         Check if a requested time is accessible (doesn't violate the frontier).
