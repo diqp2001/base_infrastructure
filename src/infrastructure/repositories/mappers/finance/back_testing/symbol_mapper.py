@@ -6,7 +6,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from datetime import datetime
 
-from src.domain.entities.finance.back_testing.symbol import Symbol as DomainSymbol
+from src.domain.entities.finance.back_testing.financial_assets.symbol import Symbol as DomainSymbol
 from src.infrastructure.models.finance.back_testing.financial_assets.symbol import SymbolModel as ORMSymbol
 
 

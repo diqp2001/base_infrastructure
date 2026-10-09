@@ -1,8 +1,10 @@
 """
-Model components for Market Making SPX Call Spread Project
+Model components of the base project template.
+
+Only the model trainer exists in the template; projects add their own models
+(see market_making_SPX_call_spread_project/models for pricing / volatility models).
 """
 
-from .pricing_model import PricingModel
-from .volatility_model import VolatilityModel
+from .model_trainer import ModelTrainer
 
-__all__ = ['PricingModel', 'VolatilityModel']
+__all__ = ['ModelTrainer']

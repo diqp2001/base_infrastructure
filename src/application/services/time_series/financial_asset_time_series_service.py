@@ -1,13 +1,12 @@
 from src.application.services.time_series.time_series_service import TimeSeriesService
-from src.infrastructure.repositories.time_series.financial_asset_time_series_repository import FinancialAssetTimeSeriesRepository
-from src.domain.entities.time_series.financial_asset_time_series import FinancialAssetTimeSeries
-from typing import List
+from src.domain.entities.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeries
+from typing import Any, List
 
 class FinancialAssetTimeSeriesService(TimeSeriesService):
-    def __init__(self, repository: FinancialAssetTimeSeriesRepository):
+    def __init__(self, repository: Any):
         """
         Initializes the FinancialAssetTimeSeriesService with the specified repository.
-        :param repository: The repository instance for FinancialAssetTimeSeries.
+        :param repository: repository of FinancialAssetTimeSeries (must provide get_by_asset_id).
         """
         super().__init__(repository)
     

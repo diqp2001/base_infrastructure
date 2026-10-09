@@ -5,7 +5,7 @@ SQLAlchemy models for domain back testing data entities.
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON, Interval
-from sqlalchemy.dialects.postgresql import DECIMAL
+from sqlalchemy import DECIMAL  # postgresql.DECIMAL was removed in SQLAlchemy 2.0
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 

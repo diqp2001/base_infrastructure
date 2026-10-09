@@ -75,7 +75,7 @@ def get_company_shares():
     """Get all company shares entities data"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseService("sqlite")
+        db_manager = DatabaseService("sql_server")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)
@@ -88,7 +88,7 @@ def get_company_shares():
         for share in shares:
             share_dict = {
                 "id": share.id,
-                "ticker": share.ticker,
+                "ticker": share.symbol,
                 "exchange_id": share.exchange_id,
                 "company_id": share.company_id,
                 "start_date": share.start_date.isoformat() if share.start_date else None,
@@ -138,7 +138,7 @@ def get_company_share_by_id(share_id):
     """Get specific company share by ID"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseService("sqlite")
+        db_manager = DatabaseService("sql_server")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)
@@ -156,7 +156,7 @@ def get_company_share_by_id(share_id):
         # Convert to JSON serializable format
         share_data = {
             "id": share.id,
-            "ticker": share.ticker,
+            "ticker": share.symbol,
             "exchange_id": share.exchange_id,
             "company_id": share.company_id,
             "start_date": share.start_date.isoformat() if share.start_date else None,
@@ -203,7 +203,7 @@ def get_entities_summary():
     """Get summary of all entities in the database"""
     try:
         # Initialize database and repository
-        db_manager = DatabaseService("sqlite")
+        db_manager = DatabaseService("sql_server")
         db_manager.db.initialize_database_and_create_all_tables()
         
         repository = CompanyShareRepository(db_manager.session)
@@ -217,7 +217,7 @@ def get_entities_summary():
         tickers = []
         
         for share in all_shares:
-            tickers.append(share.ticker)
+            tickers.append(share.symbol)
             
             # Count by sector if available
             sector = getattr(share, 'sector', 'Unknown')

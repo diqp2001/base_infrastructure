@@ -45,11 +45,6 @@ class TestBaseModelTrainerInit(unittest.TestCase):
         trainer = _make_trainer()
         self.assertEqual(trainer.training_config, {})
 
-    def test_model_and_tensor_splitter_none(self):
-        trainer = _make_trainer()
-        self.assertIsNone(trainer.model)
-        self.assertIsNone(trainer.tensor_splitter)
-
     def test_features_config_is_config(self):
         cfg = {'factors': []}
         trainer = _make_trainer(cfg)

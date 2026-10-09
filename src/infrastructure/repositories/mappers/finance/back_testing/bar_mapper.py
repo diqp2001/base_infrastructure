@@ -6,7 +6,7 @@ Converts between domain entities and ORM models to avoid metaclass conflicts.
 from typing import Optional
 from decimal import Decimal
 
-from src.domain.entities.finance.back_testing.bar import Bar as DomainBar
+from src.domain.entities.finance.back_testing.back_testing_data_types import Bar as DomainBar
 from src.infrastructure.models.finance.back_testing.back_testing_data_types import BarModel as ORMBar
 
 

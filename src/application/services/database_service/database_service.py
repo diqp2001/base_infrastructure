@@ -13,7 +13,7 @@ from src.infrastructure.database.settings import get_database_url
 
 
 class DatabaseService:
-    def __init__(self, db_type='sqlite'):
+    def __init__(self, db_type='sql_server'):
      
         self.db_type = db_type
         self.db = Database(self.db_type)

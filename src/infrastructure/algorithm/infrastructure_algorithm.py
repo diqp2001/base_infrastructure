@@ -10,7 +10,7 @@ from .base_algorithm import BaseAlgorithm
 from ...application.services.misbuffet.common.symbol import Symbol
 from ...application.services.misbuffet.algorithm.data_handlers import Slice
 from ...application.services.misbuffet.algorithm.order import OrderEvent
-from ...application.services.misbuffet.common.securities import SecurityChanges
+from ...domain.entities.finance.back_testing.back_testing_security import SecurityChanges
 
 
 class InfrastructureAlgorithm(BaseAlgorithm):
