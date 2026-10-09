@@ -1,0 +1,7 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings (read-only)</h1>
+{{ section("Configuration", url_for('monitor.api_config'), 60, "settings") }}
+{% endblock %}

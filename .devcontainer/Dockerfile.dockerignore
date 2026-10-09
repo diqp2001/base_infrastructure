@@ -1,0 +1,6 @@
+# Build context filter for .devcontainer/Dockerfile (BuildKit reads <Dockerfile>.dockerignore).
+# The image only needs the dependency files; the repository is bind-mounted at run time,
+# so .venv, data, results, mlruns, ... are never sent to the Docker daemon.
+*
+!requirements.txt
+!requirements-dev.txt

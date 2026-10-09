@@ -29,6 +29,13 @@ class FlaskApp:
         # Register API routes
         register_api_routes(self.app)
 
+        # Read-only monitoring dashboard (/monitor). For phone / remote access use the dedicated
+        # monitoring-only app (src/interfaces/flask/monitoring_app.py, compose service "monitor"),
+        # never this development app, which also exposes upload / backtest routes.
+        from src.application.services.monitoring.service import get_monitoring_service
+        from src.interfaces.flask.web.controllers.monitor_controller import create_monitor_blueprint
+        self.app.register_blueprint(create_monitor_blueprint(get_monitoring_service))
+
     def run(self, **kwargs):
         """Start the Flask app"""
         self.app.run(**kwargs)

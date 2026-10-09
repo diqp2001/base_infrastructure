@@ -1,5 +1,11 @@
 # Docker Setup for Base Infrastructure Trading Platform
 
+> **Note:** the root `docker-compose.yml` now defines the Linux *development* environment
+> (VS Code Dev Container + SQL Server), see [.devcontainer/README.md](../.devcontainer/README.md).
+> The all-in-one image described below (root `Dockerfile`, code-server, VNC, nginx) is legacy
+> and does not build as is (`mssql-tools18` needs the Microsoft apt repository, and the
+> `EXPOSE` lines contain inline comments).
+
 ## Overview
 
 This Docker setup provides a complete containerized environment for the Base Infrastructure trading platform with:

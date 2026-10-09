@@ -1,0 +1,46 @@
+// VS Code Dev Container for base_infrastructure.
+// "Reopen in Container" starts docker-compose.yml (sqlserver, sqlserver-init, ibkr, app, monitor)
+// and attaches VS Code to the "app" service: Python, debugging and tests run inside Linux.
+{
+    "name": "base_infrastructure (Linux, Python 3.13)",
+    "dockerComposeFile": ["../docker-compose.yml"],
+    "service": "app",
+    "runServices": ["sqlserver", "sqlserver-init", "ibkr-init", "ibkr", "app", "monitor"],
+    "workspaceFolder": "/workspaces/base_infrastructure",
+    "shutdownAction": "stopCompose",
+
+    // docker compose needs the secret file to exist: create an empty, owner-only one if missing
+    // (runs on the host, i.e. in WSL when the repository is cloned there).
+    "initializeCommand": "mkdir -p secrets && touch secrets/ibkr_password.txt && chmod 600 secrets/ibkr_password.txt",
+
+    "remoteUser": "vscode",
+    "updateRemoteUserUID": true,
+
+    // Flask (src/interfaces/flask/app.py listens on 0.0.0.0:5000); the "monitor" service publishes
+    // the read-only dashboard itself on 127.0.0.1:8050; 8051 = "Python: Monitoring Dashboard" (F5)
+    "forwardPorts": [5000, 8051],
+    "portsAttributes": {
+        "5000": { "label": "Flask (development app)", "onAutoForward": "notify" },
+        "8051": { "label": "Monitoring dashboard (debug)", "onAutoForward": "notify" }
+    },
+
+    // environment summary + reachability of sqlserver / ibkr
+    "postStartCommand": "bash .devcontainer/post-start.sh",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "ms-mssql.mssql"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/opt/venv/bin/python",
+                "python.terminal.activateEnvironment": false,
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "files.eol": "\n"
+            }
+        }
+    }
+}

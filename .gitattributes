@@ -1,0 +1,7 @@
+# Files executed inside Linux containers must keep LF line endings
+# (core.autocrlf=true on Windows would otherwise check them out with CRLF).
+*.sh text eol=lf
+.devcontainer/** text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+.env.example text eol=lf

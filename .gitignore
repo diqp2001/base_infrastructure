@@ -20,5 +20,9 @@ mlruns/
 .mlruns/
 mlartifacts/
 
+# Local environment / secrets (template: .env.example)
+.env
+secrets/
 
-
+# Monitoring state written by the application (logs, job status) and read by the dashboard
+.monitor/
