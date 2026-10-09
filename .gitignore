@@ -22,6 +22,7 @@ mlartifacts/
 
 # Local environment / secrets (template: .env.example)
 .env
+.env.windows
 secrets/
 
 # Monitoring state written by the application (logs, job status) and read by the dashboard

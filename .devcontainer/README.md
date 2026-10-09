@@ -177,6 +177,11 @@ Exceptions" options of the Breakpoints panel work as usual (debugpy runs in the 
 `src/main.py` runs whatever project is enabled at the bottom of the file; with the IBKR
 projects it connects to `ibkr:4004` and the `base_infra` database of `sqlserver`.
 
+The same launch configurations also work in a VS Code window opened on the **Windows** folder
+(Windows `.venv`, TWS on Windows): they load `.env.windows` (git-ignored, template
+`.env.windows.example`) for `IBKR_HOST` / `IBKR_PORT` / `IBKR_CLIENT_ID` / `IBKR_ACCOUNT_MODE` /
+`IBKR_ALLOW_LIVE`. In the dev container that file does not exist and is skipped.
+
 Run without the debugger:
 
 ```bash

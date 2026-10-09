@@ -64,7 +64,7 @@ class ComposeExposureTest(unittest.TestCase):
 
     def test_env_files_are_git_ignored(self):
         ignore = open(os.path.join(ROOT, ".gitignore"), encoding="utf-8").read().split()
-        for entry in (".env", "secrets/", ".monitor/"):
+        for entry in (".env", ".env.windows", "secrets/", ".monitor/"):
             self.assertIn(entry, ignore)
 
 

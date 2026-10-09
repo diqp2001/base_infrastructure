@@ -1,5 +1,8 @@
-
-
+// IBKR / environment settings for the debug runs:
+//  * VS Code window on the Windows folder: loaded from .env.windows (git-ignored; template
+//    .env.windows.example) -> IBKR_HOST / IBKR_PORT / IBKR_CLIENT_ID / IBKR_ACCOUNT_MODE / ...
+//  * Dev Container window: .env.windows does not exist there and is skipped; the container
+//    already has its settings from docker-compose.yml (ibkr:4003/4004, sqlserver, ...).
 {
     "version": "0.2.0",
     "configurations": [
@@ -11,6 +14,7 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             },
+            "envFile": "${workspaceFolder}/.env.windows",
             "console": "integratedTerminal",
             "justMyCode": true
         },
@@ -23,6 +27,7 @@
                 "PYTHONPATH": "${workspaceFolder}",
                 "FLASK_ENV": "development"
             },
+            "envFile": "${workspaceFolder}/.env.windows",
             "jinja": true,
             "justMyCode": true,
             "console": "integratedTerminal"
@@ -38,6 +43,7 @@
                 "PYTHONPATH": "${workspaceFolder}",
                 "IBKR_MONITOR_CLIENT_ID": "92"
             },
+            "envFile": "${workspaceFolder}/.env.windows",
             "jinja": true,
             "justMyCode": true,
             "console": "integratedTerminal"
