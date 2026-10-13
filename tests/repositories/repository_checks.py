@@ -11,7 +11,7 @@ import inspect
 import io
 import os
 from typing import Dict, List, Optional, Tuple
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -66,6 +66,10 @@ class Database:
 
     def __init__(self):
         from src.infrastructure.models import ModelBase
+        from src.infrastructure.repositories.repository_factory import RepositoryFactory
+        # factories built here must never open a real IBKR connection
+        self._no_ibkr = patch.object(RepositoryFactory, "create_ibkr_client", return_value=None)
+        self._no_ibkr.start()
         self.engine = create_engine("sqlite:///:memory:")
         ModelBase.metadata.create_all(self.engine)
 
@@ -76,6 +80,7 @@ class Database:
 
     def dispose(self):
         self.engine.dispose()
+        self._no_ibkr.stop()
 
 
 def build(cls: type, session, factory):

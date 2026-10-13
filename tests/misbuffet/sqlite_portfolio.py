@@ -10,7 +10,7 @@ import logging
 from collections import namedtuple
 from datetime import date, datetime
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -36,6 +36,13 @@ def slice_at(time=T0, **closes):
 class SqlitePortfolio:
 
     def __init__(self, cash=100_000.0, shares=("AAPL", "MSFT")):
+        # Never let a lazily created factory / market-data service open a real IBKR connection
+        # (RepositoryFactory.create_ibkr_client connects to the configured TWS / Gateway).
+        from ibapi.client import EClient
+        self._no_ibkr = patch.object(RepositoryFactory, "create_ibkr_client", return_value=None)
+        self._no_socket = patch.object(EClient, "connect", side_effect=ConnectionRefusedError("tests never connect to IBKR"))
+        self._no_ibkr.start()
+        self._no_socket.start()
         self.engine = create_engine("sqlite:///:memory:")
         ModelBase.metadata.create_all(self.engine)
         self.session = Session(self.engine)
@@ -90,3 +97,5 @@ class SqlitePortfolio:
     def close(self):
         self.session.close()
         self.engine.dispose()
+        self._no_ibkr.stop()
+        self._no_socket.stop()
