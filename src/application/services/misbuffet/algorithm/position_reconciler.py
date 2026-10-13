@@ -205,6 +205,11 @@ class IBKRSnapshotProvider:
             raise ConnectionError("IBKR not connected")
         positions_ok = self.ib.request_positions_snapshot(timeout=self.timeout)
         orders_ok = self.ib.request_open_orders_snapshot(timeout=self.timeout)
+        if self.account is None:
+            accounts = {p.get("account") for p in self.ib.positions_snapshot if p.get("account")}
+            if len(accounts) > 1:
+                # summing several accounts would compare the strategy with the wrong book
+                raise ValueError(f"several accounts visible ({sorted(accounts)}): pass account=")
         positions: Dict[str, float] = {}
         for p in self.ib.positions_snapshot:
             if self.account and p.get("account") != self.account:

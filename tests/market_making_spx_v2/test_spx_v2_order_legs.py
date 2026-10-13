@@ -59,10 +59,7 @@ class EntryLegsTest(unittest.TestCase):
         self.assertIsInstance(legs, list)
         self.assertEqual(sorted(math.copysign(1, leg["weight"]) for leg in legs), [-1.0, 1.0])
 
-    @unittest.expectedFailure
     def test_rejected_entry_is_not_reported_as_traded(self):
-        """BUG: step() ignores set_holdings' result; a refused entry is still logged and reported
-        as option_order / traded."""
         portfolio = RejectingPortfolio()
         result = make_cycle(portfolio).step(T0, slice_with("SPY", 500.0), portfolio)
         self.assertIsNone(result.option_order)
@@ -76,9 +73,7 @@ class HedgeGuardTest(unittest.TestCase):
         make_cycle(portfolio, strategy=FakeStrategy(hedge=hedge(-120.0))).step(T0, slice_with("SPY", 500.0), portfolio)
         self.assertEqual(portfolio.calls, [{CompanyShare: {"name": "SPY", "quantity": -120.0}}])
 
-    @unittest.expectedFailure
     def test_non_finite_hedge_is_not_sent(self):
-        """BUG: a NaN / inf target_hedge_delta (e.g. missing greeks) is passed to set_holdings unchecked."""
         for bad in (math.nan, math.inf):
             portfolio = FakePortfolio({OPTION: -2})
             make_cycle(portfolio, strategy=FakeStrategy(hedge=hedge(bad))).step(T0, slice_with("SPY", 500.0), portfolio)

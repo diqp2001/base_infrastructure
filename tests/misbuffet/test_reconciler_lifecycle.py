@@ -88,10 +88,7 @@ class AccountFilterTest(unittest.TestCase):
         snap = IBKRSnapshotProvider(FakeIB(self.POSITIONS, []), account="U111")()
         self.assertEqual(snap.positions, {"SPY": 10.0})
 
-    @unittest.expectedFailure
     def test_account_is_required_when_several_accounts_are_visible(self):
-        """BUG: without account= the provider sums every account under the login (here 100 SPY);
-        it should refuse (raise / incomplete) once more than one account is visible."""
         try:
             snap = IBKRSnapshotProvider(FakeIB(self.POSITIONS, []))()
         except Exception:

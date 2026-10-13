@@ -79,8 +79,8 @@ class CompanyShareOptionBatesPriceFactorRepository(BaseFactorRepository, Company
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'option_price'),
+                group=kwargs.get('group', 'price_model'),
+                subgroup=kwargs.get('subgroup', 'jump_diffusion'),
                 factor_type=kwargs.get('factor_type', 'company_share_option_bates_price_factor'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'calculated')
@@ -90,8 +90,8 @@ class CompanyShareOptionBatesPriceFactorRepository(BaseFactorRepository, Company
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'option_price'),
+                group=kwargs.get('group', 'price_model'),
+                subgroup=kwargs.get('subgroup', 'jump_diffusion'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'calculated'),

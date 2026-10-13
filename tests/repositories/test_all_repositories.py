@@ -5,7 +5,7 @@ Generic checks run on all modules (in-memory SQLite, MagicMock IBKR client, noth
   * every module imports;
   * every concrete repository class can be built;
   * every local repository is registered in RepositoryFactory (bases excepted);
-  * every local repository's get_all() works on an empty database;
+  * every local repository's get_all() works on an empty database (bases excepted);
   * the IBKR registry builds with a client;
   * every local factor repository round-trips: _create_or_get (idempotent) -> get_by_name /
     get_by_id -> FactorMapper.to_domain returns the same class -> DISCRIMINATOR_CLASS_MAP entry.
@@ -23,79 +23,24 @@ from tests.repositories.repository_checks import (
     factor_round_trip, is_ibkr, quiet, repository_modules,
 )
 
-KNOWN_INIT = {
-    "SwapRepository": "super().__init__(session, factory) — FinancialAssetRepository takes only session",
-    "IBKRCompanySharePortfolioOptionRepository": "reads factory.portfolio_company_share_option_local_repo (no such attribute)",
-}
+KNOWN_INIT = {}
 
 # Base / infrastructure classes that are not meant to be in the factory registry.
 NOT_REGISTERED_BY_DESIGN = {"BaseLocalRepository", "BaseFactorRepository", "GeographicRepository",
-                            "MonitoringReadRepository", "FmpRepository"}
-KNOWN_UNREGISTERED = {
-    "AccountRepository", "CommodityFactorRepository", "CompanySharePortfolioOptionPortfolioHoldingRepository",
-    "local_repo.factor.geographic.continent_factor_repository.ContinentFactorRepository",
-    "local_repo.factor.geographic.country_factor_repository.CountryFactorRepository",
-    "DerivativesRepository", "FutureRepository",
-    "OptionsRepository", "SecurityHoldingRepository", "ShareMomentumFactorRepository",
-    "ShareTargetFactorRepository", "ShareTechnicalFactorRepository", "ShareVolatilityFactorRepository",
-    "SwapRepository",
-}
+                            "MonitoringReadRepository", "FmpRepository",
+                            # duplicates used by factor_repository_registry; the factory registers
+                            # local_repo.factor.{continent,country}_factor_repository
+                            "local_repo.factor.geographic.continent_factor_repository.ContinentFactorRepository",
+                            "local_repo.factor.geographic.country_factor_repository.CountryFactorRepository"}
+KNOWN_UNREGISTERED = set()
 
-_MODEL_CLASS_NOT_PROPERTY = ("BaseLocalRepository.model_class is a plain method (its @property is commented "
-                             "out) and the subclass does not override it")
-KNOWN_GET_ALL = {
-    **{name: _MODEL_CLASS_NOT_PROPERTY for name in (
-        "BalanceSheetRepository", "BaseFactorRepository", "BaseLocalRepository", "BondFactorRepository",
-        "CashFlowStatementRepository", "CommodityFactorRepository",
-        "CompanyShareOptionPortfolioPortfolioHoldingRepository", "CompanyShareOptionRhoFactorRepository",
-        "CompanySharePortfolioCorrelationFactorRepository", "CompanySharePortfolioHoldingFactorRepository",
-        "CompanySharePortfolioHoldingQuantityFactorRepository", "CompanySharePortfolioHoldingRepository",
-        "CompanySharePortfolioHoldingWeightFactorRepository", "CompanySharePortfolioPortfolioHoldingRepository",
-        "CompanySharePortfolioReturnFactorRepository", "CompanySharePortfolioVarianceFactorRepository",
-        "local_repo.factor.continent_factor_repository.ContinentFactorRepository",
-        "local_repo.factor.country_factor_repository.CountryFactorRepository",
-        "local_repo.factor.geographic.continent_factor_repository.ContinentFactorRepository",
-        "local_repo.factor.geographic.country_factor_repository.CountryFactorRepository",
-        "CurrencyFactorRepository",
-        "CurrencyPortfolioHoldingRepository", "CurrencyPortfolioPortfolioHoldingRepository",
-        "DerivativeFactorRepository", "EquityFactorRepository", "FinancialAssetFactorRepository",
-        "FinancialStatementRepository", "FuturesFactorRepository", "GeographicRepository",
-        "HoldingFactorRepository", "IncomeStatementRepository", "OptionsFactorRepository",
-        "PortfolioFactorRepository", "PortfolioHoldingFactorRepository", "SecurityFactorRepository",
-        "SecurityHoldingRepository", "ShareFactorRepository", "ShareMomentumFactorRepository",
-        "ShareTargetFactorRepository", "ShareTechnicalFactorRepository", "ShareVolatilityFactorRepository")},
-}
+# Abstract-style bases: no model of their own, never used directly.
+BASE_CLASSES = {"BaseLocalRepository", "BaseFactorRepository", "GeographicRepository"}
 
-_INVALID_GROUP = "default group 'company_share_option' is not an allowed factor group"
-_NO_FREQUENCY = "default frequency is None (factors.frequency is NOT NULL)"
-_FREQUENCY_KWARG = "passes frequency= to an entity whose __init__ does not accept it"
-_NO_DISPATCH = "FactorMapper.to_domain has no branch for its factor_type -> GenericFactor"
-KNOWN_FACTOR_ROUND_TRIP = {
-    **{name: _INVALID_GROUP for name in (
-        "CompanyShareOptionBatesPriceFactorRepository", "CompanyShareOptionBlackScholesMertonPriceFactorRepository",
-        "CompanyShareOptionCoxRossRubinsteinPriceFactorRepository",
-        "CompanyShareOptionDupireLocalVolatilityPriceFactorRepository", "CompanyShareOptionHestonPriceFactorRepository",
-        "CompanyShareOptionHullWhitePriceFactorRepository", "CompanyShareOptionSABRPriceFactorRepository")},
-    **{name: _NO_FREQUENCY for name in ("CompanyShareOptionImpliedVolFactorRepository", "CompanyShareFactorRepository")},
-    **{name: _FREQUENCY_KWARG for name in (
-        "CompanyShareOrderPriceFactorRepository", "CompanyShareOrderQuantityFactorRepository",
-        "CompanySharePositionValueFactorRepository", "CompanyShareTransactionValueFactorRepository")},
-    **{name: _NO_DISPATCH for name in (
-        "CompanyShareOptionMidPriceFactorRepository", "CompanySharePortfolioHoldingValueFactorRepository",
-        "CompanySharePortfolioPortfolioHoldingValueFactorRepository", "CurrencyPortfolioHoldingValueFactorRepository",
-        "CurrencyPortfolioPortfolioHoldingValueFactorRepository", "PortfolioHoldingValueFactorRepository",
-        "CompanySharePortfolioValueFactorRepository", "CurrencyPortfolioValueFactorRepository")},
-}
-
-KNOWN_NO_DISCRIMINATOR_MAP = {
-    "CompanyShareOptionBatesPriceFactorRepository", "CompanyShareOptionBlackScholesMertonPriceFactorRepository",
-    "CompanyShareOptionCoxRossRubinsteinPriceFactorRepository",
-    "CompanyShareOptionDupireLocalVolatilityPriceFactorRepository", "CompanyShareOptionHestonPriceFactorRepository",
-    "CompanyShareOptionHullWhitePriceFactorRepository", "CompanyShareOptionMidPriceFactorRepository",
-    "CompanyShareOptionSABRPriceFactorRepository", "CompanySharePortfolioPortfolioHoldingValueFactorRepository",
-    "CurrencyPortfolioHoldingValueFactorRepository", "CurrencyPortfolioPortfolioHoldingValueFactorRepository",
-    "CurrencyPortfolioValueFactorRepository", "PortfolioHoldingValueFactorRepository",
-}
+# Every factor repository round-trips and is in DISCRIMINATOR_CLASS_MAP (all fixed 2026-10-13);
+# a new failure fails the suite.
+KNOWN_FACTOR_ROUND_TRIP = {}
+KNOWN_NO_DISCRIMINATOR_MAP = set()
 
 
 def key(module_name, cls, classes):
@@ -157,7 +102,8 @@ class AllRepositoriesTest(unittest.TestCase):
         registered = {type(r) for r in factory.create_local_repositories().values()}
         known = Known(self, {n: "unregistered" for n in KNOWN_UNREGISTERED}, "factory registration")
         for module_name, cls in self.classes:
-            if is_ibkr(module_name) or cls.__name__ in NOT_REGISTERED_BY_DESIGN:
+            if is_ibkr(module_name) or key(module_name, cls, self.classes) in NOT_REGISTERED_BY_DESIGN \
+                    or cls.__name__ in NOT_REGISTERED_BY_DESIGN:
                 continue
             with self.subTest(repository=cls.__name__):
                 known.check(key(module_name, cls, self.classes),
@@ -165,9 +111,9 @@ class AllRepositoriesTest(unittest.TestCase):
         session.close()
 
     def test_get_all_on_an_empty_database(self):
-        known = Known(self, KNOWN_GET_ALL, "get_all()")
+        known = Known(self, {}, "get_all()")
         for module_name, cls in self.classes:
-            if is_ibkr(module_name) or cls.__name__ in KNOWN_INIT:
+            if is_ibkr(module_name) or cls.__name__ in KNOWN_INIT or cls.__name__ in BASE_CLASSES:
                 continue
             session, factory = self.db.factory()
             repo = build(cls, session, factory)

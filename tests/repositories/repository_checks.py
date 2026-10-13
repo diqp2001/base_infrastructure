@@ -105,15 +105,23 @@ def build(cls: type, session, factory):
     return quiet(cls, **kwargs)
 
 
+# Raw IBKR bar factors have no defaults on purpose: group / frequency come from the request
+# (bar size drives the raw frequency), so the round trip passes them like real callers do.
+REQUIRED_CREATE_KWARGS = {
+    "CompanyShareFactorRepository": {"group": "price", "subgroup": "ohlc", "frequency": "1d"},
+}
+
+
 def factor_round_trip(cls: type, session, factory) -> Optional[str]:
     """None when _create_or_get / get_by_name / get_by_id / FactorMapper agree, else the problem."""
     from src.infrastructure.repositories.mappers.factor.factor_mapper import FactorMapper
     repo = build(cls, session, factory)
     entity_cls = getattr(repo, "entity_class", None)
     name = f"rt_{cls.__name__}"
+    kwargs = REQUIRED_CREATE_KWARGS.get(cls.__name__, {})
     try:
-        first = quiet(repo._create_or_get, entity_cls, primary_key=name)
-        second = quiet(repo._create_or_get, entity_cls, primary_key=name)
+        first = quiet(repo._create_or_get, entity_cls, primary_key=name, **kwargs)
+        second = quiet(repo._create_or_get, entity_cls, primary_key=name, **kwargs)
     except Exception as e:
         return f"_create_or_get raised {type(e).__name__}: {e}"
     if first is None:

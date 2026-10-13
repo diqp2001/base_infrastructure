@@ -79,8 +79,8 @@ class CompanyShareOptionHestonPriceFactorRepository(BaseFactorRepository, Compan
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'option_price'),
+                group=kwargs.get('group', 'price_model'),
+                subgroup=kwargs.get('subgroup', 'stochastic_volatility'),
                 factor_type=kwargs.get('factor_type', 'company_share_option_heston_price_factor'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'calculated')
@@ -90,8 +90,8 @@ class CompanyShareOptionHestonPriceFactorRepository(BaseFactorRepository, Compan
 
             domain_factor = self.get_factor_entity()(
                 name=primary_key,
-                group=kwargs.get('group', 'company_share_option'),
-                subgroup=kwargs.get('subgroup', 'option_price'),
+                group=kwargs.get('group', 'price_model'),
+                subgroup=kwargs.get('subgroup', 'stochastic_volatility'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
                 source=kwargs.get('source', 'calculated'),

@@ -5,6 +5,11 @@ from src.infrastructure.repositories.mappers.finance.financial_statements.income
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 from sqlalchemy.orm import Session
 class IncomeStatementRepository(BaseLocalRepository):
+
+    @property
+    def model_class(self):
+        from src.infrastructure.models.finance.financial_statements.income_statement import IncomeStatementModel
+        return IncomeStatementModel
     
     def __init__(self, session: Session, factory, mapper: IncomeStatementMapper = None):
         

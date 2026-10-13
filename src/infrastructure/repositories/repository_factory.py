@@ -622,7 +622,42 @@ class RepositoryFactory:
                 'CompanyShareMomentumZScore50DFactor': CompanyShareMomentumZScore50DFactorRepository(self.session, factory=self),
                 'CompanyShareMomentumZScore100DFactor': CompanyShareMomentumZScore100DFactorRepository(self.session, factory=self),
             }
+            self._register_remaining_local_repositories()
         return self._local_repositories
+
+    def _register_remaining_local_repositories(self) -> None:
+        """Local repositories that were not reachable through the factory (added without
+        replacing any existing key, so existing lookups resolve exactly as before)."""
+        from src.infrastructure.repositories.local_repo.finance.account_repository import AccountRepository
+        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.commodity_factor_repository import CommodityFactorRepository
+        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_momentum_factor_repository import ShareMomentumFactorRepository
+        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_target_factor_repository import ShareTargetFactorRepository
+        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_technical_factor_repository import ShareTechnicalFactorRepository
+        from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_volatility_factor_repository import ShareVolatilityFactorRepository
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.derivatives_repository import DerivativesRepository
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.future_repository import FutureRepository
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.options_repository import OptionsRepository
+        from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.swap.swap_repository import SwapRepository
+        from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_option_portfolio_holding_repository import (
+            CompanySharePortfolioOptionPortfolioHoldingRepository,
+        )
+        from src.infrastructure.repositories.local_repo.finance.security_holding_repository import SecurityHoldingRepository
+        extra = {
+            'Account': AccountRepository(self.session, factory=self),
+            'CommodityFactor': CommodityFactorRepository(self.session, factory=self),
+            'ShareMomentumFactor': ShareMomentumFactorRepository(self.session, factory=self),
+            'ShareTargetFactor': ShareTargetFactorRepository(self.session, factory=self),
+            'ShareTechnicalFactor': ShareTechnicalFactorRepository(self.session, factory=self),
+            'ShareVolatilityFactor': ShareVolatilityFactorRepository(self.session, factory=self),
+            'Derivatives': DerivativesRepository(self.session, factory=self),
+            'Future': FutureRepository(self.session, factory=self),
+            'Options': OptionsRepository(self.session, factory=self),
+            'Swap': SwapRepository(self.session, factory=self),
+            'CompanySharePortfolioOptionPortfolioHolding': CompanySharePortfolioOptionPortfolioHoldingRepository(self.session, factory=self),
+            'SecurityHolding': SecurityHoldingRepository(self.session),
+        }
+        for key, repo in extra.items():
+            self._local_repositories.setdefault(key, repo)
 
     def _create_or_get_ibkr_repo(self, key: str, ibkr_client=None):
         """

@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 class BalanceSheetRepository(BaseLocalRepository):
     """Local repository for balance sheet model"""
+
+    @property
+    def model_class(self):
+        from src.infrastructure.models.finance.financial_statements.balance_sheet import BalanceSheetModel
+        return BalanceSheetModel
     
     def __init__(self, session: Session, factory, mapper: BalanceSheetMapper = None):
         

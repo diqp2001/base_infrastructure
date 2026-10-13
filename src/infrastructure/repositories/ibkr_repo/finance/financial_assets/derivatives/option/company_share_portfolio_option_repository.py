@@ -37,7 +37,7 @@ class IBKRCompanySharePortfolioOptionRepository(IBKRFinancialAssetRepository, Co
         self.ib_broker = ibkr_client  # Use ib_broker for consistency with reference implementation
         
         self.factory = factory
-        self.local_repo = self.factory.portfolio_company_share_option_local_repo
+        self.local_repo = self.factory.company_share_portfolio_option_local_repo if self.factory else None
         self.mapper = CompanySharePortfolioOptionMapper()
 
     @property

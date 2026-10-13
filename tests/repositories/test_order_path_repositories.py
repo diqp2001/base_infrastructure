@@ -68,11 +68,8 @@ class OrderAndTransactionRepositoryTest(unittest.TestCase):
                          (T0, T0.date(), date(2026, 1, 6), "EXECUTED"))
         self.assertEqual([t.id for t in self.txns.get_by_order_id(order.id)], [a.id])
 
-    @unittest.expectedFailure
     def test_transaction_without_dates_is_refused(self):
-        """BUG: TransactionRepository._create_or_get defaults date / trade_date / value_date /
-        settlement_date to the wall clock and status to PENDING — a backtest transaction created
-        without them is silently stamped 'today'."""
+        """No wall-clock default: a transaction without a date is not created."""
         order = self.order("EXT-3")
         result = self.txns._create_or_get("TXN-B", order_id=order.id, account_id=self.account_id)
         self.assertIsNone(result)
@@ -130,12 +127,11 @@ class CompanyShareRepositoryTest(unittest.TestCase):
         self.assertEqual(self.repo.get_by_symbol("AAPL").symbol, "AAPL")
         self.assertIsNone(self.repo.get_by_symbol("NOPE"))
 
-    @unittest.expectedFailure
     def test_new_symbol_can_be_created(self):
-        """BUG: CompanyShareRepository._create_or_get reads company_id before assigning it
-        (UnboundLocalError) — no new share can be created through it."""
         share = self.repo._create_or_get("NVDA")
         self.assertEqual(share.symbol, "NVDA")
+        self.assertEqual(self.repo._create_or_get("NVDA").id, share.id)
+        self.assertEqual(self.p.factory.currency_local_repo.get_by_id(share.currency_id).symbol, "USD")
 
 
 class IBKRRoutingTest(unittest.TestCase):
@@ -151,11 +147,7 @@ class IBKRRoutingTest(unittest.TestCase):
         self.assertEqual(route(repo, "price", "ohlc"), "TRADES")
         self.assertEqual(route(repo, "momentum", ""), "TRADES")
 
-    @unittest.expectedFailure
     def test_routing_tables_are_in_sync(self):
-        """BUG: the IBKR repository routes ('price', 'option') to MIDPOINT but
-        MarketDataHistoryService has no such entry (sends TRADES) — the two tables the IBKR
-        CLAUDE.md says must stay in sync have drifted."""
         from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
         from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import (
             IBKRFactorValueRepository,

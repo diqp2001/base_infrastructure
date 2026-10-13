@@ -82,10 +82,30 @@ class BaseLocalRepository(ABC, Generic[EntityType, ModelType]):
     # --- Abstract Methods to Implement in Child Repositories ---
 
     
-    #@abstractmethod
+    @property
     def model_class(self):
-        """Return the SQLAlchemy model class used by this repository."""
-        pass
+        """The SQLAlchemy model class used by this repository.
+
+        Repositories that do not override this get it from their mapper
+        (``mapper.model_class`` or ``mapper.get_factor_model()``).
+        """
+        assigned = self.__dict__.get('_model_class')
+        if assigned is not None:
+            return assigned
+        mapper = getattr(self, 'mapper', None)
+        model = getattr(mapper, 'model_class', None) if mapper is not None else None
+        if model is None and mapper is not None and hasattr(mapper, 'get_factor_model'):
+            model = mapper.get_factor_model()
+        if model is None and callable(getattr(type(self), 'get_factor_model', None)):
+            model = self.get_factor_model()
+        if model is None:
+            raise NotImplementedError(f"{type(self).__name__} defines no model_class and has no mapper")
+        return model
+
+    @model_class.setter
+    def model_class(self, model):
+        """Repositories may assign their model in __init__ (self.model_class = SomeModel)."""
+        self.__dict__['_model_class'] = model
 
     #@abstractmethod
     def _to_entity(self, infra_obj: ModelType) -> EntityType:
