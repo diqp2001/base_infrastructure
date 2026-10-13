@@ -66,6 +66,32 @@ class SqlitePortfolio:
         self._n += 1
         return SimpleNamespace(order_id=f"QC{self._n}")
 
+    def seed_close(self, ticker, when, price, frequency="1d"):
+        """Store a raw daily close for `ticker` the way the IBKR import does (bar stamped at its start).
+        A bar is only usable once closed, so value a date with the previous session's bar."""
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+        factor = self.session.query(CompanyShareFactorModel).filter_by(name="close", frequency=frequency).first()
+        if factor is None:
+            factor = CompanyShareFactorModel(name="close", group="price", subgroup="ohlc", frequency=frequency,
+                                             data_type="numeric", source="ibkr", definition="close",
+                                             factor_type="company_share_factor")
+            self.session.add(factor)
+            self.session.commit()
+        share = self.factory.company_share_local_repo.get_by_symbol(ticker)
+        self.session.add(FactorValueModel(factor_id=factor.id, entity_id=share.id, entity_type="CompanyShare",
+                                          date=when, value=repr(float(price))))
+        self.session.commit()
+
+    def factor_values(self, factor_name):
+        """[(entity_type, entity_id, date, float value)] stored for a factor name."""
+        from src.infrastructure.models.factor.factor import FactorModel
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+        rows = (self.session.query(FactorValueModel)
+                .join(FactorModel, FactorModel.id == FactorValueModel.factor_id)
+                .filter(FactorModel.name == factor_name).order_by(FactorValueModel.id).all())
+        return [(r.entity_type, r.entity_id, r.date, float(r.value)) for r in rows]
+
     def container(self, ticker, when=T0):
         return self.upm._ensure_asset_container(ticker, when, asset_class=CompanyShare)
 
