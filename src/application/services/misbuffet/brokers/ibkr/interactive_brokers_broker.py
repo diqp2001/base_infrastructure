@@ -6,6 +6,7 @@ the QuantConnect Lean architecture pattern, enabling live trading through IB TWS
 """
 
 import os
+import re
 import time
 import threading
 from datetime import datetime, timedelta
@@ -140,45 +141,80 @@ class InteractiveBrokersBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Error disconnecting from Interactive Brokers: {e}")
     
+    # OCC option symbol: 6-char root (space padded) + yymmdd + C/P + strike * 1000 (8 digits)
+    _OCC_RE = re.compile(r"^(?P<root>[A-Z0-9.]{1,6})\s*(?P<date>\d{6})(?P<right>[CP])(?P<strike>\d{8})$")
+
+    @staticmethod
+    def _enum_name(value) -> str:
+        """Enum member name, whichever OrderType / OrderDirection enum class the order uses."""
+        return str(getattr(value, "name", value) or "").upper()
+
+    def _contract_for_order(self, order) -> Contract:
+        """Stock (STK/SMART/USD) or option (OPT from the OCC local symbol) contract for an order."""
+        text = str(getattr(order.symbol, "value", order.symbol))
+        contract = Contract()
+        contract.exchange, contract.currency = "SMART", "USD"
+        occ = self._OCC_RE.match(text) if len(text) == 21 else None
+        if occ:
+            contract.secType = "OPT"
+            contract.symbol = occ.group("root")
+            contract.localSymbol = text
+            contract.lastTradeDateOrContractMonth = "20" + occ.group("date")
+            contract.right = occ.group("right")
+            contract.strike = int(occ.group("strike")) / 1000
+            contract.multiplier = "100"
+        else:
+            contract.secType = "STK"
+            contract.symbol = text.strip()
+        return contract
+
+    def _order_action(self, order) -> str:
+        """BUY / SELL from the signed quantity; a direction that contradicts the sign is refused."""
+        direction = self._enum_name(getattr(order, "direction", ""))
+        if order.quantity < 0:
+            if direction == "BUY":
+                raise ValueError(f"order {order.id}: negative quantity with direction BUY")
+            return "SELL"
+        return "SELL" if direction == "SELL" else "BUY"
+
     def _place_order_impl(self, order: Order) -> bool:
         """Place order with Interactive Brokers."""
         if not self.ib_connection or not self.ib_connection.is_connected():
             self.logger.error("Cannot place order - not connected to TWS")
             return False
-        
+
         try:
-            # Create contract
-            contract = self.ib_connection.create_contract(order.symbol.value)
-            
-            # Convert order to IB format
-            ib_action = "BUY" if order.direction == OrderDirection.BUY else "SELL"
+            contract = self._contract_for_order(order)
+            ib_action = self._order_action(order)
             quantity = abs(order.quantity)
-            
-            # Create IB order based on type
-            if order.type == OrderType.MARKET:
+            order_type = self._enum_name(getattr(order, "order_type", None) or getattr(order, "type", None))
+
+            if order_type == "MARKET":
                 ib_order = self.ib_connection.create_market_order(ib_action, quantity)
-            elif order.type == OrderType.LIMIT:
-                if not hasattr(order, 'limit_price') or order.limit_price is None:
+            elif order_type == "LIMIT":
+                if getattr(order, "limit_price", None) is None:
                     self.logger.error("Limit price required for limit order")
                     return False
                 ib_order = self.ib_connection.create_limit_order(ib_action, quantity, float(order.limit_price))
             else:
-                self.logger.error(f"Unsupported order type: {order.type}")
+                self.logger.error(f"Unsupported order type: {order_type}")
                 return False
-            
+
             # Place order with TWS
             ib_order_id = self.ib_connection.place_order(contract, ib_order)
-            
+
             # Track pending order
             self.pending_orders[ib_order_id] = order
-            
-            self.logger.info(f"Order placed with TWS: {order.id} -> TWS Order {ib_order_id}")
+
+            self.logger.info(f"Order placed with TWS: {order.id} -> TWS Order {ib_order_id} "
+                             f"({contract.secType} {getattr(contract, 'localSymbol', '') or contract.symbol} "
+                             f"{ib_action} {quantity})")
             return True
-                
+
         except Exception as e:
             self.logger.error(f"Error placing order with TWS: {e}")
             return False
-    
+
     def _update_order_impl(self, order: Order) -> bool:
         """Update order with Interactive Brokers."""
         # IB typically requires cancelling and re-placing for most updates
@@ -343,55 +379,54 @@ class InteractiveBrokersBroker(BaseBroker):
 
             except Exception as e:
                 self.logger.error(f"Error ib_connection: {e}")
+            self.stop_monitoring.wait(1.0)   # poll once a second (was a busy loop)
     
     def _process_order_updates(self) -> None:
-        """Process order status updates from TWS."""
-        
-        
+        """Turn TWS orderStatus updates into framework OrderEvents (one per change)."""
         try:
-            # Check order status updates from TWS client
-            for ib_order_id, status_info in self.ib_connection.order_status.items():
-                if ib_order_id in self.pending_orders:
-                    order = self.pending_orders[ib_order_id]
-                    
-                    # Create order event based on status
-                    status = status_info['status']
-                    if status in ['Filled', 'Cancelled', 'Submitted']:
-                        from ...common.enums import OrderStatus as FrameworkOrderStatus
-                        
-                        # Map TWS status to framework status
-                        status_mapping = {
-                            'Submitted': FrameworkOrderStatus.SUBMITTED,
-                            'Filled': FrameworkOrderStatus.FILLED,
-                            'Cancelled': FrameworkOrderStatus.CANCELLED
-                        }
-                        
-                        framework_status = status_mapping.get(status, FrameworkOrderStatus.PENDING)
-                        
-                        order_event = OrderEvent(
-                            order_id=order.id,
-                            symbol=order.symbol,
-                            status=framework_status,
-                            quantity=order.quantity,
-                            fill_price=Decimal(str(status_info.get('avgFillPrice', 0))),
-                            fill_quantity=int(status_info.get('filled', 0)),
-                            timestamp=datetime.now()
-                        )
-                        
-                        self._notify_order_event(order_event)
-                        
-                        # Remove from pending if filled or cancelled
-                        if status in ['Filled', 'Cancelled']:
-                            del self.pending_orders[ib_order_id]
-        
+            reported = getattr(self, "_reported_status", None)
+            if reported is None:
+                reported = self._reported_status = {}
+            for ib_order_id, info in list(self.ib_connection.order_status.items()):
+                order = self.pending_orders.get(ib_order_id)
+                if order is None:
+                    continue
+                tws_status = str(info.get("status") or "")
+                filled = int(float(info.get("filled") or 0))
+                remaining = float(info.get("remaining") or 0)
+                if tws_status == "Filled":
+                    status = OrderStatus.FILLED
+                elif tws_status in ("Cancelled", "ApiCancelled"):
+                    status = OrderStatus.CANCELED
+                elif tws_status == "Inactive":
+                    status = OrderStatus.INVALID
+                elif filled > 0 and remaining > 0:
+                    status = OrderStatus.PARTIAL_FILLED
+                elif tws_status in ("Submitted", "PreSubmitted", "PendingSubmit", "ApiPending"):
+                    status = OrderStatus.SUBMITTED
+                else:
+                    continue
+                key = (status, filled)
+                if reported.get(ib_order_id) == key:
+                    continue
+                reported[ib_order_id] = key
+                self._notify_order_event(OrderEvent(
+                    order_id=order.id,
+                    symbol=order.symbol,
+                    status=status,
+                    fill_quantity=filled,
+                    fill_price=Decimal(str(info.get("avgFillPrice") or 0)),
+                    direction=getattr(order, "direction", OrderDirection.BUY),
+                    message=f"TWS {tws_status} (order {ib_order_id})",
+                    time=datetime.now(),
+                ))
+                if status in (OrderStatus.FILLED, OrderStatus.CANCELED, OrderStatus.INVALID):
+                    self.pending_orders.pop(ib_order_id, None)
+                    reported.pop(ib_order_id, None)
+
         except Exception as e:
             self.logger.error(f"Error processing order updates: {e}")
-                    
-            
-            
-            
-    
-    
+
     def get_broker_specific_info(self) -> Dict[str, Any]:
         """Get IB-specific broker information."""
         return {

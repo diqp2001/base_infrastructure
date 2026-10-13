@@ -170,19 +170,13 @@ class BacktestingHandlerFillTest(unittest.TestCase):
         self.handler._simulate_order_execution(order)
         self.assertEqual(len(self.fills()), 1)
 
-    @unittest.expectedFailure
     def test_no_price_means_no_fill(self):
-        """BUG: _simulate_order_execution fills at a hard-coded Decimal('100.0') when the symbol has
-        no market price — an invented fill price."""
         order = market(10, "NOPRICE")
         self.handler.process_order(order)
         self.handler._simulate_order_execution(order)
         self.assertEqual(self.fills(), [])
 
-    @unittest.expectedFailure
     def test_fill_uses_the_price_known_when_the_order_was_placed(self):
-        """BUG (look-ahead): fills are simulated asynchronously at whatever price is current when the
-        simulation loop picks the order up — a price published after the order is used."""
         order = market(10)
         self.handler.update_market_price(order.symbol, Decimal("200"))
         self.handler.process_order(order)

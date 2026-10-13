@@ -107,28 +107,26 @@ class TradeManagerTest(unittest.TestCase):
 
     @unittest.expectedFailure
     def test_cash_keeps_cents(self):
-        """BUG: _update_cash_for_trade books int(round(qty * price)) — cents are lost on every trade."""
+        """BUG (needs a schema migration): positions.quantity is an INTEGER column, so the cash position
+        can only hold whole dollars — _update_cash_for_trade books int(round(qty * price)) and cents
+        are lost on every trade. Fix: positions.quantity -> DECIMAL(18, 4), then book the exact amount."""
         self.p.trade("AAPL", 10, 150.255)
         self.assertAlmostEqual(self.p.cash(), 100_000.0 - 1_502.55, places=2)
 
-    @unittest.expectedFailure
     def test_fill_price_is_recorded(self):
-        """BUG: the asset Order row gets no price / filled_quantity / average_fill_price and the
-        transactions table has no price column — the executed price is not recoverable from the DB."""
         self.p.trade("AAPL", 10, 150.0)
         asset_order = self.p.orders()[0]
         self.assertEqual((asset_order.average_fill_price, asset_order.filled_quantity), (150.0, 10))
 
-    @unittest.expectedFailure
     def test_unregistered_order_moves_no_cash(self):
-        """BUG: for a ticker with no financial asset the Order cannot be stored (holding_id NULL), yet
-        execute_trade still debits cash and returns True."""
+        """A ticker with no financial asset cannot be booked: nothing is sent, no cash moves."""
         cash = self.p.cash()
         ok = self.p.tm.execute_trade(ticker="NOPE", order_qty=10, price=100.0, portfolio_id=self.p.portfolio.id,
                                      current_time=T0, submit_order_fn=self.p.market_order,
                                      main_portfolio_id=self.p.portfolio.id)
         self.assertEqual(self.p.cash(), cash)
         self.assertFalse(ok)
+        self.p.market_order.assert_not_called()
 
 
 if __name__ == "__main__":

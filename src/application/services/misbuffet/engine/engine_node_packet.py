@@ -256,6 +256,9 @@ class LiveNodePacket(EngineNodePacket):
         super().__post_init__()
         self.type = PacketType.LIVE_NODE_PACKET
         self.engine_mode = EngineMode.LIVE_TRADING
+        # a live job must never fill orders in simulation
+        if self.transaction_handler == "BacktestingTransactionHandler":
+            self.transaction_handler = "BrokerageTransactionHandler"
 
 
 @dataclass

@@ -71,13 +71,13 @@ class OrderSizingTest(unittest.TestCase):
     def test_invalid_portfolio_value_sends_nothing(self):
         for pv in (0.0, -1.0):
             upm, _ = book_upm({"AAA": 10}, pv=pv)
-            self.assertEqual(upm.set_holdings({CompanyShare: {"name": "AAA", "quantity": 0}}, DATA), {})
+            self.assertEqual(upm.set_holdings({CompanyShare: {"name": "AAA", "quantity": 0}}, DATA), {"AAA": False})
             upm._trade_manager.execute_trade.assert_not_called()
 
     def test_portfolio_value_error_sends_nothing(self):
         upm, _ = book_upm({"AAA": 10})
         upm.get_portfolio_value = Mock(side_effect=RuntimeError("no price"))
-        self.assertEqual(upm.set_holdings({CompanyShare: {"name": "AAA", "quantity": 0}}, DATA), {})
+        self.assertEqual(upm.set_holdings({CompanyShare: {"name": "AAA", "quantity": 0}}, DATA), {"AAA": False})
         upm._trade_manager.execute_trade.assert_not_called()
 
 
@@ -140,27 +140,19 @@ class TargetGuardTest(unittest.TestCase):
         self.assertEqual(upm._trade_manager.execute_trade.call_count, first)
         self.assertEqual(book, {"AAA": 200, "BBB": 7})
 
-    @unittest.expectedFailure
     def test_nan_weight_is_refused_without_breaking_the_call(self):
-        """BUG: no target validation — int(nan) raises ValueError out of set_holdings, so the
-        other (valid) targets of the call are not traded either."""
         upm, _ = book_upm()
         result = upm.set_holdings({CompanyShare: [{"name": "AAA", "weight": math.nan},
                                                   {"name": "BBB", "quantity": 5}]}, DATA)
         self.assertFalse(result["AAA"])
         self.assertEqual(traded(upm), {"BBB": 5})
 
-    @unittest.expectedFailure
     def test_infinite_weight_is_refused(self):
-        """BUG: no target validation — int(inf) raises OverflowError out of set_holdings."""
         upm, _ = book_upm()
         result = upm.set_holdings({CompanyShare: {"name": "AAA", "weight": math.inf}}, DATA)
         self.assertEqual(result, {"AAA": False})
 
-    @unittest.expectedFailure
     def test_gross_exposure_above_100_percent_is_refused(self):
-        """BUG: no exposure check — weights summing to 300% are sent as-is (only buys are
-        cash-checked; shorts and short-funded buys go through)."""
         upm, _ = book_upm()
         upm.set_holdings({CompanyShare: [{"name": "AAA", "weight": 1.5}, {"name": "BBB", "weight": -1.5}]}, DATA)
         self.assertEqual(traded(upm), {})
@@ -205,11 +197,7 @@ class PortfolioTreeSqliteTest(unittest.TestCase):
         self.assertEqual((self.p.qty("AAPL"), self.p.cash()), (0, 100_000.0))
         self.p.market_order.assert_not_called()
 
-    @unittest.expectedFailure
     def test_portfolio_value_includes_held_shares(self):
-        """BUG: get_portfolio_value silently drops holdings it cannot price (no fail-hard), so after
-        buying 10 AAPL (no price source in this DB) the value is cash only and weight targets are
-        sized on the wrong base. Expected: fail (exception / None) rather than report 98 500."""
         self.p.trade("AAPL", 10, 150.0)
         try:
             pv = self.p.upm.get_portfolio_value(backtest_date=T0)

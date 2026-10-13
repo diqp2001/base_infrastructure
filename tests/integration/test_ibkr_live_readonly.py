@@ -7,7 +7,7 @@ only ask IBKR for contract definitions — they cannot place, modify, cancel or 
 
 What they check against IBKR itself (not against our own assumptions):
   * the stock contract the system should send for SPY resolves to exactly one instrument;
-  * the contract InteractiveBrokersBroker actually builds for an order (create_contract defaults);
+  * the stock and option contracts InteractiveBrokersBroker builds for an order resolve to them;
   * the strategy's OCC option symbol resolves, and IBKR's localSymbol for it is the key the
     position reconciler uses (instrument_key / normalize_ticker).
 """
@@ -103,12 +103,24 @@ class LiveContractTest(unittest.TestCase):
         self.assertEqual([(d["contract_id"], d["sec_type"], d["currency"]) for d in found],
                          [(SPY_CON_ID, "STK", "USD")])
 
-    @unittest.expectedFailure
+    def broker_contract(self, ticker):
+        """The contract InteractiveBrokersBroker builds for an order on `ticker` (nothing is sent)."""
+        from types import SimpleNamespace
+        from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+        broker = InteractiveBrokersBroker.__new__(InteractiveBrokersBroker)
+        return broker._contract_for_order(SimpleNamespace(symbol=SimpleNamespace(value=ticker)))
+
     def test_contract_built_for_a_stock_order_is_the_stock(self):
-        """BUG: InteractiveBrokersBroker._place_order_impl uses create_contract(symbol) whose defaults
-        are secType=FUT / exchange=CME — IBKR does not resolve that to the SPY stock."""
-        found, error = self.details(self.client.create_contract("SPY"))
+        found, error = self.details(self.broker_contract("SPY"))
+        self.assertIsNone(error)
         self.assertEqual([(d["contract_id"], d["sec_type"]) for d in found], [(SPY_CON_ID, "STK")])
+
+    def test_contract_built_for_an_option_order_is_that_option(self):
+        from src.application.services.misbuffet.algorithm.position_reconciler import normalize_ticker
+        found, error = self.details(self.broker_contract(OPTION_OCC))
+        self.assertIsNone(error, f"{OPTION_OCC}: {error}")
+        self.assertEqual(len(found), 1, found)
+        self.assertEqual(normalize_ticker(found[0]["local_symbol"]), normalize_ticker(OPTION_OCC))
 
     def test_strategy_option_resolves_and_matches_the_reconciler_key(self):
         from src.application.services.misbuffet.algorithm.position_reconciler import (

@@ -128,17 +128,13 @@ class BrokerageTransactionHandlerTest(unittest.TestCase):
         handler.dispose()
         self.assertTrue(broker.disconnected)
 
-    @unittest.expectedFailure
     def test_submitted_order_is_open(self):
-        """BUG: get_open_orders uses OrderStatus.PARTIAL_FILL (enum has PARTIAL_FILLED) -> always []."""
         handler = self.make(FakeBrokerage())
         order = market("SPY", 10)
         handler.process_order(order)
         self.assertEqual(handler.get_open_orders(), [order])
 
-    @unittest.expectedFailure
     def test_cancel_reaches_the_broker(self):
-        """BUG: cancel_order uses OrderStatus.PARTIAL_FILL -> AttributeError swallowed, returns False."""
         broker = FakeBrokerage()
         handler = self.make(broker)
         order = market("SPY", 10)
@@ -146,21 +142,24 @@ class BrokerageTransactionHandlerTest(unittest.TestCase):
         self.assertTrue(handler.cancel_order(order.id))
         self.assertEqual(broker.cancelled, [order])
 
-    @unittest.expectedFailure
     def test_partial_fill_event_can_be_created(self):
-        """BUG: _create_fill_event uses OrderStatus.PARTIAL_FILL -> raises for every partial fill."""
         handler = self.make(FakeBrokerage())
         order = market("SPY", 10)
         event = handler._create_fill_event(order, Decimal("500"), 4)
         self.assertEqual(event.status, OrderStatus.PARTIAL_FILLED)
 
-    @unittest.expectedFailure
     def test_status_updates_flow_back_from_the_broker(self):
-        """BUG: _monitoring_loop only sleeps; nothing ever asks the broker for order status,
-        so fills of a live order never reach the algorithm or the database."""
-        import inspect
-        source = inspect.getsource(BrokerageTransactionHandler._monitoring_loop)
-        self.assertNotIn("time.sleep(5.0)  # Check every 5 seconds", source)
+        """A broker order event (fill) reaches the order and the algorithm."""
+        broker = FakeBrokerage()
+        broker.order_event_handlers = []
+        handler = self.make(broker)
+        order = market("SPY", 10)
+        handler.process_order(order)
+        self.assertEqual(len(broker.order_event_handlers), 1)
+        fill = SimpleNamespace(order_id=order.id, status=OrderStatus.FILLED, fill_quantity=10, fill_price=500.0)
+        broker.order_event_handlers[0](fill)
+        self.assertEqual(order.status, OrderStatus.FILLED)
+        self.algorithm.on_order_event.assert_called_with(fill)
 
 
 class FakeTWS:
@@ -201,60 +200,63 @@ class InteractiveBrokersBrokerOrderTest(unittest.TestCase):
 
     def test_buy_and_sell_map_to_action_and_absolute_quantity(self):
         order = market("SPY", -5)
-        order.type = order.order_type          # work around the order.type bug to test the mapping
         self.assertTrue(self.broker._place_order_impl(order))
         _, ib_order = self.tws.orders[0]
         self.assertEqual((ib_order.action, ib_order.totalQuantity, ib_order.orderType), ("SELL", 5, "MKT"))
 
     def test_limit_order_carries_the_limit_price(self):
         order = LimitOrder(symbol=Symbol.create_equity("SPY"), quantity=3, limit_price=501.25)
-        order.type = order.order_type
         self.assertTrue(self.broker._place_order_impl(order))
         _, ib_order = self.tws.orders[0]
         self.assertEqual((ib_order.action, ib_order.orderType, ib_order.lmtPrice), ("BUY", "LMT", 501.25))
 
     def test_pending_order_is_tracked_by_tws_id(self):
         order = market("SPY", 1)
-        order.type = order.order_type
         self.broker._place_order_impl(order)
         self.assertIs(self.broker.pending_orders[101], order)
+
+    def test_contradicting_sign_and_direction_is_refused(self):
+        order = market("SPY", -5)
+        order.direction = OrderDirection.BUY
+        self.assertFalse(self.broker._place_order_impl(order))
+        self.assertEqual(self.tws.orders, [])
+
+    def test_repeated_status_is_reported_once(self):
+        order = market("SPY", 10)
+        self.broker.pending_orders[9] = order
+        self.tws.order_status[9] = {"status": "Submitted", "filled": 0, "remaining": 10, "avgFillPrice": 0}
+        events = []
+        self.broker.order_event_handlers.append(events.append)
+        self.broker._process_order_updates()
+        self.broker._process_order_updates()
+        self.assertEqual([e.status for e in events], [OrderStatus.SUBMITTED])
 
     def test_zero_quantity_is_refused_before_tws(self):
         self.broker.status = self.broker.status.__class__.CONNECTED
         self.assertFalse(self.broker.place_order(market("SPY", 0)))
         self.assertEqual(self.tws.orders, [])
 
-    @unittest.expectedFailure
     def test_place_order_works_with_framework_orders(self):
-        """BUG: BaseBroker.place_order and _place_order_impl read order.type; framework orders have
-        order_type -> AttributeError swallowed, every IBKR order fails."""
         self.broker.status = self.broker.status.__class__.CONNECTED
         self.assertTrue(self.broker.place_order(market("SPY", 10)))
         self.assertEqual(len(self.tws.orders), 1)
 
-    @unittest.expectedFailure
     def test_stock_order_uses_a_stock_contract(self):
-        """BUG: _place_order_impl calls create_contract(symbol) whose defaults are secType=FUT,
-        exchange=CME — a SPY order would be sent as a CME future."""
         order = market("SPY", 10)
-        order.type = order.order_type
         self.broker._place_order_impl(order)
-        contract = self.tws.contracts[0]
-        self.assertEqual((contract.secType, contract.exchange, contract.currency), ("STK", "SMART", "USD"))
+        contract, _ = self.tws.orders[0]
+        self.assertEqual((contract.secType, contract.symbol, contract.exchange, contract.currency),
+                         ("STK", "SPY", "SMART", "USD"))
 
-    @unittest.expectedFailure
     def test_option_order_uses_the_option_contract(self):
-        """BUG: no option path — OCC local symbol / right / strike / expiry never reach the contract."""
         order = market("SPY   281215C00775000", -1)
-        order.type = order.order_type
         self.broker._place_order_impl(order)
-        contract = self.tws.contracts[0]
-        self.assertEqual((contract.secType, contract.localSymbol), ("OPT", "SPY   281215C00775000"))
+        contract, ib_order = self.tws.orders[0]
+        self.assertEqual((contract.secType, contract.symbol, contract.localSymbol, contract.right, contract.strike,
+                          contract.lastTradeDateOrContractMonth, contract.multiplier, ib_order.action),
+                         ("OPT", "SPY", "SPY   281215C00775000", "C", 775.0, "20281215", "100", "SELL"))
 
-    @unittest.expectedFailure
     def test_filled_status_becomes_an_order_event(self):
-        """BUG: _process_order_updates maps to OrderStatus.CANCELLED / PENDING (do not exist) and builds
-        OrderEvent(quantity=..., timestamp=...) (not fields) -> exception swallowed, no event ever."""
         order = market("SPY", 10)
         self.broker.pending_orders[7] = order
         self.tws.order_status[7] = {"status": "Filled", "filled": 10, "remaining": 0, "avgFillPrice": 500.5}
@@ -265,10 +267,7 @@ class InteractiveBrokersBrokerOrderTest(unittest.TestCase):
                          [(OrderStatus.FILLED, 10, Decimal("500.5"))])
         self.assertNotIn(7, self.broker.pending_orders)
 
-    @unittest.expectedFailure
     def test_partial_fill_is_reported(self):
-        """BUG: a partial fill (TWS 'Submitted' with filled>0, remaining>0) is reported as SUBMITTED at best;
-        PartiallyFilled / Inactive / ApiCancelled are never mapped."""
         order = market("SPY", 10)
         self.broker.pending_orders[8] = order
         self.tws.order_status[8] = {"status": "Submitted", "filled": 4, "remaining": 6, "avgFillPrice": 500.0}
@@ -299,10 +298,7 @@ class TWSOrderIdTest(unittest.TestCase):
             self.client.place_order(Mock(), Mock())
         place.assert_not_called()
 
-    @unittest.expectedFailure
     def test_ids_never_go_backwards(self):
-        """BUG: nextValidId overwrites next_order_id unconditionally; a lower id after a reconnect
-        would make the client reuse an order id."""
         with patch.object(self.client, "placeOrder"):
             self.client.nextValidId(10)
             self.client.place_order(Mock(symbol="SPY"), Mock(action="BUY", totalQuantity=1))
@@ -320,10 +316,7 @@ class LiveModeWiringTest(unittest.TestCase):
         self.assertIsInstance(factory._create_transaction_handler(SimpleNamespace(live_mode=False)),
                               BacktestingTransactionHandler)
 
-    @unittest.expectedFailure
     def test_launcher_handler_factory_can_be_built(self):
-        """BUG: HandlerFactory.__init__ -> NameError 'StreamingMessagingHandler' (registry names an
-        undefined class), so the launcher cannot create any handler."""
         from src.application.services.misbuffet.launcher.handlers import HandlerFactory
         HandlerFactory()
 
@@ -334,38 +327,77 @@ class LiveModeWiringTest(unittest.TestCase):
         engine._job = SimpleNamespace(transaction_handler="BrokerageTransactionHandler")
         self.assertIsInstance(engine._create_transaction_handler(), BrokerageTransactionHandler)
 
-    @unittest.expectedFailure
     def test_live_job_defaults_to_the_brokerage_handler(self):
-        """BUG: LiveNodePacket only sets engine_mode; transaction_handler stays
-        'BacktestingTransactionHandler', so a live job fills orders in simulation."""
         from src.application.services.misbuffet.engine.engine_node_packet import LiveNodePacket
         packet = LiveNodePacket()
         self.assertEqual(packet.engine_mode, EngineMode.LIVE_TRADING)
         self.assertEqual(packet.transaction_handler, "BrokerageTransactionHandler")
 
-    @unittest.expectedFailure
-    def test_misbuffet_engine_can_run_live(self):
-        """BUG: MisbuffetEngine._create_handlers always builds BacktestingTransactionHandler."""
-        import inspect
+    def test_misbuffet_engine_wires_live_trading(self):
         from src.application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine
-        self.assertIn("BrokerageTransactionHandler", inspect.getsource(MisbuffetEngine._create_handlers))
+        engine = MisbuffetEngine.__new__(MisbuffetEngine)
+        engine.logger = logging.getLogger("test")
+        engine._transaction_handler = BacktestingTransactionHandler()
+        engine.algorithm = algorithm = self.algorithm()
+        broker = FakeBrokerage()
+        with patch.object(BrokerageTransactionHandler, "_start_monitoring"):
+            engine._wire_live_trading(SimpleNamespace(live_mode=True, brokerage=broker))
+        self.assertIsInstance(engine.transaction_handler, BrokerageTransactionHandler)
+        self.assertIs(engine.transaction_handler._brokerage, broker)
+        self.assertTrue(algorithm.live_mode)
+        self.assertIs(algorithm.transaction_handler, engine.transaction_handler)
 
-    @unittest.expectedFailure
+    def test_misbuffet_engine_live_without_brokerage_fails_hard(self):
+        from src.application.services.misbuffet.engine.misbuffet_engine import MisbuffetEngine
+        engine = MisbuffetEngine.__new__(MisbuffetEngine)
+        engine.logger = logging.getLogger("test")
+        engine._transaction_handler = None
+        engine.algorithm = self.algorithm()
+        with self.assertRaises(RuntimeError):
+            engine._wire_live_trading(SimpleNamespace(live_mode=True))
+        engine._wire_live_trading(SimpleNamespace(live_mode=False))       # backtest: untouched
+        self.assertFalse(engine.algorithm.live_mode)
+
+    @staticmethod
+    def algorithm():
+        from src.application.services.misbuffet.algorithm.base import QCAlgorithm
+        return QCAlgorithm()
+
     def test_algorithm_can_be_switched_to_live_mode(self):
-        """BUG: no set_live_mode on QCAlgorithm (setup handlers call it only if present), so
-        algorithm.live_mode is never True and the reconciliation fail-closed guard never engages."""
-        from src.application.services.misbuffet.algorithm.base import QCAlgorithm
-        self.assertTrue(hasattr(QCAlgorithm, "set_live_mode"))
+        algorithm = self.algorithm()
+        self.assertFalse(algorithm.live_mode)
+        algorithm.set_live_mode(True)
+        self.assertTrue(algorithm.live_mode)
 
-    @unittest.expectedFailure
-    def test_market_order_is_handed_to_the_transaction_handler(self):
-        """BUG: QCAlgorithm._submit_order only stores the order in memory ('In a real implementation,
-        this would be sent to a broker') — no handler or broker ever receives it."""
-        import inspect
-        from src.application.services.misbuffet.algorithm.base import QCAlgorithm
-        source = inspect.getsource(QCAlgorithm._submit_order)
-        self.assertRegex(source, r"transaction_handler|process_order|brokerage")
+    def test_live_market_order_is_handed_to_the_transaction_handler(self):
+        algorithm = self.algorithm()
+        handler = Mock()
+        handler.process_order.return_value = True
+        algorithm.set_live_mode(True)
+        algorithm.set_transaction_handler(handler)
+        ticket = algorithm.market_order("SPY", 10)
+        self.assertIsNotNone(ticket)
+        sent, = [c.args[0] for c in handler.process_order.call_args_list]
+        self.assertEqual((sent.symbol.value, sent.quantity), ("SPY", 10))
 
+    def test_rejected_live_order_returns_no_ticket(self):
+        algorithm = self.algorithm()
+        algorithm.set_live_mode(True)
+        algorithm.set_transaction_handler(Mock(process_order=Mock(return_value=False)))
+        self.assertIsNone(algorithm.market_order("SPY", 10))
+
+    def test_live_order_without_handler_is_refused(self):
+        algorithm = self.algorithm()
+        algorithm.set_live_mode(True)
+        with self.assertRaises(RuntimeError):
+            algorithm.market_order("SPY", 10)
+
+    def test_backtest_market_order_reaches_no_handler(self):
+        algorithm = self.algorithm()
+        handler = Mock()
+        algorithm.set_transaction_handler(handler)
+        self.assertIsNotNone(algorithm.market_order("SPY", 10))
+        handler.process_order.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

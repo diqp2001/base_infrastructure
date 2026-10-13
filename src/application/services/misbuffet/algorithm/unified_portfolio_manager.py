@@ -8,6 +8,7 @@ The UnifiedPortfolioManager acts as the single source of truth for all portfolio
 operations in QCAlgorithm, eliminating the need for separate custom tracking.
 """
 
+import math
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
@@ -566,8 +567,11 @@ class UnifiedPortfolioManager:
                 # which recurses unboundedly through related entities).
                 self._last_pv_snapshot_time = current_time
             except Exception as e:
+                # No silent fallback to cash / initial capital: a value that cannot be computed
+                # must stop the caller (set_holdings then sends no order).
                 if self.logger:
-                    self.logger.warning(f"get_portfolio_value: FactorValue snapshot failed: {e}")
+                    self.logger.error(f"get_portfolio_value: valuation failed: {e}")
+                raise
 
         if total == 0.0 and self._current_portfolio_entity is not None:
             try:
@@ -1042,7 +1046,8 @@ class UnifiedPortfolioManager:
         target_weights: Dict,
     ):
         """
-        Normalize target_weights into (weights, classes, quantities).
+        Normalize target_weights into (weights, classes, quantities, invalid).
+        invalid: {ticker: value} of NaN / infinite targets, removed from weights / quantities.
 
         Accepts:
           Old: {ticker_str: weight_float}
@@ -1054,6 +1059,7 @@ class UnifiedPortfolioManager:
         weights: Dict[str, float] = {}
         classes: Dict[str, type] = {}
         quantities: Dict[str, int] = {}
+        invalid: Dict[str, Any] = {}
         for key, value in target_weights.items():
             if isinstance(key, str):
                 weights[key] = float(value)
@@ -1063,10 +1069,15 @@ class UnifiedPortfolioManager:
                     ticker = entry['name']
                     classes[ticker] = key
                     if 'quantity' in entry:
-                        quantities[ticker] = int(entry['quantity'])
+                        quantities[ticker] = float(entry['quantity'])
                     else:
                         weights[ticker] = float(entry['weight'])
-        return weights, classes, quantities
+        # a NaN / infinite target is never traded (the other targets of the call still are)
+        for target in (weights, quantities):
+            for ticker in [t for t, v in target.items() if not math.isfinite(v)]:
+                invalid[ticker] = target.pop(ticker)
+        quantities = {t: int(q) for t, q in quantities.items()}
+        return weights, classes, quantities, invalid
 
     def set_holdings(
         self,
@@ -1074,6 +1085,7 @@ class UnifiedPortfolioManager:
         data=None,
         tag: str = "",
         liquidate_unlisted: bool = True,
+        max_gross_weight: Optional[float] = 1.0,
     ) -> Dict[str, bool]:
         """
         Rebalance the portfolio to the given target weights.
@@ -1102,14 +1114,26 @@ class UnifiedPortfolioManager:
             data:           current Slice from on_data (for price resolution)
             tag:            optional order tag
             liquidate_unlisted: sell held tickers missing from target_weights (scoped as above)
+            max_gross_weight: refuse the whole call when the sum of |weight| targets exceeds it
+                            (None = no cap). NaN / infinite targets are refused one by one.
 
         Returns:
             {ticker: True/False} for every ticker where an order was attempted.
         """
         has_string_keys = any(isinstance(k, str) for k in target_weights)
-        target_weights, ticker_asset_class, target_quantities = self._normalize_target_weights(target_weights)
+        target_weights, ticker_asset_class, target_quantities, invalid = self._normalize_target_weights(target_weights)
         results: Dict[str, bool] = {}
+        for ticker, value in invalid.items():
+            if self.logger:
+                self.logger.error(f"set_holdings: invalid target {value!r} for {ticker} — not traded")
+            results[ticker] = False
         targeted = set(target_weights.keys()) | set(target_quantities.keys())
+        gross = sum(abs(w) for w in target_weights.values())
+        if max_gross_weight is not None and gross > max_gross_weight + 1e-9:
+            if self.logger:
+                self.logger.error(f"set_holdings: gross weight {gross:.2%} exceeds the {max_gross_weight:.0%} cap "
+                                  f"— nothing traded")
+            return {**results, **{t: False for t in targeted}}
 
         if getattr(data, "time", None):
             current_time = data.time
@@ -1153,8 +1177,8 @@ class UnifiedPortfolioManager:
 
         if portfolio_value <= 0:
             if self.logger:
-                self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value}")
-            return results
+                self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value} — nothing traded")
+            return {**results, **{t: False for t in targeted}}
 
         
 

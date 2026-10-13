@@ -150,6 +150,21 @@ class SetHoldingsBuyChainTest(ChainBase):
 class SetHoldingsFollowUpChainTest(ChainBase):
     """What the chain looks like after the second call: sell, liquidation, short, refusal."""
 
+    def setUp(self):
+        super().setUp()
+        # held positions must be priced, or set_holdings refuses to trade (portfolio value unknown)
+        for when in (PREV_SESSION, T0.replace(hour=0)):
+            self.p.seed_close("AAPL", when, 150.0)
+            self.p.seed_close("MSFT", when, 400.0)
+
+    def test_unpriced_position_stops_trading(self):
+        self.hold(10)
+        with self.p.engine.begin() as c:                                # prices disappear
+            from sqlalchemy import text
+            c.execute(text("DELETE FROM factor_values WHERE factor_id IN (SELECT id FROM factors WHERE name='close')"))
+        self.assertEqual(self.hold(4, when=T1), {"AAPL": False})
+        self.assertEqual(self.position(self.share_holding("AAPL")).quantity, 10)
+
     def test_partial_sell_reuses_holding_and_returns_cash(self):
         self.hold(10)
         self.hold(4, when=T1)
@@ -235,11 +250,7 @@ class PortfolioValueChainTest(ChainBase):
         self.assertEqual(total, shares + cash)
         self.assertEqual(self.latest("Portfolio Value", self.p.portfolio.id), total)
 
-    @unittest.expectedFailure
     def test_new_close_revalues_the_holding(self):
-        """BUG (stale price): on the next bar the holding value is recomputed from the
-        company_share_value stored on the previous date — no new mid_price / company_share_value is
-        derived from the newer close, so the portfolio value never follows the market."""
         self.hold(10)
         self.p.seed_close("AAPL", T0.replace(hour=0), 160.0)          # Monday bar, closed by Tuesday
         self.assertEqual(self.value(T1), 98_500.0 + 1_600.0)
@@ -292,11 +303,7 @@ class PortfolioValueIdCollisionTest(ChainBase):
         self.buy("MSFT", 5)
         self.assertEqual(float(self.p.upm.get_portfolio_value(backtest_date=T0)), 100_000.0)
 
-    @unittest.expectedFailure
     def test_holding_id_equal_to_another_held_share_id_does_not_cross_prices(self):
-        """BUG: when a holding's id equals the id of another held share, the value chain prices the
-        holding entity itself and reads raw closes by entity_id without the entity type — the AAPL
-        and MSFT holdings get each other's / averaged prices (101 875 instead of 100 000)."""
         self.buy("MSFT", 5)                     # MSFT holding id 4 == AAPL share id 4
         self.buy("AAPL", 10)
         self.assertEqual(float(self.p.upm.get_portfolio_value(backtest_date=T0)), 100_000.0)

@@ -55,17 +55,31 @@ class TradeManager:
                                to portfolio_id when the caller does not provide it (i.e. when
                                portfolio_id already is the main portfolio)
         """
-        # 1. In-memory order ticket
+        # 0. The order must be recordable before it is sent: holding (asset + position) and account.
+        #    An order that cannot be booked is never submitted and moves no cash.
+        holding_id = self._resolve_holding_id(ticker, portfolio_id, current_time)
+        account_id = self._resolve_account_id(current_time)
+        if holding_id is None or account_id is None:
+            if self.logger:
+                self.logger.error(f"TradeManager: {ticker} cannot be booked (holding={holding_id}, "
+                                  f"account={account_id}) — order not sent")
+            return False
+
+        # 1. Order ticket (backtest: in memory; live: sent to the broker)
         ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
         if not ticket:
             return False
 
         # 2. Persist domain Order entity
-        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time, order_qty)
+        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time, order_qty, price=price)
+        if domain_order is None:
+            if self.logger:
+                self.logger.error(f"TradeManager: order {ticket.order_id} for {ticker} was submitted but could "
+                                  f"not be recorded — position and cash left unchanged")
+            return False
 
         # 3. Persist domain Transaction entity
-        if domain_order:
-            self._record_fill(ticket, ticker, order_qty, price, current_time, domain_order)
+        self._record_fill(ticket, ticker, order_qty, price, current_time, domain_order)
 
         # 4. Upsert domain Position entity
         self._update_position(ticker, order_qty, portfolio_id)
@@ -84,7 +98,8 @@ class TradeManager:
     # Private mechanics
     # ------------------------------------------------------------------
 
-    def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime, order_qty: int = 0):
+    def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime, order_qty: int = 0,
+                        price: Optional[float] = None):
         """Persist a domain Order entity from the QC OrderTicket."""
         try:
             # Resolve FK dependencies before the INSERT to satisfy NOT NULL constraints
@@ -100,6 +115,10 @@ class TradeManager:
                 "symbol": ticker,
                 "holding_id": holding_id,
                 "account_id": account_id,
+                # fill as booked: executed price and quantity
+                "price": price,
+                "filled_quantity": abs(order_qty),
+                "average_fill_price": price,
             }
             domain_order = self.order_repo._create_or_get(
                 external_order_id=str(ticket.order_id),

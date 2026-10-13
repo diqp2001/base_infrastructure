@@ -93,7 +93,8 @@ class IBTWSClient(EWrapper, EClient):
     def nextValidId(self, orderId: int):
         """Next valid order ID callback."""
         self.logger.info(f"Next valid order ID: {orderId}")
-        self.next_order_id = orderId
+        # never move backwards: an id this session already used must not be reused after a reconnect
+        self.next_order_id = max(orderId, getattr(self, "_highest_used_order_id", 0) + 1)
         self.connected_flag = True
         self.authenticated_flag = True
         self.connection_event.set()
@@ -537,6 +538,7 @@ class IBTWSClient(EWrapper, EClient):
 
         order_id = self.next_order_id
         self.next_order_id += 1
+        self._highest_used_order_id = max(order_id, getattr(self, "_highest_used_order_id", 0))
 
         self.placeOrder(order_id, contract, order)
         self.logger.info(f"Placed order {order_id}: {contract.symbol} {order.action} {order.totalQuantity}")
