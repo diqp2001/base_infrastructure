@@ -43,6 +43,16 @@ class IBTWSClient(EWrapper, EClient):
         self.order_status = {}
         self.order_fills = {}
 
+        # Reconciliation snapshots (request_positions_snapshot / request_open_orders_snapshot):
+        # contract-level rows (conId / localSymbol), filled between the request and its *End callback
+        self.positions_snapshot: List[dict] = []
+        self.open_orders_snapshot: List[dict] = []
+        self._snapshot_lock = threading.Lock()
+        self._positions_collecting = False
+        self._open_orders_collecting = False
+        self._positions_end_event = threading.Event()
+        self._open_orders_end_event = threading.Event()
+
         # Market data
         self.market_data = {}
         
@@ -164,6 +174,51 @@ class IBTWSClient(EWrapper, EClient):
             existing_pos.update(position_data)
         else:
             self.positions.append(position_data)
+
+        with self._snapshot_lock:
+            if self._positions_collecting:
+                self.positions_snapshot.append({
+                    **position_data,
+                    'conId': getattr(contract, 'conId', None),
+                    'localSymbol': getattr(contract, 'localSymbol', ''),
+                    'currency': getattr(contract, 'currency', ''),
+                })
+
+    def positionEnd(self):
+        """End of the reqPositions initial list."""
+        with self._snapshot_lock:
+            self._positions_collecting = False
+        self._positions_end_event.set()
+
+    def openOrder(self, orderId: OrderId, contract: Contract, order: IBOrder, orderState):
+        """Open order callback (reqAllOpenOrders / reqOpenOrders / order updates)."""
+        row = {
+            'orderId': orderId,
+            'permId': getattr(order, 'permId', None),
+            'clientId': getattr(order, 'clientId', None),
+            'account': getattr(order, 'account', ''),
+            'symbol': contract.symbol,
+            'localSymbol': getattr(contract, 'localSymbol', ''),
+            'secType': contract.secType,
+            'conId': getattr(contract, 'conId', None),
+            'action': getattr(order, 'action', ''),
+            'totalQuantity': float(getattr(order, 'totalQuantity', 0) or 0),
+            'orderType': getattr(order, 'orderType', ''),
+            'status': getattr(orderState, 'status', ''),
+            'remaining': None,
+        }
+        status = self.order_status.get(orderId)
+        if status:
+            row['remaining'] = status.get('remaining')
+        with self._snapshot_lock:
+            if self._open_orders_collecting:
+                self.open_orders_snapshot.append(row)
+
+    def openOrderEnd(self):
+        """End of the open orders list."""
+        with self._snapshot_lock:
+            self._open_orders_collecting = False
+        self._open_orders_end_event.set()
 
     def tickPrice(self, reqId: TickerId, tickType: int, price: float, attrib):
         """Tick price callback for market data."""
@@ -515,6 +570,43 @@ class IBTWSClient(EWrapper, EClient):
             raise ConnectionError("Not connected to TWS")
 
         self.reqPositions()
+
+    def request_positions_snapshot(self, timeout: float = 10.0) -> bool:
+        """Fresh list of all positions into ``positions_snapshot``. True when positionEnd arrived in time."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        with self._snapshot_lock:
+            self.positions_snapshot = []
+            self._positions_collecting = True
+        self._positions_end_event.clear()
+        self.reqPositions()
+        complete = self._positions_end_event.wait(timeout)
+        try:
+            self.cancelPositions()
+        except Exception as e:
+            self.logger.warning(f"cancelPositions failed: {e}")
+        with self._snapshot_lock:
+            self._positions_collecting = False
+        if not complete:
+            self.logger.error(f"positionEnd not received within {timeout}s")
+        return complete
+
+    def request_open_orders_snapshot(self, timeout: float = 10.0) -> bool:
+        """Fresh list of all working orders of the account (every client id, incl. TWS) into
+        ``open_orders_snapshot``. Read-only: reqAllOpenOrders never binds or modifies orders."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        with self._snapshot_lock:
+            self.open_orders_snapshot = []
+            self._open_orders_collecting = True
+        self._open_orders_end_event.clear()
+        self.reqAllOpenOrders()
+        complete = self._open_orders_end_event.wait(timeout)
+        with self._snapshot_lock:
+            self._open_orders_collecting = False
+        if not complete:
+            self.logger.error(f"openOrderEnd not received within {timeout}s")
+        return complete
 
     def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = False, generic_tick_list: str = "") -> None:
         """Request market data for a contract."""

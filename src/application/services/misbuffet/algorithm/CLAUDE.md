@@ -281,3 +281,51 @@ the same two-step pattern to collect every tradeable symbol across the full tree
    generate sell orders to liquidate them.
 
 Both require full tree traversal — a flat single-level query is incorrect.
+
+---
+
+## Order Safety — liquidation scope and broker reconciliation (2026-10-13)
+
+### What `set_holdings` may sell
+
+"Held" always means **held by the strategy's portfolio tree in the DB** (`_get_all_held_tickers`),
+never the IBKR account — positions the strategy never bought are invisible to it. A held ticker
+missing from `target_weights` is liquidated according to the call format:
+
+| Call | Unlisted held tickers that are sold |
+|------|-------------------------------------|
+| class-keyed `{CompanyShare: ...}` | only those whose class (`_probe_asset_class_name`) is one of the classes in the call — a share-only call never sells the portfolio's options, and vice versa |
+| class-keyed, held ticker of unknown class | none — logged as a warning |
+| string-keyed `{"SPY": 0.5}` (old format, or any mix with it) | all of them (original behaviour) |
+| `liquidate_unlisted=False` | none |
+
+Every liquidation order is logged at WARNING (`set_holdings: liquidating ...`).
+
+### Reconciliation gate (`position_reconciler.py`)
+
+```python
+from src.application.services.misbuffet.algorithm.position_reconciler import IBKRSnapshotProvider
+upm.attach_reconciler(IBKRSnapshotProvider(ib_client, account="U1234567"), max_age_seconds=60)
+```
+
+Before any DB write or order, `set_holdings` calls `PositionReconciler.check(extra_tickers=targets)`:
+
+- a quantity difference between the strategy's DB and the broker on any managed or targeted
+  ticker → **all trading blocked** for that call (every target returns `False`);
+- missing, incomplete (no `positionEnd` / `openOrderEnd`) or stale snapshot → blocked;
+- a ticker with a working order at the broker (`reqAllOpenOrders`: every client id, incl. TWS),
+  or an order this process sent that no later snapshot shows as done → **pending**: skipped,
+  not compared, so a restart never re-sends it;
+- broker positions the strategy does not manage → reported in `unmanaged_positions`, never traded.
+
+**Fail closed:** when `algorithm.live_mode` is true and no reconciler is attached, `set_holdings`
+refuses to trade. Backtests (no reconciler, `live_mode=False`) are unchanged.
+
+Matching key: the share symbol for `STK`, the whitespace-normalized local symbol (OCC) for
+derivatives — IBKR reports `contract.symbol == "SPY"` for SPY options too.
+
+`IBTWSClient` support (additive): `request_positions_snapshot()` → `positions_snapshot`
+(with `conId` / `localSymbol`), `request_open_orders_snapshot()` → `open_orders_snapshot`,
+both returning whether the `*End` callback arrived before the timeout.
+
+Tests: `tests/misbuffet/test_order_safety.py` (no DB, no IBKR, no orders).

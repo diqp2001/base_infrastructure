@@ -79,6 +79,30 @@ class UnifiedPortfolioManager:
         from .trade_manager import TradeManager
         self._trade_manager = TradeManager(self.repository_factory, logger=logger)
 
+        # Broker reconciliation gate for set_holdings (see position_reconciler.py).
+        # Mandatory in live mode: without it set_holdings refuses to trade.
+        self._reconciler = None
+
+    def attach_reconciler(self, reconciler_or_provider, **kwargs):
+        """
+        Gate set_holdings on a reconciliation with the broker.
+
+        Accepts a ready PositionReconciler, or a snapshot provider (callable -> BrokerSnapshot,
+        e.g. IBKRSnapshotProvider(ib_client)) from which one is built over this portfolio
+        (kwargs: max_age_seconds, tolerance).  Returns the reconciler.
+        """
+        from .position_reconciler import PositionReconciler
+        if isinstance(reconciler_or_provider, PositionReconciler):
+            self._reconciler = reconciler_or_provider
+        else:
+            self._reconciler = PositionReconciler(
+                strategy_qty=self._get_current_position_qty,
+                managed_tickers=self._get_all_held_tickers,
+                snapshot_provider=reconciler_or_provider,
+                **kwargs,
+            )
+        return self._reconciler
+
     # def register_portfolio(
     #     self, 
     #     name: str, 
@@ -1049,14 +1073,25 @@ class UnifiedPortfolioManager:
         target_weights: Dict,
         data=None,
         tag: str = "",
+        liquidate_unlisted: bool = True,
     ) -> Dict[str, bool]:
         """
         Rebalance the portfolio to the given target weights.
 
         SELLs are executed before BUYs so that proceeds from trimmed positions
-        are available as cash for new or enlarged positions.  Any ticker
-        currently held but absent from target_weights is treated as target
-        weight = 0 (full liquidation).
+        are available as cash for new or enlarged positions.
+
+        Liquidation of unlisted tickers: a ticker held by the strategy's portfolio (DB tree,
+        never the broker account) but absent from target_weights is treated as target 0 —
+          * new (class-keyed) format: only held tickers of the asset classes named in this call
+            are liquidated (a CompanyShare-only call never sells the portfolio's options);
+            a held ticker whose class cannot be determined is never liquidated;
+          * old (string-keyed) format: every held ticker (original behaviour);
+          * liquidate_unlisted=False: nothing outside target_weights is touched.
+
+        Reconciliation: when a reconciler is attached (attach_reconciler) — mandatory in
+        live mode — trading happens only if the broker positions match the strategy's
+        portfolio; tickers with a working order are skipped.
 
         Args:
             target_weights: One of two formats —
@@ -1066,15 +1101,17 @@ class UnifiedPortfolioManager:
                                or [list of the above, may be mixed]}
             data:           current Slice from on_data (for price resolution)
             tag:            optional order tag
+            liquidate_unlisted: sell held tickers missing from target_weights (scoped as above)
 
         Returns:
             {ticker: True/False} for every ticker where an order was attempted.
         """
+        has_string_keys = any(isinstance(k, str) for k in target_weights)
         target_weights, ticker_asset_class, target_quantities = self._normalize_target_weights(target_weights)
         results: Dict[str, bool] = {}
-        
-            
-        if data.time:
+        targeted = set(target_weights.keys()) | set(target_quantities.keys())
+
+        if getattr(data, "time", None):
             current_time = data.time
         elif hasattr(self._algorithm, "time"):
             current_time = self._algorithm.time
@@ -1089,6 +1126,23 @@ class UnifiedPortfolioManager:
             if self.logger:
                 self.logger.warning("set_holdings: algorithm not injected, cannot submit orders")
             return results
+
+        # Broker reconciliation gate — before any DB write or order
+        pending: set = set()
+        if self._reconciler is None and getattr(self._algorithm, "live_mode", False):
+            if self.logger:
+                self.logger.error("set_holdings: live mode without a position reconciler "
+                                  "(attach_reconciler) — refusing to trade")
+            return {t: False for t in targeted}
+        if self._reconciler is not None:
+            from .position_reconciler import normalize_ticker
+            rec = self._reconciler.check(extra_tickers=targeted)
+            if not rec.ok:
+                if self.logger:
+                    self.logger.error(f"set_holdings: trading blocked — {rec.summary()}")
+                return {t: False for t in targeted}
+            pending = {t for t in targeted | self._get_all_held_tickers()
+                       if normalize_ticker(t) in rec.pending_tickers}
 
         # Portfolio value snapshot (at most once per bar via get_portfolio_value guard)
         try:
@@ -1117,7 +1171,18 @@ class UnifiedPortfolioManager:
             )
             ticker_container[ticker] = cid if cid else main_id
 
-        all_tickers = set(target_weights.keys()) | set(target_quantities.keys()) | self._get_all_held_tickers()
+        to_liquidate = self._select_liquidations(
+            held=self._get_all_held_tickers() - targeted,
+            ticker_asset_class=ticker_asset_class,
+            scoped=not has_string_keys,
+            enabled=liquidate_unlisted,
+        )
+        all_tickers = targeted | to_liquidate
+        for ticker in sorted(pending & all_tickers):
+            if self.logger:
+                self.logger.warning(f"set_holdings: {ticker} has a working order at the broker, skipping")
+            results[ticker] = False
+        all_tickers -= pending
 
         # For liquidation tickers (held but not targeted), look up their existing container.
         for ticker in all_tickers - set(target_weights.keys()):
@@ -1172,16 +1237,13 @@ class UnifiedPortfolioManager:
                     )
                 results[ticker] = False
                 continue
-            results[ticker] = self._trade_manager.execute_trade(
-                ticker=ticker,
-                order_qty=order_qty,
-                price=price,
-                portfolio_id=ticker_container.get(ticker, main_id),
-                current_time=current_time,
-                submit_order_fn=self._algorithm.market_order,
-                tag=tag,
-                main_portfolio_id=main_id,
-            )
+            if ticker in to_liquidate and self.logger:
+                self.logger.warning(
+                    f"set_holdings: liquidating {ticker} qty={order_qty:+d} "
+                    f"(held by the portfolio, not in target_weights)"
+                )
+            results[ticker] = self._execute(ticker, order_qty, price, ticker_container.get(ticker, main_id),
+                                            current_time, tag, main_id)
 
         # Execute buys after sells have freed up liquidity
         for ticker, order_qty, price, current_qty in buys:
@@ -1193,16 +1255,8 @@ class UnifiedPortfolioManager:
                     )
                 results[ticker] = False
                 continue
-            results[ticker] = self._trade_manager.execute_trade(
-                ticker=ticker,
-                order_qty=order_qty,
-                price=price,
-                portfolio_id=ticker_container.get(ticker, main_id),
-                current_time=current_time,
-                submit_order_fn=self._algorithm.market_order,
-                tag=tag,
-                main_portfolio_id=main_id,
-            )
+            results[ticker] = self._execute(ticker, order_qty, price, ticker_container.get(ticker, main_id),
+                                            current_time, tag, main_id)
         # Portfolio value snapshot (at most once per bar via get_portfolio_value guard)
         try:
             pv = self.get_portfolio_value(backtest_date=current_time)
@@ -1215,6 +1269,50 @@ class UnifiedPortfolioManager:
                 self.logger.warning(f"set_holdings: invalid portfolio value {portfolio_value}")
             return results
         return results
+
+    def _execute(self, ticker, order_qty, price, portfolio_id, current_time, tag, main_id) -> bool:
+        """One order through TradeManager; the reconciler keeps the ticker pending until the
+        broker confirms it is no longer working (no duplicate on the next call / after restart)."""
+        try:
+            return self._trade_manager.execute_trade(
+                ticker=ticker,
+                order_qty=order_qty,
+                price=price,
+                portfolio_id=portfolio_id,
+                current_time=current_time,
+                submit_order_fn=self._algorithm.market_order,
+                tag=tag,
+                main_portfolio_id=main_id,
+            )
+        finally:
+            if self._reconciler is not None:
+                self._reconciler.note_submitted(ticker)
+
+    def _select_liquidations(self, held: set, ticker_asset_class: Dict[str, type],
+                             scoped: bool, enabled: bool) -> set:
+        """
+        Held tickers (absent from the targets) that set_holdings may sell.
+
+        scoped=True (class-keyed call): only tickers whose asset class is one of the classes
+        named in the call; a ticker with an undeterminable class is kept, with a warning.
+        """
+        if not enabled or not held:
+            return set()
+        if not scoped:
+            return set(held)
+        classes = {cls.__name__ for cls in ticker_asset_class.values()}
+        selected = set()
+        for ticker in held:
+            try:
+                cls_name = self._probe_asset_class_name(ticker)
+            except Exception:
+                cls_name = None
+            if cls_name is None:
+                if self.logger:
+                    self.logger.warning(f"set_holdings: asset class of held {ticker} unknown — not liquidated")
+            elif cls_name in classes:
+                selected.add(ticker)
+        return selected
 
     def _get_all_held_tickers(self) -> set:
         """
