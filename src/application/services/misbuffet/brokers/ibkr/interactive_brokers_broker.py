@@ -805,8 +805,8 @@ class InteractiveBrokersBroker(BaseBroker):
             return self._historical_data_cache[cache_key]
 
         try:
-            # Generate unique request ID
-            req_id = abs(hash(f"hist_{contract.symbol}_{datetime.now().timestamp()}")) % 10000
+            # Unique request ID (a hash modulo 10 000 could collide with another live request)
+            req_id = self._next_request_id()
             
             self.logger.info(f"Requesting historical data for {contract.symbol} "
                            f"({duration_str}, {bar_size_setting})")
@@ -824,27 +824,19 @@ class InteractiveBrokersBroker(BaseBroker):
             )
 
             
-            # Wait for data completion
-            wait_interval = 0.5
-            total_waited = 0
-            data_complete = False
-            
-            while total_waited < timeout:
-                time.sleep(wait_interval)
-                total_waited += wait_interval
-                
-                # Check if historical data is complete
-                # Data is complete when we have bars and haven't received new ones recently
-                hist_data = self.ib_connection.historical_data.get(req_id, [])
-                
-                if hist_data:
-                    # If we have data, wait a bit more to ensure completion
-                    if total_waited > 2:  # Give at least 2 seconds for completion
-                        data_complete = True
-                        break
-                        
-                self.logger.debug(f"Waiting for historical data... {total_waited:.1f}s")
-            
+            # Wait for historicalDataEnd (or an error for this request) — not for "some bars and 2 s",
+            # which returned a partial history when bars arrived slowly and always waited the full
+            # timeout when the answer was empty.
+            done = getattr(self.ib_connection, "historical_data_done", {}).get(req_id)
+            if done is None or not done.wait(timeout):
+                self.logger.warning(f"Historical data for {contract.symbol} incomplete after {timeout}s "
+                                    f"(no historicalDataEnd)")
+                self.ib_connection.historical_data.pop(req_id, None)
+                return []
+            error = getattr(self.ib_connection, "historical_data_errors", {}).pop(req_id, None)
+            if error is not None:
+                self.logger.warning(f"Historical data for {contract.symbol}: IBKR error {error[0]}: {error[1]}")
+
             # Get final historical data
             historical_bars = self.ib_connection.historical_data.get(req_id, [])
             
@@ -880,6 +872,14 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
             return []
     
+    def _next_request_id(self) -> int:
+        """Monotonic request ids for this broker (thread-safe), starting away from the small ids
+        used by the monitoring / account requests."""
+        lock = self.__dict__.setdefault("_request_id_lock", threading.Lock())
+        with lock:
+            self._last_request_id = getattr(self, "_last_request_id", 20_000) + 1
+            return self._last_request_id
+
     def validate_end_date_within_6_months(self,date_time, tz="US/Eastern"):
         """
         Ensures end_date_time is within the last 6 months from today.

@@ -73,6 +73,9 @@ class IBTWSClient(EWrapper, EClient):
 
         # Historical data
         self.historical_data = {}
+        # reqId -> Event set by historicalDataEnd or by an error for that request
+        self.historical_data_done = {}
+        self.historical_data_errors = {}
 
         # Threading for message processing
         self.msg_queue_lock = threading.Lock()
@@ -101,6 +104,11 @@ class IBTWSClient(EWrapper, EClient):
 
     def error(self, reqId: TickerId, errorCode: int, errorString: str, advancedOrderRejectJson=""):
         """Error callback."""
+        done = getattr(self, "historical_data_done", {}).get(reqId)
+        if done is not None and errorCode not in (2104, 2106, 2107, 2158, 2176):
+            # e.g. 162 "no historical data", 200 "no security definition": the request is over
+            self.historical_data_errors[reqId] = (errorCode, errorString)
+            done.set()
         if errorCode in [2104, 2106, 2158]:  # Market data warnings
             self.logger.info(f"Market data info ({errorCode}): {errorString}")
         elif errorCode < 1000:  # System errors
@@ -328,6 +336,9 @@ class IBTWSClient(EWrapper, EClient):
 
     def historicalDataEnd(self, reqId: int, start: str, end: str):
         """Historical data end callback."""
+        done = self.historical_data_done.get(reqId)
+        if done is not None:
+            done.set()
         data_count = len(self.historical_data.get(reqId, []))
         self.logger.info(f"Historical data complete for req {reqId}: {data_count} bars from {start} to {end}")
 
@@ -788,6 +799,8 @@ class IBTWSClient(EWrapper, EClient):
 
         # Clear any existing historical data for this request
         self.historical_data.pop(req_id, None)
+        self.historical_data_errors.pop(req_id, None)
+        self.historical_data_done[req_id] = threading.Event()
 
         # Request historical data
         self.reqHistoricalData(req_id, contract, end_date_time, duration_str,

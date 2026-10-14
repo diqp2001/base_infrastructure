@@ -138,3 +138,64 @@ class LiveContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(LIVE, "set IBKR_LIVE_SMOKE=1 (and IBKR_HOST) to query the real Gateway")
+class LiveHistoricalDataTest(unittest.TestCase):
+    """InteractiveBrokersBroker.get_historical_data against the real Gateway (read-only)."""
+
+    @classmethod
+    def setUpClass(cls):
+        from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+        from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import resolve_endpoint
+        from src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker import InteractiveBrokersBroker
+
+        endpoint = resolve_endpoint("127.0.0.1", 7497, int(os.getenv("IBKR_SMOKE_HISTORY_CLIENT_ID", "95")))
+        cls.client = client = IBTWSClient(endpoint.host, endpoint.port, endpoint.client_id)
+        for name in BLOCKED:
+            setattr(client, name, lambda *a, _n=name, **k: (_ for _ in ()).throw(AssertionError(f"{_n} called")))
+        if not client.connect_to_tws():
+            raise unittest.SkipTest(f"no API handshake with {endpoint.host}:{endpoint.port}")
+        cls.broker = InteractiveBrokersBroker.__new__(InteractiveBrokersBroker)
+        cls.broker.logger = client.logger
+        cls.broker.ib_connection = client
+        cls.broker.max_import_ibkr = False
+        cls.broker._historical_data_cache = {}
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.disconnect_from_tws()
+        cls.assert_disconnected = not cls.client.isConnected()
+
+    def last_session_end(self):
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        day = datetime.now(ZoneInfo("US/Eastern")).replace(tzinfo=None) - timedelta(days=1)
+        while day.weekday() >= 5:
+            day -= timedelta(days=1)
+        return day.replace(hour=16, minute=0, second=0, microsecond=0)
+
+    def test_daily_bars_are_ordered_unique_and_consistent(self):
+        import time
+        started = time.monotonic()
+        bars = self.broker.get_historical_data(stock_contract("SPY"), end_date_time=self.last_session_end(),
+                                               duration_str="10 D", bar_size_setting="1 day",
+                                               what_to_show="TRADES", use_rth=True, timeout=60)
+        self.assertGreaterEqual(len(bars), 5, "expected about a week of daily bars")
+        dates = [b["date"] for b in bars]
+        self.assertEqual(dates, sorted(dates))
+        self.assertEqual(len(dates), len(set(dates)), "duplicate bars")
+        for b in bars:
+            self.assertTrue(0 < b["low"] <= min(b["open"], b["close"]) <= max(b["open"], b["close"]) <= b["high"], b)
+            self.assertGreaterEqual(float(b["volume"]), 0)
+        self.assertLess(time.monotonic() - started, 60)
+
+    def test_unknown_contract_ends_quickly_without_data(self):
+        import time
+        bad = Contract()
+        bad.symbol, bad.secType, bad.exchange, bad.currency = "SPY", "FUT", "CME", "USD"
+        started = time.monotonic()
+        self.assertEqual(self.broker.get_historical_data(bad, end_date_time=self.last_session_end(),
+                                                         duration_str="5 D", bar_size_setting="1 day", timeout=60), [])
+        self.assertLess(time.monotonic() - started, 30, "an IBKR error must end the request, not the timeout")
+

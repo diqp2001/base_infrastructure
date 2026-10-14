@@ -5,6 +5,7 @@ Root pytest configuration.
      tests/architecture/  -> architecture
      tests/unit/          -> unit
      tests/component/     -> component
+     tests/end_to_end/    -> e2e
      tests/repositories/  -> contract
      tests/integration/   -> integration (+ sql_server / ibkr per test class)
      SQLite-backed suites -> component
@@ -65,6 +66,8 @@ def pytest_collection_modifyitems(config, items):
             added.add("component")
         elif rel.startswith("unit/"):
             added.add("unit")
+        elif rel.startswith("end_to_end/"):
+            added.add("e2e")
         elif rel.startswith(("repositories/", "contracts/")):
             added.add("contract")
         elif rel.startswith("integration/"):
