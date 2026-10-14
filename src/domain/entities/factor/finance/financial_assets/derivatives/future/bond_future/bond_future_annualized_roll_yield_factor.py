@@ -19,14 +19,14 @@ class BondFutureAnnualizedRollYieldFactor(BondFutureFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        return ["start_price", "end_price"]
+        return ["start_price", "end_price", "time_to_maturity"]
 
     def calculate(self, dependencies: dict) -> Optional[Decimal]:
-        spot = dependencies.get("start_price")
-        future = dependencies.get("end_price")
-        if spot is None or future is None:
+        # maturity is an input: no hard-coded fallback (missing input -> no value)
+        spot, future, T = (dependencies.get(k) for k in ("start_price", "end_price", "time_to_maturity"))
+        if spot is None or future is None or T is None:
             return None
-        result = self.calculate_roll_yield(float(spot), float(future), T=0.25)
+        result = self.calculate_roll_yield(float(spot), float(future), T=float(T))
         return Decimal(str(result)) if result is not None else None
 
     def calculate_roll_yield(

@@ -3,6 +3,8 @@ Root pytest configuration.
 
 1. Markers from location — tests are classified without editing the (unittest-style) files:
      tests/architecture/  -> architecture
+     tests/unit/          -> unit
+     tests/component/     -> component
      tests/repositories/  -> contract
      tests/integration/   -> integration (+ sql_server / ibkr per test class)
      SQLite-backed suites -> component
@@ -59,6 +61,10 @@ def pytest_collection_modifyitems(config, items):
                 added.update(markers)
         if rel.startswith("architecture/"):
             added.add("architecture")
+        elif rel.startswith("component/"):
+            added.add("component")
+        elif rel.startswith("unit/"):
+            added.add("unit")
         elif rel.startswith("repositories/"):
             added.add("contract")
         elif rel.startswith("integration/"):

@@ -49,7 +49,8 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
         - Down factor: d = 1/u
         - Risk-neutral probability: p = (e^((r-q)*Δt) - d) / (u - d)
         """
-        if S <= 0 or K <= 0 or sigma <= 0 or T <= 0 or steps <= 0:
+        side = self._option_side(option_type)
+        if side is None or S <= 0 or K <= 0 or sigma <= 0 or T <= 0 or steps <= 0:
             return None
 
         try:
@@ -70,7 +71,7 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
             # Initialize option values at maturity
             option_values = []
             for i in range(steps + 1):
-                if option_type.lower() == "call":
+                if side == "call":
                     option_values.append(max(asset_prices[i] - K, 0))
                 else:  # put
                     option_values.append(max(K - asset_prices[i], 0))
@@ -87,7 +88,7 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
                     
                     # For American options, check early exercise
                     if american:
-                        if option_type.lower() == "call":
+                        if side == "call":
                             exercise_value = max(current_asset_price - K, 0)
                         else:  # put
                             exercise_value = max(K - current_asset_price, 0)
