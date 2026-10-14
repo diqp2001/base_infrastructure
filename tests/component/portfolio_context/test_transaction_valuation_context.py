@@ -521,7 +521,7 @@ class TestTemporal:
         assert {(r.factor_id, r.entity_id, r.value) for r in
                 t.p.session.query(FactorValueModel).filter(FactorValueModel.date == MON_16)} == mon_rows
 
-    @pytest.mark.xfail(strict=True, reason="GAP: positions carry no history — revaluing a past date after a later "
+    @pytest.mark.xfail(strict=True, reason="ACCEPTED (2026-10-14): positions carry no history — revaluing a past date after a later "
                                            "trade uses today's quantities and overwrites that date's stored snapshot")
     def test_revaluing_a_past_date_uses_the_quantities_held_then(self, tree):
         tree.trade("AAPL", 10, 150.0, MON_16)
