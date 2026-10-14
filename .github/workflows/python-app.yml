@@ -1,44 +1,111 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# Test pipeline (see tests/conftest.py for how tests are classified into markers).
+#
+#   Stage 1 — every push / PR:      architecture contracts + unit tests
+#   Stage 2 — pull requests:         component + repository contract tests, coverage report
+#   Stage 3 — nightly / on demand:   SQL Server integration tests (disposable SQL Server service,
+#                                    dedicated base_infra_test database)
+#   IBKR tests never run in CI (they need a logged-in Gateway and IBKR_LIVE_SMOKE=1).
 
 name: Python application
 
 on:
   push:
-  #Triggers the workflow when pushing to or making PRs from/to any GitFlow branch (feature/*, develop, etc.).
-    branches: 
-      - main
-      - develop
-      - feature/**
-      - hotfix/**
-      - release/**
+    branches: [main, develop, "feature/**", "hotfix/**", "release/**"]
   pull_request:
-    branches: 
-      - main
-      - develop
+    branches: [main, develop]
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  PYTHONUTF8: "1"
+
 jobs:
-  build:
-
+  unit:
+    name: Stage 1 - architecture and unit tests
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Test with unittests
-      run: |
-        PYTHONPATH=${{ github.workspace }} python -m unittest discover -s src/tests/ -p "test_*.py"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: System libraries (ODBC driver manager for pyodbc)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends unixodbc unixodbc-dev
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Architecture contracts
+        run: lint-imports
+      - name: Unit and architecture tests
+        run: python -m pytest -m "unit or architecture" -q
 
+  component:
+    name: Stage 2 - component and contract tests, coverage
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends unixodbc unixodbc-dev
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Fast suite with coverage (no external infrastructure)
+        run: |
+          python -m pytest -m "not integration and not sql_server and not ibkr and not performance" \
+            --cov --cov-report=term --cov-report=xml -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  sql_server:
+    name: Stage 3 - SQL Server integration tests
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD || 'Ci-Only-Passw0rd!' }}
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"
+          --health-interval 10s --health-timeout 5s --health-retries 20
+    env:
+      DB_HOST: localhost
+      DB_PORT: "1433"
+      DB_NAME: base_infra_test
+      DB_USER: sa
+      DB_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD || 'Ci-Only-Passw0rd!' }}
+      DB_TEST_DATABASE: base_infra_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: ODBC Driver 18 for SQL Server
+        run: |
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 mssql-tools18 unixodbc-dev
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Create the test database
+        run: /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$DB_PASSWORD" -Q "IF DB_ID('base_infra_test') IS NULL CREATE DATABASE base_infra_test"
+      - name: SQL Server integration tests
+        run: python -m pytest -m sql_server -q

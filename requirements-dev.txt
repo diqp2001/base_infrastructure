@@ -3,3 +3,7 @@
 # Debugger extension and is pinned here only for command-line use (python -m debugpy ...).
 -r requirements.txt
 debugpy==1.8.14
+# Test tooling (pytest itself is pinned in requirements.txt)
+pytest-cov==7.1.0
+hypothesis==6.169.1
+import-linter==2.15
