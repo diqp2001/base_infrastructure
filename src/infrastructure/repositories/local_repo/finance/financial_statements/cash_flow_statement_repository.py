@@ -5,6 +5,11 @@ from src.infrastructure.repositories.local_repo.base_repository import BaseLocal
 from sqlalchemy.orm import Session
 from typing import Optional
 class CashFlowStatementRepository(BaseLocalRepository):
+
+    @property
+    def model_class(self):
+        from src.infrastructure.models.finance.financial_statements.cash_flow_statement import CashFlowStatementModel
+        return CashFlowStatementModel
     
     def __init__(self, session: Session, factory, mapper: CashFlowStatementMapper = None):
         

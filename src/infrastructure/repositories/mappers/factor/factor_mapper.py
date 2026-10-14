@@ -400,6 +400,35 @@ try:
 except ImportError:
     pass
 
+# Factor families whose factor_type had no to_domain branch (they decoded as GenericFactor and
+# lost calculate / calculate_dependencies). Registered lazily, like the entries above.
+_LAZY_DISCRIMINATORS = {
+    'company_share_option_bates_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_bates_price_factor:CompanyShareOptionBatesPriceFactor',
+    'company_share_option_black_scholes_merton_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_black_scholes_merton_price_factor:CompanyShareOptionBlackScholesMertonPriceFactor',
+    'company_share_option_cox_ross_rubinstein_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_cox_ross_rubinstein_price_factor:CompanyShareOptionCoxRossRubinsteinPriceFactor',
+    'company_share_option_dupire_local_volatility_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_dupire_local_volatility_price_factor:CompanyShareOptionDupireLocalVolatilityPriceFactor',
+    'company_share_option_heston_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_price_factor:CompanyShareOptionHestonPriceFactor',
+    'company_share_option_hull_white_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor:CompanyShareOptionHullWhitePriceFactor',
+    'company_share_option_sabr_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_sabr_price_factor:CompanyShareOptionSABRPriceFactor',
+    'company_share_option_mid_price_factor': 'src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor:CompanyShareOptionMidPriceFactor',
+    'company_share_portfolio_holding_value_factor': 'src.domain.entities.factor.finance.holding.company_share_portfolio.company_share_portfolio_holding_value_factor:CompanySharePortfolioHoldingValueFactor',
+    'company_share_portfolio_portfolio_holding_value_factor': 'src.domain.entities.factor.finance.holding.company_share_portfolio_portfolio.company_share_portfolio_portfolio_holding_value_factor:CompanySharePortfolioPortfolioHoldingValueFactor',
+    'currency_portfolio_holding_value_factor': 'src.domain.entities.factor.finance.holding.currency_portfolio_holding_value_factor:CurrencyPortfolioHoldingValueFactor',
+    'currency_portfolio_portfolio_holding_value_factor': 'src.domain.entities.factor.finance.holding.currency_portfolio_portfolio.currency_portfolio_portfolio_holding_value_factor:CurrencyPortfolioPortfolioHoldingValueFactor',
+    'portfolio_holding_value_factor': 'src.domain.entities.factor.finance.holding.portfolio_holding_value_factor:PortfolioHoldingValueFactor',
+    'company_share_portfolio_value_factor': 'src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_value_factor:CompanySharePortfolioValueFactor',
+    'currency_portfolio_value_factor': 'src.domain.entities.factor.finance.portfolio.currency_portfolio_value_factor:CurrencyPortfolioValueFactor',
+}
+for _disc, _target in _LAZY_DISCRIMINATORS.items():
+    if _disc in DISCRIMINATOR_CLASS_MAP:
+        continue
+    try:
+        import importlib as _importlib
+        _mod, _cls = _target.split(':')
+        DISCRIMINATOR_CLASS_MAP[_disc] = getattr(_importlib.import_module(_mod), _cls)
+    except (ImportError, AttributeError):
+        pass
+
 
 
 def _get_entity_type_from_factor(factor) -> str:
@@ -756,6 +785,17 @@ class FactorMapper:
         elif factor_type == 'company_share_spatio_temporal_feature_factor':
             return CompanyShareSpatioTemporalFeatureFactor(**base_args)
         else:
+            # Known discriminator without an elif branch: build its own class so that
+            # calculate / calculate_dependencies are not lost.
+            mapped_cls = DISCRIMINATOR_CLASS_MAP.get(factor_type)
+            if mapped_cls is not None:
+                try:
+                    import inspect as _inspect
+                    accepted = _inspect.signature(mapped_cls.__init__).parameters
+                    kwargs = {k: v for k, v in base_args.items() if k in accepted}
+                    return mapped_cls(**kwargs)
+                except Exception:
+                    pass
             # Default to base Factor for unknown types
             # Since Factor is abstract, create a concrete implementation
             class GenericFactor(FactorEntity):

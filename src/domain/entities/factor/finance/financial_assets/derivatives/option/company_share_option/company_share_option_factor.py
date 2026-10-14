@@ -28,3 +28,13 @@ class CompanyShareOptionFactor(OptionFactor):
             factor_id=factor_id,
             **kwargs,
         )
+
+    @staticmethod
+    def _option_side(option_type) -> "str | None":
+        """'call' / 'put' from 'call' / 'put' / IBKR rights 'C' / 'P' (any case); None otherwise.
+
+        An unrecognised option type is never priced (it used to fall through to the put branch,
+        so an IBKR 'C' right was valued as a put)."""
+        side = str(option_type or "").strip().lower()
+        return {"call": "call", "c": "call", "put": "put", "p": "put"}.get(side)
+

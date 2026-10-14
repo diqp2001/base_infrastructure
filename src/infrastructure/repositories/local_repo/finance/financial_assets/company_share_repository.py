@@ -468,6 +468,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             return 1  # Default to 1 if query fails
 
     def _create_or_get(self, symbol: str, exchange_id: int = None,  currency: str = 'USD',
+                                    company_id: Optional[int] = None,
                                     start_date=None, end_date=None,
                                     company_name: Optional[str] = None,
                                     sector: Optional[str] = None, 
@@ -508,6 +509,11 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         if company_id is None:
             company_id = self._resolve_company_dependency(symbol, company_name, industry_name, country_name)
         
+        currency_id = self._resolve_currency_id(currency)
+        if currency_id is None:
+            print(f"Error creating company share for {symbol}: currency {currency!r} could not be resolved")
+            return None
+
         try:
             # Generate next available ID if not provided
             next_id = self._get_next_available_company_share_id()
@@ -517,6 +523,7 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             new_share = CompanyShareEntity(
                 id=next_id,
                 symbol=symbol,
+                currency_id=currency_id,
                 exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
                 company_id=company_id or 1,   # Default to 1 if resolution fails
                 start_date=start_date or _date.today(),
@@ -536,6 +543,16 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             print(f"Error creating company share for {symbol}: {str(e)}")
             return None
     
+    def _resolve_currency_id(self, iso_code: str) -> Optional[int]:
+        """Currency id for an ISO code, created through the currency repository if missing."""
+        try:
+            repo = self.factory.currency_local_repo if self.factory else None
+            currency = (repo.get_by_iso_code(iso_code) or repo._create_or_get(iso_code)) if repo else None
+            return currency.id if currency else None
+        except Exception as e:
+            print(f"Could not resolve currency {iso_code}: {e}")
+            return None
+
     def _resolve_exchange_dependency(self, ticker: str, exchange_name: Optional[str] = None) -> int:
         """Resolve exchange dependency for the company share."""
         try:

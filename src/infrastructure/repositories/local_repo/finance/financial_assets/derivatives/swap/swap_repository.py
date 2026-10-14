@@ -14,7 +14,8 @@ class SwapRepository(FinancialAssetRepository, SwapPort):
     
     def __init__(self, session: Session, factory, mapper: SwapMapper = None):
         """Initialize SwapRepository with database session."""
-        super().__init__(session, factory)
+        super().__init__(session)
+        self.factory = factory
         self.data_store = []
         self.mapper = mapper or SwapMapper()
     

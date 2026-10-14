@@ -80,6 +80,8 @@ class QCAlgorithm:
         self.benchmark: Optional[str] = None
         self.warmup_period: timedelta = timedelta(days=0)
         self.live_mode: bool = False
+        # Live trading: orders are handed to this handler (BrokerageTransactionHandler).
+        self.transaction_handler = None
         
         # Data tracking
         self._current_slice: Optional[Slice] = None
@@ -257,6 +259,15 @@ class QCAlgorithm:
             del self.securities[symbol]
             self.debug(f"Removed security: {symbol}")
     
+    def set_live_mode(self, live: bool) -> None:
+        """Live (True) or backtest (False). Live mode enables the broker reconciliation guard in
+        UnifiedPortfolioManager.set_holdings and makes market orders go to the transaction handler."""
+        self.live_mode = bool(live)
+
+    def set_transaction_handler(self, handler) -> None:
+        """Transaction handler that receives every order in live mode."""
+        self.transaction_handler = handler
+
     # ===========================================
     # Order Management Methods
     # ===========================================
@@ -370,9 +381,10 @@ class QCAlgorithm:
         """
         # Convert string to Symbol if needed
         if isinstance(symbol, str):
-            symbol = next((s for s in self.securities.keys() if s.value == symbol), None)
+            ticker = symbol
+            symbol = next((s for s in self.securities.keys() if s.value == ticker), None)
             if symbol is None:
-                symbol = Symbol.create_equity(kwargs.get('symbol', str(symbol)))
+                symbol = Symbol.create_equity(ticker)
         
         # Create the order
         direction = OrderDirection.BUY if quantity > 0 else OrderDirection.SELL
@@ -396,8 +408,19 @@ class QCAlgorithm:
         # Log the order
         self.debug(f"Submitted {order.order_type.value} order for {quantity} shares of {symbol}")
         
-        # In a real implementation, this would be sent to a broker
-        # For now, we'll immediately mark it as submitted
+        if self.live_mode:
+            # Live: the order goes to the brokerage through the transaction handler. Without one
+            # nothing may pretend an order was sent.
+            if self.transaction_handler is None:
+                raise RuntimeError(f"live mode: no transaction handler attached, order for {symbol} not sent")
+            if not self.transaction_handler.process_order(order):
+                ticket.status = OrderStatus.INVALID
+                self.error(f"Order for {quantity} {symbol} was rejected by the transaction handler")
+                return None
+            ticket.status = OrderStatus.SUBMITTED
+            return ticket
+
+        # Backtest: the order is recorded in memory; TradeManager simulates the fill.
         ticket.status = OrderStatus.SUBMITTED
         
         return ticket

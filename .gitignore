@@ -32,3 +32,12 @@ secrets/
 results/
 weights/
 reports/
+
+# test tooling output
+.import_linter_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.hypothesis/

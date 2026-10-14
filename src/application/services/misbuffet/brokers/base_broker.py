@@ -165,7 +165,8 @@ class BaseBroker(IBrokerage, ABC):
             return False
         
         try:
-            self.logger.info(f"Placing order: {order.symbol} {order.quantity} {order.type}")
+            order_type = getattr(order, "order_type", None) or getattr(order, "type", None)
+            self.logger.info(f"Placing order: {order.symbol} {order.quantity} {order_type}")
             
             # Validate order
             if not self._validate_order(order):

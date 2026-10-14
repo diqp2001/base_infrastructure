@@ -453,6 +453,11 @@ class NullMessagingHandler:
     pass
 
 
+class StreamingMessagingHandler(NullMessagingHandler):
+    """Streaming messaging handler placeholder (no streaming backend configured)."""
+    pass
+
+
 class JobQueueHandler:
     """Basic job queue handler."""
     pass

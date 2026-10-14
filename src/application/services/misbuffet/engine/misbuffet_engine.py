@@ -337,6 +337,10 @@ class MisbuffetEngine(BaseEngine):
                 
                 self.logger.info(f"Portfolio setup complete with initial capital: {initial_capital}")
             
+            # Live trading: brokerage handler + live mode on the algorithm (no-op for backtests)
+            if self.algorithm:
+                self._wire_live_trading(config)
+
             # Initialize algorithm - this is where initialize() should be called
             if self.algorithm and hasattr(self.algorithm, 'initialize'):
                 self.logger.info("Calling algorithm.initialize()...")
@@ -908,6 +912,30 @@ class MisbuffetEngine(BaseEngine):
             self.logger.error(f"Error in main execution loop: {e}")
             self._errors.append(f"Main loop error: {str(e)}")
             raise
+
+    def _wire_live_trading(self, config) -> None:
+        """
+        config.live_mode=True: orders must reach the broker. Builds a BrokerageTransactionHandler on
+        config.brokerage (e.g. InteractiveBrokersBroker), hands it to the algorithm and switches the
+        algorithm to live mode (which also arms the reconciliation guard in set_holdings).
+        Fails hard when no brokerage is configured — a live run never falls back to simulation.
+        """
+        if not getattr(config, 'live_mode', False):
+            return
+        brokerage = getattr(config, 'brokerage', None)
+        if brokerage is None:
+            raise RuntimeError("live_mode=True requires config.brokerage (e.g. an InteractiveBrokersBroker)")
+        from .transaction_handlers import BrokerageTransactionHandler
+        from .enums import EngineMode
+        if not isinstance(self._transaction_handler, BrokerageTransactionHandler):
+            self._transaction_handler = BrokerageTransactionHandler()
+        self._transaction_handler.initialize(self.algorithm, brokerage)
+        self.transaction_handler = self._transaction_handler
+        self.algorithm.set_live_mode(True)
+        self.algorithm.set_transaction_handler(self._transaction_handler)
+        if getattr(self, '_job', None) is not None:
+            self._job.engine_mode = EngineMode.LIVE_TRADING
+        self.logger.info("Live trading: orders go to the brokerage through BrokerageTransactionHandler")
 
     def _create_handlers(self) -> bool:
         """Create and configure engine handlers. Required by BaseEngine."""

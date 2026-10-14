@@ -1,0 +1,114 @@
+# Tooling configuration only (no packaging): pytest, coverage, import-linter.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "unit: pure logic, no database, network or broker (default for tests outside integration/)",
+    "component: one bounded context with real domain/application classes and fake infrastructure",
+    "contract: the same behavioural contract run against every implementation of a port",
+    "architecture: dependency-direction and cycle rules (import-linter)",
+    "integration: needs real infrastructure (SQL Server, IB Gateway, Docker services)",
+    "sql_server: needs the SQL Server test database (DB_HOST + the dedicated test database)",
+    "ibkr: needs a logged-in IB Gateway / TWS (read-only; opt in with IBKR_LIVE_SMOKE=1)",
+    "e2e: workflow across several layers on a deterministic dataset",
+    "property: Hypothesis property-based test",
+    "performance: benchmark-style test, excluded from the fast suite",
+    "concurrency: concurrent writers / resolvers, real database only",
+    "slow: takes more than a few seconds",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = ["*/__pycache__/*", "*/tests/*"]
+
+[tool.coverage.report]
+# baseline 2026-10-14: 32.0 % (fast suite, line + branch). Raise as coverage grows; never lower.
+fail_under = 31.5
+skip_empty = true
+show_missing = false
+precision = 1
+
+# ---------------------------------------------------------------------------------------------
+# Architecture rules.  Run:  lint-imports
+#
+# Existing violations are listed in ignore_imports so that the rules can be enforced now: a NEW
+# forbidden import fails CI, every listed one is known technical debt to remove (never add to
+# these lists to make a change pass — fix the dependency instead).
+# ---------------------------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["src"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Domain is independent of infrastructure, application, interfaces, SQLAlchemy and IBKR"
+type = "forbidden"
+source_modules = ["src.domain"]
+forbidden_modules = ["src.infrastructure", "src.application", "src.interfaces", "sqlalchemy", "ibapi"]
+ignore_imports = [
+    # known debt (2026-10-14)
+    "src.domain.database -> src.infrastructure.database.model_registry",
+    "src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor -> src.application.services.data.entities.factor.dynamic_dependency_requirements",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application reaches persistence through repositories, never ORM models directly"
+type = "forbidden"
+source_modules = ["src.application"]
+forbidden_modules = ["src.infrastructure.models"]
+allow_indirect_imports = true
+ignore_imports = [
+    # known debt (2026-10-14): direct ORM queries in application code
+    "src.application.services.misbuffet.algorithm.unified_portfolio_manager -> src.infrastructure.models.**",
+    "src.application.services.misbuffet.algorithm.trade_manager -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.finance.portfolio_service -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml_model_trainer -> src.infrastructure.models.**",
+    "src.application.services.misbuffet.results.result_storage -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.spatio_temporal_momentum.stm_feature_store -> src.infrastructure.models.**",
+    "src.application.services.misbuffet.data.market_data_history_service -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.spatio_temporal_momentum.stm_price_history -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_model_trainer -> src.infrastructure.models.**",
+    "src.application.services.data.entities.factor.factor_value_resolution_service -> src.infrastructure.models.**",
+    "src.application.services.data.entities.entity_upload_service -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.market_making_SPX_call_spread_project.backtesting.base_project_algorithm -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.data.position_book -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.spatio_temporal_momentum_project.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.spatio_temporal_momentum_project.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.spatio_temporal_momentum_project_full.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.spatio_temporal_momentum_project_full.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.market_making_project.data.data_loader -> src.infrastructure.models.**",
+]
+
+[[tool.importlinter.contracts]]
+name = "Infrastructure does not import the application layer"
+type = "forbidden"
+source_modules = ["src.infrastructure"]
+forbidden_modules = ["src.application"]
+allow_indirect_imports = true
+ignore_imports = [
+    # known debt (2026-10-14)
+    "src.infrastructure.repositories.fmp_repo.fmp_repository -> src.application.services.api_service.fmp_service.financial_modeling_prep_api_service",
+    "src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository -> src.application.services.data.entities.factor.**",
+    "src.infrastructure.repositories.local_repo.factor.factor_repository -> src.application.services.data.entities.factor.factor_library.factor_definition_config",
+    "src.infrastructure.repositories.local_repo.factor.factor_value_repository -> src.application.services.data.entities.factor.**",
+    "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_ml_factor_repository -> src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml_model_provider",
+    "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor_repository -> src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_model_provider",
+    "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_spatio_temporal_momentum_factor_repository -> src.application.services.data.entities.factor.spatio_temporal_momentum.stm_model_provider",
+    "src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository -> src.application.services.api_service.ibkr_service.market_data",
+    "src.infrastructure.repositories.repository_factory -> src.application.services.misbuffet.brokers.broker_factory",
+    "src.infrastructure.algorithm.base_algorithm -> src.application.services.misbuffet.**",
+    "src.infrastructure.algorithm.infrastructure_algorithm -> src.application.services.misbuffet.**",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the interfaces layer imports the interfaces layer"
+type = "forbidden"
+source_modules = ["src.domain", "src.application", "src.infrastructure"]
+forbidden_modules = ["src.interfaces"]
+allow_indirect_imports = true
+ignore_imports = [
+    # known debt (2026-10-14)
+    "src.application.services.misbuffet.web.web_interface -> src.interfaces.flask.app",
+]

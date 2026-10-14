@@ -596,6 +596,9 @@ class MarketDataHistoryService:
     _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
         ('volatility', 'implied',    'ibkr'): 'OPTION_IMPLIED_VOLATILITY',
         ('volatility', 'historical', 'ibkr'): 'HISTORICAL_VOLATILITY',
+        # Options use MIDPOINT: deep OTM strikes have no TRADES data (IBKR error 162).
+        # Same table as IBKRFactorValueRepository._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.
+        ('price',      'option',     'ibkr'): 'MIDPOINT',
     }
 
     def _resolve_what_to_show_for_factor(self, factor) -> str:

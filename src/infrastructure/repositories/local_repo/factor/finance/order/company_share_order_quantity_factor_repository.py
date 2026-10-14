@@ -56,7 +56,7 @@ class CompanyShareOrderQuantityFactorRepository(BaseFactorRepository, CompanySha
                 subgroup=kwargs.get('subgroup', 'quantity'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'numeric'),
-                source=kwargs.get('source', 'order_system'),
+                source=kwargs.get('source', 'calculated'),
                 definition=kwargs.get('definition', f'company_share order quantity factor: {primary_key}')
             )
             

@@ -51,7 +51,8 @@ class CompanyShareOptionBlackScholesMertonPriceFactor(CompanyShareOptionFactor):
         d1 = [ln(S/K) + (r - q + σ²/2)*T] / (σ*√T)
         d2 = d1 - σ*√T
         """
-        if S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
+        side = self._option_side(option_type)
+        if side is None or S <= 0 or K <= 0 or sigma <= 0 or T <= 0:
             return None
 
         try:
@@ -60,7 +61,7 @@ class CompanyShareOptionBlackScholesMertonPriceFactor(CompanyShareOptionFactor):
             d2 = d1 - sigma * math.sqrt(T)
 
             # Calculate option price with dividend adjustment
-            if option_type.lower() == "call":
+            if side == "call":
                 price = (S * math.exp(-q * T) * self._norm_cdf(d1) - 
                         K * math.exp(-r * T) * self._norm_cdf(d2))
             else:  # put

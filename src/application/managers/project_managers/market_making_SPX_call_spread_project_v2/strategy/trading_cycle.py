@@ -21,6 +21,7 @@ market_making_SPX_call_spread_project Algorithm.on_data, in the same order:
 """
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -72,6 +73,11 @@ def _jsonable(targets):
     return {getattr(k, '__name__', str(k)): v for k, v in targets.items()}
 
 
+def _refused(set_holdings_result) -> bool:
+    """set_holdings returns {ticker: False} for every target it refused."""
+    return isinstance(set_holdings_result, dict) and any(v is False for v in set_holdings_result.values())
+
+
 def bar_close(data, symbol: str) -> Optional[float]:
     """Close of ``symbol`` in a Misbuffet Slice (Symbol keys) or a plain {symbol: bar} dict."""
     bars = getattr(data, 'bars', None)
@@ -113,9 +119,13 @@ class SPXCallSpreadTradingCycle:
         # 2. entry: only when the book is flat in the option
         if self.option_ticker and portfolio.quantity(self.option_ticker) == 0:
             targets = {CompanyShareOption: {'name': self.option_ticker, 'weight': self.option_entry_weight}}
-            portfolio.set_holdings(targets, data)
-            result.option_order = targets
-            self.log(f"Option entry {self.option_ticker} weight {self.option_entry_weight} at {time}")
+            sent = portfolio.set_holdings(targets, data)
+            if _refused(sent):
+                result.note = f"option entry refused by set_holdings: {sent}"
+                self.logger.warning(f"Option entry {self.option_ticker} refused at {time}: {sent}")
+            else:
+                result.option_order = targets
+                self.log(f"Option entry {self.option_ticker} weight {self.option_entry_weight} at {time}")
 
         # 3. book after the entry, with greeks resolved at the bar time
         positions = self.position_book.load_positions(time)
@@ -139,8 +149,16 @@ class SPXCallSpreadTradingCycle:
         if hedge.get('should_hedge') and hedge.get('target_hedge_delta') is not None:
             result.hedge_spot = bar_close(data, self.hedge_symbol)
             target = float(hedge['target_hedge_delta'])
+            if not math.isfinite(target):
+                result.error = f"hedge size is not finite ({target}); no hedge sent"
+                self.logger.error(result.error)
+                return result
             targets = {CompanyShare: {'name': self.hedge_symbol, 'quantity': target}}
-            portfolio.set_holdings(targets, data)
+            sent = portfolio.set_holdings(targets, data)
+            if _refused(sent):
+                result.note = f"hedge refused by set_holdings: {sent}"
+                self.logger.warning(f"Delta hedge {self.hedge_symbol} refused at {time}: {sent}")
+                return result
             result.hedge_order = targets
             self.log(f"Delta hedge {hedge.get('hedge_direction', '')}: {self.hedge_symbol} qty {target:.4f} "
                      f"(spot {result.hedge_spot}, book delta {result.portfolio_delta})")

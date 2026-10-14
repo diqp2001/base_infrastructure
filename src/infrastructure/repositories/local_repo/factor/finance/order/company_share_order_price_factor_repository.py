@@ -56,7 +56,7 @@ class CompanyShareOrderPriceFactorRepository(BaseFactorRepository, CompanyShareO
                 subgroup=kwargs.get('subgroup', 'price'),
                 frequency=kwargs.get('frequency', '1d'),
                 data_type=kwargs.get('data_type', 'decimal'),
-                source=kwargs.get('source', 'order_system'),
+                source=kwargs.get('source', 'calculated'),
                 definition=kwargs.get('definition', f'company_share order price factor: {primary_key}')
             )
             

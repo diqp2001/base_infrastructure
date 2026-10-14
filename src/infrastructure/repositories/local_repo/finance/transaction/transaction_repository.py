@@ -172,12 +172,12 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
                 - portfolio_id: Portfolio ID (optional)
                 - holding_id: Holding ID (optional) 
                 - order_id: Order ID (optional)
-                - date: Transaction date (default: now)
+                - date: Transaction date (required — no wall-clock default)
                 - transaction_type: TransactionType enum (default: MARKET_ORDER)
                 - account_id: Account identifier (optional)
-                - trade_date: Trade date (default: today)
-                - value_date: Value date (default: today)
-                - settlement_date: Settlement date (default: today)
+                - trade_date: Trade date (default: the transaction date)
+                - value_date: Value date (default: the transaction date)
+                - settlement_date: Settlement date (default: the transaction date)
                 - status: TransactionStatus enum (default: PENDING)
                 - spread: Transaction spread (default: 0.0)
                 - currency_id: Currency ID (default: 1)
@@ -200,7 +200,13 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
                 logger.debug(f"Transaction {transaction_id} already exists, returning existing entity")
                 return existing_transaction
             
-            # Step 2: Create new entity if not found
+            # Step 2: Create new entity if not found.  The transaction date is required: a
+            # wall-clock default would stamp backtest transactions with today's date.
+            if kwargs.get('date') is None:
+                logger.error(f"Transaction {transaction_id} refused: no date given")
+                return None
+            txn_date = kwargs['date']
+            txn_day = txn_date.date() if isinstance(txn_date, datetime) else txn_date
             logger.info(f"Creating new transaction: {transaction_id}")
             
             # Get next available ID
@@ -215,13 +221,13 @@ class TransactionRepository(BaseLocalRepository, TransactionPort):
                 portfolio_id=kwargs.get('portfolio_id'),
                 holding_id=kwargs.get('holding_id'),
                 order_id=kwargs.get('order_id'),
-                date=kwargs.get('date', datetime.now()),
+                date=txn_date,
                 transaction_type=kwargs.get('transaction_type', TransactionType.MARKET_ORDER),
                 transaction_id=transaction_id,
                 account_id=kwargs.get('account_id'),
-                trade_date=kwargs.get('trade_date', date.today()),
-                value_date=kwargs.get('value_date', date.today()),
-                settlement_date=kwargs.get('settlement_date', date.today()),
+                trade_date=kwargs.get('trade_date') or txn_day,
+                value_date=kwargs.get('value_date') or txn_day,
+                settlement_date=kwargs.get('settlement_date') or txn_day,
                 status=kwargs.get('status', TransactionStatus.PENDING),
                 spread=kwargs.get('spread', 0.0),
                 currency_id=kwargs.get('currency_id', 1),  # Default to USD

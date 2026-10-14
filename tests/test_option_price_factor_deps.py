@@ -68,8 +68,18 @@ class TestOptionPriceFactorDeps(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.db_service = DatabaseService(DB_TYPE)
-        cls.factory = RepositoryFactory(cls.db_service.session)
+        cls.results = {}
+        # Integration test: needs the SQL Server database seeded with OPTION_SYMBOL and its
+        # dependency rows. Skip (not fail) when that data is not there.
+        try:
+            cls.db_service = DatabaseService(DB_TYPE)
+            cls.factory = RepositoryFactory(cls.db_service.session)
+            repo = cls.factory.get_local_repository("CompanyShareOption")
+            option = repo.get_by_symbol(OPTION_SYMBOL) if repo else None
+        except Exception as e:
+            raise unittest.SkipTest(f"integration: database not reachable ({type(e).__name__})")
+        if option is None:
+            raise unittest.SkipTest(f"integration: '{OPTION_SYMBOL}' and its factor rows are not in the database")
         cls.resolution_service = FactorValueResolutionService(
             factory=cls.factory,
             logger=logging.getLogger("option_dep_test"),
@@ -78,6 +88,8 @@ class TestOptionPriceFactorDeps(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        if not getattr(cls, "results", None):
+            return
         print("\n" + "=" * 70)
         print("OPTION PRICE FACTOR — DEPENDENCY RESOLUTION SUMMARY")
         print("=" * 70)

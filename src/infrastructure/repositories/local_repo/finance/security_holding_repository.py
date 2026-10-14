@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 from src.infrastructure.repositories.local_repo.base_repository import BaseLocalRepository
 class SecurityHoldingRepository(BaseLocalRepository):
     """Local repository for security holding model"""
+
+    @property
+    def model_class(self):
+        from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
+        return SecurityHoldingModel
     
     def __init__(self, session: Session):
         super().__init__(session)

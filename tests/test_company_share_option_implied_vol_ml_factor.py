@@ -322,8 +322,12 @@ class TestImpliedVolMlModelProvider(unittest.TestCase):
         provider = self._make_provider(factory=None)
         entity = _make_entity()
         deps = _make_deps()
-        # Even if features extracted, model cannot be loaded/trained without factory
-        result = provider.predict(deps, entity, date(2026, 6, 1))
+        # Even if features extracted, model cannot be loaded/trained without factory.
+        # stdout captured: the trainer prints non-ASCII status marks, which raise
+        # UnicodeEncodeError on a redirected cp1252 Windows stdout (run with PYTHONUTF8=1).
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = provider.predict(deps, entity, date(2026, 6, 1))
         self.assertIsNone(result)
 
     def test_regime_key_is_deterministic(self):

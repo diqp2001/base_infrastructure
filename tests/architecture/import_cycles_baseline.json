@@ -1,0 +1,67 @@
+{
+  "src": [
+    [
+      "application",
+      "domain",
+      "dto",
+      "infrastructure",
+      "interfaces"
+    ]
+  ],
+  "src.application.managers.project_managers.market_making_SPX_call_spread_project_v2": [
+    [
+      "models",
+      "strategy"
+    ]
+  ],
+  "src.application.services.misbuffet": [
+    [
+      "engine",
+      "launcher"
+    ]
+  ],
+  "src.domain.entities": [
+    [
+      "factor",
+      "finance"
+    ]
+  ],
+  "src.domain.entities.factor.finance": [
+    [
+      "holding",
+      "portfolio"
+    ]
+  ],
+  "src.domain.entities.factor.finance.financial_assets": [
+    [
+      "currency",
+      "derivatives"
+    ]
+  ],
+  "src.domain.entities.finance": [
+    [
+      "holding",
+      "portfolio"
+    ]
+  ],
+  "src.infrastructure.models.factor": [
+    [
+      "company_share_technical_momentum_factor_models",
+      "factor"
+    ]
+  ],
+  "src.infrastructure.repositories.ibkr_repo": [
+    [
+      "factor",
+      "finance"
+    ]
+  ],
+  "src.infrastructure.repositories.local_repo.finance": [
+    [
+      "holding",
+      "order",
+      "portfolio",
+      "transaction"
+    ]
+  ]
+}

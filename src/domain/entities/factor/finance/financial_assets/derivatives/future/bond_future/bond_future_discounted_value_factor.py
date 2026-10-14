@@ -20,13 +20,14 @@ class BondFutureDiscountedValueFactor(BondFutureFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        return ["future_price"]
+        return ["future_price", "risk_free_rate", "time_to_maturity"]
 
     def calculate(self, dependencies: dict) -> Optional[Decimal]:
-        future = dependencies.get("future_price")
-        if future is None:
+        # rate and maturity are inputs: no hard-coded fallback (missing input -> no value)
+        future, r, T = (dependencies.get(k) for k in ("future_price", "risk_free_rate", "time_to_maturity"))
+        if future is None or r is None or T is None:
             return None
-        result = self.calculate_discounted_value(float(future), r=0.053, T=0.25)
+        result = self.calculate_discounted_value(float(future), r=float(r), T=float(T))
         return Decimal(str(result)) if result is not None else None
 
     def calculate_discounted_value(

@@ -282,9 +282,12 @@ class PortfolioRepository(BaseLocalRepository, PortfolioPort):
                 holding_repo._delete_by_portfolio_ids(ids_csv)
                 position_repo._delete_by_portfolio_ids(ids_csv)
 
-                # Clear stale factor_values so current run writes fresh values
+                # Clear stale factor_values OF THESE PORTFOLIOS so the current run writes fresh
+                # values. Entity ids are only unique per entity type: without the type filter this
+                # deleted the price history of any share / option / holding with the same id.
                 self.session.execute(text(
-                    f"DELETE FROM factor_values WHERE entity_id IN ({ids_csv})"
+                    f"DELETE FROM factor_values WHERE entity_id IN ({ids_csv}) "
+                    f"AND (entity_type LIKE '%PortfolioModel' OR entity_type LIKE '%Portfolio')"
                 ))
                 self.session.flush()
                 logger.info(

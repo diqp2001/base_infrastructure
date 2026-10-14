@@ -37,6 +37,9 @@ def calculate_performance_metrics(
         annualized_return = (1 + total_return) ** (252 / len(daily_returns)) - 1
 
         volatility = np.std(returns_array) * np.sqrt(252)
+        # constant returns give a std of ~1e-18 (float rounding), not exactly 0
+        if volatility < 1e-12:
+            volatility = 0.0
         sharpe_ratio = annualized_return / volatility if volatility != 0 else 0.0
 
         cumulative_returns = np.cumprod(1 + returns_array)

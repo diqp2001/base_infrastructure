@@ -162,7 +162,8 @@ class CompanyShareOptionDeltaFactor(CompanyShareOptionFactor):
         dividend_yield: float = 0.0,
     ) -> Optional[float]:
         """BSM delta: exp(-q·T)·N(d₁) for calls, exp(-q·T)·(N(d₁)-1) for puts."""
-        if stock_price <= 0 or strike_price <= 0 or sigma <= 0 or time_to_expiry <= 0:
+        side = self._option_side(option_type)
+        if side is None or stock_price <= 0 or strike_price <= 0 or sigma <= 0 or time_to_expiry <= 0:
             return None
         try:
             sqrt_T = math.sqrt(time_to_expiry)
@@ -172,7 +173,7 @@ class CompanyShareOptionDeltaFactor(CompanyShareOptionFactor):
             ) / (sigma * sqrt_T)
             exp_qT = math.exp(-dividend_yield * time_to_expiry)
             nd1 = self._norm_cdf(d1)
-            if option_type.lower() == "call":
+            if side == "call":
                 return exp_qT * nd1
             return exp_qT * (nd1 - 1.0)
         except (ValueError, ZeroDivisionError, OverflowError):

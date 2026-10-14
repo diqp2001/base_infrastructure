@@ -20,13 +20,14 @@ class BondFutureForwardPriceFactor(BondFutureFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        return ["spot_price"]
+        return ["spot_price", "risk_free_rate", "time_to_maturity"]
 
     def calculate(self, dependencies: dict) -> Optional[Decimal]:
-        spot = dependencies.get("spot_price")
-        if spot is None:
+        # rate and maturity are inputs: no hard-coded fallback (missing input -> no value)
+        spot, r, T = (dependencies.get(k) for k in ("spot_price", "risk_free_rate", "time_to_maturity"))
+        if spot is None or r is None or T is None:
             return None
-        result = self.calculate_forward_price(float(spot), r=0.053, T=0.25)
+        result = self.calculate_forward_price(float(spot), r=float(r), T=float(T))
         return Decimal(str(result)) if result is not None else None
 
     def calculate_forward_price(

@@ -113,14 +113,6 @@ class FactorValueResolutionService:
             formatted_date = self._format_date(time_date)
             parsed_date = self._parse_date(formatted_date)
 
-            # Check if factor value already exists (skip when caller demands a fresh compute)
-            if not force_recalculate:
-                existing_value = self._check_existing_value(
-                    factor_entity.id, entity_id, entity_type, formatted_date, repository_type
-                )
-                if existing_value:
-                    return existing_value
-
             # Get factor dependencies from database
             dependencies = self._get_factor_dependencies(factor_entity.id)
 
@@ -158,6 +150,17 @@ class FactorValueResolutionService:
             has_calculate_function = callable(getattr(_factor_domain_cls, 'calculate', None))
             # True only when the factor declares its deps programmatically (calculate_dependencies).
             has_dynamic_dependencies = hasattr(_factor_domain_cls, 'calculate_dependencies')
+
+            # Check if factor value already exists (skip when caller demands a fresh compute).
+            # A derived factor (computed from dependencies) is only reused for this exact date:
+            # serving the most recent earlier value would hide a newer input (stale price).
+            if not force_recalculate:
+                existing_value = self._check_existing_value(
+                    factor_entity.id, entity_id, entity_type, formatted_date, repository_type,
+                    derived=bool(dependencies) or has_dynamic_dependencies,
+                )
+                if existing_value:
+                    return existing_value
 
             if dependencies or has_dynamic_dependencies:
                 self.logger.info(
@@ -274,7 +277,7 @@ class FactorValueResolutionService:
             # Try alternative format
             return datetime.strptime(date_str, "%Y-%m-%d")
 
-    def _is_factor_compatible_with_entity(self, factor_entity, entity) -> bool:
+    def _is_factor_compatible_with_entity(self, factor_entity, entity, explicit: bool = False):
         """Return True if factor_entity's type is valid for entity's type.
 
         Uses only the MOST SPECIFIC entity class in the MRO that has a direct
@@ -312,9 +315,20 @@ class FactorValueResolutionService:
                     valid_factor_bases = ENTITY_FACTOR_MAPPING[entity_cls]
                     return any(issubclass(factor_cls, base) for base in valid_factor_bases)
 
-            return True  # No mapping for this entity type — allow through
+            return None if explicit else True  # No mapping for this entity type — allow through
         except Exception:
-            return True  # On any import/lookup error, allow through
+            return None if explicit else True  # On any import/lookup error, allow through
+
+    def _dependency_targets(self, dep_factor, entities: list) -> list:
+        """
+        Entities a dependency factor is resolved on. When some entities are explicitly
+        compatible with the factor (ENTITY_FACTOR_MAPPING hit, e.g. the share for a share
+        factor), only those are used — an entity with no mapping (e.g. the holding being valued)
+        would otherwise get the dependency computed on itself and its value summed in.
+        """
+        verdicts = [(e, self._is_factor_compatible_with_entity(dep_factor, e, explicit=True)) for e in entities]
+        explicit = [e for e, ok in verdicts if ok is True]
+        return explicit if explicit else [e for e, ok in verdicts if ok is not False]
 
     def _get_bar_offset_seconds(self, factor_id: int) -> int:
         """Bar availability offset for a factor (see Factor.bar_availability_offset_seconds)."""
@@ -331,6 +345,14 @@ class FactorValueResolutionService:
         self._bar_offset_cache[factor_id] = offset
         return offset
 
+    @staticmethod
+    def _entity_type_variants(entity_type: Optional[str]) -> list:
+        """Stored entity_type spellings of one entity kind: 'X' and 'XModel' (both are in use)."""
+        if entity_type is None:
+            return [None]
+        base = entity_type.removesuffix('Model')
+        return [base, base + 'Model']
+
     def _check_existing_value(
         self,
         factor_id: int,
@@ -338,21 +360,19 @@ class FactorValueResolutionService:
         entity_type: Optional[str],
         date_str: str,
         repository_type: str,
+        derived: bool = False,
     ) -> Optional[FactorValue]:
         """Check if factor value already exists in the repository.
 
-        Three-step fallback:
-        1. Exact date + entity_type match (normal case).
-        2. Exact date without entity_type filter — catches values stored via a
-           base-class entity (e.g. entity_type='FinancialAsset' when the caller
-           looks for 'CompanyShare').  Only tried when entity_type is not None.
-        Raw IBKR bar factors skip these steps and return the latest bar that
-        had closed by ``date_str`` (no look-ahead).
+        Values are always matched on (factor, entity id, entity type): entity ids are only
+        unique per entity table, so a lookup by id alone returns another entity's value
+        (e.g. a holding priced with the close of the share that happens to have the same id).
+        'X' and 'XModel' are treated as the same entity type (both spellings are stored).
 
-        3. Most-recent-before (date ≤ target) without entity_type filter —
-           catches intraday bar timestamp lag (e.g. first bar closes at 09:45
-           but algorithm resolves at 09:30).  Only tried for intraday targets
-           (time component != 00:00:00).
+        Raw IBKR bar factors return the latest bar that had closed by ``date_str``
+        (no look-ahead). Other factors: exact date first; then, for non-derived factors
+        and intraday targets only, the most recent value before the target (bar timestamp
+        lag). Derived factors are never served from an earlier date — they are recomputed.
         """
         try:
             if repository_type == "local":
@@ -362,6 +382,8 @@ class FactorValueResolutionService:
 
             if not (repo and hasattr(repo, 'get_by_factor_entity_date')):
                 return None
+
+            entity_types = self._entity_type_variants(entity_type)
 
             # Raw IBKR bars are stamped with their START time, so an exact or
             # "most recent <= target" match can return a bar that is still open
@@ -374,29 +396,32 @@ class FactorValueResolutionService:
                 )
                 if bar_repo is None or not hasattr(bar_repo, 'get_latest_available_bar'):
                     return None
-                return bar_repo.get_latest_available_bar(
-                    factor_id, entity_id, date_str,
-                    bar_seconds=bar_offset,
-                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
-                    entity_type=None,
-                )
+                for et in entity_types:
+                    result = bar_repo.get_latest_available_bar(
+                        factor_id, entity_id, date_str,
+                        bar_seconds=bar_offset,
+                        max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
+                        entity_type=et,
+                    )
+                    if result:
+                        return result
+                return None
 
-            # Step 1: exact date + entity_type
-            result = repo.get_by_factor_entity_date(factor_id, entity_id, date_str, entity_type=entity_type)
-            if result:
-                return result
-
-            # Step 2: exact date, no entity_type filter (base-class storage mismatch)
-            if entity_type is not None:
-                result = repo.get_by_factor_entity_date(factor_id, entity_id, date_str, entity_type=None)
+            # Exact date, same entity type
+            for et in entity_types:
+                result = repo.get_by_factor_entity_date(factor_id, entity_id, date_str, entity_type=et)
                 if result:
                     return result
 
-            # Step 3: most-recent-before for intraday lookups (bar timestamp lag)
-            parsed = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-            if parsed.time() != parsed.replace(hour=0, minute=0, second=0).time():
-                if hasattr(repo, 'get_most_recent_before'):
-                    return repo.get_most_recent_before(factor_id, entity_id, date_str, entity_type=None)
+            # Most-recent-before for intraday lookups (bar timestamp lag) — raw values only
+            if not derived:
+                parsed = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                if parsed.time() != parsed.replace(hour=0, minute=0, second=0).time():
+                    if hasattr(repo, 'get_most_recent_before'):
+                        for et in entity_types:
+                            result = repo.get_most_recent_before(factor_id, entity_id, date_str, entity_type=et)
+                            if result:
+                                return result
 
             return None
         except Exception as e:
@@ -735,7 +760,7 @@ class FactorValueResolutionService:
         dep_discriminator = getattr(getattr(dep_repo, 'mapper', None), 'discriminator', None)
         total: Optional[float] = None
 
-        for related_entity in related_entities:
+        for related_entity in self._dependency_targets(dep_factor_entity, related_entities):
             related_entity_id = getattr(related_entity, 'id', None)
             if not related_entity_id:
                 continue
@@ -1024,7 +1049,7 @@ class FactorValueResolutionService:
 
         values: List[float] = []
         for dep_factor in matching_factors:
-            for related_entity in related_entities:
+            for related_entity in self._dependency_targets(dep_factor, related_entities):
                 related_id = getattr(related_entity, 'id', None)
                 if not related_id:
                     continue

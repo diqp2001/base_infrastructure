@@ -5,6 +5,11 @@ from src.infrastructure.repositories.local_repo.base_repository import BaseLocal
 from sqlalchemy.orm import Session
 from typing import Optional
 class FinancialStatementRepository(BaseLocalRepository):
+
+    @property
+    def model_class(self):
+        from src.infrastructure.models.finance.financial_statements.financial_statement import FinancialStatementModel
+        return FinancialStatementModel
     
     def __init__(self, session: Session, factory, mapper: FinancialStatementMapper = None):
         

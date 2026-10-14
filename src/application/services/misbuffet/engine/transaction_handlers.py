@@ -125,7 +125,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                 open_orders = []
                 
                 for order in self._orders.values():
-                    if order.status in [OrderStatus.NEW, OrderStatus.SUBMITTED, OrderStatus.PARTIAL_FILL]:
+                    if order.status in [OrderStatus.NEW, OrderStatus.SUBMITTED, OrderStatus.PARTIAL_FILLED]:
                         if symbol is None or order.symbol == symbol:
                             open_orders.append(order)
                 
@@ -156,7 +156,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                 order = self._orders[order_id]
                 
                 # Check if order can be cancelled
-                if order.status not in [OrderStatus.NEW, OrderStatus.SUBMITTED, OrderStatus.PARTIAL_FILL]:
+                if order.status not in [OrderStatus.NEW, OrderStatus.SUBMITTED, OrderStatus.PARTIAL_FILLED]:
                     self._logger.warning(f"Cannot cancel order in status: {order.status}")
                     return False
                 
@@ -358,7 +358,7 @@ class BaseTransactionHandler(ITransactionHandler, ABC):
                           fill_quantity: int, message: str = "") -> OrderEvent:
         """Create a fill event for an order."""
         try:
-            status = OrderStatus.FILLED if abs(fill_quantity) == abs(order.quantity) else OrderStatus.PARTIAL_FILL
+            status = OrderStatus.FILLED if abs(fill_quantity) == abs(order.quantity) else OrderStatus.PARTIAL_FILLED
             
             fill_event = OrderEvent(
                 order_id=order.id,
@@ -387,6 +387,7 @@ class BacktestingTransactionHandler(BaseTransactionHandler):
         self._simulation_thread: Optional[threading.Thread] = None
         self._shutdown_event = threading.Event()
         self._market_prices: Dict[Symbol, Decimal] = {}
+        self._submission_prices: Dict[object, Decimal] = {}   # order id -> price known at submission
         
         # Backtesting configuration
         self._slippage_percent = Decimal('0.001')  # 0.1% slippage
@@ -410,6 +411,10 @@ class BacktestingTransactionHandler(BaseTransactionHandler):
         try:
             # Set order status to submitted
             order.status = OrderStatus.SUBMITTED
+            # A market order fills at the price known when it was placed — never at a price
+            # published later (no look-ahead).
+            if order.symbol in self._market_prices:
+                self._submission_prices[order.id] = self._market_prices[order.symbol]
             
             # Create submission event
             submission_event = OrderEvent(
@@ -542,11 +547,15 @@ class BacktestingTransactionHandler(BaseTransactionHandler):
             if order.status not in [OrderStatus.NEW, OrderStatus.SUBMITTED]:
                 return
             
-            # Get market price
-            market_price = self._market_prices.get(order.symbol)
+            # Market orders: the price at submission. Resting orders (limit / stop): the latest price.
+            if order.order_type == OrderType.MARKET and order.id in self._submission_prices:
+                market_price = self._submission_prices[order.id]
+            else:
+                market_price = self._market_prices.get(order.symbol)
             if market_price is None:
-                # Use a default price for simulation
-                market_price = Decimal('100.0')
+                # No price, no fill: the order stays open rather than filling at an invented price
+                self._logger.warning(f"No market price for {order.symbol}: order {order.id} not filled")
+                return
             
             # Determine if order should fill
             should_fill = self._should_fill_order(order, market_price)
@@ -651,7 +660,13 @@ class BrokerageTransactionHandler(BaseTransactionHandler):
             if self._brokerage and not self._brokerage.is_connected():
                 if not self._brokerage.connect():
                     raise RuntimeError("Failed to connect to brokerage")
-            
+
+            # Order status / fills come back as broker order events (BaseBroker.order_event_handlers,
+            # emitted by e.g. InteractiveBrokersBroker._process_order_updates on its monitor thread)
+            handlers = getattr(self._brokerage, "order_event_handlers", None)
+            if isinstance(handlers, list) and self._on_brokerage_order_event not in handlers:
+                handlers.append(self._on_brokerage_order_event)
+
             # Start order monitoring
             self._start_monitoring()
             
@@ -681,6 +696,11 @@ class BrokerageTransactionHandler(BaseTransactionHandler):
             self._logger.error(f"Error processing brokerage order: {e}")
             return False
     
+    def _on_brokerage_order_event(self, order_event) -> None:
+        """Status / fill reported by the brokerage: update the order and notify the algorithm."""
+        with self._lock:
+            self._process_fill(order_event)
+
     def _cancel_order_specific(self, order: Order) -> bool:
         """Cancel order with live brokerage."""
         try:
@@ -749,9 +769,11 @@ class BrokerageTransactionHandler(BaseTransactionHandler):
             
             while not self._shutdown_event.is_set():
                 try:
-                    # Check order status with brokerage
-                    # This would typically poll the brokerage for order updates
-                    time.sleep(5.0)  # Check every 5 seconds
+                    # Status updates arrive through _on_brokerage_order_event; this loop only
+                    # watches the connection so a dropped broker is visible in the log.
+                    if self._brokerage and not self._brokerage.is_connected():
+                        self._logger.error("Brokerage disconnected — order updates are not being received")
+                    self._shutdown_event.wait(5.0)
                     
                 except Exception as e:
                     self._logger.error(f"Error in monitoring loop: {e}")

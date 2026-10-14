@@ -170,6 +170,13 @@ class PortfolioService:
                 )
                 if factor_value is not None and getattr(factor_value, 'value', None) is not None:
                     total += Decimal(str(factor_value.value))
+                elif self._get_position_qty(h) != 0:
+                    # A held position that cannot be valued must not silently count as 0:
+                    # the portfolio value (and every weight sized on it) would be wrong.
+                    raise ValueError(
+                        f"cannot value holding {h.id} ({holding_type}, asset {h.asset_id}) at {as_of_date}: "
+                        f"no price available"
+                    )
 
         # Persist the portfolio total as a portfolio_value_factor FactorValue.
         # Written directly (bypassing resolve_factor_value) to avoid recursion:

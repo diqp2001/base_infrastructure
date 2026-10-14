@@ -112,6 +112,16 @@ from src.infrastructure.models.finance.account import AccountModel
 from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 
+# Backtest / model registry / time-series tables (were registered only when a repository module
+# happened to import them, so create_all on a fresh database could miss them)
+from src.infrastructure.models.backtest.backtest import BacktestModel
+from src.infrastructure.models.backtest.backtest_factor_backtest import BacktestFactorBacktestModel
+from src.infrastructure.models.backtest.model import ModelModel
+from src.infrastructure.models.backtest.universe import UniverseModel
+from src.infrastructure.models.time_series.time_series import TimeSeriesModel
+from src.infrastructure.models.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeriesModel
+from src.infrastructure.models.time_series.finance.stock_time_series import StockTimeSeriesModel
+
 # Portfolio options
 CompanySharePortfolioOptionModel
 
