@@ -35,7 +35,7 @@ def slice_at(time=T0, **closes):
 
 class SqlitePortfolio:
 
-    def __init__(self, cash=100_000.0, shares=("AAPL", "MSFT"), engine=None):
+    def __init__(self, cash=100_000.0, shares=("AAPL", "MSFT"), engine=None, live=False):
         # Never let a lazily created factory / market-data service open a real IBKR connection
         # (RepositoryFactory.create_ibkr_client connects to the configured TWS / Gateway).
         from ibapi.client import EClient
@@ -52,6 +52,12 @@ class SqlitePortfolio:
         self.factory = RepositoryFactory(self.session)
         self.logger = logging.getLogger("sqlite_portfolio")
         self.upm = UnifiedPortfolioManager(SimpleNamespace(repository_factory=self.factory), None, logger=self.logger)
+        self._n = 0
+        self.market_order = Mock(side_effect=self._ticket)
+        # live=True: registration resumes an existing book (a restart / second process), backtest resets it
+        self.upm._algorithm = SimpleNamespace(market_order=self.market_order, live_mode=live, time=T0,
+                                              config={"backtest_start": "2026-01-01 00:00:00",
+                                                      "backtest_end": "2027-01-01 00:00:00"})
         self.portfolio = self.upm.register_portfolio_with_config({"name": "TEST", "initial_cash": cash})
         assert self.portfolio is not None, "portfolio registration failed"
         for symbol in shares:
@@ -65,11 +71,6 @@ class SqlitePortfolio:
                 # by the repository, on top of real reference rows (see seed_reference_data)
                 self.seed_reference_data()
                 assert self.factory.company_share_local_repo._create_or_get(symbol) is not None, symbol
-        self._n = 0
-        self.market_order = Mock(side_effect=self._ticket)
-        self.upm._algorithm = SimpleNamespace(market_order=self.market_order, live_mode=False, time=T0,
-                                              config={"backtest_start": "2026-01-01 00:00:00",
-                                                      "backtest_end": "2027-01-01 00:00:00"})
         self.tm = self.upm._trade_manager
 
     def seed_reference_data(self):

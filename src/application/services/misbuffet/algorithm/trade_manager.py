@@ -70,23 +70,19 @@ class TradeManager:
         if not ticket:
             return False
 
-        # 2. Persist domain Order entity
-        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time, order_qty, price=price)
-        if domain_order is None:
-            if self.logger:
-                self.logger.error(f"TradeManager: order {ticket.order_id} for {ticker} was submitted but could "
-                                  f"not be recorded — position and cash left unchanged")
-            return False
-
-        # 3. Persist domain Transaction entity
-        self._record_fill(ticket, ticker, order_qty, price, current_time, domain_order)
-
-        # 4. Upsert domain Position entity
-        self._update_position(ticker, order_qty, portfolio_id)
-
-        # 5. Mirror cash impact on the CurrencyPortfolio linked to the main portfolio
+        # 2-5. Order, fill, position and cash are booked as ONE database transaction: either all
+        # of them are stored or none (a failure in the middle used to leave e.g. cash debited
+        # without a position). The order is never re-sent here.
         cash_portfolio_id = main_portfolio_id if main_portfolio_id is not None else portfolio_id
-        self._update_cash_for_trade(order_qty, price, cash_portfolio_id, current_time)
+        booked = self._book_atomically(lambda: self._book(ticket, ticker, order_qty, price, portfolio_id,
+                                                          cash_portfolio_id, current_time))
+        if not booked:
+            if self.logger:
+                self.logger.critical(
+                    f"TradeManager: order {getattr(ticket, 'order_id', '?')} for {ticker} qty={order_qty:+d} was "
+                    f"submitted but its booking failed and was rolled back — the books do not reflect it "
+                    f"(live: the broker reconciliation will block trading until they match)")
+            return False
 
         if self.logger:
             self.logger.info(
@@ -97,6 +93,56 @@ class TradeManager:
     # ------------------------------------------------------------------
     # Private mechanics
     # ------------------------------------------------------------------
+
+    def _book(self, ticket, ticker, order_qty, price, portfolio_id, cash_portfolio_id, current_time) -> bool:
+        domain_order = self._register_order(ticket, portfolio_id, ticker, current_time, order_qty, price=price)
+        if domain_order is None:
+            return False
+        self._record_fill(ticket, ticker, order_qty, price, current_time, domain_order)
+        self._update_position(ticker, order_qty, portfolio_id)
+        self._update_cash_for_trade(order_qty, price, cash_portfolio_id, current_time)
+        return True
+
+    def _book_atomically(self, book) -> bool:
+        """Run `book` as a single transaction on the shared session.
+
+        The repositories commit after each write; while booking, session.commit only flushes and
+        any rollback (a step that failed) or recorded step error aborts the whole booking."""
+        session = self.order_repo.session
+        failures = []
+        real_commit, real_rollback = session.commit, session.rollback
+
+        def _rollback():
+            failures.append("rollback")
+            real_rollback()
+
+        self._booking_errors = failures
+        session.commit, session.rollback = session.flush, _rollback
+        try:
+            ok = bool(book()) and not failures
+        except Exception as e:
+            failures.append(repr(e))
+            ok = False
+        finally:
+            session.commit, session.rollback = real_commit, real_rollback
+            self._booking_errors = None
+        if not ok:
+            real_rollback()
+            if self.logger:
+                self.logger.error(f"TradeManager: booking rolled back ({'; '.join(failures) or 'step failed'})")
+            return False
+        try:
+            real_commit()
+            return True
+        except Exception as e:
+            real_rollback()
+            if self.logger:
+                self.logger.error(f"TradeManager: booking commit failed: {e}")
+            return False
+
+    def _step_failed(self, what: str) -> None:
+        if getattr(self, "_booking_errors", None) is not None:
+            self._booking_errors.append(what)
 
     def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime, order_qty: int = 0,
                         price: Optional[float] = None):
@@ -282,6 +328,7 @@ class TradeManager:
         except Exception as e:
             if self.logger:
                 self.logger.error(f"TradeManager._record_fill failed for {ticker}: {e}")
+            self._step_failed(f"fill: {e}")
 
     def _update_position(
         self, ticker: str, order_qty: int, portfolio_id: int
@@ -382,6 +429,7 @@ class TradeManager:
                 self.logger.error(
                     f"TradeManager._update_position failed for {ticker}: {e}"
                 )
+            self._step_failed(f"position: {e}")
 
     def _update_cash_for_trade(
         self,
@@ -515,3 +563,4 @@ class TradeManager:
                 pass
             if self.logger:
                 self.logger.error(f"TradeManager._update_cash_for_trade failed: {e}")
+            self._step_failed(f"cash: {e}")

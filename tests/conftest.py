@@ -6,6 +6,7 @@ Root pytest configuration.
      tests/unit/          -> unit
      tests/component/     -> component
      tests/end_to_end/    -> e2e
+     tests/performance/   -> performance (excluded from the fast suite)
      tests/repositories/  -> contract
      tests/integration/   -> integration (+ sql_server / ibkr per test class)
      SQLite-backed suites -> component
@@ -68,6 +69,8 @@ def pytest_collection_modifyitems(config, items):
             added.add("unit")
         elif rel.startswith("end_to_end/"):
             added.add("e2e")
+        elif rel.startswith("performance/"):
+            added.add("performance")
         elif rel.startswith(("repositories/", "contracts/")):
             added.add("contract")
         elif rel.startswith("integration/"):

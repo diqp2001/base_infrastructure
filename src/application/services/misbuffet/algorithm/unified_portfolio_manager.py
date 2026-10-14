@@ -218,13 +218,23 @@ class UnifiedPortfolioManager:
             #                 f"using initial_cash without conversion"
             #             )
             
-            # Create main portfolio — wipes any prior run with the same name first
-            main_portfolio = self.portfolio_repo._replace_or_create(
-                name=main_name,
-                portfolio_type=main_type,
-                initial_cash=main_cash,
-                currency_code=main_currency
-            )
+            if getattr(self._algorithm, "live_mode", False):
+                # Live: resume the existing book. A restart must never clear recorded orders,
+                # transactions and positions (the broker reconciliation compares against them).
+                main_portfolio = self.portfolio_repo._create_or_get(
+                    main_name,
+                    portfolio_type=main_type,
+                    initial_cash=main_cash,
+                    currency_code=main_currency,
+                )
+            else:
+                # Backtest: each run starts from a clean book with the same portfolio ids
+                main_portfolio = self.portfolio_repo._replace_or_create(
+                    name=main_name,
+                    portfolio_type=main_type,
+                    initial_cash=main_cash,
+                    currency_code=main_currency
+                )
 
             
             if not main_portfolio:
