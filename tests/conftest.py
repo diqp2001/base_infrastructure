@@ -73,6 +73,8 @@ def pytest_collection_modifyitems(config, items):
 
 
 def pytest_runtest_setup(item):
+    if item.get_closest_marker("ibkr") is not None and os.getenv("IBKR_LIVE_SMOKE") != "1":
+        pytest.skip("ibkr tests read the real Gateway: opt in with IBKR_LIVE_SMOKE=1")
     if item.get_closest_marker("sql_server") is not None:
         database = os.getenv("DB_NAME", "base_infra")
         if not database.endswith("_test"):
