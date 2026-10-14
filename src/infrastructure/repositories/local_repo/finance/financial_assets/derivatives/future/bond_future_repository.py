@@ -1,5 +1,5 @@
 import os
-from datetime import date as _date
+from datetime import date as _date, datetime
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -46,30 +46,25 @@ class BondFutureRepository(FutureRepository, BondFuturePort):
         code = BondFutureRepository._QUARTERLY_MONTH_CODES[3]
         return f"{root}{code}{str(year + 1)[-1]}"
 
-    def get_by_root_symbol(self, root: str, target_date: Optional[_date] = None) -> Optional[BondFuture]:
-        """Return the front-month BondFuture for root symbol and target_date.
+    def get_by_root_symbol(self, root: str, target_date: _date) -> Optional[BondFuture]:
+        """Return the front-month BondFuture of `root` at `target_date`, or None.
 
-        When target_date is provided, looks for the contract matching the expected
-        front-month symbol (e.g. SR3U6 for Sep-2026).  Falls back to any matching
-        contract if the exact symbol is not found.
+        The contract symbol encodes its expiry (SR3H6 = Mar-2026, SR3M6 = Jun-2026), so only the
+        contract whose symbol is front_month_symbol(root, target_date) is returned — never another
+        contract of the same root, whose price would describe a different period.
         """
+        if target_date is None:
+            raise ValueError(f"get_by_root_symbol({root!r}): a target_date is required to select the contract")
+        if isinstance(target_date, datetime):
+            target_date = target_date.date()
         try:
-            if target_date is not None:
-                symbol = self.front_month_symbol(root, target_date)
-                orm_obj = (
-                    self.session.query(self.model_class)
-                    .filter(self.model_class.symbol == symbol)
-                    .first()
-                )
-                if orm_obj:
-                    return self.mapper.to_domain(orm_obj)
-            # Fallback: any contract with this root
+            symbol = self.front_month_symbol(root, target_date)
             orm_obj = (
                 self.session.query(self.model_class)
-                .filter(self.model_class.symbol.like(f"{root}%"))
+                .filter(self.model_class.symbol == symbol)
                 .first()
             )
-            return self.mapper.to_domain(orm_obj)
+            return self.mapper.to_domain(orm_obj) if orm_obj else None
         except Exception as e:
             print(f"Error retrieving BondFuture by root symbol {root}: {e}_{os.path.abspath(__file__)}")
             return None

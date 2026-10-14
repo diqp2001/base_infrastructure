@@ -291,16 +291,18 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             raise
     
     def get_related_entities(self, currency_id: int, target_date=None) -> list:
-        """Return the front-month benchmark BondFuture for this currency.
+        """Return the front-month benchmark BondFuture for this currency at target_date.
 
-        Uses CurrencyYieldFactor.BENCHMARK_MAP (USD→SR3, CAD→CORRA) and target_date
-        to select the correct quarterly contract (e.g. SR3U6 for Sep-2026).
-        If the contract does not exist locally, fetches it from IBKR and persists it.
+        Uses CurrencyYieldFactor.BENCHMARK_MAP (USD→SR3, CAD→CORRA) and target_date to compute
+        the contract symbol, which changes with the date (SR3H6 for Mar-2026, SR3M6 for Jun-2026):
+        only that contract is returned. If it does not exist locally, it is fetched from IBKR
+        and persisted. Without a target_date no contract is selected (never today's contract
+        for a historical calculation).
         """
         if not self.factory:
             return []
         try:
-            from datetime import date as _date
+            from datetime import datetime as _datetime
             from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor
             from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.bond_future_repository import BondFutureRepository
 
@@ -312,7 +314,15 @@ class CurrencyRepository(FinancialAssetRepository,CurrencyPort):
             if not root:
                 return []
 
-            ref_date = (target_date.date() if hasattr(target_date, 'date') else target_date) if target_date else _date.today()
+            if target_date is None:
+                logger.error(
+                    f"Currency {currency.symbol}: no target_date — cannot select the {root} contract "
+                    f"for that date; CurrencyYieldFactor will not resolve"
+                )
+                return []
+            if isinstance(target_date, str):
+                target_date = _datetime.fromisoformat(target_date)
+            ref_date = target_date.date() if isinstance(target_date, _datetime) else target_date
 
             local_bond_repo = self.factory.get_local_repository('BondFuture')
             if not local_bond_repo:

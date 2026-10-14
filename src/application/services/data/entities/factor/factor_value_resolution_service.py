@@ -210,8 +210,8 @@ class FactorValueResolutionService:
         """
         try:
             # Get related entities (e.g., holdings for a portfolio)
-            related_entities = self._get_related_entities(parent_entity, repository_type)
-            
+            related_entities = self._get_related_entities(parent_entity, repository_type, target_date=time_date)
+
             if not related_entities:
                 self.logger.error(f"No related entities found for {parent_entity} - cannot calculate aggregated value")
                 # Flag error instead of returning zero value
@@ -585,7 +585,8 @@ class FactorValueResolutionService:
             if repository_type == "local":
                 # Before failing, try to aggregate from related entities
                 # (e.g., holding_value for each holding → sum → portfolio_value dependency)
-                related_entities = self._get_related_entities(entity, repository_type)
+                related_entities = self._get_related_entities(
+                    entity, repository_type, target_date=self._parse_date(date_str))
 
                 if related_entities:
                     # Fetch the dependency factor entity so we can call resolve_factor_value
