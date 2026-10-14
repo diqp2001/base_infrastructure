@@ -31,11 +31,19 @@ class FactorValueMapper:
         if not orm_model:
             return None
 
+        # factor_values.date is DateTime(timezone=True): SQL Server (DATETIMEOFFSET) returns the
+        # naive times the application writes labelled +00:00, SQLite returns them naive. The domain
+        # convention is naive timestamps on every backend.
+        stored_date = orm_model.date
+        if getattr(stored_date, "tzinfo", None) is not None:
+            from datetime import timezone as _tz
+            stored_date = stored_date.astimezone(_tz.utc).replace(tzinfo=None)
+
         return FactorValueEntity(
             id=orm_model.id,
             factor_id=orm_model.factor_id,
             entity=None,           # Not loaded from DB – use entity_id / entity_type
-            date=orm_model.date,
+            date=stored_date,
             value=orm_model.value if orm_model.value is not None else '0',
             entity_type=orm_model.entity_type,
             entity_id=orm_model.entity_id,

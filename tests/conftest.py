@@ -65,7 +65,7 @@ def pytest_collection_modifyitems(config, items):
             added.add("component")
         elif rel.startswith("unit/"):
             added.add("unit")
-        elif rel.startswith("repositories/"):
+        elif rel.startswith(("repositories/", "contracts/")):
             added.add("contract")
         elif rel.startswith("integration/"):
             added.add("integration")
@@ -110,3 +110,13 @@ def _no_unintended_ibkr_connection(request, monkeypatch):
     except Exception:
         pass
     yield
+
+
+@pytest.fixture(params=["sqlite", pytest.param("sql_server", marks=[pytest.mark.sql_server, pytest.mark.integration])])
+def backend(request):
+    """Persistence backend for contract tests: the same test runs on SQLite and on SQL Server."""
+    from tests.persistence import Backend
+    b = Backend(request.param)
+    yield b
+    b.dispose()
+

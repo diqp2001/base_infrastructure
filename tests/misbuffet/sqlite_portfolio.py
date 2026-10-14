@@ -35,7 +35,7 @@ def slice_at(time=T0, **closes):
 
 class SqlitePortfolio:
 
-    def __init__(self, cash=100_000.0, shares=("AAPL", "MSFT")):
+    def __init__(self, cash=100_000.0, shares=("AAPL", "MSFT"), engine=None):
         # Never let a lazily created factory / market-data service open a real IBKR connection
         # (RepositoryFactory.create_ibkr_client connects to the configured TWS / Gateway).
         from ibapi.client import EClient
@@ -43,8 +43,11 @@ class SqlitePortfolio:
         self._no_socket = patch.object(EClient, "connect", side_effect=ConnectionRefusedError("tests never connect to IBKR"))
         self._no_ibkr.start()
         self._no_socket.start()
-        self.engine = create_engine("sqlite:///:memory:")
-        ModelBase.metadata.create_all(self.engine)
+        # any prepared engine (tests.persistence.Backend), or a fresh in-memory SQLite database
+        self._owns_engine = engine is None
+        self.engine = engine if engine is not None else create_engine("sqlite:///:memory:")
+        if self._owns_engine:
+            ModelBase.metadata.create_all(self.engine)
         self.session = Session(self.engine)
         self.factory = RepositoryFactory(self.session)
         self.logger = logging.getLogger("sqlite_portfolio")
@@ -52,15 +55,38 @@ class SqlitePortfolio:
         self.portfolio = self.upm.register_portfolio_with_config({"name": "TEST", "initial_cash": cash})
         assert self.portfolio is not None, "portfolio registration failed"
         for symbol in shares:
-            self.factory.company_share_local_repo.add(
-                CompanyShare(id=None, symbol=symbol, exchange_id=1, company_id=1, currency_id=1,
-                             start_date=date(2020, 1, 1)))
+            if self._owns_engine:
+                # foreign keys are not enforced on this private SQLite database: placeholder ids
+                self.factory.company_share_local_repo.add(
+                    CompanyShare(id=None, symbol=symbol, exchange_id=1, company_id=1, currency_id=1,
+                                 start_date=date(2020, 1, 1)))
+            else:
+                # shared backends enforce foreign keys: exchange / company / currency are created
+                # by the repository, on top of real reference rows (see seed_reference_data)
+                self.seed_reference_data()
+                assert self.factory.company_share_local_repo._create_or_get(symbol) is not None, symbol
         self._n = 0
         self.market_order = Mock(side_effect=self._ticket)
         self.upm._algorithm = SimpleNamespace(market_order=self.market_order, live_mode=False, time=T0,
                                               config={"backtest_start": "2026-01-01 00:00:00",
                                                       "backtest_end": "2027-01-01 00:00:00"})
         self.tm = self.upm._trade_manager
+
+    def seed_reference_data(self):
+        """Continent / country / sector / industry id 1 — CompanyShareRepository._create_or_get links new
+        companies and exchanges to these ids (see test_company_share_needs_no_placeholder_references)."""
+        from src.infrastructure.models.continent import ContinentModel
+        from src.infrastructure.models.country import CountryModel
+        from src.infrastructure.models.industry import IndustryModel
+        from src.infrastructure.models.sector import SectorModel
+        rows = [(ContinentModel, dict(name="North America")), (SectorModel, dict(name="Technology")),
+                (CountryModel, dict(name="United States", iso_code="USA", continent_id=1)),
+                (IndustryModel, dict(name="Technology", sector_id=1))]
+        for model, fields in rows:                       # parents first; keep rows that already exist
+            if self.session.get(model, 1) is None:
+                self.session.add(model(id=1, **fields))
+                self.session.flush()
+        self.session.commit()
 
     def _ticket(self, ticker, qty, tag=""):
         self._n += 1
@@ -122,6 +148,7 @@ class SqlitePortfolio:
 
     def close(self):
         self.session.close()
-        self.engine.dispose()
+        if self._owns_engine:
+            self.engine.dispose()
         self._no_ibkr.stop()
         self._no_socket.stop()
