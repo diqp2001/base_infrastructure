@@ -340,7 +340,6 @@ class FactorValueBatchResolutionService:
             specs = [specs]
 
         result: List[Factor] = []
-        all_factors_cache: Optional[List[Factor]] = None
 
         for spec in specs:
             if isinstance(spec, str):
@@ -353,16 +352,12 @@ class FactorValueBatchResolutionService:
                         "Could not resolve string dep '%s': %s", spec, exc
                     )
             else:
-                # DependencySpec — filter all known factors
+                # DependencySpec — the same candidates as the resolver's _resolve_dependency_spec:
+                # factors of spec.factor_type (its own repository, then a type check), filtered
+                # by the spec against the parent factor.
                 try:
-                    if all_factors_cache is None:
-                        all_factors_cache = self.factory.factor_local_repo.get_all() or []
-                    for f in all_factors_cache:
-                        if (
-                            f is not None
-                            and hasattr(spec, "matches_factor")
-                            and spec.matches_factor(f)
-                        ):
+                    for f in self._factors_of_type(spec):
+                        if spec.matches_factor(factor, f):
                             result.append(f)
                 except Exception as exc:
                     self.logger.debug(
@@ -370,6 +365,23 @@ class FactorValueBatchResolutionService:
                     )
 
         return result
+
+    def _factors_of_type(self, spec) -> List[Factor]:
+        """Stored factors of ``spec.factor_type`` only.
+
+        Reads the type's own repository (as the resolver does) and keeps a candidate only if it
+        is that type: a domain instance, or an ORM row whose class is ``<FactorType>Model``
+        (some repositories return ORM rows from ``get_all``)."""
+        factor_type = spec.factor_type
+        repo = self.factory.get_local_repository(factor_type.__name__) if self.factory else None
+        if repo is None or not hasattr(repo, "get_all"):
+            return []
+        candidates = repo.get_all() or []
+        return [
+            f for f in candidates
+            if f is not None and getattr(f, "id", None) is not None
+            and (isinstance(f, factor_type) or type(f).__name__ == factor_type.__name__ + "Model")
+        ]
 
     # ------------------------------------------------------------------
     # DFS topological sort with cycle detection

@@ -440,17 +440,55 @@ class TestDependencyGraph:
         assert sorted(result.failed[ctx.value_factor.id]) == [(ids["NODATA"], MON_16), (ids["NODATA"], TUE_16)]
         assert [r for r in ctx.stored() if r[1] == ids["NODATA"]] == []
 
-    @pytest.mark.xfail(strict=True, reason="BUG: FactorValueBatchResolutionService._collect_dynamic_dep_factors "
-                                           "calls spec.matches_factor(f) but the signature is (parent, candidate); "
-                                           "the TypeError is swallowed, so DependencySpec prerequisites never enter "
-                                           "the batch graph (no dependency-first order, no cycle detection)")
-    def test_batch_plans_the_real_prerequisites_first(self, ctx):
-        ctx.resolve("AAPL", MON_16)                                     # mid_price definition now stored
+    def test_batch_plans_and_resolves_the_real_prerequisites_first(self, ctx):
+        """Regression: DependencySpec prerequisites never entered the batch graph (matches_factor was
+        called with one argument and the TypeError swallowed)."""
+        ctx.resolve("AAPL", MON_16)                                     # close / mid_price definitions stored
         batch = FactorValueBatchResolutionService(ctx.p.factory, logger=logging.getLogger("context"))
+        ids = {t: ctx.share(t).id for t in ("AAPL", "MSFT", "NODATA")}
         with contextlib.redirect_stdout(io.StringIO()):
-            result = batch.resolve_batch(ctx.value_factor, [ctx.share("MSFT")], [TUE_16])
-        names = [f.name for f in result.execution_order]
-        assert "mid_price" in names and names.index("mid_price") < names.index("company_share_value")
+            result = batch.resolve_batch(ctx.value_factor, [ctx.share(t) for t in ids], [MON_16, TUE_16])
+        assert [f.name for f in result.execution_order] == ["close", "mid_price", "company_share_value"]
+        by_name = {f.name: f.id for f in result.execution_order}
+
+        def values(name):
+            return sorted((v.entity_id, v.date, float(v.value)) for v in result.values_for_factor(by_name[name]))
+
+        # each (entity, date) gets the last CLOSED bar: Monday 16:00 <- Friday's bar, Tuesday <- Monday's
+        expected = [(ids["AAPL"], MON_16, 150.0), (ids["AAPL"], TUE_16, 155.0),
+                    (ids["MSFT"], MON_16, 400.0), (ids["MSFT"], TUE_16, 400.0)]
+        assert values("mid_price") == values("company_share_value") == expected
+        for name in by_name:
+            assert sorted(result.failed[by_name[name]]) == [(ids["NODATA"], MON_16), (ids["NODATA"], TUE_16)]
+
+    def test_batch_prerequisites_are_restricted_to_the_declared_factor_type(self, ctx):
+        """A stored factor of another type with the same group / subgroup / source is not a prerequisite."""
+        from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor
+        d = CurrencyValueFactor()
+        other = ctx.p.factory.get_local_repository("CurrencyValueFactor")._create_or_get(
+            CurrencyValueFactor, d.name, group="value", subgroup="asset", source="calculated",
+            data_type=d.data_type, frequency="1d")
+        assert other is not None
+        ctx.resolve("AAPL", MON_16)
+        batch = FactorValueBatchResolutionService(ctx.p.factory, logger=logging.getLogger("context"))
+        holding_value = CompanySharePortfolioHoldingValueFactor()
+        holding_value.id = -1                                           # not stored: only its specs matter
+        deps = batch._collect_dynamic_dep_factors(holding_value)
+        assert [(f.id, f.name) for f in deps] == [(ctx.value_factor.id, "company_share_value")]
+
+    def test_batch_detects_a_cycle_in_the_real_chain_before_resolving(self, ctx):
+        from src.application.services.data.entities.factor.exceptions import FactorDependencyCycleError
+        cyclic = [DependencySpec(factor_type=CompanyShareValueFactor, group="value", subgroup="asset",
+                                 source="calculated")]
+        ctx.resolve("AAPL", MON_16)
+        rows = len(ctx.p.factor_values("company_share_value")) + len(ctx.p.factor_values("mid_price"))
+        batch = FactorValueBatchResolutionService(ctx.p.factory, logger=logging.getLogger("context"))
+        with patch.object(CompanyShareMidPriceFactor, "calculate_dependencies", new_callable=PropertyMock,
+                          return_value=cyclic):
+            with pytest.raises(FactorDependencyCycleError) as cycle:
+                batch.resolve_batch(ctx.value_factor, [ctx.share("MSFT")], [WED_16])
+        assert {"mid_price", "company_share_value"} <= set(cycle.value.cycle_names)
+        assert len(ctx.p.factor_values("company_share_value")) + len(ctx.p.factor_values("mid_price")) == rows
 
     def test_cycle_terminates_without_storing_partial_results(self, ctx):
         cyclic = [DependencySpec(factor_type=CompanyShareValueFactor, group="value", subgroup="asset",

@@ -828,5 +828,52 @@ class TestResolveBatchNoDeps(unittest.TestCase):
         self.assertEqual(result.total_failed, 0)
 
 
+class TestDependencySpecDiscovery(unittest.TestCase):
+    """DependencySpec prerequisites: matched against the parent, restricted to the declared type."""
+
+    class Wanted:                                   # stands in for the spec's factor_type
+        def __init__(self, fid, name, group="value"):
+            self.id, self.name, self.group = fid, name, group
+
+    class Other(Wanted):
+        pass
+
+    def _service(self, repo_rows):
+        factory = MagicMock()
+        factory.get_local_repository.side_effect = (
+            lambda key: MagicMock(get_all=MagicMock(return_value=repo_rows)) if key == "Wanted" else None)
+        return FactorValueBatchResolutionService(factory, logger=MagicMock())
+
+    def _parent(self, spec):
+        parent = _MockFactor(1, "parent")
+        parent.group = "value"
+        parent.calculate_dependencies = [spec]
+        return parent
+
+    def test_spec_is_matched_against_the_parent_factor(self):
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        W = self.Wanted
+        rows = [W(10, "kept"), W(11, "other group", group="price")]
+        spec = DependencySpec(factor_type=W, group=DependencySpec.SELF)   # SELF needs the parent
+        deps = self._service(rows)._collect_dynamic_dep_factors(self._parent(spec))
+        self.assertEqual([f.id for f in deps], [10])
+
+    def test_only_the_declared_type_is_kept(self):
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        W = self.Wanted
+        orm_row = type("WantedModel", (), {"id": 12, "name": "orm row", "group": "value"})()
+        rows = [W(10, "domain"), self.Other(11, "subclass"), orm_row,
+                type("UnrelatedModel", (), {"id": 13, "name": "x", "group": "value"})(), W(None, "unsaved")]
+        deps = self._service(rows)._collect_dynamic_dep_factors(self._parent(DependencySpec(factor_type=W)))
+        # a subclass instance is the declared type; unrelated types and unsaved rows are not
+        self.assertEqual([f.id for f in deps], [10, 11, 12])
+
+    def test_unknown_type_gives_no_prerequisite(self):
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        unknown = type("NoRepo", (), {})
+        deps = self._service([])._collect_dynamic_dep_factors(self._parent(DependencySpec(factor_type=unknown)))
+        self.assertEqual(deps, [])
+
+
 if __name__ == "__main__":
     unittest.main()

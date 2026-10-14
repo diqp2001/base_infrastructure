@@ -111,6 +111,8 @@ Semantics the context tests rely on (`tests/component/portfolio_context/`, `test
   the tree, recomputes every leaf holding value (`quantity x last closed price`, `force_recalculate`)
   and stores one total per portfolio and date. Parent = sum of its direct children, so each position
   is counted once. A held position without a price raises: no totals are stored and nothing is traded.
+- **Batch resolution** (`FactorValueBatchResolutionService`) plans `DependencySpec` prerequisites of the
+  declared factor type first (close -> mid_price -> value) and raises on a dependency cycle.
 - **Factor resolution** reuses a stored value for the same (factor, entity, date); after a trade the
   caller must force a recalculation (the valuation always does).
 - **Time**: positions are current state only (see the gap below); a valuation writes rows only at its
@@ -125,5 +127,4 @@ Semantics the context tests rely on (`tests/component/portfolio_context/`, `test
 | `test_normalization_and_metrics::test_cross_sectional_zscore_does_not_use_future_values` | `FactorNormalizer._apply_cross_sectional_zscore` uses each ticker's full history (used by other projects' trainers) |
 | `test_persistence_contracts::test_natural_key_is_unique`, `test_concurrency::test_two_resolvers_racing…` | `factor_values` has no unique key on (factor, entity, type, date) — needs a migration after de-duplication |
 | `test_persistence_contracts::test_company_share_needs_no_placeholder_references` | new companies / exchanges are linked to placeholder country / industry ids |
-| `test_transaction_valuation_context::test_batch_plans_the_real_prerequisites_first` | `FactorValueBatchResolutionService` calls `spec.matches_factor(f)` with one argument: `DependencySpec` prerequisites never enter the batch graph (no ordering / cycle detection for real chains; the batch API has no caller in `src`) |
 | `test_transaction_valuation_context::test_revaluing_a_past_date_uses_the_quantities_held_then` | positions have no history: revaluing a past date after a later trade uses today's quantities and overwrites that date's snapshot |
