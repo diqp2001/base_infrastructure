@@ -41,8 +41,8 @@ CASH = 100_000.0
 class Tree:
     """SqlitePortfolio + readers for the value of every layer at a valuation time."""
 
-    def __init__(self):
-        self.p = SqlitePortfolio(cash=CASH, shares=("ZZZ", "AAPL", "MSFT"))
+    def __init__(self, cash=CASH, engine=None):
+        self.p = SqlitePortfolio(cash=cash, shares=("ZZZ", "AAPL", "MSFT"), engine=engine)
         self.p.upm._algorithm.bar_size_setting = "1 day"
         self.p.seed_close("ZZZ", FRI, 999.0)
 

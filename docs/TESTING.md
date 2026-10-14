@@ -95,6 +95,27 @@ package (`__init__.py`), otherwise the rules cannot see it.
 
 IBKR tests never run in CI.
 
+## Portfolio context (transactions -> holdings -> valuations -> factor values)
+
+Semantics the context tests rely on (`tests/component/portfolio_context/`, `tests/misbuffet/test_set_holdings_chain.py`):
+
+- **Entry points**: `UnifiedPortfolioManager.set_holdings` (targets; repeating a target sends nothing) ->
+  `TradeManager.execute_trade`, which books order + transaction + position + cash leg as one database
+  transaction and refuses a zero quantity or a non-positive / non-finite price before submitting.
+  Side, quantity and fill price are stored on the order; the transaction records its execution.
+- **Accounting**: cash moves by exactly `round(|qty| x fill price)`. No fees, commissions, cost basis,
+  realised / unrealised P&L, deposits, withdrawals, reversals or multi-currency cash are modelled.
+- **Tree**: the main portfolio holds only sub-portfolio links (Currency, CompanyShare, CompanyShareOption);
+  share holdings live in the CompanySharePortfolio, which may hold nested CompanySharePortfolios.
+- **Valuation** is explicit (no events): `get_portfolio_value` -> `PortfolioService.calculate_value` walks
+  the tree, recomputes every leaf holding value (`quantity x last closed price`, `force_recalculate`)
+  and stores one total per portfolio and date. Parent = sum of its direct children, so each position
+  is counted once. A held position without a price raises: no totals are stored and nothing is traded.
+- **Factor resolution** reuses a stored value for the same (factor, entity, date); after a trade the
+  caller must force a recalculation (the valuation always does).
+- **Time**: positions are current state only (see the gap below); a valuation writes rows only at its
+  own timestamp and never rewrites another date.
+
 ## Known gaps (pinned as expected failures — they flip to "unexpected success" when fixed)
 
 | Test | Gap |
@@ -104,3 +125,5 @@ IBKR tests never run in CI.
 | `test_normalization_and_metrics::test_cross_sectional_zscore_does_not_use_future_values` | `FactorNormalizer._apply_cross_sectional_zscore` uses each ticker's full history (used by other projects' trainers) |
 | `test_persistence_contracts::test_natural_key_is_unique`, `test_concurrency::test_two_resolvers_racing…` | `factor_values` has no unique key on (factor, entity, type, date) — needs a migration after de-duplication |
 | `test_persistence_contracts::test_company_share_needs_no_placeholder_references` | new companies / exchanges are linked to placeholder country / industry ids |
+| `test_transaction_valuation_context::test_batch_plans_the_real_prerequisites_first` | `FactorValueBatchResolutionService` calls `spec.matches_factor(f)` with one argument: `DependencySpec` prerequisites never enter the batch graph (no ordering / cycle detection for real chains; the batch API has no caller in `src`) |
+| `test_transaction_valuation_context::test_revaluing_a_past_date_uses_the_quantities_held_then` | positions have no history: revaluing a past date after a later trade uses today's quantities and overwrites that date's snapshot |

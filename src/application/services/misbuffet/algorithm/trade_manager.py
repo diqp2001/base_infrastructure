@@ -5,6 +5,7 @@ Called exclusively by UnifiedPortfolioManager, which orchestrates when and what
 to trade. TradeManager only knows *how* to persist the resulting domain entities.
 """
 
+import math
 import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
@@ -55,6 +56,13 @@ class TradeManager:
                                to portfolio_id when the caller does not provide it (i.e. when
                                portfolio_id already is the main portfolio)
         """
+        # 0a. Nothing to trade or no valid fill price: refused before anything is sent or written
+        #     (a zero-quantity order used to be submitted and booked with a zero cash leg).
+        if not order_qty or not isinstance(price, (int, float)) or not math.isfinite(price) or price <= 0:
+            if self.logger:
+                self.logger.error(f"TradeManager: {ticker} qty={order_qty} @ {price} refused — order not sent")
+            return False
+
         # 0. The order must be recordable before it is sent: holding (asset + position) and account.
         #    An order that cannot be booked is never submitted and moves no cash.
         holding_id = self._resolve_holding_id(ticker, portfolio_id, current_time)
