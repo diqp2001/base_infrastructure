@@ -118,6 +118,33 @@ Semantics the context tests rely on (`tests/component/portfolio_context/`, `test
 - **Time**: positions are current state only (see the gap below); a valuation writes rows only at its
   own timestamp and never rewrites another date.
 
+## Factor resolution coverage (every `calculate()`)
+
+Factor classes are discovered from `src/domain/entities/factor` (`tests/component/factor_context/factor_catalog.py`),
+so a new factor is covered automatically.
+
+- `test_factor_dependency_wiring.py` — one test per class (141): buildable with defaults, a local repository,
+  `calculate_dependencies` declared, every `calculate()` parameter fillable by the service, every dependency
+  resolvable (DependencySpec: repository + a definition that satisfies the spec; string: a buildable factor
+  type or an entity attribute such as `Position`).
+- `test_factor_resolution_end_to_end.py` — every wired factor resolved through `FactorValueResolutionService`
+  in a fresh SQLite market (`factor_world.py`: 260 daily bars, a portfolio with shares and options, USD,
+  the dated SOFR future, an option): `calculate()` must receive every declared dependency and return a
+  finite number; independent value checks for prices, holdings, portfolios, rates, implied vol and delta.
+  ML factors get a stand-in model provider (the service must hand it the dependencies).
+
+Gaps pinned as strict xfails there (reasons in the tests):
+
+| Gap | Factors |
+|---|---|
+| need `name` / `group` to be built — not resolvable by the service | 46 (generic Option / Future / Index / Swap, model-based option pricers, `CompanySharePriceReturn`, `AvgTurnover6m`, `MonthlyPriceRange`, `Vpt52w20dLag`) |
+| no `calculate_dependencies` | `CurrencyRate`, `PortfolioHoldingValue`, `CompanySharePositionValue`, `CompanyShareTransactionValue`, `CompanySharePortfolioOptionValue`, `ConstituentScore` |
+| string dependencies nothing resolves | `BondFutureAnnualizedRollYield`, `BondFutureDiscountedValue`, `BondFutureForwardPrice`; option `ImpliedCorr`, `ImpliedDivYield`, `Var`, `Vol` (raw `CompanyShareOptionFactor` by string) |
+| price-history factors get one bar's fields (open, high, low, close, volume), not a close series | all ~52 return / MA / momentum / slope / Sharpe / Sortino / drawdown factors |
+| definitions unique by name but specs filter on frequency → resolution order decides | option delta / gamma / vega / price from an empty store; value after mid price, currency yield after bond yield, option value after option mid |
+| option price uses the factor's K / T, not the option's strike / expiry | `CompanyShareOptionPrice` |
+| option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
+
 ## Known gaps (pinned as expected failures — they flip to "unexpected success" when fixed)
 
 | Test | Gap |
