@@ -1698,9 +1698,18 @@ class FactorValueResolutionService:
                     factor_entity.id, entity_id, formatted_date, entity_type=entity_type
                 )
                 if existing is None and entity_type is not None:
-                    existing = repo.get_by_factor_entity_date(
+                    # Fallback for rows stored without a type or with the ORM class name
+                    # ('CompanySharePortfolioModel'). Never a row of ANOTHER entity type that
+                    # happens to share the id: updating it would overwrite that entity's value
+                    # (e.g. a share's price replaced by the value computed for a holding id).
+                    candidate = repo.get_by_factor_entity_date(
                         factor_entity.id, entity_id, formatted_date, entity_type=None
                     )
+                    candidate_type = getattr(candidate, 'entity_type', None) if candidate is not None else None
+                    if candidate is not None and (
+                        not candidate_type or candidate_type.removesuffix('Model') == entity_type
+                    ):
+                        existing = candidate
 
             if existing is not None:
                 # Same (factor, entity, date) already in DB — update with latest value.
