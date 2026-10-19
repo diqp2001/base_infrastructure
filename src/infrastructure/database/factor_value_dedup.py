@@ -49,7 +49,10 @@ def has_unique_key(engine) -> bool:
     """Whether factor_values already enforces the natural key (index or constraint)."""
     insp = inspect(engine)
     names = {i.get("name") for i in insp.get_indexes("factor_values")}
-    names |= {c.get("name") for c in insp.get_unique_constraints("factor_values")}
+    try:
+        names |= {c.get("name") for c in insp.get_unique_constraints("factor_values")}
+    except NotImplementedError:
+        pass                    # mssql: unique constraints are reported by get_indexes (unique indexes)
     return INDEX_NAME in names
 
 

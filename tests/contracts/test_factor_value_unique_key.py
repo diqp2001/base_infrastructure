@@ -113,3 +113,9 @@ class TestStartupMigration:
         out = capsys.readouterr().out
         assert "2 row(s) to delete" in out and "dry run" in out
         assert len(table(legacy)) == len(DUPLICATED)
+
+
+def test_unique_key_is_detected_on_every_backend(backend):
+    """Regression: on SQL Server the dialect cannot list unique constraints (NotImplementedError); the
+    constraint is then found among the indexes."""
+    assert dedup.has_unique_key(backend.engine)
