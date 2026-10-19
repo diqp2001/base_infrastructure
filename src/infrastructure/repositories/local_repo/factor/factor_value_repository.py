@@ -322,6 +322,49 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             )
             return None
 
+    def get_closed_bar_series(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        bar_seconds: int,
+        count: Optional[int] = None,
+        since: Optional[datetime] = None,
+        max_staleness_seconds: Optional[float] = None,
+        entity_type: Optional[str] = None,
+    ) -> List[float]:
+        """Trailing values of a raw bar factor at ``date_str``, oldest first, as floats.
+
+        The newest value is the one get_latest_available_bar returns (closed bar, staleness rule);
+        the series runs back from it: ``count`` values, or every value from ``since`` plus the last
+        value before ``since`` (the base of a year-to-date return). [] when no closed bar is available.
+        """
+        try:
+            latest = self.get_latest_available_bar(factor_id, entity_id, date_str, bar_seconds,
+                                                   max_staleness_seconds=max_staleness_seconds,
+                                                   entity_type=entity_type)
+            if latest is None:
+                return []
+            anchor = latest.date.replace(tzinfo=None) if getattr(latest.date, 'tzinfo', None) else latest.date
+            query = self.session.query(FactorValueModel).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id == entity_id,
+                FactorValueModel.date <= anchor,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+            if since is not None:
+                rows = query.filter(FactorValueModel.date >= since).order_by(FactorValueModel.date).all()
+                base = query.filter(FactorValueModel.date < since).order_by(FactorValueModel.date.desc()).first()
+                rows = ([base] if base is not None else []) + rows
+            else:
+                rows = list(reversed(query.order_by(FactorValueModel.date.desc()).limit(count).all()))
+            return [float(r.value) for r in rows if r.value is not None]
+        except Exception as e:
+            print(f"Error in get_closed_bar_series for factor {factor_id}, entity {entity_type}:{entity_id}, "
+                  f"date {date_str}: {e}")
+            return []
+
     def _create_or_get(self, entity_symbol, primary_key=None, **kwargs) -> Optional[FactorValue]:
         """
         Enhanced get_or_create with automatic dependency resolution via FactorValueResolutionService.

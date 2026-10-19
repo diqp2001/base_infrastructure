@@ -26,9 +26,6 @@ from tests.component.factor_context.factor_world import T, FactorWorld
 pytestmark = pytest.mark.filterwarnings("ignore")
 
 KNOWN = {
-    "CompanyShareLGBMCSQuintileRankMomentumFactor": "its inputs are price-history factors (returns, Sharpe, MAs, ...) "
-                                                    "that resolve to None without a lookback (see "
-                                                    "test_history_factor_receives_a_close_history)",
     "CompanySharePortfolioEqualWeightReturnFactor": "its dependency CompanySharePriceReturnFactor cannot be built "
                                                     "with defaults, so it is never resolved",
     "CompanySharePortfolioPriceReturnFactor": "depends on raw CompanySharePortfolioFactor observations "
@@ -241,24 +238,115 @@ def test_history_factor_receives_only_close_prices(world, cls):
     assert prices and set(prices) <= set(world.closes["AAPL"]), "values other than closes were delivered"
 
 
-@pytest.mark.xfail(strict=True, reason="the resolution service has no lookback: DependencySpec delivers the close "
-                                       "at the target date (one value), not the trailing close series a return / "
-                                       "moving average / slope / risk factor needs — those resolve to None")
+def lookback_of(cls):
+    return declared_dependencies(instantiate(cls))[0].lookback
+
+
 @pytest.mark.parametrize("cls", [pytest.param(c, id=n) for n, c in HISTORY])
-def test_history_factor_receives_a_close_history(world, cls):
-    _, captured = world.resolve(cls, world.share["AAPL"])
+def test_history_factor_receives_its_window_of_trailing_closes(world, cls):
+    """Regression: the service had no lookback (one close per factor). Each history factor declares its window
+    (DependencySpec.lookback) and receives exactly that many closed daily closes, oldest first, ending at the
+    last closed bar (Friday's for Monday 16:00) — and a finite value."""
+    value, captured = world.resolve(cls, world.share["AAPL"])
     prices = [float(v) for v in captured["CompanyShareFactor"]]
     closes = world.closes["AAPL"]
-    assert len(prices) >= 2
-    assert prices == pytest.approx(closes[-len(prices):]), "not the trailing close series"
+    window = lookback_of(cls)
+    if window == "ytd":                                       # last 2025 close (base) + every 2026 close
+        first_2026 = next(i for i, d in enumerate(world.days) if d.year == T.year)
+        assert prices == pytest.approx(closes[first_2026 - 1:])
+    else:
+        assert len(prices) == window and prices == pytest.approx(closes[-window:])
+    assert value is not None and math.isfinite(value)
 
 
-@pytest.mark.xfail(strict=True, reason="see test_history_factor_receives_a_close_history")
-@pytest.mark.parametrize("name, lookback", [("CompanyShareReturn1DFactor", 1), ("CompanyShareReturn5DFactor", 5),
-                                            ("CompanyShareReturn20DFactor", 20)])
-def test_value_returns_over_their_window(world, name, lookback):
-    closes = world.closes["AAPL"]
-    assert value_of(world, name) == pytest.approx(closes[-1] / closes[-1 - lookback] - 1)
+@pytest.mark.parametrize("cls", [pytest.param(c, id=n) for n, c in HISTORY])
+def test_history_factor_without_its_full_window_gives_no_value(world, cls):
+    """A window that is not fully stored is missing data, not a value over a shorter window."""
+    window = lookback_of(cls)
+    if window == "ytd" or window <= 2:
+        pytest.skip("window always available in this world")
+    from src.infrastructure.models.factor.factor_value import FactorValueModel
+    keep = world.days[-(window - 1):]                         # one close short of the window
+    world.s.query(FactorValueModel).filter(FactorValueModel.entity_id == world.share["AAPL"].id,
+                                           FactorValueModel.date < keep[0]).delete()
+    world.s.commit()
+    value, captured = world.resolve(cls, world.share["AAPL"])
+    assert value is None
+
+
+def test_a_bar_still_open_at_the_target_is_never_in_the_series(world):
+    """Monday's bar (stamped Monday 00:00) is stored but not closed at Monday 16:00: no look-ahead."""
+    from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+    from src.infrastructure.models.factor.factor_value import FactorValueModel
+    close = world.s.query(CompanyShareFactorModel).filter_by(name="close").first()
+    world.s.add(FactorValueModel(factor_id=close.id, entity_id=world.share["AAPL"].id, entity_type="CompanyShare",
+                                 date=T.replace(hour=0), value="999.0"))
+    world.s.commit()
+    value, captured = world.resolve(dict(factor_classes())["CompanySharePriceVsMA20Factor"], world.share["AAPL"])
+    assert 999.0 not in captured["CompanyShareFactor"]
+    assert captured["CompanyShareFactor"] == pytest.approx(closes(world)[-20:])
+
+
+# ---- independent values of every family ------------------------------------------------------
+
+def closes(world):
+    return world.closes["AAPL"]
+
+
+def ret(c, n):
+    return c[-1] / c[-1 - n] - 1
+
+
+def mean(xs):
+    return sum(xs) / len(xs)
+
+
+def daily_returns(c, n):
+    window = c[-(n + 1):]
+    return [window[i] / window[i - 1] - 1 for i in range(1, len(window))]
+
+
+EXPECTED = {
+    "CompanyShareReturn1DFactor": lambda c: ret(c, 1),
+    "CompanyShareReturn5DFactor": lambda c: ret(c, 5),
+    "CompanyShareReturn20DFactor": lambda c: ret(c, 20),
+    "CompanyShareReturn3MFactor": lambda c: ret(c, 63),
+    "CompanyShareReturn5MFactor": lambda c: ret(c, 105),
+    "CompanySharePriceVsMA20Factor": lambda c: c[-1] / mean(c[-20:]) - 1,
+    "CompanySharePriceVsMA100Factor": lambda c: c[-1] / mean(c[-100:]) - 1,
+    "CompanyShareMA5VsMA10Factor": lambda c: mean(c[-5:]) / mean(c[-10:]) - 1,
+    "CompanyShareMA20VsMA50Factor": lambda c: mean(c[-20:]) / mean(c[-50:]) - 1,
+    "CompanyShareMomentumAcceleration20D50DFactor": lambda c: ret(c, 20) - (c[-21] / c[-51] - 1),
+    "CompanyShareReturnChange5DFactor": lambda c: ret(c, 5) - (c[-6] / c[-11] - 1),
+    "CompanyShareSharpe20DFactor": lambda c: (lambda r: mean(r) / (sum((x - mean(r)) ** 2 for x in r)
+                                                                   / (len(r) - 1)) ** 0.5)(daily_returns(c, 20)),
+    "CompanyShareSortino50DFactor": lambda c: (lambda r: mean(r) / (mean([x * x for x in r if x < 0])) ** 0.5)(
+        daily_returns(c, 50)),
+    "CompanyShareDrawdownFrom5MHighFactor": lambda c: (max(c[-105:]) - c[-1]) / max(c[-105:]),
+    "CompanyShareDaysSince5MHighFactor": lambda c: float(104 - c[-105:].index(max(c[-105:]))),
+    "CompanyShareShortTermMomentumFactor": lambda c: ret(c, 1),
+    "CompanyShareMediumTermMomentumFactor": lambda c: ret(c, 21),
+    "CompanyShareMomentumZScore20DFactor": lambda c: (c[-1] - mean(c[-20:])) / (
+        sum((x - mean(c[-20:])) ** 2 for x in c[-20:]) / 20) ** 0.5,
+}
+
+
+@pytest.mark.parametrize("name", sorted(EXPECTED))
+def test_value_of_history_factor(world, name):
+    assert value_of(world, name) == pytest.approx(EXPECTED[name](closes(world)), rel=1e-9, abs=1e-12)
+
+
+def test_value_of_the_year_to_date_return(world):
+    """Base = the last close of the previous year (the world has bars on 2026-01-01 and 2026-01-02)."""
+    first_2026 = next(i for i, d in enumerate(world.days) if d.year == T.year)
+    base = closes(world)[first_2026 - 1]
+    assert value_of(world, "CompanyShareReturnYTDFactor") == pytest.approx(closes(world)[-1] / base - 1)
+
+
+def test_trend_slope_is_the_least_squares_slope(world):
+    import numpy as np
+    c = closes(world)[-20:]
+    assert value_of(world, "CompanyShareTrendSlope20DFactor") == pytest.approx(float(np.polyfit(range(20), c, 1)[0]))
 
 
 def test_catalog_split():

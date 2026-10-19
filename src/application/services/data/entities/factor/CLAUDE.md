@@ -183,6 +183,15 @@ def calculate(self, dependencies: dict) -> Optional[Decimal]:
     ...
 ```
 
+### History window — `lookback`
+
+`DependencySpec(..., lookback=N)` on a raw (stored) dependency delivers a **series**: the N latest closed bars
+ending at the target date, oldest first (`FactorValueRepository.get_closed_bar_series`, anchored on
+`get_latest_available_bar`: closed bars only, `Factor.MAX_BAR_STALENESS_SECONDS`). Fewer than N stored -> the
+dependency is missing (no value over a shorter window). `lookback='ytd'` -> last bar of the previous year + every
+bar of the target year. Without `lookback` the spec delivers the value at the target date only. Windows used by
+the share signals: N-day return N+1 closes, MA / slope / z-score N, Sharpe / Sortino N+1, 1 month = 21 trading days.
+
 ### Key rules
 
 - The dep repo must support `get_all()` (all standard factor repos do).

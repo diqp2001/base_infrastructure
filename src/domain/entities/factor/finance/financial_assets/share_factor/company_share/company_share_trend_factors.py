@@ -36,7 +36,7 @@ class CompanyShareTrendSlope5DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=5)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -52,7 +52,7 @@ class CompanyShareTrendSlope10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=10)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -68,7 +68,7 @@ class CompanyShareTrendSlope20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=20)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -84,7 +84,7 @@ class CompanyShareTrendSlope50DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=50)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -100,7 +100,7 @@ class CompanyShareTrendSlope100DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=100)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -116,7 +116,7 @@ class CompanyShareMomentumSlope10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=10)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -132,7 +132,7 @@ class CompanyShareMomentumSlope20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=20)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)
@@ -148,7 +148,7 @@ class CompanyShareMomentumSlope50DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=50)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _linear_slope(dependencies)

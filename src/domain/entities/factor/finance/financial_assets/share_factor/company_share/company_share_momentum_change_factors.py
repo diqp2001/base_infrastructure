@@ -15,37 +15,27 @@ def _get_prices(dependencies: dict):
     return [float(p) for p in prices if p is not None]
 
 
-def _momentum_accel(dependencies: dict) -> Optional[float]:
-    """Approximate momentum acceleration: return of recent half vs older half."""
+def _momentum_accel(dependencies: dict, short: int) -> Optional[float]:
+    """Return over the last `short` days minus the return over the rest of the window before it."""
     prices = _get_prices(dependencies)
     n = len(prices)
-    if n < 3:
+    if n < short + 2:
         return None
-    half = n // 2
-    recent = prices[half:]
-    older = prices[:half]
-    if not recent or not older:
+    pivot = prices[-1 - short]
+    if pivot == 0 or prices[0] == 0:
         return None
-    r_recent = (recent[-1] - recent[0]) / recent[0] if recent[0] != 0 else None
-    r_older = (older[-1] - older[0]) / older[0] if older[0] != 0 else None
-    if r_recent is None or r_older is None:
-        return None
-    return r_recent - r_older
+    return (prices[-1] - pivot) / pivot - (pivot - prices[0]) / prices[0]
 
 
-def _return_change(dependencies: dict) -> Optional[float]:
-    """Second derivative of price — acceleration of returns."""
+def _return_change(dependencies: dict, period: int) -> Optional[float]:
+    """N-day return minus the N-day return before it (second derivative over N days)."""
     prices = _get_prices(dependencies)
-    n = len(prices)
-    if n < 3:
+    if len(prices) < 2 * period + 1:
         return None
-    if n >= 3:
-        r1 = (prices[-1] - prices[-2]) / prices[-2] if prices[-2] != 0 else None
-        r2 = (prices[-2] - prices[-3]) / prices[-3] if prices[-3] != 0 else None
-        if r1 is None or r2 is None:
-            return None
-        return r1 - r2
-    return None
+    p_now, p_mid, p_old = prices[-1], prices[-1 - period], prices[-1 - 2 * period]
+    if p_mid == 0 or p_old == 0:
+        return None
+    return (p_now - p_mid) / p_mid - (p_mid - p_old) / p_old
 
 
 class CompanyShareMomentumAcceleration5D10DFactor(CompanyShareFactor):
@@ -58,10 +48,10 @@ class CompanyShareMomentumAcceleration5D10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=11)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _momentum_accel(dependencies)
+        return _momentum_accel(dependencies, 5)
 
 
 class CompanyShareMomentumAcceleration10D20DFactor(CompanyShareFactor):
@@ -74,10 +64,10 @@ class CompanyShareMomentumAcceleration10D20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=21)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _momentum_accel(dependencies)
+        return _momentum_accel(dependencies, 10)
 
 
 class CompanyShareMomentumAcceleration20D50DFactor(CompanyShareFactor):
@@ -90,10 +80,10 @@ class CompanyShareMomentumAcceleration20D50DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=51)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _momentum_accel(dependencies)
+        return _momentum_accel(dependencies, 20)
 
 
 class CompanyShareReturnChange5DFactor(CompanyShareFactor):
@@ -106,10 +96,10 @@ class CompanyShareReturnChange5DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=11)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _return_change(dependencies)
+        return _return_change(dependencies, 5)
 
 
 class CompanyShareReturnChange10DFactor(CompanyShareFactor):
@@ -122,10 +112,10 @@ class CompanyShareReturnChange10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=21)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _return_change(dependencies)
+        return _return_change(dependencies, 10)
 
 
 class CompanyShareReturnChange20DFactor(CompanyShareFactor):
@@ -138,7 +128,7 @@ class CompanyShareReturnChange20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'], lookback=41)]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
-        return _return_change(dependencies)
+        return _return_change(dependencies, 20)

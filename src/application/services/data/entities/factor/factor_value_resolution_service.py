@@ -1060,7 +1060,21 @@ class FactorValueResolutionService:
                         f"{type(related_entity).__name__} — skipping resolution"
                     )
                     continue
-               
+
+                lookback = getattr(spec, 'lookback', None)
+                if lookback:
+                    # A price series, not one value: the trailing closed bars ending at the bar the
+                    # single-value lookup would use (no look-ahead, same staleness rule). A series
+                    # shorter than the window is missing data — never a value over a shorter window.
+                    series = self._closed_bar_series(dep_factor, related_entity, target_date, lookback)
+                    if series:
+                        values.extend(series)
+                        self.logger.info(
+                            f"DependencySpec '{dep_name}': factor '{dep_factor.name}' entity {related_id} "
+                            f"→ {len(series)} closed bars (lookback {lookback})"
+                        )
+                    continue
+
                 fv = self.resolve_factor_value(
                     factor_entity=dep_factor,
                     entity=related_entity,
@@ -1077,6 +1091,39 @@ class FactorValueResolutionService:
                     )
 
         return values
+
+    def _closed_bar_series(self, dep_factor, entity, target_date, lookback) -> List[float]:
+        """Trailing stored values of a raw factor at target_date, oldest first.
+
+        lookback: int  — exactly that many closed bars (fewer stored -> [] : the window is not available);
+                  'ytd' — the last bar of the previous year (the base) + every bar of target_date's year.
+        Bars are stamped at their start; only closed bars count (see get_latest_available_bar)."""
+        repo = getattr(self.factory, 'factor_value_local_repo', None) if self.factory else None
+        if repo is None or not hasattr(repo, 'get_closed_bar_series'):
+            return []
+        parsed = self._parse_date(target_date) if isinstance(target_date, str) else target_date
+        date_str = parsed.strftime("%Y-%m-%d %H:%M:%S")
+        entity_type = type(entity).__name__.removesuffix('Model')
+        bar_seconds = self._get_bar_offset_seconds(dep_factor.id)
+        for et in self._entity_type_variants(entity_type):
+            if lookback == 'ytd':
+                series = repo.get_closed_bar_series(
+                    dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, since=datetime(parsed.year, 1, 1),
+                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS, entity_type=et)
+                if len(series) >= 2:
+                    return series
+            else:
+                series = repo.get_closed_bar_series(
+                    dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, count=int(lookback),
+                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS, entity_type=et)
+                if len(series) == int(lookback):
+                    return series
+                if series:
+                    self.logger.warning(
+                        f"{dep_factor.name} for {entity_type}:{entity.id} at {date_str}: only {len(series)} of "
+                        f"{lookback} closed bars stored — no value over a shorter window")
+                    return []
+        return []
 
     def _find_matching_factors(self, factor_entity, repository_type: str) -> List[Any]:
         """

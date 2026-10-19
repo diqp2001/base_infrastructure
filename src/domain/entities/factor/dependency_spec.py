@@ -52,6 +52,11 @@ class DependencySpec:
     name_in: List[str] = field(default_factory=list)
     name_not_in: List[str] = field(default_factory=list)
 
+    # History window of a raw (stored) dependency: None = the value at the target date (one value);
+    # an int N = the N latest closed bars ending at the target date, oldest first (a series shorter
+    # than N is missing data); 'ytd' = the last bar of the previous year + every bar of this year.
+    lookback: Any = None
+
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF
 

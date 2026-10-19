@@ -138,6 +138,13 @@ requested frequency to its lookup and creates the definition at that frequency w
 (e.g. `mid_price` at 1d next to 5m). A spec with `frequency=SELF` therefore always finds or creates its
 dependency — this used to make resolution order decide whether delta / gamma / vega resolved.
 
+Price-history factors (returns, moving averages, momentum, slopes, Sharpe / Sortino, drawdowns, z-scores) declare
+`DependencySpec(CompanyShareFactor, group='price', name_in=['close'], lookback=N)`: the service delivers the N
+latest closed daily closes, oldest first, ending at the bar a single-value lookup would use (no look-ahead, same
+staleness rule); `lookback='ytd'` delivers the last close of the previous year + every close of the year. A window
+not fully stored gives no value. Tests: `test_history_factor_receives_its_window_of_trailing_closes`,
+`test_value_of_history_factor`, `test_a_bar_still_open_at_the_target_is_never_in_the_series`.
+
 Gaps pinned as strict xfails there (reasons in the tests):
 
 | Gap | Factors |
@@ -145,7 +152,6 @@ Gaps pinned as strict xfails there (reasons in the tests):
 | need `name` / `group` to be built — not resolvable by the service | 46 (generic Option / Future / Index / Swap, model-based option pricers, `CompanySharePriceReturn`, `AvgTurnover6m`, `MonthlyPriceRange`, `Vpt52w20dLag`) |
 | no `calculate_dependencies` | `CurrencyRate`, `PortfolioHoldingValue`, `CompanySharePositionValue`, `CompanyShareTransactionValue`, `CompanySharePortfolioOptionValue`, `ConstituentScore` |
 | string dependencies nothing resolves | `BondFutureAnnualizedRollYield`, `BondFutureDiscountedValue`, `BondFutureForwardPrice`; option `ImpliedCorr`, `ImpliedDivYield`, `Var`, `Vol` (raw `CompanyShareOptionFactor` by string) |
-| price-history factors (specs now `name_in=['close']`) get the close at the target date only — no lookback, so no trailing close series; most resolve to None | all ~52 return / MA / momentum / slope / Sharpe / Sortino / drawdown factors |
 | option price uses the factor's K / T, not the option's strike / expiry (a value comes out, but at the wrong strike / expiry) | `CompanyShareOptionPrice` |
 | option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
 
