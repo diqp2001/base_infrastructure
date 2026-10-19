@@ -484,6 +484,12 @@ class CompanyShareOptionHestonPriceFactorModel(FactorModel):
     }
 
 
+class CompanyShareOptionHestonSLVPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_heston_slv_price_factor"
+    }
+
+
 class CompanyShareOptionHullWhitePriceFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_option_hull_white_price_factor"

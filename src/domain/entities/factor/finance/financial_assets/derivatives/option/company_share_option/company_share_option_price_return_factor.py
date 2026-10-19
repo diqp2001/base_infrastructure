@@ -4,18 +4,22 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionPriceReturnFactor(CompanyShareOptionFactor):
+from src.domain.entities.factor.series_dependencies import SeriesPriceReturn
+
+
+class CompanyShareOptionPriceReturnFactor(SeriesPriceReturn, CompanyShareOptionFactor):
     """Price return factor associated with company share options."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "return_daily",
+        group: str = "return",
+        subgroup: Optional[str] = "daily",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -26,10 +30,11 @@ class CompanyShareOptionPriceReturnFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def price_return(
         self,
         current_price: float,
         previous_price: float,
@@ -166,3 +171,6 @@ class CompanyShareOptionPriceReturnFactor(CompanyShareOptionFactor):
         # Remove the expected return from delta exposure
         expected_delta_return = option_delta * underlying_return
         return option_return - expected_delta_return
+
+
+CompanyShareOptionPriceReturnFactor.RAW_FACTOR_TYPE = __import__("src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor", fromlist=["CompanyShareOptionFactor"]).CompanyShareOptionFactor

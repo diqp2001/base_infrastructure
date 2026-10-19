@@ -4,18 +4,22 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor import CompanySharePortfolioOptionFactor
 
 
-class CompanySharePortfolioOptionPriceReturnFactor(CompanySharePortfolioOptionFactor):
+from src.domain.entities.factor.series_dependencies import SeriesPriceReturn
+
+
+class CompanySharePortfolioOptionPriceReturnFactor(SeriesPriceReturn, CompanySharePortfolioOptionFactor):
     """Price return factor associated with portfolio company share options."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "return_daily",
+        group: str = "return",
+        subgroup: Optional[str] = "daily",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -26,10 +30,11 @@ class CompanySharePortfolioOptionPriceReturnFactor(CompanySharePortfolioOptionFa
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def price_return(
         self,
         current_price: float,
         previous_price: float,
@@ -91,7 +96,7 @@ class CompanySharePortfolioOptionPriceReturnFactor(CompanySharePortfolioOptionFa
         if volatility <= 0 or previous_price <= 0:
             return None
             
-        price_return = self.calculate(current_price, previous_price)
+        price_return = self.price_return(current_price, previous_price)
         if price_return is None:
             return None
             
@@ -174,3 +179,6 @@ class CompanySharePortfolioOptionPriceReturnFactor(CompanySharePortfolioOptionFa
             
         # Return sensitivity to portfolio movements
         return option_return / portfolio_return
+
+
+CompanySharePortfolioOptionPriceReturnFactor.RAW_FACTOR_TYPE = __import__("src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_portfolio_option.company_share_portfolio_option_factor", fromlist=["CompanySharePortfolioOptionFactor"]).CompanySharePortfolioOptionFactor

@@ -4,18 +4,22 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor import IndexFutureOptionFactor
 
 
-class IndexFutureOptionPriceReturnFactor(IndexFutureOptionFactor):
+from src.domain.entities.factor.series_dependencies import SeriesPriceReturn
+
+
+class IndexFutureOptionPriceReturnFactor(SeriesPriceReturn, IndexFutureOptionFactor):
     """Price return factor associated with index future options."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "return_daily",
+        group: str = "return",
+        subgroup: Optional[str] = "daily",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -26,10 +30,11 @@ class IndexFutureOptionPriceReturnFactor(IndexFutureOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def price_return(
         self,
         current_price: float,
         previous_price: float,
@@ -121,3 +126,6 @@ class IndexFutureOptionPriceReturnFactor(IndexFutureOptionFactor):
             
         excess_return = option_return - risk_free_rate
         return excess_return / return_volatility
+
+
+IndexFutureOptionPriceReturnFactor.RAW_FACTOR_TYPE = __import__("src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor", fromlist=["IndexFutureOptionFactor"]).IndexFutureOptionFactor

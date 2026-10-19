@@ -76,3 +76,49 @@ class OptionMarketInputs:
             return None
         K, T, option_type = terms
         return {"S": S, "K": K, "r": r, "sigma": sigma, "T": T, "option_type": option_type}
+
+
+class OptionModelPrice(OptionMarketInputs):
+    """
+    An option pricing model fed by the resolution service: market inputs from data (OptionMarketInputs) and the
+    model's own parameters from its factor-library entry (`"parameters": {...}`), which the service delivers as
+    dependencies['parameters'] (LIBRARY_PARAMETERS). A required parameter missing from the entry -> no value.
+
+    The subclass implements price(...) with the model maths and names its REQUIRED_PARAMETERS.
+    """
+
+    LIBRARY_PARAMETERS = True
+    REQUIRED_PARAMETERS: tuple = ()
+    PARAMETER_ALIASES = {"monte_carlo_paths": "n_paths", "time_steps": "n_steps"}
+
+    def model_parameters(self, dependencies: dict) -> Optional[dict]:
+        """The library parameters price() accepts, or None if a required one is missing."""
+        import inspect
+        raw = dependencies.get("parameters") or {}
+        params = {self.PARAMETER_ALIASES.get(k, k): v for k, v in raw.items()}
+        if any(params.get(name) is None for name in self.REQUIRED_PARAMETERS):
+            return None
+        accepted = inspect.signature(self.price).parameters
+        return {k: v for k, v in params.items() if k in accepted or k in self.REQUIRED_PARAMETERS}
+
+    def model_arguments(self, inputs: dict, parameters: dict) -> dict:
+        """price() arguments: the market inputs under the names price() uses, then the model parameters."""
+        import inspect
+        import math
+        candidates = dict(inputs, r0=inputs["r"], F=inputs["S"] * math.exp(inputs["r"] * inputs["T"]))
+        accepted = inspect.signature(self.price).parameters
+        arguments = {k: v for k, v in candidates.items() if k in accepted}
+        arguments.update(parameters)
+        return arguments
+
+    def calculate(self, dependencies=None, *args, **kwargs) -> Optional[float]:
+        """Resolution service: calculate(dependencies). Direct callers: the explicit arguments of price()."""
+        if isinstance(dependencies, dict):
+            inputs = self.market_inputs(dependencies)
+            parameters = self.model_parameters(dependencies)
+            if inputs is None or parameters is None:
+                return None
+            return self.price(**self.model_arguments(inputs, parameters))
+        if dependencies is not None:
+            args = (dependencies,) + args
+        return self.price(*args, **kwargs)

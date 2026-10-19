@@ -72,7 +72,7 @@ class CompanySharePortfolioOptionPriceReturnFactorRepository(BaseFactorRepositor
                 name=primary_key,
                 group=kwargs.get('group', 'company_share_portfolio_option'),
                 subgroup=kwargs.get('subgroup', 'price_return'),
-                factor_type=kwargs.get('factor_type', 'return_calculation'),
+                factor_type=kwargs.get('factor_type', 'company_share_portfolio_option_price_return_factor'),
                 data_type=self.mapper.discriminator,
                 source=kwargs.get('source', 'calculated')
             )

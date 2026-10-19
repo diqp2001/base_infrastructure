@@ -26,7 +26,7 @@ from tests.misbuffet.sqlite_portfolio import SqlitePortfolio
 
 T = datetime(2026, 1, 5, 16, 0)
 LAST_BAR = datetime(2026, 1, 2)
-N_BARS = 260
+N_BARS = 300                                   # >= the longest window (VPT: 273 closes)
 OPTION_SYMBOL = "AAPL  260320C00180000"
 FUTURE_SYMBOL = "SR3H6"
 RAW_NAMES = ("open", "high", "low", "close", "volume")
@@ -46,7 +46,8 @@ def bar_days(n=N_BARS, last=LAST_BAR):
 
 def close_series(scale=1.0):
     """Deterministic, trending with swings (so drawdowns / downside deviation are not degenerate)."""
-    return [scale * (100.0 + 0.3 * i + 4.0 * math.sin(i / 6.0)) for i in range(N_BARS)]
+    # indexed so the last close stays where the option's strike / market price were set (AAPL ~178 vs K 180)
+    return [scale * (100.0 + 0.3 * i + 4.0 * math.sin(i / 6.0)) for i in range(260 - N_BARS, 260)]
 
 
 class FactorWorld:
@@ -109,7 +110,7 @@ class FactorWorld:
         from src.domain.entities.finance.financial_assets.derivatives.future.bond_future import BondFuture
         from src.infrastructure.models.factor.factor import BondFutureFactorModel
         future = self.f.get_local_repository("BondFuture").add(BondFuture(
-            id=None, name=f"{FUTURE_SYMBOL} Bond Future", symbol=FUTURE_SYMBOL, start_date=date(2025, 3, 1),
+            id=None, name=f"{FUTURE_SYMBOL} Bond Future", symbol=FUTURE_SYMBOL, start_date=date(2025, 3, 1), end_date=date(2026, 3, 18),
             currency_id=self.usd.id, exchange_id=1, underlying_asset_id=self.usd.id))
         close = self._raw_factor(BondFutureFactorModel, "close", "bond_future_factor")
         for day in self.days[-30:]:
@@ -144,6 +145,42 @@ class FactorWorld:
                                             entity_type="CompanyShareOption", date=day, value=repr(value)))
         self.s.commit()
         return repo.get_by_id(option.id)
+
+    def index_family(self):
+        """SPX index, its ESH6 future and a call on the future, each with 30 daily bars (created on first use)."""
+        if getattr(self, "_index_family", None):
+            return self._index_family
+        from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
+        from src.domain.entities.finance.financial_assets.derivatives.option.index_future_option import (
+            IndexFutureOption,
+        )
+        from src.domain.entities.finance.financial_assets.index.index import Index
+        from src.infrastructure.models.factor.factor import (
+            IndexFactorModel, IndexFutureFactorModel, IndexFutureOptionFactorModel,
+        )
+        index = self.f.get_local_repository("Index").add(Index(
+            id=None, name="S&P 500", symbol="SPX", currency_id=self.usd.id, start_date=date(2000, 1, 1)))
+        future = self.f.get_local_repository("IndexFuture").add(IndexFuture(
+            underlying_index="SPX", id=None, name="ESH6", symbol="ESH6", start_date=date(2025, 3, 1),
+            end_date=date(2026, 3, 20), currency_id=self.usd.id, exchange_id=1, underlying_asset_id=index.id))
+        option = self.f.get_local_repository("IndexFutureOption").add(IndexFutureOption(
+            id=None, name="ESH6 C6000", symbol="ESH6 C6000", currency_id=self.usd.id, underlying_asset_id=future.id,
+            exchange_id=1, option_type="call", start_date=date(2025, 6, 1), end_date=date(2026, 3, 20),
+            strike_price=6000, multiplier=50, index_symbol="SPX"))
+        self.index_closes = {"Index": close_series(60.0)[-30:], "IndexFuture": close_series(60.5)[-30:],
+                             "IndexFutureOption": [c / 40.0 for c in close_series(1.0)[-30:]]}
+        for entity, model_cls, factor_type in ((index, IndexFactorModel, "index_factor"),
+                                               (future, IndexFutureFactorModel, "index_future_factor"),
+                                               (option, IndexFutureOptionFactorModel, "index_future_option_factor")):
+            entity_type = type(entity).__name__
+            factors = {n: self._raw_factor(model_cls, n, factor_type) for n in ("open", "close")}
+            for day, c in zip(self.days[-30:], self.index_closes[entity_type]):
+                for name, value in (("open", c - 0.5), ("close", c)):
+                    self.s.add(FactorValueModel(factor_id=factors[name].id, entity_id=entity.id,
+                                                entity_type=entity_type, date=day, value=repr(value)))
+        self.s.commit()
+        self._index_family = {"Index": index, "IndexFuture": future, "IndexFutureOption": option}
+        return self._index_family
 
     def option_portfolio(self):
         """CompanyShareOptionPortfolio under the main portfolio holding 2 contracts (built like set_holdings)."""
@@ -228,6 +265,9 @@ class FactorWorld:
             return self.option
         if factor_name.startswith("CompanyShare"):
             return self.share["AAPL"]
+        for prefix in ("IndexFutureOption", "IndexFuture", "Index"):
+            if factor_name.startswith(prefix):
+                return self.index_family()[prefix]
         if factor_name.startswith("Currency"):
             return self.usd
         if factor_name.startswith("BondFuture"):
@@ -235,19 +275,22 @@ class FactorWorld:
         return None
 
     # ---- resolution -------------------------------------------------------------------------
-    def definition(self, cls):
+    def definition(self, cls, **overrides):
+        """The stored definition built from the class defaults (`overrides`: e.g. name / subgroup)."""
         d = cls()
-        return self.f.get_local_repository(cls.__name__)._create_or_get(
-            cls, d.name, group=d.group, subgroup=d.subgroup, data_type=d.data_type, source=d.source,
-            frequency=d.frequency or "1d")
+        fields = dict(name=d.name, group=d.group, subgroup=d.subgroup, data_type=d.data_type, source=d.source,
+                      frequency=d.frequency or "1d")
+        fields.update(overrides)
+        return self.f.get_local_repository(cls.__name__)._create_or_get(cls, fields.pop("name"), **fields)
 
-    def resolve(self, cls, entity, when=T, provider=None):
+    def resolve(self, cls, entity, when=T, provider=None, **overrides):
         """(value or None, the dependencies calculate() received or None if never called).
 
-        `provider` replaces the model provider of ML factors (`_provider.predict(deps, entity, date)`)."""
+        `provider` replaces the model provider of ML factors (`_provider.predict(deps, entity, date)`);
+        `overrides` change the definition's fields (see definition)."""
         captured = {}
         real = cls.calculate
-        definition = self.definition(cls)
+        definition = self.definition(cls, **overrides)
         if provider is not None:
             definition._provider = provider
 

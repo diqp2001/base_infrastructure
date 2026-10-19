@@ -2,21 +2,25 @@ import math
 import random
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionModelPrice
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionSABRPriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionSABRPriceFactor(OptionModelPrice, CompanyShareOptionFactor):
     """SABR (Stochastic Alpha Beta Rho) price factor for company share options."""
+
+    REQUIRED_PARAMETERS = ('alpha', 'beta', 'rho', 'nu')     # from the factor-library entry's parameters
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "sabr_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "sabr",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -27,10 +31,11 @@ class CompanyShareOptionSABRPriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def price(
         self,
         F: float,          # forward price
         K: float,          # strike price

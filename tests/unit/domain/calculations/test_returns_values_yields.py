@@ -189,10 +189,16 @@ class TestBondFutureYields:
 
     def test_rate_and_maturity_are_inputs_not_constants(self):
         """Regression: calculate() used a hard-coded r=5.3 % and T=0.25 when they were not supplied."""
-        assert self.forward.calculate({"spot_price": 100.0}) is None
-        assert self.discount.calculate({"future_price": 100.0}) is None
+        from datetime import date, datetime
+        from types import SimpleNamespace
+        future = SimpleNamespace(expiration_date=None, end_date=date(2027, 1, 1))
+        when = datetime(2026, 1, 1, 16, 0)                                  # 365 days to expiry
+        assert self.forward.calculate({"prices": [100.0], "entity": future, "target_date": when}) is None
+        assert self.discount.calculate({"prices": [100.0], "entity": future, "target_date": when}) is None
+        assert self.discount.calculate({"prices": [100.0], "rates": [0.02], "target_date": when}) is None
         assert self.roll.calculate({"start_price": 100.0, "end_price": 101.0}) is None
-        assert float(self.forward.calculate({"spot_price": 100.0, "risk_free_rate": 0.02, "time_to_maturity": 1.0})) == \
-            pytest.approx(100 * math.exp(0.02))
+        full = {"prices": [100.0], "rates": [0.02], "entity": future, "target_date": when}
+        assert float(self.forward.calculate(full)) == pytest.approx(100 * math.exp(0.02))
+        assert float(self.discount.calculate(full)) == pytest.approx(100 * math.exp(-0.02))
         assert float(self.roll.calculate({"start_price": 100.0, "end_price": 101.0, "time_to_maturity": 0.5})) == \
             pytest.approx(0.02)

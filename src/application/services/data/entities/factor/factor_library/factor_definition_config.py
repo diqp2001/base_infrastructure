@@ -36,3 +36,17 @@ def get_factor_config(name: str) -> Dict:
     """
     return FACTOR_LIBRARY.get(name, {})
 
+
+
+def library_parameters(factor) -> Dict:
+    """`parameters` of the library entry defining this factor (same class and name); {} when none.
+
+    Used by FactorValueResolutionService for factors that read model parameters from their entry
+    (LIBRARY_PARAMETERS, e.g. Heston / SABR / Bates option pricers)."""
+    cls_name, name = type(factor).__name__, getattr(factor, "name", None)
+    for library in FACTOR_LIBRARY.values():
+        for entry in library.values():
+            entry_cls = entry.get("class") if isinstance(entry, dict) else None
+            if entry_cls is not None and entry_cls.__name__ == cls_name and entry.get("name") == name:
+                return dict(entry.get("parameters") or {})
+    return {}

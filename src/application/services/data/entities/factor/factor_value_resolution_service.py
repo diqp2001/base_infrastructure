@@ -889,8 +889,8 @@ class FactorValueResolutionService:
                         dep, factor_entity, related_entities, target_date, repository_type, **kwargs
                     )
                     if spec_values is not None:
-                        dependency_values[dep.dep_name] = spec_values
-                        self.logger.info(f"DependencySpec {dep.dep_name}: collected {len(spec_values)} values")
+                        dependency_values[dep.result_key] = spec_values
+                        self.logger.info(f"DependencySpec {dep.result_key}: collected {len(spec_values)} values")
                     else:
                         self.logger.warning(f"DependencySpec {dep.dep_name}: no values resolved")
                 else:
@@ -1684,6 +1684,12 @@ class FactorValueResolutionService:
                     dependency_values['entity'] = kwargs['entity']
                 if kwargs.get('target_date') is not None:
                     dependency_values['target_date'] = kwargs['target_date']
+                # model parameters from the factor's library entry (e.g. Heston v0 / kappa / ...)
+                if getattr(factor_entity, 'LIBRARY_PARAMETERS', False):
+                    from src.application.services.data.entities.factor.factor_library.factor_definition_config import (
+                        library_parameters,
+                    )
+                    dependency_values['parameters'] = library_parameters(factor_entity)
 
                 call_kwargs = {}
                 if 'dependencies' in method_params:

@@ -4,30 +4,30 @@ from decimal import Decimal
 from typing import Optional
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_factor import BondFutureFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.carry_inputs import FutureCarryInputs
 
 
-class BondFutureForwardPriceFactor(BondFutureFactor):
+class BondFutureForwardPriceFactor(FutureCarryInputs, BondFutureFactor):
     """Forward price factor for a bond future.
 
-    Dependencies: spot_price (close from BondFutureFactor).
-    r defaults to 0.053 (approximate SOFR); T defaults to 0.25 (quarterly cycle).
-    Replace r/T with dynamic factor dependencies when a rate factor is available.
+    Inputs (FutureCarryInputs): the future's last closed close, the settlement currency's yield
+    (CurrencyYieldFactor -> dated SOFR / CORRA future) and the years to the future's expiry.
     """
 
     def __init__(self, name: str = "Forward Price", factor_id: Optional[int] = None, **kwargs):
         kwargs.setdefault('subgroup', 'daily')
+        kwargs.setdefault('frequency', '1d')
+        kwargs.setdefault('data_type', 'numeric')
+        kwargs.setdefault('source', 'calculated')
         super().__init__(name=name, factor_id=factor_id, **kwargs)
 
-    @property
-    def calculate_dependencies(self) -> list:
-        return ["spot_price", "risk_free_rate", "time_to_maturity"]
-
     def calculate(self, dependencies: dict) -> Optional[Decimal]:
-        # rate and maturity are inputs: no hard-coded fallback (missing input -> no value)
-        spot, r, T = (dependencies.get(k) for k in ("spot_price", "risk_free_rate", "time_to_maturity"))
-        if spot is None or r is None or T is None:
+        """F = close * exp(r T): close, r and T from FutureCarryInputs (resolution service)."""
+        inputs = self.carry_inputs(dependencies or {})
+        if inputs is None:
             return None
-        result = self.calculate_forward_price(float(spot), r=float(r), T=float(T))
+        price, r, T = inputs
+        result = self.calculate_forward_price(price, r=r, T=T)
         return Decimal(str(result)) if result is not None else None
 
     def calculate_forward_price(

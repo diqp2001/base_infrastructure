@@ -81,6 +81,21 @@ class BondFutureRepository(FutureRepository, BondFuturePort):
             print(f"Error retrieving BondFuture by symbol {symbol}: {e}_{os.path.abspath(__file__)}")
             return None
 
+    def get_related_entities(self, future_id: int) -> list:
+        """The settlement Currency of the future: the resolution service resolves currency factors there
+        (e.g. CurrencyYieldFactor, the discount rate of BondFutureDiscountedValueFactor)."""
+        if not self.factory:
+            return []
+        try:
+            orm_obj = self.session.query(self.model_class).filter(self.model_class.id == future_id).one_or_none()
+            if orm_obj is None or not getattr(orm_obj, "currency_id", None):
+                return []
+            currency = self.factory.get_local_repository('Currency').get_by_id(orm_obj.currency_id)
+            return [currency] if currency else []
+        except Exception as e:
+            print(f"Error getting related entities for BondFuture {future_id}: {e}_{os.path.abspath(__file__)}")
+            return []
+
     def add(self, entity: BondFuture) -> Optional[BondFuture]:
         try:
             orm_obj = self.mapper.to_orm(entity)

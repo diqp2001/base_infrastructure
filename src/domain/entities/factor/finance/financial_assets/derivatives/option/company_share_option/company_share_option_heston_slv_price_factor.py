@@ -1,10 +1,11 @@
 import math
 from typing import Optional, Callable
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionModelPrice
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionHestonSLVPriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionHestonSLVPriceFactor(OptionModelPrice, CompanyShareOptionFactor):
     """
     Heston Stochastic Local Volatility (Heston-SLV) price factor for company share options.
 
@@ -34,15 +35,18 @@ class CompanyShareOptionHestonSLVPriceFactor(CompanyShareOptionFactor):
        modules (no numpy/scipy required in the domain layer).
     """
 
+    REQUIRED_PARAMETERS = ('v0', 'kappa', 'theta', 'xi', 'rho')     # from the factor-library entry's parameters
+
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "heston_slv_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "stochastic_volatility",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         model=None,   # optional pre-calibrated HestonSLVModel (service layer)
         **kwargs,
     ):
@@ -54,6 +58,7 @@ class CompanyShareOptionHestonSLVPriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
         self._model = model
@@ -66,7 +71,7 @@ class CompanyShareOptionHestonSLVPriceFactor(CompanyShareOptionFactor):
     #  Primary pricing entry point                                          #
     # ------------------------------------------------------------------ #
 
-    def calculate(
+    def price(
         self,
         S: float,                # underlying spot price
         K: float,                # option strike

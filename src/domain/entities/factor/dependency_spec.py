@@ -57,12 +57,21 @@ class DependencySpec:
     # than N is missing data); 'ytd' = the last bar of the previous year + every bar of this year.
     lookback: Any = None
 
+    # Key under which calculate() receives the values (default: the factor type name). Needed when two
+    # specs share a factor type, e.g. the highs and the lows of CompanyShareFactor.
+    key: Optional[str] = None
+
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @property
+    def result_key(self) -> str:
+        """Key of the resolved values in calculate(dependencies)."""
+        return self.key or self.dep_name
 
     @property
     def dep_name(self) -> str:

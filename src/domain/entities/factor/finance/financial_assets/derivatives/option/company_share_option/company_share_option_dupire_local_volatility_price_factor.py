@@ -2,21 +2,25 @@ import math
 import random
 from typing import Optional, Callable
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionModelPrice
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionDupireLocalVolatilityPriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionDupireLocalVolatilityPriceFactor(OptionModelPrice, CompanyShareOptionFactor):
     """Dupire Local Volatility price factor for company share options."""
+
+    REQUIRED_PARAMETERS = ('beta',)     # from the factor-library entry's parameters
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "dupire_local_volatility_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "local_volatility",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -27,10 +31,20 @@ class CompanyShareOptionDupireLocalVolatilityPriceFactor(CompanyShareOptionFacto
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def model_arguments(self, inputs: dict, parameters: dict) -> dict:
+        """CEV local volatility anchored on the market: sigma_LV(S, t) = sigma_imp * (S / S_spot) ** (beta - 1)."""
+        parameters = dict(parameters)
+        beta = float(parameters.pop("beta"))
+        sigma, spot = inputs["sigma"], inputs["S"]
+        arguments = super().model_arguments(inputs, parameters)
+        arguments["local_vol_func"] = lambda S, t: sigma * (S / spot) ** (beta - 1) if S > 0 else sigma
+        return arguments
+
+    def price(
         self,
         S: float,          # underlying price
         K: float,          # strike price

@@ -125,13 +125,14 @@ Semantics the context tests rely on (`tests/component/portfolio_context/`, `test
 Factor classes are discovered from `src/domain/entities/factor` (`tests/component/factor_context/factor_catalog.py`),
 so a new factor is covered automatically.
 
-- `test_factor_dependency_wiring.py` — one test per class (141): buildable with defaults, a local repository,
+- `test_factor_dependency_wiring.py` — one test per class (141, incl. classes whose `calculate()` comes from a
+  mixin such as `SeriesPriceReturn` / `OptionModelPrice`): buildable with defaults, a local repository,
   `calculate_dependencies` declared, every `calculate()` parameter fillable by the service, every dependency
   resolvable (DependencySpec: repository + a definition that satisfies the spec; string: a buildable factor
   type or an entity attribute such as `Position`).
 - `test_factor_resolution_end_to_end.py` — every wired factor resolved through `FactorValueResolutionService`
-  in a fresh SQLite market (`factor_world.py`: 260 daily bars, a portfolio with shares and options, USD,
-  the dated SOFR future, an option): `calculate()` must receive every declared dependency and return a
+  in a fresh SQLite market (`factor_world.py`: 300 daily bars, a portfolio with shares and options, USD,
+  the dated SOFR future (expiry 18 Mar 2026), an option, and on demand SPX / ESH6 / an ESH6 call with 30 bars): `calculate()` must receive every declared dependency and return a
   finite number; independent value checks for prices, holdings, portfolios, rates, implied vol and delta.
   ML factors get a stand-in model provider (the service must hand it the dependencies).
 
@@ -147,15 +148,34 @@ staleness rule); `lookback='ytd'` delivers the last close of the previous year +
 not fully stored gives no value. Tests: `test_history_factor_receives_its_window_of_trailing_closes`,
 `test_value_of_history_factor`, `test_a_bar_still_open_at_the_target_is_never_in_the_series`.
 
-Gaps pinned as strict xfails there (reasons in the tests):
+Former library-route factors (two prices with lags as stored `FactorDependency` rows) read windows of closed
+bars the same way (`DependencySpec.lookback`, `key=` names the entry in `calculate(dependencies)` when two specs
+share a factor type):
 
-| Gap | Factors |
+| Factor | Inputs |
 |---|---|
-| need `name` / `group` to be built — not resolvable by the service | 46 (generic Option / Future / Index / Swap, model-based option pricers, `CompanySharePriceReturn`, `AvgTurnover6m`, `MonthlyPriceRange`, `Vpt52w20dLag`) |
-| no `calculate_dependencies` | `CurrencyRate`, `PortfolioHoldingValue`, `CompanySharePositionValue`, `CompanyShareTransactionValue`, `CompanySharePortfolioOptionValue`, `ConstituentScore` |
-| string dependencies nothing resolves | `BondFutureAnnualizedRollYield`, `BondFutureDiscountedValue`, `BondFutureForwardPrice`; option `ImpliedCorr`, `ImpliedDivYield`, `Var`, `Vol` (raw `CompanyShareOptionFactor` by string) |
-| option price uses the factor's K / T, not the option's strike / expiry (a value comes out, but at the wrong strike / expiry) | `CompanyShareOptionPrice` |
-| option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
+| `*PriceReturn` (CompanyShare, CompanyShareOption, Index, IndexFuture, IndexFutureOption) — `SeriesPriceReturn` | the instrument's closes over its subgroup window: daily 2, weekly 6, monthly 22 (minutes: 2 opens) |
+| `CompanyShareAvgTurnover6m` | mean of the last 126 volumes |
+| `CompanyShareMonthlyPriceRange` | high 1 bar ago − low 21 bars ago |
+| `CompanyShareVpt52w20dLag` | volume 20 bars ago × (close 20 bars ago / close 272 bars ago − 1) |
+| `BondFutureDiscountedValue` / `BondFutureForwardPrice` — `FutureCarryInputs` | last close, the settlement currency's `CurrencyYieldFactor` (`BondFutureRepository.get_related_entities` → its currency), years to the future's expiry |
+
+Option pricing models (`OptionModelPrice`: Heston, Heston-SLV, Bates, SABR, Hull-White, Dupire) take S, σ, r from
+data and K, T, call/put from the option (as BSM / CRR); their model parameters (`v0`, `kappa`, `theta`, `xi`, `rho`,
+`lambda_j`, `alpha`, `beta`, `nu`, `a`, `sigma_r`, ...) come from the factor-library entry's `"parameters"`, which the
+service passes as `dependencies['parameters']` (`factor_definition_config.library_parameters`, for factors with
+`LIBRARY_PARAMETERS`). A required parameter missing from the entry gives no value — the library entries do not
+set them yet, so these factors produce nothing until they are calibrated / configured. Tests: each model reduced
+to Black-Scholes reprices the option's market price; without parameters, no value.
+
+Classes the service is not meant to feed are listed in `factor_catalog.NOT_SERVICE_RESOLVABLE` with the reason
+and skipped (basket / share-portfolio options, option-portfolio model prices, implied correlation and implied
+dividend yield, generic Option* / Future* / IndexFutureOption* / Swap models, `PortfolioHoldingValue`, position /
+transaction value, `ConstituentScore`, `CurrencyRate`, `BondFutureAnnualizedRollYield` — no front → deferred contract
+relation).
+
+Gaps still pinned as strict xfails: `CompanySharePortfolioPriceReturn` (no stored portfolio prices) and option
+trades ignoring the contract multiplier (`TradeManager` cash leg, option holding value).
 
 ## factor_values natural key
 

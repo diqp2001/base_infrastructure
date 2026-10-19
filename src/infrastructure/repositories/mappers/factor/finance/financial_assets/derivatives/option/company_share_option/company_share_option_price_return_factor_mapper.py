@@ -47,7 +47,6 @@ class CompanyShareOptionPriceReturnFactorMapper(BaseFactorMapper):
     def to_orm(cls, domain_entity: CompanyShareOptionPriceReturnFactor):
         """Convert CompanyShareOptionPriceReturnFactor domain entity to ORM model."""
         return CompanyShareOptionPriceReturnFactorModel(
-            id=domain_entity.factor_id,
             name=domain_entity.name,
             group=domain_entity.group,
             subgroup=domain_entity.subgroup,
@@ -55,5 +54,4 @@ class CompanyShareOptionPriceReturnFactorMapper(BaseFactorMapper):
             data_type=domain_entity.data_type,
             source=domain_entity.source,
             definition=domain_entity.definition,
-            discriminator=cls().discriminator
         )

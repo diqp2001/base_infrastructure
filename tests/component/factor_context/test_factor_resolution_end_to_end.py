@@ -12,29 +12,25 @@ is resolved end to end through FactorValueResolutionService on a seeded SQLite m
 Known failures are strict xfails with the reason, so a fix flips them.
 """
 
+import contextlib
 import math
+import random
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 
 from src.domain.entities.factor.dependency_spec import DependencySpec
 from tests.component.factor_context.factor_catalog import (
-    declared_dependencies, dependency_name, factor_classes, instantiate,
+    NOT_SERVICE_RESOLVABLE, declared_dependencies, dependency_name, factor_classes, instantiate,
 )
 from tests.component.factor_context.factor_world import T, FactorWorld
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 
 KNOWN = {
-    "CompanySharePortfolioEqualWeightReturnFactor": "its dependency CompanySharePriceReturnFactor cannot be built "
-                                                    "with defaults, so it is never resolved",
     "CompanySharePortfolioPriceReturnFactor": "depends on raw CompanySharePortfolioFactor observations "
                                               "(portfolio prices) that nothing produces",
-    "CompanySharePortfolioOptionImpliedDivYieldFactor": "depends on CompanyShareOptionImpliedDivYieldFactor, "
-                                                        "which never resolves (string dependency on the raw "
-                                                        "CompanyShareOptionFactor)",
-    "CompanySharePortfolioOptionImpliedVolFactor": "depends on CompanyShareOptionImpliedCorrFactor, which never "
-                                                   "resolves (string dependency on the raw CompanyShareOptionFactor)",
 }
 # factors that delegate to an injected model provider: the test injects a stand-in and checks the
 # service hands the dependencies to it
@@ -49,7 +45,8 @@ def _wired():
     from tests.component.factor_context.test_factor_dependency_wiring import problems_of
     with patch.object(RepositoryFactory, "create_ibkr_client", return_value=None):
         factory = RepositoryFactory(MagicMock())
-        return [(name, cls) for name, cls in factor_classes() if not problems_of(cls, factory)]
+        return [(name, cls) for name, cls in factor_classes()
+                if name not in NOT_SERVICE_RESOLVABLE and not problems_of(cls, factory)]
 
 
 WIRED = _wired()
@@ -103,7 +100,8 @@ def test_calculate_receives_every_dependency(world, cls):
     entity = world.entity_for(cls.__name__)
     assert entity is not None, "no entity for this factor in the test world"
     provider = StandInProvider() if cls.__name__ in ML_FACTORS else None
-    value, captured = world.resolve(cls, entity, provider=provider)
+    with library_parameters(model_parameters(0.3)):
+        value, captured = world.resolve(cls, entity, provider=provider)
 
     assert captured is not None, "calculate() was never called"
     missing = [dependency_name(d) for d in declared_dependencies(instantiate(cls))
@@ -113,6 +111,53 @@ def test_calculate_receives_every_dependency(world, cls):
     if provider is not None:
         [(deps, model_entity, model_date)] = provider.calls
         assert (value, model_entity.id, model_date) == (0.42, entity.id, T)
+
+
+# ---- option pricing models: parameters from the factor library ------------------------------
+
+def model_parameters(sigma, paths=4000, steps=20):
+    """Library parameters under which every model collapses to Black-Scholes at volatility sigma
+    (no vol of vol / jumps / rate vol / skew), with a small Monte Carlo for the simulated ones."""
+    mc = {"monte_carlo_paths": paths, "n_steps": steps}
+    heston = dict(mc, v0=sigma * sigma, theta=sigma * sigma, kappa=1.0, xi=1e-4, rho=0.0)
+    return {
+        "CompanyShareOptionHestonPriceFactor": heston,
+        "CompanyShareOptionHestonSLVPriceFactor": heston,
+        "CompanyShareOptionBatesPriceFactor": dict(heston, lambda_j=0.0, mu_j=0.0, sigma_j=0.0),
+        "CompanyShareOptionSABRPriceFactor": {"alpha": sigma, "beta": 1.0, "rho": 0.0, "nu": 0.0},
+        "CompanyShareOptionHullWhitePriceFactor": dict(mc, a=0.1, sigma_r=1e-6, rho=0.0),
+        "CompanyShareOptionDupireLocalVolatilityPriceFactor": dict(mc, beta=1.0),
+    }
+
+
+@contextlib.contextmanager
+def library_parameters(by_class):
+    """The factor library entries carry these model parameters (keyed by factor class name)."""
+    from src.application.services.data.entities.factor.factor_library import factor_definition_config as config
+    real = config.library_parameters
+    with patch.object(config, "library_parameters", lambda f: by_class.get(type(f).__name__, real(f))):
+        yield
+
+
+MODEL_PRICERS = sorted(model_parameters(0.3))
+TOLERANCE = {"CompanyShareOptionSABRPriceFactor": 1e-6}               # closed form; the rest are Monte Carlo (0.75)
+
+
+@pytest.mark.parametrize("name", MODEL_PRICERS)
+def test_value_option_model_reprices_the_market_under_library_parameters(world, name):
+    """Each model reduced to Black-Scholes (parameters from its library entry) at the option's implied vol gives
+    back the option's market price, 8.00 — S, r, sigma from data and K, T, call/put from the option."""
+    random.seed(7)
+    sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
+    with library_parameters(model_parameters(sigma)):
+        value = value_of(world, name)
+    assert value == pytest.approx(8.0, abs=TOLERANCE.get(name, 0.75))
+
+
+@pytest.mark.parametrize("name", MODEL_PRICERS)
+def test_option_model_without_its_library_parameters_gives_no_value(world, name):
+    """The library entries name no model parameters (v0, kappa, alpha, ...): missing data, no default model."""
+    assert value_of(world, name) is None
 
 
 # ---- independent values -----------------------------------------------------------------------
@@ -169,6 +214,13 @@ def test_value_rates_follow_the_dated_sofr_future(world):
     for name, expected in (("BondFutureAnnualizedYieldFactor", 0.0375), ("CurrencyYieldFactor", 0.0375),
                            ("CompanyShareOptionRFYieldFactor", 0.0375), ("CurrencyValueFactor", 1.0)):
         assert fresh(name) == pytest.approx(expected), name
+
+
+@pytest.mark.parametrize("name, sign", [("BondFutureDiscountedValueFactor", -1), ("BondFutureForwardPriceFactor", 1)])
+def test_value_bond_future_carry(world, name, sign):
+    """close 96.25 carried at the USD yield (3.75 %, from the dated SOFR future) to the future's expiry (18 Mar)."""
+    t = (date(2026, 3, 18) - T.date()).days / 365.0
+    assert value_of(world, name) == pytest.approx(96.25 * math.exp(sign * 0.0375 * t), rel=1e-9)
 
 
 def black_scholes_call(S, K, r, sigma, t):
@@ -374,6 +426,40 @@ def test_value_of_the_year_to_date_return(world):
     first_2026 = next(i for i, d in enumerate(world.days) if d.year == T.year)
     base = closes(world)[first_2026 - 1]
     assert value_of(world, "CompanyShareReturnYTDFactor") == pytest.approx(closes(world)[-1] / base - 1)
+
+
+def volumes(world):
+    return [1_000_000.0 + i for i in range(len(world.days))]           # as seeded by FactorWorld
+
+
+SERIES_EXPECTED = {
+    "CompanySharePriceReturnFactor": lambda w: ret(closes(w), 1),                         # subgroup daily
+    "CompanyShareAvgTurnover6mFactor": lambda w: mean(volumes(w)[-126:]),
+    "CompanyShareMonthlyPriceRangeFactor": lambda w: (closes(w)[-1] + 1.0) - (closes(w)[-21] - 1.0),
+    "CompanyShareVpt52w20dLagFactor": lambda w: volumes(w)[-21] * (closes(w)[-21] - closes(w)[-273]) / closes(w)[-273],
+    "CompanyShareOptionPriceReturnFactor": lambda w: w.option_closes[-1] / w.option_closes[-2] - 1,
+    # AAPL and MSFT (2 x AAPL's closes) have the same daily return: their equal-weight mean is that return
+    "CompanySharePortfolioEqualWeightReturnFactor": lambda w: ret(closes(w), 1),
+    "IndexPriceReturnFactor": lambda w: (lambda c: c[-1] / c[-2] - 1)(w.index_closes["Index"]),
+    "IndexFuturePriceReturnFactor": lambda w: (lambda c: c[-1] / c[-2] - 1)(w.index_closes["IndexFuture"]),
+    "IndexFutureOptionPriceReturnFactor": lambda w: (lambda c: c[-1] / c[-2] - 1)(w.index_closes["IndexFutureOption"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(SERIES_EXPECTED))
+def test_value_of_series_factor(world, name):
+    """Former library-route factors (two prices with lags) now read their window of closed bars (lookback):
+    return over the subgroup window, mean of 126 volumes, high 1 bar ago - low 21 bars ago, VPT 52w + 20d."""
+    value = value_of(world, name)
+    assert value == pytest.approx(SERIES_EXPECTED[name](world), rel=1e-9)
+
+
+@pytest.mark.parametrize("subgroup, bars", [("weekly", 5), ("monthly", 21)])
+def test_price_return_window_follows_the_subgroup(world, subgroup, bars):
+    value, captured = world.resolve(factor("CompanySharePriceReturnFactor"), world.share["AAPL"],
+                                    name=f"return_{subgroup}", subgroup=subgroup)
+    assert len(captured["prices"]) == bars + 1
+    assert value == pytest.approx(ret(closes(world), bars), rel=1e-9)
 
 
 def test_trend_slope_is_the_least_squares_slope(world):

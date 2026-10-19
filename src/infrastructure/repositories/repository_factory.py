@@ -213,6 +213,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_black_scholes_merton_price_factor_repository import CompanyShareOptionBlackScholesMertonPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_cox_ross_rubinstein_price_factor_repository import CompanyShareOptionCoxRossRubinsteinPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_price_factor_repository import CompanyShareOptionHestonPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_heston_slv_price_factor_repository import CompanyShareOptionHestonSLVPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_hull_white_price_factor_repository import CompanyShareOptionHullWhitePriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_sabr_price_factor_repository import CompanyShareOptionSABRPriceFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_bates_price_factor_repository import CompanyShareOptionBatesPriceFactorRepository
@@ -257,6 +258,7 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.d
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_black_scholes_merton_price_factor_repository import IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_cox_ross_rubinstein_price_factor_repository import IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_heston_price_factor_repository import IBKRCompanyShareOptionHestonPriceFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_heston_slv_price_factor_repository import IBKRCompanyShareOptionHestonSLVPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_hull_white_price_factor_repository import IBKRCompanyShareOptionHullWhitePriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_sabr_price_factor_repository import IBKRCompanyShareOptionSABRPriceFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.company_share_option.ibkr_company_share_option_bates_price_factor_repository import IBKRCompanyShareOptionBatesPriceFactorRepository
@@ -476,8 +478,9 @@ class RepositoryFactory:
                 'CompanyShareOptionBlackScholesMertonPriceFactor': CompanyShareOptionBlackScholesMertonPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionCoxRossRubinsteinPriceFactor': CompanyShareOptionCoxRossRubinsteinPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionHestonPriceFactor': CompanyShareOptionHestonPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionHestonSLVPriceFactor': CompanyShareOptionHestonSLVPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionHullWhitePriceFactor': CompanyShareOptionHullWhitePriceFactorRepository(self.session, factory=self),
-                'CompanyShareOptionSabrPriceFactor': CompanyShareOptionSABRPriceFactorRepository(self.session, factory=self),
+                'CompanyShareOptionSABRPriceFactor': CompanyShareOptionSABRPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionBatesPriceFactor': CompanyShareOptionBatesPriceFactorRepository(self.session, factory=self),
                 'CompanyShareOptionDupireLocalVolatilityPriceFactor': CompanyShareOptionDupireLocalVolatilityPriceFactorRepository(self.session, factory=self),
 
@@ -742,8 +745,9 @@ class RepositoryFactory:
                 'CompanyShareOptionBlackScholesMertonPriceFactor': IBKRCompanyShareOptionBlackScholesMertonPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionCoxRossRubinsteinPriceFactor': IBKRCompanyShareOptionCoxRossRubinsteinPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionHestonPriceFactor': IBKRCompanyShareOptionHestonPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionHestonSLVPriceFactor': IBKRCompanyShareOptionHestonSLVPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionHullWhitePriceFactor': IBKRCompanyShareOptionHullWhitePriceFactorRepository(ibkr_client=client, factory=self),
-                'CompanyShareOptionSabrPriceFactor': IBKRCompanyShareOptionSABRPriceFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareOptionSABRPriceFactor': IBKRCompanyShareOptionSABRPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionBatesPriceFactor': IBKRCompanyShareOptionBatesPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionDupireLocalVolatilityPriceFactor': IBKRCompanyShareOptionDupireLocalVolatilityPriceFactorRepository(ibkr_client=client, factory=self),
                 'CurrencyFactor': IBKRCurrencyFactorRepository(ibkr_client=client, factory=self),
@@ -1668,6 +1672,11 @@ class RepositoryFactory:
     def company_share_option_heston_price_factor_local_repo(self):
         """Get company_share_option_heston_price_factor repository for dependency injection."""
         return self.get_local_repository('CompanyShareOptionHestonPriceFactor')
+
+    @property
+    def company_share_option_heston_slv_price_factor_local_repo(self):
+        """Get company_share_option_heston_slv_price_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareOptionHestonSLVPriceFactor')
     
     @property
     def company_share_option_hull_white_price_factor_local_repo(self):
@@ -1677,7 +1686,7 @@ class RepositoryFactory:
     @property
     def company_share_option_sabr_price_factor_local_repo(self):
         """Get company_share_option_sabr_price_factor repository for dependency injection."""
-        return self.get_local_repository('CompanyShareOptionSabrPriceFactor')
+        return self.get_local_repository('CompanyShareOptionSABRPriceFactor')
     
     @property
     def company_share_option_bates_price_factor_local_repo(self):
@@ -1781,6 +1790,11 @@ class RepositoryFactory:
     def company_share_option_heston_price_factor_ibkr_repo(self):
         """Get company_share_option_heston_price_factor repository for dependency injection."""
         return self.get_ibkr_repository('CompanyShareOptionHestonPriceFactor')
+
+    @property
+    def company_share_option_heston_slv_price_factor_ibkr_repo(self):
+        """Get company_share_option_heston_slv_price_factor repository for dependency injection."""
+        return self.get_ibkr_repository('CompanyShareOptionHestonSLVPriceFactor')
     
     @property
     def company_share_option_hull_white_price_factor_ibkr_repo(self):
@@ -1790,7 +1804,7 @@ class RepositoryFactory:
     @property
     def company_share_option_sabr_price_factor_ibkr_repo(self):
         """Get company_share_option_sabr_price_factor repository for dependency injection."""
-        return self.get_ibkr_repository('CompanyShareOptionSabrPriceFactor')
+        return self.get_ibkr_repository('CompanyShareOptionSABRPriceFactor')
     
     @property
     def company_share_option_bates_price_factor_ibkr_repo(self):

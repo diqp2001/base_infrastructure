@@ -4,17 +4,19 @@ from typing import Optional
 from src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor import IndexFutureFactor
 
 
-class IndexFuturePriceReturnFactor(IndexFutureFactor):
+from src.domain.entities.factor.series_dependencies import SeriesPriceReturn
+
+
+class IndexFuturePriceReturnFactor(SeriesPriceReturn, IndexFutureFactor):
     """Annualized price return factor."""
 
-    def __init__(self, factor_id: Optional[int] = None, **kwargs):
-        super().__init__(
-            
-            factor_id=factor_id,
-            **kwargs
-        )
+    def __init__(self, factor_id: Optional[int] = None, name: str = "return_daily", group: str = "return", subgroup: Optional[str] = "daily",
+                 frequency: Optional[str] = "1d", data_type: Optional[str] = "numeric",
+                 source: Optional[str] = "calculated", **kwargs):
+        super().__init__(name=name, group=group, subgroup=subgroup, frequency=frequency, data_type=data_type,
+                         source=source, factor_id=factor_id, **kwargs)
 
-    def calculate(
+    def price_return(
         self,
         start_price: float,
         end_price: float,
@@ -51,3 +53,5 @@ class IndexFuturePriceReturnFactor(IndexFutureFactor):
         else:
             raise ValueError("Method must be 'geometric' or 'simple'")
 
+
+IndexFuturePriceReturnFactor.RAW_FACTOR_TYPE = __import__("src.domain.entities.factor.finance.financial_assets.derivatives.future.index_future_factor", fromlist=["IndexFutureFactor"]).IndexFutureFactor

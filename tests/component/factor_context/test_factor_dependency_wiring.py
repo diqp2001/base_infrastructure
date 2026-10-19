@@ -12,6 +12,8 @@ For each class that defines calculate() (discovered, see factor_catalog.py):
      - string: a factor repository (factor-class path) or an entity attribute (e.g. Position).
 
 A class that fails any rule is a strict expected failure listing why, so fixing it flips the test.
+Classes the service is not meant to feed (no stored inputs: basket options, generic models, ...) are listed
+in factor_catalog.NOT_SERVICE_RESOLVABLE with the reason and skipped.
 The end-to-end counterpart (values actually delivered) is test_factor_resolution_end_to_end.py.
 """
 
@@ -22,7 +24,8 @@ import pytest
 from src.domain.entities.factor.dependency_spec import DependencySpec
 from src.infrastructure.repositories.repository_factory import RepositoryFactory
 from tests.component.factor_context.factor_catalog import (
-    ENTITY_ATTRIBUTE_DEPS, declared_dependencies, dependency_name, factor_classes, instantiate, unfed_parameters,
+    ENTITY_ATTRIBUTE_DEPS, NOT_SERVICE_RESOLVABLE, declared_dependencies, dependency_name, factor_classes, instantiate,
+    unfed_parameters,
 )
 
 
@@ -70,7 +73,7 @@ def problems_of(cls, factory):
         problems.append(f"calculate() parameters never provided: {unfed}")
     for dep in deps:
         name = dependency_name(dep)
-        repo = factory.get_local_repository(name)
+        repo = factory.get_local_repository(dep if isinstance(dep, str) else dep.dep_name)
         if isinstance(dep, DependencySpec):
             if repo is None or not hasattr(repo, "get_all") or not hasattr(repo, "_create_or_get"):
                 problems.append(f"{name}: no repository with get_all / _create_or_get")
@@ -99,13 +102,21 @@ def _cases():
     with patch.object(RepositoryFactory, "create_ibkr_client", return_value=None):
         factory = RepositoryFactory(MagicMock())
         for name, cls in factor_classes():
-            problems = problems_of(cls, factory)
-            marks = [pytest.mark.xfail(strict=True, reason="; ".join(problems))] if problems else []
+            if name in NOT_SERVICE_RESOLVABLE:
+                marks = [pytest.mark.skip(reason=f"not service-resolvable: {NOT_SERVICE_RESOLVABLE[name]}")]
+            else:
+                problems = problems_of(cls, factory)
+                marks = [pytest.mark.xfail(strict=True, reason="; ".join(problems))] if problems else []
             yield pytest.param(cls, id=name, marks=marks)
 
 
 def test_catalog_is_not_empty():
     assert len(factor_classes()) > 100
+
+
+def test_not_service_resolvable_names_are_catalog_classes():
+    """The exclusion list names real factor classes (a renamed / removed class must leave the list)."""
+    assert sorted(set(NOT_SERVICE_RESOLVABLE) - set(dict(factor_classes()))) == []
 
 
 @pytest.mark.parametrize("cls", list(_cases()))

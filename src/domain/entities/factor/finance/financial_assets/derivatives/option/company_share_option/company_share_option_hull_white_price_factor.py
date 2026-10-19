@@ -2,21 +2,25 @@ import math
 import random
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionModelPrice
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionHullWhitePriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionHullWhitePriceFactor(OptionModelPrice, CompanyShareOptionFactor):
     """Hull-White stochastic interest rate price factor for company share options."""
+
+    REQUIRED_PARAMETERS = ('a', 'sigma_r', 'rho')     # from the factor-library entry's parameters
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "hull_white_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "stochastic_rates",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -27,10 +31,11 @@ class CompanyShareOptionHullWhitePriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def price(
         self,
         S: float,          # underlying price
         K: float,          # strike price
