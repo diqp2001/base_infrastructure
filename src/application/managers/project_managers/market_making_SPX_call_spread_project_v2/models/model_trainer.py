@@ -76,9 +76,18 @@ class MMModelTrainer(BaseModelTrainer):
         option_ticker = options[0] if options and isinstance(options[0], str) else None
         if option_ticker is None:
             log("No CompanyShareOption ticker in the universe: option entry disabled")
+        from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.utils.data_report import (
+            DataReport, run_start_checks,
+        )
+        report = DataReport(project=self.config.get('project_name', ''),
+                            period=(str(self.config.get('backtest_start')), str(self.config.get('backtest_end'))))
+        try:
+            run_start_checks(report, self.config, factory, entities)
+        except Exception as e:
+            report.check(False, "start checks", f"could not run: {e}")
         return SPXCallSpreadTradingCycle(
             strategy=strategy or Strategy(self.config),
-            position_book=PositionBook(factory, session_provider),
+            position_book=PositionBook(factory, session_provider, report=report),
             factor_updater=updater,
             option_ticker=option_ticker,
             option_entry_weight=self.config.get('option_entry_weight', -0.2),

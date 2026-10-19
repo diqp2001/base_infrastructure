@@ -48,6 +48,20 @@ Tests: `tests/market_making_spx_v2/` (no TWS): `python -m pytest tests/market_ma
   greeks reach the positions, every miss is a WARNING, the universe registers the SOFR contract of
   every backtest date, missing greeks are not a hedged book. The last three gaps are strict xfails.
 
+Data report: every run writes `results_dir/data_report.txt` (also when the run fails; its path is in
+`results.json` as `data_report`). Built by `utils/data_report.DataReport`, created with the cycle in
+`MMModelTrainer.build_cycle`:
+1. checks at start — universe entities created, the SR3 contract of every backtest date registered,
+   a factor definition for every greek;
+2. greeks that did not resolve, grouped by option / greek / root cause (first / last bar, count), with
+   the dependency tree of the first occurrence from
+   `services/data/entities/factor/factor_dependency_explainer.FactorDependencyExplainer`: each node's
+   value, or why it is missing (`no_definition` + the stored definitions, `no_related_entity` + the
+   dated SOFR contract for a currency, `no_observation` + the latest stored value);
+3. bars where the hedge was decided while a position had no greeks.
+Explanations are capped per run (`PositionBook.MAX_EXPLANATIONS`); the explainer resolves values the
+same way the run does.
+
 Greeks and the hedge: `PositionBook.market_data` logs a WARNING (option symbol, greek, bar time) for
 every greek that does not resolve. A position without greeks is counted as delta / gamma 0 by
 `evaluate_portfolio_delta_hedge` — an empty `greeks` dict means the book looks hedged. Usual causes:

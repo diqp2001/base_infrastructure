@@ -71,10 +71,12 @@ class MarketMakingSPXCallSpreadV2ProjectManager(ProjectManager):
         try:
             results = self._run()
         except Exception as e:
+            self.write_data_report()                     # what was missing up to the failure
             self.progress.fail(str(e))
             self._end_mlflow(mlflow_run, error=str(e))
             raise
         self.progress.phase("Saving results")
+        results['summary']['data_report'] = self.write_data_report()
         self.save_results(results['summary'])
         self.progress.complete(results['summary'])
         self._end_mlflow(mlflow_run, summary=results['summary'])
@@ -118,6 +120,25 @@ class MarketMakingSPXCallSpreadV2ProjectManager(ProjectManager):
             'execution_time_s': (engine_result or {}).get('execution_time') if isinstance(engine_result, dict) else None,
             'saved_at': datetime.now().isoformat(timespec="seconds"),
         }
+
+    def data_report(self):
+        """The run's DataReport (built with the trading cycle), or None before the cycle exists."""
+        algorithm = getattr(self.runner, 'algorithm_instance', None)
+        cycle = getattr(algorithm, 'cycle', None)
+        return getattr(getattr(cycle, 'position_book', None), 'report', None)
+
+    def write_data_report(self) -> Optional[str]:
+        """Write ``data_report.txt`` (missing data and why) to results_dir; returns its path."""
+        report = self.data_report()
+        if report is None:
+            return None
+        algorithm = getattr(self.runner, 'algorithm_instance', None)
+        report.bars = len(getattr(algorithm, 'cycle_results', []) or [])
+        try:
+            return report.write(self.results_dir)
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Could not write the data report: {e}")
+            return None
 
     def save_results(self, summary: Dict[str, Any]) -> str:
         os.makedirs(self.results_dir, exist_ok=True)

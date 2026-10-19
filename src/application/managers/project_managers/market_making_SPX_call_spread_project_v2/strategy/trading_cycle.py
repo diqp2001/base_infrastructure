@@ -144,6 +144,11 @@ class SPXCallSpreadTradingCycle:
         result.portfolio_hedge = hedge
         result.portfolio_delta = hedge.get('portfolio_delta')
         result.portfolio_gamma = hedge.get('portfolio_gamma')
+        no_greeks = sorted({p.get('symbol') for p in positions.values()
+                            if 'delta' not in (p.get('greeks') or {}) and 'net_delta' not in (p.get('greeks') or {})})
+        report = getattr(self.position_book, 'report', None)
+        if no_greeks and report is not None:
+            report.hedge_decided_without_greeks(time, no_greeks, result.portfolio_delta)
 
         # 5. delta hedge in the hedge symbol (quantity = target hedge delta)
         if hedge.get('should_hedge') and hedge.get('target_hedge_delta') is not None:

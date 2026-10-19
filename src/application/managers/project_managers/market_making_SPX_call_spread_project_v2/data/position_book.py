@@ -32,11 +32,38 @@ FACTOR_REPO_KEYS: Dict[str, str] = {
 
 class PositionBook:
 
-    def __init__(self, factory, session_provider):
-        """``session_provider()`` returns the SQLAlchemy session of the portfolio repositories."""
+    # dependency trees built per run for missing greeks (each one re-walks the resolution chain)
+    MAX_EXPLANATIONS = 200
+
+    def __init__(self, factory, session_provider, report=None):
+        """``session_provider()`` returns the SQLAlchemy session of the portfolio repositories.
+        ``report`` (utils.data_report.DataReport) records every greek that does not resolve, with its
+        dependency tree."""
         self.factory = factory
         self.session_provider = session_provider
+        self.report = report
+        self._explained = 0
         self.logger = logging.getLogger(self.__class__.__name__)
+
+    def _record_miss(self, resolver, factor, option, symbol, key, time, cause=None):
+        """Add a missing greek to the report: root cause + dependency tree (bounded per run)."""
+        if self.report is None:
+            return
+        tree = ""
+        if cause is None and factor is not None and option is not None and self._explained < self.MAX_EXPLANATIONS:
+            from src.application.services.data.entities.factor.factor_dependency_explainer import (
+                FactorDependencyExplainer,
+            )
+            self._explained += 1
+            try:
+                node = FactorDependencyExplainer(resolver, self.factory).explain(factor, option, time)
+                causes = list(dict.fromkeys(f"{c.factor} [{c.entity}] {c.status}: {c.detail}"
+                                            for c in node.root_causes()))      # distinct, walk order
+                cause = " | ".join(causes[:4]) or node.detail or "calculate() returned no value"
+                tree = node.render()
+            except Exception as e:
+                cause = f"could not be explained: {e}"
+        self.report.greek_missing(time, symbol, key, cause or "not explained (explanation limit reached)", tree)
 
     # ------------------------------------------------------------------ positions
     def load_positions(self, time: Optional[datetime] = None) -> Dict[str, Dict[str, Any]]:
@@ -113,6 +140,9 @@ class PositionBook:
                     factor_entities[key] = factors[0]
                 else:
                     self.logger.warning("No %s factor definition stored: '%s' cannot be resolved", repo_key, key)
+                    for symbol in {p.get('symbol') for p in positions.values() if p.get('symbol')}:
+                        self._record_miss(None, None, None, symbol, key, time,
+                                          cause=f"no {repo_key} factor definition stored")
             except Exception as e:
                 self.logger.warning("Could not load factor repo %s ('%s' not resolved): %s", repo_key, key, e)
         if not factor_entities:
@@ -128,6 +158,9 @@ class PositionBook:
                 continue
             if option is None:
                 self.logger.warning("Option %s: not found in CompanyShareOption — no greeks at %s", symbol, time)
+                for key in FACTOR_REPO_KEYS:
+                    self._record_miss(resolver, None, None, symbol, key, time,
+                                      cause="option not found in CompanyShareOption")
                 continue
             greeks: Dict[str, float] = {}
             current_price = None
@@ -136,11 +169,13 @@ class PositionBook:
                     fv = resolver.resolve_factor_value(factor_entity=factor, entity=option, time_date=time)
                 except Exception as e:
                     self.logger.warning("Option %s: %s resolution raised at %s: %s", symbol, key, time, e)
+                    self._record_miss(resolver, factor, option, symbol, key, time, cause=f"resolution raised: {e}")
                     continue
                 if fv is None or fv.value is None:
                     self.logger.warning(
                         "Option %s: %s did not resolve at %s (check its dependency chain: underlying value, "
                         "risk-free rate / dated SOFR contract, option price, implied vol)", symbol, key, time)
+                    self._record_miss(resolver, factor, option, symbol, key, time)
                     continue
                 if key == 'current_price':
                     current_price = float(fv.value)
