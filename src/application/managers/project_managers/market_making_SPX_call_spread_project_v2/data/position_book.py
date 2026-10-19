@@ -97,8 +97,12 @@ class PositionBook:
             return {}
         from src.application.services.data.entities.factor import FactorValueResolutionService
 
+        # A greek that does not resolve leaves the position without it, and the hedge then counts
+        # the position as delta / gamma 0 — every miss is logged at WARNING, with the reason.
         cso_repo = self.factory.get_local_repository('CompanyShareOption')
         if not cso_repo:
+            self.logger.warning("No CompanyShareOption repository: no greeks for %d position(s) at %s",
+                                len(positions), time)
             return {}
         factor_entities: Dict[str, Any] = {}
         for key, repo_key in FACTOR_REPO_KEYS.items():
@@ -107,8 +111,10 @@ class PositionBook:
                 factors = repo.get_all() if repo else None
                 if factors:
                     factor_entities[key] = factors[0]
+                else:
+                    self.logger.warning("No %s factor definition stored: '%s' cannot be resolved", repo_key, key)
             except Exception as e:
-                self.logger.debug("Could not load factor repo %s: %s", repo_key, e)
+                self.logger.warning("Could not load factor repo %s ('%s' not resolved): %s", repo_key, key, e)
         if not factor_entities:
             return {}
 
@@ -118,9 +124,10 @@ class PositionBook:
             try:
                 option = cso_repo.get_by_symbol(symbol)
             except Exception as e:
-                self.logger.debug("CSO entity lookup failed for %s: %s", symbol, e)
+                self.logger.warning("Option %s: entity lookup failed (%s) — no greeks at %s", symbol, e, time)
                 continue
             if option is None:
+                self.logger.warning("Option %s: not found in CompanyShareOption — no greeks at %s", symbol, time)
                 continue
             greeks: Dict[str, float] = {}
             current_price = None
@@ -128,9 +135,12 @@ class PositionBook:
                 try:
                     fv = resolver.resolve_factor_value(factor_entity=factor, entity=option, time_date=time)
                 except Exception as e:
-                    self.logger.debug("Factor %s resolution failed for %s: %s", key, symbol, e)
+                    self.logger.warning("Option %s: %s resolution raised at %s: %s", symbol, key, time, e)
                     continue
-                if fv is None:
+                if fv is None or fv.value is None:
+                    self.logger.warning(
+                        "Option %s: %s did not resolve at %s (check its dependency chain: underlying value, "
+                        "risk-free rate / dated SOFR contract, option price, implied vol)", symbol, key, time)
                     continue
                 if key == 'current_price':
                     current_price = float(fv.value)

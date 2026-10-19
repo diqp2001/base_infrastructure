@@ -42,8 +42,17 @@ market_making_SPX_call_spread_project_v2/
 └── utils/progress.py              # MMProgressTracker (progress.json)
 ```
 
-Tests: `tests/market_making_spx_v2/` (fakes only, no DB / TWS):
-`python -m unittest discover -s tests/market_making_spx_v2 -t .`
+Tests: `tests/market_making_spx_v2/` (no TWS): `python -m pytest tests/market_making_spx_v2`
+- `test_spx_v2_project.py`, `test_spx_v2_order_legs.py` — fakes only, no DB;
+- `test_spx_v2_greeks.py` — PositionBook on in-memory SQLite (option position, dated SOFR contract):
+  greeks reach the positions, every miss is a WARNING, the universe registers the SOFR contract of
+  every backtest date, missing greeks are not a hedged book. The last three gaps are strict xfails.
+
+Greeks and the hedge: `PositionBook.market_data` logs a WARNING (option symbol, greek, bar time) for
+every greek that does not resolve. A position without greeks is counted as delta / gamma 0 by
+`evaluate_portfolio_delta_hedge` — an empty `greeks` dict means the book looks hedged. Usual causes:
+the bar's SOFR contract (`front_month_symbol('SR3', date)`) not in the universe and not returned by
+IBKR; delta / gamma / vega resolved before implied vol in a fresh store.
 
 ---
 
