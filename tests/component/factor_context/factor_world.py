@@ -137,8 +137,9 @@ class FactorWorld:
         assert self.s.get(CompanyShareOptionModel, option.id).strike_price == 180.0
         factors = {n: self._raw_factor(CompanyShareOptionFactorModel, n, "company_share_option_factor")
                    for n in ("open", "high", "low", "close")}
-        for day in self.days[-30:]:
-            for name, value in (("open", 7.9), ("high", 8.4), ("low", 7.6), ("close", 8.0)):
+        self.option_closes = [8.0 + 0.4 * math.sin(i / 2.0) for i in range(29)] + [8.0]   # last close 8.00
+        for day, close_ in zip(self.days[-30:], self.option_closes):
+            for name, value in (("open", close_ - 0.1), ("high", close_ + 0.4), ("low", close_ - 0.4), ("close", close_)):
                 self.s.add(FactorValueModel(factor_id=factors[name].id, entity_id=option.id,
                                             entity_type="CompanyShareOption", date=day, value=repr(value)))
         self.s.commit()

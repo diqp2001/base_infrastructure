@@ -1,22 +1,24 @@
 import math
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionMarketInputs
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
 
-class CompanyShareOptionRhoFactor(CompanyShareOptionFactor):
+class CompanyShareOptionRhoFactor(OptionMarketInputs, CompanyShareOptionFactor):
     """Rho factor associated with a company share option (sensitivity to interest rate)."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "rho",
+        group: str = "greek",
+        subgroup: Optional[str] = "rho",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -27,10 +29,21 @@ class CompanyShareOptionRhoFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def calculate(self, dependencies=None, *args, **kwargs) -> Optional[float]:
+        """Resolution service: calculate(dependencies) with S / sigma / r resolved and K / T / call-put taken
+        from the option at the target date. Direct callers: the explicit arguments of rho()."""
+        if isinstance(dependencies, dict):
+            inputs = self.market_inputs(dependencies)
+            return None if inputs is None else self.rho(**inputs)
+        if dependencies is not None:
+            args = (dependencies,) + args
+        return self.rho(*args, **kwargs)
+
+    def rho(
         self,
         S: float,
         K: float,

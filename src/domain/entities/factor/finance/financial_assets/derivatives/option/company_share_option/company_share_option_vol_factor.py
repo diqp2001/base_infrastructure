@@ -37,7 +37,13 @@ class CompanyShareOptionVolFactor(CompanyShareOptionFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        return ["CompanyShareOptionFactor"]
+        """The option's closes over one month (21 log returns): a raw stored series, not one value."""
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import (
+            CompanyShareOptionFactor,
+        )
+        return [DependencySpec(factor_type=CompanyShareOptionFactor, group="price", name_in=["close"],
+                               source_not_in=["calculated"], lookback=22)]
 
     def calculate(self, dependencies: dict) -> Optional[float]:
         """Compute annualised realised volatility from a series of option prices from IBKR."""

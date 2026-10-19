@@ -217,6 +217,39 @@ def test_value_option_price_uses_the_option_strike_and_expiry(world):
     assert price == pytest.approx(expected, rel=1e-4)                  # == the market price it was implied from
 
 
+def option_inputs(world):
+    sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
+    t = (date(2026, 3, 20) - T.date()).days / 365.0
+    return world.closes["AAPL"][-1], 180.0, 0.0375, sigma, t
+
+
+def test_value_option_model_prices_reprice_the_market(world):
+    """BSM and CRR at the option's implied vol give back its market price (8.00); CRR within its tree error."""
+    assert value_of(world, "CompanyShareOptionBlackScholesMertonPriceFactor") == pytest.approx(8.0, abs=1e-3)
+    w2 = FactorWorld()
+    try:
+        assert value_of(w2, "CompanyShareOptionCoxRossRubinsteinPriceFactor") == pytest.approx(8.0, abs=0.05)
+    finally:
+        w2.close()
+
+
+def test_value_option_rho(world):
+    S, K, r, sigma, t = option_inputs(world)
+    d2 = (math.log(S / K) + (r - sigma * sigma / 2) * t) / (sigma * math.sqrt(t))
+    n = lambda x: 0.5 * (1 + math.erf(x / math.sqrt(2)))
+    assert value_of(world, "CompanyShareOptionRhoFactor") == pytest.approx(K * t * math.exp(-r * t) * n(d2), rel=1e-6)
+
+
+def test_value_option_realised_vol_and_variance(world):
+    """Annualised over the last 22 closes (21 log returns), sample statistics."""
+    closes_ = world.option_closes[-22:]
+    logs = [math.log(closes_[i] / closes_[i - 1]) for i in range(1, len(closes_))]
+    m = sum(logs) / len(logs)
+    var = sum((x - m) ** 2 for x in logs) / (len(logs) - 1)
+    assert value_of(world, "CompanyShareOptionVolFactor") == pytest.approx(math.sqrt(var) * math.sqrt(252), rel=1e-9)
+    assert fresh("CompanyShareOptionVarFactor") == pytest.approx(var * 252, rel=1e-9)
+
+
 @pytest.mark.xfail(strict=True, reason="TradeManager books option trades without the contract multiplier: "
                                        "2 contracts at 8.00 move cash by 16, not 1 600 (and the option holding "
                                        "is valued at 16)")

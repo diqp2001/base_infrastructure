@@ -2,21 +2,23 @@ import math
 from typing import Optional
 import numpy as np
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionMarketInputs
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionBlackScholesMertonPriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionBlackScholesMertonPriceFactor(OptionMarketInputs, CompanyShareOptionFactor):
     """Black-Scholes-Merton price factor for company share options with dividend yield."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "black_scholes_merton_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "black_scholes",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -27,10 +29,21 @@ class CompanyShareOptionBlackScholesMertonPriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def calculate(self, dependencies=None, *args, **kwargs) -> Optional[float]:
+        """Resolution service: calculate(dependencies) with S / sigma / r resolved and K / T / call-put taken
+        from the option at the target date. Direct callers: the explicit arguments of price()."""
+        if isinstance(dependencies, dict):
+            inputs = self.market_inputs(dependencies)
+            return None if inputs is None else self.price(**inputs)
+        if dependencies is not None:
+            args = (dependencies,) + args
+        return self.price(*args, **kwargs)
+
+    def price(
         self,
         S: float,          # underlying price
         K: float,          # strike price

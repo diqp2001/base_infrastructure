@@ -1,21 +1,23 @@
 import math
 from typing import Optional
 
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.option_market_inputs import OptionMarketInputs
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
 
 
-class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
+class CompanyShareOptionCoxRossRubinsteinPriceFactor(OptionMarketInputs, CompanyShareOptionFactor):
     """Cox-Ross-Rubinstein binomial tree price factor for company share options."""
 
     def __init__(
         self,
-        name: str,
-        group: str,
-        subgroup: Optional[str] = None,
-        data_type: Optional[str] = None,
-        source: Optional[str] = None,
+        name: str = "cox_ross_rubinstein_price",
+        group: str = "price_model",
+        subgroup: Optional[str] = "binomial_tree",
+        data_type: Optional[str] = "numeric",
+        source: Optional[str] = "calculated",
         definition: Optional[str] = None,
         factor_id: Optional[int] = None,
+        frequency: Optional[str] = "1d",
         **kwargs,
     ):
         super().__init__(
@@ -26,10 +28,21 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
             source=source,
             definition=definition,
             factor_id=factor_id,
+            frequency=frequency,
             **kwargs,
         )
 
-    def calculate(
+    def calculate(self, dependencies=None, *args, **kwargs) -> Optional[float]:
+        """Resolution service: calculate(dependencies) with S / sigma / r resolved and K / T / call-put taken
+        from the option at the target date. Direct callers: the explicit arguments of price()."""
+        if isinstance(dependencies, dict):
+            inputs = self.market_inputs(dependencies)
+            return None if inputs is None else self.price(**inputs)
+        if dependencies is not None:
+            args = (dependencies,) + args
+        return self.price(*args, **kwargs)
+
+    def price(
         self,
         S: float,          # underlying price
         K: float,          # strike price
@@ -124,14 +137,14 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
 
         try:
             # Calculate base price
-            base_price = self.calculate(S, K, r, sigma, T, q, option_type, steps, american)
+            base_price = self.price(S, K, r, sigma, T, q, option_type, steps, american)
             if base_price is None:
                 return {}
 
             # Delta: sensitivity to underlying price
             dS = S * 0.01  # 1% shift
-            price_up = self.calculate(S + dS, K, r, sigma, T, q, option_type, steps, american)
-            price_down = self.calculate(S - dS, K, r, sigma, T, q, option_type, steps, american)
+            price_up = self.price(S + dS, K, r, sigma, T, q, option_type, steps, american)
+            price_down = self.price(S - dS, K, r, sigma, T, q, option_type, steps, american)
             
             if price_up is not None and price_down is not None:
                 delta = (price_up - price_down) / (2 * dS)
@@ -143,19 +156,19 @@ class CompanyShareOptionCoxRossRubinsteinPriceFactor(CompanyShareOptionFactor):
             # Theta: sensitivity to time
             dT = T * 0.01  # 1% shift in time
             if T - dT > 0:
-                price_theta = self.calculate(S, K, r, sigma, T - dT, q, option_type, steps, american)
+                price_theta = self.price(S, K, r, sigma, T - dT, q, option_type, steps, american)
                 theta = (price_theta - base_price) / dT if price_theta is not None else None
             else:
                 theta = None
 
             # Vega: sensitivity to volatility
             dsigma = sigma * 0.01  # 1% shift
-            price_vega = self.calculate(S, K, r, sigma + dsigma, T, q, option_type, steps, american)
+            price_vega = self.price(S, K, r, sigma + dsigma, T, q, option_type, steps, american)
             vega = (price_vega - base_price) / dsigma if price_vega is not None else None
 
             # Rho: sensitivity to interest rate
             dr = r * 0.01  # 1% shift
-            price_rho = self.calculate(S, K, r + dr, sigma, T, q, option_type, steps, american)
+            price_rho = self.price(S, K, r + dr, sigma, T, q, option_type, steps, american)
             rho = (price_rho - base_price) / dr if price_rho is not None else None
 
             return {
