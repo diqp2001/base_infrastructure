@@ -41,6 +41,7 @@ class CurrencyYieldFactorRepository(BaseFactorRepository, CurrencyYieldFactorPor
         """Get or create a CurrencyYieldFactor and wire its benchmark dependency."""
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'fundamental'),
                 factor_type=kwargs.get('factor_type', 'currency_yield_factor'),

@@ -33,6 +33,7 @@ class CurrencyRateFactorRepository(BaseFactorRepository, CurrencyRateFactorPort)
         """Get or create a CurrencyRateFactor."""
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'price'),
                 factor_type=kwargs.get('factor_type', 'currency_rate_factor'),

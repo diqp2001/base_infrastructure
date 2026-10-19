@@ -43,6 +43,7 @@ class CompanyShareOrderQuantityFactorRepository(BaseFactorRepository, CompanySha
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'order'),
                 factor_type=kwargs.get('factor_type', 'company_share_order_quantity_factor')

@@ -55,6 +55,7 @@ class BondFutureForwardPriceFactorRepository(BaseFactorRepository, BondFutureFor
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'price'),
                 factor_type=kwargs.get('factor_type', 'bond_future_forward_price_factor'),

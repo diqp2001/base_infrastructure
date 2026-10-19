@@ -33,6 +33,7 @@ class CompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceFacto
         try:
 
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group') or 'price',
                 factor_type=kwargs.get('factor_type') or 'company_share_option_mid_price_factor',
@@ -130,7 +131,7 @@ class CompanyShareOptionMidPriceFactorRepository(CompanyShareOptionMidPriceFacto
         """Get factor by name."""
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.name == name)\
-            .one_or_none()
+            .first()
         return self.mapper.to_domain(obj)
 
     def get_by_id(self, id: int) -> Optional[CompanyShareOptionMidPriceFactor]:

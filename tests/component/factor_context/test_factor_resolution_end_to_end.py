@@ -25,16 +25,7 @@ from tests.component.factor_context.factor_world import T, FactorWorld
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 
-NAME_COLLISION = ("from an empty store the implied-vol dependency never resolves: factor definitions are unique "
-                  "by name but specs filter on frequency (company_share_value defaults to 5m, mid_price to 1d, "
-                  "implied vol asks for SELF) — whichever chain creates a definition first wins, the other "
-                  "chain's spec never matches it")
 KNOWN = {
-    "CompanyShareOptionDeltaFactor": NAME_COLLISION,
-    "CompanyShareOptionGammaFactor": NAME_COLLISION,
-    "CompanyShareOptionVegaFactor": NAME_COLLISION,
-    "CompanyShareOptionPriceFactor": NAME_COLLISION + "; and calculate() prices with the factor's own K / T "
-                                                      "attributes (None), not the option's strike / expiry",
     "CompanySharePortfolioEqualWeightReturnFactor": "its dependency CompanySharePriceReturnFactor cannot be built "
                                                     "with defaults, so it is never resolved",
     "CompanySharePortfolioPriceReturnFactor": "depends on raw CompanySharePortfolioFactor observations "
@@ -130,7 +121,7 @@ def value_of(world, name, **kwargs):
 
 
 def fresh(name):
-    """Value of `name` resolved alone in a new world (resolution order matters: see ORDER_DEPENDENCE)."""
+    """Value of `name` resolved alone in a new world (no state shared with other checks)."""
     w = FactorWorld()
     try:
         return value_of(w, name)
@@ -189,30 +180,37 @@ def test_value_option_mid_value_and_implied_vol_reprice_the_market(world):
     assert price == pytest.approx(8.0, abs=1e-3)
 
 
-def test_value_option_delta_once_implied_vol_is_stored(world):
-    """Resolution order matters (see NAME_COLLISION): with implied vol resolved first, delta = N(d1)."""
-    sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
+def test_value_option_delta_is_n_of_d1(world):
+    """From an empty store (no resolution-order dependence any more): delta = N(d1) at the implied vol."""
     delta = value_of(world, "CompanyShareOptionDeltaFactor")
+    sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
     t = (date(2026, 3, 20) - T.date()).days / 365.0
     _, n_d1 = black_scholes_call(world.closes["AAPL"][-1], 180.0, 0.0375, sigma, t)
     assert delta == pytest.approx(n_d1, rel=1e-6)
 
 
-ORDER_DEPENDENCE = ("factor definitions are unique by name but DependencySpec filters on frequency: once the "
-                    "dependency is stored at its own default frequency, a dependent whose spec asks for "
-                    "frequency=SELF with another default (company_share_value 5m vs mid_price 1d, ...) never "
-                    "matches it and resolves to None")
-
-
-@pytest.mark.xfail(strict=True, reason=ORDER_DEPENDENCE)
 @pytest.mark.parametrize("first, then", [
     ("CompanyShareMidPriceFactor", "CompanyShareValueFactor"),
     ("BondFutureAnnualizedYieldFactor", "CurrencyYieldFactor"),
     ("CompanyShareOptionMidPriceFactor", "CompanyShareOptionValueFactor"),
 ])
 def test_a_dependency_resolved_first_does_not_block_its_dependent(world, first, then):
+    """Regression: definitions were looked up by name only, so a dependency stored at its default frequency
+    (mid_price 5m) was returned for a spec asking another one (1d, frequency=SELF) and never matched it.
+    _create_or_get now gets or creates the definition at the requested frequency."""
     assert value_of(world, first) is not None
     assert value_of(world, then) is not None
+
+
+@pytest.mark.xfail(strict=True, reason="CompanyShareOptionPriceFactor.calculate prices with the factor's own K / T "
+                                       "attributes (K defaults to the spot, T to its default), not the option's "
+                                       "strike / expiry")
+def test_value_option_price_uses_the_option_strike_and_expiry(world):
+    sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
+    price = value_of(world, "CompanyShareOptionPriceFactor")
+    t = (date(2026, 3, 20) - T.date()).days / 365.0
+    expected, _ = black_scholes_call(world.closes["AAPL"][-1], 180.0, 0.0375, sigma, t)
+    assert price == pytest.approx(expected, rel=1e-4)                  # == the market price it was implied from
 
 
 @pytest.mark.xfail(strict=True, reason="TradeManager books option trades without the contract multiplier: "

@@ -46,6 +46,7 @@ class CompanySharePortfolioPortfolioHoldingValueFactorRepository(BaseFactorRepos
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'holding'),
                 factor_type=kwargs.get('factor_type', 'company_share_portfolio_portfolio_holding_value_factor')

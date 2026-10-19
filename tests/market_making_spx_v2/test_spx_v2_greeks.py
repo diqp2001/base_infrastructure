@@ -58,11 +58,8 @@ def warnings_about(caplog, text):
 
 # ---- 1. the greeks reach the positions ---------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="FACTOR_REPO_KEYS resolves delta / gamma / vega before implied_vol; from "
-                                       "an empty store their implied-vol dependency never resolves (factor "
-                                       "definitions unique by name, specs filtered by frequency — see "
-                                       "tests/component/factor_context NAME_COLLISION)")
 def test_every_position_gets_every_greek_from_an_empty_store(world):
+    """Regression: delta / gamma / vega (resolved before implied vol) left implied vol unresolvable."""
     [position] = positions_with_greeks(world).values()
     assert position["symbol"] == OPTION_SYMBOL
     assert {g: math.isfinite(position["greeks"].get(g, math.nan)) for g in GREEKS} == {g: True for g in GREEKS}
@@ -76,7 +73,7 @@ def resolve_implied_vol_first(w, when=T):
 
 
 def test_every_greek_resolves_once_implied_vol_is_resolved_first(world):
-    """The order fix: implied vol first, then delta / gamma / vega resolve on it."""
+    """Either order works: implied vol first, then delta / gamma / vega."""
     assert resolve_implied_vol_first(world) == pytest.approx(0.3091, abs=1e-3)
     [position] = positions_with_greeks(world).values()
     greeks = position["greeks"]
@@ -91,6 +88,22 @@ def test_greeks_are_read_at_the_bar_time(world):
     later = T + timedelta(days=120)                                           # front contract then: SR3M6
     [position] = positions_with_greeks(world, later).values()
     assert "implied_vol" not in position["greeks"]
+
+
+def test_every_greek_resolves_with_mid_price_already_stored_at_another_frequency(world):
+    """The reported run: mid_price stored at 5m, implied vol needs company_share_value / mid_price at 1d.
+    The 1d definitions are created (get or create by name AND frequency) instead of returning the 5m one."""
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_mid_price_factor import (
+        CompanyShareMidPriceFactor,
+    )
+    d = CompanyShareMidPriceFactor()
+    repo = world.f.get_local_repository("CompanyShareMidPriceFactor")
+    five = repo._create_or_get(CompanyShareMidPriceFactor, d.name, group=d.group, subgroup=d.subgroup,
+                               data_type=d.data_type, source=d.source, frequency="5m")
+    assert five.frequency == "5m"
+    [position] = positions_with_greeks(world).values()
+    assert set(GREEKS) <= set(position["greeks"]), position["greeks"]
+    assert {f.frequency for f in repo.get_all() if f.name == d.name} >= {"5m", "1d"}
 
 
 # ---- 2. a miss is loud -------------------------------------------------------------------------

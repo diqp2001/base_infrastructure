@@ -71,11 +71,19 @@ class TestExplainer:
         found = {c.factor.split(" ")[0]: c.value for c in tree.children if not c.missing}
         assert found.get("CompanyShareOptionValueFactor") == pytest.approx(8.0)   # values found are shown
 
-    def test_frequency_collision_is_shown_with_the_stored_definitions(self, world):
-        """Delta resolved first creates the definitions implied vol cannot match (stored at another frequency)."""
-        tree = explain(world, "CompanyShareOptionDeltaFactor")
+    def test_missing_definition_shows_the_stored_ones(self, world):
+        """A spec no stored definition can satisfy is reported with the definitions that do exist."""
+        from unittest.mock import PropertyMock, patch
+        from src.domain.entities.factor.dependency_spec import DependencySpec
+        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_value_factor import (
+            CompanyShareValueFactor,
+        )
+        iv = dict(factor_classes())["CompanyShareOptionImpliedVolFactor"]
+        impossible = [DependencySpec(factor_type=CompanyShareValueFactor, group="value", source_in=["no_such_source"])]
+        with patch.object(iv, "calculate_dependencies", new_callable=PropertyMock, return_value=impossible):
+            tree = explain(world, "CompanyShareOptionImpliedVolFactor")
         details = [c.detail for c in tree.root_causes() if c.status == "no_definition"]
-        assert details and "stored:" in details[0] and "freq=" in details[0]
+        assert details and "stored:" in details[0] and "no_such_source" in details[0]
 
     def test_a_resolved_factor_has_nothing_missing(self, world):
         tree = explain(world, "CompanyShareOptionImpliedVolFactor")

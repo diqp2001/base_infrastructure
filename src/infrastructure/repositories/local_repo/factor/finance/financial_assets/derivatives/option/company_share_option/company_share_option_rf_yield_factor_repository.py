@@ -85,6 +85,7 @@ class CompanyShareOptionRFYieldFactorRepository(BaseFactorRepository, CompanySha
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group') or 'fundamental',
                 factor_type=kwargs.get('factor_type') or 'company_share_option_rf_yield_factor',

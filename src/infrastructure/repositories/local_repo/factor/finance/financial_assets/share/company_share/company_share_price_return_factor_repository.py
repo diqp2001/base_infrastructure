@@ -40,6 +40,7 @@ class CompanySharePriceReturnFactorRepository(BaseFactorRepository, CompanyShare
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group') or 'price',
                 factor_type=kwargs.get('factor_type') or 'company_share_price_return_factor',

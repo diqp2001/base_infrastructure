@@ -38,7 +38,10 @@ class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
         """Create new factor or get existing one."""
         try:
             name = primary_key or kwargs.get("name", "company_share_mid_price")
-            existing = self.get_by_name(name)
+            # A definition is identified by name AND frequency: when the requested frequency does not
+            # exist yet (e.g. mid_price stored at 5m, 1d requested by a DependencySpec frequency=SELF),
+            # it is created — returning the 5m one never satisfied the spec and blocked the chain.
+            existing = self.get_by_name_and_frequency(name, kwargs.get("frequency"))
             if existing:
                 return existing
 
@@ -64,10 +67,21 @@ class CompanyShareMidPriceFactorRepository(CompanyShareMidPriceFactorPort):
             return None
 
     def get_by_name(self, name: str) -> Optional[CompanyShareMidPriceFactor]:
-        """Get factor by name."""
+        """Get factor by name (the oldest definition when several frequencies exist)."""
         obj = self.session.query(self.model_class)\
             .filter(self.model_class.name == name)\
-            .one_or_none()
+            .order_by(self.model_class.id)\
+            .first()
+        return self.mapper.to_domain(obj)
+
+    def get_by_name_and_frequency(self, name: str, frequency: Optional[str]) -> Optional[CompanyShareMidPriceFactor]:
+        """Definition with this name at this frequency; by name only when no frequency is given."""
+        if frequency is None:
+            return self.get_by_name(name)
+        obj = self.session.query(self.model_class)\
+            .filter(self.model_class.name == name, self.model_class.frequency == frequency)\
+            .order_by(self.model_class.id)\
+            .first()
         return self.mapper.to_domain(obj)
 
     def get_by_id(self, id: int) -> Optional[CompanyShareMidPriceFactor]:

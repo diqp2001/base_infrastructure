@@ -55,6 +55,7 @@ class BondFutureFactorRepository(BaseFactorRepository, BondFutureFactorPort):
         try:
             kwargs = self._normalize_kwargs({**{'group': 'price', 'subgroup': 'daily', 'frequency': '1d', 'data_type': 'numeric', 'source': 'ibkr'}, **kwargs})
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group'),
                 factor_type=kwargs.get('factor_type', 'bond_future_factor'),

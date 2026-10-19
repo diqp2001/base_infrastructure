@@ -37,6 +37,7 @@ class CurrencyValueFactorRepository(BaseFactorRepository, CurrencyValueFactorPor
         """
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'value'),
                 factor_type=kwargs.get('factor_type', 'currency_value_factor'),

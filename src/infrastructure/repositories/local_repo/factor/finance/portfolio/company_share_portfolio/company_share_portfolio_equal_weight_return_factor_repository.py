@@ -28,6 +28,7 @@ class CompanySharePortfolioEqualWeightReturnFactorRepository(BaseFactorRepositor
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group') or 'return',
                 factor_type=kwargs.get('factor_type') or 'company_share_portfolio_equal_weight_return_factor',

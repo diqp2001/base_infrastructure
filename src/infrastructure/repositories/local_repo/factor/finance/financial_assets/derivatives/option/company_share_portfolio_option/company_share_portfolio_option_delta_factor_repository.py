@@ -68,6 +68,7 @@ class CompanySharePortfolioOptionDeltaFactorRepository(BaseFactorRepository):
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'company_share_portfolio_option'),
                 subgroup=kwargs.get('subgroup', 'delta'),

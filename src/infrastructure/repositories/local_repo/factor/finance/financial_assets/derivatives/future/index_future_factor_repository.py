@@ -64,7 +64,8 @@ class IndexFutureFactorRepository(BaseFactorRepository):
         """
         try:
             # Check existing by primary identifier (factor name)
-            existing = self.get_by_all(name =primary_key,
+            existing = self.get_by_all(
+                                       name=primary_key, frequency=kwargs.get('frequency'),
                                        group=kwargs.get('group', 'price'),
                 
                 factor_type=kwargs.get('factor_type', 'index_future_factor'))

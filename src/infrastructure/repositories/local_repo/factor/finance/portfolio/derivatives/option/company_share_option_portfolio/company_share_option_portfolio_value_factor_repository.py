@@ -28,6 +28,7 @@ class CompanyShareOptionPortfolioValueFactorRepository(BaseFactorRepository, Com
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'value'),
                 factor_type=kwargs.get('factor_type', 'company_share_option_portfolio_value_factor')

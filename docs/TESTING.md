@@ -133,6 +133,11 @@ so a new factor is covered automatically.
   finite number; independent value checks for prices, holdings, portfolios, rates, implied vol and delta.
   ML factors get a stand-in model provider (the service must hand it the dependencies).
 
+Factor definitions are identified by name **and frequency**: every repository `_create_or_get` passes the
+requested frequency to its lookup and creates the definition at that frequency when it does not exist
+(e.g. `mid_price` at 1d next to 5m). A spec with `frequency=SELF` therefore always finds or creates its
+dependency — this used to make resolution order decide whether delta / gamma / vega resolved.
+
 Gaps pinned as strict xfails there (reasons in the tests):
 
 | Gap | Factors |
@@ -141,8 +146,7 @@ Gaps pinned as strict xfails there (reasons in the tests):
 | no `calculate_dependencies` | `CurrencyRate`, `PortfolioHoldingValue`, `CompanySharePositionValue`, `CompanyShareTransactionValue`, `CompanySharePortfolioOptionValue`, `ConstituentScore` |
 | string dependencies nothing resolves | `BondFutureAnnualizedRollYield`, `BondFutureDiscountedValue`, `BondFutureForwardPrice`; option `ImpliedCorr`, `ImpliedDivYield`, `Var`, `Vol` (raw `CompanyShareOptionFactor` by string) |
 | price-history factors get one bar's fields (open, high, low, close, volume), not a close series | all ~52 return / MA / momentum / slope / Sharpe / Sortino / drawdown factors |
-| definitions unique by name but specs filter on frequency → resolution order decides | option delta / gamma / vega / price from an empty store; value after mid price, currency yield after bond yield, option value after option mid |
-| option price uses the factor's K / T, not the option's strike / expiry | `CompanyShareOptionPrice` |
+| option price uses the factor's K / T, not the option's strike / expiry (a value comes out, but at the wrong strike / expiry) | `CompanyShareOptionPrice` |
 | option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
 
 ## Known gaps (pinned as expected failures — they flip to "unexpected success" when fixed)

@@ -67,6 +67,7 @@ class IndexPriceReturnFactorRepository(BaseFactorRepository):
         try:
             # Check existing by primary identifier (factor name)
             existing = self.get_by_all(
+                frequency=kwargs.get('frequency'),
                 name=primary_key,
                 group=kwargs.get('group', 'return'),
                 factor_type=kwargs.get('factor_type', 'index_price_return_factor')
