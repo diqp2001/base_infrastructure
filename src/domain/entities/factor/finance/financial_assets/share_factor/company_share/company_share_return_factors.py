@@ -29,7 +29,7 @@ class CompanyShareReturn1DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -45,7 +45,7 @@ class CompanyShareReturn5DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -61,7 +61,7 @@ class CompanyShareReturn10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -77,7 +77,7 @@ class CompanyShareReturn20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -93,7 +93,7 @@ class CompanyShareReturn1MFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -109,7 +109,7 @@ class CompanyShareReturn2MFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -125,7 +125,7 @@ class CompanyShareReturn3MFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -141,7 +141,7 @@ class CompanyShareReturn4MFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -157,7 +157,7 @@ class CompanyShareReturn5MFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)
@@ -173,7 +173,7 @@ class CompanyShareReturnYTDFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _return_from_prices(dependencies)

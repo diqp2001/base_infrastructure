@@ -60,7 +60,7 @@ class CompanyShareSharpe10DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sharpe(dependencies)
@@ -76,7 +76,7 @@ class CompanyShareSharpe20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sharpe(dependencies)
@@ -92,7 +92,7 @@ class CompanyShareSharpe50DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sharpe(dependencies)
@@ -108,7 +108,7 @@ class CompanyShareSharpe100DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sharpe(dependencies)
@@ -124,7 +124,7 @@ class CompanyShareSortino20DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sortino(dependencies)
@@ -140,7 +140,7 @@ class CompanyShareSortino50DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sortino(dependencies)
@@ -156,7 +156,7 @@ class CompanyShareSortino100DFactor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _sortino(dependencies)

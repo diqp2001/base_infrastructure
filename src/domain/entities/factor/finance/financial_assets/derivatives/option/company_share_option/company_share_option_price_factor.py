@@ -54,20 +54,26 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
 
     def calculate(self, dependencies: dict) -> Optional[float]:
         """Compute BSM price from resolved factor dependencies + option contract attributes."""
-        S = dependencies.get("CompanyShareValueFactor")
-        r = dependencies.get("CompanyShareOptionRFYieldFactor")
-        sigma = dependencies.get("CompanyShareOptionImpliedVolFactor")
+        S = self._mean(dependencies.get("CompanyShareValueFactor"), positive=True)
+        r = self._mean(dependencies.get("CompanyShareOptionRFYieldFactor"))
+        sigma = self._mean(dependencies.get("CompanyShareOptionImpliedVolFactor"), positive=True)
 
         if S is None or r is None or sigma is None:
             return None
 
-        S = float(S)
-        r = float(r)
-        sigma = float(sigma)
-
-        K = self.K if self.K is not None else S  # ATM default
-        T = self.T
-        option_type = self.option_type
+        # Contract terms come from the option the value is resolved for (strike, expiry measured at
+        # the target date, call / put) — as the delta / gamma / vega / implied-vol factors do. The
+        # factor's own K / T / option_type are only used when it is called without an option.
+        entity = dependencies.get("entity")
+        if entity is not None:
+            terms = self._contract_terms(entity, dependencies.get("target_date"))
+            if terms is None:
+                return None
+            K, T, option_type = terms
+        else:
+            K = self.K if self.K is not None else S  # ATM default
+            T = self.T
+            option_type = self.option_type
 
         d1, d2 = self._d1_d2(S, K, r, sigma, T)
         if d1 is None or d2 is None:
@@ -77,6 +83,34 @@ class CompanyShareOptionPriceFactor(CompanyShareOptionFactor):
             return S * self._norm_cdf(d1) - K * math.exp(-r * T) * self._norm_cdf(d2)
         else:
             return K * math.exp(-r * T) * self._norm_cdf(-d2) - S * self._norm_cdf(-d1)
+
+    @staticmethod
+    def _mean(raw, positive: bool = False) -> Optional[float]:
+        """Scalar or list dependency (DependencySpec delivers lists) -> mean of the usable values."""
+        if raw is None:
+            return None
+        values = [float(v) for v in (raw if isinstance(raw, list) else [raw]) if v is not None]
+        if positive:
+            values = [v for v in values if v > 0]
+        return sum(values) / len(values) if values else None
+
+    @staticmethod
+    def _contract_terms(entity, target_date):
+        """(strike, years to expiry at target_date, 'call' | 'put') of the option, or None if unknown."""
+        from datetime import date as _date, datetime as _dt
+        strike = getattr(entity, "strike_price", None)
+        expiry = getattr(entity, "end_date", None)
+        if expiry is None and getattr(entity, "expiry", None):
+            expiry = _dt.strptime(str(entity.expiry), "%Y%m%d").date()
+        if strike is None or expiry is None:
+            return None
+        if hasattr(expiry, "date"):
+            expiry = expiry.date()
+        ref = target_date.date() if hasattr(target_date, "date") else (target_date or _date.today())
+        days = (expiry - ref).days
+        if days <= 0:
+            return None
+        return float(strike), days / 365.0, (getattr(entity, "option_type", None) or "call").lower()
 
     def _norm_cdf(self, x: float) -> float:
         """

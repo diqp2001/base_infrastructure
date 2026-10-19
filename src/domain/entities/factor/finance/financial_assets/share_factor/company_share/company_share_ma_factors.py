@@ -48,7 +48,7 @@ class CompanySharePriceVsMA5Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _price_vs_ma(dependencies)
@@ -64,7 +64,7 @@ class CompanySharePriceVsMA10Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _price_vs_ma(dependencies)
@@ -80,7 +80,7 @@ class CompanySharePriceVsMA20Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _price_vs_ma(dependencies)
@@ -96,7 +96,7 @@ class CompanySharePriceVsMA50Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _price_vs_ma(dependencies)
@@ -112,7 +112,7 @@ class CompanySharePriceVsMA100Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _price_vs_ma(dependencies)
@@ -128,7 +128,7 @@ class CompanyShareMA5VsMA10Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _ma_short_vs_ma_long(dependencies)
@@ -144,7 +144,7 @@ class CompanyShareMA10VsMA20Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _ma_short_vs_ma_long(dependencies)
@@ -160,7 +160,7 @@ class CompanyShareMA20VsMA50Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _ma_short_vs_ma_long(dependencies)
@@ -176,7 +176,7 @@ class CompanyShareMA50VsMA100Factor(CompanyShareFactor):
     @property
     def calculate_dependencies(self) -> list:
         from src.domain.entities.factor.dependency_spec import DependencySpec
-        return [DependencySpec(factor_type=CompanyShareFactor, group='price')]
+        return [DependencySpec(factor_type=CompanyShareFactor, group='price', name_in=['close'])]
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[float]:
         return _ma_short_vs_ma_long(dependencies)

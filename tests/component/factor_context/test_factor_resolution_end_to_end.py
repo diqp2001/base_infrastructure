@@ -26,6 +26,9 @@ from tests.component.factor_context.factor_world import T, FactorWorld
 pytestmark = pytest.mark.filterwarnings("ignore")
 
 KNOWN = {
+    "CompanyShareLGBMCSQuintileRankMomentumFactor": "its inputs are price-history factors (returns, Sharpe, MAs, ...) "
+                                                    "that resolve to None without a lookback (see "
+                                                    "test_history_factor_receives_a_close_history)",
     "CompanySharePortfolioEqualWeightReturnFactor": "its dependency CompanySharePriceReturnFactor cannot be built "
                                                     "with defaults, so it is never resolved",
     "CompanySharePortfolioPriceReturnFactor": "depends on raw CompanySharePortfolioFactor observations "
@@ -55,14 +58,19 @@ def _wired():
 WIRED = _wired()
 
 
+HISTORY_MODULES = {"company_share_return_factors", "company_share_ma_factors", "company_share_momentum_change_factors",
+                   "company_share_trend_factors", "company_share_risk_factors", "company_share_drawdown_factors",
+                   "company_share_composite_momentum_factors"}
+
+
 def is_history_factor(cls):
-    """Depends on raw CompanyShareFactor prices without naming one field (i.e. expects a price series)."""
+    """Return / MA / momentum / slope / risk / drawdown signal computed from raw CompanyShareFactor prices."""
     from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import (
         CompanyShareFactor,
     )
     deps = declared_dependencies(instantiate(cls))
-    return (len(deps) == 1 and isinstance(deps[0], DependencySpec) and deps[0].factor_type is CompanyShareFactor
-            and not deps[0].name_in)
+    return (cls.__module__.rsplit(".", 1)[-1] in HISTORY_MODULES and len(deps) == 1
+            and isinstance(deps[0], DependencySpec) and deps[0].factor_type is CompanyShareFactor)
 
 
 HISTORY = [(n, c) for n, c in WIRED if is_history_factor(c)]
@@ -92,7 +100,8 @@ def delivered(captured, name):
 
 
 @pytest.mark.parametrize("cls", [pytest.param(c, id=n, marks=[pytest.mark.xfail(strict=True, reason=KNOWN[n])]
-                                              if n in KNOWN else []) for n, c in WIRED])
+                                              if n in KNOWN else []) for n, c in WIRED
+                                 if not is_history_factor(c)])     # history factors: see the tests at the end
 def test_calculate_receives_every_dependency(world, cls):
     entity = world.entity_for(cls.__name__)
     assert entity is not None, "no entity for this factor in the test world"
@@ -202,10 +211,8 @@ def test_a_dependency_resolved_first_does_not_block_its_dependent(world, first, 
     assert value_of(world, then) is not None
 
 
-@pytest.mark.xfail(strict=True, reason="CompanyShareOptionPriceFactor.calculate prices with the factor's own K / T "
-                                       "attributes (K defaults to the spot, T to its default), not the option's "
-                                       "strike / expiry")
 def test_value_option_price_uses_the_option_strike_and_expiry(world):
+    """Regression: the price used the factor's own K / T (K = spot, T = 1y), not the option's strike / expiry."""
     sigma = value_of(world, "CompanyShareOptionImpliedVolFactor")
     price = value_of(world, "CompanyShareOptionPriceFactor")
     t = (date(2026, 3, 20) - T.date()).days / 365.0
@@ -224,10 +231,19 @@ def test_option_trade_and_value_use_the_contract_multiplier(world):
 
 # ---- price-history factors --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="the price-history factors declare DependencySpec(CompanyShareFactor, "
-                                       "group='price') without a lookback: the service delivers the fields of "
-                                       "one bar (open, high, low, close, volume), not a close series, so e.g. "
-                                       "return_1d == return_5m == (volume - open) / open")
+@pytest.mark.parametrize("cls", [pytest.param(c, id=n) for n, c in HISTORY])
+def test_history_factor_receives_only_close_prices(world, cls):
+    """Regression: DependencySpec(CompanyShareFactor, group='price') matched open / high / low / close / volume,
+    so e.g. return_1d was (volume - open) / open. The specs now name the field: name_in=['close']."""
+    _, captured = world.resolve(cls, world.share["AAPL"])
+    assert captured is not None, "calculate() was never called"
+    prices = [float(v) for v in captured["CompanyShareFactor"]]
+    assert prices and set(prices) <= set(world.closes["AAPL"]), "values other than closes were delivered"
+
+
+@pytest.mark.xfail(strict=True, reason="the resolution service has no lookback: DependencySpec delivers the close "
+                                       "at the target date (one value), not the trailing close series a return / "
+                                       "moving average / slope / risk factor needs — those resolve to None")
 @pytest.mark.parametrize("cls", [pytest.param(c, id=n) for n, c in HISTORY])
 def test_history_factor_receives_a_close_history(world, cls):
     _, captured = world.resolve(cls, world.share["AAPL"])

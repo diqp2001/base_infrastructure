@@ -145,7 +145,7 @@ Gaps pinned as strict xfails there (reasons in the tests):
 | need `name` / `group` to be built — not resolvable by the service | 46 (generic Option / Future / Index / Swap, model-based option pricers, `CompanySharePriceReturn`, `AvgTurnover6m`, `MonthlyPriceRange`, `Vpt52w20dLag`) |
 | no `calculate_dependencies` | `CurrencyRate`, `PortfolioHoldingValue`, `CompanySharePositionValue`, `CompanyShareTransactionValue`, `CompanySharePortfolioOptionValue`, `ConstituentScore` |
 | string dependencies nothing resolves | `BondFutureAnnualizedRollYield`, `BondFutureDiscountedValue`, `BondFutureForwardPrice`; option `ImpliedCorr`, `ImpliedDivYield`, `Var`, `Vol` (raw `CompanyShareOptionFactor` by string) |
-| price-history factors get one bar's fields (open, high, low, close, volume), not a close series | all ~52 return / MA / momentum / slope / Sharpe / Sortino / drawdown factors |
+| price-history factors (specs now `name_in=['close']`) get the close at the target date only — no lookback, so no trailing close series; most resolve to None | all ~52 return / MA / momentum / slope / Sharpe / Sortino / drawdown factors |
 | option price uses the factor's K / T, not the option's strike / expiry (a value comes out, but at the wrong strike / expiry) | `CompanyShareOptionPrice` |
 | option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
 
