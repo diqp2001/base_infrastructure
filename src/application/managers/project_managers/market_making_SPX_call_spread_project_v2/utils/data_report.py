@@ -37,6 +37,11 @@ class DataReport:
     misses: "OrderedDict[tuple, _Miss]" = field(default_factory=OrderedDict)
     hedges_without_greeks: List[tuple] = field(default_factory=list)  # (time, symbols, book delta)
     bars: int = 0
+    directory: Optional[str] = None                                   # results_dir: save() writes there
+
+    def save(self) -> Optional[str]:
+        """Rewrite data_report.txt in `directory` (called after every bar); None when no directory."""
+        return self.write(self.directory) if self.directory else None
 
     # ------------------------------------------------------------------ checks
     def check(self, ok: bool, title: str, detail: str = "") -> None:

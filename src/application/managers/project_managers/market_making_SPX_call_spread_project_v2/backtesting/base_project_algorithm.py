@@ -96,3 +96,16 @@ class Algorithm(BaseProjectAlgorithm):
                 self._log_daily_summary()
         except Exception as e:
             self.logger.error(f"Error in on_data: {e}")
+        finally:
+            self._save_data_report()
+
+    def _save_data_report(self) -> None:
+        """Rewrite results_dir/data_report.txt after every bar (missing data so far and why)."""
+        report = getattr(getattr(self.cycle, 'position_book', None), 'report', None)
+        if report is None:
+            return
+        try:
+            report.bars = len(self.cycle_results)
+            report.save()
+        except Exception as e:
+            self.logger.error(f"Could not write the data report: {e}")

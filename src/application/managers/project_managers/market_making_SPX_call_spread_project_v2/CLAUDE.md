@@ -48,7 +48,8 @@ Tests: `tests/market_making_spx_v2/` (no TWS): `python -m pytest tests/market_ma
   greeks reach the positions, every miss is a WARNING, the universe registers the SOFR contract of
   every backtest date, missing greeks are not a hedged book. The last three gaps are strict xfails.
 
-Data report: every run writes `results_dir/data_report.txt` (also when the run fails; its path is in
+Data report: `results_dir/data_report.txt` is rewritten at the end of every `on_data` (bar), and once more
+when the run ends or fails (its path is in
 `results.json` as `data_report`). Built by `utils/data_report.DataReport`, created with the cycle in
 `MMModelTrainer.build_cycle`:
 1. checks at start — universe entities created, the SR3 contract of every backtest date registered,

@@ -198,3 +198,51 @@ class TestCycleAndManager:
             with pytest.raises(RuntimeError):
                 manager.run()
             assert os.path.exists(os.path.join(tmp, REPORT_FILE))
+
+
+# ---- the report is rewritten after every bar ----------------------------------------------------
+
+class TestReportEveryBar:
+
+    def _algorithm(self, tmp, step):
+        from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.backtesting.base_project_algorithm import (
+            Algorithm, PortfolioGateway,
+        )
+        algo = Algorithm()
+        algo.initialized = True
+        algo.gateway = PortfolioGateway(SimpleNamespace(_get_current_position_qty=lambda t: 0,
+                                                        set_holdings=lambda targets, data=None: {},
+                                                        portfolio_repo=SimpleNamespace(session=None)))
+        report = DataReport(project="spx", directory=tmp)
+        algo.cycle = SimpleNamespace(step=step, position_book=SimpleNamespace(report=report))
+        return algo, report
+
+    def test_each_on_data_rewrites_the_file_with_the_bars_so_far(self):
+        from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.strategy.trading_cycle import (
+            CycleResult,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            reports = []
+
+            def step(t, data, gateway):
+                reports[0].greek_missing(t, OPTION, "delta", "rate missing")
+                return CycleResult(time=t)
+            algo, report = self._algorithm(tmp, step)
+            reports.append(report)
+            path = os.path.join(tmp, REPORT_FILE)
+            for day in range(3):
+                algo.on_data(slice_with("SPY", 640.0, time=T0 + timedelta(days=day)))
+                text = open(path, encoding="utf-8").read()
+                assert f"bars {day + 1}" in text
+                assert f"delta: {day + 1} bar(s)" in text
+
+    def test_a_bar_that_raises_still_updates_the_file(self):
+        def step(t, data, gateway):
+            raise RuntimeError("IBKR timeout")
+        with tempfile.TemporaryDirectory() as tmp:
+            algo, _ = self._algorithm(tmp, step)
+            algo.on_data(slice_with("SPY", 640.0))
+            assert os.path.exists(os.path.join(tmp, REPORT_FILE))
+
+    def test_no_directory_writes_nothing(self):
+        assert DataReport().save() is None

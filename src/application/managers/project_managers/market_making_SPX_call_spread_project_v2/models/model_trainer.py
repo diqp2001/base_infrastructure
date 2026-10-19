@@ -80,7 +80,8 @@ class MMModelTrainer(BaseModelTrainer):
             DataReport, run_start_checks,
         )
         report = DataReport(project=self.config.get('project_name', ''),
-                            period=(str(self.config.get('backtest_start')), str(self.config.get('backtest_end'))))
+                            period=(str(self.config.get('backtest_start')), str(self.config.get('backtest_end'))),
+                            directory=self.config.get('results_dir'))
         try:
             run_start_checks(report, self.config, factory, entities)
         except Exception as e:
