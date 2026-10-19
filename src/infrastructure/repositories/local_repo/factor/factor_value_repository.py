@@ -4,6 +4,7 @@
 import inspect
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.domain.ports.factor.factor_value_port import FactorValuePort
@@ -82,10 +83,33 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             self.session.add(model)
             self.session.commit()
             return self._to_entity(model)
+        except IntegrityError as e:
+            # The natural key (factor, entity, entity type, date) is already stored — typically another
+            # writer that resolved the same value concurrently. Never a second row: return the stored one.
+            self.session.rollback()
+            stored = self._stored_with_same_key(model)
+            if stored is None:
+                print(f"Error adding factor value: {e}")
+                return None
+            if str(stored.value) != str(model.value):
+                print(f"Factor value already stored for factor {model.factor_id}, {model.entity_type}:"
+                      f"{model.entity_id} at {model.date}: kept {stored.value}, ignored {model.value} "
+                      f"(use update to replace it)")
+            return stored
         except Exception as e:
             print(f"Error adding factor value: {e}")
             self.session.rollback()
             return None
+
+    def _stored_with_same_key(self, model: FactorValueModel) -> Optional[FactorValue]:
+        """The stored value with the natural key of the row that could not be inserted, or None."""
+        stored = (self.session.query(FactorValueModel)
+                  .filter(FactorValueModel.factor_id == model.factor_id,
+                          FactorValueModel.entity_id == model.entity_id,
+                          FactorValueModel.entity_type == model.entity_type,
+                          FactorValueModel.date == model.date)
+                  .first())
+        return self._to_entity(stored) if stored is not None else None
 
     def _resolve_currency_id(self, entity: FactorValue) -> Optional[int]:
         """Look up currency_id from the associated financial entity (any type)."""

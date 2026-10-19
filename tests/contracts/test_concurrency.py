@@ -37,9 +37,9 @@ def value(fid, v):
 
 class TestFactorValueRace:
 
-    @pytest.mark.xfail(strict=True, reason="GAP: check-then-insert with no unique key — two resolvers that both "
-                                           "found no value store two rows for the same (factor, entity, type, date)")
     def test_two_resolvers_racing_on_the_same_value_store_one_row(self, two_sessions):
+        """Regression: both check (nothing stored), both insert — the unique key keeps one row and the second
+        writer gets the stored value back."""
         (f1, s1), (f2, s2), fid = two_sessions
         r1, r2 = f1.factor_value_local_repo, f2.factor_value_local_repo
         # both check first (nothing stored yet) ...

@@ -805,7 +805,24 @@ def _build_handlers(factory, session) -> dict:  # noqa: C901
             currency_id=currency.id,
         )
         session.add(orm_fv)
-        session.commit()
+        try:
+            session.commit()
+        except Exception:
+            # unique (factor, entity, entity type, date): stored meanwhile by another writer
+            session.rollback()
+            stored = (
+                session.query(FactorValueModel)
+                .filter(
+                    FactorValueModel.factor_id == factor_orm.id,
+                    FactorValueModel.entity_id == entity.id,
+                    FactorValueModel.entity_type == entity_type,
+                    FactorValueModel.date == fv_datetime,
+                )
+                .first()
+            )
+            if stored is None:
+                raise
+            return stored
         return orm_fv
 
     return {

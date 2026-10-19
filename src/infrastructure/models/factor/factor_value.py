@@ -3,13 +3,18 @@ Infrastructure model for factor value.
 SQLAlchemy model for domain factor value entity.
 """
 from datetime import date
-from sqlalchemy import Column, DateTime, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, DateTime, Integer, String, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 
 
 class FactorValueModel(Base):
     __tablename__ = 'factor_values'
+    # One value per (factor, entity, entity type, date): the resolver checks then inserts, so without
+    # this two concurrent writers stored two rows. Existing databases get the index from
+    # BaseFactory._migrate_schema once duplicates are removed (src/infrastructure/database/factor_value_dedup.py).
+    NATURAL_KEY = ("factor_id", "entity_id", "entity_type", "date")
+    __table_args__ = (UniqueConstraint(*NATURAL_KEY, name="uq_factor_values_natural_key"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     factor_id = Column(Integer, ForeignKey("factors.id"), nullable=False)

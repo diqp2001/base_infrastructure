@@ -107,14 +107,23 @@ class TestFactorValueContract:
         put(7, when, 1)
         assert repo.get_by_factor_entity_date(fid, 7, _fmt(when)).date == when
 
-    @pytest.mark.xfail(strict=True, reason="GAP: factor_values has no unique key on (factor_id, entity_id, "
-                                           "entity_type, date) — duplicates are accepted (check-then-insert "
-                                           "is racy). Needs a migration after removing existing duplicates.")
     def test_natural_key_is_unique(self, values):
+        """Regression: (factor_id, entity_id, entity_type, date) is unique — a second add stores no second row
+        and returns the stored value (the stored value is kept; update replaces it)."""
         repo, fid, put = values
         put(7, MON, 100)
-        assert repo.add(FactorValue(id=None, factor_id=fid, entity_id=7, entity_type="CompanyShare",
-                                    date=MON, value="101", entity=None)) is None
+        again = repo.add(FactorValue(id=None, factor_id=fid, entity_id=7, entity_type="CompanyShare",
+                                     date=MON, value="101", entity=None))
+        assert again is not None and float(again.value) == 100.0
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+        assert repo.session.query(FactorValueModel).filter_by(factor_id=fid, entity_id=7).count() == 1
+
+    def test_same_key_for_another_entity_type_is_a_different_value(self, values):
+        repo, fid, put = values
+        put(7, MON, 100)
+        other = repo.add(FactorValue(id=None, factor_id=fid, entity_id=7, entity_type="CompanySharePortfolio",
+                                     date=MON, value="5", entity=None))
+        assert other is not None and float(other.value) == 5.0
 
 
 class TestReferentialIntegrity:

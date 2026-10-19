@@ -149,6 +149,19 @@ Gaps pinned as strict xfails there (reasons in the tests):
 | option price uses the factor's K / T, not the option's strike / expiry (a value comes out, but at the wrong strike / expiry) | `CompanyShareOptionPrice` |
 | option trades ignore the contract multiplier | `TradeManager` cash leg, option holding value |
 
+## factor_values natural key
+
+`(factor_id, entity_id, entity_type, date)` is unique (`uq_factor_values_natural_key`): new databases get it
+from `FactorValueModel`; an existing database gets the index at startup (`BaseFactory._migrate_schema`) only
+when it has no duplicates — otherwise a warning asks for the explicit clean-up, which keeps the most recent
+row of each key:
+
+    python -m src.infrastructure.database.factor_value_dedup            # dry run
+    python -m src.infrastructure.database.factor_value_dedup --apply    # delete duplicates + create the index
+
+`FactorValueRepository.add` with a key already stored (e.g. two resolvers racing) stores nothing and returns
+the stored value; `update` replaces a value. Tests: `tests/contracts/test_factor_value_unique_key.py`.
+
 ## Known gaps (pinned as expected failures — they flip to "unexpected success" when fixed)
 
 | Test | Gap |
@@ -156,6 +169,5 @@ Gaps pinned as strict xfails there (reasons in the tests):
 | `test_trade_manager::test_cash_keeps_cents` | `positions.quantity` is INTEGER: cash is booked in whole dollars (needs a DECIMAL migration) |
 | `test_spx_v2_order_legs::test_call_spread_entry_sends_both_legs_together` | SPX v2 enters a single short call (strategy decision) |
 | `test_normalization_and_metrics::test_cross_sectional_zscore_does_not_use_future_values` | `FactorNormalizer._apply_cross_sectional_zscore` uses each ticker's full history (used by other projects' trainers) |
-| `test_persistence_contracts::test_natural_key_is_unique`, `test_concurrency::test_two_resolvers_racing…` | `factor_values` has no unique key on (factor, entity, type, date) — needs a migration after de-duplication |
 | `test_persistence_contracts::test_company_share_needs_no_placeholder_references` | new companies / exchanges are linked to placeholder country / industry ids |
 | `test_transaction_valuation_context::test_revaluing_a_past_date_uses_the_quantities_held_then` | positions have no history: revaluing a past date after a later trade uses today's quantities and overwrites that date's snapshot. **Accepted 2026-10-14**: valuations run once per bar, in order; the stored daily snapshots are the history |

@@ -45,6 +45,15 @@ class BaseFactory:
                         conn.execute(text(sql))
                         conn.commit()
                     print("Migrated: added currency_id to factor_values")
+
+                # unique (factor_id, entity_id, entity_type, date): created only when no duplicates exist
+                from src.infrastructure.database.factor_value_dedup import ensure_unique_key
+                report = ensure_unique_key(self.engine)
+                if report.index_created:
+                    print("Migrated: unique index on factor_values (factor_id, entity_id, entity_type, date)")
+                elif not report.index_existed:
+                    print(f"Schema migration warning: {report.summary()}\n  -> run "
+                          f"'python -m src.infrastructure.database.factor_value_dedup' (dry run, then --apply)")
         except Exception as e:
             print(f"Schema migration warning: {e}")
 
