@@ -60,6 +60,39 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             f"DELETE FROM positions WHERE portfolio_id IN ({ids_csv})"
         ))
 
+    def get_quantity_at(self, position_id: int, as_of) -> Optional[int]:
+        """Quantity the position held at ``as_of``, rebuilt from the booked fills.
+
+        positions.quantity is the current state only. Rolling back from it — current quantity minus
+        every fill executed AFTER ``as_of`` — also covers opening amounts that have no transaction
+        (e.g. the initial cash). A fill is an order on a holding of this position (side BUY = +,
+        SELL = −, its quantity) with an EXECUTED transaction; each order counts once. A fill stamped
+        exactly at ``as_of`` belongs to ``as_of``. None when the position does not exist.
+        """
+        from datetime import datetime as _dt
+        from src.infrastructure.models.finance.holding.holding import HoldingModel
+        from src.infrastructure.models.finance.order.order import OrderModel
+        from src.infrastructure.models.finance.transaction.transaction import TransactionModel
+
+        position = self.session.get(PositionModel, position_id)
+        if position is None:
+            return None
+        if isinstance(as_of, str):
+            as_of = _dt.strptime(as_of, "%Y-%m-%d %H:%M:%S")
+        if getattr(as_of, "tzinfo", None):
+            as_of = as_of.replace(tzinfo=None)
+        holding_ids = [h.id for h in self.session.query(HoldingModel.id).filter(HoldingModel.position_id == position_id)]
+        if not holding_ids:
+            return int(position.quantity or 0)
+        executed_later = (self.session.query(TransactionModel.order_id)
+                          .filter(TransactionModel.status == "EXECUTED", TransactionModel.date > as_of))
+        later = (self.session.query(OrderModel)
+                 .filter(OrderModel.holding_id.in_(holding_ids), OrderModel.id.in_(executed_later))
+                 .all())
+        delta = sum((1 if str(getattr(o.side, "value", o.side)).upper() == "BUY" else -1) * int(round(o.quantity or 0))
+                    for o in later)
+        return int(position.quantity or 0) - delta
+
     def get_all(self) -> List[PositionEntity]:
         models = self.session.query(PositionModel).all()
         return [self._to_entity(m) for m in models]

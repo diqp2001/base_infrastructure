@@ -115,8 +115,10 @@ Semantics the context tests rely on (`tests/component/portfolio_context/`, `test
   declared factor type first (close -> mid_price -> value) and raises on a dependency cycle.
 - **Factor resolution** reuses a stored value for the same (factor, entity, date); after a trade the
   caller must force a recalculation (the valuation always does).
-- **Time**: positions are current state only (see the gap below); a valuation writes rows only at its
-  own timestamp and never rewrites another date.
+- **Time**: positions.quantity is the current state; a valuation at a past date reads the quantity held
+  then, rebuilt from the fills executed after it (`PositionRepository.get_quantity_at`: current quantity
+  minus the BUY / SELL orders with an EXECUTED transaction after the date). A valuation writes rows only
+  at its own timestamp and never rewrites another date.
 
 ## Factor resolution coverage (every `calculate()`)
 
@@ -176,4 +178,3 @@ the stored value; `update` replaces a value. Tests: `tests/contracts/test_factor
 | `test_spx_v2_order_legs::test_call_spread_entry_sends_both_legs_together` | SPX v2 enters a single short call (strategy decision) |
 | `test_normalization_and_metrics::test_cross_sectional_zscore_does_not_use_future_values` | `FactorNormalizer._apply_cross_sectional_zscore` uses each ticker's full history (used by other projects' trainers) |
 | `test_persistence_contracts::test_company_share_needs_no_placeholder_references` | new companies / exchanges are linked to placeholder country / industry ids |
-| `test_transaction_valuation_context::test_revaluing_a_past_date_uses_the_quantities_held_then` | positions have no history: revaluing a past date after a later trade uses today's quantities and overwrites that date's snapshot. **Accepted 2026-10-14**: valuations run once per bar, in order; the stored daily snapshots are the history |

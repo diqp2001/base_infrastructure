@@ -521,9 +521,9 @@ class TestTemporal:
         assert {(r.factor_id, r.entity_id, r.value) for r in
                 t.p.session.query(FactorValueModel).filter(FactorValueModel.date == MON_16)} == mon_rows
 
-    @pytest.mark.xfail(strict=True, reason="ACCEPTED (2026-10-14): positions carry no history — revaluing a past date after a later "
-                                           "trade uses today's quantities and overwrites that date's stored snapshot")
     def test_revaluing_a_past_date_uses_the_quantities_held_then(self, tree):
+        """Regression: positions.quantity is the current state; the quantity at a past date is rebuilt from
+        the fills executed after it, so a later trade no longer changes (or overwrites) an earlier valuation."""
         tree.trade("AAPL", 10, 150.0, MON_16)
         assert tree.revalue(MON_16) == CASH
         tree.close("AAPL", MON, 160.0)
@@ -574,3 +574,78 @@ def test_transaction_and_valuations_persist_and_reload(backend):
         assert (state["share_portfolio"], state["cash_portfolio"], state["main"]) == (1_760.0, 98_390.0, 100_150.0)
     finally:
         t.p.close()
+
+
+class TestPositionHistory:
+    """Quantities at a past date rebuilt from the booked orders / transactions (PositionRepository.get_quantity_at)."""
+
+    def repo(self, t):
+        return t.p.factory.position_local_repo
+
+    def position_of(self, t, ticker):
+        return t.p.session.get(HoldingModel, t.holding_id(ticker)).position_id
+
+    def cash_position(self, t):
+        from src.infrastructure.models.finance.holding.currency_portfolio_holding import CurrencyPortfolioHoldingModel
+        return t.p.session.query(CurrencyPortfolioHoldingModel).one().position_id
+
+    def test_every_layer_of_a_past_date_is_unchanged_by_later_trades(self, invested):
+        t = invested
+        monday = t.layers(MON_16)
+        t.close("AAPL", MON, 160.0)
+        t.close("MSFT", MON, 400.0)
+        t.trade("AAPL", 5, 160.0, TUE_16)
+        t.trade("MSFT", -5, 400.0, TUE_16)                       # sold out
+        t.revalue(TUE_16)
+        assert t.revalue(MON_16) == CASH
+        assert t.layers(MON_16) == monday                        # the snapshot is rewritten identically
+
+    def test_quantities_and_cash_at_each_date(self, invested):
+        t = invested
+        t.close("AAPL", MON, 160.0)
+        t.trade("AAPL", 5, 160.0, TUE_16)
+        t.trade("AAPL", -15, 160.0, WED_16)                      # flat
+        repo, aapl, cash = self.repo(t), self.position_of(t, "AAPL"), self.cash_position(t)
+        assert [repo.get_quantity_at(aapl, d) for d in (MON, MON_16, TUE_16, WED_16)] == [0, 10, 15, 0]
+        # cash has no opening transaction: rolled back from today, not summed from zero
+        assert [repo.get_quantity_at(cash, d) for d in (MON, MON_16, TUE_16, WED_16)] == \
+            [100_000, 96_500, 95_700, 98_100]
+        assert t.p.qty("AAPL") == 0 and t.p.cash() == 98_100.0  # trading still reads today's quantities
+
+    def test_a_fill_stamped_at_the_valuation_time_counts(self, tree):
+        tree.trade("AAPL", 10, 150.0, MON_16)
+        assert self.repo(tree).get_quantity_at(self.position_of(tree, "AAPL"), MON_16) == 10
+
+    def test_only_executed_transactions_count_and_each_order_once(self, invested):
+        from src.infrastructure.models.finance.transaction.transaction import TransactionModel
+        t = invested
+        t.trade("AAPL", 5, 150.0, TUE_16)
+        later = t.p.session.query(TransactionModel).filter(TransactionModel.date == TUE_16).first()
+        # a second EXECUTED row for the same order and a PENDING / CANCELLED order must not change anything
+        t.p.session.add(TransactionModel(order_id=later.order_id, date=TUE_16, transaction_type=later.transaction_type,
+                                         transaction_id="DUP", trade_date=later.trade_date, value_date=later.value_date,
+                                         settlement_date=later.settlement_date, status=later.status, spread=0.0))
+        t.p.session.commit()
+        assert self.repo(t).get_quantity_at(self.position_of(t, "AAPL"), MON_16) == 10
+        later.status = "CANCELLED"
+        t.p.session.commit()
+        dup = t.p.session.query(TransactionModel).filter_by(transaction_id="DUP").one()
+        dup.status = "PENDING"
+        t.p.session.commit()
+        assert self.repo(t).get_quantity_at(self.position_of(t, "AAPL"), MON_16) == 15   # not executed after MON
+
+    def test_the_resolution_service_values_a_past_date_with_the_quantity_held_then(self, invested):
+        from src.application.services.data.entities.factor.factor_value_resolution_service import (
+            FactorValueResolutionService,
+        )
+        from tests.component.factor_context.factor_catalog import factor_classes
+        t = invested
+        t.trade("AAPL", 5, 150.0, TUE_16)
+        cls = dict(factor_classes())["CompanySharePortfolioHoldingValueFactor"]
+        d = cls()
+        factor = t.p.factory.get_local_repository(cls.__name__)._create_or_get(
+            cls, d.name, group=d.group, subgroup=d.subgroup, data_type=d.data_type, source=d.source, frequency="1d")
+        holding = t.p.factory.get_local_repository("CompanySharePortfolioHolding").get_by_id(t.holding_id("AAPL"))
+        service = FactorValueResolutionService(factory=t.p.factory, logger=logging.getLogger("context"))
+        value = service.resolve_factor_value(factor, holding, MON_16, force_recalculate=True)
+        assert float(value.value) == pytest.approx(10 * 150.0)              # not 15 x 150

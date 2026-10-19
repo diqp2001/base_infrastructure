@@ -794,8 +794,11 @@ class FactorValueResolutionService:
 
         return total
 
-    def _resolve_entity_attr_dep(self, dep_name: str, entity) -> Optional[float]:
-        """Resolve a dependency via a numeric attribute on a related entity object."""
+    def _resolve_entity_attr_dep(self, dep_name: str, entity, target_date=None) -> Optional[float]:
+        """Resolve a dependency via a numeric attribute on a related entity object.
+
+        A Position is read AT target_date: positions.quantity is the current state, so the quantity held
+        then is rebuilt from the fills executed after target_date (PositionRepository.get_quantity_at)."""
         dep_entity_name = dep_name.lower()
         related_obj = None
 
@@ -811,6 +814,19 @@ class FactorValueResolutionService:
                 getter = getattr(holding_repo, f'get_related_{dep_entity_name}', None)
                 if callable(getter):
                     related_obj = getter(entity.id)
+
+        if related_obj is not None and target_date is not None and dep_entity_name == 'position':
+            position_repo = getattr(self.factory, 'position_local_repo', None) if self.factory else None
+            position_id = getattr(related_obj, 'id', None)
+            if position_repo is not None and position_id is not None and hasattr(position_repo, 'get_quantity_at'):
+                as_of = self._parse_date(target_date) if isinstance(target_date, str) else target_date
+                quantity = position_repo.get_quantity_at(position_id, as_of)
+                if quantity is not None:
+                    self.logger.info(
+                        f"Resolved entity dependency Position.quantity at {as_of} = {quantity} "
+                        f"for {type(entity).__name__}:{getattr(entity, 'id', '?')}"
+                    )
+                    return float(quantity)
 
         if related_obj is not None:
             for numeric_attr in ('quantity', 'value', 'amount', 'price'):
@@ -847,7 +863,7 @@ class FactorValueResolutionService:
 
         if dep_repo is None:
             self.logger.info(f"No repository for '{dep_name}' — trying entity-attribute path")
-        return self._resolve_entity_attr_dep(dep_name, entity)
+        return self._resolve_entity_attr_dep(dep_name, entity, target_date=target_date)
 
     def _resolve_dynamic_dependencies(
         self,

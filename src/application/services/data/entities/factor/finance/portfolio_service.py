@@ -170,7 +170,7 @@ class PortfolioService:
                 )
                 if factor_value is not None and getattr(factor_value, 'value', None) is not None:
                     total += Decimal(str(factor_value.value))
-                elif self._get_position_qty(h) != 0:
+                elif self._get_position_qty(h, as_of_date) != 0:
                     # A held position that cannot be valued must not silently count as 0:
                     # the portfolio value (and every weight sized on it) would be wrong.
                     raise ValueError(
@@ -297,11 +297,17 @@ class PortfolioService:
             return None
         return self.session.query(PositionModel).filter_by(id=holding.position_id).first()
 
-    def _get_position_qty(self, holding) -> Decimal:
-        """Return position quantity linked to this holding, or 0 if not found."""
+    def _get_position_qty(self, holding, as_of_date: Optional[datetime] = None) -> Decimal:
+        """Position quantity of this holding (at as_of_date when given: rebuilt from the fills), or 0."""
         pos = self._get_position_model(holding)
         if pos is None or pos.quantity is None:
             return Decimal("0")
+        if as_of_date is not None:
+            repo = getattr(self.factory, 'position_local_repo', None) if self.factory else None
+            if repo is not None and hasattr(repo, 'get_quantity_at'):
+                quantity = repo.get_quantity_at(pos.id, as_of_date)
+                if quantity is not None:
+                    return Decimal(str(quantity))
         return Decimal(str(pos.quantity))
 
     def _resolve_value(self, asset, as_of_date: datetime) -> Decimal:
