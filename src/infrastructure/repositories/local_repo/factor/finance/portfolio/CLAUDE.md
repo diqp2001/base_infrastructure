@@ -234,12 +234,12 @@ Factors verified correct (class name already used):
 
 ## Regression test coverage
 
-`src/tests/unit/test_factor_value_chain.py` covers all four rules above:
+`tests/unit/test_factor_value_chain.py` covers all four rules above:
 - `TestLeafFactorDefaults` — entity defaults are valid (frequency, source)
 - `TestCalculateDependencyKeys` — calculate() uses class name as key; wrong key gives 0; None rate falls back to 1
 - `TestHoldingValueChainNonZero` — holding value = price × quantity (non-zero when both non-zero)
 
-Run with: `python -m unittest src.tests.unit.test_factor_value_chain`
+Run with: `python -m pytest tests/unit/test_factor_value_chain.py`
 
 ---
 

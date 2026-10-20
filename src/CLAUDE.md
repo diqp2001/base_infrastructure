@@ -190,10 +190,10 @@ in models + mappers + repos.
 ## 10. Testing
 
 **Read:**
-- [`src/tests/CLAUDE.md`](tests/CLAUDE.md)
+- [`docs/TESTING.md`](../docs/TESTING.md) and [`AGENTS.md`](../AGENTS.md) — all tests live under `tests/`
 - Domain logic: unit tests, no DB
 - Infrastructure: mocks or local SQLite
-- Run all: `python -m unittest discover tests`
+- Run all: `python -m pytest` (fast suite: see `AGENTS.md` §2)
 
 ---
 

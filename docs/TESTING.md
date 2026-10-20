@@ -95,6 +95,13 @@ package (`__init__.py`), otherwise the rules cannot see it.
 
 IBKR tests never run in CI.
 
+Every test lives under `tests/` (`testpaths`); a test file anywhere else is never collected. The former
+`src/tests` suites were moved in BI-003 (2026-10-20): `tests/unit/application/heston_slv/` (the calibrator class is
+`slow` + `performance`, minutes per test), `tests/market_making_spx/` (original SPX project strategy and hedging),
+`tests/unit/test_factor_value_chain.py`, `tests/unit/test_entity_factor_mapping.py`,
+`tests/unit/domain/test_trading_factors.py`, and the SQLite repository / ORM suites in `tests/repositories/`
+(component marker).
+
 ## Portfolio context (transactions -> holdings -> valuations -> factor values)
 
 Semantics the context tests rely on (`tests/component/portfolio_context/`, `tests/misbuffet/test_set_holdings_chain.py`):

@@ -128,7 +128,7 @@ class TestFinancialEntityORM(unittest.TestCase):
 
     def test_currency_row_created_in_financial_entities(self):
         from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
-        currency = CurrencyModel(name="US Dollar", symbol="USD")
+        currency = CurrencyModel(name="US Dollar", symbol="USD", start_date=date.today())
         self.session.add(currency)
         self.session.flush()
         self.assertEqual(self._entity_type(currency.id), "currency")
@@ -136,7 +136,7 @@ class TestFinancialEntityORM(unittest.TestCase):
     def test_asset_type_informational_column_auto_filled(self):
         """asset_type in financial_assets is a mirror of entity_type."""
         from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
-        currency = CurrencyModel(name="EUR", symbol="EUR")
+        currency = CurrencyModel(name="EUR", symbol="EUR", start_date=date.today())
         self.session.add(currency)
         self.session.flush()
         row = self.session.execute(
@@ -152,7 +152,7 @@ class TestFinancialEntityORM(unittest.TestCase):
         """An asset and a portfolio must never share the same financial_entities.id."""
         from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
         from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
-        currency = CurrencyModel(name="GBP", symbol="GBP")
+        currency = CurrencyModel(name="GBP", symbol="GBP", start_date=date.today())
         portfolio = PortfolioModel(name="GBP Portfolio", start_date=date.today())
         self.session.add_all([currency, portfolio])
         self.session.flush()
@@ -176,7 +176,7 @@ class TestFinancialEntityORM(unittest.TestCase):
         from src.infrastructure.models.finance.financial_assets.currency import CurrencyModel
         from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 
-        currency = CurrencyModel(name="JPY")
+        currency = CurrencyModel(name="JPY", start_date=date.today())
         portfolio = CompanySharePortfolioModel(name="JP Portfolio", start_date=date.today())
         self.session.add_all([currency, portfolio])
         self.session.flush()
@@ -234,6 +234,7 @@ class TestFinancialEntityRefactorMotivation(unittest.TestCase):
             name="CSP Option",
             underlying_asset_id=portfolio.id,
             currency_id=1,
+            start_date=date.today(),
         )
         self.session.add(derivative)
         self.session.flush()
@@ -283,8 +284,8 @@ class TestFinancialEntityRefactorMotivation(unittest.TestCase):
         self.session.add_all([p1, p2])
         self.session.flush()
 
-        d1 = DerivativeModel(name="Option on A", underlying_asset_id=p1.id, currency_id=1)
-        d2 = DerivativeModel(name="Option on B", underlying_asset_id=p2.id, currency_id=1)
+        d1 = DerivativeModel(name="Option on A", underlying_asset_id=p1.id, currency_id=1, start_date=date.today())
+        d2 = DerivativeModel(name="Option on B", underlying_asset_id=p2.id, currency_id=1, start_date=date.today())
         self.session.add_all([d1, d2])
         self.session.flush()
 

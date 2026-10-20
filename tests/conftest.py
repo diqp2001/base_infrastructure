@@ -45,6 +45,11 @@ COMPONENT_FILES = (
     "spatio_temporal_momentum/test_stm_persistence.py",
     "spatio_temporal_momentum/test_stm_trading_cycle.py",
     "spatio_temporal_momentum/test_stm_lookahead.py",
+    "repositories/test_base_local_repository.py",
+    "repositories/test_model_repository.py",
+    "repositories/test_backtest_factor_repository.py",
+    "repositories/test_financial_entity_orm.py",
+    "repositories/test_backtest_repository_integration.py",
 )
 
 LAYER_MARKERS = {"unit", "component", "contract", "architecture", "integration", "e2e", "performance"}

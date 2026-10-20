@@ -142,11 +142,12 @@ class TestCalculateDependencyKeys(unittest.TestCase):
         result = CompanyShareValueFactor().calculate({'CompanyShareMidPriceFactor': price})
         self.assertEqual(result, price)
 
-    def test_company_share_value_factor_wrong_key_gives_zero(self):
+    def test_company_share_value_factor_wrong_key_gives_no_value(self):
+        """A missing dependency is missing data: no value, never a hard-coded 0."""
         # Documents the bug: wrong key returns the 0 default, not the price
         price = Decimal('150.50')
         result = CompanyShareValueFactor().calculate({'company_share_mid_price_factor': price})
-        self.assertEqual(result, Decimal('0'))
+        self.assertIsNone(result)
 
     def test_currency_value_factor_class_name_key(self):
         rate = Decimal('1.25')
@@ -174,7 +175,7 @@ class TestHoldingValueChainNonZero(unittest.TestCase):
     def test_company_share_holding_value_is_price_times_quantity(self):
         factor = CompanySharePortfolioHoldingValueFactor()
         result = factor.calculate({
-            'CompanyShareValueFactor': Decimal('150.50'),
+            'CompanyShareValueFactor': [Decimal('150.50')],
             'Position': Decimal('100'),
         })
         self.assertEqual(result, Decimal('150.50') * Decimal('100'))
@@ -184,7 +185,7 @@ class TestHoldingValueChainNonZero(unittest.TestCase):
         # Zero price is semantically valid (e.g. no market data); result must be 0
         factor = CompanySharePortfolioHoldingValueFactor()
         result = factor.calculate({
-            'CompanyShareValueFactor': Decimal('0'),
+            'CompanyShareValueFactor': [Decimal('0')],
             'Position': Decimal('100'),
         })
         self.assertEqual(result, Decimal('0'))
@@ -192,7 +193,7 @@ class TestHoldingValueChainNonZero(unittest.TestCase):
     def test_currency_holding_value_is_rate_times_quantity(self):
         factor = CurrencyPortfolioHoldingValueFactor()
         result = factor.calculate({
-            'CurrencyValueFactor': Decimal('1.25'),
+            'CurrencyValueFactor': [Decimal('1.25')],
             'Position': Decimal('1000000'),
         })
         self.assertEqual(result, Decimal('1.25') * Decimal('1000000'))
@@ -202,7 +203,7 @@ class TestHoldingValueChainNonZero(unittest.TestCase):
         # USD portfolio holding USD: rate = 1.0, holding value = raw position quantity
         factor = CurrencyPortfolioHoldingValueFactor()
         result = factor.calculate({
-            'CurrencyValueFactor': Decimal('1'),
+            'CurrencyValueFactor': [Decimal('1')],
             'Position': Decimal('1000000'),
         })
         self.assertEqual(result, Decimal('1000000'))

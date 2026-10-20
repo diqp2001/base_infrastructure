@@ -602,7 +602,7 @@ File: `src/domain/entities/factor/finance/financial_assets/derivatives/option/co
 
 ### Regression tests
 
-`src/tests/unit/test_factor_value_chain.py` now covers (22 tests total):
+`tests/unit/test_factor_value_chain.py` now covers (22 tests total):
 - `test_company_share_option_mid_price_factor_frequency_not_none` — `frequency='1d'` ✓
 - `test_company_share_option_mid_price_factor_source_in_whitelist` — `source='calculated'` ✓
 - `TestOptionMidPriceFactorResolution` class (5 tests):

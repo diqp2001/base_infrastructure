@@ -15,6 +15,7 @@ import math
 import unittest
 
 import numpy as np
+import pytest
 
 from src.application.services.data.entities.factor.heston_slv.heston_slv_parameters import (
     HestonParameters,
@@ -112,6 +113,9 @@ class TestHestonSimulatorVsSemiAnalytic(unittest.TestCase):
 #  Heston calibrator                                                           #
 # ─────────────────────────────────────────────────────────────────────────── #
 
+# Numerical calibration: minutes per test, so excluded from the fast suite (performance marker).
+@pytest.mark.slow
+@pytest.mark.performance
 class TestHestonCalibrator(unittest.TestCase):
     """Calibrator should recover (approximate) true parameters from synthetic IVs."""
 
@@ -255,7 +259,7 @@ class TestHestonSLVDomainFactor(unittest.TestCase):
         self.factor = CompanyShareOptionHestonSLVPriceFactor(
             name="heston_slv_test",
             group="price_model",
-            subgroup="stochastic_local_volatility",
+            subgroup="stochastic_volatility",                # a Factor.SUBGROUPS key
         )
 
     def test_call_price_positive(self):
