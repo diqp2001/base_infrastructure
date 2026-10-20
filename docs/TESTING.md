@@ -11,6 +11,7 @@ pytest runs every test (the older `unittest`-style files included). Configuratio
 | Fast suite (no database server, no IBKR) — what you run while coding | `python -m pytest -m "not integration and not sql_server and not ibkr and not performance"` |
 | Same, with coverage (gate: `fail_under` in pyproject) | add `--cov --cov-report=term` |
 | Architecture rules | `lint-imports` (or `python -m pytest tests/architecture`) |
+| Lint (gate: no new finding per rule) / types (report only) | `python -m ruff check src tests` (ratchet: `tests/architecture/test_lint_baseline.py`, baseline `ruff_baseline.json`) / `python -m mypy src` |
 | Unit only / component only / contracts only | `-m unit`, `-m component`, `-m contract` |
 | Property-based tests (Hypothesis) | `-m property` (vary with `--hypothesis-seed=N`) |
 | End-to-end workflows | `-m e2e` |

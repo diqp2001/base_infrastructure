@@ -22,7 +22,7 @@ part, gaps listed; *missing*: not implemented; *blocked*: needs an external deci
 | Tests outside `testpaths` | `pytest src/tests` | at the audit: **329 tests in `src/tests` never run by CI** (2 more `test_*.py` at the repository root); run once: without `heston_slv`, 255 passed / **15 failed**; `heston_slv` calibration did not finish in 5 min. **Resolved in BI-003** (moved into `tests/`, see BI-003) |
 | Docker | `docker compose config`, `docker ps` | compose valid; `app`, `monitor` (healthy), `sqlserver` (healthy) up 23 h; `ibkr` not running |
 | SQL Server from the container | `tests/integration/test_docker_services.py::…::test_sqlalchemy_reaches_sql_server` | passed (read-only); the write round-trip test was not run against the app database |
-| Type checking / linting | — | **none configured** (no mypy, ruff, flake8, pylint) |
+| Type checking / linting | `python -m ruff check src tests`, `python -m mypy src` | at the audit: none configured. After BI-003: ruff (F, E9) gated by a per-rule ratchet — 1913 findings recorded; mypy report-only — 6687 errors in 763 files |
 | Secrets | `git ls-files`, `git log --diff-filter=A`, credential-pattern scan | no `.env`, `.env.windows`, `secrets/` ever committed; no credential literals in tracked code |
 | TODO / FIXME | `git grep` | 4 in `src`; 10 `raise NotImplementedError` |
 
@@ -39,7 +39,7 @@ enters a single naked call; cross-sectional z-score uses future values; one back
 
 | Milestone | Items (in order) | Goal |
 |---|---|---|
-| **M0 — Baseline and guard rails** | BI-001 ✔, BI-004 ✔, **BI-003** (in progress), BI-005, BI-002 | trustworthy gates, safe configuration, reproducible environment |
+| **M0 — Baseline and guard rails** | BI-001 ✔, BI-004 ✔, BI-003 ✔, BI-005, BI-002 | trustworthy gates, safe configuration, reproducible environment |
 | **M1 — Persistence and portfolio correctness** | BI-006, BI-007, BI-008, BI-009, BI-010 | transactions, holdings and portfolio values are correct and atomic |
 | **M2 — Market-data reliability** | BI-025, BI-026, BI-027, BI-028, BI-029, BI-030, BI-031 | valid, traceable, complete, point-in-time data with explicit quality |
 | **M2b — Factor correctness** | BI-012, BI-013, BI-014, BI-011, BI-032 | reproducible factor values with documented invariants |
@@ -51,14 +51,13 @@ Within a milestone, follow the listed order; M1 and M2 may interleave where an i
 (BI-025 needs BI-006 for its persistence step only — its domain model can start after BI-003). M4 items never
 enable live trading.
 
-**In progress: BI-003** (branch `bi-003-quality-gates`; its last criterion waits for approval of new dev
-dependencies). **Next: BI-025** — the highest-priority missing foundation of the market-data milestone,
+**BI-003 complete.** **Next: BI-025** — the highest-priority missing foundation of the market-data milestone,
 starting with its domain model (observation quality status, provenance and eligibility interface, pure domain,
 tests) before any schema change.
 
-GitHub issues created 2026-10-20: #575 (BI-003), #576 (BI-005), #577 (BI-002), #578 and #579 — the latter two were
-created for the provisional "midpoint first" and "re-run safety" items, now part of BI-026 and BI-028 (titles to
-update). The other items are issue-ready in this file.
+GitHub issues (2026-10-20): #575 (BI-003), #576 (BI-005), #577 (BI-002), #578 (BI-026), #579 (BI-028) — #578 / #579
+were opened for the provisional "midpoint first" / "re-run safety" items and renamed when those were folded into
+BI-026 / BI-028. The other items are issue-ready in this file.
 
 ---
 
@@ -78,11 +77,12 @@ update). The other items are issue-ready in this file.
 - **Gaps** no clean rebuild verified (recreating `app`/`ibkr` is an approval gate: VS Code attachment, 2FA); the container checkout (`1aa0443c`) is behind `main`; `ibkr` service not running; fast suite not run inside the container in this audit.
 
 ### BI-003 — Verify automated quality gates
-- **Priority** P0 · **Size** S–M · **Depends on** BI-001 · **Status: partial — (1), (2), (4) done 2026-10-20; (3) blocked on approval of new dev dependencies (ruff, mypy)** · **GitHub** #575
+- **Priority** P0 · **Size** S–M · **Depends on** BI-001 · **Status: complete (2026-10-20)** · **GitHub** #575
 - **Scope** fast tests, coverage, import contracts, type checks, linting; repair configuration without weakening thresholds.
 - **Acceptance** (1) every test file is either collected by CI or deliberately removed (triage of `src/tests`, 329 tests, and root `test_*.py`, with the decision recorded); (2) `fail_under` raised to the measured floor (34.5 % → 34.0) — never lowered; (3) a linter (ruff) and a type checker (mypy) run in CI in report-only mode with a recorded baseline, failing only on new violations (new dev dependencies need approval); (4) CI stages documented in `docs/TESTING.md` match `.github/workflows/python-app.yml`.
 - **Triage input** `src/tests`: 15 failing tests (`unit/market_making/test_delta_hedge.py` 4, `unit/test_factor_value_chain.py` 5, `unit/test_financial_entity_orm.py` 6) — stale against current code or real defects, to be decided per test (fix, move to `tests/` as a pinned xfail with the reason, or delete); `unit/heston_slv/test_heston_slv.py::TestHestonCalibrator` too slow for the fast suite (mark `slow` / `performance`).
 - **Done (branch `bi-003-quality-gates`)** all `src/tests` suites moved into `tests/` with `git mv` (Heston SLV → `tests/unit/application/heston_slv/`, original SPX strategy → `tests/market_making_spx/`, SQLite repository / ORM suites → `tests/repositories/` as component tests, factor suites → `tests/unit/`); `src/tests/test_main.py` (placeholder) and the two root import scripts deleted (covered by `test_all_repositories::test_every_module_imports`). The 21 failures were stale tests: the Heston-SLV fixture used a subgroup `Factor` never accepted (4); ORM fixtures lacked the `start_date` the schema requires since 2026-08 (6); value-chain tests ignored the list contract and the no-fallback rule (5); original-SPX hedge tests asserted per-position hedging replaced by the portfolio hedge in `f2844273` (3 rewritten). One real gap pinned as a strict expected failure: the original SPX `manage_existing_positions` never executes exits (`tests/market_making_spx/test_delta_hedge.py::test_hedge_state_cleared_on_position_exit`). `TestHestonCalibrator` marked `slow` + `performance`. `fail_under` 31.5 → 34.0. Result: fast suite 1479 passed, 45 skipped, 11 xfailed, 0 failed, coverage 35.7 %; `lint-imports` 4 / 4 kept.
+- **Done — lint and types (approved 2026-10-20)** `ruff==0.6.9`, `mypy==1.11.2` in `requirements-dev.txt`; `[tool.ruff]` (rules F + E9) and `[tool.mypy]` in `pyproject.toml`. Gate: `tests/architecture/test_lint_baseline.py` (CI stage 1) fails on any rule above its count in `tests/architecture/ruff_baseline.json` and asks to lower the baseline when findings are fixed — verified by adding an unused import (`F401: 1550 -> 1551` failed). Baseline: 1913 ruff findings (F401 1550, F821 undefined name 138, F841 91, F541 74, F811 33, F403 18, F601 5, F402 3, F823 1); mypy 6687 errors in 763 files (report-only CI job "Lint and types", `continue-on-error`). The 138 undefined names are likely real defects → follow-up BI-035.
 - **Evidence** `.github/workflows/python-app.yml` (stage 1 `lint-imports` + unit/architecture; stage 2 fast suite + coverage on PRs; stage 3 SQL Server nightly); `pyproject.toml` markers, `fail_under = 31.5`, import contracts; `testpaths = ["tests"]` excludes `src/tests`; no lint / type-check tooling in `requirements-dev.txt`.
 
 ### BI-004 — Document coding-agent rules
@@ -201,7 +201,7 @@ Each item answers one of: is the observation valid / recent enough / from the ri
 consistent / reproducible / available at decision time / did the decision perform? Earlier items they extend:
 BI-012 (factor-level point-in-time), BI-013 (bar persistence), BI-014 (factor definition contracts), BI-023
 (dashboard). The provisional BI-025 – BI-027 written earlier the same day are folded in: *midpoint first* →
-BI-026, *re-run safety* → BI-028, *persist option history* → BI-029 (GitHub #578 / #579 still carry the old titles).
+BI-026, *re-run safety* → BI-028, *persist option history* → BI-029 (GitHub #578 / #579 renamed accordingly).
 
 Audit summary — what exists: IBKR data type chosen by one shared rule (`what_to_show.py`, options → MIDPOINT,
 TRADES→MIDPOINT retry for options); closed-bar / session rule (`bar_calendar.bar_is_current`,
@@ -220,7 +220,7 @@ an availability time distinct from the bar time, decision records with their inf
 - **Evidence (current)** `factor_values` columns: factor_id, entity_id, entity_type, date, value `String(255)`, currency_id — no data type, times, status or lineage; `DataQualityReport` unused; on 2026-10-20 the only provenance trace was row ids.
 
 ### BI-026 — Configurable market-data source selection policy
-- **Priority** P1 · **Size** M · **Depends on** BI-025 (record of the selected source) · **Status: partial** · **GitHub** #578 (titled "Prefer MIDPOINT over TRADES", to retitle)
+- **Priority** P1 · **Size** M · **Depends on** BI-025 (record of the selected source) · **Status: partial** · **GitHub** #578
 - **Scope** policy by instrument class × field × frequency × intended use (valuation mark, execution price, trade statistics, yield, financing, model input) over the IBKR types TRADES, MIDPOINT, BID, ASK, BID_ASK, ADJUSTED_LAST, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY, REBATE_RATE, FEE_RATE, YIELD_BID / ASK / BID_ASK / LAST, SCHEDULE; preferred source, permitted fallbacks with conditions, recorded selection and fallback reason. **User requirement (2026-10-20): where IBKR MIDPOINT history works, try it first and fall back to TRADES — trades do not happen on every bar, so TRADES is less reliable for marks.** MIDPOINT is a mark, never an execution price; validate bid / ask when available; TRADES kept for trade volume and execution analysis.
 - **Acceptance** (1) policies testable without a broker; (2) different policies per instrument class; (3) every policy states its fallback; (4) unsupported combinations raise a clear error; (5) a fallback never changes the economic meaning silently (recorded with the value, BI-025); (6) tests show the selected type changes with the intended use.
 - **Evidence** `src/infrastructure/repositories/ibkr_repo/factor/what_to_show.py` (single rule for `IBKRFactorValueRepository` and `MarketDataHistoryService`: option price bars MIDPOINT, implied / historical vol types, else TRADES; option TRADES→MIDPOINT retry), tests in `tests/unit/domain/test_bar_calendar.py` and `tests/repositories/test_order_path_repositories.py`. Gaps: shares, futures and indices still TRADES; no intended-use dimension; the fallback is not recorded.
@@ -232,7 +232,7 @@ an availability time distinct from the bar time, decision records with their inf
 - **Evidence** session rule `src/domain/entities/factor/bar_calendar.py` (a newer bar due → fetch; still none → missing, never frozen) with tests; non-positive stored prices ignored (`IBKRFactorValueRepository._check_existing_available_value`); a project-local `DataValidator` (`market_making_SPX_call_spread_project/utils/validators.py`: market data, OHLC, option chain) is not reusable and not in the pipeline. Gaps: no spread / crossed checks in the shared path; the hand-written NYSE calendar duplicates `pandas_market_calendars`, already used by `misbuffet_engine.py` — migrate (also BI-012).
 
 ### BI-028 — Reproducible market-data processing pipeline
-- **Priority** P1 · **Size** L · **Depends on** BI-025, BI-006 · **Absorbs** provisional "re-run safety" · **Status: missing** · **GitHub** #579 (titled "Re-run safety", to retitle)
+- **Priority** P1 · **Size** L · **Depends on** BI-025, BI-006 · **Absorbs** provisional "re-run safety" · **Status: missing** · **GitHub** #579
 - **Scope** logical stages raw → validated → derived in the existing tables (no duplicate store); raw keeps source values and metadata; derived keeps its definition and input lineage; reprocessing from stored raw data without re-download; versioned validation / normalisation rules; upstream corrections identify affected downstream values; idempotent reprocessing.
 - **Acceptance** (1) raw values are never overwritten by derived ones; (2) same inputs + policy version → same results within tolerance; (3) reprocessing adds no duplicates; (4) a derived value traces to its sources; (5) **a backtest re-run over a window gives the same values as a run on an empty derived store** (stale derived values are invalidated, not reused); (6) tests: reprocessing, corrected observation, duplicate ingestion, a seeded stale derived value that is not used.
 - **Evidence** raw (`source <> 'calculated'`) and derived (`source = 'calculated'`) values already share `factor_values`, keyed (factor, entity, entity type, date); the 2026-10-20 SPX v2 re-run reused derived values computed by an earlier run with stale prices until 501 rows were deleted by hand; strict xfail `tests/component/portfolio_context/test_value_propagation.py:237` (`force_recalculate` reuses stored dependencies).
@@ -272,3 +272,12 @@ an availability time distinct from the bar time, decision records with their inf
 - **Scope** validation pass rates; stale-quote rates by instrument class / frequency; completeness and open gaps; IBKR errors, retries, pacing, latency; fallback usage and rejection reasons; failed factor calculations and invalid outputs; affected active strategies; freshness with stale distinguished from a legitimate zero; structured logs; account monitoring kept separate from trading.
 - **Acceptance** failures visible without querying tables; incidents linked to the affected calculations; configurable, low-noise alerts; endpoints read-only (existing tests stay green); monitoring failures never alter financial calculations.
 - **Evidence** `docs/MONITORING.md`, `tests/monitoring/` (51 tests incl. staleness, jobs, read-only API, network exposure), read-only IBKR client, `monitor_reader` login; the SPX v2 `/spx_v2` dashboard and data report (read-only). Gaps: no validation / fallback / gap metrics (they need BI-025 – BI-029).
+
+---
+
+## Follow-ups found while closing items
+
+### BI-035 — Fix undefined names reported by ruff (F821)
+- **Priority** P1 (each is a NameError waiting on its code path) · **Size** S–M · **Depends on** BI-003 · **Status: missing** · **Found in** BI-003
+- **Scope** the 138 F821 findings (`python -m ruff check src tests --select F821`) and the 1 F823 (local referenced before assignment): fix each (missing import, typo, dead branch removed) with a test where the code path is reachable; lower `tests/architecture/ruff_baseline.json` in the same change.
+- **Acceptance** F821 and F823 baselines reach 0; no behaviour change other than the removed NameErrors; fast suite and `lint-imports` green.

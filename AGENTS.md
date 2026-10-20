@@ -60,7 +60,9 @@ Fast tests need no database server, broker or network. `ibkr` tests run only wit
 read-only.
 
 Definition of "green" for a change: `lint-imports` 4/4 contracts kept, the fast suite passes with coverage at or
-above `fail_under` in `pyproject.toml`, and the tests of the touched area pass. Report the exact counts.
+above `fail_under` in `pyproject.toml` (it includes the ruff ratchet `tests/architecture/test_lint_baseline.py`: no
+new finding; lower `ruff_baseline.json` when you fix some), and the tests of the touched area pass. `python -m mypy
+src` is report-only. Report the exact counts.
 
 ## 3. Task isolation and workflow
 

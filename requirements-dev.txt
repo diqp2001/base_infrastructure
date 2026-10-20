@@ -7,3 +7,6 @@ debugpy==1.8.14
 pytest-cov==7.1.0
 hypothesis==6.169.1
 import-linter==2.15
+# Lint / types (BI-003): ruff gate = tests/architecture/test_lint_baseline.py; mypy report-only in CI
+ruff==0.6.9
+mypy==1.11.2

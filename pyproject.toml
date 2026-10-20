@@ -32,6 +32,26 @@ show_missing = false
 precision = 1
 
 # ---------------------------------------------------------------------------------------------
+# Lint (BI-003): correctness rules only — pyflakes (F) and syntax errors (E9). Existing findings are
+# recorded per rule in tests/architecture/ruff_baseline.json; tests/architecture/test_lint_baseline.py
+# fails when any rule's count grows (new violations) and asks to lower the baseline when it shrinks.
+# ---------------------------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+extend-exclude = [".venv", "mlruns", "results", "weights", "downloads", "cache"]
+
+[tool.ruff.lint]
+select = ["F", "E9"]
+
+# Type checking (BI-003): report-only in CI (job "Lint and types"), not a gate yet.
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+warn_unused_configs = true
+explicit_package_bases = true
+mypy_path = "."
+
+# ---------------------------------------------------------------------------------------------
 # Architecture rules.  Run:  lint-imports
 #
 # Existing violations are listed in ignore_imports so that the rules can be enforced now: a NEW
