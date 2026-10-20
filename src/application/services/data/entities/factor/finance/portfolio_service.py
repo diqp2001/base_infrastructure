@@ -48,6 +48,17 @@ class PortfolioService:
         self, portfolio_id: int, as_of_date: Optional[datetime] = None,
         frequency: Optional[str] = None,
     ) -> Decimal:
+        """Portfolio value at as_of_date (see _calculate_value). The derived values written by one valuation
+        (holding values, sub-portfolio and portfolio totals) are kept together or not at all; raw prices fetched
+        on the way are kept (BI-006, derived_value_scope)."""
+        from src.infrastructure.database.derived_value_scope import derived_values_all_or_nothing
+        with derived_values_all_or_nothing(self.session):
+            return self._calculate_value(portfolio_id, as_of_date, frequency=frequency)
+
+    def _calculate_value(
+        self, portfolio_id: int, as_of_date: Optional[datetime] = None,
+        frequency: Optional[str] = None,
+    ) -> Decimal:
         """
         Recursively compute total portfolio value by traversing the holding tree.
 

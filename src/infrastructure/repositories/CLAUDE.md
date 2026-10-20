@@ -143,6 +143,12 @@ A nested `atomic` joins the outer one; a repository rollback inside the block ab
 stored and the session is clean. Example: `TradeManager._book_atomically` (order + fill + position + cash).
 Contract tests: `tests/contracts/test_unit_of_work.py` (SQLite + SQL Server test database).
 
+**Raw vs derived** (`src/infrastructure/database/derived_value_scope.py`): when an operation both fetches raw
+observations and writes derived values (a portfolio valuation), wrap it in `derived_values_all_or_nothing(session)`
+instead: raw rows commit as they arrive and are kept; on failure the derived (`source = 'calculated'`) rows it
+inserted are deleted and those it overwrote restored. Used by `PortfolioService.calculate_value`; tests:
+`tests/contracts/test_derived_value_scope.py`.
+
 ## ⚡ Performance Features
 
 ### Bulk Operations

@@ -556,6 +556,52 @@ class TestValuationFailures:
         assert t.revalue(TUE_16) == CASH                                # recovers once the store works
 
 
+def derived_rows(t, when):
+    """{id: value} of every derived (source 'calculated') factor value stored at `when`."""
+    from src.infrastructure.models.factor.factor import FactorModel
+    t.p.session.expire_all()
+    rows = (t.p.session.query(FactorValueModel.id, FactorValueModel.value)
+            .join(FactorModel, FactorModel.id == FactorValueModel.factor_id)
+            .filter(FactorModel.source == "calculated", FactorValueModel.date == when).all())
+    return dict(rows)
+
+
+def fail_second_holding(t, raw_write=None):
+    """Patch: the 2nd holding resolved by a valuation fails (after an optional raw write mid-valuation)."""
+    from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
+    real = FactorValueRepository._create_or_get
+    calls = []
+
+    def flaky(self, *args, **kwargs):
+        if kwargs.get("force_recalculate"):
+            calls.append(1)
+            if len(calls) == 2:
+                if raw_write:
+                    raw_write()
+                raise RuntimeError("second holding lost its price feed")
+        return real(self, *args, **kwargs)
+    return patch.object(FactorValueRepository, "_create_or_get", flaky)
+
+
+class TestValuationAtomicity:
+    """BI-006 slice 2b: one valuation's derived values are kept together or not at all; raw prices are kept."""
+
+    def test_a_failed_valuation_stores_no_derived_value_and_keeps_raw_prices(self, invested):
+        t = invested
+        t.unchanged_bars(TUE_16)
+        assert derived_rows(t, TUE_16) == {}
+        close_rows_before = len(t.p.factor_values("close"))
+        with fail_second_holding(t, raw_write=lambda: t.p.seed_close("ZZZ", TUE, 1001.0)):
+            with pytest.raises(Exception, match="second holding"):
+                t.revalue(TUE_16)
+        assert derived_rows(t, TUE_16) == {}                      # the first holding's value was undone
+        assert len(t.p.factor_values("close")) == close_rows_before + 1   # the raw close fetched meanwhile kept
+        assert t.revalue(TUE_16) == CASH                          # recovers
+
+    # restoring overwritten derived values: tests/contracts/test_derived_value_scope.py (a same-date
+    # revaluation does not recompute stored dependencies yet — strict xfail in test_value_propagation.py)
+
+
 # ---------------------------------------------------------------------------------------------------
 # Level 2: the same workflow persisted on SQLite (foreign keys on) and on the SQL Server test database
 # ---------------------------------------------------------------------------------------------------
