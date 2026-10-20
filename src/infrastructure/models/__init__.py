@@ -67,6 +67,7 @@ from src.infrastructure.models.finance.financial_assets.derivative.forward_contr
 )
 from src.infrastructure.models.factor.factor import FactorModel
 from src.infrastructure.models.factor.factor_value import FactorValueModel
+from src.infrastructure.models.factor.factor_value_provenance import FactorValueProvenanceModel, FactorValueLineageModel
 from src.infrastructure.models.factor.factor_dependency import FactorDependencyModel
 
 # Investment Universe and ML models (must come after FactorModel for FK resolution)
@@ -182,7 +183,7 @@ __all__ = [
     'PortfolioModel','DerivativePortfolioModel','CompanySharePortfolioModel', 'CompanyShareOptionPortfolioModel', 'CompanySharePortfolioOptionPortfolioModel', 'CompanySharePortfolioOptionModel', 'SecurityHoldingModel',
     'CurrencyPortfolioModel', 'CurrencyPortfolioHoldingModel', 'CurrencyPortfolioPortfolioHoldingModel',
     'MarketDataModel', 'InstrumentModel',
-    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'CompanyShareOptionPortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorDependencyModel',
+    'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'CompanyShareOptionPortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorValueProvenanceModel','FactorValueLineageModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'TransactionModel',
     'UniverseModel', 'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',

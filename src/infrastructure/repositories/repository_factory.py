@@ -128,6 +128,7 @@ from src.infrastructure.repositories.local_repo.factor.base_factor_repository im
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.share_factor_repository import ShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_repository import FactorRepository
 from src.infrastructure.repositories.local_repo.factor.factor_value_repository import FactorValueRepository
+from src.infrastructure.repositories.local_repo.factor.observation_provenance_repository import ObservationProvenanceRepository
 from src.infrastructure.repositories.local_repo.factor.factor_dependency_repository import FactorDependencyRepository
 
 # Local Factor repositories
@@ -388,6 +389,7 @@ class RepositoryFactory:
             self._local_repositories = {
                 'Instrument': InstrumentRepository(self.session, factory=self),
                 'FactorValue': FactorValueRepository(self.session, factory=self),
+                'ObservationProvenance': ObservationProvenanceRepository(self.session, factory=self),
                 'Factor': FactorRepository(self.session, factory=self),
                 'FactorDependency': FactorDependencyRepository(self.session),
                 'FinancialAsset': FinancialAssetRepository(self.session, factory=self),
@@ -963,6 +965,11 @@ class RepositoryFactory:
     def factor_value_local_repo(self):
         """Get factor_value repository for dependency injection."""
         return self.get_local_repository('FactorValue')
+
+    @property
+    def observation_provenance_local_repo(self):
+        """Provenance / quality of stored factor values (ObservationProvenancePort, BI-025)."""
+        return self.get_local_repository('ObservationProvenance')
 
 
     @property
