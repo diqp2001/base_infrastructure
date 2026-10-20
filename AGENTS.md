@@ -24,6 +24,8 @@ in [`docs/TESTING.md`](docs/TESTING.md).
 - Point-in-time correctness: raw bars are stamped at their start and usable only once closed; a decision at
   time T uses `bar_calendar.bar_is_current` (no stale bar standing for a missing one) and never a value stamped
   after T. A missing input yields **no value** — never a hard-coded fallback (rate, price, volatility, …).
+- A use case writing through several repositories wraps them in `unit_of_work.atomic(session)` (one owner of
+  commit / rollback; see `src/infrastructure/repositories/CLAUDE.md`). Never call `session.commit()` in between.
 - New factor classes follow the checklist in `src/CLAUDE.md` §1 (entity, library entry, ORM model, mapper,
   port, local + IBKR repository, factory registration, `DISCRIMINATOR_CLASS_MAP`).
 - Do not create parallel frameworks or persistence layers: extend the existing repository / factory /

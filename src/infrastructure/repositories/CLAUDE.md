@@ -124,6 +124,25 @@ Domain Entity → Repository → Mapper → ORM Model → Database
 Database ← ORM Model ← Mapper ← Repository ← Query Result
 ```
 
+## 🔒 Transaction ownership (BI-006)
+
+Local repositories commit after each write and roll back in their own error handlers. A use case that writes
+through **several** repositories must wrap them in one transaction:
+
+```python
+from src.infrastructure.database.unit_of_work import TransactionAborted, atomic
+
+with atomic(session) as tx:          # the outermost block owns commit / rollback
+    order_repo.add(order)            # repository commit() -> flush only
+    position_repo.update(position)
+    if not ok:
+        tx.fail("why")               # -> rollback, TransactionAborted at exit
+```
+
+A nested `atomic` joins the outer one; a repository rollback inside the block aborts it; on failure nothing is
+stored and the session is clean. Example: `TradeManager._book_atomically` (order + fill + position + cash).
+Contract tests: `tests/contracts/test_unit_of_work.py` (SQLite + SQL Server test database).
+
 ## ⚡ Performance Features
 
 ### Bulk Operations

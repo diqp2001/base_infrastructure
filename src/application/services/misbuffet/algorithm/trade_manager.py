@@ -112,45 +112,30 @@ class TradeManager:
         return True
 
     def _book_atomically(self, book) -> bool:
-        """Run `book` as a single transaction on the shared session.
-
-        The repositories commit after each write; while booking, session.commit only flushes and
-        any rollback (a step that failed) or recorded step error aborts the whole booking."""
-        session = self.order_repo.session
-        failures = []
-        real_commit, real_rollback = session.commit, session.rollback
-
-        def _rollback():
-            failures.append("rollback")
-            real_rollback()
-
-        self._booking_errors = failures
-        session.commit, session.rollback = session.flush, _rollback
+        """Run `book` as ONE transaction on the shared session (unit_of_work.atomic): the repositories'
+        commits only flush, and a failed step, a repository rollback or an exception rolls everything back."""
+        from src.infrastructure.database.unit_of_work import TransactionAborted, atomic
         try:
-            ok = bool(book()) and not failures
-        except Exception as e:
-            failures.append(repr(e))
-            ok = False
-        finally:
-            session.commit, session.rollback = real_commit, real_rollback
-            self._booking_errors = None
-        if not ok:
-            real_rollback()
-            if self.logger:
-                self.logger.error(f"TradeManager: booking rolled back ({'; '.join(failures) or 'step failed'})")
-            return False
-        try:
-            real_commit()
+            with atomic(self.order_repo.session) as tx:
+                self._booking_tx = tx
+                if not book():
+                    tx.fail("step failed")
             return True
-        except Exception as e:
-            real_rollback()
+        except TransactionAborted as e:
             if self.logger:
-                self.logger.error(f"TradeManager: booking commit failed: {e}")
+                self.logger.error(f"TradeManager: booking rolled back ({e})")
             return False
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"TradeManager: booking rolled back ({e!r})")
+            return False
+        finally:
+            self._booking_tx = None
 
     def _step_failed(self, what: str) -> None:
-        if getattr(self, "_booking_errors", None) is not None:
-            self._booking_errors.append(what)
+        tx = getattr(self, "_booking_tx", None)
+        if tx is not None:
+            tx.fail(what)
 
     def _register_order(self, ticket, portfolio_id: int, ticker: str, current_time: datetime, order_qty: int = 0,
                         price: Optional[float] = None):
