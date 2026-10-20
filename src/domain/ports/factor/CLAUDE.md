@@ -11,7 +11,7 @@ repository in `src/infrastructure/repositories/` implements the matching port.
 ## Directory structure
 
 The `finance/` subdirectory mirrors `src/domain/entities/factor/finance/` exactly.
-Only 5 root-level ports live outside `finance/` because their domain entities are not
+Only 6 root-level ports live outside `finance/` because their domain entities are not
 under `entities/factor/finance/`:
 
 ```
@@ -21,6 +21,7 @@ src/domain/ports/factor/
 ├── factor_dependency_port.py             ← FactorDependencyPort
 ├── continent_factor_port.py              ← ContinentFactorPort
 ├── country_factor_port.py                ← CountryFactorPort
+├── observation_provenance_port.py        ← ObservationProvenancePort (BI-025: quality / provenance of stored values)
 │
 └── finance/
     ├── financial_assets/
