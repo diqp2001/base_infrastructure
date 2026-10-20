@@ -811,11 +811,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         if repo is None or not stored_values:
             return
         import logging as _logging
-        import math as _math
         from datetime import timezone as _timezone
         from src.domain.entities.factor.observation_quality import (
-            ObservationProvenance, ObservationRef, ObservationStatus, SourceDataType, ValidationResult,
+            ObservationProvenance, ObservationRef, ObservationStatus, SourceDataType,
         )
+        from src.domain.entities.factor.quote_validation import validate_bar_value
         try:
             data_type = SourceDataType(str(what_to_show))
         except ValueError:
@@ -827,15 +827,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             factor = by_id.get(getattr(value, 'factor_id', None))
             if factor is None or not getattr(value, 'entity_type', None) or not getattr(value, 'entity_id', None):
                 continue
-            try:
-                number = float(value.value)
-                checks = [ValidationResult("finite", _math.isfinite(number),
-                                           "" if _math.isfinite(number) else f"value {value.value!r} is not finite")]
-                if getattr(factor, 'group', None) == 'price' and str(factor.name).lower() != 'volume':
-                    ok = _math.isfinite(number) and number > 0
-                    checks.append(ValidationResult("positive_price", ok, "" if ok else f"price {number} <= 0"))
-            except (TypeError, ValueError):
-                checks = [ValidationResult("numeric", False, f"value {value.value!r} is not a number")]
+            # shared bar rules (BI-027): finite number; > 0 for a price (0 is IBKR's no-trade placeholder)
+            checks = validate_bar_value(value.value, is_price=getattr(factor, 'group', None) == 'price'
+                                        and str(factor.name).lower() != 'volume')
             failed = any(not c.passed for c in checks)
             observed = value.date.replace(tzinfo=None) if getattr(value.date, 'tzinfo', None) else value.date
             try:
