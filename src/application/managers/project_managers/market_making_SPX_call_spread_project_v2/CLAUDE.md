@@ -39,6 +39,11 @@ market_making_SPX_call_spread_project_v2/
 ├── backtesting/
 │   ├── backtest_runner.py         # BacktestRunner(BaseBacktestRunner)
 │   └── base_project_algorithm.py  # Algorithm(BaseProjectAlgorithm) + PortfolioGateway
+├── reporting/
+│   ├── spx_report.py              # SPXReport + build_report(results.json summary, data_report.txt)
+│   ├── spx_report_renderer.py     # figures, HTML tables, build_pdf (matplotlib PdfPages)
+│   └── spx_report_store.py        # report.pkl / report.pdf in results_dir; `python -m ...spx_report_store`
+│                                  #   rebuilds the report of the last run from its files
 └── utils/progress.py              # MMProgressTracker (progress.json)
 ```
 
@@ -47,6 +52,15 @@ Tests: `tests/market_making_spx_v2/` (no TWS): `python -m pytest tests/market_ma
 - `test_spx_v2_greeks.py` — PositionBook on in-memory SQLite (option position, dated SOFR contract):
   greeks reach the positions, every miss is a WARNING, the universe registers the SOFR contract of
   every backtest date, missing greeks are not a hedged book. The last three gaps are strict xfails.
+
+Performance report (same as the Spatio-Temporal Momentum projects): at the end of a run the manager writes
+`report.pkl` and `report.pdf` to `results_dir` (`save_report`, from `results.json` + `data_report.txt`):
+run summary, metrics (total / annualised return, vol, downside deviation, MDD, Sharpe, Sortino, Calmar, hit
+rate, avg gain / avg loss, annualised with the run's bar frequency), portfolio value + drawdown, P&L per bar
+and return distribution, book delta / gamma with the hedges, the orders, and the data issues grouped by root
+cause. Notes flag bars whose value did not move (stale valuation) and bars where greeks did not resolve.
+Flask (read-only, `src/interfaces/flask/web/controllers/spx_v2_controller.py`): `/spx_v2/` live progress,
+`/spx_v2/results` figures and tables, `/spx_v2/report.pdf`. Tests: `tests/market_making_spx_v2/test_spx_v2_report.py`.
 
 Data report: `results_dir/data_report.txt` is rewritten at the end of every `on_data` (bar), and once more
 when the run ends or fails (its path is in

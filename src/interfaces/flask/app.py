@@ -3,6 +3,7 @@ from flask import Flask
 from src.interfaces.flask.web.controllers.dashboard_controller import web_bp
 from src.interfaces.flask.web.controllers.entity_upload_controller import entity_upload_bp
 from src.interfaces.flask.web.controllers.stm_controller import stm_bp
+from src.interfaces.flask.web.controllers.spx_v2_controller import spx_v2_bp
 from src.interfaces.flask.api.routes.routes import register_api_routes
 
 
@@ -27,6 +28,7 @@ class FlaskApp:
         self.app.register_blueprint(web_bp)
         self.app.register_blueprint(entity_upload_bp)
         self.app.register_blueprint(stm_bp)          # /stm  Spatio-Temporal Momentum dashboard
+        self.app.register_blueprint(spx_v2_bp)       # /spx_v2  SPX call spread market maker (v2) dashboard
 
         # Register API routes
         register_api_routes(self.app)

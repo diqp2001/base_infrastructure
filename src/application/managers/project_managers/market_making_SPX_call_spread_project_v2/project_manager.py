@@ -7,7 +7,8 @@ Everything that decides (factor refresh, option entry, greeks, delta hedge)
 happens inside the engine, bar by bar, in Algorithm.on_data ->
 SPXCallSpreadTradingCycle.step.  The manager only launches the run, follows it
 (``progress.json``) and, at the end, writes a summary (``results.json``) of what
-the engine did, both in ``config['results_dir']``.
+the engine did and its performance report (``report.pkl`` / ``report.pdf``, shown at ``/spx_v2``),
+all in ``config['results_dir']``.
 """
 
 import json
@@ -78,6 +79,8 @@ class MarketMakingSPXCallSpreadV2ProjectManager(ProjectManager):
         self.progress.phase("Saving results")
         results['summary']['data_report'] = self.write_data_report()
         self.save_results(results['summary'])
+        self.progress.phase("Building performance report (report.pdf)")
+        self.save_report()
         self.progress.complete(results['summary'])
         self._end_mlflow(mlflow_run, summary=results['summary'])
         return results
@@ -138,6 +141,23 @@ class MarketMakingSPXCallSpreadV2ProjectManager(ProjectManager):
             return report.write(self.results_dir)
         except Exception as e:
             logging.getLogger(__name__).error(f"Could not write the data report: {e}")
+            return None
+
+    def save_report(self) -> Optional[str]:
+        """report.pkl + report.pdf (performance, greeks, orders, data issues) from results.json and
+        data_report.txt; the Flask dashboard (/spx_v2) reads them. A failure is logged, not raised."""
+        from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.reporting import (
+            spx_report_store,
+        )
+        try:
+            report = spx_report_store.build_from_files(self.results_dir)
+            if report is None:
+                self.logger.warning("No portfolio value recorded: no performance report written.")
+                return None
+            spx_report_store.save_report(report, self.results_dir)
+            return os.path.join(self.results_dir, spx_report_store.PDF_FILE)
+        except Exception as e:
+            self.logger.error(f"Could not write the performance report: {e}")
             return None
 
     def save_results(self, summary: Dict[str, Any]) -> str:
