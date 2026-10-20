@@ -342,7 +342,26 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         entity_type: Optional[str] = None,
         require_current: bool = False,
     ) -> List[float]:
-        """Trailing values of a raw bar factor at ``date_str``, oldest first, as floats.
+        """Trailing values of a raw bar factor at ``date_str``, oldest first, as floats (see
+        get_closed_bar_values for the rule)."""
+        values = self.get_closed_bar_values(factor_id, entity_id, date_str, bar_seconds, count=count, since=since,
+                                            max_staleness_seconds=max_staleness_seconds, entity_type=entity_type,
+                                            require_current=require_current)
+        return [float(v.value) for v in values if v.value is not None]
+
+    def get_closed_bar_values(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        bar_seconds: int,
+        count: Optional[int] = None,
+        since: Optional[datetime] = None,
+        max_staleness_seconds: Optional[float] = None,
+        entity_type: Optional[str] = None,
+        require_current: bool = False,
+    ) -> List[FactorValue]:
+        """Trailing stored values of a raw bar factor at ``date_str``, oldest first.
 
         The newest value is the one get_latest_available_bar returns (closed bar, staleness rule);
         the series runs back from it: ``count`` values, or every value from ``since`` plus the last
@@ -368,9 +387,9 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 rows = ([base] if base is not None else []) + rows
             else:
                 rows = list(reversed(query.order_by(FactorValueModel.date.desc()).limit(count).all()))
-            return [float(r.value) for r in rows if r.value is not None]
+            return [self._to_entity(r) for r in rows if r.value is not None]
         except Exception as e:
-            print(f"Error in get_closed_bar_series for factor {factor_id}, entity {entity_type}:{entity_id}, "
+            print(f"Error in get_closed_bar_values for factor {factor_id}, entity {entity_type}:{entity_id}, "
                   f"date {date_str}: {e}")
             return []
 

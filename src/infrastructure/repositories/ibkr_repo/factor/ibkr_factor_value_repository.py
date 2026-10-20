@@ -461,7 +461,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
             # TRADES returns no data for illiquid options (IBKR error 162). Retry with
             # MIDPOINT, which is available as long as there is a market maker quote.
+            used_what_to_show = what_to_show
             if not bulk_ibkr_data and what_to_show == TRADES and is_option_entity(entity):
+                used_what_to_show = MIDPOINT
                 bulk_ibkr_data = self._fetch_bulk_historical_data(
                     symbol=symbol,
                     target_date=target_date,
@@ -526,6 +528,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 created_value = self.local_repo.add(factor_value) if factor_value else None
                 if created_value:
                     print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
+                    self._record_raw_provenance([created_value], [factor_entity], used_what_to_show)
                 return created_value
 
             if max_import_ibkr:
@@ -678,7 +681,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                         if bulk_ibkr_data:
                             # Extract factor values for all factors from the bulk response
                             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
-                                bulk_ibkr_data, factors, entity_id,
+                                bulk_ibkr_data, factors, entity_id, what_to_show=what_to_show,
                                 entity_type=(
                                     type(financial_asset_entity).__name__
                                     if financial_asset_entity is not None
@@ -813,6 +816,55 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         except Exception as e:
             print(f"Error validating batch parameters: {e}")
             return False
+
+    def _record_raw_provenance(self, stored_values, factors, what_to_show) -> None:
+        """BI-025: record the provenance of raw values stored from an IBKR response — the data type that answered,
+        receipt / ingestion time (naive UTC) and validation (finite; prices must be positive). An invalid value
+        stays stored but is REJECTED with its reason, so it never passes a quality requirement."""
+        repo = getattr(self.factory, 'observation_provenance_local_repo', None) if self.factory else None
+        if repo is None or not stored_values:
+            return
+        import logging as _logging
+        import math as _math
+        from datetime import timezone as _timezone
+        from src.domain.entities.factor.observation_quality import (
+            ObservationProvenance, ObservationRef, ObservationStatus, SourceDataType, ValidationResult,
+        )
+        try:
+            data_type = SourceDataType(str(what_to_show))
+        except ValueError:
+            _logging.getLogger(__name__).error(f"provenance not recorded: unknown IBKR data type {what_to_show!r}")
+            return
+        by_id = {getattr(f, 'id', None): f for f in (factors or [])}
+        now = datetime.now(_timezone.utc).replace(tzinfo=None)
+        for value in stored_values:
+            factor = by_id.get(getattr(value, 'factor_id', None))
+            if factor is None or not getattr(value, 'entity_type', None) or not getattr(value, 'entity_id', None):
+                continue
+            try:
+                number = float(value.value)
+                checks = [ValidationResult("finite", _math.isfinite(number),
+                                           "" if _math.isfinite(number) else f"value {value.value!r} is not finite")]
+                if getattr(factor, 'group', None) == 'price' and str(factor.name).lower() != 'volume':
+                    ok = _math.isfinite(number) and number > 0
+                    checks.append(ValidationResult("positive_price", ok, "" if ok else f"price {number} <= 0"))
+            except (TypeError, ValueError):
+                checks = [ValidationResult("numeric", False, f"value {value.value!r} is not a number")]
+            failed = any(not c.passed for c in checks)
+            observed = value.date.replace(tzinfo=None) if getattr(value.date, 'tzinfo', None) else value.date
+            try:
+                repo.record(ObservationProvenance(
+                    observation=ObservationRef(value.factor_id, value.entity_type.removesuffix('Model'),
+                                               value.entity_id, observed),
+                    field=factor.name, source='ibkr', data_type=data_type,
+                    frequency=getattr(factor, 'frequency', None) or 'unknown',
+                    status=ObservationStatus.REJECTED if failed else ObservationStatus.VALID,
+                    received_at=max(now, observed), ingested_at=max(now, observed), validations=tuple(checks),
+                    policy_version="provenance-v1"))
+            except Exception as e:
+                _logging.getLogger(__name__).error(
+                    f"provenance not recorded for factor {value.factor_id} {value.entity_type}:{value.entity_id} "
+                    f"at {observed}: {e}")
 
     def _batch_persist_factor_values(self, factor_values: List[FactorValue]) -> bool:
         """
@@ -1092,6 +1144,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                     created_factor_values.append(calculated_factor_value)
                     
             self._batch_persist_factor_values(created_factor_values)
+            self._record_raw_provenance(created_factor_values, factors, what_to_show)
             return factor_values
             
         except Exception as e:
@@ -1100,7 +1153,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
 
     def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]],
                                             factors: List[Any], entity_id: int,
-                                            entity_type: str = 'FinancialAsset') -> List[FactorValue]:
+                                            entity_type: str = 'FinancialAsset',
+                                            what_to_show: Optional[str] = None) -> List[FactorValue]:
         """
         Extract multiple factor values from bulk IBKR historical data with dependency management.
         
@@ -1178,6 +1232,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     print(f"Error processing bar data: {bar_error}")
                     continue
             self._batch_persist_factor_values(created_factor_values)
+            if what_to_show:
+                self._record_raw_provenance(created_factor_values, factors, what_to_show)
             print(f"Extracted {len(factor_values)} factor values from {len(bulk_data)} bars for {len(factors)} factors")
             return factor_values
             

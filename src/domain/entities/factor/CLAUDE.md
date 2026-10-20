@@ -788,8 +788,24 @@ def calculate(self, dependencies: dict) -> Optional[Decimal]:
 ### Never write scalar-fallback checks
 Do not write `isinstance(v, (int, float, Decimal))` checks at the top-level dict value — DependencySpec deps are always lists. Scalar checks inside list iteration are fine.
 
+---
 
+## Data quality and provenance (BI-025)
 
+Every stored value can have provenance (`src/domain/entities/factor/observation_quality.py`, read through
+`factory.observation_provenance_local_repo`): data type (TRADES / MIDPOINT / ... / CALCULATED), receipt and
+ingestion time, explicit status (valid / invalid / stale / missing / estimated / rejected) with validation results,
+and for a derived value the stored values it was computed from (lineage). IBKR ingestion records raw provenance;
+the resolution service records derived lineage automatically.
 
+A factor that must not be computed from doubtful inputs declares a requirement (opt-in, class attribute):
 
+```python
+from src.domain.entities.factor.observation_quality import QualityRequirement, SourceDataType
 
+class MyFactor(CompanyShareFactor):
+    quality_requirement = QualityRequirement(accepted_data_types=frozenset({SourceDataType.MIDPOINT}))
+```
+
+When any input it read has no provenance, is not VALID, has another data type or is older than `max_age`, the
+service does not call `calculate()`: no value, and a warning names the input and the reasons.

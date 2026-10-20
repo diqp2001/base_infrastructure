@@ -10,6 +10,7 @@ Supports both local repository and IBKR repository integration.
 
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, date, timedelta
+from contextlib import contextmanager
 import inspect
 import logging
 from decimal import Decimal
@@ -43,6 +44,9 @@ class FactorValueResolutionService:
         self.logger = logger or logging.getLogger(__name__)
         # factor_id -> bar availability offset in seconds (0 = not a raw bar)
         self._bar_offset_cache: Dict[int, int] = {}
+        # BI-025 lineage: one frame per derived value being computed — its owner (factor id, entity type,
+        # entity id) and the stored values read as inputs (see _note_input / _record_derived_provenance)
+        self._lineage_frames: List[Dict[str, Any]] = []
     
     def resolve_factor_value(
         self,
@@ -51,6 +55,24 @@ class FactorValueResolutionService:
         time_date,
         repository_type: str = "local",
         # Backward-compat alias kept so existing callers still work
+        financial_asset_entity=None,
+        force_recalculate: bool = False,
+        **kwargs
+    ) -> Optional[FactorValue]:
+        """Resolve one factor value (see _resolve_factor_value); the value is also recorded as an input of
+        the derived value being computed by the caller, if any (BI-025 lineage)."""
+        value = self._resolve_factor_value(factor_entity, entity, time_date, repository_type=repository_type,
+                                           financial_asset_entity=financial_asset_entity,
+                                           force_recalculate=force_recalculate, **kwargs)
+        self._note_input(value)
+        return value
+
+    def _resolve_factor_value(
+        self,
+        factor_entity,
+        entity,
+        time_date,
+        repository_type: str = "local",
         financial_asset_entity=None,
         force_recalculate: bool = False,
         **kwargs
@@ -495,6 +517,7 @@ class FactorValueResolutionService:
             )
 
             if dependency_value:
+                self._note_input(dependency_value)
                 dependency_values[dependency_name] = self._convert_to_float(dependency_value.value)
             else:
                 
@@ -506,7 +529,17 @@ class FactorValueResolutionService:
 
         return dependency_values, missing_dependencies
 
-    def _resolve_factor_with_dependencies(
+    def _resolve_factor_with_dependencies(self, factor_entity, dependencies, entity, target_date, repository_type,
+                                          has_calculate_function: bool = False,
+                                          has_dynamic_dependencies: bool = False, **kwargs) -> Optional[FactorValue]:
+        """Resolve a derived value inside its lineage frame (inputs recorded with the value, BI-025)."""
+        with self._lineage_frame(factor_entity, entity):
+            return self._resolve_factor_with_dependencies_in_frame(
+                factor_entity, dependencies, entity, target_date, repository_type,
+                has_calculate_function=has_calculate_function, has_dynamic_dependencies=has_dynamic_dependencies,
+                **kwargs)
+
+    def _resolve_factor_with_dependencies_in_frame(
         self,
         factor_entity,
         dependencies: List[Dict[str, Any]],
@@ -1115,7 +1148,7 @@ class FactorValueResolutionService:
                   'ytd' — the last bar of the previous year (the base) + every bar of target_date's year.
         Bars are stamped at their start; only closed bars count (see get_latest_available_bar)."""
         repo = getattr(self.factory, 'factor_value_local_repo', None) if self.factory else None
-        if repo is None or not hasattr(repo, 'get_closed_bar_series'):
+        if repo is None or not hasattr(repo, 'get_closed_bar_values'):
             return []
         parsed = self._parse_date(target_date) if isinstance(target_date, str) else target_date
         date_str = parsed.strftime("%Y-%m-%d %H:%M:%S")
@@ -1123,20 +1156,24 @@ class FactorValueResolutionService:
         bar_seconds = self._get_bar_offset_seconds(dep_factor.id)
         for et in self._entity_type_variants(entity_type):
             if lookback == 'ytd':
-                series = repo.get_closed_bar_series(
+                rows = repo.get_closed_bar_values(
                     dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, since=datetime(parsed.year, 1, 1),
                     require_current=True, entity_type=et)
-                if len(series) >= 2:
-                    return series
+                if len(rows) >= 2:
+                    for row in rows:
+                        self._note_input(row)
+                    return [float(r.value) for r in rows]
             else:
-                series = repo.get_closed_bar_series(
+                rows = repo.get_closed_bar_values(
                     dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, count=int(lookback),
                     require_current=True, entity_type=et)
-                if len(series) == int(lookback):
-                    return series
-                if series:
+                if len(rows) == int(lookback):
+                    for row in rows:
+                        self._note_input(row)
+                    return [float(r.value) for r in rows]
+                if rows:
                     self.logger.warning(
-                        f"{dep_factor.name} for {entity_type}:{entity.id} at {date_str}: only {len(series)} of "
+                        f"{dep_factor.name} for {entity_type}:{entity.id} at {date_str}: only {len(rows)} of "
                         f"{lookback} closed bars stored — no value over a shorter window")
                     return []
         return []
@@ -1267,7 +1304,13 @@ class FactorValueResolutionService:
     # Holding-value specialised helpers
     # ------------------------------------------------------------------
 
-    def _resolve_holding_value_factor(
+    def _resolve_holding_value_factor(self, dep_factor_entity, holding, date_str: str,
+                                      repository_type: str) -> Optional[FactorValue]:
+        """Holding value inside its lineage frame (the price read is recorded as its input, BI-025)."""
+        with self._lineage_frame(dep_factor_entity, holding):
+            return self._resolve_holding_value_factor_in_frame(dep_factor_entity, holding, date_str, repository_type)
+
+    def _resolve_holding_value_factor_in_frame(
         self,
         dep_factor_entity,
         holding,
@@ -1500,6 +1543,7 @@ class FactorValueResolutionService:
                         date_str, repository_type
                     )
                     if fv:
+                        self._note_input(fv)
                         return self._convert_to_float(fv.value)
             except Exception as e:
                 self.logger.debug(f"Strategy-1 price lookup failed: {e}")
@@ -1517,6 +1561,7 @@ class FactorValueResolutionService:
                             date_str, repository_type
                         )
                         if fv:
+                            self._note_input(fv)
                             return self._convert_to_float(fv.value)
                 except Exception as e:
                     self.logger.debug(f"Strategy-2 price lookup for '{price_name}' failed: {e}")
@@ -1665,7 +1710,12 @@ class FactorValueResolutionService:
     def _call_factor_calculate_method(
         self, factor_entity, dependency_values: Dict[str, float], **kwargs
     ) -> Optional[float]:
-        """Call the factor's calculate method."""
+        """Call the factor's calculate method (not when an input fails the factor's quality requirement)."""
+        refused = self._ineligible_inputs(factor_entity, kwargs.get('target_date'))
+        if refused:
+            self.logger.warning(f"{getattr(factor_entity, 'name', factor_entity)}: inputs refused by its quality "
+                                f"requirement - no value: {'; '.join(refused)}")
+            return None
         try:
             if hasattr(factor_entity, 'calculate') and callable(getattr(factor_entity, 'calculate')):
                 calculate_method = getattr(factor_entity, 'calculate')
@@ -1783,7 +1833,9 @@ class FactorValueResolutionService:
             if existing is not None:
                 # Same (factor, entity, date) already in DB — update with latest value.
                 existing.value = value
-                return repo.update(existing) or existing
+                stored = repo.update(existing) or existing
+                self._record_derived_provenance(factor_entity, entity, stored)
+                return stored
 
             # Build FactorValue and INSERT
             factor_value = FactorValue(
@@ -1799,6 +1851,7 @@ class FactorValueResolutionService:
                 created_value = repo.add(factor_value)
                 if created_value:
                     self.logger.info(f"Created factor value: {factor_entity.name} = {value}")
+                    self._record_derived_provenance(factor_entity, entity, created_value)
                     return created_value
 
             return None
@@ -1807,6 +1860,91 @@ class FactorValueResolutionService:
             self.logger.error(f"Error creating factor value: {e}")
             return None
     
+    # ------------------------------------------------------------------ lineage / quality (BI-025)
+    PROVENANCE_POLICY_VERSION = "provenance-v1"
+
+    @staticmethod
+    def _owner(factor_entity, entity) -> tuple:
+        entity_type = type(entity).__name__.removesuffix('Model') if entity is not None else None
+        return (getattr(factor_entity, 'id', None), entity_type, getattr(entity, 'id', None))
+
+    @contextmanager
+    def _lineage_frame(self, factor_entity, entity):
+        self._lineage_frames.append({"owner": self._owner(factor_entity, entity), "inputs": []})
+        try:
+            yield
+        finally:
+            self._lineage_frames.pop()
+
+    def _note_input(self, value) -> None:
+        """Record a stored factor value read while a derived value is computed."""
+        if value is not None and self._lineage_frames and getattr(value, 'id', None) is not None:
+            self._lineage_frames[-1]["inputs"].append(value)
+
+    @staticmethod
+    def _ref(value):
+        from src.domain.entities.factor.observation_quality import ObservationRef
+        date = value.date.replace(tzinfo=None) if getattr(value.date, 'tzinfo', None) else value.date
+        entity_type = (getattr(value, 'entity_type', None) or '').removesuffix('Model')
+        if not entity_type or not value.factor_id or not getattr(value, 'entity_id', None):
+            return None
+        return ObservationRef(value.factor_id, entity_type, value.entity_id, date)
+
+    def _frame_input_refs(self) -> list:
+        refs, seen = [], set()
+        for value in (self._lineage_frames[-1]["inputs"] if self._lineage_frames else []):
+            ref = self._ref(value)
+            if ref is not None and ref not in seen:
+                seen.add(ref)
+                refs.append(ref)
+        return refs
+
+    def _provenance_repo(self):
+        return getattr(self.factory, 'observation_provenance_local_repo', None) if self.factory else None
+
+    def _record_derived_provenance(self, factor_entity, entity, stored) -> None:
+        """Store the lineage of a derived value computed in the current frame (inputs = values read)."""
+        repo = self._provenance_repo()
+        if repo is None or stored is None or not self._lineage_frames:
+            return
+        if self._lineage_frames[-1]["owner"] != self._owner(factor_entity, entity):
+            return                                       # not the value this frame computes (e.g. a raw dependency)
+        observation = self._ref(stored)
+        inputs = tuple(i for i in self._frame_input_refs() if i != observation)
+        frequency = getattr(factor_entity, 'frequency', None)
+        if not inputs or observation is None or not frequency:
+            return                                       # nothing traceable: quality stays unknown
+        from src.domain.entities.factor.observation_quality import (
+            ObservationProvenance, ObservationStatus, SourceDataType,
+        )
+        try:
+            repo.record(ObservationProvenance(
+                observation=observation, field=factor_entity.name,
+                source=getattr(factor_entity, 'source', None) or 'calculated',
+                data_type=SourceDataType.CALCULATED, frequency=frequency, status=ObservationStatus.VALID,
+                inputs=inputs, transformation=type(factor_entity).__name__,
+                policy_version=self.PROVENANCE_POLICY_VERSION))
+        except Exception as e:
+            self.logger.error(f"Lineage of {factor_entity.name} for {observation} not recorded: {e}")
+
+    def _ineligible_inputs(self, factor_entity, target_date) -> list:
+        """Reasons why inputs of the current frame fail the factor's `quality_requirement` ([] = all eligible or
+        no requirement declared)."""
+        requirement = getattr(factor_entity, 'quality_requirement', None)
+        if requirement is None or target_date is None:
+            return []
+        repo = self._provenance_repo()
+        if repo is None:
+            return ["no provenance repository: input quality unknown"]
+        decision = self._parse_date(target_date) if isinstance(target_date, str) else target_date
+        refused = []
+        for ref in self._frame_input_refs():
+            eligibility = requirement.check(repo.get(ref), decision)
+            if not eligibility:
+                refused.append(f"{ref.entity_type}:{ref.entity_id} factor {ref.factor_id} at {ref.observed_at} "
+                               f"({', '.join(eligibility.reasons)})")
+        return refused
+
     def _convert_to_float(self, value) -> float:
         """Convert various numeric types to float."""
         try:

@@ -13,7 +13,8 @@ records every factor value inserted or updated in the session while it is open, 
 derived ones in a new transaction, then re-raises. A nested scope joins the outer one.
 
 Limit: another writer changing the same derived row between the write and the compensation is overwritten by
-the restore (the scope is meant for one valuation at one date).
+the restore (the scope is meant for one valuation at one date). The provenance (BI-025) of every derived row the
+operation touched is removed: a restored value's quality is unknown until it is recomputed.
 """
 
 from __future__ import annotations
@@ -74,6 +75,19 @@ def _compensate(session, inserted: List[int], previous: Dict[int, str]) -> None:
             .filter(FactorValueModel.id.in_(ids)).all())
     derived = {row_id for row_id, source in rows if source == DERIVED_SOURCE}
     to_delete = [i for i in inserted if i in derived]
+    # provenance written by the failed operation (BI-025) goes with it: a deleted row has none, a restored row's
+    # recorded lineage would describe the failed computation — its quality becomes unknown again
+    from src.infrastructure.models.factor.factor_value_provenance import (
+        FactorValueLineageModel, FactorValueProvenanceModel,
+    )
+    touched = list(derived)
+    if touched:
+        session.query(FactorValueLineageModel).filter(
+            FactorValueLineageModel.factor_value_id.in_(touched)).delete(synchronize_session=False)
+        session.query(FactorValueLineageModel).filter(
+            FactorValueLineageModel.input_factor_value_id.in_(to_delete)).delete(synchronize_session=False)
+        session.query(FactorValueProvenanceModel).filter(
+            FactorValueProvenanceModel.factor_value_id.in_(touched)).delete(synchronize_session=False)
     if to_delete:
         session.query(FactorValueModel).filter(FactorValueModel.id.in_(to_delete)).delete(synchronize_session=False)
     for row_id, value in previous.items():

@@ -25,8 +25,8 @@ branch = true
 omit = ["*/__pycache__/*", "*/tests/*"]
 
 [tool.coverage.report]
-# baseline 2026-10-14: 32.0 %; 2026-10-20: 34.5 % (fast suite, line + branch). Raise as coverage grows; never lower.
-fail_under = 34.0
+# baseline 2026-10-14: 32.0 %; 2026-10-20: 34.5 % then 36.05 % (fast suite, line + branch). Raise as coverage grows; never lower.
+fail_under = 35.5
 skip_empty = true
 show_missing = false
 precision = 1
