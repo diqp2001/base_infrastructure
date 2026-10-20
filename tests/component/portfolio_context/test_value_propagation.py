@@ -234,15 +234,27 @@ class TestPropagationThroughTheResolutionService:
         assert after == pytest.approx({"holding": 2_250.0, "share_portfolio": 4_250.0, "link": 4_250.0,
                                        "main": CASH + 750.0})
 
-    @pytest.mark.xfail(strict=True, reason="force_recalculate applies to the requested factor only: its "
-                                           "dependencies already stored for that date are reused, so forcing "
-                                           "the main portfolio alone keeps the old holding / share-portfolio "
-                                           "values after a quantity change")
     def test_forcing_the_top_factor_alone_picks_up_a_quantity_change(self, tree):
+        """BI-028: a forced resolution recomputes every derived value of its chain (it used to reuse the holding /
+        share-portfolio values stored for that date)."""
         svc = Service(tree)
         svc.chain(MON_16)
         set_quantity(tree, "AAPL", 15)
         assert svc.value("PortfolioValueFactor", svc.main, MON_16) == pytest.approx(CASH + 750.0)
+
+    def test_forcing_the_top_factor_picks_up_a_corrected_price(self, tree):
+        """BI-028: a re-run after a raw price correction gives the value a run on an empty derived store gives."""
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+        svc = Service(tree)
+        svc.chain(MON_16)
+        close = tree.p.session.query(CompanyShareFactorModel).filter_by(name="close", frequency="1d").first()
+        aapl = tree.p.factory.company_share_local_repo.get_by_symbol("AAPL").id
+        tree.p.session.query(FactorValueModel).filter(FactorValueModel.factor_id == close.id,
+                                                      FactorValueModel.entity_id == aapl,
+                                                      FactorValueModel.date == FRI).update({FactorValueModel.value: "160.0"})
+        tree.p.session.commit()                                          # Friday's AAPL close corrected 150 -> 160
+        assert svc.value("PortfolioValueFactor", svc.main, MON_16) == pytest.approx(CASH + AAPL_QTY * 10.0)
 
     def test_a_share_price_is_never_overwritten_by_a_holding_with_the_same_id(self, tree):
         """Regression: with force_recalculate the write path matched an existing row by (factor, id, date)

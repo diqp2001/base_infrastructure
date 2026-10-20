@@ -47,6 +47,9 @@ class FactorValueResolutionService:
         # BI-025 lineage: one frame per derived value being computed — its owner (factor id, entity type,
         # entity id) and the stored values read as inputs (see _note_input / _record_derived_provenance)
         self._lineage_frames: List[Dict[str, Any]] = []
+        # BI-028: > 0 while a forced (force_recalculate) resolution runs — every DERIVED value it needs is then
+        # recomputed from current inputs instead of reused from the store (raw observations are still reused)
+        self._recompute_derived = 0
     
     def resolve_factor_value(
         self,
@@ -61,9 +64,15 @@ class FactorValueResolutionService:
     ) -> Optional[FactorValue]:
         """Resolve one factor value (see _resolve_factor_value); the value is also recorded as an input of
         the derived value being computed by the caller, if any (BI-025 lineage)."""
-        value = self._resolve_factor_value(factor_entity, entity, time_date, repository_type=repository_type,
-                                           financial_asset_entity=financial_asset_entity,
-                                           force_recalculate=force_recalculate, **kwargs)
+        if force_recalculate:
+            self._recompute_derived += 1
+        try:
+            value = self._resolve_factor_value(factor_entity, entity, time_date, repository_type=repository_type,
+                                               financial_asset_entity=financial_asset_entity,
+                                               force_recalculate=force_recalculate, **kwargs)
+        finally:
+            if force_recalculate:
+                self._recompute_derived -= 1
         self._note_input(value)
         return value
 
@@ -176,10 +185,13 @@ class FactorValueResolutionService:
             # Check if factor value already exists (skip when caller demands a fresh compute).
             # A derived factor (computed from dependencies) is only reused for this exact date:
             # serving the most recent earlier value would hide a newer input (stale price).
-            if not force_recalculate:
+            is_derived = bool(dependencies) or has_dynamic_dependencies
+            # Inside a forced resolution a stored DERIVED value at this date may be stale (its inputs changed):
+            # recompute it. Raw observations are facts and are reused.
+            if not force_recalculate and not (self._recompute_derived and is_derived):
                 existing_value = self._check_existing_value(
                     factor_entity.id, entity_id, entity_type, formatted_date, repository_type,
-                    derived=bool(dependencies) or has_dynamic_dependencies,
+                    derived=is_derived,
                 )
                 if existing_value:
                     return existing_value
@@ -1335,12 +1347,13 @@ class FactorValueResolutionService:
         holding_id   = getattr(holding, 'id', None)
         holding_type = type(holding).__name__
 
-        # 1. Return existing stored value if present
-        existing = self._check_existing_value(
-            dep_factor_entity.id, holding_id, holding_type, date_str, repository_type
-        )
-        if existing:
-            return existing
+        # 1. Return existing stored value if present (not inside a forced resolution: it may be stale, BI-028)
+        if not self._recompute_derived:
+            existing = self._check_existing_value(
+                dep_factor_entity.id, holding_id, holding_type, date_str, repository_type
+            )
+            if existing:
+                return existing
 
         # 2. Get the underlying financial asset (e.g. CompanyShare)
         asset = getattr(holding, 'asset', None)
