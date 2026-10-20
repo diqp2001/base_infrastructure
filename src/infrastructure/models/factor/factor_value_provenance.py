@@ -24,6 +24,7 @@ class FactorValueProvenanceModel(Base):
     transformation = Column(String(255), nullable=True)
     policy_version = Column(String(50), nullable=True)
     validations = Column(Text, nullable=True)               # JSON list of {rule, passed, reason}
+    selection = Column(String(255), nullable=True)          # why this data type was used (BI-026)
 
 
 class FactorValueLineageModel(Base):

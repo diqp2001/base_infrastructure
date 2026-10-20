@@ -143,7 +143,7 @@ class IBKRRoutingTest(unittest.TestCase):
         route = IBKRFactorValueRepository._resolve_what_to_show_from_group
         self.assertEqual(route(None, "volatility", "implied"), "OPTION_IMPLIED_VOLATILITY")
         self.assertEqual(route(None, "volatility", "historical"), "HISTORICAL_VOLATILITY")
-        self.assertEqual(route(None, "price", "ohlc"), "TRADES")
+        self.assertEqual(route(None, "price", "ohlc"), "MIDPOINT")        # BI-026: price marks midpoint-first
         self.assertEqual(route(None, "price", "option"), "MIDPOINT")
         self.assertEqual(route(None, "momentum", ""), "TRADES")
 
@@ -157,7 +157,7 @@ class IBKRRoutingTest(unittest.TestCase):
                                                       "source": "ibkr"})()
         service = MarketDataHistoryService.__new__(MarketDataHistoryService)
         self.assertEqual(service._resolve_what_to_show_for_factor(option_close), "MIDPOINT")
-        self.assertEqual(service._resolve_what_to_show_for_factor(share_close), "TRADES")
+        self.assertEqual(service._resolve_what_to_show_for_factor(share_close), "MIDPOINT")   # BI-026 policy
 
     def test_contract_mapper_keeps_stock_and_option_identity(self):
         from ibapi.contract import Contract, ContractDetails

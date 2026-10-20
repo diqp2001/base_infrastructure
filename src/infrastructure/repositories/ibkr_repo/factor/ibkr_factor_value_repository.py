@@ -8,9 +8,7 @@ from zoneinfo import ZoneInfo
 from collections import defaultdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
-from src.infrastructure.repositories.ibkr_repo.factor.what_to_show import (
-    MIDPOINT, TRADES, is_option_entity, resolve_what_to_show,
-)
+from src.infrastructure.repositories.ibkr_repo.factor.what_to_show import resolve_what_to_show, source_choice
 import calendar
 import inspect
 from ibapi.contract import Contract
@@ -415,8 +413,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 print(f"Could not extract symbol from entity {entity}")
                 return None
 
-            # Get configurable parameters with defaults
-            what_to_show = resolve_what_to_show(factor_entity, entity)
+            # Data types in the order of the source policy (BI-026), e.g. MIDPOINT then TRADES for a price mark
+            choice = source_choice(factor_entity, entity)
             duration_str = kwargs.get('duration_str', '5 D')
             bar_size_setting = kwargs.get('bar_size_setting', '5 mins')
 
@@ -449,29 +447,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 target_date = min(effective, requested)
                 bar_tolerance_seconds = None  # use factor-frequency-based tolerance
 
-            # Fetch bulk historical data from IBKR
-            bulk_ibkr_data = self._fetch_bulk_historical_data(
-                symbol=symbol,
-                target_date=target_date,
-                asset=entity,
-                what_to_show=what_to_show,
-                duration_str=duration_str,
-                bar_size_setting=bar_size_setting
-            )
-
-            # TRADES returns no data for illiquid options (IBKR error 162). Retry with
-            # MIDPOINT, which is available as long as there is a market maker quote.
-            used_what_to_show = what_to_show
-            if not bulk_ibkr_data and what_to_show == TRADES and is_option_entity(entity):
-                used_what_to_show = MIDPOINT
-                bulk_ibkr_data = self._fetch_bulk_historical_data(
-                    symbol=symbol,
-                    target_date=target_date,
-                    asset=entity,
-                    what_to_show=MIDPOINT,
-                    duration_str=duration_str,
-                    bar_size_setting=bar_size_setting
-                )
+            # Fetch bulk historical data from IBKR, in the policy's order (fallback only when the policy allows)
+            bulk_ibkr_data, used_what_to_show, selection = self._fetch_in_policy_order(
+                symbol, target_date, entity, choice, duration_str, bar_size_setting)
 
             if not bulk_ibkr_data:
                 print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
@@ -528,7 +506,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 created_value = self.local_repo.add(factor_value) if factor_value else None
                 if created_value:
                     print(f"Created factor value: {factor_entity.name} = {factor_value.value}")
-                    self._record_raw_provenance([created_value], [factor_entity], used_what_to_show)
+                    self._record_raw_provenance([created_value], [factor_entity], used_what_to_show, selection)
                 return created_value
 
             if max_import_ibkr:
@@ -666,22 +644,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 for (symbol, factor_group, factor_subgroup, bar_size_setting), factors in symbol_group_factors_frequency.items():
                     try:
-                        what_to_show = resolve_what_to_show(factors[0] if factors else None, financial_asset_entity,
-                                                            group=factor_group, subgroup=factor_subgroup)
-
-                        bulk_ibkr_data = self._fetch_bulk_historical_data(
-                            symbol,
-                            time_date,
-                            financial_asset_entity,
-                            what_to_show,
-                            duration_str,
-                            bar_size_setting
-                        )
+                        choice = source_choice(factors[0] if factors else None, financial_asset_entity,
+                                               group=factor_group, subgroup=factor_subgroup)
+                        bulk_ibkr_data, what_to_show, selection = self._fetch_in_policy_order(
+                            symbol, time_date, financial_asset_entity, choice, duration_str, bar_size_setting)
+                        what_to_show = what_to_show or choice.preferred.value
                         
                         if bulk_ibkr_data:
                             # Extract factor values for all factors from the bulk response
                             factor_values_from_bulk = self._extract_factor_values_from_bulk_data(
-                                bulk_ibkr_data, factors, entity_id, what_to_show=what_to_show,
+                                bulk_ibkr_data, factors, entity_id, what_to_show=what_to_show, selection=selection,
                                 entity_type=(
                                     type(financial_asset_entity).__name__
                                     if financial_asset_entity is not None
@@ -817,7 +789,21 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error validating batch parameters: {e}")
             return False
 
-    def _record_raw_provenance(self, stored_values, factors, what_to_show) -> None:
+    def _fetch_in_policy_order(self, symbol, target_date, asset, choice, duration_str, bar_size_setting):
+        """(bars, data type that answered, selection note) — the policy's types in order; the next one only when
+        the policy allows a fallback and the previous one returned no data. (None, None, note) when none did."""
+        tried = []
+        order = choice.order if choice.fallback_allowed else choice.order[:1]
+        for data_type in order:
+            bars = self._fetch_bulk_historical_data(symbol=symbol, target_date=target_date, asset=asset,
+                                                    what_to_show=data_type.value, duration_str=duration_str,
+                                                    bar_size_setting=bar_size_setting)
+            if bars:
+                return bars, data_type.value, choice.selection_note(data_type, tuple(tried))
+            tried.append(data_type)
+        return None, None, f"no data for {', '.join(t.value for t in tried)}"
+
+    def _record_raw_provenance(self, stored_values, factors, what_to_show, selection: str = "") -> None:
         """BI-025: record the provenance of raw values stored from an IBKR response — the data type that answered,
         receipt / ingestion time (naive UTC) and validation (finite; prices must be positive). An invalid value
         stays stored but is REJECTED with its reason, so it never passes a quality requirement."""
@@ -860,7 +846,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     frequency=getattr(factor, 'frequency', None) or 'unknown',
                     status=ObservationStatus.REJECTED if failed else ObservationStatus.VALID,
                     received_at=max(now, observed), ingested_at=max(now, observed), validations=tuple(checks),
-                    policy_version="provenance-v1"))
+                    policy_version="provenance-v1", selection=selection or ""))
             except Exception as e:
                 _logging.getLogger(__name__).error(
                     f"provenance not recorded for factor {value.factor_id} {value.entity_type}:{value.entity_id} "
@@ -1154,7 +1140,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]],
                                             factors: List[Any], entity_id: int,
                                             entity_type: str = 'FinancialAsset',
-                                            what_to_show: Optional[str] = None) -> List[FactorValue]:
+                                            what_to_show: Optional[str] = None,
+                                            selection: str = "") -> List[FactorValue]:
         """
         Extract multiple factor values from bulk IBKR historical data with dependency management.
         
@@ -1233,7 +1220,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     continue
             self._batch_persist_factor_values(created_factor_values)
             if what_to_show:
-                self._record_raw_provenance(created_factor_values, factors, what_to_show)
+                self._record_raw_provenance(created_factor_values, factors, what_to_show, selection)
             print(f"Extracted {len(factor_values)} factor values from {len(bulk_data)} bars for {len(factors)} factors")
             return factor_values
             

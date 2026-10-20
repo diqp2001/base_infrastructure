@@ -100,6 +100,7 @@ class ObservationProvenance:
     inputs: Tuple[ObservationRef, ...] = ()      # derived values: what they were computed from
     transformation: str = ""                     # derived values: the factor / rule that computed them
     policy_version: str = ""                     # validation / source policy in force
+    selection: str = ""                          # raw values: why this data type (preferred / fallback, BI-026)
 
     def __post_init__(self):
         if not self.field or not self.source or not self.frequency:

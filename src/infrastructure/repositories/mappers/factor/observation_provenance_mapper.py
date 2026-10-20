@@ -34,7 +34,8 @@ class ObservationProvenanceMapper:
             received_at=_naive(model.received_at), ingested_at=_naive(model.ingested_at),
             validations=tuple(ValidationResult(v["rule"], v["passed"], v.get("reason", "")) for v in validations),
             rejection_reason=model.rejection_reason or "", inputs=tuple(inputs),
-            transformation=model.transformation or "", policy_version=model.policy_version or "")
+            transformation=model.transformation or "", policy_version=model.policy_version or "",
+            selection=model.selection or "")
 
     @staticmethod
     def to_orm(provenance: ObservationProvenance, factor_value_id: int,
@@ -51,6 +52,7 @@ class ObservationProvenanceMapper:
         model.rejection_reason = provenance.rejection_reason or None
         model.transformation = provenance.transformation or None
         model.policy_version = provenance.policy_version or None
+        model.selection = provenance.selection or None
         model.validations = (json.dumps([{"rule": v.rule, "passed": v.passed, "reason": v.reason}
                                          for v in provenance.validations]) if provenance.validations else None)
         return model

@@ -91,7 +91,8 @@ def test_option_prices_are_midpoint_whatever_the_subgroup():
 
 
 def test_other_types():
-    assert resolve_what_to_show(factor("CompanyShareFactor", "close")) == "TRADES"
+    # shares are midpoint-first too since BI-026 (user rule: trades do not happen on every bar)
+    assert resolve_what_to_show(factor("CompanyShareFactor", "close")) == "MIDPOINT"
     assert resolve_what_to_show(factor("CompanyShareOptionFactor", "volume")) == "TRADES"
     assert resolve_what_to_show(factor("CompanyShareOptionImpliedVolFactor", "iv", "volatility", "implied")) \
         == "OPTION_IMPLIED_VOLATILITY"

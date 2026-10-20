@@ -54,6 +54,16 @@ class BaseFactory:
                 elif not report.index_existed:
                     print(f"Schema migration warning: {report.summary()}\n  -> run "
                           f"'python -m src.infrastructure.database.factor_value_dedup' (dry run, then --apply)")
+            if 'factor_value_provenance' in existing_tables:
+                provenance_cols = {c['name'] for c in inspector.get_columns('factor_value_provenance')}
+                if 'selection' not in provenance_cols:          # BI-026 column on a BI-025 table
+                    sql = ("ALTER TABLE factor_value_provenance ADD COLUMN selection VARCHAR(255)"
+                           if self.engine.dialect.name == 'sqlite'
+                           else "ALTER TABLE factor_value_provenance ADD selection VARCHAR(255) NULL")
+                    with self.engine.connect() as conn:
+                        conn.execute(text(sql))
+                        conn.commit()
+                    print("Migrated: added selection to factor_value_provenance")
         except Exception as e:
             print(f"Schema migration warning: {e}")
 

@@ -1,0 +1,117 @@
+"""
+Market-data source selection policy (BI-026) — pure domain.
+
+Which provider data type (SourceDataType: TRADES, MIDPOINT, BID, ASK, ...) to request for a field of an instrument,
+given the INTENDED USE of the value, in order of preference, and whether falling back to the next one is allowed.
+
+    policy.select("CompanyShareOption", group="price", field="close", use=IntendedUse.VALUATION_MARK)
+      -> SourceChoice(order=(MIDPOINT, TRADES), fallback_allowed=True, rule=...)
+
+Default policy (DEFAULT_SOURCE_POLICY):
+  - price marks and model inputs: MIDPOINT first, then TRADES — trades do not happen on every bar (user rule,
+    2026-10-20); a midpoint is a mark, never an execution price;
+  - execution prices and trade statistics: TRADES only — a quote never stands in for a trade;
+  - volume: TRADES only (midpoints have no volume);
+  - implied / historical volatility (by subgroup): their own IBKR types;
+  - any other raw field read as a mark: TRADES (IBKR's default type).
+A combination no rule covers raises UnsupportedSourceSelection (never a silent default). A fallback is only taken
+inside one rule, so it never changes the economic meaning the use asked for; the caller records which type
+answered and why (ObservationProvenance.selection).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional, Tuple
+
+from src.domain.entities.factor.observation_quality import SourceDataType as D
+
+ANY = "*"
+
+
+class IntendedUse(str, Enum):
+    VALUATION_MARK = "valuation_mark"        # mark-to-market, research marks
+    MODEL_INPUT = "model_input"              # inputs of models / signals
+    EXECUTION_PRICE = "execution_price"      # what a trade actually printed / filled at
+    TRADE_STATISTICS = "trade_statistics"    # volume, trade counts
+    YIELD = "yield"
+    FINANCING = "financing"                  # rebate / fee rates
+
+
+class UnsupportedSourceSelection(ValueError):
+    """No rule of the policy covers this instrument / field / use."""
+
+
+@dataclass(frozen=True)
+class SourceRule:
+    instrument_class: str                    # e.g. "CompanyShareOption", "Option" (suffix match) or ANY
+    group: str                               # Factor group, e.g. "price", "volatility", or ANY
+    field: str                               # factor name, e.g. "close", "volume", or ANY
+    uses: Tuple[IntendedUse, ...]
+    order: Tuple[D, ...]
+    fallback_allowed: bool = False
+    note: str = ""
+    subgroup: str = ANY                      # Factor subgroup, e.g. "implied", or ANY
+
+    def __post_init__(self):
+        if not self.order:
+            raise ValueError("a source rule needs at least one data type")
+        if len(self.order) > 1 and not self.fallback_allowed:
+            raise ValueError("several data types without fallback: state fallback_allowed explicitly")
+
+    def matches(self, instrument_class: str, group: str, field: str, use: IntendedUse, subgroup: str = "") -> bool:
+        return (use in self.uses
+                and (self.subgroup == ANY or self.subgroup == subgroup)
+                and (self.instrument_class == ANY or (instrument_class or "").endswith(self.instrument_class))
+                and (self.group == ANY or self.group == group)
+                and (self.field == ANY or self.field == (field or "").lower()))
+
+
+@dataclass(frozen=True)
+class SourceChoice:
+    order: Tuple[D, ...]
+    fallback_allowed: bool
+    rule: SourceRule
+
+    @property
+    def preferred(self) -> D:
+        return self.order[0]
+
+    def selection_note(self, used: D, tried: Tuple[D, ...] = ()) -> str:
+        """Why `used` was used: preferred, or the fallback taken and what was tried before."""
+        if used == self.preferred:
+            return f"{used.value}: preferred ({self.rule.note or 'policy'})"
+        return (f"{used.value}: fallback after {', '.join(t.value for t in tried) or self.preferred.value} "
+                f"returned no data ({self.rule.note or 'policy'})")
+
+
+@dataclass(frozen=True)
+class SourcePolicy:
+    rules: Tuple[SourceRule, ...]
+    version: str = "source-policy-v1"
+
+    def select(self, instrument_class: str, group: Optional[str], field: Optional[str],
+               use: IntendedUse = IntendedUse.VALUATION_MARK, subgroup: Optional[str] = None) -> SourceChoice:
+        for rule in self.rules:                       # first matching rule wins: put specific rules first
+            if rule.matches(instrument_class, group or "", field or "", use, subgroup or ""):
+                return SourceChoice(rule.order, rule.fallback_allowed, rule)
+        raise UnsupportedSourceSelection(
+            f"no source rule for instrument {instrument_class!r}, group {group!r}, field {field!r}, use {use.value}")
+
+
+_MARKS = (IntendedUse.VALUATION_MARK, IntendedUse.MODEL_INPUT)
+
+DEFAULT_SOURCE_POLICY = SourcePolicy(rules=(
+    SourceRule(ANY, ANY, "volume", _MARKS + (IntendedUse.TRADE_STATISTICS,), (D.TRADES,),
+               note="volume exists for trades only"),
+    SourceRule(ANY, "volatility", ANY, _MARKS, (D.OPTION_IMPLIED_VOLATILITY,), note="IBKR implied volatility",
+               subgroup="implied"),
+    SourceRule(ANY, "volatility", ANY, _MARKS, (D.HISTORICAL_VOLATILITY,), note="IBKR historical volatility",
+               subgroup="historical"),
+    SourceRule(ANY, "price", ANY, _MARKS, (D.MIDPOINT, D.TRADES), fallback_allowed=True,
+               note="mark: midpoint first, trades when no quote history"),
+    SourceRule(ANY, "price", ANY, (IntendedUse.EXECUTION_PRICE, IntendedUse.TRADE_STATISTICS), (D.TRADES,),
+               note="executions are trades, never quotes"),
+    SourceRule(ANY, ANY, ANY, _MARKS, (D.TRADES,), note="other raw fields: IBKR default type"),
+))
