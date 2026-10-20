@@ -2,7 +2,7 @@
 
 These rules apply to every autonomous or semi-autonomous coding agent (and to humans following the same
 workflow). They complement `CLAUDE.md` (project overview) and the per-folder `CLAUDE.md` files. The
-prioritised work list is [`docs/development/BACKLOG.md`](docs/development/BACKLOG.md); testing details are
+prioritised work list is [`BACKLOG.txt`](BACKLOG.txt) (repository root); testing details are
 in [`docs/TESTING.md`](docs/TESTING.md).
 
 ---

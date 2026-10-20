@@ -1,0 +1,84 @@
+# base_infrastructure — development backlog
+
+Single source of truth for planned work (`docs/development/BACKLOG.md` points here).
+Baseline audit (BI-001) of 2026-10-20 on `main` @ `8e270b46`; extended the same day with BI-025 – BI-034
+(market-data reliability, validation and decision quality); statuses last updated 2026-10-20. Every status is
+backed by evidence checked in the repository or by running the commands in "Baseline measurements".
+Agent workflow rules: `AGENTS.md`. Test conventions: `docs/TESTING.md`.
+
+**Status values** — *complete*: verified done, acceptance criteria met; *partial*: implemented and tested in
+part, gaps listed; *missing*: not implemented; *blocked*: needs an external decision, service or approval.
+**Size** — S ≤ 1 day, M 2–3 days, L ≥ 1 week of agent work.
+
+---
+
+## Baseline measurements
+
+| Check | Command | Result (2026-10-20) |
+|---|---|---|
+| Import contracts | `lint-imports` | 4 / 4 kept; ignored (debt): domain 2, application→ORM 60, infrastructure→application 20, interfaces 1 |
+| Fast suite + coverage (CI stage 2) | `pytest -m "not integration and not sql_server and not ibkr and not performance" --cov` | at the audit: 1156 passed, 45 skipped, 10 xfailed, coverage 34.5 % (`fail_under` 31.5); after BI-003: **1479 passed, 45 skipped, 11 xfailed, 0 failed, coverage 35.7 %** (`fail_under` 34.0) |
+| Full suite | `pytest` | 1158 passed, 97 skipped, 10 xfailed |
+| Tests outside `testpaths` | `pytest src/tests` | at the audit: **329 tests in `src/tests` never run by CI** (2 more `test_*.py` at the repository root); run once: without `heston_slv`, 255 passed / **15 failed**; `heston_slv` calibration did not finish in 5 min. **Resolved in BI-003** (moved into `tests/`, see BI-003) |
+| Docker | `docker compose config`, `docker ps` | compose valid; `app`, `monitor` (healthy), `sqlserver` (healthy) up 23 h; `ibkr` not running |
+| SQL Server from the container | `tests/integration/test_docker_services.py::…::test_sqlalchemy_reaches_sql_server` | passed (read-only); the write round-trip test was not run against the app database |
+| Type checking / linting | — | **none configured** (no mypy, ruff, flake8, pylint) |
+| Secrets | `git ls-files`, `git log --diff-filter=A`, credential-pattern scan | no `.env`, `.env.windows`, `secrets/` ever committed; no credential literals in tracked code |
+| TODO / FIXME | `git grep` | 4 in `src`; 10 `raise NotImplementedError` |
+
+Known defects pinned as strict expected failures (each flips to a failure when fixed): option trades ignore the
+contract multiplier; cash booked in whole dollars (`positions.quantity` INTEGER); `force_recalculate` reuses stored
+dependencies; holdings get share-price factors stored; companies linked to placeholder country / industry ids;
+SPX v2 universe misses the dated SOFR contract; a position without greeks counts as delta 0; the "call spread"
+enters a single naked call; cross-sectional z-score uses future values; one backtest-engine bug
+(`tests/misbuffet/test_backtest_engine.py`).
+
+---
+
+## Milestones and execution order
+
+| Milestone | Items (in order) | Goal |
+|---|---|---|
+| **M0 — Baseline and guard rails** | BI-001 ✔, BI-004 ✔, **BI-003**, BI-005, BI-002 | trustworthy gates, safe configuration, reproducible environment |
+| **M1 — Persistence and portfolio correctness** | BI-006, BI-007, BI-008, BI-009, BI-010 | transactions, holdings and portfolio values are correct and atomic |
+| **M2 — Market-data reliability** | BI-025, BI-026, BI-027, BI-028, BI-029, BI-030, BI-031 | valid, traceable, complete, point-in-time data with explicit quality |
+| **M2b — Factor correctness** | BI-012, BI-013, BI-014, BI-011, BI-032 | reproducible factor values with documented invariants |
+| **M3 — Research, ML and decisions** | BI-015, BI-016, BI-017, BI-018, BI-033, BI-019 | reproducible models, artifacts, backtests and decision attribution |
+| **M4 — Broker and operations (paper only)** | BI-020, BI-021, BI-022, BI-023, BI-034, BI-024 | safe broker lifecycle, risk gate, read-only operations and data-quality view |
+
+Dependency rules: an item starts only when its dependencies are *complete* (or explicitly waived by the user).
+Within a milestone, follow the listed order; M1 and M2 may interleave where an item's dependencies are met
+(BI-025 needs BI-006 for its persistence step only — its domain model can start after BI-003). M4 items never
+enable live trading.
+
+**In progress: BI-003** (branch `bi-003-quality-gates`). **Next after it: BI-025** — the highest-priority
+missing foundation of the market-data milestone, starting with its domain model (observation quality status,
+provenance and eligibility interface, pure domain, tests) before any schema change.
+
+GitHub issues created 2026-10-20: #575 (BI-003), #576 (BI-005), #577 (BI-002), #578 and #579 — the latter two were
+created for the provisional "midpoint first" and "re-run safety" items, now part of BI-026 and BI-028 (titles to
+update). The other items are issue-ready in this file.
+
+---
+
+## Items
+
+### BI-001 — Audit repository and record baseline
+- **Priority** P0 · **Size** M · **Depends on** — · **Status: complete** (this document, `AGENTS.md`)
+- **Scope** modules, tests, architecture rules, CI, TODOs, incomplete implementations; no business-logic changes.
+- **Acceptance** baseline measurements recorded with commands; every BI item has a status with evidence; next issue named.
+- **Evidence** this file (`BACKLOG.txt`); measurements above.
+
+### BI-002 — Verify clean Linux/Docker startup
+- **Priority** P0 · **Size** M · **Depends on** BI-005 · **Status: partial** · **GitHub** #577
+- **Scope** dependency install, `docker compose up` from a clean state, database connectivity, app start, VS Code debugging.
+- **Acceptance** (1) a clean build of `base_infrastructure-dev:py3.13` from `requirements-dev.txt` succeeds; (2) `docker compose up sqlserver app monitor` reaches healthy; (3) `pip check` clean; (4) the read-only SQL connectivity test passes in `app`; (5) the fast suite passes inside `app`; (6) the VS Code launch configurations start; (7) steps documented in `.devcontainer/README.md`.
+- **Evidence** `docker-compose.yml` validates; services up and healthy; SQL test passed in `app`; `pip check` clean in `app` (Python 3.13.16); `.devcontainer/devcontainer.json` (service `app`, `post-start.sh`); `.vscode/launch.json` has 3 configurations (main, Flask, monitoring).
+- **Gaps** no clean rebuild verified (recreating `app`/`ibkr` is an approval gate: VS Code attachment, 2FA); the container checkout (`1aa0443c`) is behind `main`; `ibkr` service not running; fast suite not run inside the container in this audit.
+
+### BI-003 — Verify automated quality gates
+- **Priority** P0 · **Size** S–M · **Depends on** BI-001 · **Status: partial — (1), (2), (4) done 2026-10-20; (3) blocked on approval of new dev dependencies (ruff, mypy)** · **GitHub** #575
+- **Scope** fast tests, coverage, import contracts, type checks, linting; repair configuration without weakening thresholds.
+- **Acceptance** (1) every test file is either collected by CI or deliberately removed (triage of `src/tests`, 329 tests, and root `test_*.py`, with the decision recorded); (2) `fail_under` raised to the measured floor (34.5 % → 34.0) — never lowered; (3) a linter (ruff) and a type checker (mypy) run in CI in report-only mode with a recorded baseline, failing only on new violations (new dev dependencies need approval); (4) CI stages documented in `docs/TESTING.md` match `.github/workflows/python-app.yml`.
+- **Triage input** `src/tests`: 15 failing tests (`unit/market_making/test_delta_hedge.py` 4, `unit/test_factor_value_chain.py` 5, `unit/test_financial_entity_orm.py` 6) — stale against current code or real defects, to be decided per test (fix, move to `tests/` as a pinned xfail with the reason, or delete); `unit/heston_slv/test_heston_slv.py::TestHestonCalibrator` too slow for the fast suite (mark `slow` / `performance`).
+- **Done (branch `bi-003-quality-gates`)** all `src/tests` suites moved into `tests/` with `git mv` (Heston SLV → `tests/unit/application/heston_slv/`, original SPX strategy → `tests/market_making_spx/`, SQLite repository / ORM suites → `tests/repositories/` as component tests, factor suites → `tests/unit/`); `src/tests/test_main.py` (placeholder) and the two root import scripts deleted (covered by `test_all_repositories::test_every_module_imports`). The 21 failures were stale tests: Heston-SLV fixture used a subgroup `Factor` never accepted (4); ORM fixtures lacked the `start_date` the schema requires since 2026-08 (6); value-chain tests ignored the list contract and the no-fallback rule (5); original-SPX hedge tests asserted per-position hedging replaced by the portfolio hedge in `f2844273` (3 rewritten). One real gap pinned as a strict expected failure: the original SPX `manage_existing_positions` never executes exits (`tests/market_making_spx/test_delta_hedge.py::test_hedge_state_cleared_on_position_exit`). `TestHestonCalibrator` marked `slow` + `performance`. `fail_under` 31.5 → 34.0. Result: fast suite 1479 passed, 45 skipped, 11 xfailed, 0 failed, coverage 35.7 %; `lint-imports` 4 / 4 kept.
