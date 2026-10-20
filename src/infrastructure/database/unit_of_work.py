@@ -18,6 +18,8 @@ repositories:
   marks the transaction failed: the block cannot commit afterwards.
 - On failure the block raises (the exception, or ``TransactionAborted`` with the recorded failures); the session
   is clean and usable for the next transaction.
+- A block that wrote nothing (no repository commit requested, no pending change) does not commit: wrapping an
+  idempotent "ensure" step costs nothing when the rows already exist.
 """
 
 from __future__ import annotations
@@ -58,13 +60,18 @@ def atomic(session) -> Iterator[Transaction]:
 
     tx = Transaction()
     real_commit, real_rollback = session.commit, session.rollback
+    commit_requested = []
+
+    def _commit():
+        commit_requested.append(True)
+        session.flush()
 
     def _rollback():
         tx.fail("rollback requested by a repository")
         real_rollback()
 
     session.info[_KEY] = tx
-    session.commit, session.rollback = session.flush, _rollback
+    session.commit, session.rollback = _commit, _rollback
     try:
         yield tx
     except BaseException:
@@ -75,6 +82,8 @@ def atomic(session) -> Iterator[Transaction]:
     if tx.failed:
         real_rollback()
         raise TransactionAborted(tx.failures)
+    if not (commit_requested or session.new or session.dirty or session.deleted):
+        return                                   # nothing written in the block: nothing to commit
     try:
         real_commit()
     except BaseException:

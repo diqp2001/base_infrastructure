@@ -99,6 +99,29 @@ class TestAtomicBooking:
         assert books(p) == dict(qty=10, cash=98_500.0, orders=2, txns=2)
 
 
+class TestAtomicHoldingSetup:
+    """BI-006: the sub-portfolio link and the ticker holding (+ its position) are created as one transaction."""
+
+    def test_holding_setup_is_all_or_nothing(self):
+        """A fresh book (no share sub-portfolio yet): the failing second step leaves no linked sub-portfolio."""
+        from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
+        fresh = SqlitePortfolio()
+        try:
+            repo = fresh.factory.get_local_repository("CompanySharePortfolio")
+            share_portfolios = lambda: fresh.session.query(CompanySharePortfolioModel).count()
+            before = (len(fresh.holdings()), len(fresh.positions()), share_portfolios())
+            assert before[2] == 0
+            with patch.object(type(repo), "ensure_ticker_holding", side_effect=RuntimeError("holding insert failed")):
+                with pytest.raises(RuntimeError, match="holding insert failed"):
+                    fresh.container("MSFT")
+            assert (len(fresh.holdings()), len(fresh.positions()), share_portfolios()) == before
+            sub_id = fresh.container("MSFT")                               # works once the failure is gone
+            assert sub_id is not None and share_portfolios() == 1
+            assert len(fresh.holdings()) == before[0] + 2                   # link holding + MSFT holding
+        finally:
+            fresh.close()
+
+
 class TestIBKRConnection:
 
     def make(self, retries, delay="0"):

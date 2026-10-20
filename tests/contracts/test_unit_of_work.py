@@ -102,3 +102,13 @@ def test_the_session_is_usable_after_a_failure(backend, session):
     assert "commit" not in vars(session) and "rollback" not in vars(session)   # overrides removed
     repo._create_or_get("uow-d")                          # outside a block the repository commits itself
     assert names(backend) == ["uow-c", "uow-d"]
+
+
+def test_a_block_that_writes_nothing_does_not_commit(backend, session):
+    repo = ContinentRepository(session, factory=None)
+    repo._create_or_get("uow-a")
+    commits = real_commits(session)
+    with atomic(session):
+        repo._create_or_get("uow-a")                      # already exists: the repository writes nothing
+    assert commits == []
+    assert names(backend) == ["uow-a"]

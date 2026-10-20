@@ -307,9 +307,13 @@ class UnifiedPortfolioManager:
                 )
             return None
 
-        sub_portfolio_id = repo.ensure_sub_portfolio_linked(self._current_portfolio_entity, now)
-        if sub_portfolio_id:
-            repo.ensure_ticker_holding(ticker, sub_portfolio_id, now)
+        # Sub-portfolio link + ticker holding (+ position) as ONE transaction (BI-006): a failure in the
+        # second step must not leave a linked sub-portfolio without its holding.
+        from src.infrastructure.database.unit_of_work import atomic
+        with atomic(repo.session):
+            sub_portfolio_id = repo.ensure_sub_portfolio_linked(self._current_portfolio_entity, now)
+            if sub_portfolio_id:
+                repo.ensure_ticker_holding(ticker, sub_portfolio_id, now)
         return sub_portfolio_id
 
     def _probe_asset_class_name(self, ticker: str) -> Optional[str]:
