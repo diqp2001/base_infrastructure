@@ -49,12 +49,35 @@ class Tree:
     def close(self, ticker, bar_day, price):
         self.p.seed_close(ticker, bar_day, price)
 
+    def unchanged_bars(self, when):
+        """The feed delivers a daily bar every session: a share whose price did not move in the session due at
+        `when` (the previous trading day's bar) gets that bar at its last close. A share never priced keeps no bar
+        (bars are only usable for the session they belong to: bar_calendar.bar_is_current)."""
+        from src.domain.entities.factor.bar_calendar import previous_trading_day
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+        from src.infrastructure.models.factor.factor_value import FactorValueModel
+        close = self.p.session.query(CompanyShareFactorModel).filter_by(name="close", frequency="1d").first()
+        if close is None:
+            return
+        due = datetime.combine(previous_trading_day(when.date()), datetime.min.time())
+        rows = self.p.session.query(FactorValueModel).filter(FactorValueModel.factor_id == close.id,
+                                                             FactorValueModel.date <= due).all()
+        latest = {}
+        for r in sorted(rows, key=lambda r: r.date):
+            latest[r.entity_id] = r
+        for entity_id, r in latest.items():
+            if r.date.replace(tzinfo=None) < due:
+                self.p.session.add(FactorValueModel(factor_id=close.id, entity_id=entity_id,
+                                                    entity_type=r.entity_type, date=due, value=r.value))
+        self.p.session.commit()
+
     def trade(self, ticker, qty, price, when):
         self.p.upm._algorithm.time = when
         assert self.p.trade(ticker, qty, price, when=when), f"{ticker} {qty:+d} @ {price} not booked"
 
     def revalue(self, when) -> float:
         self.p.upm._algorithm.time = when
+        self.unchanged_bars(when)
         value = self.p.upm.get_portfolio_value(backtest_date=when)
         return float(getattr(value, "value", value))
 

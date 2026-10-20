@@ -141,21 +141,23 @@ class IBKRRoutingTest(unittest.TestCase):
             IBKRFactorValueRepository,
         )
         route = IBKRFactorValueRepository._resolve_what_to_show_from_group
-        repo = SimpleNamespace(_GROUP_SUBGROUP_TO_WHAT_TO_SHOW=IBKRFactorValueRepository._GROUP_SUBGROUP_TO_WHAT_TO_SHOW)
-        self.assertEqual(route(repo, "volatility", "implied"), "OPTION_IMPLIED_VOLATILITY")
-        self.assertEqual(route(repo, "volatility", "historical"), "HISTORICAL_VOLATILITY")
-        self.assertEqual(route(repo, "price", "ohlc"), "TRADES")
-        self.assertEqual(route(repo, "momentum", ""), "TRADES")
+        self.assertEqual(route(None, "volatility", "implied"), "OPTION_IMPLIED_VOLATILITY")
+        self.assertEqual(route(None, "volatility", "historical"), "HISTORICAL_VOLATILITY")
+        self.assertEqual(route(None, "price", "ohlc"), "TRADES")
+        self.assertEqual(route(None, "price", "option"), "MIDPOINT")
+        self.assertEqual(route(None, "momentum", ""), "TRADES")
 
-    def test_routing_tables_are_in_sync(self):
+    def test_repository_and_history_service_share_one_rule(self):
+        """Both IBKR fetch paths decide whatToShow with what_to_show.resolve_what_to_show: an option close
+        stored with subgroup 'ohlc' is MIDPOINT in both."""
         from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
-        from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import (
-            IBKRFactorValueRepository,
-        )
-        repo_table = IBKRFactorValueRepository._GROUP_SUBGROUP_TO_WHAT_TO_SHOW
-        service_table = {(g, s): v for (g, s, src), v in MarketDataHistoryService._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.items()
-                         if src == "ibkr"}
-        self.assertEqual(repo_table, service_table)
+        option_close = type("CompanyShareOptionFactor", (), {"name": "close", "group": "price", "subgroup": "ohlc",
+                                                            "source": "ibkr"})()
+        share_close = type("CompanyShareFactor", (), {"name": "close", "group": "price", "subgroup": "ohlc",
+                                                      "source": "ibkr"})()
+        service = MarketDataHistoryService.__new__(MarketDataHistoryService)
+        self.assertEqual(service._resolve_what_to_show_for_factor(option_close), "MIDPOINT")
+        self.assertEqual(service._resolve_what_to_show_for_factor(share_close), "TRADES")
 
     def test_contract_mapper_keeps_stock_and_option_identity(self):
         from ibapi.contract import Contract, ContractDetails

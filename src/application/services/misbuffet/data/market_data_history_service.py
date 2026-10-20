@@ -590,25 +590,13 @@ class MarketDataHistoryService:
             self.logger.error(f"Error in local date range processing: {e}")
             return []
         
-    # (group, subgroup, source) → IBKR whatToShow.  Only entries that differ from
-    # "TRADES".  source='ibkr' is required: calculated factors are never fetched
-    # from IBKR so they must not appear here.
-    _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
-        ('volatility', 'implied',    'ibkr'): 'OPTION_IMPLIED_VOLATILITY',
-        ('volatility', 'historical', 'ibkr'): 'HISTORICAL_VOLATILITY',
-        # Options use MIDPOINT: deep OTM strikes have no TRADES data (IBKR error 162).
-        # Same table as IBKRFactorValueRepository._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.
-        ('price',      'option',     'ibkr'): 'MIDPOINT',
-    }
-
-    def _resolve_what_to_show_for_factor(self, factor) -> str:
-        """Return the IBKR whatToShow string driven by (group, subgroup, source)."""
-        key = (
-            getattr(factor, 'group',   ''),
-            getattr(factor, 'subgroup', ''),
-            getattr(factor, 'source',   ''),
-        )
-        return self._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.get(key, 'TRADES')
+    def _resolve_what_to_show_for_factor(self, factor, entity=None) -> str:
+        """IBKR whatToShow of a stored (source 'ibkr') factor — the rule shared with IBKRFactorValueRepository
+        (option price bars -> MIDPOINT, implied / historical vol -> their IBKR types, else TRADES)."""
+        from src.infrastructure.repositories.ibkr_repo.factor.what_to_show import TRADES, resolve_what_to_show
+        if getattr(factor, 'source', 'ibkr') not in (None, 'ibkr'):
+            return TRADES
+        return resolve_what_to_show(factor, entity)
 
     def _create_or_get_factor_value_batch(self, factor_groups: Any, entities: Any,
                                 date: Any,
@@ -652,7 +640,7 @@ class MarketDataHistoryService:
         from collections import defaultdict
         groups: Dict[str, list] = defaultdict(list)
         for item in factor_values_data:
-            wts = self._resolve_what_to_show_for_factor(item['factor'])
+            wts = self._resolve_what_to_show_for_factor(item['factor'], item['entity'])
             groups[wts].append(item)
 
         all_factor_values = []

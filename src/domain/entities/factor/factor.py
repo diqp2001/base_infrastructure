@@ -45,8 +45,8 @@ class Factor(ABC):
         "implied_volatility", "historical_volatility",
     })
 
-    # A closed raw bar older than this is treated as missing so a fresh fetch
-    # is attempted.  4 days covers weekends and single-day holidays.
+    # Upper bound used by monitoring (stale feed alert). Bar lookups for a decision use the
+    # trading-calendar rule instead (bar_calendar.bar_is_current: a newer bar due -> fetch).
     MAX_BAR_STALENESS_SECONDS: ClassVar[float] = 4 * 86400
 
     @classmethod

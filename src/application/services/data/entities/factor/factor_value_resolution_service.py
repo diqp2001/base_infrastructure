@@ -400,7 +400,7 @@ class FactorValueResolutionService:
                     result = bar_repo.get_latest_available_bar(
                         factor_id, entity_id, date_str,
                         bar_seconds=bar_offset,
-                        max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
+                        require_current=True,
                         entity_type=et,
                     )
                     if result:
@@ -1125,13 +1125,13 @@ class FactorValueResolutionService:
             if lookback == 'ytd':
                 series = repo.get_closed_bar_series(
                     dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, since=datetime(parsed.year, 1, 1),
-                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS, entity_type=et)
+                    require_current=True, entity_type=et)
                 if len(series) >= 2:
                     return series
             else:
                 series = repo.get_closed_bar_series(
                     dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, count=int(lookback),
-                    max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS, entity_type=et)
+                    require_current=True, entity_type=et)
                 if len(series) == int(lookback):
                     return series
                 if series:

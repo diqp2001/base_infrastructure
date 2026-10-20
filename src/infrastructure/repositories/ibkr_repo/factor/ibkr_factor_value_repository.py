@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 from collections import defaultdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
+from src.infrastructure.repositories.ibkr_repo.factor.what_to_show import (
+    MIDPOINT, TRADES, is_option_entity, resolve_what_to_show,
+)
 import calendar
 import inspect
 from ibapi.contract import Contract
@@ -413,9 +416,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 return None
 
             # Get configurable parameters with defaults
-            what_to_show = self._resolve_what_to_show_from_group(
-                factor_entity.group, factor_subgroup=getattr(factor_entity, 'subgroup', '')
-            )
+            what_to_show = resolve_what_to_show(factor_entity, entity)
             duration_str = kwargs.get('duration_str', '5 D')
             bar_size_setting = kwargs.get('bar_size_setting', '5 mins')
 
@@ -458,17 +459,17 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 bar_size_setting=bar_size_setting
             )
 
-            # # TRADES returns no data for illiquid options (IBKR error 162). Retry with
-            # # MIDPOINT which is always available as long as there is a market maker quote.
-            # if not bulk_ibkr_data and what_to_show == 'TRADES':
-            #     bulk_ibkr_data = self._fetch_bulk_historical_data(
-            #         symbol=symbol,
-            #         target_date=target_date,
-            #         asset=entity,
-            #         what_to_show='MIDPOINT',
-            #         duration_str=duration_str,
-            #         bar_size_setting=bar_size_setting
-            #     )
+            # TRADES returns no data for illiquid options (IBKR error 162). Retry with
+            # MIDPOINT, which is available as long as there is a market maker quote.
+            if not bulk_ibkr_data and what_to_show == TRADES and is_option_entity(entity):
+                bulk_ibkr_data = self._fetch_bulk_historical_data(
+                    symbol=symbol,
+                    target_date=target_date,
+                    asset=entity,
+                    what_to_show=MIDPOINT,
+                    duration_str=duration_str,
+                    bar_size_setting=bar_size_setting
+                )
 
             if not bulk_ibkr_data:
                 print(f"Failed to fetch bulk IBKR data for factor {factor_entity.name}")
@@ -662,7 +663,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 
                 for (symbol, factor_group, factor_subgroup, bar_size_setting), factors in symbol_group_factors_frequency.items():
                     try:
-                        what_to_show = self._resolve_what_to_show_from_group(factor_group, factor_subgroup=factor_subgroup)
+                        what_to_show = resolve_what_to_show(factors[0] if factors else None, financial_asset_entity,
+                                                            group=factor_group, subgroup=factor_subgroup)
 
                         bulk_ibkr_data = self._fetch_bulk_historical_data(
                             symbol,
@@ -720,18 +722,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in IBKR bulk data processing: {e}")
             return None
         
-    # (group, subgroup) → IBKR whatToShow.  Must stay in sync with
-    # MarketDataHistoryService._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.
-    _GROUP_SUBGROUP_TO_WHAT_TO_SHOW = {
-        ('volatility', 'implied'):    'OPTION_IMPLIED_VOLATILITY',
-        ('volatility', 'historical'): 'HISTORICAL_VOLATILITY',
-        # Options use MIDPOINT: deep OTM strikes have no TRADES data (IBKR error 162)
-        ('price', 'option'):          'MIDPOINT',
-    }
-
     def _resolve_what_to_show_from_group(self, factor_group: str, factor_subgroup: str = '') -> str:
-        key = (factor_group, factor_subgroup or '')
-        return self._GROUP_SUBGROUP_TO_WHAT_TO_SHOW.get(key, 'TRADES')
+        """whatToShow from group / subgroup only (see what_to_show.resolve_what_to_show for the full rule)."""
+        return resolve_what_to_show(group=factor_group, subgroup=factor_subgroup)
 
     def _process_factor_chunk(self, factor_chunk: FactorBatch) -> List[FactorValue]:
         """
@@ -2451,7 +2444,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             existing = self.local_repo.get_latest_available_bar(
                 factor_id, entity_id, time_date,
                 bar_seconds=offset,
-                max_staleness_seconds=Factor.MAX_BAR_STALENESS_SECONDS,
+                require_current=True,
             )
         else:
             existing = self._check_existing_factor_value(factor_id, entity_id, time_date)
@@ -2735,38 +2728,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
     @staticmethod
     def _get_us_market_holidays(year: int):
         """Return the set of NYSE holiday dates for the given year."""
-        holidays = set()
-
-        def observed(d):
-            wd = d.weekday()
-            if wd == 5:   # Saturday → Friday
-                return d - timedelta(days=1)
-            if wd == 6:   # Sunday → Monday
-                return d + timedelta(days=1)
-            return d
-
-        def nth_weekday(yr, month, n, weekday):
-            first = date(yr, month, 1)
-            delta = (weekday - first.weekday()) % 7
-            return first + timedelta(days=delta) + timedelta(weeks=n - 1)
-
-        def last_weekday(yr, month, weekday):
-            last_day = date(yr, month, calendar.monthrange(yr, month)[1])
-            delta = (last_day.weekday() - weekday) % 7
-            return last_day - timedelta(days=delta)
-
-        holidays.add(observed(date(year, 1, 1)))           # New Year's Day
-        holidays.add(nth_weekday(year, 1, 3, 0))           # MLK Day (3rd Mon Jan)
-        holidays.add(nth_weekday(year, 2, 3, 0))           # Presidents' Day (3rd Mon Feb)
-        holidays.add(easter(year) - timedelta(days=2))     # Good Friday
-        holidays.add(last_weekday(year, 5, 0))             # Memorial Day (last Mon May)
-        if year >= 2022:
-            holidays.add(observed(date(year, 6, 19)))      # Juneteenth
-        holidays.add(observed(date(year, 7, 4)))           # Independence Day
-        holidays.add(nth_weekday(year, 9, 1, 0))           # Labor Day (1st Mon Sep)
-        holidays.add(nth_weekday(year, 11, 4, 3))          # Thanksgiving (4th Thu Nov)
-        holidays.add(observed(date(year, 12, 25)))         # Christmas Day
-        return holidays
+        from src.domain.entities.factor.bar_calendar import us_market_holidays
+        return set(us_market_holidays(year))
 
     def get_effective_market_datetime(self,
     time_date: str,

@@ -185,7 +185,7 @@ class TestSellAndLiquidation:
         tree.trade("AAPL", 10, 150.0, MON_16)
         tree.trade("MSFT", 2, 400.0, MON_16)
         tree.revalue(MON_16)
-        tree.close("AAPL", MON, 160.0)                                  # no new MSFT bar: still 400
+        tree.close("AAPL", MON, 160.0)                                  # MSFT unchanged: Monday bar 400
 
         tree.trade("AAPL", -4, 160.0, TUE_16)
         assert books(tree) == dict(aapl=6, msft=2, cash=98_340.0, orders=6, txns=6)
@@ -423,6 +423,7 @@ def ctx():
     c.p.seed_close("AAPL", FRI, 150.0)
     c.p.seed_close("MSFT", FRI, 400.0)
     c.p.seed_close("AAPL", MON, 155.0)
+    c.p.seed_close("MSFT", MON, 400.0)                                  # unchanged: a bar every session
     yield c
     c.p.close()
 
@@ -512,6 +513,7 @@ class TestTemporal:
     def test_a_revaluation_writes_only_at_its_valuation_timestamp(self, invested):
         t = invested
         t.close("AAPL", MON, 160.0)
+        t.unchanged_bars(TUE_16)                                        # market data (MSFT's Monday bar) first
         last_id = t.p.session.query(FactorValueModel.id).order_by(FactorValueModel.id.desc()).first()[0]
         mon_rows = {(r.factor_id, r.entity_id, r.value) for r in
                     t.p.session.query(FactorValueModel).filter(FactorValueModel.date == MON_16)}

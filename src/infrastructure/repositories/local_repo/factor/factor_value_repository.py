@@ -271,6 +271,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         bar_seconds: int,
         max_staleness_seconds: Optional[float] = None,
         entity_type: Optional[str] = None,
+        require_current: bool = False,
     ) -> Optional[FactorValue]:
         """Return the latest raw bar value whose bar had CLOSED at ``date_str``.
 
@@ -280,7 +281,10 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         bar stamped 09:30 that ends when the 12:00 bar starts).  Only closed bars
         are eligible, which prevents look-ahead.  When ``max_staleness_seconds``
         is given, a bar that closed longer ago than that is ignored (returns
-        None so the caller can fetch fresh data).
+        None so the caller can fetch fresh data). ``require_current`` applies the
+        trading-calendar rule instead (bar_calendar.bar_is_current): None as soon as
+        a newer bar should have closed — a missing bar is fetched, never replaced by
+        an older one.
         """
         try:
             target = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
@@ -314,6 +318,10 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             if max_staleness_seconds is not None:
                 if (target - chosen_close).total_seconds() > max_staleness_seconds:
                     return None
+            if require_current:
+                from src.domain.entities.factor.bar_calendar import bar_is_current
+                if not bar_is_current(_naive(chosen.date), chosen_close, target, bar_seconds):
+                    return None
             return self._to_entity(chosen)
         except Exception as e:
             print(
@@ -332,6 +340,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         since: Optional[datetime] = None,
         max_staleness_seconds: Optional[float] = None,
         entity_type: Optional[str] = None,
+        require_current: bool = False,
     ) -> List[float]:
         """Trailing values of a raw bar factor at ``date_str``, oldest first, as floats.
 
@@ -342,7 +351,7 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
         try:
             latest = self.get_latest_available_bar(factor_id, entity_id, date_str, bar_seconds,
                                                    max_staleness_seconds=max_staleness_seconds,
-                                                   entity_type=entity_type)
+                                                   entity_type=entity_type, require_current=require_current)
             if latest is None:
                 return []
             anchor = latest.date.replace(tzinfo=None) if getattr(latest.date, 'tzinfo', None) else latest.date
