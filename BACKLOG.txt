@@ -194,6 +194,8 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P3 · **Size** M · **Depends on** BI-020 · **Status: partial**
 - **Acceptance** submitted → acknowledged → partially filled → filled / cancelled / rejected transitions and duplicate-submission protection tested on one order-status model.
 - **Evidence** `tests/misbuffet/test_live_order_path.py` (36, 1 expected failure), `test_reconciler_lifecycle.py` (6), `test_order_safety.py` (25); two order-status enums (`src/domain/entities/finance/back_testing/enums.py`, `src/domain/entities/finance/order/order.py`).
+- **Done (2026-10-21)** one transition rule for every status model: `src/domain/entities/finance/order/order_state.py` (`advances(previous, filled, new, filled)`: submitted → partially filled with a growing cumulative fill → terminal; terminal is final, fills never decrease; every enum spelling — PENDING / NEW, PARTIAL_FILLED / PARTIALLY_FILLED, CANCELED / CANCELLED, INVALID / REJECTED / EXPIRED — maps to the same stage; unknown status raises). `InteractiveBrokersBroker._process_order_updates` applies it: late, repeated or out-of-order TWS callbacks are dropped (previously only exact duplicates were). Tests in `test_live_order_path.py`: forward-only sequence, cancel after partial fill, `OrderStateRuleTest` (3) — the sequence test fails with the old duplicate-only check.
+- **Remaining** merging the two `OrderStatus` enums (stored values differ: lower-case vs upper-case names — a data migration).
 
 ### BI-022 — Add pre-trade risk controls
 - **Priority** P3 · **Size** M · **Depends on** BI-021 · **Status: partial — shared gate done (2026-10-21); live wiring of the providers open**

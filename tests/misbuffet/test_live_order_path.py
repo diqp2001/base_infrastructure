@@ -276,6 +276,62 @@ class InteractiveBrokersBrokerOrderTest(unittest.TestCase):
         self.broker._process_order_updates()
         self.assertEqual([(e.status, e.fill_quantity) for e in events], [(OrderStatus.PARTIAL_FILLED, 4)])
 
+    def test_status_updates_only_move_forward(self):
+        """BI-021: submitted -> 4 -> 6 filled; a late 4-filled snapshot and a repeated one are dropped; the final
+        fill is reported once and ends the order."""
+        order = market("SPY", 10)
+        self.broker.pending_orders[9] = order
+        events = []
+        self.broker.order_event_handlers.append(events.append)
+        for status, filled in (("Submitted", 0), ("Submitted", 4), ("Submitted", 6), ("Submitted", 4),
+                               ("Submitted", 6), ("Filled", 10)):
+            self.tws.order_status[9] = {"status": status, "filled": filled, "remaining": 10 - filled,
+                                        "avgFillPrice": 500.0}
+            self.broker._process_order_updates()
+        self.assertEqual([(e.status, e.fill_quantity) for e in events],
+                         [(OrderStatus.SUBMITTED, 0), (OrderStatus.PARTIAL_FILLED, 4), (OrderStatus.PARTIAL_FILLED, 6),
+                          (OrderStatus.FILLED, 10)])
+        self.assertNotIn(9, self.broker.pending_orders)
+
+    def test_cancel_after_a_partial_fill_keeps_the_fill(self):
+        order = market("SPY", 10)
+        self.broker.pending_orders[10] = order
+        events = []
+        self.broker.order_event_handlers.append(events.append)
+        for status, filled in (("Submitted", 3), ("Cancelled", 3)):
+            self.tws.order_status[10] = {"status": status, "filled": filled, "remaining": 10 - filled,
+                                         "avgFillPrice": 500.0}
+            self.broker._process_order_updates()
+        self.assertEqual([(e.status, e.fill_quantity) for e in events],
+                         [(OrderStatus.PARTIAL_FILLED, 3), (OrderStatus.CANCELED, 3)])
+
+
+class OrderStateRuleTest(unittest.TestCase):
+    """The pure transition rule (src/domain/entities/finance/order/order_state.py), every enum spelling."""
+
+    def test_forward_moves(self):
+        from src.domain.entities.finance.order.order_state import advances
+        self.assertTrue(advances(None, 0, "SUBMITTED", 0))
+        self.assertTrue(advances("PENDING", 0, "SUBMITTED", 0))                 # persistence enum spelling
+        self.assertTrue(advances("SUBMITTED", 0, "PARTIAL_FILLED", 4))           # framework enum spelling
+        self.assertTrue(advances("PARTIALLY_FILLED", 4, "PARTIALLY_FILLED", 6))
+        self.assertTrue(advances(OrderStatus.PARTIAL_FILLED, 6, OrderStatus.FILLED, 10))
+        self.assertTrue(advances("PARTIALLY_FILLED", 6, "CANCELLED", 6))
+
+    def test_backward_repeated_and_after_terminal_moves_are_refused(self):
+        from src.domain.entities.finance.order.order_state import advances
+        self.assertFalse(advances("PARTIALLY_FILLED", 6, "PARTIALLY_FILLED", 4))
+        self.assertFalse(advances("PARTIALLY_FILLED", 6, "PARTIALLY_FILLED", 6))
+        self.assertFalse(advances("PARTIALLY_FILLED", 4, "SUBMITTED", 4))
+        self.assertFalse(advances("FILLED", 10, "CANCELLED", 10))
+        self.assertFalse(advances("CANCELED", 3, "FILLED", 10))
+        self.assertFalse(advances("SUBMITTED", 0, "SUBMITTED", 0))
+
+    def test_unknown_status_fails_loudly(self):
+        from src.domain.entities.finance.order.order_state import advances
+        with self.assertRaises(ValueError):
+            advances("SUBMITTED", 0, "HALF_DONE", 1)
+
 
 class TWSOrderIdTest(unittest.TestCase):
 

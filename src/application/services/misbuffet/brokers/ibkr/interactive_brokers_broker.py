@@ -25,6 +25,7 @@ from .ibkr_settings import (
 )
 
 from ..base_broker import BaseBroker, BrokerStatus, BrokerConnectionState
+from src.domain.entities.finance.order.order_state import advances
 from ...common import Symbol, Order, OrderEvent
 from ...common.enums import OrderType, OrderStatus, OrderDirection
 
@@ -409,10 +410,11 @@ class InteractiveBrokersBroker(BaseBroker):
                     status = OrderStatus.SUBMITTED
                 else:
                     continue
-                key = (status, filled)
-                if reported.get(ib_order_id) == key:
+                previous = reported.get(ib_order_id)
+                # BI-021: only forward moves (late / duplicate / out-of-order callbacks are dropped)
+                if not advances(previous[0] if previous else None, previous[1] if previous else 0, status, filled):
                     continue
-                reported[ib_order_id] = key
+                reported[ib_order_id] = (status, filled)
                 self._notify_order_event(OrderEvent(
                     order_id=order.id,
                     symbol=order.symbol,
