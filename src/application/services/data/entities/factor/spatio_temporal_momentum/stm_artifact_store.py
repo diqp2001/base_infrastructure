@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bar_key
 import torch
 
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_configuration import (
@@ -291,7 +293,7 @@ class STMArtifactStore:
         'latest_before'       : most recent artifact whose validation ended before as_of.
         Both require validation_end < as_of, so no model is used on dates it saw.
         """
-        d = pd.Timestamp(as_of).normalize()
+        d = bar_key(as_of, self.config.bar_minutes)
         candidates = [(a, m) for a, m in self.list_artifacts()
                       if m.get("validation_end") and pd.Timestamp(m["validation_end"]) < d]
         if not candidates:

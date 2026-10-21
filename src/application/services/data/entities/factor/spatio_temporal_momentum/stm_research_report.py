@@ -49,6 +49,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
     align_close_panel,
     build_feature_panel,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import periods_per_year
 
 ANN = 252
 COST_SCENARIOS_BPS = (0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0)
@@ -91,13 +92,13 @@ class STMResearchReport:
 # Metrics (paper section 5.4, annualised)
 # ---------------------------------------------------------------------------
 
-def strategy_metrics(r: pd.Series) -> Dict[str, float]:
+def strategy_metrics(r: pd.Series, periods_per_year: int = ANN) -> Dict[str, float]:
     r = pd.Series(r).dropna()
     if len(r) < 2:
         return {c: float("nan") for c in METRIC_COLUMNS}
-    mean_ann = r.mean() * ANN
-    vol = r.std(ddof=1) * math.sqrt(ANN)
-    downside = math.sqrt(np.mean(np.minimum(r, 0.0) ** 2)) * math.sqrt(ANN)
+    mean_ann = r.mean() * periods_per_year
+    vol = r.std(ddof=1) * math.sqrt(periods_per_year)
+    downside = math.sqrt(np.mean(np.minimum(r, 0.0) ** 2)) * math.sqrt(periods_per_year)
     wealth = np.concatenate([[1.0], np.cumprod(1.0 + r.to_numpy())])
     mdd = float(-np.min(wealth / np.maximum.accumulate(wealth) - 1.0))
     gains, losses = r[r > 0], r[r < 0]
@@ -114,19 +115,21 @@ def strategy_metrics(r: pd.Series) -> Dict[str, float]:
     }
 
 
-def metrics_table(returns: pd.DataFrame) -> pd.DataFrame:
-    return pd.DataFrame({c: strategy_metrics(returns[c]) for c in returns.columns}).T[METRIC_COLUMNS]
+def metrics_table(returns: pd.DataFrame, periods_per_year: int = ANN) -> pd.DataFrame:
+    return pd.DataFrame({c: strategy_metrics(returns[c], periods_per_year)
+                         for c in returns.columns}).T[METRIC_COLUMNS]
 
 
-def rescale_to_target_vol(r: pd.Series, target_vol: float, span: int) -> pd.Series:
+def rescale_to_target_vol(r: pd.Series, target_vol: float, span: int, periods_per_year: int = ANN) -> pd.Series:
     """Portfolio-level vol targeting with an ex-ante (lagged) EWM volatility estimate."""
-    ex_ante = r.ewm(span=span, min_periods=span).std().shift(1) * math.sqrt(ANN)
+    ex_ante = r.ewm(span=span, min_periods=span).std().shift(1) * math.sqrt(periods_per_year)
     return (r * target_vol / ex_ante).dropna()
 
 
-def average_turnover(positions: np.ndarray, vols: np.ndarray, target_vol: float) -> np.ndarray:
+def average_turnover(positions: np.ndarray, vols: np.ndarray, target_vol: float,
+                     periods_per_year: int = ANN) -> np.ndarray:
     """Eq. 12 averaged over assets: sigma_tgt * |X_t/sigma_t - X_{t-1}/sigma_{t-1}|."""
-    ann = vols * math.sqrt(ANN)
+    ann = vols * math.sqrt(periods_per_year)
     to = target_vol * np.abs(np.diff(positions / (ann + 1e-12), axis=0))
     return to.mean(axis=1)
 
@@ -247,6 +250,8 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
     labels, vols = panel.target[rows], panel.daily_vol[rows]
     feats = panel.features[rows]
     tgt = config.training.target_vol
+    ann = periods_per_year(config.bar_minutes)              # 252 daily, 252 x bars per session intraday
+    unit = "session" if not config.bar_minutes else f"{int(config.bar_minutes)}-minute bar"
 
     model_name = f"STM ({config.model.model_type.upper()})"
     stm = np.array([[by_session[panel.dates[i]].scores.get(a, 0.0) for a in panel.assets] for i in rows])
@@ -255,22 +260,23 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
     positions = {**benchmark_positions(feats, names, longest, config.features.macd_feature_names()),
                  model_name: stm}
 
-    raw = pd.DataFrame({k: captured_returns(p, labels, vols, 0.0, tgt) for k, p in positions.items()}, index=dates)
+    raw = pd.DataFrame({k: captured_returns(p, labels, vols, 0.0, tgt, ann) for k, p in positions.items()},
+                       index=dates)
     span = config.features.vol_lookback
-    rescaled = pd.DataFrame({k: rescale_to_target_vol(raw[k], tgt, span) for k in raw}).dropna()
+    rescaled = pd.DataFrame({k: rescale_to_target_vol(raw[k], tgt, span, ann) for k in raw}).dropna()
 
     costs = {}
     for k, p in positions.items():
         costs[k] = {}
         for c in COST_SCENARIOS_BPS:
-            net = pd.Series(captured_returns(p, labels, vols, c, tgt), index=dates)
-            costs[k][c] = strategy_metrics(rescale_to_target_vol(net, tgt, span))["Sharpe"]
+            net = pd.Series(captured_returns(p, labels, vols, c, tgt, ann), index=dates)
+            costs[k][c] = strategy_metrics(rescale_to_target_vol(net, tgt, span, ann), ann)["Sharpe"]
     table_costs = pd.DataFrame(costs).T
     table_costs.columns = [f"{c:g}" for c in COST_SCENARIOS_BPS]
 
-    turnover = pd.DataFrame({k: average_turnover(p, vols, tgt) for k, p in positions.items()}, index=dates[1:])
+    turnover = pd.DataFrame({k: average_turnover(p, vols, tgt, ann) for k, p in positions.items()}, index=dates[1:])
 
-    window = rolling_window or max(20, min(ANN, len(rescaled) // 3))
+    window = rolling_window or max(20, min(ann, len(rescaled) // 3))
     others = [c for c in ("TSMOM", "CSMOM", "MACD") if c in rescaled]
     rolling = pd.DataFrame({f"{model_name}-{o}": rescaled[model_name].rolling(window).corr(rescaled[o])
                             for o in others})
@@ -278,10 +284,10 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
     shap_res = None
     notes = [
         "DMN (reference model of the paper) is not implemented in this project and is not reported.",
-        f"TSMOM / CSMOM use the longest configured return horizon ({max(config.features.return_horizons)} days); "
+        f"TSMOM / CSMOM use the longest configured return horizon ({max(config.features.return_horizons)} {unit}s); "
         "the paper uses 252 days.",
-        f"Rescaled results target {tgt:.0%} annualised volatility with an ex-ante {span}-day EWM estimate.",
-        f"Rolling correlations use a {window}-session window (paper: 1 year).",
+        f"Rescaled results target {tgt:.0%} annualised volatility with an ex-ante {span}-{unit} EWM estimate.",
+        f"Rolling correlations use a {window}-{unit} window (paper: 1 year).",
     ]
     if factory is not None:
         store = STMArtifactStore(factory, config)
@@ -308,8 +314,8 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
         assets=list(panel.assets),
         raw_returns=raw,
         rescaled_returns=rescaled,
-        table_raw=metrics_table(raw),
-        table_rescaled=metrics_table(rescaled),
+        table_raw=metrics_table(raw, ann),
+        table_rescaled=metrics_table(rescaled, ann),
         table_costs=table_costs,
         cumulative=(1.0 + rescaled).cumprod(),
         correlation=rescaled.corr(),

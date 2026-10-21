@@ -95,7 +95,13 @@ class MisbuffetEngine(BaseEngine):
         config_interval = config_dict.get('custom_interval')
         # Check for custom intervals first (highest priority)
         if config_interval.get('custom_interval_minutes'):
-            return {'type': 'timedelta', 'value': timedelta(minutes=config_interval['custom_interval_minutes'])}
+            interval = {'type': 'timedelta', 'value': timedelta(minutes=config_interval['custom_interval_minutes'])}
+            # Optional intraday clock limited to a session ('HH:MM' strings): steps outside it jump to the next
+            # session start, so an intraday run does not visit every night-time minute.
+            if config_interval.get('session_start') and config_interval.get('session_end'):
+                interval['session'] = (datetime.strptime(config_interval['session_start'], "%H:%M").time(),
+                                       datetime.strptime(config_interval['session_end'], "%H:%M").time())
+            return interval
         
         if config_interval.get('custom_interval_hours'):
             return {'type': 'timedelta', 'value': timedelta(hours=config_interval['custom_interval_hours'])}
@@ -160,8 +166,16 @@ class MisbuffetEngine(BaseEngine):
         # Add interval
         # -----------------------------
         interval = interval_dict["value"]
+        next_date = current_date + interval
 
-        return current_date + interval
+        session = interval_dict.get("session")
+        if session:
+            start, end = session
+            if next_date.time() > end:
+                next_date = datetime.combine(next_date.date() + timedelta(days=1), start)
+            elif next_date.time() < start:
+                next_date = datetime.combine(next_date.date(), start)
+        return next_date
 
     def setup(self, data_feed=None, transaction_handler=None, result_handler=None, setup_handler=None):
         """Setup the engine with handlers."""
