@@ -2000,17 +2000,34 @@ class FactorValueResolutionService:
         if not inputs or observation is None or not frequency:
             return                                       # nothing traceable: quality stays unknown
         from src.domain.entities.factor.observation_quality import (
-            ObservationProvenance, ObservationStatus, SourceDataType,
+            ObservationProvenance, ObservationStatus, SourceDataType, ValidationResult,
         )
+        future = self._future_inputs(observation, inputs)
+        validations = ()
+        if future:
+            # BI-031: an input not yet available at the value's time (a bar stamped at its start closes one bar
+            # length later) is look-ahead — the value is recorded INVALID and never passes a quality requirement
+            reason = "inputs available only after " + str(observation.observed_at) + ": " + ", ".join(
+                f"{r.factor_id}:{r.entity_type}:{r.entity_id}@{r.observed_at}" for r in future[:5])
+            validations = (ValidationResult("no_future_inputs", False, reason),)
+            self.logger.error(f"Look-ahead in {factor_entity.name} for {observation}: {reason}")
         try:
             repo.record(ObservationProvenance(
                 observation=observation, field=factor_entity.name,
                 source=getattr(factor_entity, 'source', None) or 'calculated',
-                data_type=SourceDataType.CALCULATED, frequency=frequency, status=ObservationStatus.VALID,
+                data_type=SourceDataType.CALCULATED, frequency=frequency,
+                status=ObservationStatus.INVALID if future else ObservationStatus.VALID, validations=validations,
                 inputs=inputs, transformation=type(factor_entity).__name__,
                 policy_version=self.PROVENANCE_POLICY_VERSION))
         except Exception as e:
             self.logger.error(f"Lineage of {factor_entity.name} for {observation} not recorded: {e}")
+
+    def _future_inputs(self, observation, inputs) -> list:
+        """Inputs whose availability time (observed_at + the bar length of a raw bar, see
+        Factor.bar_availability_offset_seconds) is after the value they were used for."""
+        return [ref for ref in inputs
+                if ref.observed_at + timedelta(seconds=self._get_bar_offset_seconds(ref.factor_id))
+                > observation.observed_at]
 
     def _ineligible_inputs(self, factor_entity, target_date) -> list:
         """Reasons why inputs of the current frame fail the factor's `quality_requirement` ([] = all eligible or

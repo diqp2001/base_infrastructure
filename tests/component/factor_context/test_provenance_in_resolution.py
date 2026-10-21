@@ -184,3 +184,27 @@ def test_ibkr_bid_ask_bars_are_validated_as_quotes(world):
     assert get("good").status is S.VALID
     assert get("crossed").status is S.INVALID and "not_crossed" in [v.rule for v in get("crossed").failed_validations]
     assert get("wide").status is S.INVALID and "max_spread_bps" in [v.rule for v in get("wide").failed_validations]
+
+
+# ---- look-ahead (BI-031) ----------------------------------------------------------------------
+
+def test_an_input_not_yet_available_makes_the_value_invalid(world):
+    """The last close is available on Monday 16:00 (closed bar). If that bar were 7 days long it would not be
+    yet: using it on Monday is look-ahead — recorded INVALID with the reason, never VALID."""
+    cls = factor("CompanyShareMidPriceFactor")
+    close_id = close_ref(world).factor_id
+    real = world.service._get_bar_offset_seconds
+    with patch.object(world.service, "_get_bar_offset_seconds",
+                      side_effect=lambda fid: 7 * 86400 if fid == close_id else real(fid)):
+        world.resolve(cls, world.share["AAPL"])
+    stored = provenance(world).get(value_ref(world, cls, world.share["AAPL"]))
+    assert stored.status is S.INVALID
+    assert stored.failed_validations[0].rule == "no_future_inputs"
+    assert not QualityRequirement().check(stored, T)
+
+
+def test_closed_bars_are_not_look_ahead(world):
+    cls = factor("CompanyShareMidPriceFactor")
+    world.resolve(cls, world.share["AAPL"])
+    stored = provenance(world).get(value_ref(world, cls, world.share["AAPL"]))
+    assert stored.status is S.VALID and stored.validations == ()
