@@ -69,6 +69,49 @@ def validate_bar_value(value, is_price: bool) -> List[ValidationResult]:
     return results
 
 
+OHLC_FIELDS = ("open", "high", "low", "close")
+
+
+def validate_ohlc(bar: dict) -> List[ValidationResult]:
+    """Cross-field integrity of one bar (BI-030): low <= open, close <= high. Checked only when the four prices are
+    present and valid numbers (a missing or invalid field is reported by validate_bar_value). A failure is an
+    integrity error of the bar, not a market move: every field of the bar is affected."""
+    try:
+        o, h, l, c = (float(bar[k]) for k in OHLC_FIELDS)
+    except (KeyError, TypeError, ValueError):
+        return []
+    if not all(math.isfinite(x) and x > 0 for x in (o, h, l, c)):
+        return []
+    results = [ValidationResult("high_ge_low", h >= l, "" if h >= l else f"high {h} < low {l}")]
+    for name, x in (("open", o), ("close", c)):
+        ok = l <= x <= h
+        results.append(ValidationResult(f"{name}_within_range", ok, "" if ok else f"{name} {x} outside [{l}, {h}]"))
+    return results
+
+
+def validate_option_price(price: float, underlying: float, strike: float, right: str, discount_factor: float = 1.0,
+                          tolerance: float = 0.0) -> List[ValidationResult]:
+    """No-arbitrage bounds of a European option price per unit (BI-030), `discount_factor` = exp(-r T):
+    call in [max(0, S - K·DF), S], put in [max(0, K·DF - S), K·DF]. American options may sit above the
+    European lower bound but never below it. `tolerance` (absolute) absorbs quote noise; a violation is an
+    integrity finding (stale underlying, wrong strike / right / multiplier), not a market move."""
+    if not all(_finite(x) for x in (price, underlying, strike, discount_factor)):
+        return [ValidationResult("option_inputs_finite", False, "price, underlying, strike and discount must be finite")]
+    right = (right or "").upper()[:1]
+    if right not in ("C", "P"):
+        return [ValidationResult("option_right", False, f"unknown option right {right!r}")]
+    pv_strike = strike * discount_factor
+    low, high = (max(0.0, underlying - pv_strike), underlying) if right == "C" else (max(0.0, pv_strike - underlying),
+                                                                                       pv_strike)
+    results = []
+    ok = price >= low - tolerance
+    results.append(ValidationResult("option_lower_bound", ok, "" if ok else
+                                    f"price {price} below intrinsic {low:.4f} (S={underlying}, K={strike})"))
+    ok = price <= high + tolerance
+    results.append(ValidationResult("option_upper_bound", ok, "" if ok else f"price {price} above bound {high:.4f}"))
+    return results
+
+
 def validate_quote(quote: Quote, policy: QuotePolicy, decision_time: Optional[datetime] = None) -> List[ValidationResult]:
     results: List[ValidationResult] = []
     for side, price in (("bid", quote.bid), ("ask", quote.ask)):

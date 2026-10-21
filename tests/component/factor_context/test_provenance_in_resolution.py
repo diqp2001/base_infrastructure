@@ -136,3 +136,27 @@ def test_ibkr_ingestion_records_data_type_and_validation(world):
     assert (good.status, good.data_type, good.source) == (S.VALID, D.MIDPOINT, "ibkr")
     assert good.received_at is not None and good.received_at >= days[0]
     assert bad.status is S.REJECTED and bad.failed_validations[0].rule == "positive_price"
+
+
+def test_ibkr_ingestion_flags_an_inconsistent_bar(world):
+    """BI-030: a bar whose close is above its high is stored but INVALID (every field of it); a consistent bar of
+    the same response stays VALID."""
+    from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+    from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
+    factors, stored = [], []
+    good_day, bad_day = datetime(2026, 1, 6), datetime(2026, 1, 7)
+    bars = {good_day: dict(open="100", high="102", low="99", close="101"),
+            bad_day: dict(open="100", high="102", low="99", close="105")}
+    for name in ("open", "high", "low", "close"):
+        model = world.s.query(CompanyShareFactorModel).filter_by(name=name, frequency="1d").first()
+        factors.append(SimpleNamespace(id=model.id, name=name, group="price", frequency="1d"))
+        for day, bar in bars.items():
+            stored.append(world.f.factor_value_local_repo.add(FactorValue(
+                id=None, factor_id=model.id, entity=None, entity_id=world.share["AAPL"].id,
+                entity_type="CompanyShare", date=day, value=bar[name])))
+    IBKRFactorValueRepository._record_raw_provenance(SimpleNamespace(factory=world.f), stored, factors, "TRADES")
+    for f in factors:
+        good = provenance(world).get(ObservationRef(f.id, "CompanyShare", world.share["AAPL"].id, good_day))
+        bad = provenance(world).get(ObservationRef(f.id, "CompanyShare", world.share["AAPL"].id, bad_day))
+        assert good.status is S.VALID
+        assert bad.status is S.INVALID and [v.rule for v in bad.failed_validations] == ["close_within_range"]

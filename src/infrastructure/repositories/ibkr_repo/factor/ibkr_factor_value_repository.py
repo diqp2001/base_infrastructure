@@ -815,7 +815,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         from src.domain.entities.factor.observation_quality import (
             ObservationProvenance, ObservationRef, ObservationStatus, SourceDataType,
         )
-        from src.domain.entities.factor.quote_validation import validate_bar_value
+        from src.domain.entities.factor.quote_validation import OHLC_FIELDS, validate_bar_value, validate_ohlc
         try:
             data_type = SourceDataType(str(what_to_show))
         except ValueError:
@@ -823,6 +823,14 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             return
         by_id = {getattr(f, 'id', None): f for f in (factors or [])}
         now = datetime.now(_timezone.utc).replace(tzinfo=None)
+        # cross-field bar integrity (BI-030): the OHLC fields of one bar, stored together, must be consistent
+        bars = {}
+        for value in stored_values:
+            factor = by_id.get(getattr(value, 'factor_id', None))
+            name = str(getattr(factor, 'name', '')).lower()
+            if factor is not None and name in OHLC_FIELDS:
+                bars.setdefault((value.entity_type, value.entity_id, value.date), {})[name] = value.value
+        bar_checks = {key: validate_ohlc(fields) for key, fields in bars.items()}
         for value in stored_values:
             factor = by_id.get(getattr(value, 'factor_id', None))
             if factor is None or not getattr(value, 'entity_type', None) or not getattr(value, 'entity_id', None):
@@ -830,7 +838,11 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             # shared bar rules (BI-027): finite number; > 0 for a price (0 is IBKR's no-trade placeholder)
             checks = validate_bar_value(value.value, is_price=getattr(factor, 'group', None) == 'price'
                                         and str(factor.name).lower() != 'volume')
-            failed = any(not c.passed for c in checks)
+            rejected = any(not c.passed for c in checks)
+            factor_name = str(factor.name).lower()
+            ohlc = bar_checks.get((value.entity_type, value.entity_id, value.date), []) if factor_name in OHLC_FIELDS                 else []
+            checks = list(checks) + ohlc
+            inconsistent = any(not c.passed for c in ohlc)
             observed = value.date.replace(tzinfo=None) if getattr(value.date, 'tzinfo', None) else value.date
             try:
                 repo.record(ObservationProvenance(
@@ -838,7 +850,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                                                value.entity_id, observed),
                     field=factor.name, source='ibkr', data_type=data_type,
                     frequency=getattr(factor, 'frequency', None) or 'unknown',
-                    status=ObservationStatus.REJECTED if failed else ObservationStatus.VALID,
+                    status=(ObservationStatus.REJECTED if rejected else
+                            ObservationStatus.INVALID if inconsistent else ObservationStatus.VALID),
                     received_at=max(now, observed), ingested_at=max(now, observed), validations=tuple(checks),
                     policy_version="provenance-v1", selection=selection or ""))
             except Exception as e:

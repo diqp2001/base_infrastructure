@@ -74,3 +74,33 @@ def test_invalid_quotes_cannot_enter_calculations_that_require_valid_ones():
                                        data_type=D.BID_ASK, frequency="1d", status=status_from(results),
                                        validations=tuple(results))
     assert not QualityRequirement().check(provenance, T)
+
+
+def test_ohlc_consistency():
+    from src.domain.entities.factor.quote_validation import validate_ohlc
+    assert failed(validate_ohlc(dict(open="100", high="102", low="99", close="101"))) == {}
+    assert failed(validate_ohlc(dict(open=100, high=98, low=99, close=99))) == {
+        "high_ge_low": "high 98.0 < low 99.0", "open_within_range": "open 100.0 outside [99.0, 98.0]",
+        "close_within_range": "close 99.0 outside [99.0, 98.0]"}
+    assert failed(validate_ohlc(dict(open=100, high=110, low=95, close=111))) == {
+        "close_within_range": "close 111.0 outside [95.0, 110.0]"}
+    assert validate_ohlc(dict(open=100, high=110, low=95)) == []                  # incomplete: not judged
+    assert validate_ohlc(dict(open="0", high=110, low=95, close=100)) == []       # placeholder: validate_bar_value's
+
+
+@pytest.mark.parametrize("price, right, rule", [
+    (4.0, "C", "option_lower_bound"),     # S 110, K 100: intrinsic 10 (stale underlying or wrong strike)
+    (120.0, "C", "option_upper_bound"),   # a call above the share itself
+    (101.0, "P", "option_upper_bound"),   # a put above the strike
+])
+def test_option_prices_outside_no_arbitrage_bounds_are_findings(price, right, rule):
+    from src.domain.entities.factor.quote_validation import validate_option_price
+    assert rule in failed(validate_option_price(price, 110.0, 100.0, right))
+
+
+def test_option_prices_inside_the_bounds_pass():
+    from src.domain.entities.factor.quote_validation import validate_option_price
+    assert failed(validate_option_price(12.5, 110.0, 100.0, "CALL", discount_factor=0.99)) == {}
+    assert failed(validate_option_price(0.05, 110.0, 100.0, "P")) == {}                # deep OTM put, cheap: fine
+    assert failed(validate_option_price(9.98, 110.0, 100.0, "C", tolerance=0.05)) == {}  # within quote noise
+    assert "option_right" in failed(validate_option_price(1.0, 110.0, 100.0, "X"))
