@@ -186,6 +186,7 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P2 · **Size** M · **Depends on** BI-010, BI-012 · **Status: partial**
 - **Acceptance** historical universe membership, signal timing, execution assumptions, transaction costs, returns, drawdowns and reproducibility tested; the pinned engine defect fixed.
 - **Evidence** `tests/misbuffet/test_backtest_engine.py` (11, 1 expected failure), `test_performance_metrics.py` (15), SPX v2 report metrics (`tests/market_making_spx_v2/test_spx_v2_report.py`). Gaps: transaction costs, as-of universe membership, reproducibility check.
+- **Status 2026-10-21** the pinned engine defect is fixed (no expected failure left in `test_backtest_engine.py`); reproducibility: STM end to end (BI-017); look-ahead in signal inputs detected (BI-031); option multiplier in execution (BI-009). **Needs a decision**: transaction costs — no commission / slippage model is applied by `TradeManager`; choosing one (per-share, per-contract, bps) changes every backtest result, so the model and its parameters are the owner's call. As-of universe membership remains.
 
 ### BI-019 — Add factor and portfolio performance benchmarks
 - **Priority** P2 · **Size** S–M · **Depends on** BI-011 · **Status: partial — budgets recorded (2026-10-21)**
@@ -216,9 +217,10 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Remaining** wire the providers for live / paper runs (account summary + positions from `IBTWSClient` snapshots, prices from the latest stored bar or a quote) and attach the gate where the live broker is built; per-project limits in the project configs.
 
 ### BI-023 — Complete read-only operational dashboard
-- **Priority** P3 · **Size** S–M · **Depends on** BI-020 · **Status: partial (mostly complete)** · **See also** BI-034 (data-quality metrics)
+- **Priority** P3 · **Size** S–M · **Depends on** BI-020 · **Status: complete (2026-10-21)** · **See also** BI-034 (data-quality metrics)
 - **Acceptance** service health, IBKR connectivity, data freshness, job failures and account summary shown; read-only enforced by tests (no mutating routes, read-only IBKR client, read-only DB login).
 - **Evidence** `docs/MONITORING.md`; `tests/monitoring/` (51 tests: read-only API, network exposure, IBKR monitor, staleness, jobs); `ReadOnlyIBKRClient` blocks order calls; compose service `monitor` with `monitor_reader` (db_datareader).
+- **Done (2026-10-21)** every acceptance view exists and is read-only by test: `status/database` + `status/connections` (service health), `status/ibkr` (connectivity), `market-data/status` (freshness), `jobs/status` (job failures), `account/summary` (+ positions / orders), and now `data-quality/status` (BI-034); 54 monitoring tests (only GET / HEAD / OPTIONS routes, no DB write, secrets redacted, read-only IBKR client).
 
 ### BI-024 — Add integration and recovery tests
 - **Priority** P3 · **Size** L · **Depends on** BI-006, BI-020, BI-002 · **Status: partial (minimal)**
