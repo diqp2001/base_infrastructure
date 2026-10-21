@@ -112,8 +112,6 @@ ignore_imports = [
     "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor_repository -> src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_model_provider",
     "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_spatio_temporal_momentum_factor_repository -> src.application.services.data.entities.factor.spatio_temporal_momentum.stm_model_provider",
     "src.infrastructure.repositories.repository_factory -> src.application.services.misbuffet.brokers.broker_factory",
-    "src.infrastructure.algorithm.base_algorithm -> src.application.services.misbuffet.**",
-    "src.infrastructure.algorithm.infrastructure_algorithm -> src.application.services.misbuffet.**",
 ]
 
 [[tool.importlinter.contracts]]
