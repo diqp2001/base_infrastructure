@@ -85,7 +85,8 @@ def test_repository_defaults_and_refusals(world):
     )
     assert repo._create_or_get(CompanyShareFactor, "close", group="price", frequency="8h").subgroup == "MIDPOINT"
     assert repo._create_or_get(CompanyShareFactor, "volume", group="price", frequency="8h").subgroup == "TRADES"
-    assert repo._create_or_get(CompanyShareFactor, "close", group="price", subgroup="ohlc", frequency="8h") is None
+    coerced = repo._create_or_get(CompanyShareFactor, "close", group="price", subgroup="ohlc", frequency="8h")
+    assert coerced.subgroup == "MIDPOINT"                                 # converted, never stored as 'ohlc'
 
 
 # ---- reading: one series, in order ---------------------------------------------------------------
@@ -137,3 +138,44 @@ def test_a_refused_midpoint_series_falls_back_to_a_created_trades_series(world):
     assert world.s.query(CompanyShareFactorModel).filter_by(name="close", subgroup="TRADES").count() == 1
     assert value == pytest.approx(world.closes["AAPL"][-1])              # served by legacy until TRADES is fetched
     assert world.s.query(FactorValueModel).filter_by(factor_id=midpoint.id).count() == 0
+
+
+def test_every_factor_repository_names_the_series_of_a_raw_ibkr_field(world):
+    """All repositories (bond / index futures, indices, options, shares, ...): a raw IBKR close requested with a
+    legacy subgroup is stored under a whatToShow, and a lookup that found the legacy row returns the right series."""
+    from src.infrastructure.repositories.local_repo.factor.base_factor_repository import BaseFactorRepository
+    checked, bad = 0, {}
+    for key, repo in world.f.create_local_repositories().items():
+        if not isinstance(repo, BaseFactorRepository) or not hasattr(repo, "get_factor_entity"):
+            continue
+        try:
+            cls = repo.get_factor_entity()
+        except Exception:
+            continue
+        try:
+            got = repo._create_or_get(cls, "close", group="price", subgroup="daily", frequency="8h", source="ibkr")
+        except TypeError:
+            continue                                                       # repositories with another signature
+        if got is None or getattr(got, "source", None) != "ibkr":
+            continue
+        checked += 1
+        if got.subgroup not in WHAT_TO_SHOW:
+            bad[key] = got.subgroup
+    assert checked >= 5 and bad == {}
+
+
+def test_a_lookup_that_ignores_the_subgroup_still_returns_the_requested_series(world):
+    """BondFutureFactorRepository looks factors up without the subgroup: with a legacy 'daily' close stored, asking
+    for TRADES must not return the legacy row."""
+    from src.domain.entities.factor.finance.financial_assets.derivatives.future.bond_future.bond_future_factor import (
+        BondFutureFactor,
+    )
+    from src.infrastructure.models.factor.factor import BondFutureFactorModel
+    world.s.add(BondFutureFactorModel(name="close", group="price", subgroup="daily", frequency="8h",
+                                      data_type="numeric", source="ibkr", definition="legacy",
+                                      factor_type="bond_future_factor"))
+    world.s.commit()
+    repo = world.f.get_local_repository("BondFutureFactor")
+    got = repo._create_or_get(BondFutureFactor, "close", group="price", subgroup="TRADES", frequency="8h")
+    assert got.subgroup == "TRADES"
+    assert repo._create_or_get(BondFutureFactor, "close", group="price", subgroup="TRADES", frequency="8h").id == got.id

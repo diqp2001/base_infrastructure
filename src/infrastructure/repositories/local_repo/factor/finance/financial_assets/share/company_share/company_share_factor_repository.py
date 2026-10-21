@@ -61,7 +61,7 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
             # BI-036: a raw IBKR bar field names its series — subgroup = whatToShow; without one, the series
             # read first for that field (price fields MIDPOINT, volume TRADES). Legacy 'ohlc' is no longer a default.
             from src.domain.entities.factor.source_policy import (
-                is_raw_bar_field, reading_order, validate_raw_definition,
+                is_raw_bar_field, reading_order,
             )
             defaults = {'data_type': 'numeric', 'source': 'ibkr'}
             if not kwargs.get('subgroup'):
@@ -69,7 +69,6 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
                 defaults['subgroup'] = (reading_order("CompanyShare", kwargs.get('group', 'price'), primary_key)[0]
                                         if source == 'ibkr' and is_raw_bar_field(primary_key) else 'ohlc')
             kwargs = self._normalize_kwargs({**defaults, **kwargs})
-            validate_raw_definition(primary_key, kwargs.get('group'), kwargs.get('subgroup'), kwargs.get('source'))
             group     = kwargs.get('group')
             subgroup  = kwargs.get('subgroup')
             frequency = kwargs.get('frequency')

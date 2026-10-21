@@ -2,6 +2,7 @@
 Base repository class for factor entities with common CRUD operations.
 """
 
+import functools
 import logging
 from abc import ABC
 from typing import Optional
@@ -14,12 +15,83 @@ from src.domain.entities.factor.factor import Factor as FactorEntity
 logger = logging.getLogger(__name__)
 
 
+def _raw_series_guard(create_or_get):
+    """BI-036 for EVERY factor repository: a raw IBKR bar field (open / high / low / close / volume / barCount /
+    wap) is one series per whatToShow — its subgroup must be a whatToShow value (source_policy.WHAT_TO_SHOW).
+
+    - a missing or non-whatToShow subgroup ('daily', 'ohlc', ...) becomes the field's first series in reading order
+      (price fields MIDPOINT, volume TRADES), with a warning when one was given;
+    - many repositories look up an existing factor WITHOUT the subgroup: if the factor returned belongs to another
+      series (e.g. a legacy 'daily' close), the requested series is found or created instead."""
+
+    @functools.wraps(create_or_get)
+    def wrapper(self, *args, **kwargs):
+        from src.domain.entities.factor.source_policy import is_raw_bar_field, is_what_to_show, reading_order
+        name = kwargs.get('primary_key')
+        if name is None:
+            name = next((a for a in args if isinstance(a, str)), None)
+        source = kwargs.get('source')
+        if not is_raw_bar_field(name) or (source is not None and source != 'ibkr'):
+            return create_or_get(self, *args, **kwargs)
+        requested = kwargs.get('subgroup')
+        if is_what_to_show(requested):
+            wanted = requested
+        else:
+            instrument = self._factor_class_name().removesuffix('Factor')
+            wanted = reading_order(instrument, kwargs.get('group') or 'price', name)[0]
+            if requested:
+                logger.warning(f"raw IBKR factor {name!r}: subgroup {requested!r} is not an IBKR whatToShow — "
+                               f"using the {wanted} series (BI-036)")
+            kwargs['subgroup'] = wanted
+        factor = create_or_get(self, *args, **kwargs)
+        if factor is None or getattr(factor, 'source', None) != 'ibkr' or getattr(factor, 'subgroup', None) == wanted:
+            return factor
+        return self._series_of(factor, wanted)
+
+    wrapper._raw_series_guarded = True
+    return wrapper
+
+
 class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
     """Repository managing Factor entities, their values."""
 
     def __init__(self, session: Session):
         """Initialize repository with a database type."""
         super().__init__(session)
+
+    def __init_subclass__(cls, **kwargs):
+        """Every concrete factor repository's _create_or_get enforces the raw IBKR series rule (_raw_series_guard)."""
+        super().__init_subclass__(**kwargs)
+        method = cls.__dict__.get('_create_or_get')
+        if method is not None and not getattr(method, '_raw_series_guarded', False):
+            cls._create_or_get = _raw_series_guard(method)
+
+    def _factor_class_name(self) -> str:
+        try:
+            return self.get_factor_entity().__name__
+        except Exception:
+            return type(self).__name__.removesuffix('Repository')
+
+    def _series_of(self, factor, subgroup: str):
+        """The factor of the same type / name / group / frequency in series `subgroup` — found, or created."""
+        row = self.session.get(FactorModel, factor.id) if getattr(factor, 'id', None) is not None else None
+        factor_type = getattr(row, 'factor_type', None)
+        query = self.session.query(FactorModel).filter(
+            FactorModel.name == factor.name, FactorModel.group == factor.group,
+            FactorModel.frequency == factor.frequency, FactorModel.subgroup == subgroup)
+        if factor_type is not None:
+            query = query.filter(FactorModel.factor_type == factor_type)
+        existing = query.first()
+        if existing is not None:
+            return self._to_entity(existing)
+        entity = self.get_factor_entity()(
+            name=factor.name, group=factor.group, subgroup=subgroup, frequency=factor.frequency,
+            data_type=getattr(factor, 'data_type', None) or 'numeric', source='ibkr',
+            definition=getattr(factor, 'definition', None) or f"{factor.name} {subgroup}")
+        model = self._to_model(entity)
+        self.session.add(model)
+        self.session.commit()
+        return self._to_entity(model)
 
     # ── Field normalizers ────────────────────────────────────────────────────
     # All concrete factor repos inherit these.  They convert non-canonical
