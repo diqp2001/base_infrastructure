@@ -282,6 +282,10 @@ class TWSOrderIdTest(unittest.TestCase):
     def setUp(self):
         self.client = IBTWSClient("127.0.0.1", 1, 1)
         self.client.is_connected = lambda: True
+        self.client.managedAccounts("DU1234567")                    # paper login, matches the default mode
+        env = patch.dict("os.environ", {"IBKR_ACCOUNT_MODE": "paper"})
+        env.start()
+        self.addCleanup(env.stop)
 
     def test_ids_increase_and_follow_next_valid_id_after_reconnect(self):
         with patch.object(self.client, "placeOrder") as place:
@@ -304,6 +308,72 @@ class TWSOrderIdTest(unittest.TestCase):
             self.client.place_order(Mock(symbol="SPY"), Mock(action="BUY", totalQuantity=1))
             self.client.nextValidId(5)
             self.assertEqual(self.client.place_order(Mock(symbol="SPY"), Mock(action="BUY", totalQuantity=1)), 11)
+
+
+class ConnectedAccountGuardTest(unittest.TestCase):
+    """BI-005: TWS sends nothing unless the logged-in account matches IBKR_ACCOUNT_MODE (paper DU… vs live U…)."""
+
+    def client(self, accounts, mode="paper"):
+        client = IBTWSClient("127.0.0.1", 1, 1)
+        client.is_connected = lambda: True
+        if accounts is not None:
+            client.managedAccounts(accounts)
+        env = {"IBKR_ACCOUNT_MODE": mode, "IBKR_ALLOW_LIVE": "yes" if mode == "live" else ""}
+        patcher = patch.dict("os.environ", env)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return client
+
+    def place(self, client, account=""):
+        with patch.object(client, "placeOrder") as place:
+            try:
+                client.place_order(Mock(symbol="SPY"), Mock(action="BUY", totalQuantity=1, account=account))
+            finally:
+                self.sent = place.call_count
+        return self.sent
+
+    def refused(self, client, account=""):
+        from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import AccountModeMismatch
+        with self.assertRaises(AccountModeMismatch):
+            self.place(client, account)
+        self.assertEqual(self.sent, 0)
+
+    def test_paper_mode_sends_to_a_paper_account(self):
+        self.assertEqual(self.place(self.client("DU1234567")), 1)
+
+    def test_paper_mode_refuses_a_live_login(self):
+        self.refused(self.client("U1234567"))
+
+    def test_live_mode_refuses_a_paper_login(self):
+        self.refused(self.client("DU1234567", mode="live"))
+
+    def test_live_mode_sends_to_a_live_account(self):
+        self.assertEqual(self.place(self.client("U1234567", mode="live")), 1)
+
+    def test_unknown_account_is_refused(self):
+        self.refused(self.client(None))
+
+    def test_order_account_must_be_managed_and_of_the_mode(self):
+        client = self.client("DU1234567,U7654321")
+        self.assertEqual(self.place(client, account="DU1234567"), 1)
+        self.refused(client, account="U7654321")
+        self.refused(client, account="DU0000000")
+        self.refused(client)                                        # default account is ambiguous: refused
+
+    def test_refusal_does_not_consume_an_order_id(self):
+        client = self.client("U1234567")
+        client.nextValidId(10)
+        self.refused(client)
+        self.assertEqual(client.next_order_id, 10)
+
+    def test_broker_reports_a_refused_order_as_not_placed(self):
+        broker = InteractiveBrokersBroker.__new__(InteractiveBrokersBroker)
+        broker.logger = logging.getLogger("InteractiveBrokersBroker")
+        broker.pending_orders = {}
+        broker.ib_connection = self.client("U1234567")
+        with patch.object(broker.ib_connection, "placeOrder") as place:
+            self.assertFalse(broker._place_order_impl(market("SPY", 10)))
+        place.assert_not_called()
 
 
 class LiveModeWiringTest(unittest.TestCase):

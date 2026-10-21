@@ -10,6 +10,8 @@ import threading
 from datetime import datetime
 from typing import List
 
+from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import verify_connected_accounts
+
 
 class IBTWSClient(EWrapper, EClient):
     """
@@ -546,6 +548,9 @@ class IBTWSClient(EWrapper, EClient):
         """Place an order with TWS."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
+        # BI-005: the account TWS is logged into must match IBKR_ACCOUNT_MODE (paper DU… vs live)
+        order_account = getattr(order, "account", "")
+        verify_connected_accounts(self.get_managed_accounts(), order_account if isinstance(order_account, str) else "")
 
         order_id = self.next_order_id
         self.next_order_id += 1

@@ -15,6 +15,14 @@ variables, applied once in InteractiveBrokersBroker:
                         extra connection attempts and seconds between them (default 0 / 5)
 
 With none of these variables set (Windows .venv) nothing changes.
+
+Orders (BI-005): the only call sending an order is IBTWSClient.place_order, which calls
+verify_connected_accounts first: the account TWS reports in ``managedAccounts`` must be of the
+configured mode (paper accounts start with D: DU…, DF…), otherwise AccountModeMismatch and
+nothing is sent. Connections built elsewhere with a hard-coded 7497 (project trainers,
+api_service.ibkr_service, broker_factory defaults, monitoring) are data-only or reach TWS
+through that same order path, so the port they were given never decides paper vs live.
+tests/architecture/test_order_paths.py keeps it that way.
 """
 
 import os
@@ -58,8 +66,65 @@ def account_mode() -> str:
     return mode
 
 
+class AccountModeMismatch(PermissionError):
+    """The account TWS / IB Gateway is logged into is not the kind IBKR_ACCOUNT_MODE allows: no order is sent."""
+
+
+PAPER_ACCOUNT_PREFIX = "D"      # IBKR paper accounts: DU… (individual), DF… / DI… (advisor / broker masters)
+
+
+def account_kind(account_id: str) -> str:
+    return "paper" if account_id.strip().upper().startswith(PAPER_ACCOUNT_PREFIX) else "live"
+
+
+def verify_connected_accounts(accounts, order_account: str = "", mode: Optional[str] = None) -> None:
+    """Raise AccountModeMismatch unless the order would go to an account of the configured mode.
+
+    ``accounts`` is what TWS reported in ``managedAccounts`` for this connection. Fail closed: no reported
+    account, or an order account the connection does not manage, refuses the order. Without an order
+    account TWS uses its default account, so every managed account must match the mode."""
+    mode = mode or account_mode()
+    managed = [a.strip() for a in (accounts or []) if a and a.strip()]
+    if not managed:
+        raise AccountModeMismatch("connected account unknown (TWS sent no managedAccounts): order refused")
+    order_account = (order_account or "").strip()
+    if order_account and order_account not in managed:
+        raise AccountModeMismatch(f"order account {order_account} is not managed by this connection {managed}")
+    wrong = [a for a in ([order_account] if order_account else managed) if account_kind(a) != mode]
+    if wrong:
+        raise AccountModeMismatch(f"IBKR_ACCOUNT_MODE={mode} but the connected account(s) {wrong} are "
+                                  f"{account_kind(wrong[0])}: order refused")
+
+
+def validate_environment() -> None:
+    """Check every IBKR_* variable at once; raise ValueError listing all the problems (before any connection)."""
+    errors = []
+    for name in ("IBKR_PORT", "IBKR_CLIENT_ID", "IBKR_CONNECT_RETRIES"):
+        try:
+            value = _int_env(name)
+        except ValueError as e:
+            errors.append(str(e))
+            continue
+        if value is not None and value < 0:
+            errors.append(f"{name} must be >= 0, got {value}")
+    delay = os.getenv("IBKR_CONNECT_RETRY_DELAY")
+    if delay:
+        try:
+            if float(delay) < 0:
+                errors.append(f"IBKR_CONNECT_RETRY_DELAY must be >= 0, got {delay!r}")
+        except ValueError:
+            errors.append(f"IBKR_CONNECT_RETRY_DELAY must be a number, got {delay!r}")
+    try:
+        account_mode()
+    except (ValueError, RuntimeError) as e:
+        errors.append(str(e))
+    if errors:
+        raise ValueError("invalid IBKR settings: " + "; ".join(errors))
+
+
 def resolve_endpoint(host: str, port: int, client_id: int) -> IBKREndpoint:
     """Endpoint after applying the IBKR_* environment overrides to the configured values."""
+    validate_environment()
     env_host = (os.getenv("IBKR_HOST") or "").strip() or None
     env_port = _int_env("IBKR_PORT")
     env_client = _int_env("IBKR_CLIENT_ID")

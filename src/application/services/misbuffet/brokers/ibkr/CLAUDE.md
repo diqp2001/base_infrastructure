@@ -10,6 +10,24 @@
 
 ---
 
+## Paper / live guard — one order path (BI-005)
+
+| Check | Where | When |
+|-------|-------|------|
+| `IBKR_*` variables valid (all problems listed at once) | `ibkr_settings.validate_environment` | `resolve_endpoint`, i.e. `InteractiveBrokersBroker.__init__`, before connecting |
+| `IBKR_ACCOUNT_MODE=live` needs `IBKR_ALLOW_LIVE=yes` | `ibkr_settings.account_mode` | same |
+| logged-in account matches the mode (paper = `D…`, e.g. `DU1234567`) | `ibkr_settings.verify_connected_accounts` | every `IBTWSClient.place_order`, before an order id is used |
+
+- Fail closed: no `managedAccounts` received, an `order.account` the login does not manage, or a
+  multi-account login with no `order.account` → `AccountModeMismatch`, nothing sent; the broker
+  (`_place_order_impl`) reports the order as not placed.
+- `IBTWSClient.place_order` is the **only** `placeOrder` call in `src`
+  (`tests/architecture/test_order_paths.py`). Other connections with a hard-coded `7497`
+  (project trainers, `api_service/ibkr_service`, `broker_factory` defaults, monitoring) are
+  data-only or go through this path — never add a second `placeOrder`.
+
+---
+
 ## `format_ib_datetime` — end_date_time conversion rules
 
 `get_historical_data` passes `end_date_time` through `format_ib_datetime` before sending
