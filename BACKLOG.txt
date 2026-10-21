@@ -183,9 +183,11 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Evidence** `tests/misbuffet/test_backtest_engine.py` (11, 1 expected failure), `test_performance_metrics.py` (15), SPX v2 report metrics (`tests/market_making_spx_v2/test_spx_v2_report.py`). Gaps: transaction costs, as-of universe membership, reproducibility check.
 
 ### BI-019 — Add factor and portfolio performance benchmarks
-- **Priority** P2 · **Size** S–M · **Depends on** BI-011 · **Status: partial (minimal)**
+- **Priority** P2 · **Size** S–M · **Depends on** BI-011 · **Status: partial — budgets recorded (2026-10-21)**
 - **Acceptance** query count and time budgets for dependency resolution, batch calculation and portfolio aggregation, recorded before any optimisation.
 - **Evidence** `tests/performance/test_query_counts.py` (2 tests, `performance` marker, excluded from the fast suite). An SPX v2 backtest of 18 bars takes ~15 min.
+- **Done (2026-10-21)** portfolio aggregation budget `test_portfolio_aggregation_statements_grow_linearly`: one valuation of the whole tree (holdings → share portfolio → main + cash) — baseline 256 SQL statements for 2 holdings, 616 for 8 (~60 per holding + ~136), 0.27 s on SQLite; fails if statements per holding grow with the number of holdings or exceed 1 000 for 8. With the resolution (statements per share) and set_holdings (per ticker) budgets, the three acceptance budgets are recorded before any optimisation. Run: `python -m pytest -m performance -s`.
+- **Remaining** the SPX v2 backtest wall-clock (~50 s per bar) profile — where the time goes before optimising.
 
 ### BI-020 — Harden IBKR connection lifecycle
 - **Priority** P3 · **Size** M · **Depends on** BI-005 · **Status: partial**

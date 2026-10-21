@@ -94,3 +94,31 @@ def test_set_holdings_statements_per_ticker():
     print(f"\nset_holdings: {per2:.0f} statements/ticker (2 tickers), {per8:.0f} (8 tickers), "
           f"{costs[8]['seconds'] / 8 * 1000:.0f} ms/ticker")
     assert per8 <= per2 * 2.0, "statements per ticker grow superlinearly with the number of tickers"
+
+
+def valuation_cost(n):
+    """Statements and time to value the whole portfolio tree (n share holdings + cash) once (BI-019)."""
+    p = SqlitePortfolio(shares=universe(n))
+    try:
+        for t in universe(n):
+            p.seed_close(t, FRIDAY, 100.0)
+            assert p.trade(t, 5, 100.0, when=T0)
+        p.upm._algorithm.time = T0
+        with count_statements(p.engine) as c:
+            value = p.upm.get_portfolio_value(backtest_date=T0)
+        assert float(getattr(value, "value", value)) == pytest.approx(100_000.0)
+        return c
+    finally:
+        p.close()
+
+
+def test_portfolio_aggregation_statements_grow_linearly():
+    """BI-019 budget, recorded before any optimisation: statements per holding must not grow with the number of
+    holdings (N+1 across the holding -> sub-portfolio -> main layers), with a generous absolute ceiling."""
+    small, large = valuation_cost(2), valuation_cost(8)
+    per_small, per_large = small["n"] / 2, large["n"] / 8
+    print(f"\nportfolio valuation: {small['n']} statements for 2 holdings, {large['n']} for 8 "
+          f"({per_large:.0f}/holding), {large['seconds'] * 1000:.0f} ms for 8")
+    # baseline 2026-10-21 (SQLite): 256 statements for 2 holdings, 616 for 8 (~60 per holding + ~136), 0.27 s
+    assert per_large <= per_small * 1.5, "statements per holding grow with the number of holdings (N+1)"
+    assert large["n"] < 1000 and large["seconds"] < 60
