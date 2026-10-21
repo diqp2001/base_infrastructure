@@ -35,6 +35,8 @@ PROJECTS = {
     "5m": ("5-minute clock", "src.application.managers.project_managers.spatio_temporal_momentum_project_5m.config"),
     "full": ("Paper universe (46 US financials)",
              "src.application.managers.project_managers.spatio_temporal_momentum_project_full.config"),
+    "10m": ("Paper universe, model trained on 10-minute bars",
+            "src.application.managers.project_managers.spatio_temporal_momentum_project_10m.config"),
 }
 
 

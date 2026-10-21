@@ -123,7 +123,11 @@ class STMConfiguration:
     features: STMFeatureConfig = field(default_factory=STMFeatureConfig)
     model: STMModelConfig = field(default_factory=STMModelConfig)
     training: STMTrainingConfig = field(default_factory=STMTrainingConfig)
-    prediction_horizon: int = 1            # trading days; reference = next-day return
+    prediction_horizon: int = 1            # rows: next session (daily) or next bar (intraday)
+    # None = one row per session (the original daily projects); e.g. 10 = one row per 10-minute bar: every
+    # window above (return horizons, vol / MACD spans, lookback, rolling rows) is then counted in bars, and
+    # features.annualisation must be periods per year (stm_time.periods_per_year)
+    bar_minutes: Optional[int] = None
     artifact_selection: str = "covering_test_window"  # or 'latest_before'
     artifact_dir: Optional[str] = None
     ml_model_name_prefix: str = "stm_"
@@ -165,6 +169,8 @@ class STMConfiguration:
             "prediction_horizon": self.prediction_horizon,
             "scaling": self.training.scaling,
         }
+        if self.bar_minutes:                      # absent for daily models: their existing hashes are unchanged
+            payload["bar_minutes"] = self.bar_minutes
         return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
     def hash(self) -> str:

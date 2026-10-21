@@ -15,15 +15,19 @@ from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
 
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bar_key, next_key
+
 
 class STMPriceHistoryReader:
 
     def __init__(self, factory, close_factor_name: str = "close",
-                 factor_type: str = "company_share_factor", frequency: Optional[str] = "1d"):
+                 factor_type: str = "company_share_factor", frequency: Optional[str] = "1d",
+                 bar_minutes: Optional[int] = None):
         self.factory = factory
         self.close_factor_name = close_factor_name
         self.factor_type = factor_type
         self.frequency = frequency
+        self.bar_minutes = bar_minutes           # None: one row per session; e.g. 10: one row per 10-minute bar
 
     def _close_factor_ids(self, session) -> List[int]:
         return [fid for fid, _ in self._close_factors(session)]
@@ -71,7 +75,7 @@ class STMPriceHistoryReader:
             q = q.filter(FactorValueModel.date >= pd.Timestamp(start).to_pydatetime())
         if end is not None:
             # inclusive of the whole end session
-            q = q.filter(FactorValueModel.date < (pd.Timestamp(end).normalize() + pd.Timedelta(days=1)).to_pydatetime())
+            q = q.filter(FactorValueModel.date < next_key(end, self.bar_minutes).to_pydatetime())
 
         rows = q.all()
         # one series per asset: the best-ranked series that has data in the window (never a mix of types)
@@ -90,7 +94,7 @@ class STMPriceHistoryReader:
             ts = pd.Timestamp(dt)
             if ts.tzinfo is not None:
                 ts = ts.tz_localize(None)
-            records.append((ts.normalize(), assets[entity_id], px))
+            records.append((bar_key(ts, self.bar_minutes), assets[entity_id], px))
 
         if not records:
             return pd.DataFrame(columns=columns, dtype=float)
@@ -114,21 +118,23 @@ class STMFrontierPriceReader:
     """
 
     def __init__(self, history_service, close_factor_name: str = "close",
-                 factor_type: str = "company_share_factor", frequency: Optional[str] = "1d"):
+                 factor_type: str = "company_share_factor", frequency: Optional[str] = "1d",
+                 bar_minutes: Optional[int] = None):
         self.history_service = history_service
         self.close_factor_name = close_factor_name
         self.factor_type = factor_type
         self.frequency = frequency
+        self.bar_minutes = bar_minutes
 
     def load_close_panel(self, assets: Dict[int, str], start=None, end=None) -> pd.DataFrame:
         panel = self.history_service.get_factor_value_panel(
             assets, factor_name=self.close_factor_name, factor_type=self.factor_type,
             frequency=self.frequency,
             start=pd.Timestamp(start).to_pydatetime() if start is not None else None,
-            end=(pd.Timestamp(end).normalize() + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)).to_pydatetime()
+            end=(next_key(end, self.bar_minutes) - pd.Timedelta(microseconds=1)).to_pydatetime()
             if end is not None else None,
         )
         if len(panel):
-            panel.index = pd.DatetimeIndex(panel.index).normalize()
+            panel.index = pd.DatetimeIndex([bar_key(t, self.bar_minutes) for t in panel.index])
             panel = panel.groupby(level=0).last()
         return panel

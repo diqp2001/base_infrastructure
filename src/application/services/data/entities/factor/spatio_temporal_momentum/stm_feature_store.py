@@ -20,6 +20,10 @@ from typing import Dict, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import (
+    bar_key, frequency, next_key,
+)
+
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_configuration import (
     STMConfiguration,
 )
@@ -29,8 +33,8 @@ SIGNAL_FACTOR_TYPE = "company_share_spatio_temporal_momentum_factor"
 ENTITY_TYPE = "CompanyShare"
 
 
-def _as_session_datetime(d) -> datetime:
-    return pd.Timestamp(d).normalize().to_pydatetime()
+def _as_session_datetime(d, bar_minutes=None) -> datetime:
+    return bar_key(d, bar_minutes).to_pydatetime()
 
 
 class STMFeatureStore:
@@ -52,8 +56,8 @@ class STMFeatureStore:
                 repo.get_factor_entity(),
                 primary_key=f"{self.config.feature_factor_prefix}{name}",
                 group="momentum",
-                subgroup="daily",
-                frequency="1d",
+                subgroup="daily" if not self.config.bar_minutes else "minutes",
+                frequency=frequency(self.config.bar_minutes),
                 factor_type=FEATURE_FACTOR_TYPE,
                 definition=f"Spatio-Temporal Momentum input feature: {name}",
             )
@@ -68,8 +72,8 @@ class STMFeatureStore:
             repo.get_factor_entity(),
             primary_key=self.config.signal_factor_name,
             group="momentum",
-            subgroup="daily",
-            frequency="1d",
+            subgroup="daily" if not self.config.bar_minutes else "minutes",
+            frequency=frequency(self.config.bar_minutes),
             factor_type=SIGNAL_FACTOR_TYPE,
             definition="Spatio-Temporal Momentum model signal",
         )
@@ -87,15 +91,15 @@ class STMFeatureStore:
         rows = session.query(FactorValueModel.factor_id, FactorValueModel.entity_id, FactorValueModel.date).filter(
             FactorValueModel.factor_id.in_(list(factor_ids)),
             FactorValueModel.entity_id.in_(list(entity_ids)),
-            FactorValueModel.date >= _as_session_datetime(start),
-            FactorValueModel.date <= _as_session_datetime(end),
+            FactorValueModel.date >= _as_session_datetime(start, self.config.bar_minutes),
+            FactorValueModel.date <= _as_session_datetime(end, self.config.bar_minutes),
         ).all()
         keys = set()
         for fid, eid, dt in rows:
             ts = pd.Timestamp(dt)
             if ts.tzinfo is not None:
                 ts = ts.tz_localize(None)
-            keys.add((int(fid), int(eid), ts.normalize()))
+            keys.add((int(fid), int(eid), bar_key(ts, self.config.bar_minutes)))
         return keys
 
     def _bulk_insert(self, mappings: List[dict]) -> int:
@@ -127,7 +131,7 @@ class STMFeatureStore:
                                        panel.dates[rows[0]], panel.dates[rows[-1]])
         mappings = []
         for i in rows:
-            d = panel.dates[i].normalize()
+            d = bar_key(panel.dates[i], self.config.bar_minutes)
             for a_idx, asset in enumerate(panel.assets):
                 eid = asset_entity_ids.get(asset)
                 if eid is None:
@@ -146,7 +150,7 @@ class STMFeatureStore:
     def write_signals(self, as_of, scores: Dict[int, float]) -> int:
         """Persist one signal per constituent entity id for session ``as_of``."""
         factor = self.ensure_signal_factor()
-        d = pd.Timestamp(as_of).normalize()
+        d = bar_key(as_of, self.config.bar_minutes)
         existing = self._existing_keys([factor.id], scores.keys(), d, d)
         mappings = [
             {"factor_id": int(factor.id), "entity_id": int(eid), "entity_type": ENTITY_TYPE,
@@ -171,10 +175,10 @@ class STMFeatureStore:
         ).all()]
         if not fids:
             return {}
-        d = pd.Timestamp(as_of).normalize()
+        d = bar_key(as_of, self.config.bar_minutes)
         rows = session.query(FactorValueModel.entity_id, FactorValueModel.value).filter(
             FactorValueModel.factor_id.in_(fids),
             FactorValueModel.date >= d.to_pydatetime(),
-            FactorValueModel.date < (d + pd.Timedelta(days=1)).to_pydatetime(),
+            FactorValueModel.date < next_key(d, self.config.bar_minutes).to_pydatetime(),
         ).all()
         return {int(eid): float(v) for eid, v in rows}

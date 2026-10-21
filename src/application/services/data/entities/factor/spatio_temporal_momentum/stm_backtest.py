@@ -32,9 +32,9 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 
 
 def captured_returns(preds: np.ndarray, returns: np.ndarray, vols: np.ndarray, c: float,
-                     target_vol: float = 0.15) -> np.ndarray:
-    """Daily universe return net of turnover costs (reference unpack_data). Inputs are [S, N]."""
-    ann_vols = vols * 252 ** 0.5
+                     target_vol: float = 0.15, periods_per_year: int = 252) -> np.ndarray:
+    """Per-row universe return net of turnover costs (reference unpack_data). Inputs are [S, N]."""
+    ann_vols = vols * periods_per_year ** 0.5
     T = target_vol * np.abs(np.diff(preds / (ann_vols + 1e-12), prepend=0.0, axis=0))
     R = returns * preds - 1e-4 * c * T
     return np.mean(R, axis=1)
@@ -92,7 +92,7 @@ def evaluate_with_baselines(model_preds: np.ndarray, samples, feature_names: Lis
 
 
 def signals_to_weights(signals: Dict[str, float], daily_vol: Dict[str, float], target_vol: float = 0.15,
-                       gross_cap: Optional[float] = None) -> Dict[str, float]:
+                       gross_cap: Optional[float] = None, periods_per_year: int = 252) -> Dict[str, float]:
     """
     Portfolio weights equivalent to the research return R = mean(pred * r * target_vol / ann_vol):
         w_i = signal_i * target_vol / (ann_vol_i * N)
@@ -107,7 +107,7 @@ def signals_to_weights(signals: Dict[str, float], daily_vol: Dict[str, float], t
         if vol is None or not np.isfinite(vol) or vol <= 0:
             weights[asset] = 0.0
             continue
-        weights[asset] = float(s) * target_vol / (vol * 252 ** 0.5) / n
+        weights[asset] = float(s) * target_vol / (vol * periods_per_year ** 0.5) / n     # vol is per row
     if gross_cap:
         gross = sum(abs(w) for w in weights.values())
         if gross > gross_cap:

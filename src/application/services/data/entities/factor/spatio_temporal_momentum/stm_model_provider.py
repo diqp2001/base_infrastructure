@@ -22,6 +22,10 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import (
+    bar_key, bars_per_session,
+)
+
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_artifact_store import (
     LoadedArtifact,
     STMArtifactStore,
@@ -80,7 +84,7 @@ class SpatioTemporalMomentumModelProvider:
         return self._model_cache[key]
 
     def score_universe(self, as_of, persist: bool = False) -> Dict[int, float]:
-        d = pd.Timestamp(as_of).normalize()
+        d = bar_key(as_of, self.config.bar_minutes)
         cache_key = (self.config.model_hash(), d)
         if cache_key in self._score_cache:
             return self._score_cache[cache_key]
@@ -105,20 +109,21 @@ class SpatioTemporalMomentumModelProvider:
         """Per constituent: ticker, entity_id, score and daily vol at ``as_of`` (for portfolio construction)."""
         if self.artifact_store is None or self.price_reader is None:
             return []
-        selected = self.artifact_store.select(pd.Timestamp(as_of).normalize())
+        selected = self.artifact_store.select(bar_key(as_of, self.config.bar_minutes))
         if selected is None:
             return []
         return self.score_details_with_artifact(self._load(selected[0]), as_of)
 
     def score_details_with_artifact(self, loaded: LoadedArtifact, as_of) -> List[Dict[str, Any]]:
-        d = pd.Timestamp(as_of).normalize()
         cfg = loaded.config
+        d = bar_key(as_of, cfg.bar_minutes)
         id_to_asset = {eid: a for a, eid in loaded.asset_entity_ids.items()}
         if loaded.metadata.get("history_start"):
             start = pd.Timestamp(loaded.metadata["history_start"])
         else:
             history_days = cfg.features.required_history_days(cfg.model.lookback)
-            start = d - pd.Timedelta(days=int(history_days * 7 / 5) + 30)  # weekend/holiday padding
+            sessions = -(-history_days // bars_per_session(cfg.bar_minutes))        # rows -> sessions
+            start = d.normalize() - pd.Timedelta(days=int(sessions * 7 / 5) + 30)  # weekend/holiday padding
         closes = self.price_reader.load_close_panel(id_to_asset, start=start, end=d)
         closes = closes[closes.index <= d]
         closes, _report = align_close_panel(closes.reindex(columns=loaded.assets))
@@ -129,7 +134,7 @@ class SpatioTemporalMomentumModelProvider:
             X, row_date = build_inference_input(panel, d, cfg.model.lookback, loaded.scaler)
         except ValueError:
             return []
-        if pd.Timestamp(row_date).normalize() != d:
+        if bar_key(row_date, cfg.bar_minutes) != d:
             # an asset of this model has no close for the session (inner join dropped it):
             # never score from a stale row — the trading cycle retrains without that asset
             return []

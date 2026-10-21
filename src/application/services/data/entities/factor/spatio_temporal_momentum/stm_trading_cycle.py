@@ -90,7 +90,9 @@ class STMTradingCycle:
         self.persist = persist
         self.log = log or (lambda msg: None)
 
-        self.reader = STMFrontierPriceReader(history_service)
+        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
+        self.reader = STMFrontierPriceReader(history_service, frequency=frequency(config.bar_minutes),
+                                             bar_minutes=config.bar_minutes)
         self.trainer = STMWalkForwardTrainer(config, factory=factory, log=self.log)
         self.artifact_store = STMArtifactStore(factory, config)
         self.provider = SpatioTemporalMomentumModelProvider(
@@ -207,8 +209,10 @@ class STMTradingCycle:
 
         result.scores = {d["ticker"]: d["score"] for d in details}
         result.daily_vol = {d["ticker"]: d["daily_vol"] for d in details}
+        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import periods_per_year
         result.weights = signals_to_weights(result.scores, result.daily_vol,
-                                            self.config.training.target_vol, self.gross_cap)
+                                            self.config.training.target_vol, self.gross_cap,
+                                            periods_per_year=periods_per_year(self.config.bar_minutes))
         if self.persist:
             self.feature_store.write_signals(session, {d["entity_id"]: d["score"] for d in details})
         return result

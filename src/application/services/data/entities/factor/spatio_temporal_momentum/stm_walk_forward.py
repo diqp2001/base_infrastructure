@@ -18,6 +18,8 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bar_key
+
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_artifact_store import (
     STMArtifactStore,
     build_artifact_metadata,
@@ -152,7 +154,7 @@ class STMWalkForwardTrainer:
         ``panel`` must only contain data available at ``as_of`` (frontier reader).
         """
         cfg = self.config
-        as_of = pd.Timestamp(as_of).normalize()
+        as_of = bar_key(as_of, cfg.bar_minutes)
         if len(panel.dates) and panel.dates[-1] > as_of:
             raise ValueError(f"Panel extends past the decision date {as_of.date()} (look-ahead)")
         start = as_of - pd.Timedelta(days=cfg.training.val_days)
