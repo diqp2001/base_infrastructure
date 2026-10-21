@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Any, Dict, Optional
 from datetime import date
 from sqlalchemy.orm import Session
 from src.infrastructure.repositories.local_repo.finance.financial_assets.financial_asset_repository import (
@@ -172,51 +171,3 @@ class IndexRepository(FinancialAssetRepository, IndexPort):
         except Exception as e:
             print(f"Error creating index for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return None
-
-    def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
-        """
-        Get index information from MarketData service.
-        
-        Args:
-            symbol: Index symbol
-            exchange: Exchange
-            currency: Currency
-            
-        Returns:
-            Dict with index information from MarketData
-        """
-        try:
-            # Attempt to get historical data to verify existence
-            if hasattr(self.market_data, 'get_index_historical_data'):
-                data = self.market_data.get_index_historical_data(
-                    symbol=symbol,
-                    exchange=exchange,
-                    currency=currency,
-                    duration_str="1 D",
-                    bar_size_setting="1 day"
-                )
-                
-                if data and len(data) > 0:
-                    return {
-                        'name': f"{symbol} Index",
-                        'base_value': 100.0,  # Default base value
-                        'base_date': None,
-                        'provider': exchange
-                    }
-            
-            # Return default information if MarketData fails
-            return {
-                'name': f"{symbol} Index",
-                'base_value': 100.0,
-                'base_date': None,
-                'provider': exchange
-            }
-            
-        except Exception as e:
-            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
-            return {
-                'name': f"{symbol} Index",
-                'base_value': 100.0,
-                'base_date': None,
-                'provider': exchange
-            }

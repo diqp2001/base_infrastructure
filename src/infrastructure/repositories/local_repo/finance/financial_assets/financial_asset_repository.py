@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 import os
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from decimal import Decimal
 
 from src.infrastructure.repositories.mappers.finance.financial_assets.financial_asset_mapper import FinancialAssetMapper
@@ -23,8 +23,6 @@ class FinancialAssetRepository(BaseLocalRepository[EntityType, ModelType], ABC):
 
         super().__init__(session)
         self.factory = kwargs.get('factory')
-        from src.application.services.api_service.ibkr_service.market_data import MarketData
-        self.market_data = MarketData()
         self.mapper = FinancialAssetMapper()
     @property
     def entity_class(self):

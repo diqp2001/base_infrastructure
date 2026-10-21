@@ -1,5 +1,4 @@
 import os
-from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from src.domain.ports.finance.financial_assets.derivatives.future.future_port import FuturePort
@@ -185,83 +184,3 @@ class FutureRepository(FinancialAssetRepository, FuturePort):
             print(f"Error creating future for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
             return None
         
-    def _get_info_from_market_data_ibkr(self, symbol: str, exchange: str, currency: str) -> Dict[str, Any]:
-        """
-        Get Future information from MarketData service.
-        
-        Args:
-            symbol: Future symbol
-            exchange: Exchange
-            currency: Currency
-            
-        Returns:
-            Dict with Future information from MarketData
-        """
-        try:
-            # Attempt to get historical data to verify existence
-            if hasattr(self.market_data, 'get_index_historical_data'):
-                data = self.market_data.get_future_historical_data(
-                    symbol=symbol,
-                    exchange=exchange,
-                    currency=currency,
-                    duration_str="1 D",
-                    bar_size_setting="1 day"
-                )
-                
-                if data and len(data) > 0:
-                    return {
-                        'name': f"{symbol} Future",
-                        'base_value': 100.0,  # Default base value
-                        'base_date': None,
-                        'provider': exchange
-                    }
-            
-            # Return default information if MarketData fails
-            return {
-                'name': f"{symbol} Future",
-                'base_value': 100.0,
-                'base_date': None,
-                'provider': exchange
-            }, self.create(**data)
-            
-        except Exception as e:
-            print(f"Warning: Could not get index info from MarketData for {symbol}: {str(e)}_{os.path.abspath(__file__)}")
-            return {
-                'name': f"{symbol} Future",
-                'base_value': 100.0,
-                'base_date': None,
-                'provider': exchange
-            }
-    
-    # def get_or_create(self, symbol: str, contract_name: str = None, future_type: str = 'INDEX',
-    #                   underlying_asset: str = None, exchange: str = 'CME', currency: str = 'USD', **kwargs) -> Optional[Future_Entity]:
-    #     """
-    #     Get or create a future by symbol with dependency resolution.
-        
-    #     Args:
-    #         symbol: Future symbol (e.g., 'ESZ5', 'CLZ5')
-    #         contract_name: Future contract name (optional, will default if not provided)
-    #         future_type: Type of future (INDEX, COMMODITY, BOND, CURRENCY)
-    #         underlying_asset: Underlying asset symbol (e.g., 'SPX' for ES futures)
-    #         exchange: Exchange name (defaults to 'CME')
-    #         currency: Contract currency (defaults to 'USD')
-    #         **kwargs: Additional future parameters
-            
-    #     Returns:
-    #         Future entity or None if creation failed
-    #     """
-    #     try:
-    #         # First try to get existing future
-    #         existing = self.get_by_symbol(symbol)
-    #         if existing:
-    #             return existing
-            
-    #         # Get or create currency dependency
-    #         currency_local_repo = self.factory.currency_local_repo
-    #         currency_entity = currency_local_repo.get_or_create(iso_code=currency)
-            
-    #         return self._create_or_get(symbol, contract_name, future_type, underlying_asset, exchange, currency, **kwargs)
-            
-    #     except Exception as e:
-    #         print(f"Error in get_or_create for future {symbol}: {e}_{os.path.abspath(__file__)}")
-    #         return None
