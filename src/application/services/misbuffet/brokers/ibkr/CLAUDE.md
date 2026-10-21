@@ -180,3 +180,30 @@ if days_to_expiry < 5 and not self.ibkr_client.has_market_data_subscription(cont
     )
     return None
 ```
+
+---
+
+## Historical request outcomes and the MIDPOINT permission finding (BI-037)
+
+`InteractiveBrokersBroker.request_history(...)` performs ONE reqHistoricalData and returns a `HistoryResult`
+(`history_result.py`): `complete` (bars + historicalDataEnd), `empty` (historicalDataEnd, zero bars), `failed`
+(IBKR error for that request id, classified: `permission`, `pacing`, `no_data`, `no_security`, `invalid`,
+`transient`, `other` — code and message kept verbatim), `timeout`, `not_sent`. `get_historical_data` returns bars
+only for `complete`: bars received before an error or a timeout are discarded (never stored as a full answer).
+Only `transient` / `pacing` / `timeout` are retried. IBKR notices (codes 2100–2199, 10167) no longer end a request.
+A finished request's state is removed, so late callbacks for it are ignored.
+
+**Diagnostic** (read-only, order methods blocked, client id 97 by default):
+
+    python -m src.application.services.misbuffet.brokers.ibkr.history_diagnostics MSFT
+    python -m src.application.services.misbuffet.brokers.ibkr.history_diagnostics SPY --types TRADES MIDPOINT --bar "8 hours"
+
+**Finding 2026-10-21 (live account, TWS on 127.0.0.1:7497)** — qualified MSFT (conId 272093, primary NASDAQ) and
+SPY (conId 756733, primary ARCA), same request path, durations 3 D, bars 1 day and 8 hours, useRTH True / False:
+TRADES returns bars every time; MIDPOINT, BID and ASK are refused immediately with 162 "No market data permissions
+for ISLAND STK" (MSFT) / "... for AMEX STK" (SPY) "Requested market data requires additional subscription for API".
+The contract, exchange routing and parameters are identical between the passing and failing requests: the cause is
+the account's missing US-equity QUOTE permission for the API session (trade history is available, quote history is
+not). Fix outside the code: subscribe to the US equity quote bundle in Client Portal (Settings > Market Data
+Subscriptions) and make sure it is shared with the API session. Until then the BI-036 reading order falls back to
+the TRADES series for stocks. Option quotes (OPRA) are a separate subscription: SPX v2 option MIDPOINT bars worked.

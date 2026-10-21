@@ -219,3 +219,75 @@ class TestRetries:
         broker.script = lambda r: [("error", *self.PACING)]
         assert broker.get_historical_data(stock(), timeout=5) == []
         assert len(broker.requests) == 1
+
+
+class TestRequestOutcomes:
+    """MIDPOINT diagnosis follow-up: every request ends as complete / empty / failed (classified) / timeout; a failed
+    or incomplete request never yields bars to store."""
+
+    PERMISSION = (162, "Historical Market Data Service error message:No market data permissions for ISLAND STK. "
+                       "Requested market data requires additional subscription for API.")
+
+    def result(self, broker, what="MIDPOINT", timeout=5):
+        return broker.request_history(stock(), "", "3 D", "1 day", what, timeout=timeout)
+
+    def test_bars_then_end_is_complete(self, broker):
+        broker.script = lambda r: [("bar", bar("20261019", 100.0)), ("bar", bar("20261020", 101.0)), ("end",)]
+        r = self.result(broker, "TRADES")
+        assert (r.status, len(r.bars), r.failure, r.ok) == ("complete", 2, None, True)
+
+    def test_end_without_bars_is_empty_not_a_failure(self, broker):
+        broker.script = lambda r: [("end",)]
+        r = self.result(broker)
+        assert (r.status, r.ok, r.failure) == ("empty", True, None)
+
+    def test_missing_permission_is_classified_and_final(self, broker):
+        broker.script = lambda r: [("error", *self.PERMISSION)]
+        r = self.result(broker)
+        assert (r.status, r.failure, r.retryable, r.error_code) == ("failed", "permission", False, 162)
+        assert "ISLAND STK" in r.explanation() and "quote subscription" in r.explanation()
+        assert broker.get_historical_data(stock(), timeout=5, what_to_show="MIDPOINT") == []
+        assert len(broker.requests) == 2                              # the get_* call above: one request, no retry
+
+    def test_other_errors_keep_their_code_and_message(self, broker):
+        broker.script = lambda r: [("error", 200, "No security definition has been found for the request")]
+        r = self.result(broker)
+        assert (r.failure, r.error_code) == ("no_security", 200) and "No security definition" in r.error_message
+
+    def test_partial_bars_followed_by_an_error_are_not_returned(self, broker):
+        broker.script = lambda r: [("bar", bar("20261019", 100.0)), ("error", 162, "HMDS query returned no data")]
+        r = self.result(broker)
+        assert (r.status, r.bars, r.partial_bars, r.failure) == ("failed", [], 1, "no_data")
+        assert broker.get_historical_data(stock(), timeout=5) == []
+
+    def test_a_notice_does_not_end_the_request(self, broker):
+        broker.script = lambda r: [("error", 2174, "Warning: You submitted request with date-time attributes"),
+                                   ("bar", bar("20261019", 100.0)), ("end",)]
+        assert self.result(broker).status == "complete"
+
+    def test_timeout_discards_partial_bars_and_cleans_up(self, broker):
+        broker.script = lambda r: [("bar", bar("20261019", 100.0))]
+        r = self.result(broker, timeout=1)
+        assert (r.status, r.bars, r.partial_bars, r.retryable) == ("timeout", [], 1, True)
+        conn = broker.ib_connection
+        assert r.req_id not in conn.historical_data and r.req_id not in conn.historical_data_done
+
+    def test_late_callbacks_for_a_finished_request_are_ignored(self, broker):
+        broker.script = lambda r: [("end",)]
+        r = self.result(broker)
+        broker.ib_connection.historicalData(r.req_id, bar("20261019", 100.0))       # arrives after the end
+        broker.ib_connection.historicalData(99999, bar("20261019", 100.0))          # unknown request id
+        assert r.req_id not in broker.ib_connection.historical_data
+        assert 99999 not in broker.ib_connection.historical_data
+
+    def test_not_connected_sends_nothing(self, broker):
+        broker.ib_connection.is_connected = lambda: False
+        r = self.result(broker)
+        assert (r.status, r.req_id) == ("not_sent", None) and broker.requests == []
+
+    def test_each_what_to_show_is_sent_as_requested(self, broker):
+        broker.script = lambda r: [("end",)]
+        for what in ("TRADES", "MIDPOINT", "BID", "ASK"):
+            self.result(broker, what)
+        assert [q["what"] for q in broker.requests] == ["TRADES", "MIDPOINT", "BID", "ASK"]
+        assert len({q["req_id"] for q in broker.requests}) == 4

@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo  # Python 3.9+
 from .IBTWSClient import IBTWSClient
 from .contract_resolver import ContractResolver
 from .ibkr_settings import (
-    connect_retries, connect_retry_delay, history_retries, history_retry_delay, is_transient_history_error,
+    connect_retries, connect_retry_delay, history_retries, history_retry_delay,
     resolve_endpoint,
 )
 
@@ -814,10 +814,9 @@ class InteractiveBrokersBroker(BaseBroker):
             # bounded number of times with exponential backoff (BI-029); an answer ("no data") is final.
             attempts, delay = 1 + history_retries(), history_retry_delay()
             for attempt in range(1, attempts + 1):
-                req_id, historical_bars, transient = self._request_history_once(
-                    contract, end_date_time, duration_str, bar_size_setting, what_to_show, use_rth, format_date,
-                    timeout, is_transient_history_error)
-                if not transient:
+                result = self.request_history(contract, end_date_time, duration_str, bar_size_setting,
+                                              what_to_show, use_rth, format_date, timeout)
+                if not result.retryable:
                     break
                 if attempt < attempts:
                     wait = delay * 2 ** (attempt - 1)
@@ -827,9 +826,12 @@ class InteractiveBrokersBroker(BaseBroker):
                 else:
                     self.logger.error(f"Historical data for {contract.symbol}: still failing after "
                                       f"{attempts} attempts, giving up")
-
+            self.last_history_result = result
+            historical_bars = result.bars if result.status == "complete" else []
             if not historical_bars:
-                self.logger.warning(f"No historical data received for {contract.symbol}")
+                log = self.logger.error if result.failure == "permission" else self.logger.warning
+                log(f"No historical data for {contract.symbol} {what_to_show} ({duration_str}, "
+                    f"{bar_size_setting}, end {end_date_time}, RTH={use_rth}): {result.explanation()}")
                 return []
             
             # Format bars according to IB Bar format
@@ -848,9 +850,6 @@ class InteractiveBrokersBroker(BaseBroker):
             
             self.logger.info(f"Historical data complete for {contract.symbol}: {len(formatted_bars)} bars")
 
-            # Clean up stored data
-            self.ib_connection.historical_data.pop(req_id, None)
-
             if self.max_import_ibkr:
                 self._historical_data_cache[cache_key] = formatted_bars
 
@@ -860,9 +859,13 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
             return []
     
-    def _request_history_once(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
-                              use_rth, format_date, timeout, is_transient):
-        """One reqHistoricalData round trip: (req_id, bars received, whether the failure is worth a retry)."""
+    def request_history(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
+                        use_rth=True, format_date=1, timeout=90):
+        """One reqHistoricalData round trip -> HistoryResult (status, bars, IBKR error, elapsed). The request's
+        state is removed afterwards, so a late callback for it is ignored. `end_date_time` is already formatted."""
+        from .history_result import COMPLETE, EMPTY, FAILED, NOT_SENT, TIMEOUT, HistoryResult
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return HistoryResult(None, NOT_SENT, what_to_show)
         # BI-029: wait as IBKR's pacing rules require before sending (instead of a pacing violation + retry)
         contract_key = (getattr(contract, "conId", 0) or getattr(contract, "localSymbol", "") or contract.symbol,
                         contract.secType, what_to_show)
@@ -872,8 +875,11 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.info(f"Historical data for {contract.symbol}: waited {waited:.1f}s for IBKR pacing")
         # Unique request ID (a hash modulo 10 000 could collide with another live request)
         req_id = self._next_request_id()
-        self.logger.info(f"Requesting historical data for {contract.symbol} ({duration_str}, {bar_size_setting})")
-        self.ib_connection.request_historical_data(
+        self.logger.info(f"Requesting historical data for {contract.symbol} {what_to_show} "
+                         f"({duration_str}, {bar_size_setting}, RTH={use_rth})")
+        started = time.monotonic()
+        conn = self.ib_connection
+        conn.request_historical_data(
             req_id=req_id,
             contract=contract,
             end_date_time=end_date_time,
@@ -886,17 +892,25 @@ class InteractiveBrokersBroker(BaseBroker):
         # Wait for historicalDataEnd (or an error for this request) — not for "some bars and 2 s",
         # which returned a partial history when bars arrived slowly and always waited the full
         # timeout when the answer was empty.
-        done = getattr(self.ib_connection, "historical_data_done", {}).get(req_id)
-        if done is None or not done.wait(timeout):
-            self.logger.warning(f"Historical data for {contract.symbol} incomplete after {timeout}s "
-                                f"(no historicalDataEnd)")
-            self.ib_connection.historical_data.pop(req_id, None)
-            return req_id, [], done is not None
-        error = getattr(self.ib_connection, "historical_data_errors", {}).pop(req_id, None)
+        done = getattr(conn, "historical_data_done", {}).get(req_id)
+        finished = done is not None and done.wait(timeout)
+        bars = list(conn.historical_data.get(req_id, []))
+        error = getattr(conn, "historical_data_errors", {}).get(req_id)
+        # forget the request: a late bar / end / error for it can no longer reach another request
+        conn.historical_data.pop(req_id, None)
+        getattr(conn, "historical_data_errors", {}).pop(req_id, None)
+        getattr(conn, "historical_data_done", {}).pop(req_id, None)
+        elapsed = time.monotonic() - started
         if error is not None:
-            self.logger.warning(f"Historical data for {contract.symbol}: IBKR error {error[0]}: {error[1]}")
-        bars = self.ib_connection.historical_data.get(req_id, [])
-        return req_id, bars, (not bars and error is not None and is_transient(error[0], error[1]))
+            result = HistoryResult(req_id, FAILED, what_to_show, [], error[0], error[1], elapsed, len(bars))
+        elif not finished:
+            result = HistoryResult(req_id, TIMEOUT, what_to_show, [], elapsed=elapsed, partial_bars=len(bars))
+        else:
+            result = HistoryResult(req_id, COMPLETE if bars else EMPTY, what_to_show, bars, elapsed=elapsed)
+        if result.status != COMPLETE:
+            self.logger.warning(f"Historical data for {contract.symbol} {what_to_show} (req {req_id}): "
+                                f"{result.explanation()}")
+        return result
 
     def _history_pacer(self):
         """The process-wide IBKR historical pacer (an instance attribute replaces it in tests)."""

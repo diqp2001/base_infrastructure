@@ -107,7 +107,8 @@ class IBTWSClient(EWrapper, EClient):
     def error(self, reqId: TickerId, errorCode: int, errorString: str, advancedOrderRejectJson=""):
         """Error callback."""
         done = getattr(self, "historical_data_done", {}).get(reqId)
-        if done is not None and errorCode not in (2104, 2106, 2107, 2158, 2176):
+        from .history_result import is_warning
+        if done is not None and not is_warning(errorCode):     # notices (21xx, 10167) do not end a request
             # e.g. 162 "no historical data", 200 "no security definition": the request is over
             self.historical_data_errors[reqId] = (errorCode, errorString)
             done.set()
@@ -318,7 +319,9 @@ class IBTWSClient(EWrapper, EClient):
         self.logger.info(f"Market data type for req {reqId}: {data_type_name}")
 
     def historicalData(self, reqId: int, bar):
-        """Historical data callback."""
+        """Historical data callback. Bars of a request that is no longer active (finished, timed out) are ignored."""
+        if reqId not in getattr(self, "historical_data_done", {}):
+            return
         if reqId not in self.historical_data:
             self.historical_data[reqId] = []
 

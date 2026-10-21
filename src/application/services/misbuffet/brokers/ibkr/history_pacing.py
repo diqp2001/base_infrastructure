@@ -13,7 +13,7 @@ The clock and sleep are injectable for tests.
 import threading
 import time
 from collections import deque
-from typing import Callable, Deque, Dict, Hashable, Tuple
+from typing import Callable, Deque, Dict, Hashable
 
 WINDOW_SECONDS, WINDOW_LIMIT = 600.0, 60
 IDENTICAL_SECONDS = 15.0
