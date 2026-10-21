@@ -98,3 +98,13 @@ def test_a_training_failure_gives_no_value_and_is_logged(tmp_path, failure, capl
     with patch(TRAINER, **side), caplog.at_level(logging.ERROR):
         assert provider._get_or_train_model(D) is None
     assert "training" in caplog.text and regime_key(provider) not in ImpliedVolMlModelProvider._model_cache
+
+
+def test_an_artifact_that_does_not_match_its_recorded_checksum_is_not_unpickled(tmp_path, caplog):
+    """BI-015: the provider passes the recorded SHA-256; a replaced file is refused and the model retrained."""
+    provider = provider_with(tmp_path, payload=pickle.dumps(Model(0.25)))
+    artifact = provider.factory.model_artifact_local_repo.get_by_training_and_type(2, "trained_model")[0]
+    artifact.artifact_metadata["sha256"] = "0" * 64
+    with patch(TRAINER, return_value=Model(0.31)) as train, caplog.at_level(logging.ERROR):
+        model = provider._get_or_train_model(D)
+    assert train.called and model.iv == 0.31 and "differs from the recorded" in caplog.text

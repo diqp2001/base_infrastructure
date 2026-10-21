@@ -26,9 +26,7 @@ threading risk (GIL-safe for dict reads).
 
 import hashlib
 import json
-import os
 import logging
-import pickle
 from datetime import date
 from typing import Any, Dict, Optional
 
@@ -208,7 +206,7 @@ class ImpliedVolMlModelProvider:
                         if not isinstance(artifact, ModelArtifact):
                             continue
                         if self._artifact_matches(artifact, regime_key, target_date):
-                            model = self._deserialize(artifact.location)
+                            model = self._deserialize(artifact.location, self._recorded_sha256(artifact))
                             if model is not None:
                                 return model
         except Exception as e:
@@ -247,16 +245,20 @@ class ImpliedVolMlModelProvider:
         return valid_from <= target_date <= valid_until
 
     @staticmethod
-    def _deserialize(location: str) -> Optional[Any]:
-        if not location or not os.path.exists(location):
-            return None
-        try:
-            with open(location, "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            logger.error(f"ImpliedVolMlModelProvider: artifact {location} is unreadable ({type(e).__name__}: {e}) — "
-                         f"not used")
-            return None
+    def _recorded_sha256(artifact) -> Optional[str]:
+        meta = artifact.artifact_metadata or {}
+        if not isinstance(meta, dict):
+            try:
+                meta = json.loads(meta)
+            except Exception:
+                return None
+        return meta.get("sha256")
+
+    @staticmethod
+    def _deserialize(location: str, expected_sha256: Optional[str] = None) -> Optional[Any]:
+        """Unpickle only a file matching its recorded checksum (BI-015, artifact_integrity)."""
+        from src.application.services.model_service.artifact_integrity import load_verified_pickle
+        return load_verified_pickle(location, expected_sha256)
 
     # ------------------------------------------------------------------
     # Training

@@ -8,8 +8,6 @@ Injected into CompanyShareLGBMCSQuintileRankMomentumFactor by the repository.
 
 import hashlib
 import json
-import os
-import pickle
 from datetime import date
 from typing import Any, Dict, Optional
 
@@ -142,7 +140,7 @@ class LGBMMomentumModelProvider:
                         if not isinstance(artifact, ModelArtifact):
                             continue
                         if self._artifact_matches(artifact, regime_key, target_date):
-                            model = self._deserialize(artifact.location)
+                            model = self._deserialize(artifact.location, self._recorded_sha256(artifact))
                             if model is not None:
                                 return model
         except Exception as e:
@@ -173,15 +171,20 @@ class LGBMMomentumModelProvider:
         return valid_from <= target_date <= valid_until
 
     @staticmethod
-    def _deserialize(location: str) -> Optional[Any]:
-        if not location or not os.path.exists(location):
-            return None
-        try:
-            with open(location, "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            print(f"LGBMMomentumModelProvider: failed to deserialize {location}: {e}")
-            return None
+    def _recorded_sha256(artifact) -> Optional[str]:
+        meta = artifact.artifact_metadata or {}
+        if not isinstance(meta, dict):
+            try:
+                meta = json.loads(meta)
+            except Exception:
+                return None
+        return meta.get("sha256")
+
+    @staticmethod
+    def _deserialize(location: str, expected_sha256: Optional[str] = None) -> Optional[Any]:
+        """Unpickle only a file matching its recorded checksum (BI-015, artifact_integrity)."""
+        from src.application.services.model_service.artifact_integrity import load_verified_pickle
+        return load_verified_pickle(location, expected_sha256)
 
     # ------------------------------------------------------------------
     # Training

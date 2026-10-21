@@ -186,6 +186,8 @@ class LGBMMomentumModelTrainer:
             training.mark_failed()
             self.factory.model_training_local_repo.update(training)
             return None
+        from src.application.services.model_service.artifact_integrity import sha256_of
+        metadata["sha256"] = sha256_of(filepath)          # BI-015: verified before any later unpickling
         training.mark_completed()
         self.factory.model_training_local_repo.update(training)
         from src.domain.entities.ml.model_artifact import ModelArtifact

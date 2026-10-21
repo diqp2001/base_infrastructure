@@ -166,6 +166,8 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P2 · **Size** L · **Depends on** BI-014 · **Status: partial**
 - **Acceptance** universe, constituents, features, training runs, metrics, artifacts and scores persisted with reproducible metadata (data window, feature hash, config hash, code version); artifacts stored outside `src/` and untracked; safe deserialisation.
 - **Evidence** domain chain `MLModel → ModelTraining → ModelArtifact` with repositories; `tests/test_universe_and_ml.py`; two pickled artifacts tracked under `src/application/services/data/entities/factor/implied_vol_ml/artifacts/`; `mlruns/` tracked.
+- **Done (2026-10-21) — safe deserialisation**: `src/application/services/model_service/artifact_integrity.py`: the implied-vol ML and LGBM momentum trainers record the SHA-256 of the pickled file in the ModelArtifact metadata; the providers unpickle only through `load_verified_pickle` — a file that no longer matches its recorded checksum is refused (logged) and the model retrained; artifacts written before this change (no checksum) still load, with a warning, so existing deployments keep working. Tests `tests/unit/application/test_artifact_integrity.py` (4) and the provider wiring test in `test_implied_vol_ml_lifecycle.py`.
+- **Remaining** artifacts outside `src/` and untracked (BI-005 (4), awaits approval); feature / data-window / code-version metadata for every training run; the STM `torch.load` path and project-local pickles (project folders, not changed here).
 
 ### BI-016 — Complete implied-volatility ML factor lifecycle
 - **Priority** P2 · **Size** M · **Depends on** BI-015 · **Status: partial**
