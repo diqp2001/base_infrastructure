@@ -26,14 +26,26 @@ class STMPriceHistoryReader:
         self.frequency = frequency
 
     def _close_factor_ids(self, session) -> List[int]:
+        return [fid for fid, _ in self._close_factors(session)]
+
+    def _close_factors(self, session):
+        """(factor id, rank) of every stored close series: rank = position in the reading order (BI-036: one
+        series per IBKR whatToShow, MIDPOINT before TRADES), other whatToShow series next, legacy subgroups last."""
+        from src.domain.entities.factor.source_policy import is_what_to_show, reading_order
         from src.infrastructure.models.factor.factor import FactorModel
-        q = session.query(FactorModel.id).filter(
+        order = list(reading_order("CompanyShare", "price", self.close_factor_name))
+        q = session.query(FactorModel.id, FactorModel.subgroup).filter(
             FactorModel.name == self.close_factor_name,
             FactorModel.factor_type == self.factor_type,
         )
         if self.frequency is not None:
             q = q.filter(FactorModel.frequency == self.frequency)
-        return [row[0] for row in q.all()]
+        ranked = []
+        for factor_id, subgroup in q.all():
+            rank = (order.index(subgroup) if subgroup in order else
+                    len(order) if is_what_to_show(subgroup) else len(order) + 1)
+            ranked.append((factor_id, rank))
+        return ranked
 
     def load_close_panel(self, assets: Dict[int, str], start=None, end=None) -> pd.DataFrame:
         """
@@ -44,12 +56,14 @@ class STMPriceHistoryReader:
         from src.infrastructure.models.factor.factor_value import FactorValueModel
 
         session = self.factory.session
-        factor_ids = self._close_factor_ids(session)
+        ranks = dict(self._close_factors(session))
+        factor_ids = list(ranks)
         columns = list(assets.values())
         if not factor_ids or not assets:
             return pd.DataFrame(columns=columns, dtype=float)
 
-        q = session.query(FactorValueModel.entity_id, FactorValueModel.date, FactorValueModel.value).filter(
+        q = session.query(FactorValueModel.entity_id, FactorValueModel.date, FactorValueModel.value,
+                          FactorValueModel.factor_id).filter(
             FactorValueModel.factor_id.in_(factor_ids),
             FactorValueModel.entity_id.in_(list(assets.keys())),
         )
@@ -59,8 +73,16 @@ class STMPriceHistoryReader:
             # inclusive of the whole end session
             q = q.filter(FactorValueModel.date < (pd.Timestamp(end).normalize() + pd.Timedelta(days=1)).to_pydatetime())
 
+        rows = q.all()
+        # one series per asset: the best-ranked series that has data in the window (never a mix of types)
+        best = {}
+        for entity_id, _, _, factor_id in rows:
+            rank = ranks.get(factor_id, 99)
+            best[entity_id] = min(best.get(entity_id, rank), rank)
         records = []
-        for entity_id, dt, value in q.all():
+        for entity_id, dt, value, factor_id in rows:
+            if ranks.get(factor_id, 99) != best[entity_id]:
+                continue
             try:
                 px = float(str(value))
             except (TypeError, ValueError):

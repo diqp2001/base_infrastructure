@@ -50,6 +50,9 @@ def source_choice(factor: Any = None, entity: Optional[Any] = None, *, group: Op
     group = group if group is not None else getattr(factor, "group", None)
     subgroup = subgroup if subgroup is not None else getattr(factor, "subgroup", None)
     name = name if name is not None else getattr(factor, "name", None)
+    from src.domain.entities.factor.source_policy import exact_choice, is_what_to_show
+    if is_what_to_show(subgroup):                     # BI-036: the factor names its own series — exactly that type
+        return exact_choice(subgroup)
     return policy.select(instrument_class(factor, entity), group, name, use=use, subgroup=subgroup)
 
 

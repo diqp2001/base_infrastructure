@@ -206,3 +206,24 @@ factor_value = company_share_repo.get_or_create_factor_value_with_ticks(
 5. **Add performance optimization** for high-frequency factor updates
 
 This architecture now provides exactly what was requested: **complete separation of factor operations into dedicated IBKR factor repositories while maintaining the pipeline functionality specified by the user.**
+---
+
+## Raw IBKR series: subgroup = whatToShow (BI-036)
+
+A raw IBKR factor is **one series**:
+
+| Field | Meaning |
+|-------|---------|
+| `name` | the bar field: `open`, `high`, `low`, `close`, `volume`, `barCount`, `wap` |
+| `subgroup` | the IBKR whatToShow it was requested with: `TRADES`, `MIDPOINT`, `BID`, `ASK`, `BID_ASK`, ... (`source_policy.WHAT_TO_SHOW`) |
+| `frequency` | the bar size |
+
+- **Ingestion** requests exactly the factor's subgroup (`what_to_show.source_choice` → `exact_choice`); it never stores
+  TRADES bars into a MIDPOINT factor. `volume` / `barCount` / `wap` exist for TRADES only (IBKR returns -1 otherwise).
+- **Reading** chooses the series: `FactorValueResolutionService._series_in_reading_order` (DependencySpec on a raw
+  field) and `STMPriceHistoryReader` use `source_policy.reading_order` — price fields MIDPOINT then TRADES, volume
+  TRADES — and take the **first series with data, whole**: values of two series are never mixed.
+- `BID_ASK` bars: open = time-averaged bid, high = max ask, low = min bid, close = time-averaged ask (validated as quotes).
+- New raw IBKR definitions must follow the rule (`source_policy.validate_raw_definition`; the share / option factor
+  repositories default the subgroup to the field's first series). Definitions created before (subgroups `ohlc`,
+  `daily`) are **legacy**: read only when no whatToShow series has data for the dependency / asset.

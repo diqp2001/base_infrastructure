@@ -115,3 +115,51 @@ DEFAULT_SOURCE_POLICY = SourcePolicy(rules=(
                note="executions are trades, never quotes"),
     SourceRule(ANY, ANY, ANY, _MARKS, (D.TRADES,), note="other raw fields: IBKR default type"),
 ))
+
+
+# ── Raw IBKR series (BI-036) ────────────────────────────────────────────────────────────────────────────────────
+# A raw IBKR factor is ONE series: name = the bar field (open / high / low / close / volume / barCount / wap),
+# subgroup = the IBKR whatToShow it was requested with (TRADES, MIDPOINT, BID, ASK, BID_ASK, ...), frequency = the
+# bar size. Ingestion stores exactly that type into that factor (never a fallback into the same series); the
+# "MIDPOINT first, TRADES otherwise" choice is made when the series is READ (reading_order). Definitions created
+# before this rule (subgroups 'ohlc', 'daily', ...) are legacy: read only when no whatToShow series has data.
+
+WHAT_TO_SHOW = frozenset(d.value for d in D if d is not D.CALCULATED)
+RAW_BAR_FIELDS = frozenset({"open", "high", "low", "close", "volume", "barCount", "wap"})
+TRADES_ONLY_FIELDS = frozenset({"volume", "barCount", "wap"})          # IBKR returns -1 for quote types
+
+
+def is_what_to_show(subgroup: Optional[str]) -> bool:
+    return subgroup in WHAT_TO_SHOW
+
+
+def is_raw_bar_field(name: Optional[str]) -> bool:
+    return name in RAW_BAR_FIELDS
+
+
+def exact_choice(subgroup: str) -> SourceChoice:
+    """The factor's own series: its subgroup names the whatToShow; no fallback into it."""
+    data_type = D(subgroup)
+    return SourceChoice((data_type,), False, SourceRule(ANY, ANY, ANY, _MARKS, (data_type,),
+                                                        note="the factor's own series (subgroup = whatToShow)"))
+
+
+def reading_order(instrument_class: str, group: Optional[str], field: Optional[str],
+                  use: IntendedUse = IntendedUse.VALUATION_MARK,
+                  policy: "SourcePolicy" = DEFAULT_SOURCE_POLICY) -> Tuple[str, ...]:
+    """whatToShow series to read for a raw field, in order of preference (e.g. close: MIDPOINT, TRADES)."""
+    if field in TRADES_ONLY_FIELDS:
+        return (D.TRADES.value,)
+    return tuple(d.value for d in policy.select(instrument_class, group, field, use=use).order)
+
+
+def validate_raw_definition(name: Optional[str], group: Optional[str], subgroup: Optional[str],
+                            source: Optional[str]) -> None:
+    """New raw IBKR definitions must name their series: subgroup in WHAT_TO_SHOW (volume-like fields: TRADES)."""
+    if source != "ibkr" or not is_raw_bar_field(name):
+        return
+    if not is_what_to_show(subgroup):
+        raise ValueError(f"raw IBKR factor {name!r} needs subgroup = an IBKR whatToShow "
+                         f"({', '.join(sorted(WHAT_TO_SHOW))}), got {subgroup!r}")
+    if name in TRADES_ONLY_FIELDS and subgroup != D.TRADES.value:
+        raise ValueError(f"{name!r} exists only for TRADES bars (IBKR returns -1 for {subgroup})")

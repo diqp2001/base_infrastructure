@@ -53,3 +53,15 @@ def test_the_library_is_not_empty():
 def test_every_library_entry_uses_canonical_values(field, allowed):
     bad = {name: cfg[field] for name, cfg in ENTRIES if cfg.get(field) is not None and cfg[field] not in allowed}
     assert bad == {}
+
+
+def test_raw_ibkr_library_entries_name_their_series():
+    """BI-036: a raw IBKR bar field declared in the library has subgroup = its IBKR whatToShow."""
+    from src.domain.entities.factor.source_policy import validate_raw_definition
+    bad = {}
+    for name, cfg in ENTRIES:
+        try:
+            validate_raw_definition(cfg.get("name"), cfg.get("group"), cfg.get("subgroup"), cfg.get("source"))
+        except ValueError as e:
+            bad[name] = str(e)
+    assert bad == {}

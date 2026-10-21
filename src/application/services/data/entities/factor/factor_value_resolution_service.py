@@ -1119,11 +1119,28 @@ class FactorValueResolutionService:
                         'source':    resolved_source,
                     }.items() if v is not None
                 }
-                created = dep_repo._create_or_get(
-                    spec.factor_type,
-                    dep_default_name,
-                    **create_kwargs,
-                )
+                from src.domain.entities.factor.source_policy import is_raw_bar_field, reading_order
+                raw_name = spec.name_in[0] if spec.name_in else dep_default_name
+                if resolved_source == 'ibkr' and is_raw_bar_field(raw_name) and spec.subgroup is None:
+                    # BI-036: a raw IBKR field is one series per whatToShow — create the series in reading order
+                    # (e.g. close MIDPOINT, then TRADES) so the read-time fallback has its candidates
+                    order = reading_order(spec.factor_type.__name__.removesuffix('Factor'),
+                                          create_kwargs.get('group', 'price'), raw_name)
+                    series = [dep_repo._create_or_get(spec.factor_type, raw_name, **{**create_kwargs, 'subgroup': wts})
+                              for wts in order]
+                    series = [f for f in series if f is not None and spec.matches_factor(parent_factor, f)]
+                    if not series:
+                        self.logger.error(f"_resolve_dependency_spec: could not create the '{raw_name}' series "
+                                          f"{order} for '{dep_name}'")
+                        return []
+                    matching_factors = series
+                    created = None
+                else:
+                    created = dep_repo._create_or_get(
+                        spec.factor_type,
+                        dep_default_name,
+                        **create_kwargs,
+                    )
                 if created:
                     # Verify the newly created factor actually satisfies the spec;
                     # if the repo normalised any attribute differently the factor
@@ -1145,7 +1162,7 @@ class FactorValueResolutionService:
                         f"_resolve_dependency_spec: created missing '{dep_name}' factor "
                         f"'{created.name}'"
                     )
-                else:
+                elif not matching_factors:
                     return []
             except Exception as e:
                 self.logger.error(
@@ -1153,6 +1170,41 @@ class FactorValueResolutionService:
                 )
                 return []
 
+        # BI-036: raw IBKR fields come as one series per whatToShow (subgroup). Read the series in order of
+        # preference and use the FIRST that yields values — never a mix of MIDPOINT and TRADES in one dependency.
+        for series in self._series_in_reading_order(matching_factors):
+            values = self._spec_values(spec, series, related_entities, target_date, repository_type, **kwargs)
+            if values:
+                if len(series) and getattr(series[0], 'subgroup', None):
+                    self.logger.info(f"DependencySpec '{dep_name}': read from series {series[0].subgroup}")
+                return values
+        return []
+
+    def _series_in_reading_order(self, factors: List[Any]) -> List[List[Any]]:
+        """Raw IBKR candidates grouped by series: whatToShow subgroups in the source policy's reading order, other
+        whatToShow series after them, legacy definitions (subgroup not a whatToShow) last. Anything else: one group."""
+        from src.domain.entities.factor.source_policy import is_raw_bar_field, is_what_to_show, reading_order
+        raw = [f for f in factors if getattr(f, 'source', None) != 'calculated' and is_raw_bar_field(getattr(f, 'name', None))]
+        if not raw or len(raw) != len(factors):
+            return [factors]
+        first = raw[0]
+        try:
+            order = list(reading_order(type(first).__name__.removesuffix('Factor'), getattr(first, 'group', None),
+                                       first.name))
+        except Exception:
+            order = []
+        by_subgroup: Dict[Any, List[Any]] = {}
+        for f in raw:
+            by_subgroup.setdefault(getattr(f, 'subgroup', None), []).append(f)
+        keys = [k for k in order if k in by_subgroup]
+        keys += sorted(k for k in by_subgroup if is_what_to_show(k) and k not in keys)
+        groups = [by_subgroup[k] for k in keys]
+        legacy = [f for k, fs in by_subgroup.items() if not is_what_to_show(k) for f in fs]
+        return groups + ([legacy] if legacy else [])
+
+    def _spec_values(self, spec, matching_factors, related_entities, target_date, repository_type, **kwargs):
+        """Values of one group of matching factors for the related entities (see _resolve_dependency_spec)."""
+        dep_name = spec.dep_name
         values: List[float] = []
         for dep_factor in matching_factors:
             for related_entity in self._dependency_targets(dep_factor, related_entities):
