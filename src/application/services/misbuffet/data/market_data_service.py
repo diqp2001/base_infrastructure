@@ -175,15 +175,18 @@ class MarketDataService:
                 factors = []
                 
                 # Get or create all factors in batch
+                what_to_show = "TRADES"
+                # BI-036: the factors are the series this import requests (subgroup = whatToShow) — without it the
+                # repositories default close to MIDPOINT, the fetch asks IBKR for MIDPOINT and stocks without a quote
+                # subscription store nothing
                 factors_data = []
                 for factor_name in factor_names:
                     factors_data.append({
                         'entity_symbol': factor_name,
                         'group': 'price',
+                        'subgroup': what_to_show,
                         'entity_cls': entity_factor_class_input
                     })
-                
-                what_to_show = "TRADES"
 
                 # Use batch method to get/create factors with seconds bar_size for point-in-time data
                 created_factors = self.entity_service.create_or_get_batch_ibkr(
