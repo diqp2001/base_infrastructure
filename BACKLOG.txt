@@ -185,6 +185,8 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P3 · **Size** M · **Depends on** BI-005 · **Status: partial**
 - **Acceptance** disconnect / reconnect, timeouts, pacing, contract qualification, error handling (error 162 surfaced with the request), data freshness, and a finished run always releasing its client id — each tested.
 - **Evidence** `test_resilience.py::TestIBKRConnection` (bounded retries, disconnected broker refuses orders), `tests/integration/test_ibkr_live_readonly.py` (7, opt-in). Observed 2026-10-20: a completed backtest process kept its TWS connection open, so the next run failed with "TWS is not connected"; IBKR returned no option history before ~8 weeks back (error 162) — fetch errors are not reported with the IBKR message.
+- **Done (2026-10-21)** a finished run always releases its client id: ibapi's `EReader` is a non-daemon thread that ends only when the socket closes, and Python joins non-daemon threads before `atexit` runs — a run that never disconnected hung at exit holding its client id. `IBTWSClient.connect_to_tws` registers a disconnect with `threading._register_atexit` (runs before that join; `atexit` fallback), once per client. Test `tests/misbuffet/test_tws_client_release.py` runs a subprocess whose fake connection starts a non-daemon reader thread: it exits and disconnects; without the hook it hangs (verified). IBKR error text with the request and bounded transient retries: BI-029 (2026-10-21).
+- **Remaining** reconnect during a run (re-subscribe, re-request open orders), contract qualification errors tested, data freshness of streaming quotes.
 
 ### BI-021 — Implement order-state and reconciliation tests
 - **Priority** P3 · **Size** M · **Depends on** BI-020 · **Status: partial**

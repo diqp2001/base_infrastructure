@@ -495,6 +495,7 @@ class IBTWSClient(EWrapper, EClient):
         try:
             self.logger.info(f"Connecting to TWS at {self.host}:{self.port} (client {self.client_id})")
             self.connect(self.host, self.port, self.client_id)
+            self._release_at_exit()
 
             # Start message processing thread
             api_thread = threading.Thread(target=self.run, daemon=True)
@@ -511,6 +512,30 @@ class IBTWSClient(EWrapper, EClient):
         except Exception as e:
             self.logger.error(f"Failed to connect to TWS: {e}")
             return False
+
+    def _release_at_exit(self) -> None:
+        """BI-020: a finished run always releases its client id. ibapi's EReader is a non-daemon thread that
+        only ends when the socket closes, and the interpreter joins non-daemon threads BEFORE atexit handlers run:
+        a run that never disconnected hung at exit and kept the client id, so the next run with that id failed
+        ("TWS is not connected"). threading._register_atexit hooks run before that join (Python >= 3.9, as
+        concurrent.futures uses it); plain atexit is the fallback."""
+        if getattr(self, "_exit_hook_registered", False):
+            return
+        self._exit_hook_registered = True
+
+        def release():
+            if self.isConnected():
+                self.logger.info(f"Process exit: disconnecting client {self.client_id} from TWS")
+                self.disconnect_from_tws()
+
+        register = getattr(threading, "_register_atexit", None)
+        try:
+            if register is None:
+                raise RuntimeError("no threading._register_atexit")
+            register(release)
+        except RuntimeError:
+            import atexit
+            atexit.register(release)
 
     def disconnect_from_tws(self) -> None:
         """Disconnect from TWS."""
