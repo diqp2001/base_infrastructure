@@ -3,8 +3,10 @@ Infrastructure model for factor value.
 SQLAlchemy model for domain factor value entity.
 """
 from datetime import date
-from sqlalchemy import Column, DateTime, Integer, String, Date, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
+import math
+
+from sqlalchemy import Column, DateTime, Float, Integer, String, Date, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship, validates
 from src.infrastructure.models import ModelBase as Base
 
 
@@ -22,6 +24,9 @@ class FactorValueModel(Base):
     entity_type = Column(String(100), nullable=False, index=True)  # Entity class name discriminator
     date = Column(DateTime(timezone=True), nullable=False)
     value = Column(String(255), nullable=False)
+    # Numeric copy of `value` (NULL when it is not a finite number), kept in step on every ORM write; existing rows
+    # are backfilled by BaseFactory._migrate_schema. `value` stays the authoritative column for now.
+    value_numeric = Column(Float, nullable=True)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     
     # Relationships
@@ -30,5 +35,14 @@ class FactorValueModel(Base):
     
 
     
+    @validates("value")
+    def _sync_numeric(self, key, value):
+        try:
+            number = float(value)
+            self.value_numeric = number if math.isfinite(number) else None
+        except (TypeError, ValueError):
+            self.value_numeric = None
+        return value
+
     def __repr__(self):
         return f"<FactorValue(id={self.id}, factor_id={self.factor_id}, entity_type={self.entity_type}, entity_id={self.entity_id}, date={self.date})>"

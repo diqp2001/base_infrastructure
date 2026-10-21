@@ -503,7 +503,7 @@ class TradeManager:
                 return
 
             # 4. Compute cash delta and order side
-            cash_amount = int(round(abs(order_qty) * price))
+            cash_amount = round(abs(order_qty) * price, 2)        # to the cent (positions.quantity is DECIMAL)
             if order_qty > 0:
                 cash_qty_delta = -cash_amount  # BUY stock → cash decreases
                 cash_side = "SELL"
@@ -553,7 +553,7 @@ class TradeManager:
                 )
 
             # 7. Update the cash Position quantity
-            pos.quantity = int(pos.quantity or 0) + cash_qty_delta
+            pos.quantity = round(float(pos.quantity or 0) + cash_qty_delta, 4)
             session.commit()
 
             if self.logger:

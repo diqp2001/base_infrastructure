@@ -83,15 +83,15 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             as_of = as_of.replace(tzinfo=None)
         holding_ids = [h.id for h in self.session.query(HoldingModel.id).filter(HoldingModel.position_id == position_id)]
         if not holding_ids:
-            return int(position.quantity or 0)
+            return float(position.quantity or 0)
         executed_later = (self.session.query(TransactionModel.order_id)
                           .filter(TransactionModel.status == "EXECUTED", TransactionModel.date > as_of))
         later = (self.session.query(OrderModel)
                  .filter(OrderModel.holding_id.in_(holding_ids), OrderModel.id.in_(executed_later))
                  .all())
-        delta = sum((1 if str(getattr(o.side, "value", o.side)).upper() == "BUY" else -1) * int(round(o.quantity or 0))
+        delta = sum((1 if str(getattr(o.side, "value", o.side)).upper() == "BUY" else -1) * float(o.quantity or 0)
                     for o in later)
-        return int(position.quantity or 0) - delta
+        return round(float(position.quantity or 0) - delta, 4)
 
     def get_all(self) -> List[PositionEntity]:
         models = self.session.query(PositionModel).all()
@@ -175,7 +175,7 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         self, position_id: int, new_quantity: float, new_average_cost: float = None
     ) -> Optional[PositionEntity]:
         """Update position quantity (average_cost is not persisted on this model)."""
-        return self.update(position_id, quantity=int(new_quantity))
+        return self.update(position_id, quantity=float(new_quantity))
 
     def update_price(self, position_id: int, new_price: float) -> Optional[PositionEntity]:
         """No-op: PositionModel has no price column."""
@@ -217,7 +217,7 @@ class PositionRepository(BaseLocalRepository, PositionPort):
             position_type str or PositionType  (default LONG)
         """
         try:
-            quantity = int(kwargs.get('quantity', 0))
+            quantity = float(kwargs.get('quantity', 0))   # DECIMAL(18, 4): cash keeps cents
             pt_raw = kwargs.get('position_type', PositionType.LONG)
             if isinstance(pt_raw, str):
                 try:

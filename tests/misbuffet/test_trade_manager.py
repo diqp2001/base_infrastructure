@@ -105,11 +105,9 @@ class TradeManagerTest(unittest.TestCase):
         self.assertEqual(self.p.cash() + held_value, 100_000.0)
         self.assertEqual(self.p.upm._get_all_held_tickers(), {"AAPL"})
 
-    @unittest.expectedFailure
     def test_cash_keeps_cents(self):
-        """BUG (needs a schema migration): positions.quantity is an INTEGER column, so the cash position
-        can only hold whole dollars — _update_cash_for_trade books int(round(qty * price)) and cents
-        are lost on every trade. Fix: positions.quantity -> DECIMAL(18, 4), then book the exact amount."""
+        """Was an expected failure: positions.quantity is now DECIMAL(18, 4) and the cash leg is booked to the
+        cent (it used to be int(round(qty * price)))."""
         self.p.trade("AAPL", 10, 150.255)
         self.assertAlmostEqual(self.p.cash(), 100_000.0 - 1_502.55, places=2)
 

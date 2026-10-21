@@ -2,7 +2,7 @@
 Infrastructure model for position.
 SQLAlchemy model for domain position entity.
 """
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, Numeric
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
 
@@ -15,7 +15,8 @@ class PositionModel(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
-    quantity = Column(Integer, nullable=False)
+    # DECIMAL so the cash position keeps cents (was INTEGER: every trade lost them); floats in Python
+    quantity = Column(Numeric(18, 4, asdecimal=False), nullable=False)
     position_type = Column(SQLEnum(PositionType), nullable=False)
 
     # Direct back-link to the holding this position belongs to.
