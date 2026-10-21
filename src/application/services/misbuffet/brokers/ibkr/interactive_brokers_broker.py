@@ -863,6 +863,13 @@ class InteractiveBrokersBroker(BaseBroker):
     def _request_history_once(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
                               use_rth, format_date, timeout, is_transient):
         """One reqHistoricalData round trip: (req_id, bars received, whether the failure is worth a retry)."""
+        # BI-029: wait as IBKR's pacing rules require before sending (instead of a pacing violation + retry)
+        contract_key = (getattr(contract, "conId", 0) or getattr(contract, "localSymbol", "") or contract.symbol,
+                        contract.secType, what_to_show)
+        waited = self._history_pacer().acquire(contract_key + (end_date_time, duration_str, bar_size_setting),
+                                               contract_key)
+        if waited > 0:
+            self.logger.info(f"Historical data for {contract.symbol}: waited {waited:.1f}s for IBKR pacing")
         # Unique request ID (a hash modulo 10 000 could collide with another live request)
         req_id = self._next_request_id()
         self.logger.info(f"Requesting historical data for {contract.symbol} ({duration_str}, {bar_size_setting})")
@@ -890,6 +897,14 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.warning(f"Historical data for {contract.symbol}: IBKR error {error[0]}: {error[1]}")
         bars = self.ib_connection.historical_data.get(req_id, [])
         return req_id, bars, (not bars and error is not None and is_transient(error[0], error[1]))
+
+    def _history_pacer(self):
+        """The process-wide IBKR historical pacer (an instance attribute replaces it in tests)."""
+        pacer = getattr(self, "history_pacer", None)
+        if pacer is None:
+            from .history_pacing import shared_pacer
+            pacer = shared_pacer
+        return pacer
 
     def _next_request_id(self) -> int:
         """Monotonic request ids for this broker (thread-safe), starting away from the small ids

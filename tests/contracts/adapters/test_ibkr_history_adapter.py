@@ -34,6 +34,8 @@ def broker(monkeypatch):
     client = IBTWSClient("127.0.0.1", 1, 1)
     client.is_connected = lambda: True
     b.ib_connection = client
+    from src.application.services.misbuffet.brokers.ibkr.history_pacing import HistoryPacer
+    b.history_pacer = HistoryPacer(sleep=lambda seconds: None)    # pacing has its own tests; never wait here
     b.requests = []
     b.script = lambda req_id: [("end",)]
 
