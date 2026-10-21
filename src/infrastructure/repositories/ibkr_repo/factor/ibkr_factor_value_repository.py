@@ -815,7 +815,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
         from src.domain.entities.factor.observation_quality import (
             ObservationProvenance, ObservationRef, ObservationStatus, SourceDataType,
         )
-        from src.domain.entities.factor.quote_validation import OHLC_FIELDS, validate_bar_value, validate_ohlc
+        from src.domain.entities.factor.quote_validation import (
+            DAILY, ILLIQUID_OPTION, OHLC_FIELDS, Quote, validate_bar_value, validate_ohlc, validate_quote,
+        )
         try:
             data_type = SourceDataType(str(what_to_show))
         except ValueError:
@@ -831,6 +833,16 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             if factor is not None and name in OHLC_FIELDS:
                 bars.setdefault((value.entity_type, value.entity_id, value.date), {})[name] = value.value
         bar_checks = {key: validate_ohlc(fields) for key, fields in bars.items()}
+        if data_type is SourceDataType.BID_ASK:
+            # BI-027: an IBKR BID_ASK bar is a quote — open = time-averaged bid, close = time-averaged ask.
+            # Crossed / one-sided / too wide (per instrument class) makes every field of the bar INVALID.
+            for key, fields in bars.items():
+                try:
+                    quote = Quote(float(fields["open"]), float(fields["close"]), key[2])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                policy = ILLIQUID_OPTION if "Option" in str(key[0]) else DAILY
+                bar_checks[key] = bar_checks[key] + [r for r in validate_quote(quote, policy) if r.rule != "fresh"]
         for value in stored_values:
             factor = by_id.get(getattr(value, 'factor_id', None))
             if factor is None or not getattr(value, 'entity_type', None) or not getattr(value, 'entity_id', None):

@@ -160,3 +160,27 @@ def test_ibkr_ingestion_flags_an_inconsistent_bar(world):
         bad = provenance(world).get(ObservationRef(f.id, "CompanyShare", world.share["AAPL"].id, bad_day))
         assert good.status is S.VALID
         assert bad.status is S.INVALID and [v.rule for v in bad.failed_validations] == ["close_within_range"]
+
+
+def test_ibkr_bid_ask_bars_are_validated_as_quotes(world):
+    """BI-027: BID_ASK bar = quote (open = avg bid, close = avg ask). Crossed or too wide for a share -> INVALID."""
+    from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+    from src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository import IBKRFactorValueRepository
+    days = {"good": datetime(2026, 1, 6), "crossed": datetime(2026, 1, 7), "wide": datetime(2026, 1, 8)}
+    bars = {"good": dict(open="99.95", high="100.2", low="99.8", close="100.05"),
+            "crossed": dict(open="100.10", high="100.2", low="99.8", close="100.00"),
+            "wide": dict(open="95.0", high="106", low="94", close="105.0")}
+    factors, stored = [], []
+    for name in ("open", "high", "low", "close"):
+        model = world.s.query(CompanyShareFactorModel).filter_by(name=name, frequency="1d").first()
+        factors.append(SimpleNamespace(id=model.id, name=name, group="price", frequency="1d"))
+        for key, bar in bars.items():
+            stored.append(world.f.factor_value_local_repo.add(FactorValue(
+                id=None, factor_id=model.id, entity=None, entity_id=world.share["AAPL"].id,
+                entity_type="CompanyShare", date=days[key], value=bar[name])))
+    IBKRFactorValueRepository._record_raw_provenance(SimpleNamespace(factory=world.f), stored, factors, "BID_ASK")
+    close = factors[-1]
+    get = lambda key: provenance(world).get(ObservationRef(close.id, "CompanyShare", world.share["AAPL"].id, days[key]))
+    assert get("good").status is S.VALID
+    assert get("crossed").status is S.INVALID and "not_crossed" in [v.rule for v in get("crossed").failed_validations]
+    assert get("wide").status is S.INVALID and "max_spread_bps" in [v.rule for v in get("wide").failed_validations]
