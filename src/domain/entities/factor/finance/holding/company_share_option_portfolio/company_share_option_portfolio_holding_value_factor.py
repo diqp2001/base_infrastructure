@@ -36,11 +36,14 @@ class CompanyShareOptionPortfolioHoldingValueFactor(PortfolioHoldingFactor):
         )
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
+        """Option premium × contracts × contract multiplier (a contract on 100 shares is worth 100 × the quoted
+        premium); no multiplier, no value."""
         price_vals = dependencies.get('CompanyShareOptionValueFactor')
         quantity_raw = dependencies.get('Position')
-        if not price_vals or quantity_raw is None:
+        multiplier = dependencies.get('Asset.multiplier')
+        if not price_vals or quantity_raw is None or multiplier is None:
             return None
-        return Decimal(str(price_vals[0])) * Decimal(str(quantity_raw))
+        return Decimal(str(price_vals[0])) * Decimal(str(quantity_raw)) * Decimal(str(multiplier))
 
     @property
     def calculate_dependencies(self) -> list:
@@ -53,4 +56,5 @@ class CompanyShareOptionPortfolioHoldingValueFactor(PortfolioHoldingFactor):
                 source="calculated",
             ),
             'Position',
+            'Asset.multiplier',
         ]

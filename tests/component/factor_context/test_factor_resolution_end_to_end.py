@@ -199,14 +199,14 @@ def test_value_holdings_and_portfolios(world):
 
 def test_value_main_portfolio_sums_cash_shares_and_options(world):
     total = value_of(world, "PortfolioValueFactor")                     # builds the option sub-portfolio too
-    options = 2 * 8.0                                                   # quantity x option value (see multiplier gap)
+    options = 2 * 8.0 * 100                                             # contracts x option value x multiplier
     expected = world.p.cash() + 10 * world.closes["AAPL"][-1] + 5 * world.closes["MSFT"][-1] + options
     assert total == pytest.approx(expected)
 
 
 def test_value_option_holding_is_quantity_times_option_value(world):
-    assert value_of(world, "CompanyShareOptionPortfolioHoldingValueFactor") == pytest.approx(2 * 8.0)
-    assert value_of(world, "CompanyShareOptionPortfolioValueFactor") == pytest.approx(2 * 8.0)
+    assert value_of(world, "CompanyShareOptionPortfolioHoldingValueFactor") == pytest.approx(2 * 8.0 * 100)
+    assert value_of(world, "CompanyShareOptionPortfolioValueFactor") == pytest.approx(2 * 8.0 * 100)
 
 
 def test_value_rates_follow_the_dated_sofr_future(world):
@@ -302,13 +302,12 @@ def test_value_option_realised_vol_and_variance(world):
     assert fresh("CompanyShareOptionVarFactor") == pytest.approx(var * 252, rel=1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason="TradeManager books option trades without the contract multiplier: "
-                                       "2 contracts at 8.00 move cash by 16, not 1 600 (and the option holding "
-                                       "is valued at 16)")
 def test_option_trade_and_value_use_the_contract_multiplier(world):
+    """BI-009 (was a strict xfail): 2 contracts at 8.00 on 100 shares move cash by 1 600 and are worth 1 600."""
     cash_before = world.p.cash()
     world.option_portfolio()                                            # buys 2 contracts at 8.00
     assert cash_before - world.p.cash() == pytest.approx(2 * 8.0 * 100)
+    assert value_of(world, "CompanyShareOptionPortfolioHoldingValueFactor") == pytest.approx(2 * 8.0 * 100)
 
 
 # ---- price-history factors --------------------------------------------------------------------

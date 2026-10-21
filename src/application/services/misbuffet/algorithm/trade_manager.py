@@ -108,8 +108,21 @@ class TradeManager:
             return False
         self._record_fill(ticket, ticker, order_qty, price, current_time, domain_order)
         self._update_position(ticker, order_qty, portfolio_id)
-        self._update_cash_for_trade(order_qty, price, cash_portfolio_id, current_time)
+        self._update_cash_for_trade(order_qty, price * self.contract_multiplier(ticker), cash_portfolio_id,
+                                    current_time)
         return True
+
+    def contract_multiplier(self, ticker: str) -> float:
+        """Units per contract (options: `multiplier`, futures: `contract_size`): the cash leg of a trade is
+        price × quantity × multiplier — 2 option contracts at 8.00 on 100 shares cost 1 600, not 16. Assets
+        without either attribute (shares, currencies) are 1 unit."""
+        from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+        asset = self.order_repo.session.query(FinancialAssetModel).filter(FinancialAssetModel.symbol == ticker).first()
+        for attr in ("multiplier", "contract_size"):
+            value = getattr(asset, attr, None)
+            if value is not None and float(value) > 0:
+                return float(value)
+        return 1.0
 
     def _book_atomically(self, book) -> bool:
         """Run `book` as ONE transaction on the shared session (unit_of_work.atomic): the repositories'

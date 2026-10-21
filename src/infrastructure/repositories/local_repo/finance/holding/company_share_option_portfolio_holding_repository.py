@@ -90,6 +90,11 @@ class CompanyShareOptionPortfolioHoldingRepository(CompanyShareOptionPortfolioHo
             print(f"Error getting related entities for CSO holding {holding_id}: {e}")
             return []
 
+    def get_related_asset(self, holding_id: int):
+        """The CompanyShareOption held (has .multiplier) — the resolution service's 'Asset.<attribute>' deps."""
+        related = self.get_related_entities(holding_id)
+        return related[0] if related else None
+
     def get_related_position(self, holding_id: int):
         """Return the PositionModel for this holding (has .quantity) — used by the resolution service."""
         try:

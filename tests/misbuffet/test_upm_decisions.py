@@ -44,6 +44,15 @@ class OrderSizingTest(unittest.TestCase):
         upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.004}}, DATA)   # 400 < 500
         self.assertEqual(traded(upm), {})
 
+    def test_a_weight_buys_contracts_worth_price_times_multiplier(self):
+        """BI-009: 10 000 / (333 × 100 per contract) = 0.3 → nothing; 1.0 weight → 3 contracts, not 300."""
+        upm, _ = book_upm(price=333.0)
+        upm._trade_manager.contract_multiplier.return_value = 100.0
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.1}}, DATA)
+        self.assertEqual(traded(upm), {})
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 1.0}}, DATA)
+        self.assertEqual(traded(upm), {"SPY": 3})
+
     def test_quantity_target_is_absolute(self):
         upm, _ = book_upm({"SPY": 7})
         upm.set_holdings({CompanyShare: {"name": "SPY", "quantity": 10}}, DATA)

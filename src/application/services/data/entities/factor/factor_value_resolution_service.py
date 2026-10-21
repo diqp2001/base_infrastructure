@@ -876,8 +876,11 @@ class FactorValueResolutionService:
         """Resolve a dependency via a numeric attribute on a related entity object.
 
         A Position is read AT target_date: positions.quantity is the current state, so the quantity held
-        then is rebuilt from the fills executed after target_date (PositionRepository.get_quantity_at)."""
-        dep_entity_name = dep_name.lower()
+        then is rebuilt from the fills executed after target_date (PositionRepository.get_quantity_at).
+
+        'Related.attribute' (e.g. 'Asset.multiplier') reads that attribute of the related object; a missing or
+        non-positive value is no value (never a default)."""
+        dep_entity_name, _, wanted_attr = dep_name.lower().partition('.')
         related_obj = None
 
         for attr in (f'{dep_entity_name}_rel', dep_entity_name):
@@ -892,6 +895,14 @@ class FactorValueResolutionService:
                 getter = getattr(holding_repo, f'get_related_{dep_entity_name}', None)
                 if callable(getter):
                     related_obj = getter(entity.id)
+
+        if wanted_attr:
+            raw = getattr(related_obj, wanted_attr, None) if related_obj is not None else None
+            value = self._convert_to_float(raw) if raw is not None else None
+            if value is None or value <= 0:
+                self.logger.warning(f"{dep_name} unavailable for {type(entity).__name__}:{getattr(entity, 'id', '?')}")
+                return None
+            return value
 
         if related_obj is not None and target_date is not None and dep_entity_name == 'position':
             position_repo = getattr(self.factory, 'position_local_repo', None) if self.factory else None

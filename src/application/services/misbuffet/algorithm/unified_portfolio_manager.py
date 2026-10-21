@@ -1254,7 +1254,8 @@ class UnifiedPortfolioManager:
                 target_qty = target_quantities[ticker]
             else:
                 target_pct = target_weights.get(ticker, 0.0)
-                target_qty = int(portfolio_value * target_pct / price)
+                # one contract of an option / future is worth price × multiplier (BI-009)
+                target_qty = int(portfolio_value * target_pct / (price * self._trade_manager.contract_multiplier(ticker)))
             order_qty   = target_qty - current_qty
 
             if order_qty == 0:

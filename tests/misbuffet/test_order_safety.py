@@ -53,6 +53,7 @@ def make_upm(holdings, classes, live=False):
         return True
     upm._trade_manager = Mock()
     upm._trade_manager.execute_trade.side_effect = execute_trade
+    upm._trade_manager.contract_multiplier.return_value = 1.0       # shares: one unit per "contract"
     return upm
 
 
