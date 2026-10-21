@@ -188,6 +188,18 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             self.session.rollback()
             return False
     
+    def get_bar_times(self, factor_id: int, entity_id: int, entity_type: str, start: datetime,
+                      end: datetime) -> List[datetime]:
+        """Timestamps of the stored values of one series in [start, end] that hold a value (BI-029 coverage)."""
+        rows = (self.session.query(FactorValueModel.date)
+                .filter(FactorValueModel.factor_id == factor_id,
+                        FactorValueModel.entity_id == entity_id,
+                        FactorValueModel.entity_type == entity_type,
+                        FactorValueModel.date >= start, FactorValueModel.date <= end,
+                        FactorValueModel.value.isnot(None), FactorValueModel.value != "")
+                .order_by(FactorValueModel.date).all())
+        return [d for (d,) in rows]
+
     def get_all_dates_by_id_entity_id(
         self, factor_id: int, entity_id: int, entity_type: Optional[str] = None
     ) -> List[str]:

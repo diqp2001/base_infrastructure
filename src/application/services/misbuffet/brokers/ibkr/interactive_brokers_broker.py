@@ -19,7 +19,10 @@ from zoneinfo import ZoneInfo  # Python 3.9+
 
 from .IBTWSClient import IBTWSClient
 from .contract_resolver import ContractResolver
-from .ibkr_settings import connect_retries, connect_retry_delay, resolve_endpoint
+from .ibkr_settings import (
+    connect_retries, connect_retry_delay, history_retries, history_retry_delay, is_transient_history_error,
+    resolve_endpoint,
+)
 
 from ..base_broker import BaseBroker, BrokerStatus, BrokerConnectionState
 from ...common import Symbol, Order, OrderEvent
@@ -805,41 +808,24 @@ class InteractiveBrokersBroker(BaseBroker):
             return self._historical_data_cache[cache_key]
 
         try:
-            # Unique request ID (a hash modulo 10 000 could collide with another live request)
-            req_id = self._next_request_id()
-            
-            self.logger.info(f"Requesting historical data for {contract.symbol} "
-                           f"({duration_str}, {bar_size_setting})")
-            resolved_contract = contract
-            
-            self.ib_connection.request_historical_data(
-                req_id=req_id,
-                contract=resolved_contract,
-                end_date_time=end_date_time,
-                duration_str=duration_str,
-                bar_size_setting=bar_size_setting,
-                what_to_show=what_to_show,
-                use_rth=use_rth,
-                format_date=format_date
-            )
+            # Transient failures (pacing violation, farm disconnected, no historicalDataEnd) are retried a
+            # bounded number of times with exponential backoff (BI-029); an answer ("no data") is final.
+            attempts, delay = 1 + history_retries(), history_retry_delay()
+            for attempt in range(1, attempts + 1):
+                req_id, historical_bars, transient = self._request_history_once(
+                    contract, end_date_time, duration_str, bar_size_setting, what_to_show, use_rth, format_date,
+                    timeout, is_transient_history_error)
+                if not transient:
+                    break
+                if attempt < attempts:
+                    wait = delay * 2 ** (attempt - 1)
+                    self.logger.warning(f"Historical data for {contract.symbol}: transient failure "
+                                        f"(attempt {attempt}/{attempts}), retrying in {wait:.0f}s")
+                    time.sleep(wait)
+                else:
+                    self.logger.error(f"Historical data for {contract.symbol}: still failing after "
+                                      f"{attempts} attempts, giving up")
 
-            
-            # Wait for historicalDataEnd (or an error for this request) — not for "some bars and 2 s",
-            # which returned a partial history when bars arrived slowly and always waited the full
-            # timeout when the answer was empty.
-            done = getattr(self.ib_connection, "historical_data_done", {}).get(req_id)
-            if done is None or not done.wait(timeout):
-                self.logger.warning(f"Historical data for {contract.symbol} incomplete after {timeout}s "
-                                    f"(no historicalDataEnd)")
-                self.ib_connection.historical_data.pop(req_id, None)
-                return []
-            error = getattr(self.ib_connection, "historical_data_errors", {}).pop(req_id, None)
-            if error is not None:
-                self.logger.warning(f"Historical data for {contract.symbol}: IBKR error {error[0]}: {error[1]}")
-
-            # Get final historical data
-            historical_bars = self.ib_connection.historical_data.get(req_id, [])
-            
             if not historical_bars:
                 self.logger.warning(f"No historical data received for {contract.symbol}")
                 return []
@@ -872,6 +858,37 @@ class InteractiveBrokersBroker(BaseBroker):
             self.logger.error(f"Error getting historical data for {contract.symbol}: {e}")
             return []
     
+    def _request_history_once(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
+                              use_rth, format_date, timeout, is_transient):
+        """One reqHistoricalData round trip: (req_id, bars received, whether the failure is worth a retry)."""
+        # Unique request ID (a hash modulo 10 000 could collide with another live request)
+        req_id = self._next_request_id()
+        self.logger.info(f"Requesting historical data for {contract.symbol} ({duration_str}, {bar_size_setting})")
+        self.ib_connection.request_historical_data(
+            req_id=req_id,
+            contract=contract,
+            end_date_time=end_date_time,
+            duration_str=duration_str,
+            bar_size_setting=bar_size_setting,
+            what_to_show=what_to_show,
+            use_rth=use_rth,
+            format_date=format_date
+        )
+        # Wait for historicalDataEnd (or an error for this request) — not for "some bars and 2 s",
+        # which returned a partial history when bars arrived slowly and always waited the full
+        # timeout when the answer was empty.
+        done = getattr(self.ib_connection, "historical_data_done", {}).get(req_id)
+        if done is None or not done.wait(timeout):
+            self.logger.warning(f"Historical data for {contract.symbol} incomplete after {timeout}s "
+                                f"(no historicalDataEnd)")
+            self.ib_connection.historical_data.pop(req_id, None)
+            return req_id, [], done is not None
+        error = getattr(self.ib_connection, "historical_data_errors", {}).pop(req_id, None)
+        if error is not None:
+            self.logger.warning(f"Historical data for {contract.symbol}: IBKR error {error[0]}: {error[1]}")
+        bars = self.ib_connection.historical_data.get(req_id, [])
+        return req_id, bars, (not bars and error is not None and is_transient(error[0], error[1]))
+
     def _next_request_id(self) -> int:
         """Monotonic request ids for this broker (thread-safe), starting away from the small ids
         used by the monitoring / account requests."""

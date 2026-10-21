@@ -13,6 +13,10 @@ variables, applied once in InteractiveBrokersBroker:
     IBKR_ALLOW_LIVE     must be "yes" for IBKR_ACCOUNT_MODE=live (guard against live by mistake)
     IBKR_CONNECT_RETRIES / IBKR_CONNECT_RETRY_DELAY
                         extra connection attempts and seconds between them (default 0 / 5)
+    IBKR_HISTORY_RETRIES / IBKR_HISTORY_RETRY_DELAY
+                        extra attempts for a historical request that failed transiently (pacing,
+                        farm disconnected, no answer in time) and the first backoff in seconds,
+                        doubled each attempt (default 2 / 10); "no data" answers are never retried
 
 With none of these variables set (Windows .venv) nothing changes.
 
@@ -144,6 +148,26 @@ def resolve_endpoint(host: str, port: int, client_id: int) -> IBKREndpoint:
         overridden=bool(env_host or env_port is not None or new_client != client_id),
     )
     return endpoint
+
+
+# Historical data requests (BI-029): transient failures are retried a bounded number of times with
+# exponential backoff (IBKR_HISTORY_RETRIES, default 2; IBKR_HISTORY_RETRY_DELAY seconds, default 10).
+# "No data" (162 without "pacing"), "no security definition" (200) etc. are answers, never retried.
+TRANSIENT_HISTORY_ERRORS = {322, 366, 1100, 2103, 2105, 10182}
+
+
+def is_transient_history_error(code: int, message: str = "") -> bool:
+    return code in TRANSIENT_HISTORY_ERRORS or (code == 162 and "pacing" in (message or "").lower())
+
+
+def history_retries() -> int:
+    value = _int_env("IBKR_HISTORY_RETRIES")
+    return 2 if value is None else max(0, value)
+
+
+def history_retry_delay() -> float:
+    value = os.getenv("IBKR_HISTORY_RETRY_DELAY")
+    return float(value) if value else 10.0
 
 
 def connect_retries() -> int:

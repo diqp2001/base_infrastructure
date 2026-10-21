@@ -27,7 +27,9 @@ def bar(day, close):
 
 
 @pytest.fixture
-def broker():
+def broker(monkeypatch):
+    monkeypatch.setenv("IBKR_HISTORY_RETRIES", "2")
+    monkeypatch.setenv("IBKR_HISTORY_RETRY_DELAY", "0")          # retries without waiting (backoff tested below)
     b = InteractiveBrokersBroker({"host": "127.0.0.1", "port": 1, "client_id": 1})
     client = IBTWSClient("127.0.0.1", 1, 1)
     client.is_connected = lambda: True
@@ -116,6 +118,7 @@ class TestCallbackHandling:
         started = time.monotonic()
         assert broker.get_historical_data(stock(), timeout=30) == []
         assert time.monotonic() - started < 3
+        assert len(broker.requests) == 1                          # an answer: never retried
 
     def test_informational_messages_do_not_end_the_request(self, broker):
         broker.script = lambda r: [("error", 2106, "HMDS data farm connection is OK"), ("bar", bar("20260105", 1.0)),
@@ -125,6 +128,7 @@ class TestCallbackHandling:
     def test_no_end_signal_gives_no_data_after_the_timeout(self, broker):
         broker.script = lambda r: [("bar", bar("20260105", 100.0))]
         assert broker.get_historical_data(stock(), timeout=1) == []
+        assert len(broker.requests) == 3                          # 1 + IBKR_HISTORY_RETRIES, then gives up
 
     def test_cached_requests_are_not_sent_twice(self, broker):
         broker.max_import_ibkr = True
@@ -183,3 +187,33 @@ class TestSixMonthWindow:
     def test_dates_older_than_six_months_are_refused(self, check):
         with pytest.raises(ValueError, match="6 months"):
             check(recent(days=200))
+
+
+class TestRetries:
+    """BI-029: transient failures retried, bounded, with exponential backoff; answers are final."""
+
+    PACING = (162, "Historical Market Data Service error message:Historical data request pacing violation")
+
+    def test_a_pacing_violation_is_retried_and_the_retry_succeeds(self, broker):
+        broker.script = lambda r: ([("error", *self.PACING)] if len(broker.requests) == 1
+                                   else [("bar", bar("20260105", 100.0)), ("end",)])
+        assert len(broker.get_historical_data(stock(), timeout=5)) == 1
+        assert len(broker.requests) == 2 and len({r["req_id"] for r in broker.requests}) == 2
+
+    def test_retries_are_bounded(self, broker):
+        broker.script = lambda r: [("error", 10182, "Failed to request historical data: data farm disconnected")]
+        assert broker.get_historical_data(stock(), timeout=5) == []
+        assert len(broker.requests) == 3
+
+    def test_backoff_doubles(self, broker, monkeypatch):
+        monkeypatch.setenv("IBKR_HISTORY_RETRY_DELAY", "10")
+        broker.script = lambda r: [("error", *self.PACING)]
+        with patch("src.application.services.misbuffet.brokers.ibkr.interactive_brokers_broker.time.sleep") as sleep:
+            assert broker.get_historical_data(stock(), timeout=5) == []
+        assert [c.args[0] for c in sleep.call_args_list] == [10.0, 20.0]
+
+    def test_no_retry_when_disabled(self, broker, monkeypatch):
+        monkeypatch.setenv("IBKR_HISTORY_RETRIES", "0")
+        broker.script = lambda r: [("error", *self.PACING)]
+        assert broker.get_historical_data(stock(), timeout=5) == []
+        assert len(broker.requests) == 1
