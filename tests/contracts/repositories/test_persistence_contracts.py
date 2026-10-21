@@ -136,13 +136,22 @@ class TestReferentialIntegrity:
             session.rollback()
 
 
-    @pytest.mark.xfail(strict=True, reason="BUG: CompanyShareRepository._create_or_get links new companies / "
-                                           "industries / exchanges to placeholder ids (country_id=1, "
-                                           "sector_id=1, …); on a database without those rows the share "
-                                           "cannot be created once foreign keys are enforced")
     def test_company_share_needs_no_placeholder_references(self, backend):
+        """BI-008 (was a strict xfail): exchange, company, country, industry and sector are real rows."""
+        from src.infrastructure.models.finance.company import CompanyModel
+        from src.infrastructure.models.finance.exchange import ExchangeModel
+        from src.infrastructure.models.industry import IndustryModel
+        from src.infrastructure.models.country import CountryModel
+        from src.infrastructure.models.sector import SectorModel
         with backend.factory() as (factory, session):
-            assert factory.company_share_local_repo._create_or_get("NVDA") is not None
+            share = factory.company_share_local_repo._create_or_get("NVDA")
+            assert share is not None
+            company = session.get(CompanyModel, share.company_id)
+            exchange = session.get(ExchangeModel, share.exchange_id)
+            industry = session.get(IndustryModel, company.industry_id)
+            assert session.get(CountryModel, company.country_id) is not None
+            assert session.get(CountryModel, exchange.country_id) is not None
+            assert session.get(SectorModel, industry.sector_id) is not None
 
 
 class TestOrderBookingContract:

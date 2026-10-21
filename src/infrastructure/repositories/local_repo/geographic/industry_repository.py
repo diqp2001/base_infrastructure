@@ -107,14 +107,21 @@ class IndustryRepository(GeographicRepository, IndustryPort):
             return existing_industry
         
         try:
+            # The sector is a real row (resolved / created by name), never a placeholder id (BI-008)
+            sector_repo = getattr(self.factory, 'sector_local_repo', None) if self.factory else None
+            sector = sector_repo._create_or_get(sector_name or "Unclassified") if sector_repo else None
+            if sector is None or getattr(sector, 'id', None) is None:
+                print(f"Error creating industry {name}: sector {sector_name or 'Unclassified'!r} not available")
+                return None
+
             # Generate next available ID
             next_id = self._get_next_available_industry_id()
-            
+
             # Create new industry entity
             new_industry = Industry(
                 id=next_id,
                 name=name,
-                sector_id=1,  # Default sector ID
+                sector_id=sector.id,
                 description=description or ""
             )
             

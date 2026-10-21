@@ -513,6 +513,10 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         if currency_id is None:
             print(f"Error creating company share for {symbol}: currency {currency!r} could not be resolved")
             return None
+        if exchange_id is None or company_id is None:
+            print(f"Error creating company share for {symbol}: exchange ({exchange_id}) or company ({company_id}) "
+                  f"could not be resolved")
+            return None
 
         try:
             # Generate next available ID if not provided
@@ -524,8 +528,8 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
                 id=next_id,
                 symbol=symbol,
                 currency_id=currency_id,
-                exchange_id=exchange_id or 1,  # Default to 1 if resolution fails
-                company_id=company_id or 1,   # Default to 1 if resolution fails
+                exchange_id=exchange_id,
+                company_id=company_id,
                 start_date=start_date or _date.today(),
                 end_date=end_date
             )
@@ -567,17 +571,20 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             
             exchange_name = exchange_name or self._get_default_exchange_for_ticker(ticker)
             
+            country_id = self._resolve_country_id(None)
+            if country_id is None:
+                return None
             exchange = exchange_repo._create_or_get(
                 name=exchange_name,
                 legal_name=f"{exchange_name} Stock Exchange",
-                country_id=1  # Default to USA
+                country_id=country_id
             )
-            
-            return exchange.id if exchange else 1
-            
+
+            return exchange.id if exchange else None
+
         except Exception as e:
             print(f"Error resolving exchange dependency: {str(e)}")
-            return 1
+            return None
     
     def _resolve_company_dependency(self, ticker: str, company_name: Optional[str] = None, 
                                   industry_name: Optional[str] = None,
@@ -595,18 +602,40 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             
             company_name = company_name or f"{ticker} Inc."
             
+            country_id = self._resolve_country_id(country_name)
+            industry_id = self._resolve_industry_id(industry_name)
+            if country_id is None or industry_id is None:
+                return None
             company = company_repo._create_or_get(
                 name=company_name,
                 legal_name=company_name,
-                country_id=1,   # Default to USA
-                industry_id=1   # Default to Technology
+                country_id=country_id,
+                industry_id=industry_id
             )
-            
-            return company.id if company else 1
-            
+
+            return company.id if company else None
+
         except Exception as e:
             print(f"Error resolving company dependency: {str(e)}")
-            return 1
+            return None
+
+    def _resolve_country_id(self, country_name: Optional[str]) -> Optional[int]:
+        """A real countries row (resolved / created by name; default United States) — never a placeholder id
+        that may not exist (BI-008)."""
+        repo = getattr(self.factory, 'country_local_repo', None) if self.factory else None
+        if repo is None:
+            return None
+        country = repo._create_or_get(country_name or "United States",
+                                      iso_code=None if country_name else "US")
+        return getattr(country, 'id', None)
+
+    def _resolve_industry_id(self, industry_name: Optional[str]) -> Optional[int]:
+        """A real industries row (and its sector); unknown industry -> 'Unclassified', not a made-up one."""
+        repo = getattr(self.factory, 'industry_local_repo', None) if self.factory else None
+        if repo is None:
+            return None
+        industry = repo._create_or_get(industry_name or "Unclassified")
+        return getattr(industry, 'id', None)
     
     def _get_default_exchange_for_ticker(self, ticker: str) -> str:
         """Get default exchange based on ticker patterns."""
