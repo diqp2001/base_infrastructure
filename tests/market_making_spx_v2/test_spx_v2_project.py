@@ -322,9 +322,10 @@ class TestConfigAndManager(unittest.TestCase):
     def test_config_keeps_strategy_but_separates_state_from_original(self):
         from src.application.managers.project_managers.market_making_SPX_call_spread_project import config as v1
         a, b = v2_config.get_config(), v1.get_config()
-        for key in ('universe', 'factors', 'bar_size_setting', 'duration_str', 'backtest_start', 'backtest_end',
-                    'config_interval'):
+        for key in ('universe', 'factors', 'bar_size_setting', 'duration_str', 'backtest_end', 'config_interval'):
             self.assertEqual(a[key], b[key], key)
+        # v2 starts on 24 Aug 2026 (owner's decision, 2026-10-21): IBKR has no history for the option before that date
+        self.assertEqual(a['backtest_start'], '2026-08-24 16:00:00')
         self.assertNotEqual(a['project_name'], b['project_name'])
         self.assertNotEqual(a['Portfolio']['name'], b['Portfolio']['name'])
         self.assertNotEqual(a['mlflow_experiment_name'], b['mlflow_experiment_name'])

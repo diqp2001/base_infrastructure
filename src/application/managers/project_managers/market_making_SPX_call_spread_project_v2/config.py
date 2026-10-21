@@ -125,7 +125,9 @@ DEFAULT_CONFIG = {
     # 'backtest_end': '2026-05-19 10:30:00',
     # 'backtest_start': '2026-08-06 12:00:00',
     # 'backtest_end': '2026-08-06 12:30:00',
-    'backtest_start': '2026-08-05 16:00:00',
+    # 'backtest_start': '2026-08-05 16:00:00',
+    # IBKR has no history for the option (SPY 281215C00775000) before 2026-08-24 (BI-037 diagnostic): start there
+    'backtest_start': '2026-08-24 16:00:00',
         'backtest_end': '2026-08-30 16:00:00',
     # frequence
     'config_interval' : {'custom_interval_days': 1},
