@@ -16,6 +16,8 @@ repositories:
   outer transaction (its failures abort the outer one; it never commits on its own).
 - A repository calling ``session.rollback()`` inside the block (its error handler) rolls back immediately and
   marks the transaction failed: the block cannot commit afterwards.
+- A database error raised on the block's connection marks the transaction failed even when a repository catches
+  it and returns None (the ``except Exception: print; return None`` pattern): the owner always learns about it.
 - On failure the block raises (the exception, or ``TransactionAborted`` with the recorded failures); the session
   is clean and usable for the next transaction.
 - A block that wrote nothing (no repository commit requested, no pending change) does not commit: wrapping an
@@ -26,6 +28,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Iterator, List
+
+from sqlalchemy import event
 
 _KEY = "unit_of_work.transaction"
 
@@ -72,12 +76,15 @@ def atomic(session) -> Iterator[Transaction]:
 
     session.info[_KEY] = tx
     session.commit, session.rollback = _commit, _rollback
+    unwatch = _watch_database_errors(session, tx)
     try:
         yield tx
     except BaseException:
+        unwatch()
         _restore(session, real_commit, real_rollback)
         real_rollback()
         raise
+    unwatch()
     _restore(session, real_commit, real_rollback)
     if tx.failed:
         real_rollback()
@@ -89,6 +96,23 @@ def atomic(session) -> Iterator[Transaction]:
     except BaseException:
         real_rollback()
         raise
+
+
+def _watch_database_errors(session, tx):
+    """Mark `tx` failed on any database error raised on the session's connection during the block, swallowed or
+    not. Returns the function removing the listener. Sessions without a real engine (mocks) are not watched."""
+    try:
+        connection = session.connection()           # the block's connection (the transaction is begun here)
+        engine = connection.engine
+    except Exception:
+        return lambda: None
+
+    def on_error(context):
+        if context.connection is connection:
+            tx.fail(f"database error: {type(context.original_exception).__name__}: {context.original_exception}")
+
+    event.listen(engine, "handle_error", on_error)
+    return lambda: event.remove(engine, "handle_error", on_error)
 
 
 def _restore(session, real_commit, real_rollback) -> None:

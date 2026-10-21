@@ -112,3 +112,40 @@ def test_a_block_that_writes_nothing_does_not_commit(backend, session):
         repo._create_or_get("uow-a")                      # already exists: the repository writes nothing
     assert commits == []
     assert names(backend) == ["uow-a"]
+
+
+def test_a_database_error_swallowed_by_a_repository_aborts_the_block(backend, session):
+    """BI-006 slice 3: the `except Exception: print; return None` repository pattern no longer hides a failed
+    write from the transaction owner."""
+    from sqlalchemy import text
+    repo = ContinentRepository(session, factory=None)
+
+    def swallowing_step():
+        try:
+            session.execute(text("INSERT INTO no_such_table_uow (x) VALUES (1)"))
+        except Exception as e:                            # the repository habit
+            print(f"Error: {e}")
+            return None
+
+    with pytest.raises(TransactionAborted, match="database error"):
+        with atomic(session):
+            repo._create_or_get("uow-a")
+            swallowing_step()
+            repo._create_or_get("uow-b")
+    assert names(backend) == []
+    with atomic(session):                                 # the session is usable afterwards
+        repo._create_or_get("uow-c")
+    assert names(backend) == ["uow-c"]
+
+
+def test_errors_on_other_connections_do_not_abort_the_block(backend, session):
+    if backend.name == "sqlite":
+        pytest.skip("the in-memory SQLite engine shares one DBAPI connection between sessions (StaticPool)")
+    from sqlalchemy import text
+    repo = ContinentRepository(session, factory=None)
+    with atomic(session):
+        repo._create_or_get("uow-a")
+        with backend.session() as other:
+            with pytest.raises(Exception):
+                other.execute(text("SELECT * FROM no_such_table_uow"))
+    assert names(backend) == ["uow-a"]
