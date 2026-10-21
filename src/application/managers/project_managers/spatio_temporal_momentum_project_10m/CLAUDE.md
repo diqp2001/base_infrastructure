@@ -90,4 +90,20 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
 * Not modelled: the overnight gap is treated as one more bar (the first bar's return includes it);
   no intraday transaction costs beyond the report's cost scenarios.
 
-Tests: `tests/spatio_temporal_momentum/test_stm_intraday.py`.
+## Results report: data coverage
+
+The report (`/stm/results?project=10m`, PDF) ends with data-coverage statistics
+(`stm_data_coverage.data_coverage`, shared by every STM project). Expected bars come from the NYSE calendar
+(holidays, early closes), one per 10-minute bar between the open and the close:
+
+* **Summary**: history window (history start -> first decision) and backtest window (first -> last decision),
+  expected bars per asset, coverage % of each window, assets fully covered / below 95%, assets without any
+  stored bar or without a backtest bar, assets scored per decision (min / mean / max), decisions without scores.
+* **By asset** (least covered first): backtest expected / present / coverage % / missing, longest run of
+  missing bars, history coverage %, decisions that scored the asset, first / last stored bar, stored bars
+  outside the expected grid (e.g. extended hours).
+* **By session**: chart of the % of expected asset-bars stored (history grey, backtest green).
+
+The post-run report reads the 10-minute closes (`STMPriceHistoryReader(frequency='10m', bar_minutes=10)`).
+
+Tests: `tests/spatio_temporal_momentum/test_stm_intraday.py`, `test_stm_data_coverage.py`.

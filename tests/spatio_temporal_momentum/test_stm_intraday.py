@@ -144,3 +144,32 @@ def test_synthetic_10_minute_cycle_trains_scores_and_reports_per_bar():
     assert sum(1 for r in results if r.weights) > len(results) // 2
     assert report is not None and report.n_sessions > 10
     assert any("10-minute bar" in n for n in report.notes)
+
+
+def test_the_post_run_report_reads_the_10_minute_closes(monkeypatch):
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m import config as m10
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m import project_manager as pm
+    from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+    from src.infrastructure.models.factor.factor_value import FactorValueModel
+    factory, session, engine = make_factory()
+    try:
+        f = CompanyShareFactorModel(name="close", group="price", subgroup="TRADES", frequency="10m",
+                                    data_type="numeric", source="ibkr", definition="close",
+                                    factor_type="company_share_factor")
+        session.add(f)
+        session.commit()
+        for i, d in enumerate(pd.date_range("2026-10-05 09:30", periods=4, freq="10min")):
+            session.add(FactorValueModel(factor_id=f.id, entity_id=1, entity_type="CompanyShare",
+                                         date=d.to_pydatetime(), value=repr(100.0 + i)))
+        session.commit()
+        seen = {}
+        monkeypatch.setattr(pm, "build_report", lambda results, closes, cfg, **kw: seen.update(closes=closes, **kw))
+        manager = pm.SpatioTemporalMomentum10mProjectManager.__new__(pm.SpatioTemporalMomentum10mProjectManager)
+        manager.stm_config = m10.build_stm_configuration(m10.get_config())
+        cycle = SimpleNamespace(factory=factory, ticker_to_entity={"AAA": 1}, history_start=pd.Timestamp("2026-10-05"))
+        manager.report([SimpleNamespace(session=pd.Timestamp("2026-10-05 09:50"))], SimpleNamespace(cycle=cycle))
+        assert len(seen["closes"]) == 4 and seen["closes"].index[-1] == pd.Timestamp("2026-10-05 10:00")
+        assert seen["history_start"] == pd.Timestamp("2026-10-05")
+    finally:
+        session.close()
+        engine.dispose()
