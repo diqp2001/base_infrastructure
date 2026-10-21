@@ -1172,13 +1172,60 @@ class FactorValueResolutionService:
 
         # BI-036: raw IBKR fields come as one series per whatToShow (subgroup). Read the series in order of
         # preference and use the FIRST that yields values — never a mix of MIDPOINT and TRADES in one dependency.
-        for series in self._series_in_reading_order(matching_factors):
+        from src.domain.entities.factor.source_policy import is_what_to_show
+        groups = self._series_in_reading_order(matching_factors)
+        tried = set()
+        for series in groups:
+            subgroup = getattr(series[0], 'subgroup', None) if series else None
+            if not is_what_to_show(subgroup):
+                # before legacy definitions: the reading order's series that do not exist yet (e.g. TRADES when only
+                # MIDPOINT was created and IBKR refuses MIDPOINT for lack of a quote subscription)
+                for created in self._missing_series(spec, dep_repo, matching_factors, parent_factor, tried):
+                    values = self._spec_values(spec, [created], related_entities, target_date, repository_type,
+                                               **kwargs)
+                    if values:
+                        self.logger.info(f"DependencySpec '{dep_name}': read from series {created.subgroup}")
+                        return values
+            tried.add(subgroup)
             values = self._spec_values(spec, series, related_entities, target_date, repository_type, **kwargs)
             if values:
-                if len(series) and getattr(series[0], 'subgroup', None):
-                    self.logger.info(f"DependencySpec '{dep_name}': read from series {series[0].subgroup}")
+                if subgroup:
+                    self.logger.info(f"DependencySpec '{dep_name}': read from series {subgroup}")
+                return values
+        for created in self._missing_series(spec, dep_repo, matching_factors, parent_factor, tried):
+            values = self._spec_values(spec, [created], related_entities, target_date, repository_type, **kwargs)
+            if values:
+                self.logger.info(f"DependencySpec '{dep_name}': read from series {created.subgroup}")
                 return values
         return []
+
+    def _missing_series(self, spec, dep_repo, factors, parent_factor, tried: set) -> List[Any]:
+        """Raw IBKR series of the reading order that no candidate has yet: created (same field, frequency) so the
+        read-time fallback can fetch them — each is its own series (BI-036). Marks them tried."""
+        from src.domain.entities.factor.source_policy import is_raw_bar_field, is_what_to_show, reading_order
+        model = next((f for f in factors if is_what_to_show(getattr(f, 'subgroup', None))
+                      and is_raw_bar_field(getattr(f, 'name', None))), None)
+        if model is None or getattr(model, 'source', None) != 'ibkr' or not hasattr(dep_repo, '_create_or_get'):
+            return []
+        existing = {getattr(f, 'subgroup', None) for f in factors}
+        try:
+            order = reading_order(type(model).__name__.removesuffix('Factor'), model.group, model.name)
+        except Exception:
+            return []
+        created = []
+        for wts in order:
+            if wts in existing or wts in tried:
+                continue
+            tried.add(wts)
+            try:
+                factor = dep_repo._create_or_get(spec.factor_type, model.name, group=model.group, subgroup=wts,
+                                                 frequency=model.frequency, data_type=model.data_type, source='ibkr')
+            except Exception as e:
+                self.logger.error(f"could not create the {model.name} {wts} series: {e}")
+                continue
+            if factor is not None and spec.matches_factor(parent_factor, factor):
+                created.append(factor)
+        return created
 
     def _series_in_reading_order(self, factors: List[Any]) -> List[List[Any]]:
         """Raw IBKR candidates grouped by series: whatToShow subgroups in the source policy's reading order, other

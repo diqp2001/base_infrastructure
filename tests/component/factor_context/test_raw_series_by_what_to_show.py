@@ -114,3 +114,26 @@ def test_a_window_comes_from_one_series(world):
 def test_legacy_series_still_serve_when_no_what_to_show_series_exists(world):
     value, _ = world.resolve(factor("CompanyShareMidPriceFactor"), world.share["AAPL"])
     assert value == pytest.approx(world.closes["AAPL"][-1])
+
+
+def test_a_refused_midpoint_series_falls_back_to_a_created_trades_series(world):
+    """Fresh database: only the MIDPOINT close exists and IBKR refuses it (no quote subscription -> no data). The
+    reader creates the TRADES series and tries it BEFORE the legacy 'ohlc' rows; it is never written into MIDPOINT."""
+    midpoint = CompanyShareFactorModel(name="close", group="price", subgroup="MIDPOINT", frequency="1d",
+                                       data_type="numeric", source="ibkr", definition="close MIDPOINT",
+                                       factor_type="company_share_factor")
+    world.s.add(midpoint)
+    world.s.commit()
+    tried = []
+    real = world.service._spec_values
+
+    def spy(spec, factors, *args, **kwargs):
+        tried.append(tuple(getattr(f, "subgroup", None) for f in factors))
+        return real(spec, factors, *args, **kwargs)
+
+    world.service._spec_values = spy
+    value, _ = world.resolve(factor("CompanyShareMidPriceFactor"), world.share["AAPL"])
+    assert [t for t in tried if t][:3] == [("MIDPOINT",), ("TRADES",), ("ohlc",)]
+    assert world.s.query(CompanyShareFactorModel).filter_by(name="close", subgroup="TRADES").count() == 1
+    assert value == pytest.approx(world.closes["AAPL"][-1])              # served by legacy until TRADES is fetched
+    assert world.s.query(FactorValueModel).filter_by(factor_id=midpoint.id).count() == 0
