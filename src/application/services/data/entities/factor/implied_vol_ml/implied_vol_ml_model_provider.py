@@ -27,6 +27,7 @@ threading risk (GIL-safe for dict reads).
 import hashlib
 import json
 import os
+import logging
 import pickle
 from datetime import date
 from typing import Any, Dict, Optional
@@ -38,6 +39,9 @@ from src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml
     ImpliedVolMlFeatureDefinition,
 )
 
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImpliedVolMlModelProvider:
@@ -87,7 +91,7 @@ class ImpliedVolMlModelProvider:
             # Clamp to reasonable IV range [0.001, 20]
             return max(0.001, min(result, 20.0))
         except Exception as e:
-            print(f"ImpliedVolMlModelProvider.predict error: {e}")
+            logger.error(f"ImpliedVolMlModelProvider.predict failed for {entity} at {target_date}: {e}")
             return None
 
     # ------------------------------------------------------------------
@@ -208,7 +212,7 @@ class ImpliedVolMlModelProvider:
                             if model is not None:
                                 return model
         except Exception as e:
-            print(f"ImpliedVolMlModelProvider._load_artifact error: {e}")
+            logger.error(f"ImpliedVolMlModelProvider: artifact lookup failed ({e}) — training a new model")
         return None
 
     def _artifact_matches(self, artifact, regime_key: str, target_date: date) -> bool:
@@ -250,7 +254,8 @@ class ImpliedVolMlModelProvider:
             with open(location, "rb") as f:
                 return pickle.load(f)
         except Exception as e:
-            print(f"ImpliedVolMlModelProvider: failed to deserialize {location}: {e}")
+            logger.error(f"ImpliedVolMlModelProvider: artifact {location} is unreadable ({type(e).__name__}: {e}) — "
+                         f"not used")
             return None
 
     # ------------------------------------------------------------------
@@ -268,12 +273,18 @@ class ImpliedVolMlModelProvider:
             feature_def=self.feature_def,
             history_service=self.history_service,
         )
-        model = trainer.train_and_persist(
-            target_date=target_date,
-            universe_fingerprint=universe_fp,
-        )
-        if model is not None:
-            ImpliedVolMlModelProvider._model_cache[regime_key] = model
+        try:
+            model = trainer.train_and_persist(
+                target_date=target_date,
+                universe_fingerprint=universe_fp,
+            )
+        except Exception as e:
+            logger.error(f"ImpliedVolMlModelProvider: training failed for {target_date} ({type(e).__name__}: {e})")
+            return None
+        if model is None:
+            logger.error(f"ImpliedVolMlModelProvider: training produced no model for {target_date} — no IV")
+            return None
+        ImpliedVolMlModelProvider._model_cache[regime_key] = model
         return model
 
     # ------------------------------------------------------------------

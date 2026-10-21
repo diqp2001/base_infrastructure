@@ -171,6 +171,8 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P2 · **Size** M · **Depends on** BI-015 · **Status: partial**
 - **Acceptance** reuse of a compatible valid artifact, training when missing / invalid, inference inside factor resolution, and failure paths (corrupt artifact, training failure) each tested; errors surfaced, not printed and swallowed.
 - **Evidence** `implied_vol_ml_model_provider.py`: regime fingerprint (universe + feature + config hashes) and validity window checked before reuse, training when none matches; factor dependencies are financial only (`company_share_option_implied_vol_ml_factor.py`); provider injected by the repository (infrastructure → application debt); errors handled by `print` + `return None`.
+- **Done (2026-10-21)** lifecycle paths tested on the real artifact chain (MLModel → ModelTraining → ModelArtifact, fake repositories, temporary files): a valid matching artifact is reused without training; a corrupt file, a missing file, another regime (universe / feature / config fingerprint) or an expired validity window each lead to training and caching the new model; a training failure (exception or no model) gives no value and is logged, not cached — before, a trainer exception propagated. `print` calls replaced by logged errors naming the artifact / date. Tests `tests/unit/application/test_implied_vol_ml_lifecycle.py` (7) + the existing 47.
+- **Remaining** safe deserialisation (pickle of a file under `artifacts/` — BI-015); the provider injection from the repository (BI-007 infrastructure → application debt).
 
 ### BI-017 — Build spatio-temporal momentum pipeline
 - **Priority** P2 · **Size** M (verification) · **Depends on** BI-015 · **Status: partial (implemented, verification pending)**
