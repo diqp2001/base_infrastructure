@@ -1144,6 +1144,22 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error extracting factor values from bulk data: {e}")
             return []
 
+    @staticmethod
+    def _report_import_gaps(bar_times, entity_type, entity_id, what_to_show=None):
+        """BI-013: an IBKR answer is not complete coverage. Trading days missing INSIDE the span of the bars
+        received (closures excluded, domain `coverage`) are reported at import, not discovered at decision time.
+        Returns the coverage report (None when fewer than two bars)."""
+        import logging as _logging
+        from src.domain.entities.factor.coverage import coverage
+        times = sorted(t.replace(tzinfo=None) if getattr(t, 'tzinfo', None) else t for t in bar_times if t)
+        if len(times) < 2:
+            return None
+        report = coverage(times, times[0].date(), times[-1].date(), as_of=times[-1].replace(hour=23, minute=59))
+        if report.gaps:
+            _logging.getLogger(__name__).warning(
+                f"IBKR import {entity_type}:{entity_id} ({what_to_show or 'unknown data type'}): {report.summary()}")
+        return report
+
     def _extract_factor_values_from_bulk_data(self, bulk_data: List[Dict[str, Any]],
                                             factors: List[Any], entity_id: int,
                                             entity_type: str = 'FinancialAsset',
@@ -1228,6 +1244,8 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             self._batch_persist_factor_values(created_factor_values)
             if what_to_show:
                 self._record_raw_provenance(created_factor_values, factors, what_to_show, selection)
+            self._report_import_gaps([self._parse_ibkr_date(b.get('date')) for b in bulk_data], entity_type, entity_id,
+                                     what_to_show)
             print(f"Extracted {len(factor_values)} factor values from {len(bulk_data)} bars for {len(factors)} factors")
             return factor_values
             
