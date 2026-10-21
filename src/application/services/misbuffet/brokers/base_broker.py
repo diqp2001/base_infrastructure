@@ -171,7 +171,12 @@ class BaseBroker(IBrokerage, ABC):
             # Validate order
             if not self._validate_order(order):
                 return False
-            
+
+            # Shared pre-trade risk gate (BI-022), when one is attached: a refused order is never sent
+            gate = getattr(self, "risk_gate", None)
+            if gate is not None and not gate.allows(order):
+                return False
+
             # Store order
             self.orders[order.id] = order
             
@@ -191,6 +196,10 @@ class BaseBroker(IBrokerage, ABC):
             self._notify_error_event("Order placement failed", e)
             return False
     
+    def attach_risk_gate(self, gate) -> None:
+        """Every later place_order must pass `gate.allows(order)` (PreTradeGate, BI-022)."""
+        self.risk_gate = gate
+
     def update_order(self, order: Order) -> bool:
         """Update an existing order."""
         if not self.is_connected():

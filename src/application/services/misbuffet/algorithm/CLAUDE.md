@@ -329,3 +329,18 @@ derivatives — IBKR reports `contract.symbol == "SPY"` for SPY options too.
 both returning whether the `*End` callback arrived before the timeout.
 
 Tests: `tests/misbuffet/test_order_safety.py` (no DB, no IBKR, no orders).
+
+### Pre-trade risk gate (BI-022)
+
+```python
+from src.application.services.misbuffet.brokers.pre_trade_gate import PreTradeGate
+from src.domain.entities.finance.order.pre_trade_risk import RiskLimits
+broker.attach_risk_gate(PreTradeGate(RiskLimits(max_order_notional=50_000, max_position_quantity=500),
+                                     account_provider=..., price_provider=...))
+```
+
+Once attached, `BaseBroker.place_order` sends nothing the gate refuses. The rules, all optional except the last
+two defaults, are: order quantity, order notional (× multiplier), position after the order, gross exposure,
+price freshness (default 60 s), and cash for buys (default on). A missing or stale price, or a provider that fails,
+refuses the order. Each rejection is logged at WARNING and kept in `gate.rejections`. The rules are pure
+(`domain/entities/finance/order/pre_trade_risk.py`). Tests: `tests/misbuffet/test_pre_trade_risk.py`.

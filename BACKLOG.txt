@@ -184,9 +184,11 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Evidence** `tests/misbuffet/test_live_order_path.py` (36, 1 expected failure), `test_reconciler_lifecycle.py` (6), `test_order_safety.py` (25); two order-status enums (`src/domain/entities/finance/back_testing/enums.py`, `src/domain/entities/finance/order/order.py`).
 
 ### BI-022 — Add pre-trade risk controls
-- **Priority** P3 · **Size** M · **Depends on** BI-021 · **Status: missing**
+- **Priority** P3 · **Size** M · **Depends on** BI-021 · **Status: partial — shared gate done (2026-10-21); live wiring of the providers open**
 - **Acceptance** one shared gate before paper-order submission: position limit, order size, exposure, available cash, stale market data — each rejection tested and logged.
 - **Evidence** only project-specific `check_position_limits` (SPX v2 `strategy/risk_manager.py:57`) and the reconciler's mismatch block (`position_reconciler.py:137`); no shared gate in the order path.
+- **Done (2026-10-21)** pure rules `src/domain/entities/finance/order/pre_trade_risk.py` (`RiskLimits`: order quantity, order notional × multiplier, position after the order, gross exposure, price freshness, cash for buys; `check_order` → `ValidationResult`s) and `PreTradeGate` (`brokers/pre_trade_gate.py`): attached with `BaseBroker.attach_risk_gate`, every `place_order` of every broker passes it before `_place_order_impl`; missing / stale price or a failing account / price provider refuses (fail closed); each rejection logged at WARNING and kept in `gate.rejections`. Tests `tests/misbuffet/test_pre_trade_risk.py` (14: each limit, sells, stale / missing prices, multiplier, refused order never sent, failing snapshot, symbol-scoped position). Without a gate nothing changes (backtests).
+- **Remaining** wire the providers for live / paper runs (account summary + positions from `IBTWSClient` snapshots, prices from the latest stored bar or a quote) and attach the gate where the live broker is built; per-project limits in the project configs.
 
 ### BI-023 — Complete read-only operational dashboard
 - **Priority** P3 · **Size** S–M · **Depends on** BI-020 · **Status: partial (mostly complete)** · **See also** BI-034 (data-quality metrics)
