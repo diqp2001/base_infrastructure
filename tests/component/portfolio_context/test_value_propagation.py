@@ -265,10 +265,7 @@ class TestPropagationThroughTheResolutionService:
         prices = {(t, e): v for (t, e, d, v) in tree.p.factor_values("company_share_value") if d == MON_16}
         assert prices[("CompanyShare", aapl)] == AAPL_PX
 
-    @pytest.mark.xfail(strict=True, reason="resolving the portfolio factors stores company_share_value (a share "
-                                           "price factor) for holdings and the share portfolio too: entities "
-                                           "without an ENTITY_FACTOR_MAPPING entry are accepted as dependency "
-                                           "targets (_dependency_targets fallback)")
     def test_share_prices_are_stored_for_shares_only(self, tree):
+        """BI-010 (was a strict xfail): a share price factor is never resolved on a share portfolio / holding."""
         Service(tree).chain(MON_16)
         assert {t for (t, _, _, _) in tree.p.factor_values("company_share_value")} == {"CompanyShare"}

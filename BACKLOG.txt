@@ -124,9 +124,10 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Evidence** `tests/component/portfolio_context/test_transaction_valuation_context.py`, `test_value_propagation.py`, `tests/misbuffet/test_trade_manager.py`, `test_set_holdings_chain.py`; cost basis appears in 1 test file; strict xfails `test_cash_keeps_cents` (INTEGER `positions.quantity`), `test_option_trade_and_value_use_the_contract_multiplier`.
 
 ### BI-010 — Test sub-portfolio and main portfolio aggregation
-- **Priority** P1 · **Size** M · **Depends on** BI-009 · **Status: partial**
+- **Priority** P1 · **Size** M · **Depends on** BI-009 · **Status: complete (2026-10-21) — both pinned propagation defects fixed**
 - **Acceptance** holdings, cash and market value reconcile at every level (holding → sub-portfolio → main) after trades, price moves, quantity corrections and failures; the two pinned propagation defects fixed.
 - **Evidence** `tests/component/portfolio_context/test_portfolio_value_layers.py`, nested sub-portfolio test in `test_transaction_valuation_context.py`; strict xfails in `test_value_propagation.py:237` (`force_recalculate` reuses stored dependencies) and `:256` (share-price factor stored for holdings).
+- **Done** `:237` fixed by BI-028 slice 1 (2026-10-20). `:256` fixed 2026-10-21: `FactorValueResolutionService._dependency_targets` no longer falls back to an entity whose class name (without `Model`) is a mapped entity class the dependency factor does not belong to (a share price factor on a `CompanySharePortfolioModel`); the true factor class is recovered from the stored discriminator (`_true_factor_class`, shared with `_is_factor_compatible_with_entity`) since DB factors may come back as `GenericFactor`. The strict xfail `test_share_prices_are_stored_for_shares_only` passes (marker removed) and every value-layer test is unchanged.
 
 ### BI-011 — Test factor dependency resolution
 - **Priority** P1 · **Size** M · **Depends on** BI-012 · **Status: partial — single-resolver cycle guard done (2026-10-21)**

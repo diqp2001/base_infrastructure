@@ -323,6 +323,29 @@ class FactorValueResolutionService:
             # Try alternative format
             return datetime.strptime(date_str, "%Y-%m-%d")
 
+    def _true_factor_class(self, factor_entity):
+        """The factor's class. If the factor came from the DB (has an ID), look up its canonical discriminator
+        and use that to recover the true class: FactorMapper.to_domain may have fallen through to GenericFactor
+        because an elif branch was missing."""
+        factor_cls = type(factor_entity)
+        factor_db_id = getattr(factor_entity, 'factor_id', None) or getattr(factor_entity, 'id', None)
+        if factor_db_id is not None:
+            try:
+                from src.infrastructure.models.factor.factor import FactorModel
+                from src.infrastructure.repositories.mappers.factor.factor_mapper import DISCRIMINATOR_CLASS_MAP
+                session = getattr(self.factory, 'session', None)
+                if session is not None:
+                    discriminator = (
+                        session.query(FactorModel.factor_type)
+                        .filter(FactorModel.id == factor_db_id)
+                        .scalar()
+                    )
+                    if discriminator and discriminator in DISCRIMINATOR_CLASS_MAP:
+                        factor_cls = DISCRIMINATOR_CLASS_MAP[discriminator]
+            except Exception:
+                pass  # Fall back to type(factor_entity)
+        return factor_cls
+
     def _is_factor_compatible_with_entity(self, factor_entity, entity, explicit: bool = False):
         """Return True if factor_entity's type is valid for entity's type.
 
@@ -332,29 +355,9 @@ class FactorValueResolutionService:
         DerivativeFactorEntity) are inherited by unrelated factor types.
         """
         try:
-            from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING, DISCRIMINATOR_CLASS_MAP
+            from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
 
-            factor_cls = type(factor_entity)
-
-            # If the factor came from the DB (has an ID), look up its canonical
-            # discriminator and use that to recover the true class. This handles
-            # the case where FactorMapper.to_domain fell through to GenericFactor
-            # because an elif branch was missing.
-            factor_db_id = getattr(factor_entity, 'factor_id', None) or getattr(factor_entity, 'id', None)
-            if factor_db_id is not None:
-                try:
-                    from src.infrastructure.models.factor.factor import FactorModel
-                    session = getattr(self.factory, 'session', None)
-                    if session is not None:
-                        discriminator = (
-                            session.query(FactorModel.factor_type)
-                            .filter(FactorModel.id == factor_db_id)
-                            .scalar()
-                        )
-                        if discriminator and discriminator in DISCRIMINATOR_CLASS_MAP:
-                            factor_cls = DISCRIMINATOR_CLASS_MAP[discriminator]
-                except Exception:
-                    pass  # Fall back to type(factor_entity)
+            factor_cls = self._true_factor_class(factor_entity)
 
             for entity_cls in type(entity).__mro__:
                 if entity_cls in ENTITY_FACTOR_MAPPING:
@@ -374,7 +377,25 @@ class FactorValueResolutionService:
         """
         verdicts = [(e, self._is_factor_compatible_with_entity(dep_factor, e, explicit=True)) for e in entities]
         explicit = [e for e, ok in verdicts if ok is True]
-        return explicit if explicit else [e for e, ok in verdicts if ok is not False]
+        if explicit:
+            return explicit
+        return [e for e, ok in verdicts if ok is not False and self._compatible_by_name(dep_factor, e) is not False]
+
+    def _compatible_by_name(self, factor_entity, entity) -> Optional[bool]:
+        """For an entity outside ENTITY_FACTOR_MAPPING (often an ORM model): judge by its class name without the
+        `Model` suffix. False when that name is a mapped entity class the factor does not belong to — e.g. a share
+        price factor on a CompanySharePortfolioModel (BI-010: share prices were stored for the share portfolio);
+        None when the name is not a mapped class either (a holding), which keeps the permissive behaviour."""
+        try:
+            from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
+        except Exception:
+            return None
+        name = type(entity).__name__.removesuffix("Model")
+        factor_cls = self._true_factor_class(factor_entity)
+        for entity_cls, bases in ENTITY_FACTOR_MAPPING.items():
+            if entity_cls.__name__ == name:
+                return any(issubclass(factor_cls, base) for base in bases)
+        return None
 
     def _get_bar_offset_seconds(self, factor_id: int) -> int:
         """Bar availability offset for a factor (see Factor.bar_availability_offset_seconds)."""
