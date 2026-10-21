@@ -119,3 +119,39 @@ class TestSignals(_DBCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEndToEndReproducibility(unittest.TestCase):
+    """BI-017: stored closes -> features -> walk-forward training -> persisted artifacts -> scores, run twice on two
+    fresh databases with the same deterministic dataset and configuration, gives identical results."""
+
+    def _run(self):
+        SpatioTemporalMomentumModelProvider.clear_cache()
+        tmp = tempfile.mkdtemp()
+        factory, session, engine = make_factory()
+        try:
+            cfg = tiny_config(tmp_dir=tmp)
+            closes = synthetic_closes(1000)
+            seed_closes(session, closes, ENTITY_IDS)
+            panel = build_feature_panel(closes, cfg.features)
+            results = STMWalkForwardTrainer(cfg, factory=factory).run(panel, ENTITY_IDS)
+            d = results[0].test.dates[5]
+            scores = SpatioTemporalMomentumModelProvider(factory=factory, config=cfg).score_universe(d, persist=True)
+            return [r.test_preds for r in results], d, scores
+        finally:
+            SpatioTemporalMomentumModelProvider.clear_cache()
+            SpatioTemporalMomentumModelProvider.default_config = None
+            session.close()
+            engine.dispose()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_two_runs_give_identical_predictions_and_scores(self):
+        preds_a, date_a, scores_a = self._run()
+        preds_b, date_b, scores_b = self._run()
+        self.assertEqual(len(preds_a), len(preds_b))
+        for a, b in zip(preds_a, preds_b):
+            np.testing.assert_allclose(a, b, rtol=0, atol=1e-7)
+        self.assertEqual(date_a, date_b)
+        self.assertEqual(scores_a.keys(), scores_b.keys())
+        for k in scores_a:
+            self.assertAlmostEqual(scores_a[k], scores_b[k], places=7)

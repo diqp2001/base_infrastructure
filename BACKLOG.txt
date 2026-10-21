@@ -177,9 +177,10 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Remaining** safe deserialisation (pickle of a file under `artifacts/` — BI-015); the provider injection from the repository (BI-007 infrastructure → application debt).
 
 ### BI-017 — Build spatio-temporal momentum pipeline
-- **Priority** P2 · **Size** M (verification) · **Depends on** BI-015 · **Status: partial (implemented, verification pending)**
+- **Priority** P2 · **Size** M (verification) · **Depends on** BI-015 · **Status: complete (2026-10-21)**
 - **Acceptance** universe, features, tensors, training, scoring and artifact persistence verified end to end on a deterministic dataset; results reproducible across two runs.
 - **Evidence** projects `spatio_temporal_momentum_project{,_5m,_full}`; `tests/spatio_temporal_momentum/` (8 files: dataset, features, look-ahead, model, persistence, report / dashboard, trading cycle, training); `/stm` dashboard and PDF report.
+- **Done (2026-10-21)** end-to-end reproducibility: `test_stm_persistence.py::TestEndToEndReproducibility` runs stored closes → features → walk-forward training → persisted artifacts → scores twice, each on a fresh database with the same deterministic dataset and configuration — every fold's test predictions and the persisted scores are identical. Together with the existing dataset, feature, look-ahead, model, training (seeded reproducibility), persistence and trading-cycle tests this covers the acceptance.
 
 ### BI-018 — Establish backtest correctness tests
 - **Priority** P2 · **Size** M · **Depends on** BI-010, BI-012 · **Status: partial**
