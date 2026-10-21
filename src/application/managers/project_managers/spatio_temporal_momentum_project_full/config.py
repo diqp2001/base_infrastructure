@@ -94,7 +94,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     'max_import_ibkr': True,
     # Engine clock. Decisions at each bar only see bars closed at that time
     # (MarketDataHistoryService frontier): a daily bar dated D is known from D+1 00:00.
-    'backtest_start': '2026-06-01 16:00:00',
+    # 'backtest_start': '2026-06-01 16:00:00',
+    # 2-week smoke run (owner's choice, 2026-10-21); daily TRADES bars, price history from price_history_start
+    'backtest_start': '2026-09-14 16:00:00',
     'backtest_end': '2026-09-30 16:00:00',
     'config_interval': {'custom_interval_days': 1},
     'initial_capital': 1_000_000,
