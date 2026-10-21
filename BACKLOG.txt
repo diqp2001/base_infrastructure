@@ -154,9 +154,11 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Remaining** numeric storage of `factor_values.value` (String(255) → numeric) is a schema change of the application database — needs approval; instrument identity by conId.
 
 ### BI-014 — Standardize factor definition and value contracts
-- **Priority** P1 · **Size** M · **Depends on** BI-012 · **Status: partial** · **See also** BI-025 (value provenance now specified there; BI-014 keeps definition metadata and value types)
+- **Priority** P1 · **Size** M · **Depends on** BI-012 · **Status: partial — definitions + provenance done; numeric storage awaits approval** · **See also** BI-025 (value provenance now specified there; BI-014 keeps definition metadata and value types)
 - **Acceptance** definitions validated (group, subgroup, source, frequency, data type); every stored value carries provenance (computed-at time, source / run id, input version) so stale derived values are detectable; numeric values stored with a numeric type.
 - **Evidence** `Factor.__init__` validates `GROUPS` / `SUBGROUPS` / `SOURCES` (`src/domain/entities/factor/factor.py`); definitions keyed by name + frequency; `factor_values` columns: factor_id, entity_id, entity_type, date, value (`String(255)`), currency_id — no provenance.
+- **Done (2026-10-21)** definitions: `tests/unit/domain/test_factor_definitions.py` — `Factor.__init__` refuses an unknown group / subgroup / frequency / data type / source, and every `FACTOR_LIBRARY` entry (dependencies included) uses canonical values. It found 7 portfolio option pricing entries with subgroups `portfolio_black_scholes`, `portfolio_binomial_tree`, `portfolio_stochastic_volatility`, `portfolio_stochastic_rates`, `portfolio_sabr`, `portfolio_jump_diffusion`, `portfolio_local_volatility` — not in `Factor.SUBGROUPS`, so those factors could not be created from the library; now the canonical names (the factor class distinguishes portfolio and share options). Provenance of stored values (computed-at, source, inputs, policy version) and stale detection: BI-025 / BI-028.
+- **Remaining** numeric storage of values (String(255) → numeric): schema change of the application database, needs approval.
 
 ### BI-015 — Implement model and artifact lifecycle
 - **Priority** P2 · **Size** L · **Depends on** BI-014 · **Status: partial**
