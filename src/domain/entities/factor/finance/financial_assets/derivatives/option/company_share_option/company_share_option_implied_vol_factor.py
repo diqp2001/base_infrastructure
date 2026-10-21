@@ -135,6 +135,16 @@ class CompanyShareOptionImpliedVolFactor(CompanyShareOptionFactor):
 
         option_type = getattr(entity, 'option_type', 'call') or 'call'
 
+        # BI-030: a price outside the no-arbitrage bounds (stale underlying, wrong strike / right / multiplier) has
+        # no implied vol — no value instead of whatever the solver converges to; the finding is kept for callers
+        from src.domain.entities.factor.quote_validation import validate_option_price
+        checks = validate_option_price(market_price, stock_price, strike_price, str(option_type),
+                                       discount_factor=math.exp(-risk_free_rate * time_to_expiry),
+                                       tolerance=max(0.01, 0.001 * stock_price))
+        self.integrity_findings = tuple(c for c in checks if not c.passed)
+        if self.integrity_findings:
+            return None
+
         return self.compute_iv(
             market_price=market_price,
             stock_price=stock_price,
