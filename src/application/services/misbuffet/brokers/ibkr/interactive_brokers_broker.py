@@ -1322,6 +1322,7 @@ class InteractiveBrokersBroker(BaseBroker):
             return self.ib_connection.create_contract(symbol, secType, exchange)
         else:
             # Fallback contract creation
+            from ibapi.contract import Contract
             contract = Contract()
             contract.symbol = symbol
             contract.secType = secType

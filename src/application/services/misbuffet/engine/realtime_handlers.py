@@ -8,7 +8,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Callable
+from typing import Any, Dict, List, Optional, Set, Callable
 from dataclasses import dataclass
 from enum import Enum
 import heapq

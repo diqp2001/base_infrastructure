@@ -9,11 +9,19 @@ Based on QuantConnect Lean's portfolio construction model pattern.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import TYPE_CHECKING, Dict, List, Optional, Any
 from datetime import datetime
 
 # Import the IAlgorithm interface to ensure proper relationship
 from ...common.interfaces import IAlgorithm
+
+# Lean event types (AssignmentEvent, Delistings, DividendEvents, SplitEvents, SymbolChangedEvents,
+# SubmitOrderRequest) are not modelled in this code base: those hooks take `Any` (BI-035).
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from src.application.services.misbuffet.algorithm.data_handlers import Slice
+    from src.application.services.misbuffet.algorithm.order import OrderEvent
+    from src.application.services.misbuffet.algorithm.symbol import Symbol
+    from src.domain.entities.finance.back_testing.back_testing_security import SecurityChanges
 
 
 class PortfolioConstructionModel(IAlgorithm):
@@ -96,7 +104,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_assignment(self, assignment_event: 'AssignmentEvent') -> None:
+    def on_assignment(self, assignment_event: Any) -> None:
         """
         Handle option assignment events.
         
@@ -106,7 +114,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_delistings(self, delistings: 'Delistings') -> None:
+    def on_delistings(self, delistings: Any) -> None:
         """
         Handle security delistings.
         
@@ -116,7 +124,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_dividend_events(self, dividend_events: 'DividendEvents') -> None:
+    def on_dividend_events(self, dividend_events: Any) -> None:
         """
         Handle dividend events.
         
@@ -146,7 +154,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_margin_call(self, requests: List['SubmitOrderRequest']) -> List['SubmitOrderRequest']:
+    def on_margin_call(self, requests: List[Any]) -> List[Any]:
         """
         Handle margin call events.
         
@@ -159,7 +167,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_split_events(self, split_events: 'SplitEvents') -> None:
+    def on_split_events(self, split_events: Any) -> None:
         """
         Handle stock split events.
         
@@ -169,7 +177,7 @@ class PortfolioConstructionModel(IAlgorithm):
         pass
     
     @abstractmethod
-    def on_symbol_changed_events(self, symbol_changed_events: 'SymbolChangedEvents') -> None:
+    def on_symbol_changed_events(self, symbol_changed_events: Any) -> None:
         """
         Handle symbol change events.
         
@@ -341,15 +349,15 @@ class EqualWeightPortfolioConstructionModel(PortfolioConstructionModel):
         """Handle security universe changes."""
         pass
     
-    def on_assignment(self, assignment_event: 'AssignmentEvent') -> None:
+    def on_assignment(self, assignment_event: Any) -> None:
         """Handle option assignment events."""
         pass
     
-    def on_delistings(self, delistings: 'Delistings') -> None:
+    def on_delistings(self, delistings: Any) -> None:
         """Handle security delistings."""
         pass
     
-    def on_dividend_events(self, dividend_events: 'DividendEvents') -> None:
+    def on_dividend_events(self, dividend_events: Any) -> None:
         """Handle dividend events."""
         pass
     
@@ -361,14 +369,14 @@ class EqualWeightPortfolioConstructionModel(PortfolioConstructionModel):
         """Handle end of day events."""
         pass
     
-    def on_margin_call(self, requests: List['SubmitOrderRequest']) -> List['SubmitOrderRequest']:
+    def on_margin_call(self, requests: List[Any]) -> List[Any]:
         """Handle margin call events."""
         return requests
     
-    def on_split_events(self, split_events: 'SplitEvents') -> None:
+    def on_split_events(self, split_events: Any) -> None:
         """Handle stock split events."""
         pass
     
-    def on_symbol_changed_events(self, symbol_changed_events: 'SymbolChangedEvents') -> None:
+    def on_symbol_changed_events(self, symbol_changed_events: Any) -> None:
         """Handle symbol change events."""
         pass

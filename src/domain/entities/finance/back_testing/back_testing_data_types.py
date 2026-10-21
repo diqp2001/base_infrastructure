@@ -6,9 +6,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional, Any, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Any, Union
 from .enums import TickType, DataType
 from .financial_assets.symbol import Symbol
+
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from src.domain.entities.finance.financial_assets.security import Security
 
 
 @dataclass

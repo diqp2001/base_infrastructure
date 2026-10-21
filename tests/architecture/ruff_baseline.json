@@ -1,14 +1,12 @@
 {
   "_note": "ruff findings per rule at 2026-10-20 (src + tests, rules in pyproject [tool.ruff.lint]). Lower these when findings are fixed; never raise them.",
   "counts": {
-    "F401": 1549,
+    "F401": 1545,
     "F402": 3,
     "F403": 18,
     "F541": 74,
     "F601": 5,
     "F811": 33,
-    "F821": 138,
-    "F823": 1,
-    "F841": 91
+    "F841": 86
   }
 }

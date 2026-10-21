@@ -17,6 +17,14 @@ logger = logging.getLogger(__name__)
 active_simulations = {}
 simulation_threads = {}
 
+def _removed_manager(name: str):
+    """The route's manager was removed from the code base (commit 87c31667): answer explicitly instead of failing
+    with a NameError."""
+    return jsonify({"success": False, "error": f"{name} was removed from the code base (commit 87c31667); "
+                                               f"no project is wired to this route",
+                    "timestamp": datetime.now().isoformat()}), 410
+
+
 @backtest_api.route("/backtest", methods=["POST"])
 def run_backtest():
     params = request.json  # JSON body
@@ -29,16 +37,8 @@ def run_test_backtest_api():
     """API endpoint to run TestProjectBacktestManager"""
     try:
         logger.info("API: Starting TestProjectBacktestManager execution...")
-        manager = TestProjectBacktestManager()
-        result = manager.run()
-        
-        return jsonify({
-            "success": True,
-            "message": "TestProjectBacktestManager executed successfully",
-            "result": result,
-            "timestamp": datetime.now().isoformat()
-        })
-        
+        return _removed_manager("TestProjectBacktestManager")
+
     except Exception as e:
         logger.error(f"API Error running TestProjectBacktestManager: {e}")
         return jsonify({
@@ -52,16 +52,8 @@ def run_test_live_trading_api():
     """API endpoint to run TestProjectLiveTradingManager"""
     try:
         logger.info("API: Starting TestProjectLiveTradingManager execution...")
-        manager = TestProjectLiveTradingManager()
-        result = manager.run()
-        
-        return jsonify({
-            "success": True,
-            "message": "TestProjectLiveTradingManager executed successfully",
-            "result": result,
-            "timestamp": datetime.now().isoformat()
-        })
-        
+        return _removed_manager("TestProjectLiveTradingManager")
+
     except Exception as e:
         logger.error(f"API Error running TestProjectLiveTradingManager: {e}")
         return jsonify({

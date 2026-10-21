@@ -6,10 +6,13 @@ Provides corporate governance, financial reporting, and company-specific trading
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import TYPE_CHECKING, Optional, List, Dict
 from src.domain.entities.finance.back_testing.financial_assets.share_backtest import ShareBackTest
 from src.domain.entities.finance.back_testing.financial_assets.symbol import Symbol
 from src.domain.entities.finance.back_testing.enums import SecurityType
+
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from src.domain.entities.finance.back_testing.financial_assets.security_backtest import MarketData
 
 
 @dataclass

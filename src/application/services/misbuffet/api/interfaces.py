@@ -5,9 +5,12 @@ These interfaces define contracts for various API communication components.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union, AsyncGenerator, Callable
+from typing import TYPE_CHECKING, Dict, List, Optional, Any, Union, AsyncGenerator, Callable
 from decimal import Decimal
 import asyncio
+
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from src.application.services.misbuffet.api.models import Backtest, BacktestResult, DataLink, DataOrder, LiveAlgorithm, Node, Project, ProjectFile
 
 
 class IApiConnection(ABC):

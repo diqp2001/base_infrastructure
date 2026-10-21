@@ -9,6 +9,11 @@ from datetime import datetime
 
 from .enums import OptimizationType, OptimizationStatus
 
+# Implementations of these interfaces live in sibling modules that import this one; their types (Individual,
+# OptimizationParameter, OptimizationParameterSet, OptimizationResult, OptimizationStatistics,
+# OptimizerConfiguration, ParameterSpace, Population) are annotated `Any` here to keep the module graph
+# acyclic (BI-035).
+
 
 class IOptimizer(ABC):
     """
@@ -17,12 +22,12 @@ class IOptimizer(ABC):
     """
     
     @abstractmethod
-    def initialize(self, configuration: 'OptimizerConfiguration') -> None:
+    def initialize(self, configuration: Any) -> None:
         """Initialize the optimizer with configuration settings."""
         pass
     
     @abstractmethod
-    async def optimize(self) -> 'OptimizationStatistics':
+    async def optimize(self) -> Any:
         """
         Run the optimization process.
         Returns optimization statistics upon completion.
@@ -30,7 +35,7 @@ class IOptimizer(ABC):
         pass
     
     @abstractmethod
-    def get_next_parameter_set(self) -> Optional['OptimizationParameterSet']:
+    def get_next_parameter_set(self) -> Optional[Any]:
         """
         Get the next parameter set to evaluate.
         Returns None when optimization is complete.
@@ -38,7 +43,7 @@ class IOptimizer(ABC):
         pass
     
     @abstractmethod
-    def register_result(self, result: 'OptimizationResult') -> None:
+    def register_result(self, result: Any) -> None:
         """Register the result of evaluating a parameter set."""
         pass
     
@@ -48,7 +53,7 @@ class IOptimizer(ABC):
         pass
     
     @abstractmethod
-    def get_best_result(self) -> Optional['OptimizationResult']:
+    def get_best_result(self) -> Optional[Any]:
         """Get the best result found so far."""
         pass
     
@@ -72,9 +77,9 @@ class IOptimizerFactory(ABC):
     @abstractmethod
     def create_optimizer(self, 
                         optimization_type: OptimizationType,
-                        parameter_space: 'ParameterSpace',
+                        parameter_space: Any,
                         target_function: 'IOptimizationTarget',
-                        configuration: Optional['OptimizerConfiguration'] = None) -> IOptimizer:
+                        configuration: Optional[Any] = None) -> IOptimizer:
         """Create an optimizer instance based on the specified type and configuration."""
         pass
     
@@ -91,7 +96,7 @@ class IOptimizationTarget(ABC):
     """
     
     @abstractmethod
-    async def evaluate(self, parameter_set: 'OptimizationParameterSet') -> 'OptimizationResult':
+    async def evaluate(self, parameter_set: Any) -> Any:
         """
         Evaluate a parameter set and return the optimization result.
         This typically involves running a backtest with the given parameters.
@@ -104,7 +109,7 @@ class IOptimizationTarget(ABC):
         pass
     
     @abstractmethod
-    def validate_parameters(self, parameter_set: 'OptimizationParameterSet') -> bool:
+    def validate_parameters(self, parameter_set: Any) -> bool:
         """Validate that the parameter set is valid for evaluation."""
         pass
 
@@ -116,7 +121,7 @@ class IParameterSpace(ABC):
     """
     
     @abstractmethod
-    def add_parameter(self, parameter: 'OptimizationParameter') -> None:
+    def add_parameter(self, parameter: Any) -> None:
         """Add a parameter to the search space."""
         pass
     
@@ -126,22 +131,22 @@ class IParameterSpace(ABC):
         pass
     
     @abstractmethod
-    def get_parameter(self, parameter_name: str) -> Optional['OptimizationParameter']:
+    def get_parameter(self, parameter_name: str) -> Optional[Any]:
         """Get a parameter by name."""
         pass
     
     @abstractmethod
-    def get_all_parameters(self) -> List['OptimizationParameter']:
+    def get_all_parameters(self) -> List[Any]:
         """Get all parameters in the search space."""
         pass
     
     @abstractmethod
-    def generate_random_parameter_set(self) -> 'OptimizationParameterSet':
+    def generate_random_parameter_set(self) -> Any:
         """Generate a random parameter set within the search space."""
         pass
     
     @abstractmethod
-    def validate_parameter_set(self, parameter_set: 'OptimizationParameterSet') -> bool:
+    def validate_parameter_set(self, parameter_set: Any) -> bool:
         """Validate that a parameter set is within the search space bounds."""
         pass
     
@@ -155,7 +160,7 @@ class ISelectionStrategy(ABC):
     """Interface for genetic algorithm selection strategies."""
     
     @abstractmethod
-    def select_parents(self, population: 'Population', num_parents: int) -> List['Individual']:
+    def select_parents(self, population: Any, num_parents: int) -> List[Any]:
         """Select parents from the population for reproduction."""
         pass
 
@@ -164,7 +169,7 @@ class ICrossoverStrategy(ABC):
     """Interface for genetic algorithm crossover strategies."""
     
     @abstractmethod
-    def crossover(self, parent1: 'Individual', parent2: 'Individual') -> List['Individual']:
+    def crossover(self, parent1: Any, parent2: Any) -> List[Any]:
         """Perform crossover between two parents to create offspring."""
         pass
 
@@ -173,7 +178,7 @@ class IMutationStrategy(ABC):
     """Interface for genetic algorithm mutation strategies."""
     
     @abstractmethod
-    def mutate(self, individual: 'Individual', mutation_rate: float) -> 'Individual':
+    def mutate(self, individual: Any, mutation_rate: float) -> Any:
         """Apply mutation to an individual."""
         pass
 
@@ -182,17 +187,17 @@ class IConstraintHandler(ABC):
     """Interface for handling optimization constraints."""
     
     @abstractmethod
-    def validate_constraints(self, parameter_set: 'OptimizationParameterSet') -> bool:
+    def validate_constraints(self, parameter_set: Any) -> bool:
         """Check if parameter set satisfies all constraints."""
         pass
     
     @abstractmethod
-    def repair_solution(self, parameter_set: 'OptimizationParameterSet') -> 'OptimizationParameterSet':
+    def repair_solution(self, parameter_set: Any) -> Any:
         """Repair a parameter set to satisfy constraints."""
         pass
     
     @abstractmethod
-    def add_constraint(self, constraint: Callable[['OptimizationParameterSet'], bool]) -> None:
+    def add_constraint(self, constraint: Callable[[Any], bool]) -> None:
         """Add a constraint function."""
         pass
 
@@ -201,7 +206,7 @@ class IResultStorage(ABC):
     """Interface for storing and retrieving optimization results."""
     
     @abstractmethod
-    async def store_result(self, result: 'OptimizationResult') -> None:
+    async def store_result(self, result: Any) -> None:
         """Store an optimization result."""
         pass
     
@@ -209,7 +214,7 @@ class IResultStorage(ABC):
     async def get_results(self, 
                          optimization_id: str,
                          limit: Optional[int] = None,
-                         offset: Optional[int] = None) -> List['OptimizationResult']:
+                         offset: Optional[int] = None) -> List[Any]:
         """Retrieve optimization results."""
         pass
     
@@ -217,7 +222,7 @@ class IResultStorage(ABC):
     async def get_best_results(self, 
                               optimization_id: str,
                               metric: str,
-                              top_n: int = 10) -> List['OptimizationResult']:
+                              top_n: int = 10) -> List[Any]:
         """Get top N best results for a specific metric."""
         pass
     
@@ -241,7 +246,7 @@ class IProgressReporter(ABC):
         pass
     
     @abstractmethod
-    def report_completion(self, statistics: 'OptimizationStatistics') -> None:
+    def report_completion(self, statistics: Any) -> None:
         """Report optimization completion."""
         pass
     
@@ -255,12 +260,12 @@ class IDistributedOptimizer(ABC):
     """Interface for distributed optimization across multiple nodes."""
     
     @abstractmethod
-    async def submit_work(self, parameter_sets: List['OptimizationParameterSet']) -> List[str]:
+    async def submit_work(self, parameter_sets: List[Any]) -> List[str]:
         """Submit parameter sets for evaluation to worker nodes."""
         pass
     
     @abstractmethod
-    async def collect_results(self, job_ids: List[str]) -> List['OptimizationResult']:
+    async def collect_results(self, job_ids: List[str]) -> List[Any]:
         """Collect results from worker nodes."""
         pass
     

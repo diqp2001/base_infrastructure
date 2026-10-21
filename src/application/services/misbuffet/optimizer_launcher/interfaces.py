@@ -6,7 +6,7 @@ optimization target evaluation, worker management, and result coordination.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Dict, Any, Optional, List, AsyncIterator, Callable
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
@@ -15,6 +15,13 @@ import asyncio
 # Import from existing modules
 from ..optimizer.interfaces import IOptimizer, IOptimizationTarget
 from ..launcher.interfaces import LauncherConfiguration, ILauncher
+
+# Implementations of these interfaces live in sibling modules that import this one; their types
+# (OptimizationCampaignResult) are annotated `Any` here to keep the module graph acyclic (BI-035).
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from ..optimizer.result_management import OptimizationResult
+    from src.application.services.misbuffet.optimizer.parameter_management import OptimizationParameterSet
+    from src.application.services.misbuffet.optimizer.result_management import OptimizationStatistics
 
 
 class OptimizerLauncherMode(Enum):
@@ -109,7 +116,7 @@ class IOptimizerLauncher(ABC):
         pass
     
     @abstractmethod
-    async def run_optimization(self) -> 'OptimizationCampaignResult':
+    async def run_optimization(self) -> Any:
         """
         Run the optimization campaign.
         

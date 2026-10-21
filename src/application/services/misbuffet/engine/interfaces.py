@@ -5,11 +5,21 @@ These define the contracts that various engine components must implement.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union, Callable
+from typing import TYPE_CHECKING, Dict, List, Optional, Any, Union, Callable
 from decimal import Decimal
 
 # Import from common module using relative imports
 from ..common import IAlgorithm, BaseData, Symbol, Order, OrderEvent
+
+# Implementations of these interfaces live in sibling modules that import this one; their types
+# (ScheduledEvent, SubscriptionDataConfig) are annotated `Any` here to keep the module graph acyclic (BI-035).
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from ..common import OrderTicket, Resolution, Slice
+    from src.application.services.misbuffet.algorithm_factory.algorithm_manager import AlgorithmManager
+    from src.application.services.misbuffet.data.subscription_manager import SubscriptionManager
+    from src.application.services.misbuffet.engine.engine_node_packet import EngineNodePacket
+    from src.application.services.misbuffet.engine.enums import AlgorithmStatus
+    from src.domain.entities.finance.holding.holding import Holding
 
 
 class IEngine(ABC):
@@ -46,12 +56,12 @@ class IDataFeed(ABC):
         pass
     
     @abstractmethod
-    def create_subscription(self, symbol: Symbol, resolution: 'Resolution') -> 'SubscriptionDataConfig':
+    def create_subscription(self, symbol: Symbol, resolution: 'Resolution') -> Any:
         """Create a data subscription for the given symbol and resolution."""
         pass
     
     @abstractmethod
-    def remove_subscription(self, config: 'SubscriptionDataConfig') -> bool:
+    def remove_subscription(self, config: Any) -> bool:
         """Remove a data subscription."""
         pass
     
@@ -240,12 +250,12 @@ class IRealTimeHandler(ABC):
         pass
     
     @abstractmethod
-    def add(self, scheduled_event: 'ScheduledEvent') -> None:
+    def add(self, scheduled_event: Any) -> None:
         """Add a scheduled event."""
         pass
     
     @abstractmethod
-    def remove(self, scheduled_event: 'ScheduledEvent') -> None:
+    def remove(self, scheduled_event: Any) -> None:
         """Remove a scheduled event."""
         pass
     

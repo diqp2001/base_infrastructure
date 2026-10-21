@@ -9,7 +9,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Iterator
+from typing import Any, Dict, List, Optional, Set, Iterator
 from pathlib import Path
 import csv
 import json
@@ -214,7 +214,7 @@ class FileSystemDataFeed(BaseDataFeed):
     def __init__(self):
         """Initialize the file system data feed."""
         super().__init__()
-        self._data_readers: Dict[str, DataReader] = {}
+        self._data_readers: Dict[str, BaseDataReader] = {}
         self._data_files: Dict[str, Path] = {}
         self._current_data_index: Dict[str, int] = {}
         self._all_data: Dict[str, List[BaseData]] = {}

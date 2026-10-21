@@ -39,16 +39,22 @@ class SecurityHolding(Holding):
         holdings_value=Decimal("0")
 
         # Initialize domain SecurityHoldings (uses Decimal fields)
+        # Algorithm-side holding: identified by its symbol, not a stored asset / position (the names passed here
+        # used to be undefined -> NameError on every SecurityHolding(...))
         super().__init__(
-            id=id,
-            asset=asset,
-            container=Portfolio(),
-            start_date=start_date,
-            end_date=end_date
+            id=None,
+            asset=None,
+            container=None,
+            position=None,
+            start_date=None,
             
         )
 
-        # Set algorithm-specific fields
+        # Set algorithm-specific fields (the values computed above were never stored; the float views read them)
+        for name, value in (("symbol", symbol), ("quantity", quantity), ("average_cost", average_cost),
+                            ("market_value", market_value), ("unrealized_pnl", unrealized_pnl),
+                            ("realized_pnl", realized_pnl), ("holdings_value", holdings_value)):
+            object.__setattr__(self, name, value)
         object.__setattr__(self, "market_price", float(average_price))
         object.__setattr__(self, "total_fees", 0.0)
         object.__setattr__(self, "_transactions", [])

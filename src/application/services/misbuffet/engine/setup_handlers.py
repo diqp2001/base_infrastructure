@@ -7,6 +7,8 @@ import logging
 import importlib
 import sys
 import os
+from ..algorithm_factory.algorithm_loader import FileAlgorithmLoader
+from ..common.enums import Market, SecurityType
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Type
@@ -39,7 +41,7 @@ class BaseSetupHandler(ISetupHandler, ABC):
         
         # Algorithm factory
         self._algorithm_factory: Optional[AlgorithmFactory] = None
-        self._algorithm_loader: Optional[AlgorithmLoader] = None
+        self._algorithm_loader: Optional[FileAlgorithmLoader] = None
         
         self._logger.info(f"Initialized {self.__class__.__name__}")
     
@@ -259,7 +261,7 @@ class ConsoleSetupHandler(BaseSetupHandler):
             self._algorithm_factory = AlgorithmFactory()
             
             # Initialize algorithm loader
-            self._algorithm_loader = AlgorithmLoader()
+            self._algorithm_loader = FileAlgorithmLoader()
             
             # Setup console logging
             self._setup_console_logging()
@@ -342,7 +344,7 @@ class BacktestingSetupHandler(BaseSetupHandler):
             self._algorithm_factory = AlgorithmFactory()
             
             # Initialize algorithm loader
-            self._algorithm_loader = AlgorithmLoader()
+            self._algorithm_loader = FileAlgorithmLoader()
             
             # Setup backtesting environment
             self._setup_backtesting_environment()
@@ -471,7 +473,7 @@ class CloudSetupHandler(BaseSetupHandler):
             self._algorithm_factory = AlgorithmFactory()
             
             # Initialize algorithm loader
-            self._algorithm_loader = AlgorithmLoader()
+            self._algorithm_loader = FileAlgorithmLoader()
             
             # Setup cloud configuration
             self._setup_cloud_configuration()

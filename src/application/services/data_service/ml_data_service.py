@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from typing import Optional, Any, Dict, List
 from ..database_service.database_service import DatabaseService

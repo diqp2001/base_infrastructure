@@ -21,7 +21,7 @@ class CompanySharePortfolioReturnFactorRepository(BaseFactorRepository):
         return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return PortfolioCompanyShareReturnFactor
+        return CompanySharePortfolioReturnFactor
 
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()

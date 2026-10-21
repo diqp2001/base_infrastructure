@@ -21,7 +21,7 @@ class CompanySharePortfolioVarianceFactorRepository(BaseFactorRepository):
         return self.mapper.get_factor_model()
     
     def get_factor_entity(self):
-        return PortfolioCompanyShareVarianceFactor
+        return CompanySharePortfolioVarianceFactor
 
     def get_factor_value_model(self):
         return FactorValueMapper().get_factor_value_model()

@@ -14,6 +14,14 @@ import json
 import logging
 
 
+def _removed_manager(name: str):
+    """The route's manager was removed from the code base (commit 87c31667): answer explicitly instead of failing
+    with a NameError."""
+    return jsonify({"success": False, "error": f"{name} was removed from the code base (commit 87c31667); "
+                                               f"no project is wired to this route",
+                    "timestamp": datetime.now().isoformat()}), 410
+
+
 class CustomJSONProvider(DefaultJSONProvider):
     """Custom JSON provider that handles NaN and numpy types."""
 
@@ -599,16 +607,8 @@ def api_execute_backtest():
         logger.info(f"API: Executing backtest with config: {data}")
         
         # Execute actual backtest manager with configuration
-        manager = TestProjectBacktestManager()
-        result = manager.run(start_web_interface=False)  # Don't start another web interface
-        
-        return jsonify({
-            "success": True,
-            "result": str(result),
-            "message": "Backtest completed successfully",
-            "config": data
-        })
-        
+        return _removed_manager("TestProjectBacktestManager")
+
     except Exception as e:
         logger.error(f"API: Error executing backtest: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -624,16 +624,8 @@ def api_execute_live_trading():
         logger.info(f"API: Executing live trading with config: {data}")
         
         # Execute actual live trading manager with configuration
-        manager = TestProjectLiveTradingManager()
-        result = manager.run()  # In real implementation, pass config to run method
-        
-        return jsonify({
-            "success": True,
-            "result": str(result),
-            "message": f"Live trading ({data.get('mode', 'paper')}) started successfully",
-            "config": data
-        })
-        
+        return _removed_manager("TestProjectLiveTradingManager")
+
     except Exception as e:
         logger.error(f"API: Error executing live trading: {e}")
         return jsonify({"success": False, "error": str(e)}), 500

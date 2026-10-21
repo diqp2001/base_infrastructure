@@ -3,13 +3,18 @@ Base algorithm implementation for the infrastructure layer.
 """
 
 from abc import ABC
-from typing import List
+from typing import TYPE_CHECKING, List, Any
 
 from ...application.services.misbuffet.common.interfaces import IAlgorithm
 from ...application.services.misbuffet.common.symbol import Symbol
 from ...application.services.misbuffet.common.data_types import BaseData
 from ...application.services.misbuffet.algorithm.data_handlers import Slice
 from ...application.services.misbuffet.algorithm.order import OrderEvent
+
+# Lean event types (AssignmentEvent, Delistings, DividendEvents, SplitEvents, SymbolChangedEvents,
+# SubmitOrderRequest) are not modelled in this code base: those hooks take `Any` (BI-035).
+if TYPE_CHECKING:  # string annotations only (BI-035)
+    from src.domain.entities.finance.back_testing.back_testing_security import SecurityChanges
 
 
 class BaseAlgorithm(IAlgorithm, ABC):
@@ -80,7 +85,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         pass
     
-    def on_margin_call(self, requests: List['SubmitOrderRequest']) -> List['SubmitOrderRequest']:
+    def on_margin_call(self, requests: List[Any]) -> List[Any]:
         """
         Called when a margin call occurs.
         Override this method in derived classes to handle margin calls.
@@ -93,7 +98,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         return requests
     
-    def on_assignment(self, assignment_event: 'AssignmentEvent') -> None:
+    def on_assignment(self, assignment_event: Any) -> None:
         """
         Called when an option assignment occurs.
         Override this method in derived classes to handle assignments.
@@ -103,7 +108,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         pass
     
-    def on_delistings(self, delistings: 'Delistings') -> None:
+    def on_delistings(self, delistings: Any) -> None:
         """
         Called when securities are delisted.
         Override this method in derived classes to handle delistings.
@@ -113,7 +118,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         pass
     
-    def on_symbol_changed_events(self, symbol_changed_events: 'SymbolChangedEvents') -> None:
+    def on_symbol_changed_events(self, symbol_changed_events: Any) -> None:
         """
         Called when symbol changes occur.
         Override this method in derived classes to handle symbol changes.
@@ -123,7 +128,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         pass
     
-    def on_split_events(self, split_events: 'SplitEvents') -> None:
+    def on_split_events(self, split_events: Any) -> None:
         """
         Called when stock splits occur.
         Override this method in derived classes to handle splits.
@@ -133,7 +138,7 @@ class BaseAlgorithm(IAlgorithm, ABC):
         """
         pass
     
-    def on_dividend_events(self, dividend_events: 'DividendEvents') -> None:
+    def on_dividend_events(self, dividend_events: Any) -> None:
         """
         Called when dividend events occur.
         Override this method in derived classes to handle dividends.
