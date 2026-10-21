@@ -18,6 +18,7 @@ from sqlalchemy.engine import Engine
 
 from src.infrastructure.models.factor.factor import FactorModel
 from src.infrastructure.models.factor.factor_value import FactorValueModel
+from src.infrastructure.models.factor.factor_value_provenance import FactorValueProvenanceModel
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
 
 READ_ONLY_PREFIXES = ("SELECT", "WITH", "SET")
@@ -66,6 +67,7 @@ class MonitoringReadRepository:
         self.factors = FactorModel.__table__
         self.values = FactorValueModel.__table__
         self.assets = FinancialAssetModel.__table__
+        self.provenance = FactorValueProvenanceModel.__table__
 
     # ------------------------------------------------------------------ health
     def ping(self) -> Dict[str, Any]:
@@ -144,6 +146,30 @@ class MonitoringReadRepository:
              .limit(limit))
         with self.engine.connect() as conn:
             return [dict(r) for r in conn.execute(q).mappings()]
+
+    def data_quality(self, limit: int = 100) -> Optional[Dict[str, Any]]:
+        """Recorded observation quality (BI-025 provenance, BI-034): counts per status and data type, and the
+        latest observations that are not VALID with their reason. None when the provenance table does not exist
+        (a database created before BI-025)."""
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        p, v, f, a = self.provenance, self.values, self.factors, self.assets
+        try:                                     # a plain SELECT: the read-only guard refuses catalogue PRAGMAs
+            with self.engine.connect() as conn:
+                conn.execute(select(p.c.factor_value_id).limit(1)).first()
+        except (OperationalError, ProgrammingError):
+            return None
+        counts = (select(p.c.status, p.c.data_type, func.count().label("count"))
+                  .group_by(p.c.status, p.c.data_type).order_by(p.c.status, p.c.data_type))
+        problems = (select(f.c.name.label("factor"), v.c.entity_type, v.c.entity_id, a.c.symbol,
+                           v.c.date, p.c.status, p.c.data_type, p.c.rejection_reason, p.c.validations,
+                           p.c.ingested_at)
+                    .select_from(p.join(v, v.c.id == p.c.factor_value_id).join(f, f.c.id == v.c.factor_id)
+                                 .outerjoin(a, a.c.id == v.c.entity_id))
+                    .where(p.c.status != "valid")
+                    .order_by(v.c.date.desc()).limit(limit))
+        with self.engine.connect() as conn:
+            return {"counts": [dict(r) for r in conn.execute(counts).mappings()],
+                    "problems": [dict(r) for r in conn.execute(problems).mappings()]}
 
     def data_sources(self) -> List[Dict[str, Any]]:
         f = self.factors

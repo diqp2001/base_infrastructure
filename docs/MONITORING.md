@@ -106,8 +106,12 @@ never per browser request.
 /monitor/api/status/database       /monitor/api/status/ibkr          /monitor/api/account/summary
 /monitor/api/account/positions     /monitor/api/account/orders       /monitor/api/market-data/status?limit=&stale_only=&q=
 /monitor/api/factors/status?limit=&q=   /monitor/api/jobs/status?limit=   /monitor/api/logs/recent?level=&component=&since_minutes=&q=&limit=
-/monitor/api/config
+/monitor/api/config                /monitor/api/data-quality/status
 ```
+`data-quality/status` (BI-034): observation provenance counts per status and data type and the latest
+non-valid observations (rejected / invalid / stale) with their failed validations — `degraded` when any is not
+valid, `unknown` on a database without provenance.
+
 Each section response: `{status, stale, age_seconds, stale_after_seconds, updated_at, last_success,
 error, data, generated_at}` with `status` one of healthy · degraded · disconnected · error · unknown · stale.
 

@@ -70,6 +70,7 @@ class MonitoringService:
         self.s_network = Section("network", stale_after_seconds=iv.health * k + 5)
         self.s_factors = Section("factors", stale_after_seconds=iv.data * k + 5)
         self.s_market = Section("market_data", stale_after_seconds=iv.data * k + 5)
+        self.s_quality = Section("data_quality", stale_after_seconds=iv.data * k + 5)
         self.started_at = utcnow()
         self._db_thread: Optional[threading.Thread] = None
         self._last_db_tick: Optional[datetime] = None
@@ -129,7 +130,7 @@ class MonitoringService:
 
     def collect_data(self) -> None:
         if self.db is None:
-            for s in (self.s_factors, self.s_market):
+            for s in (self.s_factors, self.s_market, self.s_quality):
                 s.update(UNKNOWN, error="database monitoring not configured")
             return
         limit = self.config.max_rows
@@ -145,6 +146,15 @@ class MonitoringService:
             self.s_market.update(HEALTHY, {"rows": rows})
         except Exception as e:
             self.s_market.update(ERROR, error=redact_text(f"{type(e).__name__}: {e}")[:500])
+        try:
+            quality = self.db.repo.data_quality(limit=limit)
+            if quality is None:
+                self.s_quality.update(UNKNOWN, error="no observation provenance recorded in this database")
+            else:
+                bad = sum(c["count"] for c in quality["counts"] if c["status"] != "valid")
+                self.s_quality.update(DEGRADED if bad else HEALTHY, {**quality, "not_valid": bad})
+        except Exception as e:
+            self.s_quality.update(ERROR, error=redact_text(f"{type(e).__name__}: {e}")[:500])
 
     # ------------------------------------------------------------------ views
     def application(self) -> Dict[str, Any]:
@@ -208,6 +218,11 @@ class MonitoringService:
     def orders(self) -> Dict[str, Any]:
         data = self.ibkr.orders_view() if self.ibkr is not None else {}
         return self._ibkr_data_view("open_orders", data, self.config.intervals.positions)
+
+    def data_quality(self) -> Dict[str, Any]:
+        """Observation quality (BI-034): counts per status / data type and the latest non-VALID observations
+        with their reasons — failures visible without querying tables. Read-only, never alters calculations."""
+        return self.s_quality.view()
 
     def market_data(self, limit: int = 200, stale_only: bool = False, query: Optional[str] = None) -> Dict[str, Any]:
         view = self.s_market.view()

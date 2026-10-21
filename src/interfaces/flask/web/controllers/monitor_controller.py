@@ -5,7 +5,7 @@ Pages:  /monitor/  /monitor/ibkr  /monitor/infrastructure  /monitor/market-data
         /monitor/factors  /monitor/logs  /monitor/settings
 API:    GET /monitor/api/health | status | status/connections | status/database | status/ibkr
             account/summary | account/positions | account/orders | market-data/status
-            factors/status | jobs/status | logs/recent | config
+            factors/status | data-quality/status | jobs/status | logs/recent | config
 
 Read-only enforcement in this layer:
 * only GET / HEAD / OPTIONS are accepted (anything else -> 405 before any handler runs);
@@ -152,6 +152,10 @@ def create_monitor_blueprint(service_provider: Callable[[], Any]) -> Blueprint:
         limit = _int_arg("limit", 200, 1, 1000)
         stale_only = _choice_arg("stale_only", {"0", "1", "true", "false"}, "0") in ("1", "true")
         return api(svc().market_data(limit=limit, stale_only=stale_only, query=_text_arg("q")))
+
+    @bp.get("/api/data-quality/status")
+    def api_data_quality():
+        return api(svc().data_quality())
 
     @bp.get("/api/factors/status")
     def api_factors():
