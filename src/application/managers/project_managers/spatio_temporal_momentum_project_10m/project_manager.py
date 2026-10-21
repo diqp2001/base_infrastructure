@@ -26,7 +26,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_progress import (
     STMProgressTracker,
 )
-from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bars_per_session
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bars_per_session, frequency
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_report_store import (
     progress_path,
     save_report,
@@ -105,7 +105,9 @@ class SpatioTemporalMomentum10mProjectManager(ProjectManager):
         if not cycle_results or algorithm is None or algorithm.cycle is None:
             return None
         cycle = algorithm.cycle
-        reader = STMPriceHistoryReader(cycle.factory)          # after the run: evaluation only
+        bar_minutes = self.stm_config.bar_minutes                # 10-minute closes, one row per bar
+        reader = STMPriceHistoryReader(cycle.factory, frequency=frequency(bar_minutes), bar_minutes=bar_minutes)
         id_to_ticker = {eid: t for t, eid in cycle.ticker_to_entity.items()}
         closes = reader.load_close_panel(id_to_ticker, start=cycle.history_start)
-        return build_report(cycle_results, closes, self.stm_config, factory=cycle.factory)
+        return build_report(cycle_results, closes, self.stm_config, factory=cycle.factory,
+                            history_start=cycle.history_start)

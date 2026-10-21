@@ -14,6 +14,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.dates  # noqa: E402
+import matplotlib.patches  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
@@ -161,12 +162,36 @@ def fig_shap_all(rep: STMResearchReport, top: int = 20):
     return fig
 
 
+def fig_coverage(rep: STMResearchReport):
+    """Share of the expected asset-bars stored, per session (history + backtest windows)."""
+    fig, ax = plt.subplots(figsize=(10, 4))
+    cov = getattr(rep, "coverage_by_session", None)
+    if cov is None or not len(cov):
+        ax.axis("off")
+        ax.text(0.5, 0.5, "No coverage data in this report", ha="center", va="center")
+    else:
+        start = pd.Timestamp(rep.period[0])
+        colors = ["#2ca02c" if d >= start else "#7f7f7f" for d in cov.index]
+        ax.bar(cov.index, cov.values, color=colors, width=0.8)
+        ax.set_ylim(0, 105)
+        ax.axhline(100, color="grey", linewidth=0.6)
+        ax.xaxis.set_major_formatter(matplotlib.dates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
+        ax.set_ylabel("% of expected bars stored")
+        ax.grid(True, axis="y", linestyle="--", alpha=0.5)
+        ax.legend(handles=[matplotlib.patches.Patch(color="#7f7f7f", label="history"),
+                           matplotlib.patches.Patch(color="#2ca02c", label="backtest")], loc="lower left")
+    ax.set_title("Data Coverage by Session (all assets)")
+    fig.tight_layout()
+    return fig
+
+
 FIGURES: Dict[str, Tuple[str, Callable]] = {
     "figure1": ("Figure 1: Cumulative Returns - Rescaled to Target Volatility", fig_cumulative),
     "figure3": ("Figure 3: (Left) Correlation of Strategies (Right) Rolling Correlations", fig_correlation),
     "figure4": ("Figure 4: Average Turnover of Strategies", fig_turnover),
     "figure5": ("Figure 5: Impact on Predicted Signal Output for a Single Asset", fig_shap_single),
     "figure6": ("Figure 6: Cumulative Mean Absolute Impact on Predicted Signal Output for All Assets", fig_shap_all),
+    "coverage_figure": ("Data Coverage by Session", fig_coverage),
 }
 
 
@@ -192,10 +217,31 @@ def tables(rep: STMResearchReport) -> List[Tuple[str, str, pd.DataFrame]]:
         ("table2", "Table 2: Performance Metrics for Strategies – Rescaled to Target Volatility", rep.table_rescaled),
         ("table6", "Table 6: Impact of Transactions Costs on Sharpe Ratio – Rescaled to Target Volatility "
                    "(columns: transaction cost in basis points)", rep.table_costs),
+        ("coverage_summary", "Data Coverage – Summary (expected bars from the NYSE calendar)",
+         _or_unavailable(getattr(rep, "coverage_summary", None))),
+        ("coverage_assets", "Data Coverage by Asset (least covered first)",
+         _or_unavailable(getattr(rep, "coverage_assets", None))),
     ]
 
 
+def _or_unavailable(df) -> pd.DataFrame:
+    if df is None:
+        return pd.DataFrame({"Value": ["not available (report saved before coverage statistics existed)"]})
+    return df
+
+
+def _cell(v) -> str:
+    if isinstance(v, (str, bool)):
+        return str(v)
+    if isinstance(v, (int, np.integer)):
+        return f"{int(v):d}"
+    if v is None or pd.isna(v):
+        return "–"
+    return f"{v:.3f}" if isinstance(v, (float, np.floating)) else str(v)
+
+
 def table_html(df: pd.DataFrame) -> str:
+    df = df.apply(lambda col: col.map(_cell) if col.dtype == object else col)     # mixed metric / text columns
     return df.to_html(float_format=lambda v: f"{v:.3f}", classes="table table-sm table-dark table-striped",
                       border=0, na_rep="–")
 
@@ -203,7 +249,7 @@ def table_html(df: pd.DataFrame) -> str:
 def _table_figure(title: str, df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(11, 0.5 + 0.38 * (len(df) + 2)))
     ax.axis("off")
-    cells = [[("–" if pd.isna(v) else f"{v:.3f}") for v in row] for row in df.to_numpy()]
+    cells = [[_cell(v) for v in row] for row in df.astype(object).to_numpy()]
     t = ax.table(cellText=cells, rowLabels=list(df.index), colLabels=list(df.columns), loc="center", cellLoc="center")
     t.auto_set_font_size(False)
     t.set_fontsize(8)
@@ -217,7 +263,8 @@ def _table_figure(title: str, df: pd.DataFrame):
 # PDF
 # ---------------------------------------------------------------------------
 
-PAPER_ORDER = ["table1", "table2", "figure1", "figure3", "table6", "figure4", "figure5", "figure6"]
+PAPER_ORDER = ["table1", "table2", "figure1", "figure3", "table6", "figure4", "figure5", "figure6",
+               "coverage_summary", "coverage_figure", "coverage_assets"]
 
 
 def build_pdf(rep: STMResearchReport) -> bytes:

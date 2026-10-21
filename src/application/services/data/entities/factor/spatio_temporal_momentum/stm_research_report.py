@@ -49,6 +49,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
     align_close_panel,
     build_feature_panel,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_data_coverage import data_coverage
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import periods_per_year
 
 ANN = 252
@@ -86,6 +87,10 @@ class STMResearchReport:
     shap: Optional[ShapResult] = None
     shap_asset: Optional[str] = None
     notes: List[str] = field(default_factory=list)
+    # data coverage of the run (stm_data_coverage); None in reports saved before they existed
+    coverage_summary: Optional[pd.DataFrame] = None     # metric -> Value
+    coverage_assets: Optional[pd.DataFrame] = None      # ticker -> expected / present / gaps ...
+    coverage_by_session: Optional[pd.Series] = None     # session -> % of expected asset-bars stored
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +240,8 @@ def _shap_for_artifact(loaded, closes: pd.DataFrame, sessions: List[pd.Timestamp
 
 def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConfiguration,
                  factory=None, shap_asset: Optional[str] = None, shap_samples: int = 40,
-                 shap_draws: int = 12, rolling_window: Optional[int] = None) -> Optional[STMResearchReport]:
+                 shap_draws: int = 12, rolling_window: Optional[int] = None,
+                 history_start=None) -> Optional[STMResearchReport]:
     decided = [r for r in cycle_results if getattr(r, "scores", None) and r.session is not None]
     if not decided:
         return None
@@ -307,6 +313,12 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
     if shap_res is not None and (shap_asset is None or shap_asset not in shap_res.output_assets):
         shap_asset = "BAC" if "BAC" in shap_res.output_assets else shap_res.output_assets[0]
 
+    coverage = _coverage(cycle_results, closes, config, history_start)
+    if coverage is not None:
+        s = coverage[0]["Value"]
+        notes.append(f"Data coverage: {s['Coverage % — backtest']:.1f}% of the expected bars stored in the backtest "
+                     f"window, {s['Coverage % — history']:.1f}% in the history window (NYSE calendar).")
+
     return STMResearchReport(
         model_name=model_name,
         period=(str(dates[0].date()), str(dates[-1].date())),
@@ -325,4 +337,22 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: STMConf
         shap=shap_res,
         shap_asset=shap_asset,
         notes=notes,
+        coverage_summary=coverage[0] if coverage is not None else None,
+        coverage_assets=coverage[1] if coverage is not None else None,
+        coverage_by_session=coverage[2] if coverage is not None else None,
     )
+
+
+def _coverage(cycle_results: List[Any], closes: pd.DataFrame, config: STMConfiguration, history_start):
+    """Coverage of the stored closes against the exchange calendar (None when nothing was decided)."""
+    steps = [r for r in cycle_results if getattr(r, "session", None) is not None]
+    if not steps:
+        return None
+    scored: Dict[str, int] = {}
+    for r in steps:
+        for a in (getattr(r, "scores", None) or {}):
+            scored[a] = scored.get(a, 0) + 1
+    universe = list(config.universe.tickers or closes.columns)
+    return data_coverage(closes, universe, [r.session for r in steps], scored, config.bar_minutes,
+                         history_start=history_start,
+                         scored_per_decision=[len(getattr(r, "scores", None) or {}) for r in steps])

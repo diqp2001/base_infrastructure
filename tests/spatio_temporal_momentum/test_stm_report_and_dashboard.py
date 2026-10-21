@@ -175,7 +175,9 @@ class TestDashboard(unittest.TestCase):
             html = client.get("/stm/results").get_data(as_text=True)
             for title in ("Table 1", "Table 2", "Table 6", "Figure 1", "Figure 3", "Figure 4", "Figure 5", "Figure 6"):
                 self.assertIn(title, html)
-            self.assertEqual(html.count("data:image/png;base64,"), 5)
+            for title in ("Data Coverage – Summary", "Data Coverage by Asset", "Data Coverage by Session"):
+                self.assertIn(title, html)
+            self.assertEqual(html.count("data:image/png;base64,"), 6)          # 5 paper figures + coverage
             pdf = client.get("/stm/report.pdf")
             self.assertEqual(pdf.status_code, 200)
             self.assertTrue(pdf.data.startswith(b"%PDF"))
