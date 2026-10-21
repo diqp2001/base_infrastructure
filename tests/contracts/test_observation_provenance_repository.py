@@ -120,3 +120,45 @@ def test_unknown_value_or_input_fails_clearly(world):
         repo.record(raw(missing))
     with pytest.raises(LookupError, match="is not a stored factor value"):
         repo.record(derived(refs["mid_price"], [missing], "mid_price", "CompanyShareOptionMidPriceFactor"))
+
+
+# ---- BI-028: upstream corrections ------------------------------------------------------------
+
+def test_dependents_are_listed_transitively_nearest_first(world):
+    factory, _, refs = world
+    repo = factory.observation_provenance_local_repo
+    repo.record(raw(refs["close"]))
+    repo.record(derived(refs["mid_price"], [refs["close"]], "mid_price", "CompanyShareOptionMidPriceFactor"))
+    repo.record(derived(refs["delta"], [refs["mid_price"]], "delta", "CompanyShareOptionDeltaFactor"))
+    assert repo.dependents(refs["close"]) == [refs["mid_price"], refs["delta"]]
+    assert repo.dependents(refs["delta"]) == []
+
+
+def test_a_corrected_value_marks_its_dependents_stale(world):
+    factory, _, refs = world
+    repo = factory.observation_provenance_local_repo
+    repo.record(raw(refs["close"]))
+    repo.record(derived(refs["mid_price"], [refs["close"]], "mid_price", "CompanyShareOptionMidPriceFactor"))
+    repo.record(derived(refs["delta"], [refs["mid_price"]], "delta", "CompanyShareOptionDeltaFactor"))
+    values = factory.factor_value_local_repo
+    stored = next(v for v in values.get_all() if (v.factor_id, v.date) == (refs["close"].factor_id, BAR))
+    stored.value = "117.0"
+    values.update(stored)
+    for ref in (refs["mid_price"], refs["delta"]):
+        stale = repo.get(ref)
+        assert stale.status is S.STALE and "117.0" in stale.failed_validations[0].reason
+        assert stale.inputs                                                         # lineage kept
+    assert repo.get(refs["close"]).status is S.VALID
+    repo.record(derived(refs["mid_price"], [refs["close"]], "mid_price", "CompanyShareOptionMidPriceFactor"))
+    assert repo.get(refs["mid_price"]).status is S.VALID                            # recomputed: current again
+
+
+def test_an_unchanged_update_invalidates_nothing(world):
+    factory, _, refs = world
+    repo = factory.observation_provenance_local_repo
+    repo.record(raw(refs["close"]))
+    repo.record(derived(refs["mid_price"], [refs["close"]], "mid_price", "CompanyShareOptionMidPriceFactor"))
+    values = factory.factor_value_local_repo
+    stored = next(v for v in values.get_all() if (v.factor_id, v.date) == (refs["close"].factor_id, BAR))
+    values.update(stored)
+    assert repo.get(refs["mid_price"]).status is S.VALID

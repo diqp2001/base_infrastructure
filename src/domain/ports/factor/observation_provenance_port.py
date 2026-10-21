@@ -22,3 +22,20 @@ class ObservationProvenancePort(ABC):
     @abstractmethod
     def lineage(self, observation: ObservationRef) -> List[ObservationProvenance]:
         """Every observation the value was computed from, transitively (inputs first, no duplicates)."""
+
+    @abstractmethod
+    def dependents(self, observation: ObservationRef) -> List[ObservationRef]:
+        """Every stored value computed from this one, transitively (direct dependents first, no duplicates) —
+        what an upstream correction affects (BI-028)."""
+
+    @abstractmethod
+    def mark_stale(self, observations: List[ObservationRef], reason: str) -> int:
+        """Mark derived values STALE (their inputs changed): they are recomputed, not reused, on the next read.
+        Returns how many were marked."""
+
+    def invalidate_dependents(self, observation: ObservationRef, reason: str) -> List[ObservationRef]:
+        """An observation was corrected: mark everything computed from it STALE; returns the affected values."""
+        affected = self.dependents(observation)
+        if affected:
+            self.mark_stale(affected, reason)
+        return affected

@@ -5,11 +5,14 @@ their natural key (factor, entity type, entity id, date), as in ObservationRef. 
 Registered in RepositoryFactory as 'ObservationProvenance'.
 """
 
+from dataclasses import replace
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.domain.entities.factor.observation_quality import ObservationProvenance, ObservationRef
+from src.domain.entities.factor.observation_quality import (
+    ObservationProvenance, ObservationRef, ObservationStatus, ValidationResult,
+)
 from src.domain.ports.factor.observation_provenance_port import ObservationProvenancePort
 from src.infrastructure.models.factor.factor_value import FactorValueModel
 from src.infrastructure.models.factor.factor_value_provenance import FactorValueLineageModel, FactorValueProvenanceModel
@@ -73,6 +76,44 @@ class ObservationProvenanceRepository(ObservationProvenancePort):
                         result.append(provenance)
             frontier = next_frontier
         return result
+
+    def dependents(self, observation: ObservationRef) -> List[ObservationRef]:
+        """Values whose lineage contains this one, transitively, breadth first, no duplicates (BI-028)."""
+        row = self._value_row(observation)
+        if row is None:
+            return []
+        result, seen, frontier = [], {row.id}, [row.id]
+        while frontier:
+            rows = (self.session.query(FactorValueModel)
+                    .join(FactorValueLineageModel, FactorValueLineageModel.factor_value_id == FactorValueModel.id)
+                    .filter(FactorValueLineageModel.input_factor_value_id.in_(frontier))
+                    .order_by(FactorValueModel.id).all())
+            frontier = []
+            for value in rows:
+                if value.id not in seen:
+                    seen.add(value.id)
+                    frontier.append(value.id)
+                    result.append(self.mapper.ref(value))
+        return result
+
+    def mark_stale(self, observations: List[ObservationRef], reason: str) -> int:
+        """Status STALE plus a failed `inputs_current` validation saying why; values without provenance have no
+        row to mark (they are not reused as derived values with known lineage anyway)."""
+        marked = 0
+        for ref in observations:
+            row = self._value_row(ref)
+            model = self.session.get(FactorValueProvenanceModel, row.id) if row is not None else None
+            if model is None:
+                continue
+            provenance = self.mapper.to_domain(ref, model, self._input_refs(row.id))
+            stale = replace(provenance, status=ObservationStatus.STALE,
+                            validations=tuple(v for v in provenance.validations if v.rule != "inputs_current")
+                            + (ValidationResult("inputs_current", False, reason),))
+            self.session.add(self.mapper.to_orm(stale, row.id, model))
+            marked += 1
+        if marked:
+            self.session.commit()
+        return marked
 
     # ------------------------------------------------------------------ helpers
     def _value_row(self, ref: ObservationRef) -> Optional[FactorValueModel]:

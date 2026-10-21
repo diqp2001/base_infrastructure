@@ -111,6 +111,18 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                   .first())
         return self._to_entity(stored) if stored is not None else None
 
+    def _invalidate_dependents(self, model: FactorValueModel) -> None:
+        """A stored value changed (an upstream correction, or a recomputed derived value): every value computed
+        from it is marked STALE and recomputed on its next read instead of being reused (BI-028)."""
+        provenance = getattr(self.factory, 'observation_provenance_local_repo', None) if self.factory else None
+        if provenance is None:
+            return
+        from src.domain.entities.factor.observation_quality import ObservationRef
+        ref = ObservationRef(model.factor_id, model.entity_type, model.entity_id, model.date)
+        affected = provenance.invalidate_dependents(ref, f"input {ref} changed to {model.value}")
+        if affected:
+            print(f"Factor value {ref} changed: {len(affected)} dependent value(s) marked stale")
+
     def _resolve_currency_id(self, entity: FactorValue) -> Optional[int]:
         """Look up currency_id from the associated financial entity (any type)."""
         try:
@@ -146,9 +158,12 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 else entity.entity_type
             )
             model.date = entity.date
+            changed = str(model.value) != str(entity.value)
             model.value = entity.value
 
             self.session.commit()
+            if changed:
+                self._invalidate_dependents(model)
             return self._to_entity(model)
         except Exception as e:
             print(f"Error updating factor value: {e}")

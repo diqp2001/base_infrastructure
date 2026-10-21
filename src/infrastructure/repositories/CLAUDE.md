@@ -149,6 +149,13 @@ instead: raw rows commit as they arrive and are kept; on failure the derived (`s
 inserted are deleted and those it overwrote restored. Used by `PortfolioService.calculate_value`; tests:
 `tests/contracts/test_derived_value_scope.py`.
 
+**Corrections and stale derived values (BI-028):** `FactorValueRepository.update` that changes a stored value calls
+`ObservationProvenancePort.invalidate_dependents`: every value computed from it (transitively, via
+`factor_value_lineage`) gets status `STALE` and a failed `inputs_current` validation. `FactorValueResolutionService`
+never reuses a STALE derived value — it recomputes it, and recording the new lineage makes it `VALID` again. Never
+correct a value with a raw SQL `UPDATE`: that bypasses the invalidation. Tests:
+`tests/component/factor_context/test_reprocessing.py`, `tests/contracts/test_observation_provenance_repository.py`.
+
 ## ⚡ Performance Features
 
 ### Bulk Operations

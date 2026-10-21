@@ -193,7 +193,7 @@ class FactorValueResolutionService:
                     factor_entity.id, entity_id, entity_type, formatted_date, repository_type,
                     derived=is_derived,
                 )
-                if existing_value:
+                if existing_value and not (is_derived and self._is_stale(existing_value)):
                     return existing_value
 
             if dependencies or has_dynamic_dependencies:
@@ -1352,7 +1352,7 @@ class FactorValueResolutionService:
             existing = self._check_existing_value(
                 dep_factor_entity.id, holding_id, holding_type, date_str, repository_type
             )
-            if existing:
+            if existing and not self._is_stale(existing):
                 return existing
 
         # 2. Get the underlying financial asset (e.g. CompanyShare)
@@ -1914,6 +1914,25 @@ class FactorValueResolutionService:
 
     def _provenance_repo(self):
         return getattr(self.factory, 'observation_provenance_local_repo', None) if self.factory else None
+
+    def _is_stale(self, value) -> bool:
+        """A stored derived value whose inputs changed since it was computed, or computed under another
+        PROVENANCE_POLICY_VERSION (BI-028): recompute it from the stored inputs, never reuse it. Bumping the version
+        therefore reprocesses every derived value on its next read, from stored raw data, without re-download."""
+        repo = self._provenance_repo()
+        ref = self._ref(value) if repo is not None and value is not None else None
+        if ref is None:
+            return False
+        from src.domain.entities.factor.observation_quality import ObservationStatus
+        try:
+            provenance = repo.get(ref)
+        except Exception as e:
+            self.logger.error(f"Provenance of {ref} not readable: {e}")
+            return False
+        if provenance is None:
+            return False
+        outdated = provenance.is_derived and provenance.policy_version not in ("", self.PROVENANCE_POLICY_VERSION)
+        return provenance.status is ObservationStatus.STALE or outdated
 
     def _record_derived_provenance(self, factor_entity, entity, stored) -> None:
         """Store the lineage of a derived value computed in the current frame (inputs = values read)."""
