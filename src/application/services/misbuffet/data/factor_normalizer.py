@@ -406,15 +406,17 @@ class FactorNormalizer:
                                      factor_data: Dict[str, pd.DataFrame],
                                      current_ticker: str,
                                      factor_name: str) -> pd.Series:
-        """Helper method to apply cross-sectional z-score normalization to a single series."""
+        """Point-in-time z-score of one ticker's series (BI-012): each date is standardised with the mean / std of
+        the values up to and including that date — never later ones (the whole-history mean / std used before
+        made every value depend on the future). Callers pass one ticker at a time, so this is a time-series
+        z-score; the first date (one observation) and constant stretches have no z-score (NaN)."""
         if current_ticker not in factor_data:
             return pd.Series()
 
         series = factor_data[current_ticker]
-
-        # For simplicity, just apply z-score normalization to the series itself
-        # In a full implementation, you'd normalize across all tickers at each date
-        return (series - series.mean()) / series.std() if series.std() > 0 else series
+        mean = series.expanding(min_periods=2).mean()
+        std = series.expanding(min_periods=2).std()
+        return (series - mean) / std.where(std > 0)
 
     def _calculate_macd(self, prices: pd.Series, fast: int, slow: int) -> pd.Series:
         """Calculate MACD indicator."""

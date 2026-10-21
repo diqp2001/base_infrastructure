@@ -97,3 +97,19 @@ def test_other_types():
     assert resolve_what_to_show(factor("CompanyShareOptionImpliedVolFactor", "iv", "volatility", "implied")) \
         == "OPTION_IMPLIED_VOLATILITY"
     assert resolve_what_to_show(group="price", subgroup="option") == "MIDPOINT"
+
+
+def test_trading_days_match_pandas_market_calendars():
+    """BI-012: the pure domain calendar equals pandas_market_calendars' NYSE calendar day by day, 2000-2030
+    (special closures included). The domain layer stays dependency-free; this test keeps it right."""
+    import datetime as dt
+    mcal = pytest.importorskip("pandas_market_calendars")
+    from src.domain.entities.factor.bar_calendar import is_trading_day
+    sched = mcal.get_calendar("NYSE").schedule(start_date="2000-01-01", end_date="2030-12-31")
+    open_days = {d.date() for d in sched.index}
+    d, diff = dt.date(2000, 1, 1), []
+    while d <= dt.date(2030, 12, 31):
+        if is_trading_day(d) != (d in open_days):
+            diff.append(d)
+        d += dt.timedelta(days=1)
+    assert diff == []

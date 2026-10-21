@@ -30,6 +30,19 @@ SESSION_CLOSE = time(16, 0)
 DAY_SECONDS = 86400
 
 
+# Unscheduled full-day closures (not derivable from rules). Kept in step with pandas_market_calendars' NYSE
+# calendar by tests/unit/domain/test_bar_calendar.py; add new ones there and here. Early closes (13:00) are not
+# modelled: a half day counts as a full session.
+SPECIAL_CLOSURES = frozenset({
+    date(2001, 9, 11), date(2001, 9, 12), date(2001, 9, 13), date(2001, 9, 14),   # September 11
+    date(2004, 6, 11),                                                            # President Reagan mourning
+    date(2007, 1, 2),                                                             # President Ford mourning
+    date(2012, 10, 29), date(2012, 10, 30),                                       # Hurricane Sandy
+    date(2018, 12, 5),                                                            # President G.H.W. Bush mourning
+    date(2025, 1, 9),                                                             # President Carter mourning
+})
+
+
 @lru_cache(maxsize=None)
 def us_market_holidays(year: int) -> FrozenSet[date]:
     """NYSE full-day holidays of `year`."""
@@ -61,6 +74,7 @@ def us_market_holidays(year: int) -> FrozenSet[date]:
     }
     if year >= 2022:
         days.add(observed(date(year, 6, 19)))       # Juneteenth
+    days |= {d for d in SPECIAL_CLOSURES if d.year == year}
     return frozenset(days)
 
 

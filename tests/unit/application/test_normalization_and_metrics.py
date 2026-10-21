@@ -69,16 +69,16 @@ class TestNormalizationInvariants:
         assert w.min() >= np.percentile(v, lo * 100) - 1e-9
         assert w.max() <= np.percentile(v, hi * 100) + 1e-9
 
-    @pytest.mark.xfail(strict=True, reason="GAP: _apply_cross_sectional_zscore z-scores each ticker over its "
-                                           "whole history (mean / std include later dates), so values at a date "
-                                           "depend on the future; it is not cross-sectional either")
     def test_cross_sectional_zscore_does_not_use_future_values(self, normalizer):
+        """BI-012 (was a strict xfail): values at a date never change when later data arrives."""
         dates = pd.date_range("2026-01-01", periods=6)
         history = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], index=dates)
         extended = pd.concat([history, pd.Series([100.0], index=[dates[-1] + pd.Timedelta(days=1)])])
         early = normalizer._apply_cross_sectional_zscore({"AAA": history}, "AAA", "f")
         later = normalizer._apply_cross_sectional_zscore({"AAA": extended}, "AAA", "f")
-        assert later.loc[dates] == pytest.approx(early.loc[dates])
+        assert later.loc[dates].tolist() == pytest.approx(early.loc[dates].tolist(), nan_ok=True)
+        assert early.iloc[0] != early.iloc[0]                     # one observation: no z-score (NaN), not a guess
+        assert early.iloc[1:].notna().all()
 
 
 class TestPerformanceMetricInvariants:
