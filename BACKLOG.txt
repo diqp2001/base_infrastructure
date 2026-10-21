@@ -129,9 +129,11 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Evidence** `tests/component/portfolio_context/test_portfolio_value_layers.py`, nested sub-portfolio test in `test_transaction_valuation_context.py`; strict xfails in `test_value_propagation.py:237` (`force_recalculate` reuses stored dependencies) and `:256` (share-price factor stored for holdings).
 
 ### BI-011 — Test factor dependency resolution
-- **Priority** P1 · **Size** M · **Depends on** BI-012 · **Status: partial**
+- **Priority** P1 · **Size** M · **Depends on** BI-012 · **Status: partial — single-resolver cycle guard done (2026-10-21)**
 - **Acceptance** ordering, cycle detection (single-value resolver too), missing values, dynamic dependencies, calculation errors, repeated requests — each with a test.
 - **Evidence** `tests/component/factor_context/` (wiring: 141 classes, 98 pass, 43 listed as not service-resolvable with reasons; end-to-end values per family); batch resolver has iterative DFS cycle detection + tests (`factor_value_batch_resolution_service.py`, `tests/test_factor_value_batch_resolution.py`). Gap: `FactorValueResolutionService` (recursive) has no cycle guard.
+- **Done (2026-10-21)** `FactorValueResolutionService.resolve_factor_value` keeps the stack of values being resolved, keyed (factor id, entity type, entity id, date): asking again for one of them is a dependency cycle — logged with the path (`1:CompanyShare:7 -> 2:CompanyShare:7 -> 1:CompanyShare:7`) and no value, instead of a RecursionError; the same factor at another date (a lag) is not a cycle. Tests `tests/unit/application/test_resolution_cycle_guard.py` (3; the cycle test fails without the guard); component suites unchanged (555 passed).
+- **Remaining** a test per remaining acceptance case on the single resolver (calculation errors, missing values) gathered in one file.
 
 ### BI-012 — Enforce point-in-time factor calculations
 - **Priority** P1 · **Size** M · **Depends on** BI-003 · **Status: partial** · **See also** BI-031 (availability semantics), BI-028 (re-run safety)

@@ -51,6 +51,9 @@ class FactorValueResolutionService:
         # BI-028: > 0 while a forced (force_recalculate) resolution runs — every DERIVED value it needs is then
         # recomputed from current inputs instead of reused from the store (raw observations are still reused)
         self._recompute_derived = 0
+        # BI-011: (factor id, entity type, entity id, date) of every value being resolved, outermost first —
+        # asking again for one of them while it is being computed is a dependency cycle
+        self._resolving: List[tuple] = []
     
     def resolve_factor_value(
         self,
@@ -65,13 +68,21 @@ class FactorValueResolutionService:
     ) -> Optional[FactorValue]:
         """Resolve one factor value (see _resolve_factor_value); the value is also recorded as an input of
         the derived value being computed by the caller, if any (BI-025 lineage)."""
+        key = self._owner(factor_entity, entity if entity is not None else financial_asset_entity) + (str(time_date),)
+        if key in self._resolving:
+            path = " -> ".join(f"{k[0]}:{k[1]}:{k[2]}" for k in self._resolving[self._resolving.index(key):] + [key])
+            self.logger.error(f"Dependency cycle at {key[3]}: {path} — {getattr(factor_entity, 'name', key[0])} "
+                              f"not resolved")
+            return None
         if force_recalculate:
             self._recompute_derived += 1
+        self._resolving.append(key)
         try:
             value = self._resolve_factor_value(factor_entity, entity, time_date, repository_type=repository_type,
                                                financial_asset_entity=financial_asset_entity,
                                                force_recalculate=force_recalculate, **kwargs)
         finally:
+            self._resolving.pop()
             if force_recalculate:
                 self._recompute_derived -= 1
         self._note_input(value)
