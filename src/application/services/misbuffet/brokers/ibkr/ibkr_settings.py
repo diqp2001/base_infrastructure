@@ -96,10 +96,15 @@ def verify_connected_accounts(accounts, order_account: str = "", mode: Optional[
                                   f"{account_kind(wrong[0])}: order refused")
 
 
+class IBKRSettingsError(ValueError, RuntimeError):
+    """Invalid IBKR_* settings. A ValueError (bad value) and a RuntimeError (the live guard has always raised
+    RuntimeError), so callers catching either keep working."""
+
+
 def validate_environment() -> None:
-    """Check every IBKR_* variable at once; raise ValueError listing all the problems (before any connection)."""
+    """Check every IBKR_* variable at once; raise IBKRSettingsError listing all the problems (before connecting)."""
     errors = []
-    for name in ("IBKR_PORT", "IBKR_CLIENT_ID", "IBKR_CONNECT_RETRIES"):
+    for name in ("IBKR_PORT", "IBKR_CLIENT_ID", "IBKR_CONNECT_RETRIES", "IBKR_HISTORY_RETRIES"):
         try:
             value = _int_env(name)
         except ValueError as e:
@@ -107,19 +112,20 @@ def validate_environment() -> None:
             continue
         if value is not None and value < 0:
             errors.append(f"{name} must be >= 0, got {value}")
-    delay = os.getenv("IBKR_CONNECT_RETRY_DELAY")
-    if delay:
-        try:
-            if float(delay) < 0:
-                errors.append(f"IBKR_CONNECT_RETRY_DELAY must be >= 0, got {delay!r}")
-        except ValueError:
-            errors.append(f"IBKR_CONNECT_RETRY_DELAY must be a number, got {delay!r}")
+    for name in ("IBKR_CONNECT_RETRY_DELAY", "IBKR_HISTORY_RETRY_DELAY"):
+        delay = os.getenv(name)
+        if delay:
+            try:
+                if float(delay) < 0:
+                    errors.append(f"{name} must be >= 0, got {delay!r}")
+            except ValueError:
+                errors.append(f"{name} must be a number, got {delay!r}")
     try:
         account_mode()
     except (ValueError, RuntimeError) as e:
         errors.append(str(e))
     if errors:
-        raise ValueError("invalid IBKR settings: " + "; ".join(errors))
+        raise IBKRSettingsError("invalid IBKR settings: " + "; ".join(errors))
 
 
 def resolve_endpoint(host: str, port: int, client_id: int) -> IBKREndpoint:
