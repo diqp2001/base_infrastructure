@@ -67,11 +67,7 @@ name = "Domain is independent of infrastructure, application, interfaces, SQLAlc
 type = "forbidden"
 source_modules = ["src.domain"]
 forbidden_modules = ["src.infrastructure", "src.application", "src.interfaces", "sqlalchemy", "ibapi"]
-ignore_imports = [
-    # known debt (2026-10-14)
-    "src.domain.database -> src.infrastructure.database.model_registry",
-    "src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor -> src.application.services.data.entities.factor.dynamic_dependency_requirements",
-]
+# no exceptions (BI-007: the last two domain entries were removed 2026-10-21)
 
 [[tool.importlinter.contracts]]
 name = "Application reaches persistence through repositories, never ORM models directly"

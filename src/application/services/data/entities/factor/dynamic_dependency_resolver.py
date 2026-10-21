@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, date
 from collections import defaultdict
 import logging
 
-from src.application.services.data.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+from src.domain.entities.factor.dependency_requirements import DependencyRequirements
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.factor import Factor
 

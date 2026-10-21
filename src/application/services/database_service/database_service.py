@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session,sessionmaker
 from sqlalchemy import Tuple, create_engine, text
 from src.application.services.database_service.config.config_data_source_service import get_query
 from src.application.services.database_service.config.config_data_source_queries_service import QUERIES
-from src.domain.database import Database
+from src.infrastructure.database.database import Database
 from src.infrastructure.database.settings import get_database_url
 
 

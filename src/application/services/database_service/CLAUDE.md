@@ -207,7 +207,7 @@ import pandas as pd
 import dask.dataframe as dd
 
 # Domain dependencies  
-from src.domain.database import Database
+from src.infrastructure.database.database import Database
 from src.infrastructure.database.settings import get_database_url
 ```
 

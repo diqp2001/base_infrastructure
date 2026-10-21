@@ -122,7 +122,7 @@ class CurrencyRateFactor(CurrencyFactor):
         return (sorted_prices[mid - 1] + sorted_prices[mid]) / Decimal(2)
 
     def get_dependency_requirements(self):
-        from src.application.services.data.entities.factor.dynamic_dependency_requirements import DependencyRequirements
+        from src.domain.entities.factor.dependency_requirements import DependencyRequirements
         return DependencyRequirements(
             required_groups=["price"],
             required_subgroups=["mid_price", "close", "last"],

@@ -2,8 +2,6 @@
   "src": [
     [
       "application",
-      "domain",
-      "dto",
       "infrastructure",
       "interfaces"
     ]

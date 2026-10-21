@@ -1,5 +1,5 @@
 """
-src/application/services/data/entities/factor/dynamic_dependency_requirements.py
+src/domain/entities/factor/dependency_requirements.py (moved from the application layer, BI-007)
 
 Domain entity for defining dynamic dependency requirements for factors.
 """
