@@ -207,3 +207,10 @@ the account's missing US-equity QUOTE permission for the API session (trade hist
 not). Fix outside the code: subscribe to the US equity quote bundle in Client Portal (Settings > Market Data
 Subscriptions) and make sure it is shared with the API session. Until then the BI-036 reading order falls back to
 the TRADES series for stocks. Option quotes (OPRA) are a separate subscription: SPX v2 option MIDPOINT bars worked.
+
+**Availability finding 2026-10-21 (same diagnostic, `--sec-type OPT/FUT --end ...`)** — `SPY 281215C00775000`
+(conId 844798243): every type (MIDPOINT, TRADES, BID_ASK) answers 162 "HMDS query returned no data" for windows ending
+before 2026-08-24; MIDPOINT is served from 2026-08-24 on (10 bars per 5 days, 8h), TRADES only sparsely (2 bars in
+the last 3 days: the option rarely trades). This is IBKR's history depth for the option, not a permission. SR3Z6 /
+SR3U6 futures: MIDPOINT and TRADES complete for 3–6 Aug 2026. Consequence: the SPX v2 window 2026-08-05 → 08-30
+has no option value before 24 Aug.

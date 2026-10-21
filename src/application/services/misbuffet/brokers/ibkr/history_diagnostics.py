@@ -7,6 +7,9 @@ ids, completion / error / timeout classification). READ-ONLY: every order-sendin
     python -m src.application.services.misbuffet.brokers.ibkr.history_diagnostics MSFT --types TRADES MIDPOINT \\
         --bar "8 hours" --duration "3 D" --client-id 97
 
+Options and futures: --sec-type OPT "SPY   281215C00775000" (OCC symbol), --sec-type FUT SR3Z6 --exchange CME;
+--end "2026-08-06 16:00" (naive US/Eastern) to probe a past window.
+
 Host / port come from ibkr_settings (IBKR_HOST / IBKR_PORT, default 127.0.0.1:7497). The end time is now (US/Eastern).
 """
 
@@ -55,6 +58,23 @@ def stock(symbol: str, exchange: str = "SMART", currency: str = "USD", primary_e
     return contract
 
 
+def option_from_occ(occ: str, exchange: str = "SMART", currency: str = "USD") -> Contract:
+    """OCC 21-character symbol (root padded to 6, yymmdd, C/P, strike x 1000) -> option contract."""
+    contract = Contract()
+    contract.symbol, contract.secType, contract.exchange, contract.currency = occ[:6].strip(), "OPT", exchange, currency
+    contract.lastTradeDateOrContractMonth = "20" + occ[6:12]
+    contract.right = occ[12]
+    contract.strike = int(occ[13:]) / 1000
+    contract.multiplier = "100"
+    return contract
+
+
+def future_by_local_symbol(local_symbol: str, exchange: str, currency: str = "USD") -> Contract:
+    contract = Contract()
+    contract.localSymbol, contract.secType, contract.exchange, contract.currency = local_symbol, "FUT", exchange, currency
+    return contract
+
+
 def block_orders(client) -> None:
     def refuse(name):
         def _blocked(*args, **kwargs):
@@ -77,10 +97,12 @@ def qualify(broker, contract: Contract) -> Dict:
 
 
 def run_matrix(broker, contract: Contract, types: Sequence[str] = DEFAULT_TYPES, rth: Sequence[bool] = (True, False),
-               duration: str = "3 D", bar_size: str = "1 day", timeout: int = 60) -> List[DiagnosticRow]:
-    """Each (whatToShow, useRTH) requested independently, sequentially, with a unique request id."""
-    end = broker.format_ib_datetime(date_time=datetime.now(ZoneInfo("US/Eastern")).replace(tzinfo=None),
-                                    duration=duration)
+               duration: str = "3 D", bar_size: str = "1 day", timeout: int = 60,
+               end: Optional[datetime] = None) -> List[DiagnosticRow]:
+    """Each (whatToShow, useRTH) requested independently, sequentially, with a unique request id. `end`: naive
+    US/Eastern time (default now)."""
+    end_local = end or datetime.now(ZoneInfo("US/Eastern")).replace(tzinfo=None)
+    end = broker.format_ib_datetime(date_time=end_local, duration=duration)
     rows = []
     for use_rth in rth:
         for what in types:
@@ -100,6 +122,9 @@ def main(argv=None) -> int:
     parser.add_argument("--bar", default="1 day")
     parser.add_argument("--client-id", type=int, default=97)
     parser.add_argument("--rth", choices=["both", "true", "false"], default="both")
+    parser.add_argument("--sec-type", choices=["STK", "OPT", "FUT"], default="STK")
+    parser.add_argument("--exchange", default="SMART")
+    parser.add_argument("--end", help='naive US/Eastern end time, e.g. "2026-08-06 16:00" (default now)')
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.WARNING)
 
@@ -110,11 +135,14 @@ def main(argv=None) -> int:
         return 2
     try:
         block_orders(broker.ib_connection)
-        contract = stock(args.symbol)
+        contract = (option_from_occ(args.symbol, args.exchange) if args.sec_type == "OPT" else
+                    future_by_local_symbol(args.symbol, args.exchange) if args.sec_type == "FUT" else
+                    stock(args.symbol, args.exchange))
         details = qualify(broker, contract)
         print(f"contract: {details}")
         rth = {"both": (True, False), "true": (True,), "false": (False,)}[args.rth]
-        for row in run_matrix(broker, contract, args.types, rth, args.duration, args.bar):
+        end = datetime.strptime(args.end, "%Y-%m-%d %H:%M") if args.end else None
+        for row in run_matrix(broker, contract, args.types, rth, args.duration, args.bar, end=end):
             print(row.line())
     finally:
         broker.disconnect()

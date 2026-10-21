@@ -37,3 +37,14 @@ def test_the_diagnostic_client_cannot_send_orders():
     block_orders(client)
     with pytest.raises(RuntimeError, match="read-only"):
         client.placeOrder(1, None, None)
+
+
+def test_occ_symbols_and_futures_are_built_for_the_diagnostic():
+    from src.application.services.misbuffet.brokers.ibkr.history_diagnostics import (
+        future_by_local_symbol, option_from_occ,
+    )
+    o = option_from_occ("SPY   281215C00775000")
+    assert (o.symbol, o.secType, o.lastTradeDateOrContractMonth, o.right, o.strike, o.multiplier) == \
+        ("SPY", "OPT", "20281215", "C", 775.0, "100")
+    f = future_by_local_symbol("SR3Z6", "CME")
+    assert (f.localSymbol, f.secType, f.exchange) == ("SR3Z6", "FUT", "CME")
