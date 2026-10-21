@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, date, timedelta
 from contextlib import contextmanager
 import inspect
+import math
 import logging
 from decimal import Decimal
 
@@ -1810,6 +1811,15 @@ class FactorValueResolutionService:
             formatted_date = self._format_date(target_date)
 
             if value is None or value == 'None':
+                return None
+            # BI-032: a numeric output must be finite — NaN / inf is a failed calculation, never a stored value
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                numeric = None
+            if numeric is not None and not math.isfinite(numeric):
+                self.logger.error(f"{getattr(factor_entity, 'name', factor_entity)} for {entity_type}:{entity_id} at "
+                                  f"{formatted_date}: calculate() returned {value} — not stored")
                 return None
 
             # Get appropriate repository

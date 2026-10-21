@@ -116,3 +116,14 @@ def test_a_new_policy_version_reprocesses_derived_values_from_stored_raw_data(wo
         assert deps is not None and value == pytest.approx(world.closes["AAPL"][-1])
         assert provenance(world).get(value_ref(world, mid)).policy_version == "provenance-v2"
         assert world.resolve(mid, world.share["AAPL"])[1] is None                 # idempotent: reused afterwards
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), "NaN"])
+def test_a_non_finite_output_is_not_stored(world, bad):
+    """BI-032: NaN / inf from calculate() is a failed calculation — no value, nothing stored, not a zero."""
+    from unittest.mock import patch
+    mid = factor("CompanyShareMidPriceFactor")
+    rows = world.s.query(FactorValueModel).count()
+    with patch.object(mid, "calculate", lambda self, *a, **k: bad):
+        fv = world.service.resolve_factor_value(world.definition(mid), world.share["AAPL"], T)
+    assert fv is None and world.s.query(FactorValueModel).count() == rows
