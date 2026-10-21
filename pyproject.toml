@@ -105,7 +105,6 @@ forbidden_modules = ["src.application"]
 allow_indirect_imports = true
 ignore_imports = [
     # known debt (2026-10-14)
-    "src.infrastructure.repositories.fmp_repo.fmp_repository -> src.application.services.api_service.fmp_service.financial_modeling_prep_api_service",
     "src.infrastructure.repositories.ibkr_repo.factor.ibkr_factor_value_repository -> src.application.services.data.entities.factor.**",
     "src.infrastructure.repositories.local_repo.factor.factor_repository -> src.application.services.data.entities.factor.factor_library.factor_definition_config",
     "src.infrastructure.repositories.local_repo.factor.factor_value_repository -> src.application.services.data.entities.factor.**",
