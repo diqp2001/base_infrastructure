@@ -188,7 +188,7 @@ BI-026 / BI-028. The other items are issue-ready in this file.
 - **Priority** P2 · **Size** M · **Depends on** BI-010, BI-012 · **Status: partial**
 - **Acceptance** historical universe membership, signal timing, execution assumptions, transaction costs, returns, drawdowns and reproducibility tested; the pinned engine defect fixed.
 - **Evidence** `tests/misbuffet/test_backtest_engine.py` (11, 1 expected failure), `test_performance_metrics.py` (15), SPX v2 report metrics (`tests/market_making_spx_v2/test_spx_v2_report.py`). Gaps: transaction costs, as-of universe membership, reproducibility check.
-- **Status 2026-10-21** the pinned engine defect is fixed (no expected failure left in `test_backtest_engine.py`); reproducibility: STM end to end (BI-017); look-ahead in signal inputs detected (BI-031); option multiplier in execution (BI-009). **Needs a decision**: transaction costs — no commission / slippage model is applied by `TradeManager`; choosing one (per-share, per-contract, bps) changes every backtest result, so the model and its parameters are the owner's call. As-of universe membership remains.
+- **Status 2026-10-21** the pinned engine defect is fixed (no expected failure left in `test_backtest_engine.py`); reproducibility: STM end to end (BI-017); look-ahead in signal inputs detected (BI-031); option multiplier in execution (BI-009). **Decided 2026-10-21: no transaction costs for now** (owner's choice; options reviewed: IBKR Fixed pricing, + slippage, flat bps) — backtests stay cost-free until revisited. As-of universe membership remains.
 
 ### BI-019 — Add factor and portfolio performance benchmarks
 - **Priority** P2 · **Size** S–M · **Depends on** BI-011 · **Status: partial — budgets recorded (2026-10-21)**
