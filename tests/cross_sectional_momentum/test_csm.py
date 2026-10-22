@@ -33,47 +33,152 @@ def _closes(n_days=160, n_assets=8, seed=3):
     return synthetic_closes([f"A{i}" for i in range(n_assets)], "2025-01-02", n_days, seed)
 
 
-def test_features_only_use_past_closes_and_the_label_needs_the_future():
-    closes = _closes()
+def _bars(n_days=150, start="2024-10-01", tickers=("A0", "A1", "A2"), seed=3):
+    from src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo import (
+        synthetic_bars,
+        synthetic_closes,
+    )
+    return synthetic_bars(synthetic_closes(list(tickers), start, n_days, seed), seed)
+
+
+def test_features_only_use_past_bars_and_the_label_needs_the_future():
+    bars = _bars(n_days=170, tickers=[f"A{i}" for i in range(6)])
     cfg_f, cfg_l = CSMFeatureConfig(), CSMLabelConfig(horizon=1)
-    d = closes.index[120]
-    base = build_dataset(closes, cfg_f, cfg_l).rows_on(d)
-    changed = closes.copy()
-    changed.loc[changed.index > d] *= 1.5                                    # rewrite the future
+    d = bars["close"].index[150]
+    base = build_dataset(bars, cfg_f, cfg_l).rows_on(d)
+    changed = {f: p.copy() for f, p in bars.items()}
+    for f in changed:
+        changed[f].loc[changed[f].index > d] *= 1.5                          # rewrite the future of every series
     after = build_dataset(changed, cfg_f, cfg_l).rows_on(d)
     names = cfg_f.feature_names()
     pd.testing.assert_frame_equal(base[names], after[names])                 # features at d are unchanged
-    assert not base["label"].equals(after["label"]) or base["fwd_return"].ne(after["fwd_return"]).any()
-    last = build_dataset(closes, cfg_f, cfg_l).rows_on(closes.index[-1])
+    assert base[[n for n in names if not n.startswith("rel_")]].notna().all().all()   # no SPY given here
+    last = build_dataset(bars, cfg_f, cfg_l).rows_on(bars["close"].index[-1])
     assert last["label"].isna().all()                                        # tomorrow is not known
-    warm = build_dataset(closes, cfg_f, cfg_l).rows_on(closes.index[100])
-    assert warm["return_5m"].isna().all()                                    # 106-close lookback not reached yet
-    assert names == [n for _, n in __import__(
-        "src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_feature_definition",
-        fromlist=["x"]).LGBMMomentumFeatureDefinition.FEATURE_MAP]               # the 24 momentum factors
+    warm = build_dataset(bars, cfg_f, cfg_l).rows_on(bars["close"].index[100])
+    assert warm["return_5m"].isna().all() and warm["max_daily_return_6m"].isna().all()
+
+
+def test_candidates_are_momentum_plus_liquidity_factors_and_match_the_signal_factor():
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
+        CSMFeatureDefinition,
+    )
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import max_lookback
+    from src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_feature_definition import (
+        LGBMMomentumFeatureDefinition,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_cross_sectional_momentum_factor import (
+        CompanyShareCrossSectionalMomentumFactor,
+    )
+    names = CSMFeatureConfig().feature_names()
+    assert len(names) == 40 and names[:24] == LGBMMomentumFeatureDefinition.FEATURE_NAMES
+    assert {"avg_turnover_1m", "avg_turnover_2m", "avg_turnover_3m", "avg_turnover_4m", "avg_turnover_5m",
+            "avg_turnover_6m", "share_turnover", "vpt_16w_20d_lag", "monthly_price_range", "max_daily_return_6m",
+            "min_return_120d", "rel_return_spy_1d", "rel_return_spy_5d", "rel_return_spy_20d", "rel_return_spy_3m",
+            "rel_return_spy_6m"} == set(names[24:])
+    deps = [spec.factor_type.__name__ for spec in CompanyShareCrossSectionalMomentumFactor().calculate_dependencies]
+    assert sorted(deps) == sorted(cls for cls, _ in CSMFeatureDefinition.FEATURE_MAP)   # same candidates
+    assert len(LGBMMomentumFeatureDefinition.FEATURE_MAP) == 24              # quintile-rank factor unchanged
+    assert CSMFeatureConfig().warmup_rows() == max_lookback() + 1
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import benchmark_symbols
+    assert benchmark_symbols() == ["SPY"]
+
+
+def test_new_liquidity_and_return_extreme_factors():
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_factors import (
+        CompanyShareAvgTurnover2mFactor, CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
+        CompanyShareTurnoverFactor, CompanyShareVpt16w20dLagFactor,
+    )
+    volumes = [float(v) for v in range(1, 43)]
+    assert CompanyShareAvgTurnover2mFactor().calculate({"volumes": volumes}) == pytest.approx(21.5)
+    assert CompanyShareAvgTurnover2mFactor().calculate({"volumes": volumes[:-1]}) is None      # 41 < 42 sessions
+    assert CompanyShareTurnoverFactor().calculate({"volumes": [5.0, 7.0]}) == 7.0
+    closes = [100.0] * 101
+    closes[-21] = 110.0                                                       # close 20 sessions ago
+    vols = [2000.0] + [1.0] * 20                                              # volume 20 sessions ago first
+    assert CompanyShareVpt16w20dLagFactor().calculate({"closes": closes, "volumes": vols}) == pytest.approx(200.0)
+    path = [100.0] * 50 + [120.0] * 40 + [60.0] * 37                          # one +20% day, one -50% day
+    assert CompanyShareMaxDailyReturn6mFactor().calculate({"closes": path}) == pytest.approx(0.2)
+    assert CompanyShareMinReturn120dFactor().calculate({"closes": path[-121:]}) == pytest.approx(-0.5)
+    assert CompanyShareMaxDailyReturn6mFactor().calculate({"closes": path[:-1]}) is None
+
+
+def test_relative_return_versus_spy():
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
+        CompanyShareRelativeReturnVsSpy5DFactor,
+    )
+    f = CompanyShareRelativeReturnVsSpy5DFactor()
+    share = [100.0, 101, 102, 103, 104, 110.0]                                # +10% over 5 sessions
+    spy = [400.0, 401, 399, 402, 405, 408.0]                                  # +2%
+    assert f.calculate({"closes": share, "benchmark_closes": spy}) == pytest.approx(0.08)
+    assert f.calculate({"closes": share, "benchmark_closes": spy[:-1]}) is None
+    specs = f.calculate_dependencies
+    assert [s.entity_symbol for s in specs] == [None, "SPY"] and [s.lookback for s in specs] == [6, 6]
+
+
+def test_the_resolution_service_reads_a_benchmark_dependency_on_the_benchmark_entity():
+    from unittest.mock import MagicMock
+    from src.application.services.data.entities.factor.factor_value_resolution_service import (
+        FactorValueResolutionService,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
+        CompanyShareRelativeReturnVsSpy1DFactor,
+    )
+    share, spy = type("CompanyShare", (), {"id": 7})(), type("CompanyShare", (), {"id": 99})()
+    factory = MagicMock()
+    factory.get_local_repository.return_value.get_by_symbol.side_effect = lambda s: spy if s == "SPY" else None
+    service = FactorValueResolutionService(factory=factory)
+    service._get_resolution_entities = lambda *a, **k: [share]
+    seen = {}
+
+    def fake_spec(spec, parent, targets, *a, **k):
+        seen[spec.result_key] = [t.id for t in targets]
+        return [1.0, 2.0]
+    service._resolve_dependency_spec = fake_spec
+    out = service._resolve_dynamic_dependencies(CompanyShareRelativeReturnVsSpy1DFactor(), share,
+                                                pd.Timestamp("2026-06-02").to_pydatetime(), "local")
+    assert seen == {"closes": [7], "benchmark_closes": [99]}
+    assert set(out) == {"closes", "benchmark_closes"}
+    factory.get_local_repository.assert_any_call("CompanyShare")
 
 
 def test_features_are_the_domain_factors_own_values():
     from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import (
-        momentum_factor_classes,
+        candidate_factor_classes,
     )
-    from src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo import (
-        synthetic_closes,
-    )
-    closes = synthetic_closes(["A0", "A1", "A2"], "2024-10-01", 150, 3)     # crosses a year end (ytd)
-    ds = build_dataset(closes, CSMFeatureConfig(), CSMLabelConfig())
+    bars = _bars()
+    closes = bars["close"]
+    ds = build_dataset(bars, CSMFeatureConfig(), CSMLabelConfig())
     i, asset = 140, "A1"
-    window = closes[asset].iloc[:i + 1]
-    classes = momentum_factor_classes()
+    upto = {f: p[asset].iloc[:i + 1] for f, p in bars.items()}
+    window = upto["close"]
+    classes = candidate_factor_classes()
     row = ds.rows_on(closes.index[i]).loc[asset]
     for name, n in (("return_20d", 21), ("price_vs_ma_50", 50), ("sharpe_20d", 21), ("days_since_5m_high", 105)):
         expected = classes[name]().calculate({"CompanyShareFactor": window.iloc[-n:].tolist()})
         assert row[name] == pytest.approx(expected), name
+    expected = {
+        "avg_turnover_3m": classes["avg_turnover_3m"]().calculate({"volumes": upto["volume"].iloc[-63:].tolist()}),
+        "avg_turnover_6m": classes["avg_turnover_6m"]().calculate({"volumes": upto["volume"].iloc[-126:].tolist()}),
+        "share_turnover": float(upto["volume"].iloc[-1]),
+        "vpt_16w_20d_lag": classes["vpt_16w_20d_lag"]().calculate(
+            {"closes": window.iloc[-101:].tolist(), "volumes": upto["volume"].iloc[-21:].tolist()}),
+        "monthly_price_range": float(upto["high"].iloc[-1] - upto["low"].iloc[-21]),
+        "min_return_120d": float(window.pct_change().iloc[-120:].min()),
+    }
+    for name, value in expected.items():
+        assert row[name] == pytest.approx(value), name
+    spy = bars["close"]["A0"] * 0.5 + 10.0                                   # any benchmark close series
+    with_spy = build_dataset(bars, CSMFeatureConfig(), CSMLabelConfig(), benchmarks={"SPY": spy})
+    rel = with_spy.rows_on(closes.index[i]).loc[asset, "rel_return_spy_20d"]
+    assert rel == pytest.approx(classes["rel_return_spy_20d"]().calculate(
+        {"closes": window.iloc[-21:].tolist(), "benchmark_closes": spy.iloc[:i + 1].iloc[-21:].tolist()}))
+    assert row["rel_return_spy_20d"] != row["rel_return_spy_20d"]           # NaN without the benchmark
     assert closes.index[i].year == 2025
     ytd = window[window.index.year == closes.index[i].year]
     prev = window[window.index.year < closes.index[i].year].iloc[-1:]
-    expected = classes["return_ytd"]().calculate({"CompanyShareFactor": pd.concat([prev, ytd]).tolist()})
-    assert row["return_ytd"] == pytest.approx(expected)
+    expected_ytd = classes["return_ytd"]().calculate({"CompanyShareFactor": pd.concat([prev, ytd]).tolist()})
+    assert row["return_ytd"] == pytest.approx(expected_ytd)
 
 
 def test_label_is_next_return_above_the_cross_sectional_median():
@@ -213,8 +318,8 @@ def test_synthetic_run_report_dashboard_and_pdf(tmp_path):
     from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model_provider import (
         CSMModelProvider,
     )
-    from src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_feature_definition import (
-        LGBMMomentumFeatureDefinition,
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
+        CSMFeatureDefinition,
     )
     decision = [r for r in results if r.scores][-1]
     provider = CSMModelProvider(factory=cycle.factory, factor_id=None, config=cycle.config)
@@ -223,7 +328,7 @@ def test_synthetic_run_report_dashboard_and_pdf(tmp_path):
                                                  start=cycle.history_start).loc[:decision.session]
     row = bd(closes_known, cycle.config.features, cycle.config.label, cycle.feature_engine).rows_on(
         decision.session).loc["T3"]
-    deps = {cls: [row[name]] for cls, name in LGBMMomentumFeatureDefinition.FEATURE_MAP}
+    deps = {cls: [row[name]] for cls, name in CSMFeatureDefinition.FEATURE_MAP}
     entity = type("E", (), {"id": cycle.ticker_to_entity["T3"]})()
     assert provider.predict(deps, entity, decision.session) == pytest.approx(decision.scores["T3"])
     cycle.factory.session.close()

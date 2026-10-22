@@ -5,7 +5,7 @@ LGBMMomentumModelProvider for the quintile-rank factor).
 predict(dependencies, entity, target_date):
     1. the probability the trading cycle stored for (entity, session), when there is one;
     2. otherwise the model valid at the date (CSMArtifactStore.select: trained as of a session <= date) applied to
-       the resolved momentum features: LGBMMomentumFeatureDefinition.extract builds the 24-feature vector from
+       the resolved candidate features: CSMFeatureDefinition.extract builds the 35-feature vector from
        the dependency values, the model reads the subset Optuna selected. A model that selected cross-sectional
        ranks needs the whole cross-section and cannot score one entity alone -> None.
 
@@ -28,8 +28,8 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_signal_store import (
     CSMStoredSignalProvider,
 )
-from src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_feature_definition import (
-    LGBMMomentumFeatureDefinition,
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
+    CSMFeatureDefinition,
 )
 
 
@@ -41,7 +41,7 @@ class CSMModelProvider:
         self.factory = factory
         self.factor_id = factor_id
         self.config = config or CSMModelProvider.default_config or CSMConfiguration()
-        self.feature_def = LGBMMomentumFeatureDefinition()
+        self.feature_def = CSMFeatureDefinition()
         self._loaded = {}
 
     def stored(self, entity_id: int, target_date) -> Optional[float]:

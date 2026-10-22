@@ -45,6 +45,16 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareShortVsMediumMomentumFactor, CompanyShareMomentumZScore20DFactor,
     CompanyShareMomentumZScore50DFactor, CompanyShareMomentumZScore100DFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
+    CompanyShareRelativeReturnVsSpy1DFactor, CompanyShareRelativeReturnVsSpy5DFactor,
+    CompanyShareRelativeReturnVsSpy20DFactor, CompanyShareRelativeReturnVsSpy3MFactor,
+    CompanyShareRelativeReturnVsSpy6MFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_factors import (
+    CompanyShareAvgTurnover1mFactor, CompanyShareAvgTurnover2mFactor, CompanyShareAvgTurnover3mFactor,
+    CompanyShareAvgTurnover4mFactor, CompanyShareAvgTurnover5mFactor, CompanyShareTurnoverFactor,
+    CompanyShareVpt16w20dLagFactor, CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor import (
     CompanyShareLGBMCSQuintileRankMomentumFactor,
 )
@@ -1060,6 +1070,162 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
         "frequency": "1d",
         "data_type": "numeric",
         "description": "100-day momentum Z-score",
+        "dependencies": {},
+        "parameters": {}
+    },
+    # ── Liquidity (share turnover = traded volume), volume trend, return extremes ──
+    "avg_turnover_1m": {
+        "class": CompanyShareAvgTurnover1mFactor,
+        "name": "avg_turnover_1m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "1-month (21-session) average daily share turnover (traded volume)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "avg_turnover_2m": {
+        "class": CompanyShareAvgTurnover2mFactor,
+        "name": "avg_turnover_2m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "2-month (42-session) average daily share turnover (traded volume)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "avg_turnover_3m": {
+        "class": CompanyShareAvgTurnover3mFactor,
+        "name": "avg_turnover_3m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "3-month (63-session) average daily share turnover (traded volume)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "avg_turnover_4m": {
+        "class": CompanyShareAvgTurnover4mFactor,
+        "name": "avg_turnover_4m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "4-month (84-session) average daily share turnover (traded volume)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "avg_turnover_5m": {
+        "class": CompanyShareAvgTurnover5mFactor,
+        "name": "avg_turnover_5m",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "5-month (105-session) average daily share turnover (traded volume)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "share_turnover": {
+        "class": CompanyShareTurnoverFactor,
+        "name": "share_turnover",
+        "group": "volume",
+        "subgroup": "turnover",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Daily share turnover: traded volume of the last closed session",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "vpt_16w_20d_lag": {
+        "class": CompanyShareVpt16w20dLagFactor,
+        "name": "vpt_16w_20d_lag",
+        "group": "volume",
+        "subgroup": "trend",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "16-week volume price trend with 20-day lag",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "max_daily_return_6m": {
+        "class": CompanyShareMaxDailyReturn6mFactor,
+        "name": "max_daily_return_6m",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Largest daily return over the past 6 months (126 sessions)",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "min_return_120d": {
+        "class": CompanyShareMinReturn120dFactor,
+        "name": "min_return_120d",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Smallest daily return over the past 120 sessions",
+        "dependencies": {},
+        "parameters": {}
+    },
+    # ── Relative performance versus the SPY ETF ──
+    "rel_return_spy_1d": {
+        "class": CompanyShareRelativeReturnVsSpy1DFactor,
+        "name": "rel_return_spy_1d",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "1-session return minus the SPY return over the same session",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "rel_return_spy_5d": {
+        "class": CompanyShareRelativeReturnVsSpy5DFactor,
+        "name": "rel_return_spy_5d",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "5-session return minus the SPY return over the same sessions",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "rel_return_spy_20d": {
+        "class": CompanyShareRelativeReturnVsSpy20DFactor,
+        "name": "rel_return_spy_20d",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "20-session return minus the SPY return over the same sessions",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "rel_return_spy_3m": {
+        "class": CompanyShareRelativeReturnVsSpy3MFactor,
+        "name": "rel_return_spy_3m",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "3-month (63-session) return minus the SPY return over the same sessions",
+        "dependencies": {},
+        "parameters": {}
+    },
+    "rel_return_spy_6m": {
+        "class": CompanyShareRelativeReturnVsSpy6MFactor,
+        "name": "rel_return_spy_6m",
+        "group": "return",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "6-month (126-session) return minus the SPY return over the same sessions",
         "dependencies": {},
         "parameters": {}
     },

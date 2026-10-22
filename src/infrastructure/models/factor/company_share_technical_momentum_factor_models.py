@@ -240,3 +240,65 @@ class CompanyShareSpatioTemporalFeatureFactorModel(FactorModel):
 
 class CompanyShareCrossSectionalMomentumFactorModel(FactorModel):
     __mapper_args__ = {"polymorphic_identity": "company_share_cross_sectional_momentum_factor"}
+
+
+# ── Liquidity, volume-trend and return-extreme factors ────────────────────────
+
+
+class CompanyShareAvgTurnover1mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_turnover_1m_factor"}
+
+
+class CompanyShareAvgTurnover2mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_turnover_2m_factor"}
+
+
+class CompanyShareAvgTurnover3mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_turnover_3m_factor"}
+
+
+class CompanyShareAvgTurnover4mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_turnover_4m_factor"}
+
+
+class CompanyShareAvgTurnover5mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_turnover_5m_factor"}
+
+
+class CompanyShareTurnoverFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_factor"}
+
+
+class CompanyShareVpt16w20dLagFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_vpt_16w_20d_lag_factor"}
+
+
+class CompanyShareMaxDailyReturn6mFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_max_daily_return_6m_factor"}
+
+
+class CompanyShareMinReturn120dFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_min_return_120d_factor"}
+
+
+# ── Relative performance versus SPY factors ────────────────────────
+
+
+class CompanyShareRelativeReturnVsSpy1DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_1d_factor"}
+
+
+class CompanyShareRelativeReturnVsSpy5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_5d_factor"}
+
+
+class CompanyShareRelativeReturnVsSpy20DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_20d_factor"}
+
+
+class CompanyShareRelativeReturnVsSpy3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_3m_factor"}
+
+
+class CompanyShareRelativeReturnVsSpy6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_6m_factor"}

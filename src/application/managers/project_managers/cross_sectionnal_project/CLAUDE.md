@@ -7,8 +7,25 @@ and the LightGBM hyper-parameters. Rebuilt on 2026-10-22 with the structure of
 `spatio_temporal_momentum_project_full` (the previous TFT / Black-Litterman copy was removed; git history keeps it).
 
 The signal factor is `CompanyShareCrossSectionalMomentumFactor(CompanyShareFactor)`, the counterpart of
-`CompanyShareLGBMCSQuintileRankMomentumFactor`: same 24 momentum-factor dependencies
-(`momentum_feature_dependency_specs`), `calculate()` delegates to an injected provider (`CSMModelProvider`).
+`CompanyShareLGBMCSQuintileRankMomentumFactor`: the same 24 momentum-factor dependencies
+(`momentum_feature_dependency_specs`) plus the non-momentum candidates below
+(`cross_sectional_feature_dependency_specs`); `calculate()` delegates to an injected provider (`CSMModelProvider`).
+
+## Candidate features (40, `CSMFeatureDefinition`)
+
+| Family | Features | Domain factors |
+|---|---|---|
+| momentum (24) | return_1d ... momentum_zscore_20d | `LGBMMomentumFeatureDefinition` |
+| share turnover | avg_turnover_1m ... avg_turnover_6m (21 x k sessions), share_turnover (last session) | `company_share_liquidity_factors`, `CompanyShareAvgTurnover6mFactor` |
+| volume trend | vpt_16w_20d_lag = volume(t-20) x (close(t-20) - close(t-100)) / close(t-100) | `CompanyShareVpt16w20dLagFactor` |
+| range | monthly_price_range = high(t) - low(t-21) (existing factor, unchanged) | `CompanyShareMonthlyPriceRangeFactor` |
+| return extremes | max_daily_return_6m (126 sessions), min_return_120d (120 sessions) | `company_share_liquidity_factors` |
+| relative to SPY | rel_return_spy_1d / 5d / 20d / 3m / 6m = share return - SPY return, same sessions | `company_share_relative_performance_factors` |
+
+* Share turnover = traded volume (shares): no shares outstanding are stored, so volume / shares outstanding cannot
+  be formed (the convention of the existing `avg_turnover_6m`); the level mostly reflects the size of the company.
+* SPY is a benchmark: its daily closes are imported (`DailyHistoryUpdater`) and read by the cycle, it is not in the
+  universe and is never scored or traded. The relative factors read it through `DependencySpec(entity_symbol='SPY')`.
 
 ## How it runs
 
@@ -16,9 +33,9 @@ The Misbuffet engine runs bar by bar (daily clock). `Algorithm.on_data` calls `C
 
 1. frontier -> `t`; `DailyHistoryUpdater` imports IBKR daily TRADES closes (writes only);
 2. closes read **through the frontier** (`STMFrontierPriceReader`): a daily bar dated D is known from D+1 00:00;
-3. features at the decision session: the **24 momentum factors of `LGBMMomentumFeatureDefinition`**
-   (return_1d ... momentum_zscore_20d), each computed by **its own domain factor's `calculate()`** on the
-   closes window its DependencySpec asks for (`CSMFeatureEngine`, cached per asset and date);
+3. features at the decision session: the **40 candidates of `CSMFeatureDefinition`**, each computed by **its own
+   domain factor's `calculate()`** on the windows its DependencySpecs ask for (close / volume / high / low of the
+   share, close of SPY for the relative factors) — `CSMFeatureEngine`, cached per asset and date;
 4. retrain when due (`retrain_every_days`, 21): Optuna TPE study on the last `training_window` (252) sessions of
    labels known at the session, then the final model on the whole window; saved as an ML artifact;
 5. score the eligible assets (probability), store them as `cross_sectional_momentum_signal` factor values;
@@ -26,11 +43,11 @@ The Misbuffet engine runs bar by bar (daily clock). `Algorithm.on_data` calls `C
    gross 1 -> `set_holdings`.
 
 The factor-resolution path gives the same value: `CSMModelProvider.predict` returns the stored decision, or
-applies the model valid at the date to `LGBMMomentumFeatureDefinition.extract(dependencies)` (selected features).
+applies the model valid at the date to `CSMFeatureDefinition.extract(dependencies)` (selected features).
 
 ## Optuna TPE (csm_model.optimize)
 
-* search space: `use__<feature>` on/off for each of the 24 candidates (trials with fewer than `min_features`
+* search space: `use__<feature>` on/off for each of the 40 candidates (trials with fewer than `min_features`
   are pruned) + num_leaves, max_depth, learning_rate (log), n_estimators, min_child_samples, subsample,
   colsample_bytree, reg_lambda (log);
 * `TPESampler(seed, n_startup_trials=10, multivariate=True, group=True)`, 40 trials, 600 s timeout;
@@ -78,7 +95,7 @@ Reusable services: `src/application/services/data/entities/factor/cross_sectiona
   uses labels known at S only (its window ends the session before) and is usable from S on.
 * Kept separate: results `results/cross_sectional_momentum/`, models `weights/cross_sectional_momentum/`,
   ML model prefix `csm_`, universe `csm_paper_us_financials`, portfolio `Cross_Sectional_Momentum_Portfolio`.
-* History needed: 252-session window + 106-session lookback of the 5-month factors -> `price_history_start`
+* History needed: 252-session window + 127-close lookback of max_daily_return_6m -> `price_history_start`
   2024-11-01 for a backtest from 2026-06-01. `return_ytd` needs a close of the previous year.
 * `cross_sectional_ranks` (off) adds per-date ranks; a model using them can only be scored by the cycle.
 

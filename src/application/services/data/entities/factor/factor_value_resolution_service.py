@@ -974,8 +974,15 @@ class FactorValueResolutionService:
 
             for dep in factor_entity.calculate_dependencies:
                 if isinstance(dep, DependencySpec):
+                    targets = related_entities
+                    if getattr(dep, 'entity_symbol', None):
+                        benchmark = self._entity_by_symbol(entity, dep.entity_symbol)
+                        if benchmark is None:
+                            self.logger.warning(f"DependencySpec {dep.result_key}: no entity '{dep.entity_symbol}'")
+                            continue
+                        targets = [benchmark]
                     spec_values = self._resolve_dependency_spec(
-                        dep, factor_entity, related_entities, target_date, repository_type, **kwargs
+                        dep, factor_entity, targets, target_date, repository_type, **kwargs
                     )
                     if spec_values is not None:
                         dependency_values[dep.result_key] = spec_values
@@ -1010,6 +1017,18 @@ class FactorValueResolutionService:
 
         except Exception as e:
             self.logger.error(f"Error resolving dynamic dependencies: {e}")
+            return None
+
+    def _entity_by_symbol(self, entity, symbol: str):
+        """The entity of ``entity``'s class whose symbol is ``symbol`` (DependencySpec.entity_symbol), or None."""
+        if self.factory is None:
+            return None
+        repo = self.factory.get_local_repository(type(entity).__name__.removesuffix('Model'))
+        lookup = getattr(repo, 'get_by_symbol', None) if repo is not None else None
+        try:
+            return lookup(symbol) if lookup is not None else None
+        except Exception as e:
+            self.logger.warning(f"Lookup of '{symbol}' failed: {e}")
             return None
 
     def _resolve_dependency_spec(

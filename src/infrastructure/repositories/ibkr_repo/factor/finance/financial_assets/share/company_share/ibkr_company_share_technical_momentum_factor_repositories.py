@@ -34,6 +34,19 @@ from src.domain.ports.factor.finance.financial_assets.share_factor.company_share
     CompanyShareMomentumZScore50DFactorPort, CompanyShareMomentumZScore100DFactorPort,
 )
 
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareAvgTurnover1mFactorPort, CompanyShareAvgTurnover2mFactorPort,
+    CompanyShareAvgTurnover3mFactorPort, CompanyShareAvgTurnover4mFactorPort,
+    CompanyShareAvgTurnover5mFactorPort, CompanyShareTurnoverFactorPort, CompanyShareVpt16w20dLagFactorPort,
+    CompanyShareMaxDailyReturn6mFactorPort, CompanyShareMinReturn120dFactorPort,
+)
+
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareRelativeReturnVsSpy1DFactorPort, CompanyShareRelativeReturnVsSpy5DFactorPort,
+    CompanyShareRelativeReturnVsSpy20DFactorPort, CompanyShareRelativeReturnVsSpy3MFactorPort,
+    CompanyShareRelativeReturnVsSpy6MFactorPort,
+)
+
 
 class _BaseIBKRTechMomentumRepo:
     """Mixin: all operations delegate to the matched local repo."""
@@ -297,3 +310,65 @@ class IBKRCompanyShareMomentumZScore50DFactorRepository(_BaseIBKRTechMomentumRep
 
 class IBKRCompanyShareMomentumZScore100DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareMomentumZScore100DFactorPort):
     _local_repo_key = 'CompanyShareMomentumZScore100DFactor'
+
+
+# ── Liquidity, volume-trend and return-extreme factor repositories ───────────
+
+
+class IBKRCompanyShareAvgTurnover1mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgTurnover1mFactorPort):
+    _local_repo_key = 'CompanyShareAvgTurnover1mFactor'
+
+
+class IBKRCompanyShareAvgTurnover2mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgTurnover2mFactorPort):
+    _local_repo_key = 'CompanyShareAvgTurnover2mFactor'
+
+
+class IBKRCompanyShareAvgTurnover3mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgTurnover3mFactorPort):
+    _local_repo_key = 'CompanyShareAvgTurnover3mFactor'
+
+
+class IBKRCompanyShareAvgTurnover4mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgTurnover4mFactorPort):
+    _local_repo_key = 'CompanyShareAvgTurnover4mFactor'
+
+
+class IBKRCompanyShareAvgTurnover5mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgTurnover5mFactorPort):
+    _local_repo_key = 'CompanyShareAvgTurnover5mFactor'
+
+
+class IBKRCompanyShareTurnoverFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnoverFactorPort):
+    _local_repo_key = 'CompanyShareTurnoverFactor'
+
+
+class IBKRCompanyShareVpt16w20dLagFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVpt16w20dLagFactorPort):
+    _local_repo_key = 'CompanyShareVpt16w20dLagFactor'
+
+
+class IBKRCompanyShareMaxDailyReturn6mFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareMaxDailyReturn6mFactorPort):
+    _local_repo_key = 'CompanyShareMaxDailyReturn6mFactor'
+
+
+class IBKRCompanyShareMinReturn120dFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareMinReturn120dFactorPort):
+    _local_repo_key = 'CompanyShareMinReturn120dFactor'
+
+
+# ── Relative performance versus SPY factor repositories ───────────
+
+
+class IBKRCompanyShareRelativeReturnVsSpy1DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy1DFactorPort):
+    _local_repo_key = 'CompanyShareRelativeReturnVsSpy1DFactor'
+
+
+class IBKRCompanyShareRelativeReturnVsSpy5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy5DFactorPort):
+    _local_repo_key = 'CompanyShareRelativeReturnVsSpy5DFactor'
+
+
+class IBKRCompanyShareRelativeReturnVsSpy20DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy20DFactorPort):
+    _local_repo_key = 'CompanyShareRelativeReturnVsSpy20DFactor'
+
+
+class IBKRCompanyShareRelativeReturnVsSpy3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy3MFactorPort):
+    _local_repo_key = 'CompanyShareRelativeReturnVsSpy3MFactor'
+
+
+class IBKRCompanyShareRelativeReturnVsSpy6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy6MFactorPort):
+    _local_repo_key = 'CompanyShareRelativeReturnVsSpy6MFactor'

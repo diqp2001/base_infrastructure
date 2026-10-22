@@ -16,6 +16,7 @@ from src.application.managers.project_managers.cross_sectionnal_project.data.pri
     DailyHistoryUpdater,
 )
 from src.application.managers.project_managers.cross_sectionnal_project.data.universe_setup import UniverseSetup
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import benchmark_symbols
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model_provider import (
     CSMModelProvider,
 )
@@ -46,8 +47,12 @@ class CSMModelTrainer(BaseModelTrainer):
                 "IBKR / TWS is not connected, so no daily closes can be imported. Check that TWS is running "
                 "on 127.0.0.1:7497 and that no other session is already connected with the same client id."
             )
-        updater = DailyHistoryUpdater(market_data_service, self.csm_config.universe.tickers, history_start)
+        # benchmarks (e.g. SPY for the relative-performance features) are imported but never traded
+        benchmarks = [s for s in benchmark_symbols(self.csm_config.features) if s not in self.csm_config.universe.tickers]
+        updater = DailyHistoryUpdater(market_data_service, list(self.csm_config.universe.tickers) + benchmarks,
+                                      history_start)
         ticker_to_entity = updater.ensure_entities()
+        benchmark_entities = {s: ticker_to_entity[s] for s in benchmarks if s in ticker_to_entity}
         universe_setup = UniverseSetup(factory, self.csm_config)
         universe, ordered, missing = universe_setup.register(
             ticker_to_entity, start_date=pd.Timestamp(history_start).date())
@@ -65,4 +70,5 @@ class CSMModelTrainer(BaseModelTrainer):
             universe_service=universe_setup.service,
             universe_id=getattr(universe, "id", None),
             log=log or self.logger.info,
+            benchmark_entities=benchmark_entities,
         )

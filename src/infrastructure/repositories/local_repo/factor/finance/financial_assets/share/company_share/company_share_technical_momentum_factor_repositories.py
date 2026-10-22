@@ -67,6 +67,31 @@ from src.domain.ports.factor.finance.financial_assets.share_factor.company_share
     CompanyShareMomentumZScore50DFactorPort, CompanyShareMomentumZScore100DFactorPort,
 )
 
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_technical_momentum_factor_mappers import (
+    CompanyShareAvgTurnover1mFactorMapper, CompanyShareAvgTurnover2mFactorMapper,
+    CompanyShareAvgTurnover3mFactorMapper, CompanyShareAvgTurnover4mFactorMapper,
+    CompanyShareAvgTurnover5mFactorMapper, CompanyShareTurnoverFactorMapper,
+    CompanyShareVpt16w20dLagFactorMapper, CompanyShareMaxDailyReturn6mFactorMapper,
+    CompanyShareMinReturn120dFactorMapper,
+)
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareAvgTurnover1mFactorPort, CompanyShareAvgTurnover2mFactorPort,
+    CompanyShareAvgTurnover3mFactorPort, CompanyShareAvgTurnover4mFactorPort,
+    CompanyShareAvgTurnover5mFactorPort, CompanyShareTurnoverFactorPort, CompanyShareVpt16w20dLagFactorPort,
+    CompanyShareMaxDailyReturn6mFactorPort, CompanyShareMinReturn120dFactorPort,
+)
+
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_technical_momentum_factor_mappers import (
+    CompanyShareRelativeReturnVsSpy1DFactorMapper, CompanyShareRelativeReturnVsSpy5DFactorMapper,
+    CompanyShareRelativeReturnVsSpy20DFactorMapper, CompanyShareRelativeReturnVsSpy3MFactorMapper,
+    CompanyShareRelativeReturnVsSpy6MFactorMapper,
+)
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareRelativeReturnVsSpy1DFactorPort, CompanyShareRelativeReturnVsSpy5DFactorPort,
+    CompanyShareRelativeReturnVsSpy20DFactorPort, CompanyShareRelativeReturnVsSpy3MFactorPort,
+    CompanyShareRelativeReturnVsSpy6MFactorPort,
+)
+
 
 class _BaseTechMomentumFactorRepository(BaseFactorRepository):
     """
@@ -578,3 +603,107 @@ class CompanyShareMomentumZScore100DFactorRepository(_BaseTechMomentumFactorRepo
     _default_factor_type = 'company_share_momentum_zscore_100d_factor'
     def __init__(self, session, factory=None):
         super().__init__(session, factory); self.mapper = CompanyShareMomentumZScore100DFactorMapper()
+
+
+# ── Liquidity, volume-trend and return-extreme factor repositories ───────────
+
+
+class CompanyShareAvgTurnover1mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareAvgTurnover1mFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_avg_turnover_1m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareAvgTurnover1mFactorMapper()
+
+
+class CompanyShareAvgTurnover2mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareAvgTurnover2mFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_avg_turnover_2m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareAvgTurnover2mFactorMapper()
+
+
+class CompanyShareAvgTurnover3mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareAvgTurnover3mFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_avg_turnover_3m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareAvgTurnover3mFactorMapper()
+
+
+class CompanyShareAvgTurnover4mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareAvgTurnover4mFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_avg_turnover_4m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareAvgTurnover4mFactorMapper()
+
+
+class CompanyShareAvgTurnover5mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareAvgTurnover5mFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_avg_turnover_5m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareAvgTurnover5mFactorMapper()
+
+
+class CompanyShareTurnoverFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareTurnoverFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'turnover'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_turnover_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareTurnoverFactorMapper()
+
+
+class CompanyShareVpt16w20dLagFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareVpt16w20dLagFactorPort):
+    _default_group = 'volume'; _default_subgroup = 'trend'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_vpt_16w_20d_lag_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareVpt16w20dLagFactorMapper()
+
+
+class CompanyShareMaxDailyReturn6mFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareMaxDailyReturn6mFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_max_daily_return_6m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareMaxDailyReturn6mFactorMapper()
+
+
+class CompanyShareMinReturn120dFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareMinReturn120dFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_min_return_120d_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareMinReturn120dFactorMapper()
+
+
+# ── Relative performance versus SPY factor repositories ───────────
+
+
+class CompanyShareRelativeReturnVsSpy1DFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareRelativeReturnVsSpy1DFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_relative_return_vs_spy_1d_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy1DFactorMapper()
+
+
+class CompanyShareRelativeReturnVsSpy5DFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareRelativeReturnVsSpy5DFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_relative_return_vs_spy_5d_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy5DFactorMapper()
+
+
+class CompanyShareRelativeReturnVsSpy20DFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareRelativeReturnVsSpy20DFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_relative_return_vs_spy_20d_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy20DFactorMapper()
+
+
+class CompanyShareRelativeReturnVsSpy3MFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareRelativeReturnVsSpy3MFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_relative_return_vs_spy_3m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy3MFactorMapper()
+
+
+class CompanyShareRelativeReturnVsSpy6MFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareRelativeReturnVsSpy6MFactorPort):
+    _default_group = 'return'; _default_subgroup = 'daily'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_relative_return_vs_spy_6m_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy6MFactorMapper()
