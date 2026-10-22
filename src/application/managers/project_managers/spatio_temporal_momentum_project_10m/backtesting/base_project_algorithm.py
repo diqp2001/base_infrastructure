@@ -15,11 +15,16 @@ Nothing here knows about PyTorch; the same code runs when the engine is live.
 """
 
 import logging
+import os
 from typing import Any, List
 
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
+from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+
+
+TIMINGS_FILE = "timings.csv"            # per-bar time spent in slice / cycle / orders / valuation (results_dir)
 
 
 class Algorithm(BaseProjectAlgorithm):
@@ -62,20 +67,27 @@ class Algorithm(BaseProjectAlgorithm):
             bar_time = getattr(data, 'time', None) or getattr(self, 'time', None)
             if bar_time is None:
                 return
-            result = self.cycle.step(bar_time)
+            timings = getattr(self, "step_timings", None) or StepTimings(label=str(bar_time))
+            with timings.section("cycle"):
+                result = self.cycle.step(bar_time)
             self.cycle_results.append(result)
             if result.retrained:
                 self.log(f"STM model retrained at bar {result.session} (artifact {result.artifact_id})")
             if result.weights and self._unified_portfolio_manager:
-                self._unified_portfolio_manager.set_holdings(
-                    {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
-                    data=data,
-                )
+                with timings.section("orders"):
+                    self._unified_portfolio_manager.set_holdings(
+                        {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
+                        data=data,
+                    )
             elif not result.weights:
                 self.log(f"No STM position change at {bar_time}: {result.note}")
-            self._update_portfolio_value(data)
-            self._update_performance_tracking(data)
+            with timings.section("valuation"):
+                self._update_portfolio_value(data)
+                self._update_performance_tracking(data)
+            line = record_step_timings(timings, os.path.join(self.config['results_dir'], TIMINGS_FILE))
+            self.logger.info(line)
             if self.progress_tracker is not None:
+                self.progress_tracker.log(line)
                 self.progress_tracker.on_step(result, self.portfolio_value)
         except Exception as e:
             self.logger.error(f"Error in on_data: {e}")

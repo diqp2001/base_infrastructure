@@ -64,6 +64,10 @@ class BarHistoryUpdater:
                 status[ticker] = False
         return status
 
+    def mark_imported(self, through=None) -> None:
+        """The full history was imported elsewhere (BacktestDataPreloadService): only new bars from now on."""
+        self._imported_through = pd.Timestamp(through or pd.Timestamp.now()).floor(f"{self.bar_minutes}min")
+
     def __call__(self, now) -> Optional[Dict[str, bool]]:
         """Import once (full history), then again only when real time has moved past the last import by a bar."""
         current = pd.Timestamp.now().floor(f"{self.bar_minutes}min")

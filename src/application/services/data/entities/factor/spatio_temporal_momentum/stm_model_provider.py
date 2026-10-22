@@ -44,6 +44,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_price_history import (
     STMPriceHistoryReader,
 )
+from src.application.services.timing.step_timings import timed
 
 
 class SpatioTemporalMomentumModelProvider:
@@ -124,21 +125,24 @@ class SpatioTemporalMomentumModelProvider:
             history_days = cfg.features.required_history_days(cfg.model.lookback)
             sessions = -(-history_days // bars_per_session(cfg.bar_minutes))        # rows -> sessions
             start = d.normalize() - pd.Timedelta(days=int(sessions * 7 / 5) + 30)  # weekend/holiday padding
-        closes = self.price_reader.load_close_panel(id_to_asset, start=start, end=d)
+        with timed("read"):
+            closes = self.price_reader.load_close_panel(id_to_asset, start=start, end=d)
         closes = closes[closes.index <= d]
-        closes, _report = align_close_panel(closes.reindex(columns=loaded.assets))
+        with timed("features"):
+            closes, _report = align_close_panel(closes.reindex(columns=loaded.assets))
         if list(closes.columns) != loaded.assets:
             return []
         try:
-            panel = build_feature_panel(closes, cfg.features, cfg.prediction_horizon, assets=loaded.assets)
-            X, row_date = build_inference_input(panel, d, cfg.model.lookback, loaded.scaler)
+            with timed("features"):
+                panel = build_feature_panel(closes, cfg.features, cfg.prediction_horizon, assets=loaded.assets)
+                X, row_date = build_inference_input(panel, d, cfg.model.lookback, loaded.scaler)
         except ValueError:
             return []
         if bar_key(row_date, cfg.bar_minutes) != d:
             # an asset of this model has no close for the session (inner join dropped it):
             # never score from a stale row — the trading cycle retrains without that asset
             return []
-        with torch.no_grad():
+        with timed("score"), torch.no_grad():
             signal = loaded.model(torch.tensor(X, dtype=torch.float32))[0].numpy()
         i = panel.index_at_or_before(d)
         rows = []

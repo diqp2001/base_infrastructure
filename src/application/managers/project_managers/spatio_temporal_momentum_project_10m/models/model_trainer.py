@@ -9,6 +9,7 @@ project (same wiring as the SPX project's ModelTrainer).
 """
 
 import logging
+import os
 
 import pandas as pd
 from typing import Any, Dict
@@ -28,7 +29,14 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_trading_cycle import (
     STMTradingCycle,
 )
+from src.application.services.data.backtest_preload.backtest_data_preload_service import (
+    BacktestDataPreloadService,
+    PreloadSeries,
+)
 from src.application.services.misbuffet.engine.base_model_trainer import BaseModelTrainer
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+
+PRELOAD_FILE = "preload.csv"                       # coverage of every preloaded series (results_dir)
 
 
 class STMModelTrainer(BaseModelTrainer):
@@ -42,6 +50,22 @@ class STMModelTrainer(BaseModelTrainer):
     def ensure_factors(self) -> Dict[str, Any]:
         """Create the feature + signal factors listed in config['factors'] (Misbuffet path)."""
         return self.create_factors(self.config.get("factors", []))
+
+    def preload(self, market_data_service, updater: BarHistoryUpdater, log=None):
+        """Every 10-minute TRADES series of the universe, history start .. backtest end, BEFORE the first bar
+        (BacktestDataPreloadService): the engine and the cycle then find the bars locally and do not call IBKR
+        during the run. Coverage per series -> <results_dir>/preload.csv."""
+        service = BacktestDataPreloadService(market_data_service, log=log or self.logger.info)
+        series = [PreloadSeries(CompanyShare, t, "TRADES", self.config["bar_size_setting"])
+                  for t in self.stm_config.universe.tickers]
+        results = service.preload(series, start=self.config["price_history_start"], end=self.config["backtest_end"])
+        try:
+            os.makedirs(self.config["results_dir"], exist_ok=True)
+            service.to_frame(results).to_csv(os.path.join(self.config["results_dir"], PRELOAD_FILE), index=False)
+        except OSError as e:
+            self.logger.warning(f"Could not write the preload report: {e}")
+        updater.mark_imported()                       # the history is there: no second full import at bar 1
+        return results
 
     def build_cycle(self, market_data_service, history_service, factory,
                     log=None) -> STMTradingCycle:
@@ -59,6 +83,8 @@ class STMModelTrainer(BaseModelTrainer):
                                     bar_size_setting=self.config["bar_size_setting"],
                                     bar_minutes=self.stm_config.bar_minutes)
         ticker_to_entity = updater.ensure_entities()
+        if self.config.get("preload_data", False):
+            self.preload(market_data_service, updater, log=log)
         universe_setup = UniverseSetup(factory, self.stm_config)
         # membership starts at the configured history start (reference universe is static)
         universe, ordered, missing = universe_setup.register(

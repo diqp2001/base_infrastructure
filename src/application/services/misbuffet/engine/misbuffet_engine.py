@@ -16,6 +16,7 @@ import json
 
 from src.application.services.data.entities.factor.factor_service import FactorService
 from ..common.data_types import Slice, TradeBars, TradeBar
+from src.application.services.timing.step_timings import StepTimings, activate as activate_step_timings
 from ..common.symbol import Symbol
 
 try:
@@ -445,28 +446,29 @@ class MisbuffetEngine(BaseEngine):
             # Create data slice with real stock data for this date
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
                 try:
+                    # where the time of this step goes (slice / cycle / orders ...): the algorithm reads it as
+                    # `step_timings`; code at any depth records into it through engine.step_timings.timed()
+                    timings = StepTimings(label=str(current_date))
+                    self.algorithm.step_timings = timings
+                    with activate_step_timings(timings):
+                        # Use MarketDataService to create the data slice
+                        if hasattr(self.data_loader, 'market_data_service'):
+                            with timings.section("slice"):
+                                data_slice = self.data_loader.market_data_service.create_data_slice(
+                                    current_date, universe, bar_size_setting, duration_str
+                                )
 
+                        # Only call on_data if we have data for this date
+                        if data_slice.has_data:
+                            # Update algorithm time
+                            self.algorithm.time = current_date
 
+                            # Call on_data with real data
+                            self.algorithm.on_data(data_slice)
+                            data_points_processed += 1
 
-                    # Use MarketDataService to create the data slice
-                    if hasattr(self.data_loader, 'market_data_service'):
-
-                        data_slice = self.data_loader.market_data_service.create_data_slice(
-                            current_date, universe, bar_size_setting, duration_str
-                        )
-                    
-                    
-                    # Only call on_data if we have data for this date
-                    if data_slice.has_data:
-                        # Update algorithm time
-                        self.algorithm.time = current_date
-                        
-                        # Call on_data with real data
-                        self.algorithm.on_data(data_slice)
-                        data_points_processed += 1
-                        
-                        if data_points_processed % 50 == 0:  # Log every 50 data points
-                            self.logger.info(f"Processed {data_points_processed} data points, current date: {current_date.date()}")
+                            if data_points_processed % 50 == 0:  # Log every 50 data points
+                                self.logger.info(f"Processed {data_points_processed} data points, current date: {current_date.date()}")
                     
                 except Exception as e:
                     self.logger.warning(f"Algorithm on_data error at {current_date}: {e}")

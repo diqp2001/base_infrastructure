@@ -90,6 +90,20 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
 * Not modelled: the overnight gap is treated as one more bar (the first bar's return includes it);
   no intraday transaction costs beyond the report's cost scenarios.
 
+## Speed: per-bar timings and the data preload
+
+* **Timings** (`services/timing/step_timings`): every bar logs where its time went and appends it to
+  `results/spatio_temporal_momentum_10m/timings.csv` (one file per run):
+  `slice` (engine data slice), `cycle` (+ inside it: `update`, `read`, `features`, `train`, `score`, `persist`),
+  `orders` (set_holdings), `valuation`; `ibkr_requests` / `ibkr` = IBKR historical requests of the bar and the time
+  spent in them (pacing waits included). The dashboard log shows a `[timing]` line per bar and the run's averages
+  at the end.
+* **Preload** (`config['preload_data']`, default True; `services/data/backtest_preload`, registry `data/entities/factor/preloaded_coverage`): before the first bar,
+  every 10-minute TRADES series of the universe is imported from `price_history_start` to `backtest_end` through
+  the engine's own import path, its coverage is checked against the NYSE calendar (`preload.csv`), and the series
+  are registered as loaded: a bar still missing inside that range does not exist at IBKR, so the resolver serves the
+  latest CLOSED stored bar instead of requesting it again at every step. The engine and the backtest are unchanged.
+
 ## Results report: data coverage
 
 The report (`/stm/results?project=10m`, PDF) ends with data-coverage statistics

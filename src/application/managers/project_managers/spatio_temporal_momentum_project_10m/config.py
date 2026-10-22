@@ -116,6 +116,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # 10-minute bars imported through MarketDataService: the training window before the first bar + margin
     'price_history_start': '2026-09-15',
 
+    # Load every bar series the run needs BEFORE the first bar (BacktestDataPreloadService): the engine and the
+    # cycle then read locally at each step instead of calling IBKR; coverage report -> results_dir/preload.csv
+    'preload_data': True,
+
     # Model lifecycle inside the engine: retrain every day on the last training_window bars known at the bar,
     # validation = latest val_days, model used from the next bar
     'retrain_every_days': 1,

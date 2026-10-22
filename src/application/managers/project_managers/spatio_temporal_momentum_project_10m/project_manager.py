@@ -10,6 +10,7 @@ backtest, summarises what the engine decided.
 """
 
 import logging
+import os
 from typing import Any, Dict, Optional
 
 from src.application.managers.project_managers.project_manager import ProjectManager
@@ -17,6 +18,10 @@ from src.application.managers.project_managers.spatio_temporal_momentum_project_
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.backtesting.backtest_runner import (
     BacktestRunner,
 )
+from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.backtesting.base_project_algorithm import (
+    TIMINGS_FILE,
+)
+from src.application.services.timing.step_timings import summarise as summarise_step_timings
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_research_report import (
     build_report,
 )
@@ -64,11 +69,19 @@ class SpatioTemporalMomentum10mProjectManager(ProjectManager):
                                       pd.Timestamp(self.config['backtest_end']).normalize()))
         bars_total = sessions * bars_per_session(self.stm_config.bar_minutes)
         self.progress.start("backtest", bars_total=bars_total)
+        timings_csv = os.path.join(self.results_dir, TIMINGS_FILE)
+        if os.path.exists(timings_csv):
+            os.remove(timings_csv)                       # one file per run: where each bar's time went
         try:
             results = self._run()
         except Exception as e:
             self.progress.fail(str(e))
             raise
+        finally:
+            summary = summarise_step_timings(timings_csv)
+            if summary:
+                self.logger.info(summary)
+                self.progress.log(summary)
         if results.get('report') is None:
             self.progress.fail("The run produced no decisions to report (no model eligible during the backtest).")
         else:
