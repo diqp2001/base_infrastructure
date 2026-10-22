@@ -103,6 +103,8 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
   the engine's own import path, its coverage is checked against the NYSE calendar (`preload.csv`), and the series
   are registered as loaded: a bar still missing inside that range does not exist at IBKR, so the resolver serves the
   latest CLOSED stored bar instead of requesting it again at every step. The engine and the backtest are unchanged.
+  A series whose stored bars already span the window (an earlier run loaded them) is not requested from IBKR
+  again (`force=True` re-imports).
 
 ## Results report: data coverage
 

@@ -8,7 +8,8 @@ engine and the trading cycle find the data locally at each step and never wait o
 
 For each series:
   1. the entity is created / found through the engine's own path (MarketDataService._get_entity_by_ticker);
-  2. ONE import covering ``start`` .. now goes through the engine's own import path
+  2. unless the stored bars already span [start, end] (an earlier run loaded them: no IBKR request, ``force`` to
+     re-import), ONE import covering ``start`` .. now goes through the engine's own import path
      (MarketDataService._get_point_in_time_data -> IBKR repositories -> factor_values), so the stored series are
      exactly those the engine reads (subgroup = whatToShow, frequency = bar size);
   3. the stored bars are compared with the bars the exchange was open for (NYSE calendar) — the report says what
@@ -57,6 +58,8 @@ class PreloadResult:
     last_bar: Optional[str] = None
     registered_factors: List[int] = field(default_factory=list)
     error: Optional[str] = None
+    spans_window: bool = False          # stored bars reach from the window's first to its last expected bar
+    skipped: bool = False               # already stored: IBKR was not asked
 
     @property
     def coverage_pct(self) -> float:
@@ -89,7 +92,9 @@ class BacktestDataPreloadService:
 
     # ------------------------------------------------------------------
 
-    def preload(self, series: List[PreloadSeries], start, end, register: bool = True) -> List[PreloadResult]:
+    def preload(self, series: List[PreloadSeries], start, end, register: bool = True,
+                force: bool = False) -> List[PreloadResult]:
+        """``force``: re-import every series even when the stored bars already span the window."""
         start, end = pd.Timestamp(start), pd.Timestamp(end)
         request_end = pd.Timestamp.now().floor("min")
         results = []
@@ -102,13 +107,19 @@ class BacktestDataPreloadService:
                     results.append(result)
                     continue
                 result.entity_id = int(entity.id)
-                duration = import_duration(start, request_end, spec.bar_size_setting)
-                self.market_data_service._get_point_in_time_data(
-                    ticker=spec.symbol, entity_class=spec.entity_class, point_in_time=request_end.to_pydatetime(),
-                    bar_size_setting=spec.bar_size_setting, duration_str=duration, what_to_show=spec.what_to_show,
-                )
-                result.imported = True
-                self._check(result, spec, entity, start, end)
+                if not force:
+                    # already loaded by an earlier run: the stored bars span the window (gaps inside it are bars
+                    # IBKR does not have, e.g. no trade in a 10-minute window) -> no IBKR request
+                    self._check(result, spec, entity, start, end)
+                    result.skipped = result.spans_window
+                if not result.skipped:
+                    duration = import_duration(start, request_end, spec.bar_size_setting)
+                    self.market_data_service._get_point_in_time_data(
+                        ticker=spec.symbol, entity_class=spec.entity_class, point_in_time=request_end.to_pydatetime(),
+                        bar_size_setting=spec.bar_size_setting, duration_str=duration, what_to_show=spec.what_to_show,
+                    )
+                    result.imported = True
+                    self._check(result, spec, entity, start, end)
                 if register:
                     for factor_id in self._raw_factor_ids(entity):
                         preloaded_coverage.register(factor_id, result.entity_id, start.to_pydatetime(),
@@ -173,6 +184,7 @@ class BacktestDataPreloadService:
         result.stored_bars = len(inside)
         if stamps:
             result.first_bar, result.last_bar = str(min(stamps)), str(max(stamps))
+            result.spans_window = bool(len(grid)) and min(stamps) <= grid[0] and max(stamps) >= grid[-1]
 
     # ------------------------------------------------------------------
 
@@ -180,8 +192,9 @@ class BacktestDataPreloadService:
     def line(r: PreloadResult) -> str:
         if r.error:
             return f"[preload] {r.symbol} {r.what_to_show} {r.bar_size_setting}: FAILED — {r.error}"
+        source = "already stored, IBKR not asked" if r.skipped else "imported"
         return (f"[preload] {r.symbol} {r.what_to_show} {r.bar_size_setting}: {r.stored_bars}/{r.expected_bars} "
-                f"bars ({r.coverage_pct:.1f}%), stored {r.first_bar} .. {r.last_bar}")
+                f"bars ({r.coverage_pct:.1f}%), stored {r.first_bar} .. {r.last_bar} — {source}")
 
     @staticmethod
     def summary(results: List[PreloadResult]) -> str:
@@ -190,14 +203,16 @@ class BacktestDataPreloadService:
         stored = sum(r.stored_bars for r in ok)
         failed = [f"{r.symbol}:{r.what_to_show}" for r in results if r.error]
         pct = 100.0 * stored / expected if expected else float("nan")
-        return (f"[preload] {len(ok)}/{len(results)} series loaded, {stored}/{expected} expected bars stored "
+        skipped = sum(1 for r in ok if r.skipped)
+        return (f"[preload] {len(ok)}/{len(results)} series loaded ({skipped} already stored, "
+                f"{len(ok) - skipped} imported), {stored}/{expected} expected bars stored "
                 f"({pct:.1f}%)" + (f"; failed: {', '.join(failed)}" if failed else ""))
 
     @staticmethod
     def to_frame(results: List[PreloadResult]) -> pd.DataFrame:
         return pd.DataFrame([{
             "symbol": r.symbol, "what_to_show": r.what_to_show, "bar_size": r.bar_size_setting,
-            "entity_id": r.entity_id, "imported": r.imported, "expected_bars": r.expected_bars,
+            "entity_id": r.entity_id, "imported": r.imported, "skipped": r.skipped, "expected_bars": r.expected_bars,
             "stored_bars": r.stored_bars, "coverage_pct": round(r.coverage_pct, 2) if r.expected_bars else None,
             "first_bar": r.first_bar, "last_bar": r.last_bar, "registered_factors": len(r.registered_factors),
             "error": r.error} for r in results])
