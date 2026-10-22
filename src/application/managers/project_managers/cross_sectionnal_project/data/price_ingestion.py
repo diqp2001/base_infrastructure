@@ -13,7 +13,7 @@ history start.
 
 import logging
 import math
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -22,9 +22,13 @@ from src.domain.entities.finance.financial_assets.share.company_share.company_sh
 
 class DailyHistoryUpdater:
 
-    def __init__(self, market_data_service, tickers: List[str], history_start, refresh_duration: str = "1 M"):
+    def __init__(self, market_data_service, tickers: List[str], history_start, refresh_duration: str = "1 M",
+                 extra_series: Optional[List[Tuple[type, str, str]]] = None):
+        """``extra_series`` = [(entity class, symbol, whatToShow)] imported besides the shares' TRADES bars, e.g.
+        (CompanyShare, 'JPM', 'OPTION_IMPLIED_VOLATILITY') or (Index, 'IRX', 'TRADES')."""
         self.market_data_service = market_data_service
         self.tickers = list(tickers)
+        self.extra_series = list(extra_series or [])
         self.history_start = pd.Timestamp(history_start)
         self.refresh_duration = refresh_duration
         self._imported_through: Optional[pd.Timestamp] = None
@@ -36,29 +40,36 @@ class DailyHistoryUpdater:
         return f"{years} Y"
 
     def ensure_entities(self) -> Dict[str, int]:
-        """CompanyShare entities via the engine's path; returns {ticker: entity_id} in configured order."""
+        """Entities via the engine's path; returns {symbol: entity_id} (shares in configured order, then the
+        entities of the extra series)."""
         found: Dict[str, int] = {}
-        for ticker in self.tickers:
-            entity = self.market_data_service._get_entity_by_ticker(ticker, CompanyShare)
+        wanted = [(CompanyShare, t) for t in self.tickers]
+        wanted += [(cls, sym) for cls, sym, _ in self.extra_series if sym not in self.tickers]
+        for cls, ticker in wanted:
+            if ticker in found:
+                continue
+            entity = self.market_data_service._get_entity_by_ticker(ticker, cls)
             if entity is not None and getattr(entity, "id", None) is not None:
                 found[ticker] = int(entity.id)
             else:
-                self.logger.warning(f"Could not create/get CompanyShare '{ticker}'")
+                self.logger.warning(f"Could not create/get {cls.__name__} '{ticker}'")
         return found
 
     def _import(self, duration: str) -> Dict[str, bool]:
         request_end = pd.Timestamp.now().normalize().to_pydatetime()
         status = {}
-        for ticker in self.tickers:
+        series = [(CompanyShare, t, "TRADES") for t in self.tickers] + self.extra_series
+        for cls, ticker, what_to_show in series:
+            key = ticker if what_to_show == "TRADES" else f"{ticker}:{what_to_show}"
             try:
                 result = self.market_data_service._get_point_in_time_data(
-                    ticker=ticker, entity_class=CompanyShare, point_in_time=request_end,
-                    bar_size_setting="1 day", duration_str=duration,
+                    ticker=ticker, entity_class=cls, point_in_time=request_end,
+                    bar_size_setting="1 day", duration_str=duration, what_to_show=what_to_show,
                 )
-                status[ticker] = result is not None
+                status[key] = result is not None
             except Exception as e:
-                self.logger.warning(f"Daily close import failed for {ticker}: {e}")
-                status[ticker] = False
+                self.logger.warning(f"Daily {what_to_show} import failed for {ticker}: {e}")
+                status[key] = False
         return status
 
     def __call__(self, now) -> Optional[Dict[str, bool]]:

@@ -160,9 +160,15 @@ def optimize(dataset: CSMDataset, train_dates: List[pd.Timestamp], cfg: CSMConfi
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     log = log or (lambda m: None)
     o = cfg.optimization
-    candidates = list(dataset.feature_names)
     frame = dataset.frame
     rows = frame[frame.index.get_level_values("date").isin(train_dates) & frame["label"].notna()]
+    coverage = rows[list(dataset.feature_names)].notna().mean() if len(rows) else pd.Series(dtype=float)
+    candidates = [f for f in dataset.feature_names if coverage.get(f, 0.0) >= o.min_feature_coverage]
+    left_out = [f for f in dataset.feature_names if f not in candidates]
+    if left_out:
+        log(f"[CSM] candidates left out (present on < {o.min_feature_coverage:.0%} of the window): {left_out}")
+    if len(candidates) < o.min_features:
+        raise ValueError(f"only {len(candidates)} candidates have enough data in the training window")
     folds = walk_forward_folds(sorted(set(rows.index.get_level_values("date"))), o.n_folds, cfg.label.horizon)
     if not folds:
         raise ValueError("Not enough labelled dates for the walk-forward folds")

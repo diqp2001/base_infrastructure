@@ -127,6 +127,10 @@ DEFAULT_SOURCE_POLICY = SourcePolicy(rules=(
 WHAT_TO_SHOW = frozenset(d.value for d in D if d is not D.CALCULATED)
 RAW_BAR_FIELDS = frozenset({"open", "high", "low", "close", "volume", "barCount", "wap"})
 TRADES_ONLY_FIELDS = frozenset({"volume", "barCount", "wap"})          # IBKR returns -1 for quote types
+# whatToShow series whose bars are NOT prices of the instrument (a close of OPTION_IMPLIED_VOLATILITY is a volatility):
+# never read in place of a price — only when a dependency names that subgroup explicitly
+NON_PRICE_WHAT_TO_SHOW = frozenset({D.OPTION_IMPLIED_VOLATILITY.value, D.HISTORICAL_VOLATILITY.value,
+                                    D.REBATE_RATE.value, D.FEE_RATE.value, D.SCHEDULE.value})
 
 
 def is_what_to_show(subgroup: Optional[str]) -> bool:

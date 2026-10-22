@@ -1,7 +1,7 @@
 """
 CSMFeatureDefinition — the candidate features of the cross-sectional classifier: the 24 momentum factors of
-LGBMMomentumFeatureDefinition plus liquidity, volume-trend, price-range, return-extreme and relative-performance
-(versus the SPY ETF) factors (40 in all).
+LGBMMomentumFeatureDefinition plus liquidity, volume-trend, price-range, return-extreme, relative-performance
+(versus the SPY ETF) and delta-hedging-band factors of a reference call (48 in all).
 
 Same contract as LGBMMomentumFeatureDefinition: FEATURE_MAP = (factor class name, feature name); ``extract`` builds
 the vector from the resolved dependencies of CompanyShareCrossSectionalMomentumFactor (keyed by class name).
@@ -30,6 +30,14 @@ EXTRA_FEATURE_MAP: List[tuple] = [
     ("CompanyShareRelativeReturnVsSpy20DFactor", "rel_return_spy_20d"),
     ("CompanyShareRelativeReturnVsSpy3MFactor",  "rel_return_spy_3m"),
     ("CompanyShareRelativeReturnVsSpy6MFactor",  "rel_return_spy_6m"),
+    ("CompanyShareZakamoulineDeltaCeilingFactor",        "zakamouline_delta_ceiling"),
+    ("CompanyShareZakamoulineDeltaFloorFactor",          "zakamouline_delta_floor"),
+    ("CompanyShareWhalleyWilmottDeltaCeilingFactor",     "whalley_wilmott_delta_ceiling"),
+    ("CompanyShareWhalleyWilmottDeltaFloorFactor",       "whalley_wilmott_delta_floor"),
+    ("CompanyShareZakamoulineCeilingDistanceFactor",     "zakamouline_ceiling_distance"),
+    ("CompanyShareZakamoulineFloorDistanceFactor",       "zakamouline_floor_distance"),
+    ("CompanyShareWhalleyWilmottCeilingDistanceFactor",  "whalley_wilmott_ceiling_distance"),
+    ("CompanyShareWhalleyWilmottFloorDistanceFactor",    "whalley_wilmott_floor_distance"),
 ]
 
 

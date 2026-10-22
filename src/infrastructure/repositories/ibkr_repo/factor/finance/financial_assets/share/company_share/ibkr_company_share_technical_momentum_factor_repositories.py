@@ -47,6 +47,13 @@ from src.domain.ports.factor.finance.financial_assets.share_factor.company_share
     CompanyShareRelativeReturnVsSpy6MFactorPort,
 )
 
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareZakamoulineDeltaCeilingFactorPort, CompanyShareZakamoulineDeltaFloorFactorPort,
+    CompanyShareWhalleyWilmottDeltaCeilingFactorPort, CompanyShareWhalleyWilmottDeltaFloorFactorPort,
+    CompanyShareZakamoulineCeilingDistanceFactorPort, CompanyShareZakamoulineFloorDistanceFactorPort,
+    CompanyShareWhalleyWilmottCeilingDistanceFactorPort, CompanyShareWhalleyWilmottFloorDistanceFactorPort,
+)
+
 
 class _BaseIBKRTechMomentumRepo:
     """Mixin: all operations delegate to the matched local repo."""
@@ -372,3 +379,38 @@ class IBKRCompanyShareRelativeReturnVsSpy3MFactorRepository(_BaseIBKRTechMomentu
 
 class IBKRCompanyShareRelativeReturnVsSpy6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeReturnVsSpy6MFactorPort):
     _local_repo_key = 'CompanyShareRelativeReturnVsSpy6MFactor'
+
+
+# ── Delta-hedging band (reference call) factor repositories ───────────
+
+
+class IBKRCompanyShareZakamoulineDeltaCeilingFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareZakamoulineDeltaCeilingFactorPort):
+    _local_repo_key = 'CompanyShareZakamoulineDeltaCeilingFactor'
+
+
+class IBKRCompanyShareZakamoulineDeltaFloorFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareZakamoulineDeltaFloorFactorPort):
+    _local_repo_key = 'CompanyShareZakamoulineDeltaFloorFactor'
+
+
+class IBKRCompanyShareWhalleyWilmottDeltaCeilingFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareWhalleyWilmottDeltaCeilingFactorPort):
+    _local_repo_key = 'CompanyShareWhalleyWilmottDeltaCeilingFactor'
+
+
+class IBKRCompanyShareWhalleyWilmottDeltaFloorFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareWhalleyWilmottDeltaFloorFactorPort):
+    _local_repo_key = 'CompanyShareWhalleyWilmottDeltaFloorFactor'
+
+
+class IBKRCompanyShareZakamoulineCeilingDistanceFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareZakamoulineCeilingDistanceFactorPort):
+    _local_repo_key = 'CompanyShareZakamoulineCeilingDistanceFactor'
+
+
+class IBKRCompanyShareZakamoulineFloorDistanceFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareZakamoulineFloorDistanceFactorPort):
+    _local_repo_key = 'CompanyShareZakamoulineFloorDistanceFactor'
+
+
+class IBKRCompanyShareWhalleyWilmottCeilingDistanceFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareWhalleyWilmottCeilingDistanceFactorPort):
+    _local_repo_key = 'CompanyShareWhalleyWilmottCeilingDistanceFactor'
+
+
+class IBKRCompanyShareWhalleyWilmottFloorDistanceFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareWhalleyWilmottFloorDistanceFactorPort):
+    _local_repo_key = 'CompanyShareWhalleyWilmottFloorDistanceFactor'

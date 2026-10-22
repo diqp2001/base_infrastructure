@@ -22,7 +22,8 @@ class STMPriceHistoryReader:
 
     def __init__(self, factory, close_factor_name: str = "close",
                  factor_type: str = "company_share_factor", frequency: Optional[str] = "1d",
-                 bar_minutes: Optional[int] = None):
+                 bar_minutes: Optional[int] = None, subgroup: Optional[str] = None):
+        self.subgroup = subgroup                 # one named series (e.g. OPTION_IMPLIED_VOLATILITY); None = prices
         self.factory = factory
         self.close_factor_name = close_factor_name
         self.factor_type = factor_type
@@ -44,6 +45,11 @@ class STMPriceHistoryReader:
         )
         if self.frequency is not None:
             q = q.filter(FactorModel.frequency == self.frequency)
+        if self.subgroup is not None:
+            q = q.filter(FactorModel.subgroup == self.subgroup)
+        else:                                    # never a volatility / rate series in place of a price
+            from src.domain.entities.factor.source_policy import NON_PRICE_WHAT_TO_SHOW
+            q = q.filter(~FactorModel.subgroup.in_(list(NON_PRICE_WHAT_TO_SHOW)))
         ranked = []
         for factor_id, subgroup in q.all():
             rank = (order.index(subgroup) if subgroup in order else
@@ -119,7 +125,8 @@ class STMFrontierPriceReader:
 
     def __init__(self, history_service, close_factor_name: str = "close",
                  factor_type: str = "company_share_factor", frequency: Optional[str] = "1d",
-                 bar_minutes: Optional[int] = None):
+                 bar_minutes: Optional[int] = None, subgroup: Optional[str] = None):
+        self.subgroup = subgroup                 # one named series; None = prices (non-price series excluded)
         self.history_service = history_service
         self.close_factor_name = close_factor_name
         self.factor_type = factor_type
@@ -127,9 +134,11 @@ class STMFrontierPriceReader:
         self.bar_minutes = bar_minutes
 
     def load_close_panel(self, assets: Dict[int, str], start=None, end=None) -> pd.DataFrame:
+        from src.domain.entities.factor.source_policy import NON_PRICE_WHAT_TO_SHOW
         panel = self.history_service.get_factor_value_panel(
             assets, factor_name=self.close_factor_name, factor_type=self.factor_type,
-            frequency=self.frequency,
+            frequency=self.frequency, subgroup=self.subgroup,
+            exclude_subgroups=() if self.subgroup is not None else tuple(NON_PRICE_WHAT_TO_SHOW),
             start=pd.Timestamp(start).to_pydatetime() if start is not None else None,
             end=(next_key(end, self.bar_minutes) - pd.Timedelta(microseconds=1)).to_pydatetime()
             if end is not None else None,

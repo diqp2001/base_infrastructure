@@ -302,3 +302,38 @@ class CompanyShareRelativeReturnVsSpy3MFactorModel(FactorModel):
 
 class CompanyShareRelativeReturnVsSpy6MFactorModel(FactorModel):
     __mapper_args__ = {"polymorphic_identity": "company_share_relative_return_vs_spy_6m_factor"}
+
+
+# ── Delta-hedging band (reference call) factors ────────────────────────
+
+
+class CompanyShareZakamoulineDeltaCeilingFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_zakamouline_delta_ceiling_factor"}
+
+
+class CompanyShareZakamoulineDeltaFloorFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_zakamouline_delta_floor_factor"}
+
+
+class CompanyShareWhalleyWilmottDeltaCeilingFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_whalley_wilmott_delta_ceiling_factor"}
+
+
+class CompanyShareWhalleyWilmottDeltaFloorFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_whalley_wilmott_delta_floor_factor"}
+
+
+class CompanyShareZakamoulineCeilingDistanceFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_zakamouline_ceiling_distance_factor"}
+
+
+class CompanyShareZakamoulineFloorDistanceFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_zakamouline_floor_distance_factor"}
+
+
+class CompanyShareWhalleyWilmottCeilingDistanceFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_whalley_wilmott_ceiling_distance_factor"}
+
+
+class CompanyShareWhalleyWilmottFloorDistanceFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_whalley_wilmott_floor_distance_factor"}

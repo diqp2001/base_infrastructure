@@ -31,9 +31,11 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
 )
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import (
     BAR_FIELDS,
+    ENTITY_FACTOR_TYPES,
     CSMFeatureEngine,
-    benchmark_symbols,
+    benchmark_entity_types,
     build_dataset,
+    required_series,
 )
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model import train
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_signal_store import CSMSignalStore
@@ -90,7 +92,8 @@ class CSMTradingCycle:
         self.ticker_to_entity = dict(ticker_to_entity)
         # benchmarks the candidates compare with (e.g. SPY): read, never traded nor scored
         self.benchmark_entities = dict(benchmark_entities or {})
-        missing = [s for s in benchmark_symbols(config.features) if s not in self.benchmark_entities]
+        self.benchmark_types = benchmark_entity_types(config.features)          # e.g. {'SPY': None, 'IRX': 'Index'}
+        missing = [s for s in self.benchmark_types if s not in self.benchmark_entities]
         if missing:
             self.log(f"[CSM] no entity for benchmark(s) {missing}: their relative features stay empty")
         self.history_start = pd.Timestamp(history_start)
@@ -102,6 +105,15 @@ class CSMTradingCycle:
         self.log = log or (lambda msg: None)
         self.readers = {f: STMFrontierPriceReader(history_service, close_factor_name=f, frequency="1d")
                         for f in BAR_FIELDS}
+        # named series of the shares the candidates read (e.g. close|OPTION_IMPLIED_VOLATILITY)
+        for sid, (bar_field, subgroup, symbol, _) in required_series(config.features).items():
+            if subgroup and not symbol:
+                self.readers[sid] = STMFrontierPriceReader(history_service, close_factor_name=bar_field, frequency="1d",
+                                                           subgroup=subgroup)
+        self.benchmark_readers = {
+            sym: STMFrontierPriceReader(history_service, close_factor_name="close", frequency="1d",
+                                        factor_type=ENTITY_FACTOR_TYPES.get(etype, "company_share_factor"))
+            for sym, etype in self.benchmark_types.items()}
         self.reader = self.readers["close"]
         self.artifact_store = CSMArtifactStore(factory, config)
         self.signal_store = CSMSignalStore(factory, config) if self.persist else None
@@ -168,13 +180,16 @@ class CSMTradingCycle:
         self._last_result = result
 
         bars = {"close": closes}
-        bars.update({f: self.readers[f].load_close_panel(id_to_ticker, start=self.history_start)
-                     for f in BAR_FIELDS if f != "close"})
+        bars.update({f: reader.load_close_panel(id_to_ticker, start=self.history_start)
+                     for f, reader in self.readers.items() if f != "close"})
         benchmarks = {}
-        if self.benchmark_entities:
-            panel = self.reader.load_close_panel({eid: s for s, eid in self.benchmark_entities.items()},
-                                                 start=self.history_start)
-            benchmarks = {s: panel[s] for s in self.benchmark_entities if s in panel}
+        for sym, eid in self.benchmark_entities.items():
+            reader = self.benchmark_readers.get(sym)
+            if reader is None:
+                continue
+            panel = reader.load_close_panel({eid: sym}, start=self.history_start)
+            if sym in panel:
+                benchmarks[f"close@{sym}"] = panel[sym]
         dataset = build_dataset(bars, self.config.features, self.config.label, self.feature_engine, benchmarks)
         if self._retrain_due(session):
             artifact_id = self._train(dataset, session)

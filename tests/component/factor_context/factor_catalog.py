@@ -19,11 +19,13 @@ CALCULATE_MARKERS = ("def calculate(", "SeriesPriceReturn", "OptionModelPrice")
 
 
 def _has_own_calculate(cls):
-    """calculate() defined by the class itself or by a mixin it uses (not inherited from another factor)."""
+    """calculate() defined by the class itself, by a mixin it uses, or by a private base it specialises (e.g.
+    _AvgTurnoverFactor) — not inherited from another (public) factor."""
     if "calculate" in cls.__dict__:
         return True
     from src.domain.entities.factor.factor import Factor
-    return any("calculate" in base.__dict__ for base in cls.__mro__[1:] if not issubclass(base, Factor))
+    return any("calculate" in base.__dict__ for base in cls.__mro__[1:]
+               if not issubclass(base, Factor) or base.__name__.startswith("_"))
 
 
 @lru_cache(maxsize=None)

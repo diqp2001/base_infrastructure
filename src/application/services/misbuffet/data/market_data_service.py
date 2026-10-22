@@ -147,7 +147,8 @@ class MarketDataService:
         slice_data.duration_str = duration_str
         return slice_data
     
-    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting, duration_str) -> Optional[pd.DataFrame]:
+    def _get_point_in_time_data(self, ticker: str, entity_class: object, point_in_time: datetime, bar_size_setting,
+                                duration_str, what_to_show: str = "TRADES") -> Optional[pd.DataFrame]:
         """
         Get point-in-time data for a specific ticker and date.
         Uses the factor data service to retrieve historical data.
@@ -161,7 +162,9 @@ class MarketDataService:
                 return None
             
             # Get price factor data for this date using optimized batch processing
-            factor_names = ['high', 'open', 'low', 'close', 'volume']
+            from src.domain.entities.factor.source_policy import TRADES_ONLY_FIELDS
+            factor_names = [n for n in ('high', 'open', 'low', 'close', 'volume')
+                            if what_to_show == "TRADES" or n not in TRADES_ONLY_FIELDS]
             factor_data = {}
             
             if self.entity_service.repository_factory.ibkr_client.ib_connection.connected_flag:
@@ -175,7 +178,6 @@ class MarketDataService:
                 factors = []
                 
                 # Get or create all factors in batch
-                what_to_show = "TRADES"
                 # BI-036: the factors are the series this import requests (subgroup = whatToShow) — without it the
                 # repositories default close to MIDPOINT, the fetch asks IBKR for MIDPOINT and stocks without a quote
                 # subscription store nothing
@@ -210,7 +212,7 @@ class MarketDataService:
                     # Use optimized batch method to get factor values from IBKR bulk data with seconds bar_size
                     factor_values = self.entity_service.create_or_get_batch_ibkr(
                         factor_values_data, FactorValue,
-                        what_to_show="TRADES",
+                        what_to_show=what_to_show,
                         duration_str=duration_str,
                         bar_size_setting=bar_size_setting,
                     )

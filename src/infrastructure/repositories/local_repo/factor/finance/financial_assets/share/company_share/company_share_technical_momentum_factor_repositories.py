@@ -92,6 +92,20 @@ from src.domain.ports.factor.finance.financial_assets.share_factor.company_share
     CompanyShareRelativeReturnVsSpy6MFactorPort,
 )
 
+from src.infrastructure.repositories.mappers.factor.finance.financial_assets.share.company_share.company_share_technical_momentum_factor_mappers import (
+    CompanyShareZakamoulineDeltaCeilingFactorMapper, CompanyShareZakamoulineDeltaFloorFactorMapper,
+    CompanyShareWhalleyWilmottDeltaCeilingFactorMapper, CompanyShareWhalleyWilmottDeltaFloorFactorMapper,
+    CompanyShareZakamoulineCeilingDistanceFactorMapper, CompanyShareZakamoulineFloorDistanceFactorMapper,
+    CompanyShareWhalleyWilmottCeilingDistanceFactorMapper,
+    CompanyShareWhalleyWilmottFloorDistanceFactorMapper,
+)
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (
+    CompanyShareZakamoulineDeltaCeilingFactorPort, CompanyShareZakamoulineDeltaFloorFactorPort,
+    CompanyShareWhalleyWilmottDeltaCeilingFactorPort, CompanyShareWhalleyWilmottDeltaFloorFactorPort,
+    CompanyShareZakamoulineCeilingDistanceFactorPort, CompanyShareZakamoulineFloorDistanceFactorPort,
+    CompanyShareWhalleyWilmottCeilingDistanceFactorPort, CompanyShareWhalleyWilmottFloorDistanceFactorPort,
+)
+
 
 class _BaseTechMomentumFactorRepository(BaseFactorRepository):
     """
@@ -707,3 +721,62 @@ class CompanyShareRelativeReturnVsSpy6MFactorRepository(_BaseTechMomentumFactorR
     _default_factor_type = 'company_share_relative_return_vs_spy_6m_factor'
     def __init__(self, session, factory=None):
         super().__init__(session, factory); self.mapper = CompanyShareRelativeReturnVsSpy6MFactorMapper()
+
+
+# ── Delta-hedging band (reference call) factor repositories ───────────
+
+
+class CompanyShareZakamoulineDeltaCeilingFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareZakamoulineDeltaCeilingFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_zakamouline_delta_ceiling_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareZakamoulineDeltaCeilingFactorMapper()
+
+
+class CompanyShareZakamoulineDeltaFloorFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareZakamoulineDeltaFloorFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_zakamouline_delta_floor_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareZakamoulineDeltaFloorFactorMapper()
+
+
+class CompanyShareWhalleyWilmottDeltaCeilingFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareWhalleyWilmottDeltaCeilingFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_whalley_wilmott_delta_ceiling_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareWhalleyWilmottDeltaCeilingFactorMapper()
+
+
+class CompanyShareWhalleyWilmottDeltaFloorFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareWhalleyWilmottDeltaFloorFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_whalley_wilmott_delta_floor_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareWhalleyWilmottDeltaFloorFactorMapper()
+
+
+class CompanyShareZakamoulineCeilingDistanceFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareZakamoulineCeilingDistanceFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_zakamouline_ceiling_distance_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareZakamoulineCeilingDistanceFactorMapper()
+
+
+class CompanyShareZakamoulineFloorDistanceFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareZakamoulineFloorDistanceFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_zakamouline_floor_distance_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareZakamoulineFloorDistanceFactorMapper()
+
+
+class CompanyShareWhalleyWilmottCeilingDistanceFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareWhalleyWilmottCeilingDistanceFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_whalley_wilmott_ceiling_distance_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareWhalleyWilmottCeilingDistanceFactorMapper()
+
+
+class CompanyShareWhalleyWilmottFloorDistanceFactorRepository(_BaseTechMomentumFactorRepository, CompanyShareWhalleyWilmottFloorDistanceFactorPort):
+    _default_group = 'greek'; _default_subgroup = 'delta'; _default_frequency = '1d'
+    _default_factor_type = 'company_share_whalley_wilmott_floor_distance_factor'
+    def __init__(self, session, factory=None):
+        super().__init__(session, factory); self.mapper = CompanyShareWhalleyWilmottFloorDistanceFactorMapper()

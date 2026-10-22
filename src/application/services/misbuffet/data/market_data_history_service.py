@@ -274,6 +274,8 @@ class MarketDataHistoryService:
         frequency: Optional[str] = "1d",
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        subgroup: Optional[str] = None,
+        exclude_subgroups=(),
     ) -> pd.DataFrame:
         """
         Frontier-enforced history of one stored factor for several entities.
@@ -288,7 +290,8 @@ class MarketDataHistoryService:
             (Factor.bar_availability_offset_seconds);
           * calculated factors are returned when ``date <= frontier``.
 
-        ``end`` can only narrow the window, never extend it past the frontier.
+        ``end`` can only narrow the window, never extend it past the frontier. ``subgroup`` keeps one series
+        (e.g. 'OPTION_IMPLIED_VOLATILITY'); ``exclude_subgroups`` drops series (e.g. the non-price ones).
 
         Raises:
             ValueError: if the frontier has not been set.
@@ -311,6 +314,10 @@ class MarketDataHistoryService:
         )
         if frequency is not None:
             q = q.filter(FactorModel.frequency == frequency)
+        if subgroup is not None:
+            q = q.filter(FactorModel.subgroup == subgroup)
+        elif exclude_subgroups:
+            q = q.filter(~FactorModel.subgroup.in_(list(exclude_subgroups)))
         factor_rows = q.all()
         if not factor_rows:
             return pd.DataFrame(columns=columns, dtype=float)

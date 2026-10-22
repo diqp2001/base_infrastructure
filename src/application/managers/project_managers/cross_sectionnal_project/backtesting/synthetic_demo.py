@@ -2,7 +2,8 @@
 Synthetic demo of the cross-sectional momentum project (no IBKR, no SQL Server).
 
 Runs the SAME CSMTradingCycle the Misbuffet algorithm runs, on synthetic daily closes stored in an in-memory
-SQLite database as raw TRADES daily bars (close, volume, high, low), then builds the results report. The synthetic returns carry a
+SQLite database as raw TRADES daily bars (close, volume, high, low) with an implied-volatility series per share,
+a SPY share and an IRX index, then builds the results report. The synthetic returns carry a
 little cross-sectional momentum (yesterday's relative winners keep a small edge) so the classifier has something
 to find. The Optuna study is shrunk for speed. Results are illustrative only.
 """
@@ -54,12 +55,28 @@ def synthetic_bars(closes: pd.DataFrame, seed: int = 11) -> dict:
     return {"close": closes, "volume": volume.round(), "high": high, "low": low}
 
 
+def synthetic_implied_vols(closes: pd.DataFrame, seed: int = 11) -> pd.DataFrame:
+    """Annualised implied volatility per share around 20-35% (the OPTION_IMPLIED_VOLATILITY close)."""
+    rng = np.random.default_rng(seed + 4)
+    level = rng.uniform(0.20, 0.35, closes.shape[1])
+    noise = np.exp(np.cumsum(rng.normal(0.0, 0.02, closes.shape), axis=0))
+    return pd.DataFrame(level * noise / noise.mean(axis=0), index=closes.index, columns=closes.columns)
+
+
+def synthetic_irx(index: pd.DatetimeIndex, seed: int = 11) -> pd.DataFrame:
+    """IRX quotes (13-week T-bill yield x 10) around 40, i.e. ~4%."""
+    rng = np.random.default_rng(seed + 5)
+    return pd.DataFrame({"IRX": 40.0 + np.cumsum(rng.normal(0.0, 0.05, len(index)))}, index=index)
+
+
 def _seed_bars(session, bars: dict, ids) -> None:
+    """``bars`` = {series id: panel}: 'close', 'volume', ..., 'close|OPTION_IMPLIED_VOLATILITY'."""
     from src.infrastructure.models.factor.factor import CompanyShareFactorModel
     from src.infrastructure.models.factor.factor_value import FactorValueModel
-    for field, panel in bars.items():
-        factor = CompanyShareFactorModel(name=field, group="price", subgroup="TRADES", frequency="1d",
-                                         data_type="numeric", source="ibkr", definition=field,
+    for sid, panel in bars.items():
+        field, _, subgroup = sid.partition("|")
+        factor = CompanyShareFactorModel(name=field, group="price", subgroup=subgroup or "TRADES", frequency="1d",
+                                         data_type="numeric", source="ibkr", definition=sid,
                                          factor_type="company_share_factor")
         session.add(factor)
         session.commit()
@@ -68,6 +85,20 @@ def _seed_bars(session, bars: dict, ids) -> None:
                 for d, row in panel.iterrows() for t, v in row.items() if np.isfinite(v)]
         session.bulk_insert_mappings(FactorValueModel, rows)
         session.commit()
+
+
+def _seed_index(session, panel: pd.DataFrame, entity_id: int) -> None:
+    """The IRX index closes (TRADES) as an Index entity's raw close factor."""
+    from src.infrastructure.models.factor.factor import IndexFactorModel
+    from src.infrastructure.models.factor.factor_value import FactorValueModel
+    factor = IndexFactorModel(name="close", group="price", subgroup="TRADES", frequency="1d", data_type="numeric",
+                              source="ibkr", definition="close", factor_type="index_factor")
+    session.add(factor)
+    session.commit()
+    session.bulk_insert_mappings(FactorValueModel, [
+        {"factor_id": factor.id, "entity_id": entity_id, "entity_type": "Index", "date": d.to_pydatetime(),
+         "value": repr(float(v))} for d, v in panel.iloc[:, 0].items()])
+    session.commit()
 
 
 def run_synthetic_demo(progress, backtest_sessions: int = 40, n_trials: int = 8, training_window: int = 120,
@@ -101,13 +132,15 @@ def run_synthetic_demo(progress, backtest_sessions: int = 40, n_trials: int = 8,
     bars = synthetic_bars(closes, seed)
     for field, panel in bars.items():
         bars[field] = panel.join(synthetic_bars(spy, seed + 3)[field])
+    bars["close|OPTION_IMPLIED_VOLATILITY"] = synthetic_implied_vols(closes, seed)
     _seed_bars(session, bars, {**ids, "SPY": 999})
+    _seed_index(session, synthetic_irx(closes.index, seed), 998)
     universe_service = STMUniverseService(factory, csm.universe)
     universe = universe_service.ensure_universe(ids, closes.index[0].date())
     history = MarketDataHistoryService(SimpleNamespace(entity_service=SimpleNamespace(repository_factory=factory)))
     cycle = CSMTradingCycle(factory, csm, history, ids, history_start=closes.index[0],
                             retrain_every_days=retrain_every_days, universe_service=universe_service,
-                            universe_id=universe.id, log=progress.log, benchmark_entities={"SPY": 999})
+                            universe_id=universe.id, log=progress.log, benchmark_entities={"SPY": 999, "IRX": 998})
 
     progress.phase("Trading cycle: Optuna TPE / train / score / trade bar by bar (synthetic)")
     # the 16:00 bar of session D+1 sees the close of D (a daily bar is known from D+1 00:00)
