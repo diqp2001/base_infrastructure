@@ -472,6 +472,19 @@ class FactorValueResolutionService:
                     )
                     if result:
                         return result
+                # The series was loaded in full before the backtest (BacktestDataPreloadService): a bar still missing
+                # there does not exist at the provider — serve the latest CLOSED stored bar instead of asking IBKR
+                # again at every step (no look-ahead: closed bars only, within the staleness limit).
+                from src.application.services.data.entities.factor import preloaded_coverage
+                if preloaded_coverage.covers(factor_id, entity_id, datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")):
+                    from src.domain.entities.factor.factor import Factor as _Factor
+                    for et in entity_types:
+                        result = bar_repo.get_latest_available_bar(
+                            factor_id, entity_id, date_str, bar_seconds=bar_offset,
+                            max_staleness_seconds=_Factor.MAX_BAR_STALENESS_SECONDS, entity_type=et,
+                        )
+                        if result:
+                            return result
                 return None
 
             # Exact date, same entity type

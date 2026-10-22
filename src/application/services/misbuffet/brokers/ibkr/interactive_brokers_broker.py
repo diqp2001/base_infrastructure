@@ -862,7 +862,16 @@ class InteractiveBrokersBroker(BaseBroker):
     def request_history(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
                         use_rth=True, format_date=1, timeout=90):
         """One reqHistoricalData round trip -> HistoryResult (status, bars, IBKR error, elapsed). The request's
-        state is removed afterwards, so a late callback for it is ignored. `end_date_time` is already formatted."""
+        state is removed afterwards, so a late callback for it is ignored. `end_date_time` is already formatted.
+        Counted and timed (pacing waits included) in the engine step's StepTimings as 'ibkr_requests' / 'ibkr'."""
+        from src.application.services.timing import step_timings
+        step_timings.count("ibkr_requests")
+        with step_timings.timed("ibkr"):
+            return self._request_history(contract, end_date_time, duration_str, bar_size_setting, what_to_show,
+                                         use_rth=use_rth, format_date=format_date, timeout=timeout)
+
+    def _request_history(self, contract, end_date_time, duration_str, bar_size_setting, what_to_show,
+                         use_rth=True, format_date=1, timeout=90):
         from .history_result import COMPLETE, EMPTY, FAILED, NOT_SENT, TIMEOUT, HistoryResult
         if not self.ib_connection or not self.ib_connection.is_connected():
             return HistoryResult(None, NOT_SENT, what_to_show)

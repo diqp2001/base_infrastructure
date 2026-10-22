@@ -51,6 +51,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_walk_forward import (
     STMWalkForwardTrainer,
 )
+from src.application.services.timing.step_timings import timed
 
 
 @dataclass
@@ -151,10 +152,11 @@ class STMTradingCycle:
         #                     if EVERY asset has a close that day, because the model
         #                     reads all assets jointly at each time step. Missing
         #                     dates are dropped and counted in `report`, never filled.
-        aligned, report = align_close_panel(closes[eligible].loc[:session])
-        rows = self.config.training.rolling_window_rows
-        if rows:
-            aligned = aligned.iloc[-int(rows):]                       # rolling window known at the session
+        with timed("features"):
+            aligned, report = align_close_panel(closes[eligible].loc[:session])
+            rows = self.config.training.rolling_window_rows
+            if rows:
+                aligned = aligned.iloc[-int(rows):]                   # rolling window known at the session
         if aligned.shape[1] < 2 or len(aligned) == 0:
             return None
         # Feature panel: turns the aligned closes into the model's inputs and labels.
@@ -166,10 +168,12 @@ class STMTradingCycle:
         #              (NaN for the last dates, whose future is not known yet);
         #   daily_vol  [dates, assets]  EWM volatility, used for the label and position sizing;
         #   first_valid_row  first date where every feature exists (earlier rows are warm-up).
-        panel = build_feature_panel(aligned, self.config.features, self.config.prediction_horizon)
+        with timed("features"):
+            panel = build_feature_panel(aligned, self.config.features, self.config.prediction_horizon)
         ids = {t: self.ticker_to_entity[t] for t in panel.assets}
-        return self.trainer.train_as_of(panel, session, ids, universe_id=self.universe_id,
-                                        valid_days=self.retrain_every_days)
+        with timed("train"):
+            return self.trainer.train_as_of(panel, session, ids, universe_id=self.universe_id,
+                                            valid_days=self.retrain_every_days)
 
     # ------------------------------------------------------------------
 
@@ -178,10 +182,12 @@ class STMTradingCycle:
         self.history_service.set_frontier(now.to_pydatetime())
         result = CycleResult(time=now)
         if self.data_updater is not None:
-            self.data_updater(now)
+            with timed("update"):
+                self.data_updater(now)
 
         id_to_ticker = {eid: t for t, eid in self.ticker_to_entity.items()}
-        closes = self.reader.load_close_panel(id_to_ticker, start=self.history_start)
+        with timed("read"):
+            closes = self.reader.load_close_panel(id_to_ticker, start=self.history_start)
         if closes.empty:
             result.note = "no closes known yet"
             return result
@@ -196,7 +202,9 @@ class STMTradingCycle:
         eligible = self._eligible(closes, session)
         result.eligible = eligible
 
-        if self._retrain_due(session, eligible):
+        with timed("read"):
+            retrain_due = self._retrain_due(session, eligible)
+        if retrain_due:
             wr = self._train(closes, session, eligible)
             if wr is not None:
                 result.retrained = True
@@ -214,5 +222,6 @@ class STMTradingCycle:
                                             self.config.training.target_vol, self.gross_cap,
                                             periods_per_year=periods_per_year(self.config.bar_minutes))
         if self.persist:
-            self.feature_store.write_signals(session, {d["entity_id"]: d["score"] for d in details})
+            with timed("persist"):
+                self.feature_store.write_signals(session, {d["entity_id"]: d["score"] for d in details})
         return result
