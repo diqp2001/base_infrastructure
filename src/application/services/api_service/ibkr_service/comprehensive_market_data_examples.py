@@ -792,10 +792,10 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
         import threading
 
         logger.info(f"\n=== Example 8: Fundamental Data ({symbol}) ===")
-        # if not self.connected:
-        #     logger.info("Connecting to IB...")
-        #     self.ib_broker.connect()
-        #     self.connected = True
+        if not self.connected:
+            logger.info("Connecting to IB...")
+            self.ib_broker.connect()
+            self.connected = True
         conn = getattr(self.ib_broker, "ib_connection", None)
         if conn is None or not conn.is_connected():
             logger.error("Not connected to IB. Cannot run fundamental data example.")
