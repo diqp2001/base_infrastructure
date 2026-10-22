@@ -236,3 +236,7 @@ class CompanyShareSpatioTemporalMomentumFactorModel(FactorModel):
 
 class CompanyShareSpatioTemporalFeatureFactorModel(FactorModel):
     __mapper_args__ = {"polymorphic_identity": "company_share_spatio_temporal_feature_factor"}
+
+
+class CompanyShareCrossSectionalMomentumFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_cross_sectional_momentum_factor"}

@@ -22,20 +22,22 @@ def progress_path(results_dir: str) -> str:
     return os.path.join(results_dir, PROGRESS_FILE)
 
 
-def save_report(report, results_dir: str, render_pdf: bool = True) -> None:
-    """Write the report (and its PDF) atomically; the previous run's files are replaced."""
+def save_report(report, results_dir: str, render_pdf: bool = True, pdf_builder=None) -> None:
+    """Write the report (and its PDF) atomically; the previous run's files are replaced.
+    ``pdf_builder(report) -> bytes`` renders the PDF (default: the STM renderer)."""
     os.makedirs(results_dir, exist_ok=True)
     tmp = os.path.join(results_dir, REPORT_FILE + ".tmp")
     with open(tmp, "wb") as f:
         pickle.dump(report, f)
     os.replace(tmp, os.path.join(results_dir, REPORT_FILE))
     if render_pdf:
-        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_report_renderer import (
-            build_pdf,
-        )
+        if pdf_builder is None:
+            from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_report_renderer import (
+                build_pdf as pdf_builder,
+            )
         tmp_pdf = os.path.join(results_dir, PDF_FILE + ".tmp")
         with open(tmp_pdf, "wb") as f:
-            f.write(build_pdf(report))
+            f.write(pdf_builder(report))
         os.replace(tmp_pdf, os.path.join(results_dir, PDF_FILE))
 
 

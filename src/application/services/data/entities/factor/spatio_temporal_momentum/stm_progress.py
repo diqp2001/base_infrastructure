@@ -21,12 +21,13 @@ from typing import Any, Dict, Optional
 class STMProgressTracker:
 
     def __init__(self, max_log_lines: int = 300, persist_path: Optional[str] = None,
-                 min_write_interval: float = 1.0):
+                 min_write_interval: float = 1.0, last_step_prefixes: tuple = ("epoch ",)):
         self._lock = threading.Lock()
         self._log = deque(maxlen=max_log_lines)
         self.persist_path = persist_path
         self.min_write_interval = min_write_interval
         self._last_write = 0.0
+        self.last_step_prefixes = tuple(last_step_prefixes)    # log lines shown as the latest training step
         self.reset(persist=False)   # never overwrite a previous run's file until a run starts
 
     def reset(self, bars_total: Optional[int] = None, mode: str = "", persist: bool = True) -> None:
@@ -69,7 +70,7 @@ class STMProgressTracker:
         line = f"{datetime.now().strftime('%H:%M:%S')}  {message}"
         with self._lock:
             self._log.append(line)
-            if message.startswith("epoch "):
+            if message.startswith(self.last_step_prefixes):
                 self._state["last_epoch"] = message
         self._persist()
 

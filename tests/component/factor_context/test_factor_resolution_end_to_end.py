@@ -35,7 +35,7 @@ KNOWN = {
 # factors that delegate to an injected model provider: the test injects a stand-in and checks the
 # service hands the dependencies to it
 ML_FACTORS = {"CompanyShareLGBMCSQuintileRankMomentumFactor", "CompanyShareSpatioTemporalMomentumFactor",
-              "CompanyShareOptionImpliedVolMlFactor"}
+              "CompanyShareOptionImpliedVolMlFactor", "CompanyShareCrossSectionalMomentumFactor"}
 
 
 def _wired():
