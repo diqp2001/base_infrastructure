@@ -106,6 +106,12 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareShortVsMediumMomentumFactor, CompanyShareMomentumZScore20DFactor,
     CompanyShareMomentumZScore50DFactor, CompanyShareMomentumZScore100DFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_delta_band_factors import (
+    CompanyShareZakamoulineDeltaCeilingFactor, CompanyShareZakamoulineDeltaFloorFactor,
+    CompanyShareWhalleyWilmottDeltaCeilingFactor, CompanyShareWhalleyWilmottDeltaFloorFactor,
+    CompanyShareZakamoulineCeilingDistanceFactor, CompanyShareZakamoulineFloorDistanceFactor,
+    CompanyShareWhalleyWilmottCeilingDistanceFactor, CompanyShareWhalleyWilmottFloorDistanceFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
     CompanyShareRelativeReturnVsSpy1DFactor, CompanyShareRelativeReturnVsSpy5DFactor,
     CompanyShareRelativeReturnVsSpy20DFactor, CompanyShareRelativeReturnVsSpy3MFactor,
@@ -393,6 +399,14 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_momentum_zscore_20d_factor': CompanyShareMomentumZScore20DFactor,
     'company_share_momentum_zscore_50d_factor': CompanyShareMomentumZScore50DFactor,
     'company_share_momentum_zscore_100d_factor': CompanyShareMomentumZScore100DFactor,
+    'company_share_zakamouline_delta_ceiling_factor': CompanyShareZakamoulineDeltaCeilingFactor,
+    'company_share_zakamouline_delta_floor_factor': CompanyShareZakamoulineDeltaFloorFactor,
+    'company_share_whalley_wilmott_delta_ceiling_factor': CompanyShareWhalleyWilmottDeltaCeilingFactor,
+    'company_share_whalley_wilmott_delta_floor_factor': CompanyShareWhalleyWilmottDeltaFloorFactor,
+    'company_share_zakamouline_ceiling_distance_factor': CompanyShareZakamoulineCeilingDistanceFactor,
+    'company_share_zakamouline_floor_distance_factor': CompanyShareZakamoulineFloorDistanceFactor,
+    'company_share_whalley_wilmott_ceiling_distance_factor': CompanyShareWhalleyWilmottCeilingDistanceFactor,
+    'company_share_whalley_wilmott_floor_distance_factor': CompanyShareWhalleyWilmottFloorDistanceFactor,
     'company_share_relative_return_vs_spy_1d_factor': CompanyShareRelativeReturnVsSpy1DFactor,
     'company_share_relative_return_vs_spy_5d_factor': CompanyShareRelativeReturnVsSpy5DFactor,
     'company_share_relative_return_vs_spy_20d_factor': CompanyShareRelativeReturnVsSpy20DFactor,
@@ -808,6 +822,22 @@ class FactorMapper:
             return CompanyShareMomentumZScore50DFactor(**base_args)
         elif factor_type == 'company_share_momentum_zscore_100d_factor':
             return CompanyShareMomentumZScore100DFactor(**base_args)
+        elif factor_type == 'company_share_zakamouline_delta_ceiling_factor':
+            return CompanyShareZakamoulineDeltaCeilingFactor(**base_args)
+        elif factor_type == 'company_share_zakamouline_delta_floor_factor':
+            return CompanyShareZakamoulineDeltaFloorFactor(**base_args)
+        elif factor_type == 'company_share_whalley_wilmott_delta_ceiling_factor':
+            return CompanyShareWhalleyWilmottDeltaCeilingFactor(**base_args)
+        elif factor_type == 'company_share_whalley_wilmott_delta_floor_factor':
+            return CompanyShareWhalleyWilmottDeltaFloorFactor(**base_args)
+        elif factor_type == 'company_share_zakamouline_ceiling_distance_factor':
+            return CompanyShareZakamoulineCeilingDistanceFactor(**base_args)
+        elif factor_type == 'company_share_zakamouline_floor_distance_factor':
+            return CompanyShareZakamoulineFloorDistanceFactor(**base_args)
+        elif factor_type == 'company_share_whalley_wilmott_ceiling_distance_factor':
+            return CompanyShareWhalleyWilmottCeilingDistanceFactor(**base_args)
+        elif factor_type == 'company_share_whalley_wilmott_floor_distance_factor':
+            return CompanyShareWhalleyWilmottFloorDistanceFactor(**base_args)
         elif factor_type == 'company_share_relative_return_vs_spy_1d_factor':
             return CompanyShareRelativeReturnVsSpy1DFactor(**base_args)
         elif factor_type == 'company_share_relative_return_vs_spy_5d_factor':

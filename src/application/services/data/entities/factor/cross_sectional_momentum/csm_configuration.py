@@ -67,6 +67,7 @@ class CSMOptimizationConfig:
     n_folds: int = 3                     # purged walk-forward folds inside the training window
     metric: str = "auc"                  # 'auc' | 'long_short_sharpe' (validation, averaged over folds)
     min_features: int = 3
+    min_feature_coverage: float = 0.8    # candidates present on fewer labelled rows of the window are left out
     seed: int = 42
     timeout_seconds: Optional[float] = None
     top_trial_fraction: float = 0.2      # trials used for the feature selection frequency

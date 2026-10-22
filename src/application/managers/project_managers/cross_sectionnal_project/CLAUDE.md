@@ -11,7 +11,7 @@ The signal factor is `CompanyShareCrossSectionalMomentumFactor(CompanyShareFacto
 (`momentum_feature_dependency_specs`) plus the non-momentum candidates below
 (`cross_sectional_feature_dependency_specs`); `calculate()` delegates to an injected provider (`CSMModelProvider`).
 
-## Candidate features (40, `CSMFeatureDefinition`)
+## Candidate features (48, `CSMFeatureDefinition`)
 
 | Family | Features | Domain factors |
 |---|---|---|
@@ -21,11 +21,25 @@ The signal factor is `CompanyShareCrossSectionalMomentumFactor(CompanyShareFacto
 | range | monthly_price_range = high(t) - low(t-21) (existing factor, unchanged) | `CompanyShareMonthlyPriceRangeFactor` |
 | return extremes | max_daily_return_6m (126 sessions), min_return_120d (120 sessions) | `company_share_liquidity_factors` |
 | relative to SPY | rel_return_spy_1d / 5d / 20d / 3m / 6m = share return - SPY return, same sessions | `company_share_relative_performance_factors` |
+| delta-hedging bands | zakamouline / whalley_wilmott x delta_ceiling, delta_floor, ceiling_distance, floor_distance | `company_share_delta_band_factors` |
+
+Delta-hedging bands (owner's choices 2026-10-22): a reference European call per share and session — S = close,
+K = 4-month (84-session) moving average, sigma = the share's IBKR implied volatility (close of the
+`OPTION_IMPLIED_VOLATILITY` series), r = IBKR 13-week T-bill index IRX (yield x 10, continuously compounded),
+maturity 30 days (the horizon of IBKR's implied vol). Black-Scholes delta and gamma; half-band H of
+Whalley-Wilmott (1997) and Zakamouline (2009) as in the SPX v2 hedging module, with cost_rate 0.0001 and
+risk_aversion 1.0 from the factor library entries (`parameters`, `LIBRARY_PARAMETERS`). Bands: delta +/- H.
+Distances: the relative price move after which the call's delta reaches the ceiling (up) / floor (down).
 
 * Share turnover = traded volume (shares): no shares outstanding are stored, so volume / shares outstanding cannot
   be formed (the convention of the existing `avg_turnover_6m`); the level mostly reflects the size of the company.
 * SPY is a benchmark: its daily closes are imported (`DailyHistoryUpdater`) and read by the cycle, it is not in the
   universe and is never scored or traded. The relative factors read it through `DependencySpec(entity_symbol='SPY')`.
+* Also imported: each share's `OPTION_IMPLIED_VOLATILITY` daily bars (no volume) and the IRX index (`Index`,
+  TRADES). A volatility series is never read as a price: readers and the resolver skip the non-price whatToShow
+  series (`source_policy.NON_PRICE_WHAT_TO_SHOW`) unless a dependency names that subgroup.
+* Candidates present on fewer than `min_feature_coverage` (80%) of the labelled rows of a training window are left
+  out of that study (logged), e.g. return_ytd without a close of the previous year.
 
 ## How it runs
 
@@ -95,7 +109,7 @@ Reusable services: `src/application/services/data/entities/factor/cross_sectiona
   uses labels known at S only (its window ends the session before) and is usable from S on.
 * Kept separate: results `results/cross_sectional_momentum/`, models `weights/cross_sectional_momentum/`,
   ML model prefix `csm_`, universe `csm_paper_us_financials`, portfolio `Cross_Sectional_Momentum_Portfolio`.
-* History needed: 252-session window + 127-close lookback of max_daily_return_6m -> `price_history_start`
+* History needed: 252-session window + 127-close lookback of max_daily_return_6m (bands: 84 closes) -> `price_history_start`
   2024-11-01 for a backtest from 2026-06-01. `return_ytd` needs a close of the previous year.
 * `cross_sectional_ranks` (off) adds per-date ranks; a model using them can only be scored by the cycle.
 

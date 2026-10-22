@@ -976,7 +976,7 @@ class FactorValueResolutionService:
                 if isinstance(dep, DependencySpec):
                     targets = related_entities
                     if getattr(dep, 'entity_symbol', None):
-                        benchmark = self._entity_by_symbol(entity, dep.entity_symbol)
+                        benchmark = self._entity_by_symbol(entity, dep.entity_symbol, getattr(dep, 'entity_type', None))
                         if benchmark is None:
                             self.logger.warning(f"DependencySpec {dep.result_key}: no entity '{dep.entity_symbol}'")
                             continue
@@ -1019,11 +1019,12 @@ class FactorValueResolutionService:
             self.logger.error(f"Error resolving dynamic dependencies: {e}")
             return None
 
-    def _entity_by_symbol(self, entity, symbol: str):
-        """The entity of ``entity``'s class whose symbol is ``symbol`` (DependencySpec.entity_symbol), or None."""
+    def _entity_by_symbol(self, entity, symbol: str, entity_type: Optional[str] = None):
+        """The entity whose symbol is ``symbol`` (DependencySpec.entity_symbol), of class ``entity_type`` or else of
+        ``entity``'s class; None when there is none."""
         if self.factory is None:
             return None
-        repo = self.factory.get_local_repository(type(entity).__name__.removesuffix('Model'))
+        repo = self.factory.get_local_repository(entity_type or type(entity).__name__.removesuffix('Model'))
         lookup = getattr(repo, 'get_by_symbol', None) if repo is not None else None
         try:
             return lookup(symbol) if lookup is not None else None
@@ -1191,7 +1192,11 @@ class FactorValueResolutionService:
 
         # BI-036: raw IBKR fields come as one series per whatToShow (subgroup). Read the series in order of
         # preference and use the FIRST that yields values — never a mix of MIDPOINT and TRADES in one dependency.
-        from src.domain.entities.factor.source_policy import is_what_to_show
+        from src.domain.entities.factor.source_policy import NON_PRICE_WHAT_TO_SHOW, is_what_to_show
+        if getattr(spec, 'subgroup', None) is None:
+            # a close of OPTION_IMPLIED_VOLATILITY is a volatility, not a price: only read when named by the spec
+            matching_factors = [f for f in matching_factors
+                                if getattr(f, 'subgroup', None) not in NON_PRICE_WHAT_TO_SHOW]
         groups = self._series_in_reading_order(matching_factors)
         tried = set()
         for series in groups:

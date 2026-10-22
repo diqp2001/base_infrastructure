@@ -41,7 +41,8 @@ _FACTOR_MODULES = ("company_share_return_factors", "company_share_ma_factors", "
                    "company_share_risk_factors", "company_share_drawdown_factors",
                    "company_share_composite_momentum_factors", "company_share_liquidity_factors",
                    "company_share_avg_turnover_6m_factor", "company_share_monthly_price_range_factor",
-                   "company_share_relative_performance_factors")
+                   "company_share_relative_performance_factors", "company_share_delta_band_factors")
+ENTITY_FACTOR_TYPES = {None: "company_share_factor", "CompanyShare": "company_share_factor", "Index": "index_factor"}
 BAR_FIELDS = ("close", "volume", "high", "low")
 _PACKAGE = "src.domain.entities.factor.finance.financial_assets.share_factor.company_share."
 
@@ -78,8 +79,29 @@ def _windows(factor) -> List[Tuple[str, object, str]]:
         names = list(getattr(spec, "name_in", None) or [])
         if len(names) != 1 or names[0] not in BAR_FIELDS or getattr(spec, "lookback", None) is None:
             raise ValueError(f"{type(factor).__name__}: expected raw bar series with a lookback, got {spec}")
-        symbol = getattr(spec, "entity_symbol", None)
-        out.append((f"{names[0]}@{symbol}" if symbol else names[0], spec.lookback, spec.result_key))
+        out.append((series_id(names[0], getattr(spec, "subgroup", None), getattr(spec, "entity_symbol", None)),
+                    spec.lookback, spec.result_key))
+    return out
+
+
+def series_id(field: str, subgroup=None, symbol=None) -> str:
+    """'close', 'close|OPTION_IMPLIED_VOLATILITY' (a named series of the share), 'close@IRX' (another entity)."""
+    return field + (f"|{subgroup}" if subgroup else "") + (f"@{symbol}" if symbol else "")
+
+
+def required_series(features: Optional[CSMFeatureConfig] = None) -> Dict[str, Tuple[str, Optional[str], Optional[str],
+                                                                                    Optional[str]]]:
+    """{series id: (bar field, subgroup, entity symbol, entity type)} the candidates read."""
+    names = set((features or CSMFeatureConfig()).base_feature_names())
+    out = {}
+    for n, cls in candidate_factor_classes().items():
+        if n not in names:
+            continue
+        for spec in cls().calculate_dependencies:
+            field = list(spec.name_in)[0]
+            sid = series_id(field, getattr(spec, "subgroup", None), getattr(spec, "entity_symbol", None))
+            out[sid] = (field, getattr(spec, "subgroup", None), getattr(spec, "entity_symbol", None),
+                        getattr(spec, "entity_type", None))
     return out
 
 
@@ -91,12 +113,24 @@ def benchmark_symbols(features: Optional[CSMFeatureConfig] = None) -> List[str]:
     return sorted(symbols)
 
 
+def benchmark_entity_types(features: Optional[CSMFeatureConfig] = None) -> Dict[str, Optional[str]]:
+    """{benchmark symbol: entity class name (None = CompanyShare)}, e.g. {'SPY': None, 'IRX': 'Index'}."""
+    return {sym: etype for _, (field, sub, sym, etype) in required_series(features).items() if sym}
+
+
 def max_lookback(features: Optional[CSMFeatureConfig] = None) -> int:
     """Longest fixed window (bars) any candidate reads ('ytd' only needs a close of the previous year)."""
     names = set((features or CSMFeatureConfig()).base_feature_names())
     lookbacks = [lb for n, cls in candidate_factor_classes().items() if n in names
                  for _, lb, _ in _windows(cls()) if isinstance(lb, int)]
     return max(lookbacks) if lookbacks else 1
+
+
+def _library_parameters(factor) -> Dict:
+    from src.application.services.data.entities.factor.factor_library.factor_definition_config import (
+        library_parameters,
+    )
+    return library_parameters(factor)
 
 
 class CSMFeatureEngine:
@@ -107,6 +141,8 @@ class CSMFeatureEngine:
         names = set(features.base_feature_names())
         self.factors = {n: cls() for n, cls in candidate_factor_classes().items() if n in names}
         self.windows = {n: _windows(f) for n, f in self.factors.items()}
+        self.parameters = {n: _library_parameters(f) for n, f in self.factors.items()
+                           if getattr(f, "LIBRARY_PARAMETERS", False)}
         self._cache: Dict[Tuple[str, pd.Timestamp], Dict[str, float]] = {}
 
     @staticmethod
@@ -125,6 +161,8 @@ class CSMFeatureEngine:
 
     def _value(self, name: str, bars: Dict[str, np.ndarray], dates: pd.DatetimeIndex, i: int) -> float:
         dependencies = {}
+        if name in self.parameters:
+            dependencies["parameters"] = self.parameters[name]         # same model parameters as the resolver
         for field, lookback, key in self.windows[name]:
             if field not in bars:
                 return np.nan
@@ -158,18 +196,19 @@ class CSMFeatureEngine:
 def build_dataset(bars: Union[pd.DataFrame, Dict[str, pd.DataFrame]], features: CSMFeatureConfig,
                   label: CSMLabelConfig, engine: Optional[CSMFeatureEngine] = None,
                   benchmarks: Optional[Dict[str, pd.Series]] = None) -> CSMDataset:
-    """``bars`` = the close panel, or {field: panel} with 'close' and any of volume / high / low;
-    ``benchmarks`` = {symbol: close series} for the candidates that compare with another entity."""
+    """``bars`` = the close panel, or {series id: panel} with 'close' and any of volume / high / low /
+    'close|OPTION_IMPLIED_VOLATILITY'; ``benchmarks`` = {symbol or series id ('close@IRX'): series} for the candidates
+    that read another entity."""
     engine = engine or CSMFeatureEngine(features)
     panels = {"close": bars} if isinstance(bars, pd.DataFrame) else dict(bars)
     closes = panels["close"].sort_index().astype(float)
     base = features.base_feature_names()
     per_asset = {}
     for a in closes.columns:
-        frame = pd.DataFrame({f: (panels[f][a].reindex(closes.index) if a in panels[f] else np.nan)
-                              for f in BAR_FIELDS if f in panels}, index=closes.index).astype(float)
-        for symbol, series in (benchmarks or {}).items():
-            frame[f"close@{symbol}"] = series.reindex(closes.index).astype(float)
+        frame = pd.DataFrame({f: (panel[a].reindex(closes.index) if a in panel else np.nan)
+                              for f, panel in panels.items()}, index=closes.index).astype(float)
+        for key, series in (benchmarks or {}).items():
+            frame[key if "@" in key else f"close@{key}"] = series.reindex(closes.index).astype(float)
         per_asset[a] = engine.asset_features(a, frame)
     columns = {n: pd.DataFrame({a: f[n] for a, f in per_asset.items()}).reindex(closes.index) for n in base}
     if features.cross_sectional_ranks:

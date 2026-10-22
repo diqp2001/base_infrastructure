@@ -45,6 +45,12 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareShortVsMediumMomentumFactor, CompanyShareMomentumZScore20DFactor,
     CompanyShareMomentumZScore50DFactor, CompanyShareMomentumZScore100DFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_delta_band_factors import (
+    CompanyShareZakamoulineDeltaCeilingFactor, CompanyShareZakamoulineDeltaFloorFactor,
+    CompanyShareWhalleyWilmottDeltaCeilingFactor, CompanyShareWhalleyWilmottDeltaFloorFactor,
+    CompanyShareZakamoulineCeilingDistanceFactor, CompanyShareZakamoulineFloorDistanceFactor,
+    CompanyShareWhalleyWilmottCeilingDistanceFactor, CompanyShareWhalleyWilmottFloorDistanceFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
     CompanyShareRelativeReturnVsSpy1DFactor, CompanyShareRelativeReturnVsSpy5DFactor,
     CompanyShareRelativeReturnVsSpy20DFactor, CompanyShareRelativeReturnVsSpy3MFactor,
@@ -1228,6 +1234,95 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
         "description": "6-month (126-session) return minus the SPY return over the same sessions",
         "dependencies": {},
         "parameters": {}
+    },
+    # ── Delta-hedging bands of the reference call (strike = 4-month MA, IBKR implied vol, IRX rate) ──
+    "zakamouline_delta_ceiling": {
+        "class": CompanyShareZakamoulineDeltaCeilingFactor,
+        "name": "zakamouline_delta_ceiling",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Zakamouline (2009) delta-hedging band ceiling of the reference call",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "zakamouline_delta_floor": {
+        "class": CompanyShareZakamoulineDeltaFloorFactor,
+        "name": "zakamouline_delta_floor",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Zakamouline (2009) delta-hedging band floor of the reference call",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "whalley_wilmott_delta_ceiling": {
+        "class": CompanyShareWhalleyWilmottDeltaCeilingFactor,
+        "name": "whalley_wilmott_delta_ceiling",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Whalley-Wilmott (1997) delta-hedging band ceiling of the reference call",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "whalley_wilmott_delta_floor": {
+        "class": CompanyShareWhalleyWilmottDeltaFloorFactor,
+        "name": "whalley_wilmott_delta_floor",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Whalley-Wilmott (1997) delta-hedging band floor of the reference call",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "zakamouline_ceiling_distance": {
+        "class": CompanyShareZakamoulineCeilingDistanceFactor,
+        "name": "zakamouline_ceiling_distance",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Relative price rise after which the reference call delta reaches the Zakamouline ceiling",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "zakamouline_floor_distance": {
+        "class": CompanyShareZakamoulineFloorDistanceFactor,
+        "name": "zakamouline_floor_distance",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Relative price fall after which the reference call delta reaches the Zakamouline floor",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "whalley_wilmott_ceiling_distance": {
+        "class": CompanyShareWhalleyWilmottCeilingDistanceFactor,
+        "name": "whalley_wilmott_ceiling_distance",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Relative price rise after which the reference call delta reaches the Whalley-Wilmott ceiling",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
+    },
+    "whalley_wilmott_floor_distance": {
+        "class": CompanyShareWhalleyWilmottFloorDistanceFactor,
+        "name": "whalley_wilmott_floor_distance",
+        "group": "greek",
+        "subgroup": "delta",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Relative price fall after which the reference call delta reaches the Whalley-Wilmott floor",
+        "dependencies": {},
+        "parameters": {"cost_rate": 0.0001, "risk_aversion": 1.0, "time_to_expiry_days": 30}
     },
     "lgbm_cs_quintile_rank_momentum": {
         "class": CompanyShareLGBMCSQuintileRankMomentumFactor,

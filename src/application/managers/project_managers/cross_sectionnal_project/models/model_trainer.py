@@ -16,7 +16,10 @@ from src.application.managers.project_managers.cross_sectionnal_project.data.pri
     DailyHistoryUpdater,
 )
 from src.application.managers.project_managers.cross_sectionnal_project.data.universe_setup import UniverseSetup
-from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import benchmark_symbols
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import (
+    benchmark_entity_types,
+    required_series,
+)
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model_provider import (
     CSMModelProvider,
 )
@@ -24,6 +27,7 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
     CSMTradingCycle,
 )
 from src.application.services.misbuffet.engine.base_model_trainer import BaseModelTrainer
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 
 class CSMModelTrainer(BaseModelTrainer):
@@ -47,12 +51,18 @@ class CSMModelTrainer(BaseModelTrainer):
                 "IBKR / TWS is not connected, so no daily closes can be imported. Check that TWS is running "
                 "on 127.0.0.1:7497 and that no other session is already connected with the same client id."
             )
-        # benchmarks (e.g. SPY for the relative-performance features) are imported but never traded
-        benchmarks = [s for s in benchmark_symbols(self.csm_config.features) if s not in self.csm_config.universe.tickers]
-        updater = DailyHistoryUpdater(market_data_service, list(self.csm_config.universe.tickers) + benchmarks,
-                                      history_start)
+        # benchmarks (SPY for the relative features, the IRX T-bill index for the band rate) and named series of the
+        # shares (their IBKR implied volatility) are imported but never traded
+        from src.domain.entities.finance.financial_assets.index.index import Index
+        tickers = list(self.csm_config.universe.tickers)
+        types = benchmark_entity_types(self.csm_config.features)
+        extra = [(Index if etype == "Index" else CompanyShare, sym, "TRADES") for sym, etype in types.items()
+                 if sym not in tickers]
+        extra += [(CompanyShare, t, subgroup) for _, (field, subgroup, sym, _) in required_series(
+            self.csm_config.features).items() if subgroup and not sym for t in tickers]
+        updater = DailyHistoryUpdater(market_data_service, tickers, history_start, extra_series=extra)
         ticker_to_entity = updater.ensure_entities()
-        benchmark_entities = {s: ticker_to_entity[s] for s in benchmarks if s in ticker_to_entity}
+        benchmark_entities = {s: ticker_to_entity[s] for s in types if s in ticker_to_entity}
         universe_setup = UniverseSetup(factory, self.csm_config)
         universe, ordered, missing = universe_setup.register(
             ticker_to_entity, start_date=pd.Timestamp(history_start).date())

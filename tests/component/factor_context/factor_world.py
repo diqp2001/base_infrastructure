@@ -65,6 +65,7 @@ class FactorWorld:
         for ticker, qty in (("AAPL", 10), ("MSFT", 5)):
             assert self.p.trade(ticker, qty, self.closes[ticker][-1], when=T)
         self.usd = self._usd()
+        self._seed_band_inputs()
         self._seed_currency_rate()
         self.future = self._seed_future()
         self.option = self._seed_option()
@@ -89,6 +90,28 @@ class FactorWorld:
                 for name, value in bar.items():
                     self.s.add(FactorValueModel(factor_id=factors[name].id, entity_id=self.share[ticker].id,
                                                 entity_type="CompanyShare", date=day, value=repr(value)))
+        self.s.commit()
+
+    def _seed_band_inputs(self):
+        """Inputs of the delta-band factors: each share's IBKR implied volatility (close of the OPTION_IMPLIED_VOLATILITY
+        series — a volatility, never to be read as a price) and the IRX T-bill index (quoted as yield x 10)."""
+        from src.domain.entities.finance.financial_assets.index.index import Index
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel, IndexFactorModel
+        iv = CompanyShareFactorModel(name="close", group="price", subgroup="OPTION_IMPLIED_VOLATILITY", frequency="1d",
+                                     data_type="numeric", source="ibkr", definition="implied volatility",
+                                     factor_type="company_share_factor")
+        rate = IndexFactorModel(name="close", group="price", subgroup="TRADES", frequency="1d", data_type="numeric",
+                                source="ibkr", definition="close", factor_type="index_factor")
+        self.s.add_all([iv, rate])
+        self.s.commit()
+        self.irx = self.f.get_local_repository("Index").add(Index(
+            id=None, name="13-week T-bill yield", symbol="IRX", currency_id=self.usd.id, start_date=date(2000, 1, 1)))
+        for i, day in enumerate(self.days):
+            for ticker in self.closes:
+                self.s.add(FactorValueModel(factor_id=iv.id, entity_id=self.share[ticker].id, entity_type="CompanyShare",
+                                            date=day, value=repr(0.25 + 0.0001 * i)))
+            self.s.add(FactorValueModel(factor_id=rate.id, entity_id=self.irx.id, entity_type="Index", date=day,
+                                        value=repr(42.0)))
         self.s.commit()
 
     def _usd(self):

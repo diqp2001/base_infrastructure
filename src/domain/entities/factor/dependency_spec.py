@@ -64,6 +64,8 @@ class DependencySpec:
     # Resolve the dependency on ANOTHER entity of the parent's class, identified by its symbol (e.g. the SPY
     # share for a share-versus-benchmark factor), instead of the parent entity and its related entities.
     entity_symbol: Optional[str] = None
+    # Class name of that entity when it is not the parent's class (e.g. 'Index' for the IRX T-bill yield index).
+    entity_type: Optional[str] = None
 
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF

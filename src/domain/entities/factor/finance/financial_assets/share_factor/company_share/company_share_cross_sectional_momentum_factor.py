@@ -7,7 +7,9 @@ Candidates: the 24 momentum factors of LGBMMomentumFeatureDefinition (the same D
 quintile-rank factor) plus 11 liquidity / volume-trend / price-range / return-extreme factors (share turnover
 averaged over 1-6 months, daily share turnover, 16-week VPT with a 20-day lag, 1-month high minus low, largest
 daily return over 6 months, smallest daily return over 120 days) and 5 relative-performance factors versus the SPY
-ETF (1, 5, 20 sessions, 3 and 6 months); each retraining keeps the subset Optuna selected.
+ETF (1, 5, 20 sessions, 3 and 6 months) and 8 delta-hedging-band factors of a reference call (Zakamouline and
+Whalley-Wilmott ceilings / floors and the relative price moves to them); each retraining keeps the subset Optuna
+selected.
 
 Output: probability (0-1) that the share's next-session return beats the cross-sectional median.
 
@@ -42,11 +44,14 @@ def cross_sectional_extra_factor_classes() -> list:
     from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
         RELATIVE_PERFORMANCE_FACTOR_CLASSES,
     )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_delta_band_factors import (
+        DELTA_BAND_FACTOR_CLASSES,
+    )
     return [CompanyShareAvgTurnover1mFactor, CompanyShareAvgTurnover2mFactor, CompanyShareAvgTurnover3mFactor,
             CompanyShareAvgTurnover4mFactor, CompanyShareAvgTurnover5mFactor, CompanyShareAvgTurnover6mFactor,
             CompanyShareTurnoverFactor, CompanyShareVpt16w20dLagFactor, CompanyShareMonthlyPriceRangeFactor,
             CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
-            *RELATIVE_PERFORMANCE_FACTOR_CLASSES]
+            *RELATIVE_PERFORMANCE_FACTOR_CLASSES, *DELTA_BAND_FACTOR_CLASSES]
 
 
 def cross_sectional_feature_dependency_specs() -> list:

@@ -100,6 +100,19 @@ from src.infrastructure.models.factor.company_share_technical_momentum_factor_mo
     CompanyShareRelativeReturnVsSpy6MFactorModel,
 )
 
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_delta_band_factors import (
+    CompanyShareZakamoulineDeltaCeilingFactor, CompanyShareZakamoulineDeltaFloorFactor,
+    CompanyShareWhalleyWilmottDeltaCeilingFactor, CompanyShareWhalleyWilmottDeltaFloorFactor,
+    CompanyShareZakamoulineCeilingDistanceFactor, CompanyShareZakamoulineFloorDistanceFactor,
+    CompanyShareWhalleyWilmottCeilingDistanceFactor, CompanyShareWhalleyWilmottFloorDistanceFactor,
+)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import (
+    CompanyShareZakamoulineDeltaCeilingFactorModel, CompanyShareZakamoulineDeltaFloorFactorModel,
+    CompanyShareWhalleyWilmottDeltaCeilingFactorModel, CompanyShareWhalleyWilmottDeltaFloorFactorModel,
+    CompanyShareZakamoulineCeilingDistanceFactorModel, CompanyShareZakamoulineFloorDistanceFactorModel,
+    CompanyShareWhalleyWilmottCeilingDistanceFactorModel, CompanyShareWhalleyWilmottFloorDistanceFactorModel,
+)
+
 
 def _to_domain(cls, orm_model):
     if not orm_model:
@@ -862,3 +875,94 @@ class CompanyShareRelativeReturnVsSpy6MFactorMapper(BaseFactorMapper):
     def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy6MFactor
     def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy6MFactor, orm_model)
     def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy6MFactorModel, 'company_share_relative_return_vs_spy_6m_factor', e)
+
+
+# ── Delta-hedging band (reference call) factor mappers ────────────────
+
+
+class CompanyShareZakamoulineDeltaCeilingFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareZakamoulineDeltaCeilingFactorModel
+    def get_factor_model(self): return CompanyShareZakamoulineDeltaCeilingFactorModel
+    def get_factor_entity(self): return CompanyShareZakamoulineDeltaCeilingFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareZakamoulineDeltaCeilingFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareZakamoulineDeltaCeilingFactorModel, 'company_share_zakamouline_delta_ceiling_factor', e)
+
+
+class CompanyShareZakamoulineDeltaFloorFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareZakamoulineDeltaFloorFactorModel
+    def get_factor_model(self): return CompanyShareZakamoulineDeltaFloorFactorModel
+    def get_factor_entity(self): return CompanyShareZakamoulineDeltaFloorFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareZakamoulineDeltaFloorFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareZakamoulineDeltaFloorFactorModel, 'company_share_zakamouline_delta_floor_factor', e)
+
+
+class CompanyShareWhalleyWilmottDeltaCeilingFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareWhalleyWilmottDeltaCeilingFactorModel
+    def get_factor_model(self): return CompanyShareWhalleyWilmottDeltaCeilingFactorModel
+    def get_factor_entity(self): return CompanyShareWhalleyWilmottDeltaCeilingFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareWhalleyWilmottDeltaCeilingFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareWhalleyWilmottDeltaCeilingFactorModel, 'company_share_whalley_wilmott_delta_ceiling_factor', e)
+
+
+class CompanyShareWhalleyWilmottDeltaFloorFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareWhalleyWilmottDeltaFloorFactorModel
+    def get_factor_model(self): return CompanyShareWhalleyWilmottDeltaFloorFactorModel
+    def get_factor_entity(self): return CompanyShareWhalleyWilmottDeltaFloorFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareWhalleyWilmottDeltaFloorFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareWhalleyWilmottDeltaFloorFactorModel, 'company_share_whalley_wilmott_delta_floor_factor', e)
+
+
+class CompanyShareZakamoulineCeilingDistanceFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareZakamoulineCeilingDistanceFactorModel
+    def get_factor_model(self): return CompanyShareZakamoulineCeilingDistanceFactorModel
+    def get_factor_entity(self): return CompanyShareZakamoulineCeilingDistanceFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareZakamoulineCeilingDistanceFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareZakamoulineCeilingDistanceFactorModel, 'company_share_zakamouline_ceiling_distance_factor', e)
+
+
+class CompanyShareZakamoulineFloorDistanceFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareZakamoulineFloorDistanceFactorModel
+    def get_factor_model(self): return CompanyShareZakamoulineFloorDistanceFactorModel
+    def get_factor_entity(self): return CompanyShareZakamoulineFloorDistanceFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareZakamoulineFloorDistanceFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareZakamoulineFloorDistanceFactorModel, 'company_share_zakamouline_floor_distance_factor', e)
+
+
+class CompanyShareWhalleyWilmottCeilingDistanceFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareWhalleyWilmottCeilingDistanceFactorModel
+    def get_factor_model(self): return CompanyShareWhalleyWilmottCeilingDistanceFactorModel
+    def get_factor_entity(self): return CompanyShareWhalleyWilmottCeilingDistanceFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareWhalleyWilmottCeilingDistanceFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareWhalleyWilmottCeilingDistanceFactorModel, 'company_share_whalley_wilmott_ceiling_distance_factor', e)
+
+
+class CompanyShareWhalleyWilmottFloorDistanceFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareWhalleyWilmottFloorDistanceFactorModel
+    def get_factor_model(self): return CompanyShareWhalleyWilmottFloorDistanceFactorModel
+    def get_factor_entity(self): return CompanyShareWhalleyWilmottFloorDistanceFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareWhalleyWilmottFloorDistanceFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareWhalleyWilmottFloorDistanceFactorModel, 'company_share_whalley_wilmott_floor_distance_factor', e)

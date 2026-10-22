@@ -88,7 +88,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         'universe': {'name': CSM_UNIVERSE_NAME, 'entity_type': 'CompanyShare', 'tickers': None},
         # candidates: CSMFeatureDefinition = 24 momentum factors + share turnover (1-6 months, daily), 16-week VPT
         # (20-day lag), 1-month high - low, max daily return 6m, min return 120d, return relative to SPY
-        # (1d/5d/20d/3m/6m), each computed by its own domain factor; Optuna TPE selects the subset of each model.
+        # (1d/5d/20d/3m/6m), Zakamouline / Whalley-Wilmott delta bands of a reference call (strike = 4-month MA,
+        # IBKR implied vol, IRX rate) and the price moves to them, each computed by its own domain factor; Optuna TPE
+        # selects the subset of each model.
         # Ranks off: the factor path scores one entity.
         'features': {
             'cross_sectional_ranks': False,

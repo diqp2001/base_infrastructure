@@ -75,6 +75,12 @@ def future_by_local_symbol(local_symbol: str, exchange: str, currency: str = "US
     return contract
 
 
+def index(symbol: str, exchange: str, currency: str = "USD") -> Contract:
+    contract = Contract()
+    contract.symbol, contract.secType, contract.exchange, contract.currency = symbol, "IND", exchange, currency
+    return contract
+
+
 def block_orders(client) -> None:
     def refuse(name):
         def _blocked(*args, **kwargs):
@@ -122,7 +128,7 @@ def main(argv=None) -> int:
     parser.add_argument("--bar", default="1 day")
     parser.add_argument("--client-id", type=int, default=97)
     parser.add_argument("--rth", choices=["both", "true", "false"], default="both")
-    parser.add_argument("--sec-type", choices=["STK", "OPT", "FUT"], default="STK")
+    parser.add_argument("--sec-type", choices=["STK", "OPT", "FUT", "IND"], default="STK")
     parser.add_argument("--exchange", default="SMART")
     parser.add_argument("--end", help='naive US/Eastern end time, e.g. "2026-08-06 16:00" (default now)')
     args = parser.parse_args(argv)
@@ -137,6 +143,7 @@ def main(argv=None) -> int:
         block_orders(broker.ib_connection)
         contract = (option_from_occ(args.symbol, args.exchange) if args.sec_type == "OPT" else
                     future_by_local_symbol(args.symbol, args.exchange) if args.sec_type == "FUT" else
+                    index(args.symbol, args.exchange) if args.sec_type == "IND" else
                     stock(args.symbol, args.exchange))
         details = qualify(broker, contract)
         print(f"contract: {details}")
