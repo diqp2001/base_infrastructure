@@ -1433,6 +1433,14 @@ class FactorValueResolutionService:
             currency_id = kwargs.get('currency_id', None)
             entity_id = getattr(entity, 'id', None)
 
+            # Preloaded window (BacktestDataPreloadService): everything the provider has for this raw series and entity
+            # is already stored, so a missing value is not fetched again — no IBKR request during the backtest
+            if entity_id is not None and getattr(factor_entity, 'id', None) is not None:
+                from src.application.services.data.entities.factor import preloaded_coverage
+                _when = target_date if isinstance(target_date, datetime) else datetime.fromisoformat(str(target_date))
+                if preloaded_coverage.covers(factor_entity.id, entity_id, _when.replace(tzinfo=None)):
+                    return None
+
             # Identity shortcut: anything valued in its own unit = 1... this needs to changed since it's own currency is not always 1, for example CAD/CAD = 1 but CAD/USD != 1, we need to check the country location of the exchange and the currency of the exchange to know in which currency the value correspondsto
             if currency_id is not None and entity_id is not None and currency_id == entity_id:
                 return self._create_factor_value(

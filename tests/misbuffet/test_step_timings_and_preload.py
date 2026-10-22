@@ -208,3 +208,47 @@ def test_the_10m_algorithm_records_cycle_orders_and_valuation(tmp_path):
     assert logged and logged[0].startswith("[timing] 2026-10-05 10:10:00")
     row = pd.read_csv(tmp_path / TIMINGS_FILE).iloc[0]
     assert {"cycle_s", "orders_s", "valuation_s"} <= set(row.index)
+
+
+def test_inside_a_preloaded_window_no_raw_value_is_fetched():
+    from unittest.mock import MagicMock
+    from src.application.services.data.entities.factor.factor_value_resolution_service import (
+        FactorValueResolutionService,
+    )
+    factory = MagicMock()
+    factory._available_repository_families = {"local": True, "ibkr": True}
+    service = FactorValueResolutionService(factory=factory)
+    service._create_factor_value = MagicMock()
+    factor = SimpleNamespace(id=55, name="close", source="ibkr")
+    entity = SimpleNamespace(id=7)
+    preloaded_coverage.register(55, 7, datetime(2026, 9, 15), datetime(2026, 10, 9, 16))
+    assert service._resolve_factor_without_dependencies(factor, entity, datetime(2026, 10, 5, 10, 25), "ibkr") is None
+    factory.get_ibkr_repository.assert_not_called()                           # no data source was asked
+    factory.factor_value_ibkr_repo.assert_not_called()
+
+
+def test_the_preload_marks_every_raw_series_of_the_entity_as_loaded():
+    from src.application.services.data.backtest_preload.backtest_data_preload_service import (
+        BacktestDataPreloadService,
+        PreloadSeries,
+    )
+    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+    from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+    factory, session, engine = make_factory()
+    try:
+        # another frequency and a refused type the valuation chain also reads
+        others = [CompanyShareFactorModel(name="close", group="price", subgroup=sub, frequency=freq,
+                                          data_type="numeric", source="ibkr", definition="close",
+                                          factor_type="company_share_factor")
+                  for sub, freq in (("TRADES", "5m"), ("MIDPOINT", "5m"))]
+        session.add_all(others)
+        session.commit()
+        fake = _FakeImport(factory, session, {"JPM": list(pd.date_range("2026-10-05 09:30", periods=3, freq="10min"))})
+        BacktestDataPreloadService(fake, log=lambda m: None).preload(
+            [PreloadSeries(CompanyShare, "JPM", "TRADES", "10 mins")], start="2026-10-05", end="2026-10-05 16:00")
+        noon = datetime(2026, 10, 5, 12)
+        assert all(preloaded_coverage.covers(f.id, 100, noon) for f in others)
+        assert preloaded_coverage.covers(fake.fid, 100, noon)
+    finally:
+        session.close()
+        engine.dispose()

@@ -51,6 +51,8 @@ def add_series(world, subgroup, shift, ticker="AAPL", name="close"):
 
 def test_reading_order_and_exact_choice():
     assert reading_order("CompanyShareOption", "price", "close") == ("MIDPOINT", "TRADES")
+    # shares: TRADES first — the account has no US-equity quote permission (MIDPOINT refused, BI-037)
+    assert reading_order("CompanyShare", "price", "close") == ("TRADES", "MIDPOINT")
     assert reading_order("CompanyShare", "price", "volume") == ("TRADES",)
     assert exact_choice("BID").order[0].value == "BID" and not exact_choice("BID").fallback_allowed
     assert "CALCULATED" not in WHAT_TO_SHOW and {"TRADES", "MIDPOINT", "BID", "ASK", "BID_ASK"} <= WHAT_TO_SHOW
@@ -75,7 +77,7 @@ def test_ingestion_requests_exactly_the_series_type():
     assert [d.value for d in source_choice(SimpleNamespace(group="price", subgroup="BID_ASK", name="close")).order] \
         == ["BID_ASK"]
     legacy = source_choice(SimpleNamespace(group="price", subgroup="ohlc", name="close"))
-    assert [d.value for d in legacy.order] == ["MIDPOINT", "TRADES"]          # legacy definitions: unchanged policy
+    assert [d.value for d in legacy.order] == ["MIDPOINT", "TRADES"]          # legacy definitions: the policy
 
 
 def test_repository_defaults_and_refusals(world):
@@ -83,26 +85,26 @@ def test_repository_defaults_and_refusals(world):
     from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import (
         CompanyShareFactor,
     )
-    assert repo._create_or_get(CompanyShareFactor, "close", group="price", frequency="8h").subgroup == "MIDPOINT"
+    assert repo._create_or_get(CompanyShareFactor, "close", group="price", frequency="8h").subgroup == "TRADES"
     assert repo._create_or_get(CompanyShareFactor, "volume", group="price", frequency="8h").subgroup == "TRADES"
     coerced = repo._create_or_get(CompanyShareFactor, "close", group="price", subgroup="ohlc", frequency="8h")
-    assert coerced.subgroup == "MIDPOINT"                                 # converted, never stored as 'ohlc'
+    assert coerced.subgroup == "TRADES"                                   # converted, never stored as 'ohlc'
 
 
 # ---- reading: one series, in order ---------------------------------------------------------------
 
-def test_a_mark_reads_the_midpoint_series_not_a_mix(world):
+def test_a_mark_reads_the_trades_series_not_a_mix(world):
     add_series(world, "TRADES", shift=1.0)
     add_series(world, "MIDPOINT", shift=0.5)
     value, deps = world.resolve(factor("CompanyShareMidPriceFactor"), world.share["AAPL"])
-    assert value == pytest.approx(world.closes["AAPL"][-1] + 0.5)
-    assert len(deps["CompanyShareFactor"]) == 1                           # one series: not MIDPOINT + TRADES + ohlc
-
-
-def test_trades_is_read_when_there_is_no_midpoint_data(world):
-    add_series(world, "TRADES", shift=1.0)
-    value, _ = world.resolve(factor("CompanyShareMidPriceFactor"), world.share["AAPL"])
     assert value == pytest.approx(world.closes["AAPL"][-1] + 1.0)
+    assert len(deps["CompanyShareFactor"]) == 1                           # one series: not TRADES + MIDPOINT + ohlc
+
+
+def test_midpoint_is_read_when_there_is_no_trades_data(world):
+    add_series(world, "MIDPOINT", shift=0.5)
+    value, _ = world.resolve(factor("CompanyShareMidPriceFactor"), world.share["AAPL"])
+    assert value == pytest.approx(world.closes["AAPL"][-1] + 0.5)
 
 
 def test_a_window_comes_from_one_series(world):

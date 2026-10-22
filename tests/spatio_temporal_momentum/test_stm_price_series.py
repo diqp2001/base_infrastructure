@@ -1,4 +1,4 @@
-"""BI-036: the STM close panel takes ONE close series per asset — MIDPOINT before TRADES, legacy 'ohlc' last."""
+"""BI-036: the STM close panel takes ONE close series per asset — TRADES before MIDPOINT (no quote permission), legacy 'ohlc' last."""
 
 import pandas as pd
 
@@ -28,11 +28,11 @@ def test_each_asset_reads_one_series_in_preference_order():
     try:
         closes = synthetic_closes(30, assets=list(IDS))
         seed_closes(session, closes, IDS)                              # legacy 'ohlc' for both assets
-        add_series(session, "TRADES", closes, "AAA", shift=1.0)
-        add_series(session, "MIDPOINT", closes, "AAA", shift=0.5)       # AAA: MIDPOINT wins over TRADES and ohlc
-        add_series(session, "TRADES", closes.iloc[:10], "BBB", shift=2.0)   # BBB: TRADES (short) wins over ohlc
+        add_series(session, "TRADES", closes, "AAA", shift=1.0)         # AAA: TRADES wins over MIDPOINT and ohlc
+        add_series(session, "MIDPOINT", closes, "AAA", shift=0.5)
+        add_series(session, "MIDPOINT", closes.iloc[:10], "BBB", shift=2.0)   # BBB: MIDPOINT (short) wins over ohlc
         panel = STMPriceHistoryReader(factory).load_close_panel({v: k for k, v in IDS.items()})
-        assert (panel["AAA"] - (closes["AAA"].values + 0.5)).abs().max() < 1e-9
+        assert (panel["AAA"] - (closes["AAA"].values + 1.0)).abs().max() < 1e-9
         bbb = panel["BBB"].dropna()
         assert len(bbb) == 10 and (bbb - (closes["BBB"].iloc[:10].values + 2.0)).abs().max() < 1e-9
     finally:
