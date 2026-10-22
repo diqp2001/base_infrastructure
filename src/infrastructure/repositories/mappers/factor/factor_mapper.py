@@ -69,6 +69,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor import CompanyShareLGBMCSQuintileRankMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_momentum_factor import CompanyShareSpatioTemporalMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_feature_factor import CompanyShareSpatioTemporalFeatureFactor
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_cross_sectional_momentum_factor import CompanyShareCrossSectionalMomentumFactor
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_return_factors import (
     CompanyShareReturn1DFactor, CompanyShareReturn5DFactor, CompanyShareReturn10DFactor,
     CompanyShareReturn20DFactor, CompanyShareReturn1MFactor, CompanyShareReturn2MFactor,
@@ -385,6 +386,7 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_lgbm_cs_quintile_rank_momentum_factor': CompanyShareLGBMCSQuintileRankMomentumFactor,
     'company_share_spatio_temporal_momentum_factor': CompanyShareSpatioTemporalMomentumFactor,
     'company_share_spatio_temporal_feature_factor': CompanyShareSpatioTemporalFeatureFactor,
+    'company_share_cross_sectional_momentum_factor': CompanyShareCrossSectionalMomentumFactor,
 }
 
 # Lazy entries to avoid circular imports at module load time.
@@ -788,6 +790,8 @@ class FactorMapper:
             return CompanyShareSpatioTemporalMomentumFactor(**base_args)
         elif factor_type == 'company_share_spatio_temporal_feature_factor':
             return CompanyShareSpatioTemporalFeatureFactor(**base_args)
+        elif factor_type == 'company_share_cross_sectional_momentum_factor':
+            return CompanyShareCrossSectionalMomentumFactor(**base_args)
         else:
             # Known discriminator without an elif branch: build its own class so that
             # calculate / calculate_dependencies are not lost.

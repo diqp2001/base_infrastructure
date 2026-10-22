@@ -1,219 +1,150 @@
 """
-Configuration settings for Test Base Project Manager.
+Configuration of the cross-sectional momentum project: a LightGBM CLASSIFIER predicting, for every asset of the
+paper universe (48 US financials, data/paper_universe.py), whether its next-session return beats the
+cross-sectional median, with the feature subset and the LightGBM hyper-parameters chosen at every retraining by
+an Optuna study using the Tree-structured Parzen Estimator (TPE) sampler.
 
-This module contains database configurations, model parameters, and system settings
-for the hybrid trading system combining spatiotemporal modeling, factor creation,
-and backtesting capabilities.
+Same structure as spatio_temporal_momentum_project_full: the Misbuffet engine runs bar by bar; the algorithm
+calls CSMTradingCycle.step (reusable services in .../factor/cross_sectional_momentum/); every read goes through
+the MarketDataHistoryService frontier. Results, models, signals, universe and portfolio are kept separate from
+the other projects.
+
+Research parameters live in the ``csm`` section and are turned into a CSMConfiguration by
+``build_csm_configuration``. Top-level keys keep the names the Misbuffet BaseBacktestRunner reads.
 """
 
-import os
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
 
-# Base configuration
+from src.application.managers.project_managers.cross_sectionnal_project.data.paper_universe import (
+    PAPER_UNIVERSE_TICKERS,
+)
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_configuration import (
+    CSMConfiguration,
+    CSMFeatureConfig,
+    CSMLabelConfig,
+    CSMOptimizationConfig,
+    CSMTrainingConfig,
+    CSMUniverseConfig,
+)
+from src.application.services.data.entities.factor.factor_library.factor_definition_config import FACTOR_LIBRARY
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
+from src.domain.entities.finance.portfolio.portfolio import Portfolio
+
 BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
-DATA_PATH = BASE_PROJECT_ROOT / "data"
-
-# Database Configuration
 CONFIG_TEST = {
-    #'DB_TYPE': 'sqlite',
     'DB_TYPE': 'sql_server',
-    
     'DB_PATH': BASE_PROJECT_ROOT / 'base_infrastructure.db',
-    'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db'
+    'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db',
 }
 
-CONFIG_PRODUCTION = {
-    'DB_TYPE': 'postgresql',
-    'HOST': os.getenv('DB_HOST', 'localhost'),
-    'PORT': os.getenv('DB_PORT', '5432'),
-    'NAME': os.getenv('DB_NAME', 'base_infrastructure'),
-    'USER': os.getenv('DB_USER', 'postgres'),
-    'PASSWORD': os.getenv('DB_PASSWORD', 'password'),
-}
+CSM_UNIVERSE_NAME = 'csm_paper_us_financials'
+CSM_TICKERS: List[str] = list(PAPER_UNIVERSE_TICKERS)
+CSM_SIGNAL_FACTOR_NAME = 'cross_sectional_momentum_signal'
+CSM_ML_MODEL_PREFIX = 'csm_'
 
-# Data Configuration
-DATA_CONFIG = {
-    'STOCK_DATA_DIR': DATA_PATH / 'stock_data',
-    'FX_DATA_PATH': DATA_PATH / 'fx_data' / 'currency_exchange_rates_02-01-1995_-_02-05-2018.csv',
-    'DEFAULT_UNIVERSE': ['AAPL', 'MSFT', 'AMZN', 'GOOGL'],
-    'DATE_FORMAT': '%Y-%m-%d',
-    'LOOKBACK_DAYS': 252 * 3,  # 3 years of data
-}
+# Rolling window the classifier is trained on: 252 sessions (~1 year) of (date, asset) rows, ~12 000 rows
+TRAINING_WINDOW = 252
 
-# Spatiotemporal Model Configuration
-SPATIOTEMPORAL_CONFIG = {
-    'TFT_PARAMS': {
-        'hidden_size': 160,
-        'attention_head_size': 4,
-        'dropout': 0.3,
-        'hidden_continuous_size': 8,
-        'output_size': 7,
-        'loss': 'MAE',
-        'learning_rate': 0.03,
-        'reduce_on_plateau_patience': 4,
+
+def _factor_configs():
+    """Signal factor created through Misbuffet BaseModelTrainer.create_factors."""
+    signal = dict(FACTOR_LIBRARY['company_share_library']['cross_sectional_momentum_signal'])
+    signal['name'] = CSM_SIGNAL_FACTOR_NAME
+    return [signal]
+
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    'project_name': 'cross_sectional_momentum',
+    'version': '2.0.0',
+
+    # Misbuffet engine keys (trading path)
+    'universe': {CompanyShare: CSM_TICKERS},
+    'bar_size_setting': '1 day',
+    'duration_str': '1 Y',
+    'max_import_ibkr': True,
+    # Engine clock: one decision per day. A daily bar dated D is known from D+1 00:00 (frontier), so the
+    # 16:00 decision of D+1 uses the close of D.
+    'backtest_start': '2026-06-01 16:00:00',
+    'backtest_end': '2026-09-30 16:00:00',
+    'config_interval': {'custom_interval_days': 1},
+    'initial_capital': 1_000_000,
+    'model_type': 'lightgbm',
+
+    # Daily closes imported through MarketDataService: training window (252) + feature warm-up (106-session
+    # lookback of the 5-month factors) before the first bar
+    'price_history_start': '2024-11-01',
+
+    # Retraining (Optuna study + final model) every 21 calendar days, on the labels known at the bar
+    'retrain_every_days': 21,
+
+    'factors': _factor_configs(),
+
+    # Live progress + final results of the latest run (read by the Flask /csm dashboard)
+    'results_dir': str(BASE_PROJECT_ROOT / 'results' / 'cross_sectional_momentum'),
+
+    'csm': {
+        'universe': {'name': CSM_UNIVERSE_NAME, 'entity_type': 'CompanyShare', 'tickers': None},
+        # candidates: the 24 momentum factors of LGBMMomentumFeatureDefinition (computed by their own domain
+        # factors); Optuna TPE selects the subset of each model. Ranks off: the factor path scores one entity.
+        'features': {
+            'cross_sectional_ranks': False,
+            'vol_span': 20,
+            'exclude': (),
+        },
+        'label': {'horizon': 1},
+        'optimization': {
+            'n_trials': 40,
+            'n_startup_trials': 10,
+            'multivariate': True,
+            'n_folds': 3,
+            'metric': 'auc',
+            'min_features': 3,
+            'seed': 42,
+            'timeout_seconds': 600,
+            'top_trial_fraction': 0.2,
+        },
+        'training': {
+            'training_window_rows': TRAINING_WINDOW,
+            'long_short_quantile': 0.2,
+            'gross_exposure': 1.0,
+        },
+        'artifact_dir': str(BASE_PROJECT_ROOT / 'weights' / 'cross_sectional_momentum'),
+        'persist_signals': True,
     },
-    'MLP_PARAMS': {
-        'hidden_layers': [128, 64, 32],
-        'dropout_rate': 0.3,
-        'learning_rate': 0.001,
-        'activation': 'relu',
-        'batch_size': 64,
+
+    'Portfolio': {
+        'name': 'Cross_Sectional_Momentum_Portfolio',
+        'initial_cash': 1_000_000,
+        'currency_code': 'USD',
+        'portfolio_type': 'BACKTEST',
+        'initial_cash_currency_code': 'USD',
+        'class': Portfolio,
+        'holding_class': PortfolioHolding,
     },
-    'TRAINING_CONFIG': {
-        'history_size': 63,
-        'encoder_length': 42,
-        'validation_delta_days': 365,
-        'test_delta_days': 365,
-        'train_date_range': ('2017-01-01', '2020-12-31'),
-        'batch_size': 64,
-        'max_epochs': 100,
-    },
-    'FEATURES': {
-        'momentum_features': [
-            'norm_daily_return',
-            'norm_monthly_return', 
-            'norm_quarterly_return',
-            'norm_biannual_return',
-            'norm_annual_return'
-        ],
-        'technical_features': [
-            'macd_8_24',
-            'macd_16_48',
-            'macd_32_96'
-        ],
-        'volatility_features': [
-            'daily_vol',
-            'monthly_vol'
-        ]
-    }
 }
 
-# Factor System Configuration
-FACTOR_CONFIG = {
-    'PRICE_FACTORS': [
-        {'name': 'Open', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'High', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'Low', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'Close', 'group': 'price', 'subgroup': 'ohlc'},
-        {'name': 'Adj Close', 'group': 'price', 'subgroup': 'adjusted'}
-    ],
-    'MOMENTUM_FACTORS': [
-        {'name': 'deep_momentum_1d', 'group': 'momentum', 'subgroup': 'short_term','period': 1},
-        {'name': 'deep_momentum_5d', 'group': 'momentum', 'subgroup': 'short_term','period': 5},
-        {'name': 'deep_momentum_21d', 'group': 'momentum', 'subgroup': 'medium_term','period': 21},
-        {'name': 'deep_momentum_63d', 'group': 'momentum', 'subgroup': 'long_term','period': 63},
-    ],
-    'TECHNICAL_FACTORS': [
-        {'name': 'macd_8_24', 'group': 'technical', 'subgroup': 'momentum'},
-        {'name': 'macd_16_48', 'group': 'technical', 'subgroup': 'momentum'},
-        {'name': 'macd_32_96', 'group': 'technical', 'subgroup': 'momentum'},
-        {'name': 'rsi_14', 'group': 'technical', 'subgroup': 'momentum'},
-        {'name': 'bollinger_upper', 'group': 'technical', 'subgroup': 'volatility'},
-        {'name': 'bollinger_lower', 'group': 'technical', 'subgroup': 'volatility'},
-    ]
-}
-from datetime import datetime
+
+def get_config() -> Dict[str, Any]:
+    return dict(DEFAULT_CONFIG)
 
 
-
-
-# Backtesting Configuration
-BACKTEST_CONFIG = {
-    'MODEL_TYPE': 'gbm',
-
-    'START_DATE': datetime.strptime("2018-01-01", "%Y-%m-%d"),
-    'END_DATE': datetime.strptime('2019-01-01', "%Y-%m-%d"),
-    'INITIAL_CAPITAL': 100000.0,
-    'BENCHMARK_TICKER': 'SPY',
-    'COMMISSION_MODEL': 'equity_commission',
-    'SLIPPAGE_MODEL': 'volume_share_slippage',
-    'REBALANCE_FREQUENCY': 'weekly',
-    'MAX_POSITION_SIZE': 0.25,  # 25% maximum per position
-    'MIN_POSITION_SIZE': 0.01,  # 1% minimum per position
-}
-
-# Portfolio Optimization Configuration
-PORTFOLIO_CONFIG = {
-    'BLACK_LITTERMAN': {
-        'risk_aversion': 3.0,
-        'tau': 0.025,
-        'confidence_level': 0.95,
-        'lookback_days': 252,
-        'min_weight': 0.0,
-        'max_weight': 0.3,
-    },
-    'RISK_MANAGEMENT': {
-        'max_volatility': 0.20,
-        'max_drawdown': 0.15,
-        'var_confidence': 0.05,
-        'position_concentration': 0.25,
-    }
-}
-
-# Web Interface Configuration
-WEB_CONFIG = {
-    'HOST': '127.0.0.1',
-    'PORT': 5000,
-    'DEBUG': True,
-    'TEMPLATES_DIR': 'templates',
-    'STATIC_DIR': 'static',
-    'UPDATE_INTERVAL_SECONDS': 5,
-    'CHART_CONFIG': {
-        'width': 800,
-        'height': 600,
-        'dpi': 100,
-        'style': 'seaborn-v0_8',
-        'colors': ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-    }
-}
-
-# Performance Analytics Configuration
-ANALYTICS_CONFIG = {
-    'METRICS': [
-        'total_return',
-        'sharpe_ratio',
-        'max_drawdown',
-        'volatility',
-        'win_rate',
-        'profit_factor',
-        'calmar_ratio'
-    ],
-    'BENCHMARK_METRICS': True,
-    'ATTRIBUTION_ANALYSIS': True,
-    'RISK_DECOMPOSITION': True,
-}
-
-# Logging Configuration
-LOGGING_CONFIG = {
-    'level': 'INFO',
-    'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    'handlers': ['console', 'file'],
-    'file_path': BASE_PROJECT_ROOT / 'logs' / 'test_base_project.log'
-}
-
-# Environment-specific configuration
-def get_config(env: str = 'test') -> Dict[str, Any]:
-    """Get configuration for specified environment."""
-    base_config = {
-        'DATA': DATA_CONFIG,
-        'SPATIOTEMPORAL': SPATIOTEMPORAL_CONFIG,
-        'FACTORS': FACTOR_CONFIG,
-        'BACKTEST': BACKTEST_CONFIG,
-        'PORTFOLIO': PORTFOLIO_CONFIG,
-        'WEB': WEB_CONFIG,
-        'ANALYTICS': ANALYTICS_CONFIG,
-        'LOGGING': LOGGING_CONFIG,
-    }
-    
-    if env == 'test':
-        base_config['DATABASE'] = CONFIG_TEST
-    elif env == 'production':
-        base_config['DATABASE'] = CONFIG_PRODUCTION
-    else:
-        raise ValueError(f"Unknown environment: {env}")
-    
-    return base_config
-
-# Default configuration
-DEFAULT_CONFIG = get_config('test')
+def build_csm_configuration(config: Optional[Dict[str, Any]] = None) -> CSMConfiguration:
+    """Translate the project config into the reusable CSMConfiguration."""
+    config = config or DEFAULT_CONFIG
+    csm = config['csm']
+    universe = dict(csm['universe'])
+    if universe.get('tickers') is None:
+        universe['tickers'] = list(CSM_TICKERS)
+    return CSMConfiguration(
+        universe=CSMUniverseConfig(**universe),
+        features=CSMFeatureConfig(**csm['features']),
+        label=CSMLabelConfig(**csm['label']),
+        optimization=CSMOptimizationConfig(**csm['optimization']),
+        training=CSMTrainingConfig(**csm['training']),
+        artifact_dir=csm.get('artifact_dir'),
+        ml_model_name_prefix=CSM_ML_MODEL_PREFIX,
+        signal_factor_name=CSM_SIGNAL_FACTOR_NAME,
+        persist_signals=csm.get('persist_signals', True),
+    )

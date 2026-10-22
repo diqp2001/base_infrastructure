@@ -51,6 +51,9 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_momentum_factor import (
     CompanyShareSpatioTemporalMomentumFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_cross_sectional_momentum_factor import (
+    CompanyShareCrossSectionalMomentumFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_spatio_temporal_feature_factor import (
     CompanyShareSpatioTemporalFeatureFactor,
 )
@@ -1070,7 +1073,20 @@ COMPANY_SHARE_LIBRARY: Dict[str, Dict] = {
         "description": "LightGBM cross-sectional quintile rank momentum factor (1=weakest, 5=strongest)",
         "dependencies": {},
         "parameters": {}
-    },    # ── Spatio-Temporal Momentum (Tan, Roberts, Zohren 2023) ─────────────────
+    },    # ── Cross-sectional momentum classifier (LightGBM + Optuna TPE) ───────────
+    # Signal: probability of beating the cross-sectional median; values produced by the trading cycle.
+    "cross_sectional_momentum_signal": {
+        "class": CompanyShareCrossSectionalMomentumFactor,
+        "name": "cross_sectional_momentum_signal",
+        "group": "momentum",
+        "subgroup": "daily",
+        "frequency": "1d",
+        "data_type": "numeric",
+        "description": "Cross-sectional momentum classifier: probability of beating the cross-sectional median",
+        "dependencies": {},
+        "parameters": {}
+    },
+    # ── Spatio-Temporal Momentum (Tan, Roberts, Zohren 2023) ─────────────────
     # Signal: joint-universe model output; values produced by the STM provider.
     "spatio_temporal_momentum_signal": {
         "class": CompanyShareSpatioTemporalMomentumFactor,

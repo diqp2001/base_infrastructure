@@ -13,6 +13,97 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 )
 
 
+def momentum_feature_dependency_specs() -> list:
+    """The 24 momentum factors a momentum classifier reads (one DependencySpec each, calculated values,
+    parent's frequency). Shared by the LightGBM quintile-rank and the cross-sectional momentum factors."""
+    from src.domain.entities.factor.dependency_spec import DependencySpec
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_return_factors import (
+        CompanyShareReturn1DFactor,
+        CompanyShareReturn5DFactor,
+        CompanyShareReturn20DFactor,
+        CompanyShareReturn1MFactor,
+        CompanyShareReturn3MFactor,
+        CompanyShareReturn5MFactor,
+        CompanyShareReturnYTDFactor,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_ma_factors import (
+        CompanySharePriceVsMA20Factor,
+        CompanySharePriceVsMA50Factor,
+        CompanySharePriceVsMA100Factor,
+        CompanyShareMA5VsMA10Factor,
+        CompanyShareMA20VsMA50Factor,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_trend_factors import (
+        CompanyShareTrendSlope20DFactor,
+        CompanyShareTrendSlope50DFactor,
+        CompanyShareMomentumSlope20DFactor,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_risk_factors import (
+        CompanyShareSharpe20DFactor,
+        CompanyShareSharpe50DFactor,
+        CompanyShareSortino20DFactor,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_drawdown_factors import (
+        CompanyShareDistanceFrom5MHighFactor,
+        CompanyShareDrawdownFrom5MHighFactor,
+        CompanyShareDaysSince5MHighFactor,
+    )
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_composite_momentum_factors import (
+        CompanyShareShortTermMomentumFactor,
+        CompanyShareMediumTermMomentumFactor,
+        CompanyShareMomentumZScore20DFactor,
+    )
+
+    # Each factor's group must match what _create_or_get stores in the DB.
+    # Return factors → "return"; risk factors → "risk"; everything else → "momentum".
+    return_factors = [
+        CompanyShareReturn1DFactor,
+        CompanyShareReturn5DFactor,
+        CompanyShareReturn20DFactor,
+        CompanyShareReturn1MFactor,
+        CompanyShareReturn3MFactor,
+        CompanyShareReturn5MFactor,
+        CompanyShareReturnYTDFactor,
+    ]
+    risk_factors = [
+        CompanyShareSharpe20DFactor,
+        CompanyShareSharpe50DFactor,
+        CompanyShareSortino20DFactor,
+    ]
+    momentum_factors = [
+        CompanySharePriceVsMA20Factor,
+        CompanySharePriceVsMA50Factor,
+        CompanySharePriceVsMA100Factor,
+        CompanyShareMA5VsMA10Factor,
+        CompanyShareMA20VsMA50Factor,
+        CompanyShareTrendSlope20DFactor,
+        CompanyShareTrendSlope50DFactor,
+        CompanyShareMomentumSlope20DFactor,
+        CompanyShareDistanceFrom5MHighFactor,
+        CompanyShareDrawdownFrom5MHighFactor,
+        CompanyShareDaysSince5MHighFactor,
+        CompanyShareShortTermMomentumFactor,
+        CompanyShareMediumTermMomentumFactor,
+        CompanyShareMomentumZScore20DFactor,
+    ]
+
+    specs = []
+    for factor_cls, grp in (
+        [(f, "return") for f in return_factors]
+        + [(f, "risk") for f in risk_factors]
+        + [(f, "momentum") for f in momentum_factors]
+    ):
+        specs.append(
+            DependencySpec(
+                factor_type=factor_cls,
+                group=grp,
+                frequency=DependencySpec.SELF,
+                source_in=["calculated"],
+            )
+        )
+    return specs
+
+
 class CompanyShareLGBMCSQuintileRankMomentumFactor(CompanyShareFactor):
     """
     LightGBM cross-sectional quintile rank momentum factor.
@@ -48,92 +139,7 @@ class CompanyShareLGBMCSQuintileRankMomentumFactor(CompanyShareFactor):
 
     @property
     def calculate_dependencies(self) -> list:
-        from src.domain.entities.factor.dependency_spec import DependencySpec
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_return_factors import (
-            CompanyShareReturn1DFactor,
-            CompanyShareReturn5DFactor,
-            CompanyShareReturn20DFactor,
-            CompanyShareReturn1MFactor,
-            CompanyShareReturn3MFactor,
-            CompanyShareReturn5MFactor,
-            CompanyShareReturnYTDFactor,
-        )
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_ma_factors import (
-            CompanySharePriceVsMA20Factor,
-            CompanySharePriceVsMA50Factor,
-            CompanySharePriceVsMA100Factor,
-            CompanyShareMA5VsMA10Factor,
-            CompanyShareMA20VsMA50Factor,
-        )
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_trend_factors import (
-            CompanyShareTrendSlope20DFactor,
-            CompanyShareTrendSlope50DFactor,
-            CompanyShareMomentumSlope20DFactor,
-        )
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_risk_factors import (
-            CompanyShareSharpe20DFactor,
-            CompanyShareSharpe50DFactor,
-            CompanyShareSortino20DFactor,
-        )
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_drawdown_factors import (
-            CompanyShareDistanceFrom5MHighFactor,
-            CompanyShareDrawdownFrom5MHighFactor,
-            CompanyShareDaysSince5MHighFactor,
-        )
-        from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_composite_momentum_factors import (
-            CompanyShareShortTermMomentumFactor,
-            CompanyShareMediumTermMomentumFactor,
-            CompanyShareMomentumZScore20DFactor,
-        )
-
-        # Each factor's group must match what _create_or_get stores in the DB.
-        # Return factors → "return"; risk factors → "risk"; everything else → "momentum".
-        return_factors = [
-            CompanyShareReturn1DFactor,
-            CompanyShareReturn5DFactor,
-            CompanyShareReturn20DFactor,
-            CompanyShareReturn1MFactor,
-            CompanyShareReturn3MFactor,
-            CompanyShareReturn5MFactor,
-            CompanyShareReturnYTDFactor,
-        ]
-        risk_factors = [
-            CompanyShareSharpe20DFactor,
-            CompanyShareSharpe50DFactor,
-            CompanyShareSortino20DFactor,
-        ]
-        momentum_factors = [
-            CompanySharePriceVsMA20Factor,
-            CompanySharePriceVsMA50Factor,
-            CompanySharePriceVsMA100Factor,
-            CompanyShareMA5VsMA10Factor,
-            CompanyShareMA20VsMA50Factor,
-            CompanyShareTrendSlope20DFactor,
-            CompanyShareTrendSlope50DFactor,
-            CompanyShareMomentumSlope20DFactor,
-            CompanyShareDistanceFrom5MHighFactor,
-            CompanyShareDrawdownFrom5MHighFactor,
-            CompanyShareDaysSince5MHighFactor,
-            CompanyShareShortTermMomentumFactor,
-            CompanyShareMediumTermMomentumFactor,
-            CompanyShareMomentumZScore20DFactor,
-        ]
-
-        specs = []
-        for factor_cls, grp in (
-            [(f, "return") for f in return_factors]
-            + [(f, "risk") for f in risk_factors]
-            + [(f, "momentum") for f in momentum_factors]
-        ):
-            specs.append(
-                DependencySpec(
-                    factor_type=factor_cls,
-                    group=grp,
-                    frequency=DependencySpec.SELF,
-                    source_in=["calculated"],
-                )
-            )
-        return specs
+        return momentum_feature_dependency_specs()
 
     def calculate(self, dependencies: dict) -> Optional[float]:
         """Return LightGBM quintile rank (1.0–5.0) or None."""

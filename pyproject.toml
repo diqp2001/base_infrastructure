@@ -96,6 +96,8 @@ ignore_imports = [
     "src.application.managers.project_managers.spatio_temporal_momentum_project_full.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.spatio_temporal_momentum_project_10m.backtesting.synthetic_demo -> src.infrastructure.models.**",
     "src.application.managers.project_managers.spatio_temporal_momentum_project_10m.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.market_making_project.data.data_loader -> src.infrastructure.models.**",
 ]
 
@@ -113,6 +115,7 @@ ignore_imports = [
     "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_implied_vol_ml_factor_repository -> src.application.services.data.entities.factor.implied_vol_ml.implied_vol_ml_model_provider",
     "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_lgbm_cs_quintile_rank_momentum_factor_repository -> src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_model_provider",
     "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_spatio_temporal_momentum_factor_repository -> src.application.services.data.entities.factor.spatio_temporal_momentum.stm_model_provider",
+    "src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_cross_sectional_momentum_factor_repository -> src.application.services.data.entities.factor.cross_sectional_momentum.csm_model_provider",
     "src.infrastructure.repositories.repository_factory -> src.application.services.misbuffet.brokers.broker_factory",
 ]
 
