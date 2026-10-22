@@ -2,7 +2,7 @@
 Synthetic demo of the cross-sectional momentum project (no IBKR, no SQL Server).
 
 Runs the SAME CSMTradingCycle the Misbuffet algorithm runs, on synthetic daily closes stored in an in-memory
-SQLite database as a raw TRADES `close` factor, then builds the results report. The synthetic returns carry a
+SQLite database as raw TRADES daily bars (close, volume, high, low), then builds the results report. The synthetic returns carry a
 little cross-sectional momentum (yesterday's relative winners keep a small edge) so the classifier has something
 to find. The Optuna study is shrunk for speed. Results are illustrative only.
 """
@@ -43,19 +43,31 @@ def synthetic_closes(tickers, start: str, n_days: int, seed: int = 11, persisten
     return pd.DataFrame(100 * np.exp(np.cumsum(rets, axis=0)), index=dates, columns=list(tickers))
 
 
-def _seed_closes(session, closes: pd.DataFrame, ids) -> None:
+def synthetic_bars(closes: pd.DataFrame, seed: int = 11) -> dict:
+    """Volume, high and low around the synthetic closes (TRADES-like daily bars)."""
+    rng = np.random.default_rng(seed + 1)
+    size = rng.lognormal(13.0, 0.6, closes.shape[1])                     # per-asset typical volume
+    volume = pd.DataFrame(size * rng.lognormal(0.0, 0.35, closes.shape), index=closes.index, columns=closes.columns)
+    spread = np.abs(rng.normal(0.0, 0.008, closes.shape))
+    high = closes * (1.0 + spread + np.abs(rng.normal(0.0, 0.004, closes.shape)))
+    low = closes * (1.0 - spread - np.abs(rng.normal(0.0, 0.004, closes.shape)))
+    return {"close": closes, "volume": volume.round(), "high": high, "low": low}
+
+
+def _seed_bars(session, bars: dict, ids) -> None:
     from src.infrastructure.models.factor.factor import CompanyShareFactorModel
     from src.infrastructure.models.factor.factor_value import FactorValueModel
-    factor = CompanyShareFactorModel(name="close", group="price", subgroup="TRADES", frequency="1d",
-                                     data_type="numeric", source="ibkr", definition="close",
-                                     factor_type="company_share_factor")
-    session.add(factor)
-    session.commit()
-    rows = [{"factor_id": factor.id, "entity_id": ids[t], "entity_type": "CompanyShare",
-             "date": d.to_pydatetime(), "value": repr(float(px))}
-            for d, row in closes.iterrows() for t, px in row.items() if np.isfinite(px)]
-    session.bulk_insert_mappings(FactorValueModel, rows)
-    session.commit()
+    for field, panel in bars.items():
+        factor = CompanyShareFactorModel(name=field, group="price", subgroup="TRADES", frequency="1d",
+                                         data_type="numeric", source="ibkr", definition=field,
+                                         factor_type="company_share_factor")
+        session.add(factor)
+        session.commit()
+        rows = [{"factor_id": factor.id, "entity_id": ids[t], "entity_type": "CompanyShare",
+                 "date": d.to_pydatetime(), "value": repr(float(v))}
+                for d, row in panel.iterrows() for t, v in row.items() if np.isfinite(v)]
+        session.bulk_insert_mappings(FactorValueModel, rows)
+        session.commit()
 
 
 def run_synthetic_demo(progress, backtest_sessions: int = 40, n_trials: int = 8, training_window: int = 120,
@@ -84,13 +96,18 @@ def run_synthetic_demo(progress, backtest_sessions: int = 40, n_trials: int = 8,
     session = Session(engine)
     factory = RepositoryFactory(session)
     ids = {t: 1000 + i for i, t in enumerate(tickers)}
-    _seed_closes(session, closes, ids)
+    spy = pd.DataFrame({"SPY": closes.mean(axis=1) * (1.0 + np.random.default_rng(seed + 2).normal(
+        0.0, 0.002, len(closes))).cumprod()})                                # benchmark: the synthetic market
+    bars = synthetic_bars(closes, seed)
+    for field, panel in bars.items():
+        bars[field] = panel.join(synthetic_bars(spy, seed + 3)[field])
+    _seed_bars(session, bars, {**ids, "SPY": 999})
     universe_service = STMUniverseService(factory, csm.universe)
     universe = universe_service.ensure_universe(ids, closes.index[0].date())
     history = MarketDataHistoryService(SimpleNamespace(entity_service=SimpleNamespace(repository_factory=factory)))
     cycle = CSMTradingCycle(factory, csm, history, ids, history_start=closes.index[0],
                             retrain_every_days=retrain_every_days, universe_service=universe_service,
-                            universe_id=universe.id, log=progress.log)
+                            universe_id=universe.id, log=progress.log, benchmark_entities={"SPY": 999})
 
     progress.phase("Trading cycle: Optuna TPE / train / score / trade bar by bar (synthetic)")
     # the 16:00 bar of session D+1 sees the close of D (a daily bar is known from D+1 00:00)

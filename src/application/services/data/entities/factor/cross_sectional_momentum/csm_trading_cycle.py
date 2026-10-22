@@ -5,7 +5,7 @@ CSMTradingCycle — the time-driven cross-sectional momentum loop, called once p
 step(now):
   1. advance the MarketDataHistoryService frontier to ``now``
   2. let the data updater import any new bars (IBKR via MarketDataService, writes only)
-  3. read daily closes THROUGH THE FRONTIER — only bars closed at ``now``
+  3. read the daily bars (close, volume, high, low) THROUGH THE FRONTIER — only bars closed at ``now``
   4. decision session = last session with a known close
   5. features = the 24 momentum factors (their own calculate() on the closes known at the session);
      eligible assets = active universe constituents with a close at the session and every feature of the model
@@ -30,7 +30,9 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
     CSMConfiguration,
 )
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import (
+    BAR_FIELDS,
     CSMFeatureEngine,
+    benchmark_symbols,
     build_dataset,
 )
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model import train
@@ -81,11 +83,16 @@ class CSMTradingCycle:
     def __init__(self, factory, config: CSMConfiguration, history_service, ticker_to_entity: Dict[str, int],
                  history_start, retrain_every_days: int = 21, data_updater: Optional[Callable] = None,
                  universe_service=None, universe_id: Optional[int] = None, persist: bool = True,
-                 log: Optional[Callable[[str], None]] = None):
+                 log: Optional[Callable[[str], None]] = None, benchmark_entities: Optional[Dict[str, int]] = None):
         self.factory = factory
         self.config = config
         self.history_service = history_service
         self.ticker_to_entity = dict(ticker_to_entity)
+        # benchmarks the candidates compare with (e.g. SPY): read, never traded nor scored
+        self.benchmark_entities = dict(benchmark_entities or {})
+        missing = [s for s in benchmark_symbols(config.features) if s not in self.benchmark_entities]
+        if missing:
+            self.log(f"[CSM] no entity for benchmark(s) {missing}: their relative features stay empty")
         self.history_start = pd.Timestamp(history_start)
         self.retrain_every_days = int(retrain_every_days)
         self.data_updater = data_updater
@@ -93,7 +100,9 @@ class CSMTradingCycle:
         self.universe_id = universe_id
         self.persist = persist and config.persist_signals
         self.log = log or (lambda msg: None)
-        self.reader = STMFrontierPriceReader(history_service, frequency="1d")
+        self.readers = {f: STMFrontierPriceReader(history_service, close_factor_name=f, frequency="1d")
+                        for f in BAR_FIELDS}
+        self.reader = self.readers["close"]
         self.artifact_store = CSMArtifactStore(factory, config)
         self.signal_store = CSMSignalStore(factory, config) if self.persist else None
         self.feature_engine = CSMFeatureEngine(config.features)      # domain factors' calculate(), cached
@@ -158,7 +167,15 @@ class CSMTradingCycle:
         result.session = session
         self._last_result = result
 
-        dataset = build_dataset(closes, self.config.features, self.config.label, self.feature_engine)
+        bars = {"close": closes}
+        bars.update({f: self.readers[f].load_close_panel(id_to_ticker, start=self.history_start)
+                     for f in BAR_FIELDS if f != "close"})
+        benchmarks = {}
+        if self.benchmark_entities:
+            panel = self.reader.load_close_panel({eid: s for s, eid in self.benchmark_entities.items()},
+                                                 start=self.history_start)
+            benchmarks = {s: panel[s] for s in self.benchmark_entities if s in panel}
+        dataset = build_dataset(bars, self.config.features, self.config.label, self.feature_engine, benchmarks)
         if self._retrain_due(session):
             artifact_id = self._train(dataset, session)
             if artifact_id is not None:

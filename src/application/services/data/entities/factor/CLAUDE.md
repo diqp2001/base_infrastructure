@@ -192,6 +192,13 @@ dependency is missing (no value over a shorter window). `lookback='ytd'` -> last
 bar of the target year. Without `lookback` the spec delivers the value at the target date only. Windows used by
 the share signals: N-day return N+1 closes, MA / slope / z-score N, Sharpe / Sortino N+1, 1 month = 21 trading days.
 
+### Another entity — `entity_symbol`
+
+`DependencySpec(..., entity_symbol='SPY')` resolves that dependency on the entity of the parent's class with that
+symbol (repository `get_by_symbol`) instead of the parent entity and its related entities, e.g. the SPY closes of a
+share-versus-benchmark factor (`company_share_relative_performance_factors`). No entity with that symbol -> the
+dependency is missing.
+
 ### Key rules
 
 - The dep repo must support `get_all()` (all standard factor repos do).

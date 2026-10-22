@@ -38,7 +38,9 @@ def factor_classes():
         module_name = ".".join(path.relative_to(FACTOR_ROOT.parents[3]).with_suffix("").parts)
         module = importlib.import_module(module_name)
         for name, cls in inspect.getmembers(module, inspect.isclass):
-            if cls.__module__ == module_name and issubclass(cls, Factor) and _has_own_calculate(cls):
+            # a leading underscore marks an abstract base (e.g. _AvgTurnoverFactor), never a stored factor
+            if (cls.__module__ == module_name and issubclass(cls, Factor) and _has_own_calculate(cls)
+                    and not name.startswith("_")):
                 found[name] = cls
     return sorted(found.items())
 

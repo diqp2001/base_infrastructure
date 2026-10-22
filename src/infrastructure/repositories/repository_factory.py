@@ -60,6 +60,16 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
     CompanyShareShortTermMomentumFactorRepository, CompanyShareMediumTermMomentumFactorRepository,
     CompanyShareShortVsMediumMomentumFactorRepository, CompanyShareMomentumZScore20DFactorRepository,
     CompanyShareMomentumZScore50DFactorRepository, CompanyShareMomentumZScore100DFactorRepository,
+
+    CompanyShareAvgTurnover1mFactorRepository, CompanyShareAvgTurnover2mFactorRepository,
+    CompanyShareAvgTurnover3mFactorRepository, CompanyShareAvgTurnover4mFactorRepository,
+    CompanyShareAvgTurnover5mFactorRepository, CompanyShareTurnoverFactorRepository,
+    CompanyShareVpt16w20dLagFactorRepository, CompanyShareMaxDailyReturn6mFactorRepository,
+    CompanyShareMinReturn120dFactorRepository,
+
+    CompanyShareRelativeReturnVsSpy1DFactorRepository, CompanyShareRelativeReturnVsSpy5DFactorRepository,
+    CompanyShareRelativeReturnVsSpy20DFactorRepository, CompanyShareRelativeReturnVsSpy3MFactorRepository,
+    CompanyShareRelativeReturnVsSpy6MFactorRepository,
 )
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_technical_momentum_factor_repositories import (
     IBKRCompanyShareReturn1DFactorRepository, IBKRCompanyShareReturn5DFactorRepository,
@@ -89,6 +99,18 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.s
     IBKRCompanyShareShortTermMomentumFactorRepository, IBKRCompanyShareMediumTermMomentumFactorRepository,
     IBKRCompanyShareShortVsMediumMomentumFactorRepository, IBKRCompanyShareMomentumZScore20DFactorRepository,
     IBKRCompanyShareMomentumZScore50DFactorRepository, IBKRCompanyShareMomentumZScore100DFactorRepository,
+
+    IBKRCompanyShareAvgTurnover1mFactorRepository, IBKRCompanyShareAvgTurnover2mFactorRepository,
+    IBKRCompanyShareAvgTurnover3mFactorRepository, IBKRCompanyShareAvgTurnover4mFactorRepository,
+    IBKRCompanyShareAvgTurnover5mFactorRepository, IBKRCompanyShareTurnoverFactorRepository,
+    IBKRCompanyShareVpt16w20dLagFactorRepository, IBKRCompanyShareMaxDailyReturn6mFactorRepository,
+    IBKRCompanyShareMinReturn120dFactorRepository,
+
+    IBKRCompanyShareRelativeReturnVsSpy1DFactorRepository,
+    IBKRCompanyShareRelativeReturnVsSpy5DFactorRepository,
+    IBKRCompanyShareRelativeReturnVsSpy20DFactorRepository,
+    IBKRCompanyShareRelativeReturnVsSpy3MFactorRepository,
+    IBKRCompanyShareRelativeReturnVsSpy6MFactorRepository,
 )
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_value_factor_repository import CurrencyValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_rate_factor_repository import CurrencyRateFactorRepository
@@ -629,6 +651,20 @@ class RepositoryFactory:
                 'CompanyShareMomentumZScore20DFactor': CompanyShareMomentumZScore20DFactorRepository(self.session, factory=self),
                 'CompanyShareMomentumZScore50DFactor': CompanyShareMomentumZScore50DFactorRepository(self.session, factory=self),
                 'CompanyShareMomentumZScore100DFactor': CompanyShareMomentumZScore100DFactorRepository(self.session, factory=self),
+                'CompanyShareRelativeReturnVsSpy1DFactor': CompanyShareRelativeReturnVsSpy1DFactorRepository(self.session, factory=self),
+                'CompanyShareRelativeReturnVsSpy5DFactor': CompanyShareRelativeReturnVsSpy5DFactorRepository(self.session, factory=self),
+                'CompanyShareRelativeReturnVsSpy20DFactor': CompanyShareRelativeReturnVsSpy20DFactorRepository(self.session, factory=self),
+                'CompanyShareRelativeReturnVsSpy3MFactor': CompanyShareRelativeReturnVsSpy3MFactorRepository(self.session, factory=self),
+                'CompanyShareRelativeReturnVsSpy6MFactor': CompanyShareRelativeReturnVsSpy6MFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover1mFactor': CompanyShareAvgTurnover1mFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover2mFactor': CompanyShareAvgTurnover2mFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover3mFactor': CompanyShareAvgTurnover3mFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover4mFactor': CompanyShareAvgTurnover4mFactorRepository(self.session, factory=self),
+                'CompanyShareAvgTurnover5mFactor': CompanyShareAvgTurnover5mFactorRepository(self.session, factory=self),
+                'CompanyShareTurnoverFactor': CompanyShareTurnoverFactorRepository(self.session, factory=self),
+                'CompanyShareVpt16w20dLagFactor': CompanyShareVpt16w20dLagFactorRepository(self.session, factory=self),
+                'CompanyShareMaxDailyReturn6mFactor': CompanyShareMaxDailyReturn6mFactorRepository(self.session, factory=self),
+                'CompanyShareMinReturn120dFactor': CompanyShareMinReturn120dFactorRepository(self.session, factory=self),
             }
             self._register_remaining_local_repositories()
         return self._local_repositories
@@ -856,6 +892,20 @@ class RepositoryFactory:
                 'CompanyShareMomentumZScore20DFactor': IBKRCompanyShareMomentumZScore20DFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareMomentumZScore50DFactor': IBKRCompanyShareMomentumZScore50DFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareMomentumZScore100DFactor': IBKRCompanyShareMomentumZScore100DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareRelativeReturnVsSpy1DFactor': IBKRCompanyShareRelativeReturnVsSpy1DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareRelativeReturnVsSpy5DFactor': IBKRCompanyShareRelativeReturnVsSpy5DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareRelativeReturnVsSpy20DFactor': IBKRCompanyShareRelativeReturnVsSpy20DFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareRelativeReturnVsSpy3MFactor': IBKRCompanyShareRelativeReturnVsSpy3MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareRelativeReturnVsSpy6MFactor': IBKRCompanyShareRelativeReturnVsSpy6MFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover1mFactor': IBKRCompanyShareAvgTurnover1mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover2mFactor': IBKRCompanyShareAvgTurnover2mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover3mFactor': IBKRCompanyShareAvgTurnover3mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover4mFactor': IBKRCompanyShareAvgTurnover4mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareAvgTurnover5mFactor': IBKRCompanyShareAvgTurnover5mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareTurnoverFactor': IBKRCompanyShareTurnoverFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareVpt16w20dLagFactor': IBKRCompanyShareVpt16w20dLagFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMaxDailyReturn6mFactor': IBKRCompanyShareMaxDailyReturn6mFactorRepository(ibkr_client=client, factory=self),
+                'CompanyShareMinReturn120dFactor': IBKRCompanyShareMinReturn120dFactorRepository(ibkr_client=client, factory=self),
             }
         return self._ibkr_repositories
 

@@ -25,9 +25,9 @@ class CSMUniverseConfig:
 @dataclass
 class CSMFeatureConfig:
     """
-    Candidate features = the 24 momentum factors of LGBMMomentumFeatureDefinition (return_1d ... momentum_zscore_20d),
-    each computed by its own domain factor's calculate() on the closes up to the date, so the trading cycle and the
-    factor-resolution path read identical values. ``cross_sectional_ranks`` adds the per-date percentile rank of
+    Candidate features = CSMFeatureDefinition: the 24 momentum factors of LGBMMomentumFeatureDefinition plus 11
+    liquidity / volume-trend / price-range / return-extreme factors, each computed by its own domain factor's
+    calculate() on the bars up to the date, so the trading cycle and the factor-resolution path read identical values. ``cross_sectional_ranks`` adds the per-date percentile rank of
     each (cs_rank_<name>); those need the whole cross-section, so a model using them can only be scored by the
     trading cycle, not by a single-entity factor resolution.
     """
@@ -37,18 +37,19 @@ class CSMFeatureConfig:
     exclude: Tuple[str, ...] = ()         # candidates left out of the study
 
     def base_feature_names(self) -> List[str]:
-        from src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_feature_definition import (
-            LGBMMomentumFeatureDefinition,
+        from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
+            CSMFeatureDefinition,
         )
-        return [n for n in LGBMMomentumFeatureDefinition.FEATURE_NAMES if n not in self.exclude]
+        return [n for n in CSMFeatureDefinition.FEATURE_NAMES if n not in self.exclude]
 
     def feature_names(self) -> List[str]:
         base = self.base_feature_names()
         return base + ([f"cs_rank_{n}" for n in base] if self.cross_sectional_ranks else [])
 
     def warmup_rows(self) -> int:
-        """Sessions of closes before the first row where every candidate exists (longest lookback: 106)."""
-        return 107
+        """Sessions of bars before the first row where every candidate exists (longest window: 127 closes of
+        max_daily_return_6m; checked against csm_features.max_lookback by the tests)."""
+        return 128
 
 
 @dataclass

@@ -53,13 +53,13 @@ def close_series(scale=1.0):
 class FactorWorld:
 
     def __init__(self):
-        self.p = SqlitePortfolio(cash=100_000.0, shares=("ZZZ", "AAPL", "MSFT"))
+        self.p = SqlitePortfolio(cash=100_000.0, shares=("ZZZ", "AAPL", "MSFT", "SPY"))   # SPY: benchmark of the relative factors
         self.p.upm._algorithm.bar_size_setting = "1 day"
         self.s = self.p.session
         self.f = self.p.factory
         self.days = bar_days()
-        self.closes = {"AAPL": close_series(1.0), "MSFT": close_series(2.0)}
-        self.share = {t: self.f.company_share_local_repo.get_by_symbol(t) for t in ("AAPL", "MSFT")}
+        self.closes = {"AAPL": close_series(1.0), "MSFT": close_series(2.0), "SPY": close_series(4.0)}
+        self.share = {t: self.f.company_share_local_repo.get_by_symbol(t) for t in ("AAPL", "MSFT", "SPY")}
         self._seed_share_bars()
         self.p.upm._algorithm.time = T
         for ticker, qty in (("AAPL", 10), ("MSFT", 5)):

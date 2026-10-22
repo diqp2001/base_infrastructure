@@ -106,6 +106,16 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareShortVsMediumMomentumFactor, CompanyShareMomentumZScore20DFactor,
     CompanyShareMomentumZScore50DFactor, CompanyShareMomentumZScore100DFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
+    CompanyShareRelativeReturnVsSpy1DFactor, CompanyShareRelativeReturnVsSpy5DFactor,
+    CompanyShareRelativeReturnVsSpy20DFactor, CompanyShareRelativeReturnVsSpy3MFactor,
+    CompanyShareRelativeReturnVsSpy6MFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_factors import (
+    CompanyShareAvgTurnover1mFactor, CompanyShareAvgTurnover2mFactor, CompanyShareAvgTurnover3mFactor,
+    CompanyShareAvgTurnover4mFactor, CompanyShareAvgTurnover5mFactor, CompanyShareTurnoverFactor,
+    CompanyShareVpt16w20dLagFactor, CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor as CurrencyValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor import CurrencyRateFactor as CurrencyRateFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor as CurrencyYieldFactorEntity
@@ -383,6 +393,20 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_momentum_zscore_20d_factor': CompanyShareMomentumZScore20DFactor,
     'company_share_momentum_zscore_50d_factor': CompanyShareMomentumZScore50DFactor,
     'company_share_momentum_zscore_100d_factor': CompanyShareMomentumZScore100DFactor,
+    'company_share_relative_return_vs_spy_1d_factor': CompanyShareRelativeReturnVsSpy1DFactor,
+    'company_share_relative_return_vs_spy_5d_factor': CompanyShareRelativeReturnVsSpy5DFactor,
+    'company_share_relative_return_vs_spy_20d_factor': CompanyShareRelativeReturnVsSpy20DFactor,
+    'company_share_relative_return_vs_spy_3m_factor': CompanyShareRelativeReturnVsSpy3MFactor,
+    'company_share_relative_return_vs_spy_6m_factor': CompanyShareRelativeReturnVsSpy6MFactor,
+    'company_share_avg_turnover_1m_factor': CompanyShareAvgTurnover1mFactor,
+    'company_share_avg_turnover_2m_factor': CompanyShareAvgTurnover2mFactor,
+    'company_share_avg_turnover_3m_factor': CompanyShareAvgTurnover3mFactor,
+    'company_share_avg_turnover_4m_factor': CompanyShareAvgTurnover4mFactor,
+    'company_share_avg_turnover_5m_factor': CompanyShareAvgTurnover5mFactor,
+    'company_share_turnover_factor': CompanyShareTurnoverFactor,
+    'company_share_vpt_16w_20d_lag_factor': CompanyShareVpt16w20dLagFactor,
+    'company_share_max_daily_return_6m_factor': CompanyShareMaxDailyReturn6mFactor,
+    'company_share_min_return_120d_factor': CompanyShareMinReturn120dFactor,
     'company_share_lgbm_cs_quintile_rank_momentum_factor': CompanyShareLGBMCSQuintileRankMomentumFactor,
     'company_share_spatio_temporal_momentum_factor': CompanyShareSpatioTemporalMomentumFactor,
     'company_share_spatio_temporal_feature_factor': CompanyShareSpatioTemporalFeatureFactor,
@@ -784,6 +808,34 @@ class FactorMapper:
             return CompanyShareMomentumZScore50DFactor(**base_args)
         elif factor_type == 'company_share_momentum_zscore_100d_factor':
             return CompanyShareMomentumZScore100DFactor(**base_args)
+        elif factor_type == 'company_share_relative_return_vs_spy_1d_factor':
+            return CompanyShareRelativeReturnVsSpy1DFactor(**base_args)
+        elif factor_type == 'company_share_relative_return_vs_spy_5d_factor':
+            return CompanyShareRelativeReturnVsSpy5DFactor(**base_args)
+        elif factor_type == 'company_share_relative_return_vs_spy_20d_factor':
+            return CompanyShareRelativeReturnVsSpy20DFactor(**base_args)
+        elif factor_type == 'company_share_relative_return_vs_spy_3m_factor':
+            return CompanyShareRelativeReturnVsSpy3MFactor(**base_args)
+        elif factor_type == 'company_share_relative_return_vs_spy_6m_factor':
+            return CompanyShareRelativeReturnVsSpy6MFactor(**base_args)
+        elif factor_type == 'company_share_avg_turnover_1m_factor':
+            return CompanyShareAvgTurnover1mFactor(**base_args)
+        elif factor_type == 'company_share_avg_turnover_2m_factor':
+            return CompanyShareAvgTurnover2mFactor(**base_args)
+        elif factor_type == 'company_share_avg_turnover_3m_factor':
+            return CompanyShareAvgTurnover3mFactor(**base_args)
+        elif factor_type == 'company_share_avg_turnover_4m_factor':
+            return CompanyShareAvgTurnover4mFactor(**base_args)
+        elif factor_type == 'company_share_avg_turnover_5m_factor':
+            return CompanyShareAvgTurnover5mFactor(**base_args)
+        elif factor_type == 'company_share_turnover_factor':
+            return CompanyShareTurnoverFactor(**base_args)
+        elif factor_type == 'company_share_vpt_16w_20d_lag_factor':
+            return CompanyShareVpt16w20dLagFactor(**base_args)
+        elif factor_type == 'company_share_max_daily_return_6m_factor':
+            return CompanyShareMaxDailyReturn6mFactor(**base_args)
+        elif factor_type == 'company_share_min_return_120d_factor':
+            return CompanyShareMinReturn120dFactor(**base_args)
         elif factor_type == 'company_share_lgbm_cs_quintile_rank_momentum_factor':
             return CompanyShareLGBMCSQuintileRankMomentumFactor(**base_args)
         elif factor_type == 'company_share_spatio_temporal_momentum_factor':

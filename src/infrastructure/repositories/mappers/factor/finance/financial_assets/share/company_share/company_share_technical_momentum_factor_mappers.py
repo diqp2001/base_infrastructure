@@ -76,6 +76,30 @@ from src.infrastructure.models.factor.company_share_technical_momentum_factor_mo
     CompanyShareMomentumZScore50DFactorModel, CompanyShareMomentumZScore100DFactorModel,
 )
 
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_factors import (
+    CompanyShareAvgTurnover1mFactor, CompanyShareAvgTurnover2mFactor, CompanyShareAvgTurnover3mFactor,
+    CompanyShareAvgTurnover4mFactor, CompanyShareAvgTurnover5mFactor, CompanyShareTurnoverFactor,
+    CompanyShareVpt16w20dLagFactor, CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
+)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import (
+    CompanyShareAvgTurnover1mFactorModel, CompanyShareAvgTurnover2mFactorModel,
+    CompanyShareAvgTurnover3mFactorModel, CompanyShareAvgTurnover4mFactorModel,
+    CompanyShareAvgTurnover5mFactorModel, CompanyShareTurnoverFactorModel,
+    CompanyShareVpt16w20dLagFactorModel, CompanyShareMaxDailyReturn6mFactorModel,
+    CompanyShareMinReturn120dFactorModel,
+)
+
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_relative_performance_factors import (
+    CompanyShareRelativeReturnVsSpy1DFactor, CompanyShareRelativeReturnVsSpy5DFactor,
+    CompanyShareRelativeReturnVsSpy20DFactor, CompanyShareRelativeReturnVsSpy3MFactor,
+    CompanyShareRelativeReturnVsSpy6MFactor,
+)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import (
+    CompanyShareRelativeReturnVsSpy1DFactorModel, CompanyShareRelativeReturnVsSpy5DFactorModel,
+    CompanyShareRelativeReturnVsSpy20DFactorModel, CompanyShareRelativeReturnVsSpy3MFactorModel,
+    CompanyShareRelativeReturnVsSpy6MFactorModel,
+)
+
 
 def _to_domain(cls, orm_model):
     if not orm_model:
@@ -678,3 +702,163 @@ class CompanyShareMomentumZScore100DFactorMapper(BaseFactorMapper):
     def get_factor_entity(self): return CompanyShareMomentumZScore100DFactor
     def to_domain(self, orm_model): return _to_domain(CompanyShareMomentumZScore100DFactor, orm_model)
     def to_orm(self, e): return _to_orm(CompanyShareMomentumZScore100DFactorModel, 'company_share_momentum_zscore_100d_factor', e)
+
+
+# ── Liquidity, volume-trend and return-extreme factor mappers ────────────────
+
+
+class CompanyShareAvgTurnover1mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgTurnover1mFactorModel
+    def get_factor_model(self): return CompanyShareAvgTurnover1mFactorModel
+    def get_factor_entity(self): return CompanyShareAvgTurnover1mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgTurnover1mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgTurnover1mFactorModel, 'company_share_avg_turnover_1m_factor', e)
+
+
+class CompanyShareAvgTurnover2mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgTurnover2mFactorModel
+    def get_factor_model(self): return CompanyShareAvgTurnover2mFactorModel
+    def get_factor_entity(self): return CompanyShareAvgTurnover2mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgTurnover2mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgTurnover2mFactorModel, 'company_share_avg_turnover_2m_factor', e)
+
+
+class CompanyShareAvgTurnover3mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgTurnover3mFactorModel
+    def get_factor_model(self): return CompanyShareAvgTurnover3mFactorModel
+    def get_factor_entity(self): return CompanyShareAvgTurnover3mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgTurnover3mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgTurnover3mFactorModel, 'company_share_avg_turnover_3m_factor', e)
+
+
+class CompanyShareAvgTurnover4mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgTurnover4mFactorModel
+    def get_factor_model(self): return CompanyShareAvgTurnover4mFactorModel
+    def get_factor_entity(self): return CompanyShareAvgTurnover4mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgTurnover4mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgTurnover4mFactorModel, 'company_share_avg_turnover_4m_factor', e)
+
+
+class CompanyShareAvgTurnover5mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgTurnover5mFactorModel
+    def get_factor_model(self): return CompanyShareAvgTurnover5mFactorModel
+    def get_factor_entity(self): return CompanyShareAvgTurnover5mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgTurnover5mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgTurnover5mFactorModel, 'company_share_avg_turnover_5m_factor', e)
+
+
+class CompanyShareTurnoverFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnoverFactorModel
+    def get_factor_model(self): return CompanyShareTurnoverFactorModel
+    def get_factor_entity(self): return CompanyShareTurnoverFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnoverFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnoverFactorModel, 'company_share_turnover_factor', e)
+
+
+class CompanyShareVpt16w20dLagFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVpt16w20dLagFactorModel
+    def get_factor_model(self): return CompanyShareVpt16w20dLagFactorModel
+    def get_factor_entity(self): return CompanyShareVpt16w20dLagFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVpt16w20dLagFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVpt16w20dLagFactorModel, 'company_share_vpt_16w_20d_lag_factor', e)
+
+
+class CompanyShareMaxDailyReturn6mFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareMaxDailyReturn6mFactorModel
+    def get_factor_model(self): return CompanyShareMaxDailyReturn6mFactorModel
+    def get_factor_entity(self): return CompanyShareMaxDailyReturn6mFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareMaxDailyReturn6mFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareMaxDailyReturn6mFactorModel, 'company_share_max_daily_return_6m_factor', e)
+
+
+class CompanyShareMinReturn120dFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareMinReturn120dFactorModel
+    def get_factor_model(self): return CompanyShareMinReturn120dFactorModel
+    def get_factor_entity(self): return CompanyShareMinReturn120dFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareMinReturn120dFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareMinReturn120dFactorModel, 'company_share_min_return_120d_factor', e)
+
+
+# ── Relative performance versus SPY factor mappers ────────────────
+
+
+class CompanyShareRelativeReturnVsSpy1DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeReturnVsSpy1DFactorModel
+    def get_factor_model(self): return CompanyShareRelativeReturnVsSpy1DFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy1DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy1DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy1DFactorModel, 'company_share_relative_return_vs_spy_1d_factor', e)
+
+
+class CompanyShareRelativeReturnVsSpy5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeReturnVsSpy5DFactorModel
+    def get_factor_model(self): return CompanyShareRelativeReturnVsSpy5DFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy5DFactorModel, 'company_share_relative_return_vs_spy_5d_factor', e)
+
+
+class CompanyShareRelativeReturnVsSpy20DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeReturnVsSpy20DFactorModel
+    def get_factor_model(self): return CompanyShareRelativeReturnVsSpy20DFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy20DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy20DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy20DFactorModel, 'company_share_relative_return_vs_spy_20d_factor', e)
+
+
+class CompanyShareRelativeReturnVsSpy3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeReturnVsSpy3MFactorModel
+    def get_factor_model(self): return CompanyShareRelativeReturnVsSpy3MFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy3MFactorModel, 'company_share_relative_return_vs_spy_3m_factor', e)
+
+
+class CompanyShareRelativeReturnVsSpy6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeReturnVsSpy6MFactorModel
+    def get_factor_model(self): return CompanyShareRelativeReturnVsSpy6MFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeReturnVsSpy6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeReturnVsSpy6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeReturnVsSpy6MFactorModel, 'company_share_relative_return_vs_spy_6m_factor', e)

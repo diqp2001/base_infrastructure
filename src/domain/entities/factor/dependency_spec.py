@@ -61,6 +61,10 @@ class DependencySpec:
     # specs share a factor type, e.g. the highs and the lows of CompanyShareFactor.
     key: Optional[str] = None
 
+    # Resolve the dependency on ANOTHER entity of the parent's class, identified by its symbol (e.g. the SPY
+    # share for a share-versus-benchmark factor), instead of the parent entity and its related entities.
+    entity_symbol: Optional[str] = None
+
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF
 
