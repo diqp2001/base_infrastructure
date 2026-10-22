@@ -285,7 +285,9 @@ class TestPaperUniverseProject(unittest.TestCase):
             self.assertNotIn(gone, tickers)
             self.assertIn(replacement, tickers)
         for kept, (added, _) in ADDED_ALONGSIDE.items():
-            self.assertIn(kept, tickers)
+            # kept while its merger was pending; once delisted it is REPLACED (checked above)
+            if kept not in REPLACED:
+                self.assertIn(kept, tickers)
             self.assertIn(added, tickers)
         others = set(PAPER_US_EQUITIES) - set(REPLACED)
         self.assertTrue(others.issubset(tickers))

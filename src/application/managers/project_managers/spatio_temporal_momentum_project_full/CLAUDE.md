@@ -5,7 +5,8 @@
 * Universe = the paper's US Equities (Appendix B): 46 actively-traded US financials,
   defined in `data/paper_universe.py`; 48 tickers after adjustments:
   - delisted -> replaced: SIVB -> WAL (Western Alliance), NWLI -> CNO (CNO Financial);
-  - pending / recent merger -> kept AND comparable added: CADE (+ HBAN), SNV (+ PNFP).
+  - merger completed (2026-10-22, no IBKR security definition) -> replaced: CADE -> HWC (Hancock Whitney),
+    SNV -> SSB (SouthState); the comparables added in 2025, HBAN and PNFP, are kept.
   Tickers without IBKR data at a bar are simply not eligible.
 * The folder keeps its `_full` name: it briefly used all 503 S&P constituents, which was too
   slow (TFT ~25 s per training step). At 48 stocks: TFT 1.65M params, ~2 s per step (CPU, batch 32).
