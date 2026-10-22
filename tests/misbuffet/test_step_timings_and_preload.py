@@ -163,7 +163,7 @@ def test_preload_imports_reports_coverage_and_registers_the_series():
         assert [c[0] for c in fake.calls] == ["JPM", "BAC"]
         assert fake.calls[0][1] == "10 mins" and fake.calls[0][2].endswith(" W") and fake.calls[0][3] == "TRADES"
         assert preloaded_coverage.covers(fake.fid, 100 + 1, datetime(2026, 10, 5, 12))   # JPM (sorted: BAC, JPM)
-        assert lines[-1].startswith("[preload] 2/3 series loaded, 69/78 expected bars stored")
+        assert lines[-1].startswith("[preload] 2/3 series loaded (0 already stored, 2 imported), 69/78 expected bars")
         frame = service.to_frame(results)
         assert list(frame["symbol"]) == ["JPM", "BAC", "ZZZ"] and frame.loc[2, "error"]
     finally:
@@ -249,6 +249,38 @@ def test_the_preload_marks_every_raw_series_of_the_entity_as_loaded():
         noon = datetime(2026, 10, 5, 12)
         assert all(preloaded_coverage.covers(f.id, 100, noon) for f in others)
         assert preloaded_coverage.covers(fake.fid, 100, noon)
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_a_second_preload_does_not_ask_ibkr_for_stored_series():
+    from src.application.services.data.backtest_preload.backtest_data_preload_service import (
+        BacktestDataPreloadService,
+        PreloadSeries,
+    )
+    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+    factory, session, engine = make_factory()
+    try:
+        full = pd.date_range("2026-10-05 09:30", "2026-10-05 15:50", freq="10min")
+        thin = [d for i, d in enumerate(full) if i % 3 != 1]            # gaps inside the window: no trade
+        fake = _FakeImport(factory, session, {"JPM": list(full), "VALU": thin, "BAC": list(full[:30])})
+        service = BacktestDataPreloadService(fake, log=lambda m: None)
+        series = [PreloadSeries(CompanyShare, t, "TRADES", "10 mins") for t in ("JPM", "VALU", "BAC")]
+        service.preload(series, start="2026-10-05", end="2026-10-05 16:00")
+        assert [c[0] for c in fake.calls] == ["JPM", "VALU", "BAC"]
+        fake.calls.clear()
+        preloaded_coverage.clear()
+        again = service.preload(series, start="2026-10-05", end="2026-10-05 16:00")
+        # JPM complete, VALU spans the window with genuine gaps: not asked; BAC stops at 14:20: imported again
+        assert [c[0] for c in fake.calls] == ["BAC"]
+        assert [r.skipped for r in again] == [True, True, False]
+        assert again[1].stored_bars == len(thin) and again[1].coverage_pct < 100
+        assert preloaded_coverage.covers(fake.fid, 100 + sorted(fake.bars_by_symbol).index("JPM"),
+                                         datetime(2026, 10, 5, 12))                # still registered
+        fake.calls.clear()
+        service.preload(series, start="2026-10-05", end="2026-10-05 16:00", force=True)
+        assert [c[0] for c in fake.calls] == ["JPM", "VALU", "BAC"]
     finally:
         session.close()
         engine.dispose()
