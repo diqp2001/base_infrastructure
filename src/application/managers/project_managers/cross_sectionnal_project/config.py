@@ -76,6 +76,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # lookback of the 5-month factors) before the first bar
     'price_history_start': '2024-11-01',
 
+    # Load every series the run reads (shares' TRADES and implied vol, SPY, IRX) BEFORE the first bar
+    # (BacktestDataPreloadService): the engine and the cycle then read locally instead of calling IBKR at each step;
+    # coverage report -> results_dir/preload.csv
+    'preload_data': True,
+
     # Retraining (Optuna study + final model) every 21 calendar days, on the labels known at the bar
     'retrain_every_days': 21,
 

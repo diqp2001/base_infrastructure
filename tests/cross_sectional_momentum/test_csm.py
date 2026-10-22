@@ -541,3 +541,59 @@ def test_the_import_requests_implied_volatility_without_volume():
     assert kwargs["what_to_show"] == "OPTION_IMPLIED_VOLATILITY"
     assert {f["entity_symbol"] for f in factors} == {"open", "high", "low", "close"}
     assert {f["subgroup"] for f in factors} == {"OPTION_IMPLIED_VOLATILITY"}
+
+
+# ── Backtest data preload ───────────────────────────────────────────────────────────────────────────────────────────
+
+def test_the_preload_covers_every_series_the_run_reads():
+    from collections import Counter
+    from src.application.managers.project_managers.cross_sectionnal_project import config as c
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_preload import (
+        extra_series,
+        preload_series,
+    )
+    cfg = c.build_csm_configuration(c.get_config())
+    series = preload_series(cfg, "1 day")
+    kinds = Counter((s.entity_class.__name__, s.what_to_show) for s in series)
+    assert kinds == {("CompanyShare", "TRADES"): 49, ("CompanyShare", "OPTION_IMPLIED_VOLATILITY"): 48,
+                     ("Index", "TRADES"): 1}
+    assert [s.symbol for s in series[:48]] == list(cfg.universe.tickers)       # the universe first
+    assert {s.symbol for s in series if s.entity_class.__name__ == "Index"} == {"IRX"}
+    assert "SPY" not in cfg.universe.tickers and any(s.symbol == "SPY" for s in series)
+    assert {s.bar_size_setting for s in series} == {"1 day"}
+    assert len(extra_series(cfg)) == len(series) - 48                         # the updater imports the same list
+
+
+def test_the_trainer_preloads_before_the_first_bar(tmp_path, monkeypatch):
+    from src.application.managers.project_managers.cross_sectionnal_project import config as c
+    from src.application.managers.project_managers.cross_sectionnal_project.data.price_ingestion import (
+        DailyHistoryUpdater,
+    )
+    from src.application.managers.project_managers.cross_sectionnal_project.models import model_trainer as mt
+    calls = {}
+
+    class FakeService:
+        def __init__(self, market_data_service, log=None):
+            calls["mds"] = market_data_service
+
+        def preload(self, series, start, end):
+            calls.update(series=series, start=start, end=end)
+            return []
+
+        @staticmethod
+        def to_frame(results):
+            return pd.DataFrame({"symbol": ["JPM"], "coverage_pct": [100.0]})
+
+    monkeypatch.setattr(mt, "BacktestDataPreloadService", FakeService)
+    trainer = mt.CSMModelTrainer.__new__(mt.CSMModelTrainer)
+    import logging
+    trainer.logger = logging.getLogger("test")
+    trainer.config = {**c.get_config(), "results_dir": str(tmp_path)}
+    trainer.csm_config = c.build_csm_configuration(c.get_config())
+    updater = DailyHistoryUpdater(object(), ["JPM"], c.get_config()["price_history_start"])
+    trainer.preload("mds", updater)
+    assert calls["mds"] == "mds" and len(calls["series"]) == 98
+    assert (calls["start"], calls["end"]) == (c.get_config()["price_history_start"], c.get_config()["backtest_end"])
+    assert (tmp_path / mt.PRELOAD_FILE).exists()
+    assert updater._imported_through == pd.Timestamp.now().normalize()        # no second full import at bar 1
+    assert updater(pd.Timestamp.now()) is None
