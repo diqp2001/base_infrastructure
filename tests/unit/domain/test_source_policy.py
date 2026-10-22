@@ -15,15 +15,22 @@ from src.domain.entities.factor.source_policy import (
 
 # ---- policy -----------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("instrument", ["CompanyShare", "CompanyShareOption", "IndexFuture", "BondFuture", "Index"])
+@pytest.mark.parametrize("instrument", ["CompanyShareOption", "IndexFuture", "BondFuture", "Index"])
 def test_price_marks_are_midpoint_first_then_trades(instrument):
     choice = P.select(instrument, "price", "close", U.VALUATION_MARK)
     assert choice.order == (D.MIDPOINT, D.TRADES) and choice.fallback_allowed
 
 
+def test_share_price_marks_are_trades_first_then_midpoint():
+    """The account has no US-equity quote permission (MIDPOINT refused, BI-037): shares read TRADES first."""
+    choice = P.select("CompanyShare", "price", "close", U.VALUATION_MARK)
+    assert choice.order == (D.TRADES, D.MIDPOINT) and choice.fallback_allowed
+
+
 def test_the_intended_use_changes_the_source():
     assert P.select("CompanyShare", "price", "close", U.EXECUTION_PRICE).order == (D.TRADES,)
-    assert P.select("CompanyShare", "price", "close", U.MODEL_INPUT).order == (D.MIDPOINT, D.TRADES)
+    assert P.select("CompanyShare", "price", "close", U.MODEL_INPUT).order == (D.TRADES, D.MIDPOINT)
+    assert P.select("CompanyShareOption", "price", "close", U.MODEL_INPUT).order == (D.MIDPOINT, D.TRADES)
     assert not P.select("CompanyShare", "price", "close", U.EXECUTION_PRICE).fallback_allowed
 
 
@@ -55,7 +62,7 @@ def test_a_rule_states_its_fallback_explicitly():
 
 
 def test_the_selection_note_says_why():
-    choice = P.select("CompanyShare", "price", "close")
+    choice = P.select("CompanyShareOption", "price", "close")
     assert choice.selection_note(D.MIDPOINT).startswith("MIDPOINT: preferred")
     assert choice.selection_note(D.TRADES, (D.MIDPOINT,)).startswith("TRADES: fallback after MIDPOINT returned no data")
 
@@ -77,16 +84,23 @@ def fetcher(answers):
 
 def test_the_fetch_uses_midpoint_when_it_answers():
     fetch, calls = fetcher({"MIDPOINT": [{"close": 1}], "TRADES": [{"close": 2}]})
-    bars, used, note = fetch(P.select("CompanyShare", "price", "close"))
+    bars, used, note = fetch(P.select("CompanyShareOption", "price", "close"))
     assert (bars, used, calls) == ([{"close": 1}], "MIDPOINT", ["MIDPOINT"])
     assert note.startswith("MIDPOINT: preferred")
 
 
 def test_the_fetch_falls_back_to_trades_and_says_so():
     fetch, calls = fetcher({"MIDPOINT": None, "TRADES": [{"close": 2}]})
-    bars, used, note = fetch(P.select("CompanyShare", "price", "close"))
+    bars, used, note = fetch(P.select("CompanyShareOption", "price", "close"))
     assert (used, calls) == ("TRADES", ["MIDPOINT", "TRADES"])
     assert "fallback after MIDPOINT" in note
+
+
+def test_a_share_fetch_asks_trades_first_and_midpoint_only_without_trades():
+    fetch, calls = fetcher({"MIDPOINT": [{"close": 1}], "TRADES": [{"close": 2}]})
+    assert fetch(P.select("CompanyShare", "price", "close"))[:2] == ([{"close": 2}], "TRADES") and calls == ["TRADES"]
+    fetch, calls = fetcher({"MIDPOINT": [{"close": 1}], "TRADES": None})
+    assert fetch(P.select("CompanyShare", "price", "close"))[1] == "MIDPOINT" and calls == ["TRADES", "MIDPOINT"]
 
 
 def test_no_fallback_when_the_use_forbids_it():
@@ -99,5 +113,5 @@ def test_what_to_show_follows_the_policy_by_instrument():
     from src.infrastructure.repositories.ibkr_repo.factor.what_to_show import resolve_what_to_show
     share_close = type("CompanyShareFactor", (), {"name": "close", "group": "price", "subgroup": "ohlc"})()
     share = type("CompanyShare", (), {})()
-    assert resolve_what_to_show(share_close, share) == "MIDPOINT"
+    assert resolve_what_to_show(share_close, share) == "TRADES"
     assert resolve_what_to_show(share_close, share, use=U.EXECUTION_PRICE) == "TRADES"

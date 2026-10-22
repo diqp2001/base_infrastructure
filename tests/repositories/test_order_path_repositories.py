@@ -157,7 +157,7 @@ class IBKRRoutingTest(unittest.TestCase):
                                                       "source": "ibkr"})()
         service = MarketDataHistoryService.__new__(MarketDataHistoryService)
         self.assertEqual(service._resolve_what_to_show_for_factor(option_close), "MIDPOINT")
-        self.assertEqual(service._resolve_what_to_show_for_factor(share_close), "MIDPOINT")   # BI-026 policy
+        self.assertEqual(service._resolve_what_to_show_for_factor(share_close), "TRADES")   # BI-043: shares
 
     def test_contract_mapper_keeps_stock_and_option_identity(self):
         from ibapi.contract import Contract, ContractDetails

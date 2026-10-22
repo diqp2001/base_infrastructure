@@ -13,9 +13,9 @@ For each series:
      exactly those the engine reads (subgroup = whatToShow, frequency = bar size);
   3. the stored bars are compared with the bars the exchange was open for (NYSE calendar) — the report says what
      is missing;
-  4. the series' raw bar factors are registered as loaded over [start, end] (preloaded_coverage): a bar still
-     missing there does not exist at IBKR, so the resolver serves the latest closed stored bar instead of asking
-     IBKR again at every engine step.
+  4. every raw bar factor of the entity (any whatToShow, any frequency) is registered as loaded over [start, end]
+     (preloaded_coverage): inside that window the resolver never asks IBKR for this entity's raw data again — a
+     missing bar gets the latest closed stored bar, or nothing.
 
 Nothing here changes how the engine or the backtest run; it only makes sure the data is already there.
 IBKR constraint: requests must end within the last 6 months, so every import ends now with a duration reaching
@@ -110,7 +110,7 @@ class BacktestDataPreloadService:
                 result.imported = True
                 self._check(result, spec, entity, start, end)
                 if register:
-                    for factor_id in self._series_factor_ids(spec, entity):
+                    for factor_id in self._raw_factor_ids(entity):
                         preloaded_coverage.register(factor_id, result.entity_id, start.to_pydatetime(),
                                                     end.to_pydatetime())
                         result.registered_factors.append(factor_id)
@@ -137,6 +137,17 @@ class BacktestDataPreloadService:
                     and getattr(f, "frequency", None) == frequency and getattr(f, "source", None) != "calculated"):
                 out.append(f)
         return out
+
+    def _raw_factor_ids(self, entity) -> List[int]:
+        """EVERY raw bar factor of the entity's class (any whatToShow, any frequency): once the run's series are
+        loaded, no raw series of this entity is fetched from IBKR inside the window — a lookup on another frequency
+        (e.g. the 5-minute closes the valuation chain also reads) or on a refused type (MIDPOINT) gets the latest
+        closed stored bar or nothing, instead of an IBKR request per bar."""
+        from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_FACTOR_MAPPING
+        repo = self.factory.get_local_repository(ENTITY_FACTOR_MAPPING[type(entity)][0])
+        return [int(f.id) for f in (repo.get_all() if repo is not None else [])
+                if getattr(f, "name", None) in RAW_FIELDS and getattr(f, "source", None) != "calculated"
+                and getattr(f, "id", None) is not None]
 
     def _series_factor_ids(self, spec: PreloadSeries, entity) -> List[int]:
         return [int(f.id) for f in self._series_factors(spec, entity) if getattr(f, "id", None) is not None]

@@ -98,12 +98,13 @@ def ingest(world):
                                      bar_size_setting="1 day", duration_str="10 D")
 
 
-def test_ingestion_requests_midpoint_daily_bars_and_returns_the_last_closed_bar(world):
-    """Price marks are requested MIDPOINT first (source policy, BI-026); the feed answers, so no TRADES request."""
+def test_ingestion_requests_trades_daily_bars_and_returns_the_last_closed_bar(world):
+    """Share price marks are requested TRADES first (source policy, BI-043: no US-equity quote permission); the feed
+    answers, so no MIDPOINT request."""
     value = ingest(world)
     assert float(value.value) == 150.0                      # not the open decision-day bar (999)
     req, = world.feed.requests
-    assert (req["symbol"], req["what"], req["bar_size"]) == ("AAPL", "MIDPOINT", "1 day")
+    assert (req["symbol"], req["what"], req["bar_size"]) == ("AAPL", "TRADES", "1 day")
     stored = sorted((row[2], row[3]) for row in world.p.factor_values("close"))
     assert (PREVIOUS, 150.0) in stored
 
