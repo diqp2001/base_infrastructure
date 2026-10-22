@@ -66,9 +66,14 @@ REPLACED = {
                     "closest listed regional bank with a tech / venture-banking focus"),
     "NWLI": ("CNO", "National Western Life was acquired and delisted (2024); CNO Financial Group is a listed "
                     "US life & annuity insurer"),
+    # 2026-10-22: the mergers completed — IBKR has no security definition for CADE / SNV any more (preload)
+    "CADE": ("HWC", "Cadence Bank was acquired by Huntington Bancshares; Hancock Whitney is a listed Gulf South "
+                    "regional bank with a comparable footprint"),
+    "SNV": ("SSB", "Synovus merged with Pinnacle Financial Partners; SouthState is a listed southeastern regional "
+                   "bank"),
 }
 
-# Status uncertain (announced / recent merger) -> KEPT, and a comparable ADDED
+# Comparables added when CADE / SNV announced their mergers (2025), kept alongside their replacements
 ADDED_ALONGSIDE = {
     "CADE": ("HBAN", "Cadence Bank agreed to be acquired by Huntington Bancshares (2025); Huntington is added "
                      "as the comparable (and acquirer) regional bank"),
