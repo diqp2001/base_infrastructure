@@ -71,6 +71,16 @@ applies the model valid at the date to `CSMFeatureDefinition.extract(dependencie
 * kept per model: selected features, parameters, CV score, every trial value, feature selection frequency in the
   top 20% trials, Optuna hyper-parameter importances, gain importance of the final model.
 
+## Data preload (`config['preload_data']`, default True)
+
+Before the first bar, `CSMModelTrainer.preload` imports every series the run reads — the list of
+`cross_sectional_momentum/csm_preload.py`, derived from the candidates and shared with the updater: the 48 shares'
+daily TRADES bars, their `OPTION_IMPLIED_VOLATILITY` bars, SPY (CompanyShare, TRADES) and IRX (Index, TRADES), 98
+series — from `price_history_start` to `backtest_end` through `BacktestDataPreloadService`
+(`services/data/backtest_preload`). Coverage per series -> `results/cross_sectional_momentum/preload.csv`; the loaded
+ranges are registered, so a bar still missing there is served from the latest closed stored bar instead of being
+requested from IBKR at every step. The updater then only imports new days (live).
+
 ## Results report (`/csm/` dashboard, `/csm/results`, `/csm/report.pdf`)
 
 Built after the run (`csm_report.build_report`), saved to `results/cross_sectional_momentum/` with its PDF:
