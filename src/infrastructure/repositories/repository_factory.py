@@ -1045,7 +1045,9 @@ class RepositoryFactory:
         for repo in repos.values():
             if hasattr(repo, 'entity_class') and repo.entity_class is entity_class_or_key:
                 return repo
-        return None
+        # a repository that does not declare entity_class (e.g. IBKRIndexFactorRepository) is still registered under
+        # its class name: without this the IRX (Index) import found no repository
+        return repos.get(getattr(entity_class_or_key, '__name__', None))
 
     def has_ibkr_client(self) -> bool:
         """Check if IBKR client is available."""
