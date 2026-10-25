@@ -22,7 +22,7 @@ class IBKRCompanySharePortfolioCorrelationFactorRepository(BaseIBKRFactorReposit
     @property
     def local_repo(self):
         if self.factory:
-            return self.factory._local_repositories.get('portfolio_company_share_correlation_factor')
+            return self.factory._local_repositories.get('CompanySharePortfolioCorrelationFactor')
         return None
 
     def get_by_id(self, entity_id: int) -> Optional[CompanySharePortfolioCorrelationFactor]:

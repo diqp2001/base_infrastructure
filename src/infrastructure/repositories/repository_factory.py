@@ -388,6 +388,18 @@ from src.infrastructure.repositories.local_repo.ml.model_artifact_repository imp
 from src.infrastructure.repositories.local_repo.factor.constituent_score_factor_repository import ConstituentScoreFactorRepository
 
 
+class RepositoryRegistry(dict):
+    """Repositories by name. ``get`` also accepts the snake_case spelling of a CamelCase key ('index_factor' ->
+    'IndexFactor'): many IBKR repositories look their local counterpart up that way, and got None (every IRX
+    import failed with "'NoneType' object has no attribute '_create_or_get'")."""
+
+    def get(self, key, default=None):
+        value = super().get(key)
+        if value is None and isinstance(key, str) and ("_" in key or key[:1].islower()):
+            value = super().get("".join(part[:1].upper() + part[1:] for part in key.split("_")))
+        return default if value is None else value
+
+
 class RepositoryFactory:
     """
     Factory for creating and managing repository instances with proper dependency injection.
@@ -691,6 +703,7 @@ class RepositoryFactory:
                 'CompanyShareMaxDailyReturn6mFactor': CompanyShareMaxDailyReturn6mFactorRepository(self.session, factory=self),
                 'CompanyShareMinReturn120dFactor': CompanyShareMinReturn120dFactorRepository(self.session, factory=self),
             }
+            self._local_repositories = RepositoryRegistry(self._local_repositories)
             self._register_remaining_local_repositories()
         return self._local_repositories
 

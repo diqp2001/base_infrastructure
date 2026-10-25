@@ -534,7 +534,10 @@ class UnifiedPortfolioManager:
         # computed value as authoritative total when the QC portfolio reports 0.
         if self._current_portfolio_entity is not None:
             
-            if self._algorithm and hasattr(self._algorithm, 'time') and isinstance(self._algorithm.time, datetime) and self._algorithm.time < datetime.strptime(self._algorithm.config["backtest_end"],"%Y-%m-%d %H:%M:%S"):
+            # The engine clock is the valuation time, the last bar included (it is backtest_end itself) and live
+            # (past any configured backtest_end). It used to require time < backtest_end: the final bar was then
+            # valued at backtest_start (positions rebuilt as of the first bar -> a wrong final value).
+            if self._algorithm and isinstance(getattr(self._algorithm, 'time', None), datetime):
                 current_time = self._algorithm.time
             elif backtest_date is not None:
                 current_time = backtest_date
@@ -592,6 +595,10 @@ class UnifiedPortfolioManager:
                 total = float(getattr(self._current_portfolio_entity, 'initial_cash', 0) or 0)
             except Exception:
                 pass
+            # legitimate before the first trade (nothing to value yet); after it, a valued total of 0 means the
+            # valuation failed — say so instead of reporting the initial cash as if nothing had happened
+            if self.logger and total:
+                self.logger.warning(f"get_portfolio_value: computed value is 0, reporting the initial cash {total:,.2f}")
 
         return total
 
