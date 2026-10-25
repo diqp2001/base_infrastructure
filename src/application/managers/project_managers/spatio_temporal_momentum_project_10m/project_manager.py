@@ -39,6 +39,8 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 import pandas as pd
 
 
+DASHBOARD_URL = "http://127.0.0.1:5000/stm/?project=10m"           # progress, results and PDF of this project
+
 class SpatioTemporalMomentum10mProjectManager(ProjectManager):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, database_service=None, progress=None):
@@ -69,6 +71,9 @@ class SpatioTemporalMomentum10mProjectManager(ProjectManager):
                                       pd.Timestamp(self.config['backtest_end']).normalize()))
         bars_total = sessions * bars_per_session(self.stm_config.bar_minutes)
         self.progress.start("backtest", bars_total=bars_total)
+        # where to follow the run (the Flask app must be running: python -m src.interfaces.flask.app)
+        print(f"Track this run: {DASHBOARD_URL}   (results: {self.results_dir})", flush=True)
+        self.progress.log(f"[run] dashboard: {DASHBOARD_URL}")
         timings_csv = os.path.join(self.results_dir, TIMINGS_FILE)
         if os.path.exists(timings_csv):
             os.remove(timings_csv)                       # one file per run: where each bar's time went

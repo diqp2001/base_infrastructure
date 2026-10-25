@@ -35,6 +35,8 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 OPTUNA_LOG_PREFIXES = ("[CSM] Optuna",)
 
 
+DASHBOARD_URL = "http://127.0.0.1:5000/csm/"           # progress, results and PDF of this project
+
 class CrossSectionalMomentumProjectManager(ProjectManager):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, database_service=None, progress=None):
@@ -63,6 +65,9 @@ class CrossSectionalMomentumProjectManager(ProjectManager):
         bars_total = len(pd.bdate_range(pd.Timestamp(self.config['backtest_start']).normalize(),
                                         pd.Timestamp(self.config['backtest_end']).normalize()))
         self.progress.start("backtest", bars_total=bars_total)
+        # where to follow the run (the Flask app must be running: python -m src.interfaces.flask.app)
+        print(f"Track this run: {DASHBOARD_URL}   (results: {self.results_dir})", flush=True)
+        self.progress.log(f"[run] dashboard: {DASHBOARD_URL}")
         try:
             results = self._run()
         except Exception as e:
