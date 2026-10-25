@@ -77,8 +77,10 @@ REPLACED = {
 ADDED_ALONGSIDE = {
     "CADE": ("HBAN", "Cadence Bank agreed to be acquired by Huntington Bancshares (2025); Huntington is added "
                      "as the comparable (and acquirer) regional bank"),
-    "SNV": ("PNFP", "Synovus agreed to merge with Pinnacle Financial Partners (2025); Pinnacle is added as the "
-                    "comparable (and merger partner) southeastern regional bank"),
+    # 2026-10-25: the old PNFP stopped trading at the merger — IBKR only has the combined company from
+    # 2026-01-02 (39% of the preload window); First Horizon is a listed southeastern regional bank with options
+    "SNV": ("FHN", "Synovus merged with Pinnacle Financial Partners (2025); First Horizon is added as the "
+                   "comparable southeastern regional bank"),
 }
 
 
