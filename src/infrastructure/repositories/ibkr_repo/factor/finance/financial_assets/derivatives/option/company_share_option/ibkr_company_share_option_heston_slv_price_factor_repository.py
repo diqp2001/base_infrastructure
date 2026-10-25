@@ -18,7 +18,7 @@ class IBKRCompanyShareOptionHestonSLVPriceFactorRepository(BaseIBKRFactorReposit
         super().__init__(ibkr_client, factory)
         self.factory = factory
         if self.factory:
-            self.local_repo = self.factory._local_repositories.get('company_share_option_heston_slv_price_factor')
+            self.local_repo = self.factory._local_repositories.get('CompanyShareOptionHestonSLVPriceFactor')
 
     @property
     def entity_class(self):
