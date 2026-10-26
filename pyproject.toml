@@ -98,6 +98,8 @@ ignore_imports = [
     "src.application.managers.project_managers.spatio_temporal_momentum_project_10m.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo -> src.infrastructure.models.**",
     "src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.cross_sectionnal_project_10m.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.cross_sectionnal_project_10m.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.market_making_project.data.data_loader -> src.infrastructure.models.**",
 ]
 

@@ -15,6 +15,9 @@ Features      gain share of the models used (weighted by the decisions they scor
               retraining (window, CV score, selected features, parameters); Optuna trial histories and
               hyper-parameter importances.
 Coverage      stm_data_coverage against the NYSE calendar (history + backtest windows).
+
+Bars: daily by default; with ``config.bar_minutes`` (e.g. 10) every "session" above is a bar of that size, the
+returns are bar-to-bar and the metrics are annualised with 252 x bars per session.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
     long_short_weights,
 )
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_data_coverage import data_coverage
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import periods_per_year
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_research_report import (
     METRIC_COLUMNS,
     strategy_metrics,
@@ -109,9 +113,9 @@ def quantile_returns(decided: List[Any], one_day: pd.DataFrame, n: int = N_QUANT
     return pd.DataFrame.from_dict(rows, orient="index", columns=labels + [f"Q{n} - Q1"])
 
 
-def quantile_table(returns: pd.DataFrame) -> pd.DataFrame:
-    """Metrics per quintile (and the spread) plus the cumulative return over the run."""
-    table = pd.DataFrame({c: strategy_metrics(returns[c]) for c in returns}).T[METRIC_COLUMNS]
+def quantile_table(returns: pd.DataFrame, periods: int = 252) -> pd.DataFrame:
+    """Metrics per quintile (and the spread) plus the cumulative return over the run; ``periods`` = bars per year."""
+    table = pd.DataFrame({c: strategy_metrics(returns[c], periods) for c in returns}).T[METRIC_COLUMNS]
     table.insert(0, "Cumulative return", [float((1.0 + returns[c].dropna()).prod() - 1.0) for c in returns])
     return table
 
@@ -133,6 +137,8 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
     """``artifacts`` = {artifact id: metadata} of the models trained / used during the run."""
     decided = _decisions(cycle_results)
     closes = closes.sort_index()
+    periods = periods_per_year(config.bar_minutes)                 # 252 daily, 252 x 39 for 10-minute bars
+    unit = "bar" if config.bar_minutes else "session"
     sessions = list(closes.index)
     nxt = {s: sessions[i + 1] for i, s in enumerate(sessions[:-1])}
     decided = [r for r in decided if r.session in nxt]
@@ -157,11 +163,11 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
                             for name, ws in strategies.items()}, index=dates)
     turnovers = {name: _turnover(ws) for name, ws in strategies.items()}
 
-    perf = pd.DataFrame({k: strategy_metrics(returns[k]) for k in returns}).T[METRIC_COLUMNS]
+    perf = pd.DataFrame({k: strategy_metrics(returns[k], periods) for k in returns}).T[METRIC_COLUMNS]
     perf["Ave. Turnover"] = [float(np.mean(turnovers[k][1:])) if len(turnovers[k]) > 1 else float("nan")
                              for k in perf.index]
     costs = pd.DataFrame({
-        k: {f"{c:g}": strategy_metrics(returns[k] - c * 1e-4 * turnovers[k])["Sharpe"] for c in COST_SCENARIOS_BPS}
+        k: {f"{c:g}": strategy_metrics(returns[k] - c * 1e-4 * turnovers[k], periods)["Sharpe"] for c in COST_SCENARIOS_BPS}
         for k in returns}).T
 
     # prediction quality
@@ -186,7 +192,7 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
         "Mean AUC (vs realised above-median)": float(np.mean(aucs)) if aucs else float("nan"),
         "Share of decisions with AUC > 0.5": float(np.mean(np.asarray(aucs) > 0.5)) if aucs else float("nan"),
         "Accuracy (prob. above / below the median)": float(np.mean(accs)) if accs else float("nan"),
-        "Mean top-minus-bottom next-session return": float(np.mean(spreads)) if spreads else float("nan"),
+        f"Mean top-minus-bottom next-{unit} return": float(np.mean(spreads)) if spreads else float("nan"),
         "t-stat of the spread": (float(np.mean(spreads) / (np.std(spreads, ddof=1) / np.sqrt(len(spreads))))
                                  if len(spreads) > 2 and np.std(spreads, ddof=1) > 0 else float("nan")),
     }, dtype=object)})
@@ -238,18 +244,18 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
     param_table = pd.DataFrame(param_imp).fillna(0.0) if param_imp else pd.DataFrame()
 
     notes = [
-        f"Each decision's weights earn the next session's close-to-close return (decision on the close of the "
-        f"session, as in the STM report); top / bottom {config.training.long_short_quantile:.0%} of the predicted "
+        f"Each decision's weights earn the next {unit}'s close-to-close return (decision on the close of the "
+        f"{unit}, as in the STM report); top / bottom {config.training.long_short_quantile:.0%} of the predicted "
         f"probabilities, inverse-volatility weights, dollar-neutral, gross {config.training.gross_exposure:g}.",
-        f"Label: next {config.label.horizon}-session return above the cross-sectional median. Optuna TPE "
+        f"Label: next {config.label.horizon}-{unit} return above the cross-sectional median. Optuna TPE "
         f"({config.optimization.n_trials} trials, {config.optimization.n_startup_trials} random start-up trials) "
         f"chooses the features and LightGBM parameters on {config.optimization.n_folds} purged walk-forward folds "
-        f"of the {config.training.training_window_rows}-session window ({config.optimization.metric}).",
+        f"of the {config.training.training_window_rows}-{unit} window ({config.optimization.metric}).",
         "Feature importance: gain share of the models used (weighted by decisions scored), mean |TreeSHAP| "
         "(LightGBM pred_contrib) at the decisions, and how often Optuna selected each feature.",
         "Transaction costs: bps x turnover (sum of |weight changes|) per decision.",
         f"Quintiles: at each decision the scored assets are cut into {N_QUANTILES} equal-count buckets by predicted "
-        f"probability (Q1 lowest .. Q{N_QUANTILES} highest); each earns the equal-weight next-session return of its "
+        f"probability (Q1 lowest .. Q{N_QUANTILES} highest); each earns the equal-weight next-{unit} return of its "
         f"names (not the traded inverse-volatility book). A monotone Q1 < .. < Q{N_QUANTILES} order means the "
         f"ranking carries information.",
     ]
@@ -259,10 +265,11 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
         for a in r.scores:
             scored[a] = scored.get(a, 0) + 1
     universe = list(config.universe.tickers or closes.columns)
-    cov = data_coverage(closes, universe, [r.session for r in steps], scored, None, history_start=history_start,
+    cov = data_coverage(closes, universe, [r.session for r in steps], scored, config.bar_minutes,
+                        history_start=history_start,
                         scored_per_decision=[len(getattr(r, "scores", {}) or {}) for r in steps])
     s = cov[0]["Value"]
-    notes.append(f"Data coverage: {s['Coverage % — backtest']:.1f}% of the expected daily bars stored in the "
+    notes.append(f"Data coverage: {s['Coverage % — backtest']:.1f}% of the expected {'%d-minute' % config.bar_minutes if config.bar_minutes else 'daily'} bars stored in the "
                  f"backtest window, {s['Coverage % — history']:.1f}% in the history window (NYSE calendar).")
 
     return CSMReport(
@@ -287,5 +294,5 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
         coverage_by_session=cov[2],
         quintile_returns=quintiles,
         quintile_cumulative=(1.0 + quintiles.fillna(0.0)).cumprod(),
-        table_quintiles=quantile_table(quintiles),
+        table_quintiles=quantile_table(quintiles, periods),
     )

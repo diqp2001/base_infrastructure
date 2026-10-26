@@ -26,6 +26,8 @@ csm_bp = Blueprint("csm", __name__, url_prefix="/csm")
 PROJECTS = {
     "cross_sectional": ("Paper universe, LightGBM + Optuna TPE",
                         "src.application.managers.project_managers.cross_sectionnal_project.config"),
+    "csm_10m": ("Paper universe, 10-minute bars, retrained daily",
+                "src.application.managers.project_managers.cross_sectionnal_project_10m.config"),
 }
 _caches = {}
 

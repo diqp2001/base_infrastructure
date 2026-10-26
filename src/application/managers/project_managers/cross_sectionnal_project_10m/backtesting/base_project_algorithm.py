@@ -1,0 +1,91 @@
+"""
+10-minute cross-sectional momentum algorithm for the Misbuffet engine (backtest and live).
+
+initialize():
+    portfolio registration (Misbuffet), then the trainer wires the CSMTradingCycle (10-minute bars, retrained every
+    day) onto this algorithm's MarketDataService and MarketDataHistoryService (whose frontier blocks look-ahead).
+
+on_data(data), every 10 minutes:
+    cycle.step(bar time)  -> frontier advance, data update, retrain at the first bar of a new day,
+                             scores from the model valid for the bar
+    set_holdings(weights) -> UnifiedPortfolioManager (orders, transactions, positions)
+
+The time spent in each part of a bar (slice / cycle / orders / valuation) is written to results_dir/timings.csv.
+"""
+
+import logging
+import os
+from typing import Any, List
+
+from src.application.managers.project_managers.cross_sectionnal_project_10m.config import get_config
+from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
+from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
+from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+
+TIMINGS_FILE = "timings.csv"            # per-bar time spent in slice / cycle / orders / valuation (results_dir)
+
+
+class Algorithm(BaseProjectAlgorithm):
+
+    def __init__(self):
+        super().__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.cycle = None
+        self.cycle_results: List[Any] = []
+        self.progress_tracker = None  # optional STMProgressTracker (Flask dashboard)
+
+    def initialize(self):
+        super().initialize()
+        self.config = get_config()
+        portfolio_config = self.config.get('Portfolio', {})
+        if self._entity_service:
+            portfolio_entity = self.register_portfolio(portfolio_config=portfolio_config)
+            if portfolio_entity:
+                self.portfolio_entity = portfolio_entity
+            else:
+                self.warning("Failed to register the 10-minute cross-sectional momentum portfolio")
+        self.universe = self.config['universe']
+        self.bar_size_setting = self.config['bar_size_setting']
+        self.duration_str = self.config['duration_str']
+
+        if getattr(self, 'trainer', None) is not None and self._entity_service is not None:
+            self.cycle = self.trainer.build_cycle(
+                market_data_service=self._market_data_service,
+                history_service=self._market_data_history_service,
+                factory=self.repository_factory,
+                log=self.progress_tracker.log if self.progress_tracker is not None else self.log,
+            )
+        else:
+            self.warning("No trainer / entity service injected — 10-minute cross-sectional momentum cycle disabled")
+
+    def on_data(self, data):
+        try:
+            if not self.initialized or self.cycle is None:
+                return
+            bar_time = getattr(data, 'time', None) or getattr(self, 'time', None)
+            if bar_time is None:
+                return
+            timings = getattr(self, "step_timings", None) or StepTimings(label=str(bar_time))
+            with timings.section("cycle"):
+                result = self.cycle.step(bar_time)
+            self.cycle_results.append(result)
+            if result.retrained:
+                self.log(f"CSM 10m model retrained at bar {result.session} (artifact {result.artifact_id})")
+            if result.weights and self._unified_portfolio_manager:
+                with timings.section("orders"):
+                    self._unified_portfolio_manager.set_holdings(
+                        {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
+                        data=data,
+                    )
+            elif not result.weights:
+                self.log(f"No CSM 10m position change at {bar_time}: {result.note}")
+            with timings.section("valuation"):
+                self._update_portfolio_value(data)
+                self._update_performance_tracking(data)
+            line = record_step_timings(timings, os.path.join(self.config['results_dir'], TIMINGS_FILE))
+            self.logger.info(line)
+            if self.progress_tracker is not None:
+                self.progress_tracker.log(line)
+                self.progress_tracker.on_step(result, self.portfolio_value)
+        except Exception as e:
+            self.logger.error(f"Error in on_data: {e}")

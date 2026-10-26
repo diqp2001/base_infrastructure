@@ -16,6 +16,7 @@ import pandas as pd
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_configuration import (
     CSMConfiguration,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
 
 ENTITY_TYPE = "CompanyShare"
 SIGNAL_FACTOR_TYPE = "company_share_cross_sectional_momentum_factor"
@@ -37,7 +38,8 @@ class CSMSignalStore:
             repo = self.factory.get_local_repository("CompanyShareCrossSectionalMomentumFactor")
             factor = repo._create_or_get(
                 repo.get_factor_entity(), primary_key=self.config.signal_factor_name, group="momentum",
-                subgroup="daily", frequency="1d", factor_type=SIGNAL_FACTOR_TYPE,
+                subgroup="minutes" if self.config.bar_minutes else "daily",
+                frequency=frequency(self.config.bar_minutes), factor_type=SIGNAL_FACTOR_TYPE,
                 definition="Cross-sectional momentum classifier: probability of beating the cross-sectional median",
             )
             if factor is None or factor.id is None:
