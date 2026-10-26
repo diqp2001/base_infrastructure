@@ -206,6 +206,33 @@ class PortfolioTreeSqliteTest(unittest.TestCase):
         self.assertEqual((self.p.qty("AAPL"), self.p.cash()), (0, 100_000.0))
         self.p.market_order.assert_not_called()
 
+    def test_liquidation_is_booked_in_this_portfolio_not_in_another_holding_the_same_share(self):
+        """2026-10-25: the cross-sectional run's liquidations were booked into the 10m portfolio, which held the
+        same shares first — the position was never closed and was sold again at every bar."""
+        from datetime import datetime
+        from src.application.services.misbuffet.algorithm.unified_portfolio_manager import UnifiedPortfolioManager
+        self.p.upm._algorithm.bar_size_setting = "1 day"          # held shares are valued from stored closes
+        for ticker, price in (("AAPL", 150.0), ("MSFT", 400.0)):
+            self.p.seed_close(ticker, datetime(2026, 1, 2), price)   # previous session's bar, closed at T0
+        other = UnifiedPortfolioManager(SimpleNamespace(repository_factory=self.p.factory), None,
+                                        logger=self.p.logger)
+        other._algorithm = self.p.upm._algorithm
+        other_portfolio = other.register_portfolio_with_config({"name": "OTHER", "initial_cash": 100_000.0})
+        self.assertTrue(other._trade_manager.execute_trade(
+            ticker="AAPL", order_qty=5, price=150.0, current_time=T0, submit_order_fn=self.p.market_order,
+            portfolio_id=other._ensure_asset_container("AAPL", T0, asset_class=CompanyShare),
+            main_portfolio_id=other_portfolio.id))
+        self.p.trade("AAPL", 10, 150.0)
+        self.assertEqual(self.p.upm._find_existing_container("AAPL"), self.p.container("AAPL"))
+
+        data = slice_at(AAPL=150.0, MSFT=400.0)
+        self.p.upm.set_holdings({CompanyShare: {"name": "MSFT", "quantity": 1}}, data)
+        self.assertEqual((self.p.qty("AAPL"), self.p.qty("MSFT")), (0, 1))
+        self.assertEqual(other._get_current_position_qty("AAPL"), 5)            # the other book is untouched
+        orders = self.p.market_order.call_count
+        self.p.upm.set_holdings({CompanyShare: {"name": "MSFT", "quantity": 1}}, data)
+        self.assertEqual(self.p.market_order.call_count, orders)                # nothing sold again
+
     def test_portfolio_value_includes_held_shares(self):
         self.p.trade("AAPL", 10, 150.0)
         try:
