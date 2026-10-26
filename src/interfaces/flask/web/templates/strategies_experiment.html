@@ -1,0 +1,91 @@
+{% extends "strategies_base.html" %}
+{% block title %}Experiment {{ e.id }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Experiment #{{ e.id }} <span id="status" class="badge badge-{{ e.status }}">{{ e.status }}</span>
+            <small class="muted">{{ e.kind }}</small></h3>
+        <div class="muted small">Configuration <a href="{{ url_for('strategies.view', configuration_id=c.id) }}">{{ c.name }} v{{ c.version }}</a>
+            · {{ e.project_key }} · hash {{ e.configuration_hash[:12] }} · worker {{ e.pid or '—' }} on {{ e.host or '—' }}</div>
+        <div class="muted small">created {{ e.created_at }} · started {{ e.started_at or '—' }} · last heartbeat
+            <span id="heartbeat">{{ e.heartbeat_at or '—' }}</span> · finished <span id="finished">{{ e.finished_at or '—' }}</span></div>
+    </div>
+    <div>
+        {% if e.status == 'succeeded' %}
+        <a class="btn btn-success btn-sm" href="{{ url_for('strategies.experiment_report', experiment_id=e.id) }}">Report</a>
+        <a class="btn btn-outline-success btn-sm" href="{{ url_for('strategies.experiment_report_pdf', experiment_id=e.id) }}">PDF</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if e.error %}<div class="alert alert-danger"><pre class="mb-0" style="white-space:pre-wrap">{{ e.error }}</pre></div>{% endif %}
+
+{% if e.summary %}
+<div class="card mb-3">
+    <div class="card-header">Results (backtest, out-of-sample decisions) — {{ e.summary.model }} · {{ e.summary.period|join(' to ') }} · {{ e.summary.decisions }} decisions</div>
+    <div class="card-body p-0"><table class="table mb-0">
+        <tr>{% for k in (e.summary.metrics or {}) %}<th>{{ k }}</th>{% endfor %}</tr>
+        <tr>{% for k, v in (e.summary.metrics or {}).items() %}<td>{{ '%.4f'|format(v) if v is not none else '—' }}</td>{% endfor %}</tr>
+    </table></div>
+    {% if e.summary.benchmarks %}
+    <div class="card-body small">Benchmarks (Sharpe):
+        {% for name, b in e.summary.benchmarks.items() %}<b>{{ name }}</b> {{ '%.2f'|format(b.Sharpe) if b.Sharpe is not none else '—' }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="row">
+<div class="col-lg-6">
+    <div class="card mb-3">
+        <div class="card-header">Provenance</div>
+        <div class="card-body small">
+            <div><span class="muted">Results folder:</span> <code>{{ e.results_dir }}</code></div>
+            {% set p = e.provenance %}
+            <div><span class="muted">Universe:</span> {{ (p.universe or {}).tickers|default([])|length }} assets
+                (universe id {{ (p.universe or {}).universe_id }})</div>
+            <div><span class="muted">Decisions with an eligibility record:</span> {{ (p.eligible_per_decision or {})|length }}</div>
+            <div><span class="muted">Retrainings:</span> {{ (p.retrainings or [])|length }}</div>
+            <div><span class="muted">Preload coverage report:</span> {{ p.preload_report or '—' }}</div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Model artifacts used</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            <tr><th>#</th><th>Trained as of / valid from</th><th>Window</th><th>Features</th><th>File</th></tr>
+            {% for a in artifacts %}
+            <tr><td>{{ a.id }}</td>
+                {% if a.missing %}<td colspan="4" class="text-danger">artifact record missing</td>{% else %}
+                <td>{{ a.metadata.trained_as_of or a.metadata.valid_from or '' }}</td>
+                <td class="small">{{ a.metadata.train_start or '' }} .. {{ a.metadata.train_end or a.metadata.validation_end or '' }}</td>
+                <td class="small">{{ (a.metadata.features or [])|length }}</td>
+                <td class="small">{% if a.file_present %}present{% else %}<span class="text-danger">missing</span>{% endif %}</td>{% endif %}
+            </tr>
+            {% else %}<tr><td colspan="5" class="muted">None recorded yet.</td></tr>{% endfor %}
+        </table></div>
+    </div>
+</div>
+<div class="col-lg-6">
+    <div class="card mb-3">
+        <div class="card-header">Worker log (tail)</div>
+        <div class="card-body p-0"><pre id="log" class="log m-0 p-2">{{ log }}</pre></div>
+    </div>
+</div>
+</div>
+
+{% if e.status in ('queued', 'running') %}
+<script>
+async function poll() {
+    try {
+        const s = await (await fetch("{{ url_for('strategies.experiment_status', experiment_id=e.id) }}")).json();
+        document.getElementById('status').textContent = s.status;
+        document.getElementById('status').className = 'badge badge-' + s.status;
+        document.getElementById('heartbeat').textContent = s.heartbeat_at || '—';
+        document.getElementById('log').textContent = s.log_tail || '';
+        if (s.status !== 'queued' && s.status !== 'running') { location.reload(); return; }
+    } catch (e) {}
+    setTimeout(poll, 5000);
+}
+setTimeout(poll, 5000);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "strategies_base.html" %}
+{% block title %}{{ c.name }} v{{ c.version }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">{{ c.name }} <small class="muted">v{{ c.version }}</small>
+            <span class="badge badge-{{ c.status }}">{{ c.status }}</span></h3>
+        <div class="muted small">{{ capabilities.label }} · content hash {{ c.content_hash[:16] }}
+            {% if c.parent_id %}· from <a href="{{ url_for('strategies.view', configuration_id=c.parent_id) }}">#{{ c.parent_id }}</a>{% endif %}</div>
+        {% if c.description %}<div class="mt-1">{{ c.description }}</div>{% endif %}
+    </div>
+    <div class="text-end">
+        {% if c.is_editable %}
+            <a class="btn btn-sm btn-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='validate') }}" class="d-inline">
+                <button class="btn btn-sm btn-outline-info">Validate</button></form>
+        {% endif %}
+        <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='revise') }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-secondary">New version</button></form>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('strategies.preview', configuration_id=c.id) }}">Preview (JSON)</a>
+    </div>
+</div>
+
+{% if issues %}
+<div class="alert {% if issues|selectattr('severity', 'equalto', 'error')|list %}alert-danger{% else %}alert-warning{% endif %} py-2">
+    <ul class="mb-0">{% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<div class="row">
+<div class="col-lg-8">
+    {% for section in schema.sections %}
+    {% set values = c.section(section.name) %}
+    <div class="card mb-3">
+        <div class="card-header">{{ section.label or section.name }}</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            {% for f in section.fields %}
+            {% set v = values.get(f.name, f.default) %}
+            <tr><td class="muted" style="width:45%">{{ f.label or f.name }}</td>
+                <td>{% if v is iterable and v is not string %}{{ v|join(', ') if v else '—' }}{% else %}{{ v }}{% endif %}
+                    {% if v != f.default %}<span class="badge bg-info ms-1" title="default: {{ f.default }}">changed</span>{% endif %}</td></tr>
+            {% endfor %}
+        </table></div>
+    </div>
+    {% endfor %}
+</div>
+<div class="col-lg-4">
+    <div class="card mb-3">
+        <div class="card-header">Launch backtest</div>
+        <div class="card-body small">
+            {% if c.status in ('validated', 'locked') %}
+            <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='launch') }}">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirm">
+                    <label class="form-check-label" for="confirm">Run a <b>backtest</b> in a separate process. It reads
+                        IBKR history and writes to the database; it places no broker order. The configuration is locked
+                        (it can never change again).</label>
+                </div>
+                <button class="btn btn-success btn-sm">Launch backtest</button>
+            </form>
+            {% else %}
+            <div class="muted">Validate the configuration first.</div>
+            {% endif %}
+            <div class="muted mt-2">Paper and live trading are not available from this interface.</div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Clone into a new experiment</div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='clone') }}">
+                <input class="form-control form-control-sm mb-2" name="name" placeholder="new name" required>
+                <button class="btn btn-sm btn-outline-secondary">Clone</button>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Versions</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            {% for v in versions %}
+            <tr><td><a href="{{ url_for('strategies.view', configuration_id=v.id) }}">v{{ v.version }}</a></td>
+                <td><span class="badge badge-{{ v.status }}">{{ v.status }}</span></td>
+                <td class="muted small">{{ v.content_hash[:10] }}</td></tr>
+            {% endfor %}
+        </table></div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Experiments of this version</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            {% for e in experiments %}
+            <tr><td><a href="{{ url_for('strategies.experiment', experiment_id=e.id) }}">#{{ e.id }}</a></td>
+                <td>{{ e.kind }}</td><td><span class="badge badge-{{ e.status }}">{{ e.status }}</span></td></tr>
+            {% else %}<tr><td class="muted">None yet.</td></tr>{% endfor %}
+        </table></div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Not supported by this project</div>
+        <div class="card-body small"><ul class="mb-0">{% for u in capabilities.unsupported %}<li>{{ u }}</li>{% endfor %}</ul></div>
+    </div>
+</div>
+</div>
+{% endblock %}

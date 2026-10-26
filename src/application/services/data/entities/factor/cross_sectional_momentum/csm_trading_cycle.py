@@ -38,6 +38,7 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
     required_series,
 )
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model import train
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_store import CSMFeatureStore
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_signal_store import CSMSignalStore
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_price_history import (
     STMFrontierPriceReader,
@@ -119,6 +120,9 @@ class CSMTradingCycle:
         self.reader = self.readers["close"]
         self.artifact_store = CSMArtifactStore(factory, config)
         self.signal_store = CSMSignalStore(factory, config) if self.persist else None
+        # option C: the candidate values of every decision, on the factors the resolution path uses
+        self.feature_store = (CSMFeatureStore(factory, config, self.signal_store)
+                              if self.persist and config.persist_features else None)
         self.feature_engine = CSMFeatureEngine(config.features)      # domain factors' calculate(), cached
         self._last_result: Optional[CSMCycleResult] = None
         self._loaded: Dict[int, object] = {}
@@ -230,4 +234,7 @@ class CSMTradingCycle:
                                             self.config.training.gross_exposure)
         if self.signal_store is not None:
             self.signal_store.write(session, {self.ticker_to_entity[a]: s for a, s in result.scores.items()})
+        if self.feature_store is not None:
+            self.feature_store.write(session, today[[c for c in self.config.features.base_feature_names()
+                                                     if c in today.columns]], self.ticker_to_entity)
         return result

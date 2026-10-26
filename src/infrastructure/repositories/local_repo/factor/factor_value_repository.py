@@ -101,6 +101,48 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             self.session.rollback()
             return None
 
+    def add_bulk(self, entities: List[FactorValue]) -> int:
+        """Insert many values in one transaction; values whose natural key (factor, entity, entity type, date) is
+        already stored are skipped (never overwritten). Returns the number inserted. Rows are built through the ORM
+        constructor so value_numeric is filled like add() does."""
+        entities = [e for e in entities if e is not None]
+        if not entities:
+            return 0
+        keyed = {}
+        for e in entities:
+            keyed.setdefault((int(e.factor_id), int(e.entity_id), e.entity_type, e.date), e)
+        factor_ids = {k[0] for k in keyed}
+        entity_ids = {k[1] for k in keyed}
+        dates = [k[3] for k in keyed]
+        existing = set()
+        for fid, eid, etype, d in (self.session.query(FactorValueModel.factor_id, FactorValueModel.entity_id,
+                                                      FactorValueModel.entity_type, FactorValueModel.date)
+                                   .filter(FactorValueModel.factor_id.in_(factor_ids),
+                                           FactorValueModel.entity_id.in_(entity_ids),
+                                           FactorValueModel.date >= min(dates), FactorValueModel.date <= max(dates))):
+            d = d.replace(tzinfo=None) if getattr(d, "tzinfo", None) is not None else d
+            existing.add((int(fid), int(eid), etype, d))
+        currencies: Dict[int, Optional[int]] = {}
+        models = []
+        for key, e in keyed.items():
+            plain_date = key[3].replace(tzinfo=None) if getattr(key[3], "tzinfo", None) is not None else key[3]
+            if (key[0], key[1], key[2], plain_date) in existing:
+                continue
+            if e.currency_id is None:
+                if e.entity_id not in currencies:
+                    currencies[e.entity_id] = self._resolve_currency_id(e)
+                e.currency_id = currencies[e.entity_id]
+            models.append(self._to_model(e))
+        if not models:
+            return 0
+        try:
+            self.session.add_all(models)
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+        return len(models)
+
     def _stored_with_same_key(self, model: FactorValueModel) -> Optional[FactorValue]:
         """The stored value with the natural key of the row that could not be inserted, or None."""
         stored = (self.session.query(FactorValueModel)

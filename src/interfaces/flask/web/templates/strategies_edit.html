@@ -1,0 +1,59 @@
+{% extends "strategies_base.html" %}
+{% block title %}Edit {{ c.name }}{% endblock %}
+{% block content %}
+<h3>{{ c.name }} <small class="muted">v{{ c.version }} · {{ capabilities.label }}</small></h3>
+<p class="muted small">Only the parameters this project implements are shown. Values are checked on the server when
+    you save; a draft is validated automatically when it has no issue.</p>
+{% if issues %}
+<div class="alert alert-danger py-2"><ul class="mb-0">{% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul></div>
+{% endif %}
+<form method="post">
+    <div class="card mb-3"><div class="card-body">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" rows="2">{{ c.description }}</textarea>
+    </div></div>
+    {% for section in schema.sections %}
+    {% set values = c.section(section.name) %}
+    <div class="card mb-3">
+        <div class="card-header">{{ section.label or section.name }} <span class="muted small">{{ section.help }}</span></div>
+        <div class="card-body"><div class="row">
+        {% for f in section.fields %}
+            {% set key = section.name ~ '.' ~ f.name %}
+            {% set v = values.get(f.name, f.default) %}
+            <div class="col-md-6 mb-3">
+                <label class="form-label small" for="{{ key }}">{{ f.label or f.name }}</label>
+                {% if f.kind == 'bool' %}
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="{{ key }}" name="{{ key }}" value="on" {% if v %}checked{% endif %}>
+                    </div>
+                {% elif f.kind == 'choice' %}
+                    <select class="form-select" id="{{ key }}" name="{{ key }}">
+                        {% for ch in f.choices %}
+                        <option value="{{ '' if ch is none else ch }}" {% if ch == v %}selected{% endif %}>{{ 'none' if ch is none else ch }}</option>
+                        {% endfor %}
+                    </select>
+                {% elif f.kind == 'choice_list' %}
+                    <select class="form-select" id="{{ key }}" name="{{ key }}" multiple size="8">
+                        {% for ch in f.choices %}<option value="{{ ch }}" {% if ch in (v or []) %}selected{% endif %}>{{ ch }}</option>{% endfor %}
+                    </select>
+                {% elif f.kind == 'str_list' %}
+                    <textarea class="form-control" id="{{ key }}" name="{{ key }}" rows="3">{{ (v or [])|join(', ') }}</textarea>
+                {% elif f.kind == 'int_list' %}
+                    <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ (v or [])|join(', ') }}">
+                {% elif f.kind == 'int_pair_list' %}
+                    <input class="form-control" id="{{ key }}" name="{{ key }}" value="{% for p in (v or []) %}{{ p|join(',') }}{% if not loop.last %}; {% endif %}{% endfor %}">
+                {% else %}
+                    <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ '' if v is none else v }}"
+                           {% if f.kind in ('int', 'float') %}inputmode="decimal"{% endif %}>
+                {% endif %}
+                <div class="form-text muted">{{ f.help }}{% if f.minimum is not none or f.maximum is not none %}
+                    [{{ f.minimum if f.minimum is not none else '' }} .. {{ f.maximum if f.maximum is not none else '' }}]{% endif %}</div>
+            </div>
+        {% endfor %}
+        </div></div>
+    </div>
+    {% endfor %}
+    <button class="btn btn-success" type="submit">Save</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('strategies.view', configuration_id=c.id) }}">Cancel</a>
+</form>
+{% endblock %}

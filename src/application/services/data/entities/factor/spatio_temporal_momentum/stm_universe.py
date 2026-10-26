@@ -55,10 +55,15 @@ class STMUniverseService:
                 missing.append(t)
         return found, missing
 
-    def ensure_universe(self, ticker_to_entity: Dict[str, int], start_date: date):
-        """Create (or get) the Universe and one constituent per entity."""
+    def ensure_universe(self, ticker_to_entity: Dict[str, int], start_date: date, today: Optional[date] = None):
+        """Create (or get) the Universe and one constituent per entity.
+
+        Membership is point-in-time: a member no longer in ``ticker_to_entity`` is ENDED as of ``today`` (it was a
+        member until then; its history is kept), and a ticker that comes back gets a new membership from ``today``.
+        Before 2026-10-26 members were never ended, so replaced names (CADE, SNV, PNFP) stayed active."""
         from src.domain.entities.universe.universe import Universe
         from src.domain.entities.universe.universe_constituent import UniverseConstituent
+        today = today or date.today()
 
         universe = self.factory.investment_universe_local_repo._create_or_get(
             Universe,
@@ -69,7 +74,21 @@ class STMUniverseService:
         if universe is None:
             raise RuntimeError(f"Could not create universe '{self.config.name}'")
         constituent_repo = self.factory.universe_constituent_local_repo
+        existing = constituent_repo.get_by_universe(universe.id)
+        wanted = {int(e) for e in ticker_to_entity.values()}
+        for c in existing:                                   # left the list: membership ends today
+            if c.end_date is None and int(c.entity_id) not in wanted:
+                c.end_date = today
+                constituent_repo.update(c)
+        open_ids = {int(c.entity_id) for c in existing if c.end_date is None and int(c.entity_id) in wanted}
+        known_ids = {int(c.entity_id) for c in existing}
         for ticker, entity_id in ticker_to_entity.items():
+            if int(entity_id) in open_ids:
+                continue
+            if int(entity_id) in known_ids:                  # came back after its membership ended
+                constituent_repo.add(UniverseConstituent(universe_id=universe.id, entity_id=entity_id,
+                                                         entity_type=self.config.entity_type, start_date=today))
+                continue
             constituent_repo._create_or_get(
                 UniverseConstituent,
                 f"{universe.id}_{entity_id}",

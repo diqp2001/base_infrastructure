@@ -1,0 +1,32 @@
+{% extends "strategies_base.html" %}
+{% block title %}Experiment {{ e.id }} report{% endblock %}
+{% block content %}
+{% if report is none %}
+<h3>No report</h3>
+<p class="muted">Experiment #{{ e.id }} has no stored report ({{ e.status }}).</p>
+{% else %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Experiment #{{ e.id }} — {{ report.model_name }}</h3>
+        <div class="muted small">Backtest · {{ report.period[0] }} to {{ report.period[1] }} · {{ report.n_sessions }} decisions</div>
+    </div>
+    <div>
+        <a class="btn btn-success btn-sm" href="{{ url_for('strategies.experiment_report_pdf', experiment_id=e.id) }}">PDF</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('strategies.experiment', experiment_id=e.id) }}">Experiment</a>
+    </div>
+</div>
+{% if report.notes %}
+<div class="card mb-3"><div class="card-header">Notes</div>
+    <div class="card-body small"><ul class="mb-0">{% for n in report.notes %}<li>{{ n }}</li>{% endfor %}</ul></div></div>
+{% endif %}
+{% for s in sections %}
+<div class="card mb-3">
+    <div class="card-header">{{ s.title }}</div>
+    <div class="card-body {% if s.kind == 'table' %}p-0{% endif %}">
+        {% if s.kind == 'table' %}<div class="table-responsive">{{ s.html|safe }}</div>
+        {% else %}<img class="figure" src="data:image/png;base64,{{ s.png }}" alt="{{ s.title }}">{% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

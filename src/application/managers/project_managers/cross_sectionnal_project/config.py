@@ -121,6 +121,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         },
         'artifact_dir': str(BASE_PROJECT_ROOT / 'weights' / 'cross_sectional_momentum'),
         'persist_signals': True,
+        # every decision's 48 candidate values stored as factor values (~2 300 rows per session): auditable
+        'persist_features': True,
     },
 
     'Portfolio': {
@@ -156,4 +158,5 @@ def build_csm_configuration(config: Optional[Dict[str, Any]] = None) -> CSMConfi
         ml_model_name_prefix=CSM_ML_MODEL_PREFIX,
         signal_factor_name=CSM_SIGNAL_FACTOR_NAME,
         persist_signals=csm.get('persist_signals', True),
+        persist_features=csm.get('persist_features', False),
     )

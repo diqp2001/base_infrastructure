@@ -104,6 +104,9 @@ class CSMConfiguration:
     ml_model_name_prefix: str = "csm_"
     signal_factor_name: str = "cross_sectional_momentum_signal"
     persist_signals: bool = True
+    # store the candidate feature values of every decision as factor values (CSMFeatureStore): the decision can
+    # then be audited from the database (option C, 2026-10-26)
+    persist_features: bool = False
 
     def required_history_rows(self) -> int:
         return self.training.training_window_rows + self.features.warmup_rows() + self.label.horizon
@@ -128,12 +131,13 @@ class CSMConfiguration:
             ml_model_name_prefix=d.get("ml_model_name_prefix", "csm_"),
             signal_factor_name=d.get("signal_factor_name", "cross_sectional_momentum_signal"),
             persist_signals=d.get("persist_signals", True),
+            persist_features=d.get("persist_features", False),
         )
 
     def model_hash(self) -> str:
         """Identity of everything that changes a trained model (not paths or persistence switches)."""
         d = self.to_dict()
-        for k in ("artifact_dir", "persist_signals"):
+        for k in ("artifact_dir", "persist_signals", "persist_features"):
             d.pop(k, None)
         if d.get("bar_minutes") is None:
             d.pop("bar_minutes", None)            # daily: the hash of the models trained before the field existed

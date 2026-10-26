@@ -381,6 +381,10 @@ from src.infrastructure.repositories.local_repo.universe.universe_constituent_re
 from src.infrastructure.repositories.local_repo.ml.ml_model_repository import MLModelRepository
 from src.infrastructure.repositories.local_repo.ml.model_feature_repository import ModelFeatureRepository
 from src.infrastructure.repositories.local_repo.ml.model_training_repository import ModelTrainingRepository
+from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
+    StrategyConfigurationRepository,
+    StrategyExperimentRepository,
+)
 from src.infrastructure.repositories.local_repo.ml.training_metric_repository import TrainingMetricRepository
 from src.infrastructure.repositories.local_repo.ml.model_artifact_repository import ModelArtifactRepository
 
@@ -624,6 +628,10 @@ class RepositoryFactory:
                 'ModelTraining': ModelTrainingRepository(self.session, factory=self),
                 'TrainingMetric': TrainingMetricRepository(self.session, factory=self),
                 'ModelArtifact': ModelArtifactRepository(self.session, factory=self),
+
+                # Strategy configurations and experiments
+                'StrategyConfiguration': StrategyConfigurationRepository(self.session, factory=self),
+                'StrategyExperiment': StrategyExperimentRepository(self.session, factory=self),
 
                 # ConstituentScoreFactor
                 'ConstituentScoreFactor': ConstituentScoreFactorRepository(self.session, factory=self),
@@ -2071,6 +2079,14 @@ class RepositoryFactory:
     @property
     def model_training_local_repo(self):
         return self.get_local_repository('ModelTraining')
+
+    @property
+    def strategy_configuration_local_repo(self):
+        return self.get_local_repository('StrategyConfiguration')
+
+    @property
+    def strategy_experiment_local_repo(self):
+        return self.get_local_repository('StrategyExperiment')
 
     @property
     def training_metric_local_repo(self):

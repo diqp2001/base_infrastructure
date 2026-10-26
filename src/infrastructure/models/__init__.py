@@ -78,6 +78,8 @@ from src.infrastructure.models.ml.model_feature import ModelFeatureModel
 from src.infrastructure.models.ml.model_training import ModelTrainingModel
 from src.infrastructure.models.ml.training_metric import TrainingMetricModel
 from src.infrastructure.models.ml.model_artifact import ModelArtifactModel
+# Strategy configurations and experiments
+from src.infrastructure.models.strategy.strategy_configuration import StrategyConfigurationModel, StrategyExperimentModel
 # Swap instruments
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel
@@ -187,5 +189,6 @@ __all__ = [
     'AccountModel', 'OrderModel', 'TransactionModel',
     'UniverseModel', 'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
+    'StrategyConfigurationModel', 'StrategyExperimentModel',
     'ensure_models_registered'
 ]
