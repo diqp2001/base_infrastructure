@@ -42,6 +42,7 @@ from src.application.services.data.entities.factor.cross_sectional_momentum.csm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_price_history import (
     STMFrontierPriceReader,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
 
 
 @dataclass
@@ -103,16 +104,17 @@ class CSMTradingCycle:
         self.universe_id = universe_id
         self.persist = persist and config.persist_signals
         self.log = log or (lambda msg: None)
-        self.readers = {f: STMFrontierPriceReader(history_service, close_factor_name=f, frequency="1d")
-                        for f in BAR_FIELDS}
+        # bars of the configured size: daily (bar_minutes None) or e.g. 10-minute
+        bar = dict(frequency=frequency(config.bar_minutes), bar_minutes=config.bar_minutes)
+        self.readers = {f: STMFrontierPriceReader(history_service, close_factor_name=f, **bar) for f in BAR_FIELDS}
         # named series of the shares the candidates read (e.g. close|OPTION_IMPLIED_VOLATILITY)
         for sid, (bar_field, subgroup, symbol, _) in required_series(config.features).items():
             if subgroup and not symbol:
-                self.readers[sid] = STMFrontierPriceReader(history_service, close_factor_name=bar_field, frequency="1d",
-                                                           subgroup=subgroup)
+                self.readers[sid] = STMFrontierPriceReader(history_service, close_factor_name=bar_field, subgroup=subgroup,
+                                                           **bar)
         self.benchmark_readers = {
-            sym: STMFrontierPriceReader(history_service, close_factor_name="close", frequency="1d",
-                                        factor_type=ENTITY_FACTOR_TYPES.get(etype, "company_share_factor"))
+            sym: STMFrontierPriceReader(history_service, close_factor_name="close",
+                                        factor_type=ENTITY_FACTOR_TYPES.get(etype, "company_share_factor"), **bar)
             for sym, etype in self.benchmark_types.items()}
         self.reader = self.readers["close"]
         self.artifact_store = CSMArtifactStore(factory, config)
@@ -141,13 +143,21 @@ class CSMTradingCycle:
         labelled = sorted(set(dataset.frame.dropna(subset=["label"]).index.get_level_values("date")))
         window = [d for d in labelled if d <= session][-self.config.training.training_window_rows:]
         if len(window) < (self.config.optimization.n_folds + 1) * 5:
-            self.log(f"[CSM] not enough labelled sessions to train at {session.date()} ({len(window)})")
+            self.log(f"[CSM] not enough labelled {self._unit} to train at {self._when(session)} ({len(window)})")
             return None
-        self.log(f"[CSM] train_as_of {session.date()}: {len(window)} sessions ({window[0].date()} .. "
-                 f"{window[-1].date()}), {len(dates)} sessions known")
+        self.log(f"[CSM] train_as_of {self._when(session)}: {len(window)} {self._unit} ({self._when(window[0])} .. "
+                 f"{self._when(window[-1])}), {len(dates)} {self._unit} known")
         model = train(dataset, window, self.config, log=self.log)
         artifact, _ = self.artifact_store.save(model, session, self.universe_id, list(self.ticker_to_entity))
         return int(artifact.id)
+
+    @property
+    def _unit(self) -> str:
+        return "bars" if self.config.bar_minutes else "sessions"
+
+    def _when(self, ts) -> str:
+        ts = pd.Timestamp(ts)
+        return str(ts) if self.config.bar_minutes else str(ts.date())
 
     def _model(self, session: pd.Timestamp):
         selected = self.artifact_store.select(session)

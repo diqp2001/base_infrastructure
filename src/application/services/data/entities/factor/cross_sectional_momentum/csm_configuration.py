@@ -5,6 +5,8 @@ CSMConfiguration — every parameter of the cross-sectional momentum classifier 
     label         what the classifier predicts: next ``horizon`` sessions' return above the cross-sectional median
     optimization  the Optuna TPE study run at each retraining (feature subset + LightGBM hyper-parameters)
     training      rolling training window, retraining schedule, portfolio construction
+    bar_minutes   None = daily bars (one row per session); e.g. 10 = 10-minute bars: every window, the label horizon,
+                  the training window and the annualisation are then counted in 10-minute bars
 """
 
 from __future__ import annotations
@@ -95,6 +97,7 @@ class CSMConfiguration:
     universe: CSMUniverseConfig = field(default_factory=CSMUniverseConfig)
     features: CSMFeatureConfig = field(default_factory=CSMFeatureConfig)
     label: CSMLabelConfig = field(default_factory=CSMLabelConfig)
+    bar_minutes: Optional[int] = None
     optimization: CSMOptimizationConfig = field(default_factory=CSMOptimizationConfig)
     training: CSMTrainingConfig = field(default_factory=CSMTrainingConfig)
     artifact_dir: Optional[str] = None
@@ -118,6 +121,7 @@ class CSMConfiguration:
             universe=CSMUniverseConfig(**d.get("universe", {})),
             features=CSMFeatureConfig(**f),
             label=CSMLabelConfig(**d.get("label", {})),
+            bar_minutes=d.get("bar_minutes"),
             optimization=CSMOptimizationConfig(**o),
             training=CSMTrainingConfig(**d.get("training", {})),
             artifact_dir=d.get("artifact_dir"),
@@ -131,4 +135,6 @@ class CSMConfiguration:
         d = self.to_dict()
         for k in ("artifact_dir", "persist_signals"):
             d.pop(k, None)
+        if d.get("bar_minutes") is None:
+            d.pop("bar_minutes", None)            # daily: the hash of the models trained before the field existed
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
