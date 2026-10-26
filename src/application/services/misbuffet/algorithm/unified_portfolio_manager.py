@@ -330,13 +330,53 @@ class UnifiedPortfolioManager:
         return None
 
     def _find_existing_container(self, ticker: str) -> Optional[int]:
-        """Return the sub-portfolio id for an already-held ticker (used for liquidation orders)."""
-        for repo in self.repository_factory.create_local_repositories().values():
-            if hasattr(repo, 'find_ticker_sub_portfolio_id'):
-                sub_id = repo.find_ticker_sub_portfolio_id(ticker)
-                if sub_id:
-                    return sub_id
-        return None
+        """Return the container of THIS portfolio's tree that holds `ticker` (used for liquidation orders).
+
+        Never another portfolio's sub-portfolio: the repositories' find_ticker_sub_portfolio_id looks across
+        every portfolio, and with a second project's portfolio in the database (2026-10-25: the 10m one) the
+        cross-sectional liquidations were booked there — the position was never closed, so it was sold again
+        at every bar and the cash drained."""
+        if not self._current_portfolio_entity:
+            return None
+        return self._container_holding(ticker, self._current_portfolio_entity.id)
+
+    def _container_holding(self, ticker: str, container_id: int) -> Optional[int]:
+        """`container_id` when it directly holds a non-zero position in `ticker`, else the first of its
+        sub-portfolios (CompanyShare / CompanyShareOption, recursively) that does, else None."""
+        try:
+            from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+            from src.infrastructure.models.finance.holding.holding import HoldingModel
+            from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import (
+                CompanySharePortfolioPortfolioHoldingModel,
+            )
+            from src.infrastructure.models.finance.holding.company_share_option_portfolio_portfolio_holding import (
+                CompanyShareOptionPortfolioPortfolioHoldingModel,
+            )
+            from src.infrastructure.models.finance.position import PositionModel
+
+            session = self.portfolio_repo.session
+            held = (
+                session.query(HoldingModel.id)
+                .join(FinancialAssetModel, FinancialAssetModel.id == HoldingModel.asset_id)
+                .join(PositionModel, PositionModel.id == HoldingModel.position_id)
+                .filter(
+                    HoldingModel.container_id == container_id,
+                    FinancialAssetModel.symbol == ticker,
+                    PositionModel.quantity != 0,
+                )
+                .first()
+            )
+            if held:
+                return container_id
+            for link_model in (CompanySharePortfolioPortfolioHoldingModel,
+                               CompanyShareOptionPortfolioPortfolioHoldingModel):
+                for link in session.query(link_model).filter(link_model.container_id == container_id).all():
+                    found = self._container_holding(ticker, link.asset_id)
+                    if found:
+                        return found
+            return None
+        except Exception:
+            return None
 
     def get_current_portfolio(self) -> Optional[Portfolio]:
         """Get the current portfolio entity."""
