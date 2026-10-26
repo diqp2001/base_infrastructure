@@ -27,6 +27,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum impo
 )
 
 table_html = stm_renderer.table_html
+QUINTILE_COLOURS = ["#d62728", "#ff7f0e", "#7f7f7f", "#8fbc5a", "#2ca02c"]      # Q1 (lowest) .. Q5 (highest)
 
 
 # ---------------------------------------------------------------------------
@@ -39,15 +40,23 @@ def fig_cumulative(rep: CSMReport):
         main = name == MODEL_NAME
         ax.plot(rep.cumulative.index, rep.cumulative[name], label=name, linestyle="-" if main else ":",
                 linewidth=1.6 if main else 1.1)
+    # score quintiles (equal weight, Q1 red .. Q3 grey .. Q5 green) and Q5 - Q1; absent from reports stored before 2026-10-26
+    quint = getattr(rep, "quintile_cumulative", None)
+    if quint is not None and not quint.empty:
+        buckets, spread = list(quint.columns[:-1]), quint.columns[-1]
+        colours = QUINTILE_COLOURS if len(buckets) == len(QUINTILE_COLOURS) else             plt.get_cmap("RdYlGn")(np.linspace(0.05, 0.95, len(buckets)))
+        for name, colour in zip(buckets, colours):
+            ax.plot(quint.index, quint[name], label=name, color=colour, linewidth=1.0, alpha=0.9)
+        ax.plot(quint.index, quint[spread], label=spread, color="black", linestyle="--", linewidth=1.1)
     ax.axhline(1.0, color="grey", linewidth=0.6)
     ax.set_ylabel("Cumulative return (x)")
     ax.grid(True, axis="y", linestyle="--", alpha=0.5)
-    ax.legend(loc="upper left")
+    ax.legend(loc="upper left", fontsize=7, ncol=2)
     wealth = rep.cumulative[MODEL_NAME]
     ax2.fill_between(wealth.index, wealth / wealth.cummax() - 1.0, 0.0, color="#d62728", alpha=0.4)
     ax2.set_ylabel("Drawdown")
     ax2.xaxis.set_major_formatter(matplotlib.dates.ConciseDateFormatter(ax2.xaxis.get_major_locator()))
-    ax.set_title("Cumulative Returns (no costs) and Drawdown of the model")
+    ax.set_title("Cumulative Returns (no costs): strategies and score quintiles; Drawdown of the model")
     fig.tight_layout()
     return fig
 
@@ -110,7 +119,7 @@ def fig_optuna(rep: CSMReport):
 
 
 FIGURES: Dict[str, Tuple[str, Callable]] = {
-    "fig_cumulative": ("Cumulative Returns and Drawdown", fig_cumulative),
+    "fig_cumulative": ("Cumulative Returns (strategies and score quintiles) and Drawdown", fig_cumulative),
     "fig_importance": ("Feature Importance", fig_importance),
     "fig_selection": ("Optuna TPE Feature Selection per Retraining", fig_selection),
     "fig_optuna": ("Optuna Optimisation History and Hyper-parameter Importance", fig_optuna),
@@ -140,6 +149,8 @@ def tables(rep: CSMReport) -> List[Tuple[str, str, pd.DataFrame]]:
          rep.table_performance),
         ("table_costs", "Sharpe Ratio net of Transaction Costs (columns: cost in basis points of turnover)",
          rep.table_costs),
+        ("table_quintiles", "Performance per Score Quintile (equal weight, no costs; Q1 = lowest probability)",
+         getattr(rep, "table_quintiles", None)),
         ("table_prediction", "Prediction Quality of the Classifier", rep.table_prediction),
         ("table_importance", "Feature Importance", rep.table_importance),
         ("table_retrainings", "Retrainings: Optuna TPE Result per Model", rep.table_retrainings),
@@ -148,7 +159,7 @@ def tables(rep: CSMReport) -> List[Tuple[str, str, pd.DataFrame]]:
     ]
 
 
-ORDER = ["table_performance", "fig_cumulative", "table_costs", "table_prediction", "fig_importance",
+ORDER = ["table_performance", "fig_cumulative", "table_quintiles", "table_costs", "table_prediction", "fig_importance",
          "table_importance", "fig_selection", "fig_optuna", "table_retrainings", "coverage_summary",
          "coverage_figure", "coverage_assets"]
 

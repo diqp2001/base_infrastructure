@@ -5,6 +5,9 @@ Performance   each decision's weights earn the next session's close-to-close ret
               report); benchmarks on the same sessions: equal-weight long-only of the eligible assets and a
               20-session momentum long/short with the same portfolio construction; cost scenarios charge
               ``bps x turnover``. (20-session return = the return_20d factor.)
+Quintiles     per decision the scored assets are split into 5 equal-count buckets by predicted probability
+              (Q1 = lowest .. Q5 = highest); each bucket earns the equal-weight next-session return of its
+              names: cumulative return per quintile and Q5 - Q1 (does the ranking order the returns?).
 Prediction    per decision: AUC of the probabilities against the realised label (next return above the
               cross-sectional median), accuracy, top-minus-bottom quantile spread.
 Features      gain share of the models used (weighted by the decisions they scored), mean |TreeSHAP| at the
@@ -36,6 +39,8 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 )
 
 COST_SCENARIOS_BPS = (0.0, 1.0, 2.0, 5.0, 10.0, 20.0)
+N_QUANTILES = 5
+SPREAD = "Q5 - Q1"
 MODEL_NAME = "CSM (LightGBM + Optuna TPE)"
 
 
@@ -60,6 +65,11 @@ class CSMReport:
     coverage_summary: Optional[pd.DataFrame] = None
     coverage_assets: Optional[pd.DataFrame] = None
     coverage_by_session: Optional[pd.Series] = None
+    # equal-weight next-session return of each score quintile (Q1 lowest .. Q5 highest) and Q5 - Q1;
+    # None in reports stored before 2026-10-26
+    quintile_returns: Optional[pd.DataFrame] = None
+    quintile_cumulative: Optional[pd.DataFrame] = None
+    table_quintiles: Optional[pd.DataFrame] = None
 
 
 def _turnover(weights: List[Dict[str, float]]) -> np.ndarray:
@@ -73,6 +83,37 @@ def _turnover(weights: List[Dict[str, float]]) -> np.ndarray:
 
 def _realised(weights: Dict[str, float], fwd: pd.Series) -> float:
     return float(sum(w * fwd.get(a, 0.0) for a, w in weights.items() if np.isfinite(fwd.get(a, np.nan))))
+
+
+def quantile_labels(n: int = N_QUANTILES) -> List[str]:
+    return [f"Q{i + 1}" + (" (lowest)" if i == 0 else " (highest)" if i == n - 1 else "") for i in range(n)]
+
+
+def quantile_returns(decided: List[Any], one_day: pd.DataFrame, n: int = N_QUANTILES) -> pd.DataFrame:
+    """session x [Q1 (lowest) .. Qn (highest), Qn - Q1]: per decision, the assets scored that have a next-session
+    return are ranked by probability and cut into ``n`` equal-count buckets (ties broken by order); each bucket
+    earns the equal-weight mean of its names' next-session returns. A decision with fewer than ``n`` such assets
+    gives NaN."""
+    labels = quantile_labels(n)
+    rows = {}
+    for r in decided:
+        fwd = one_day.loc[r.session]
+        names = [a for a in r.scores if np.isfinite(fwd.get(a, np.nan)) and np.isfinite(r.scores[a])]
+        if len(names) < n:
+            rows[pd.Timestamp(r.session)] = [np.nan] * (n + 1)
+            continue
+        scores = pd.Series({a: r.scores[a] for a in names})
+        bucket = pd.qcut(scores.rank(method="first"), n, labels=False)
+        means = fwd[names].groupby(bucket).mean().reindex(range(n))
+        rows[pd.Timestamp(r.session)] = list(means.to_numpy()) + [float(means.iloc[-1] - means.iloc[0])]
+    return pd.DataFrame.from_dict(rows, orient="index", columns=labels + [f"Q{n} - Q1"])
+
+
+def quantile_table(returns: pd.DataFrame) -> pd.DataFrame:
+    """Metrics per quintile (and the spread) plus the cumulative return over the run."""
+    table = pd.DataFrame({c: strategy_metrics(returns[c]) for c in returns}).T[METRIC_COLUMNS]
+    table.insert(0, "Cumulative return", [float((1.0 + returns[c].dropna()).prod() - 1.0) for c in returns])
+    return table
 
 
 def _decisions(cycle_results: List[Any]) -> List[Any]:
@@ -150,6 +191,8 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
                                  if len(spreads) > 2 and np.std(spreads, ddof=1) > 0 else float("nan")),
     }, dtype=object)})
 
+    quintiles = quantile_returns(decided, one_day)
+
     # feature importance
     candidates = config.features.feature_names()
     used_counts: Dict[int, int] = {}
@@ -205,6 +248,10 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
         "Feature importance: gain share of the models used (weighted by decisions scored), mean |TreeSHAP| "
         "(LightGBM pred_contrib) at the decisions, and how often Optuna selected each feature.",
         "Transaction costs: bps x turnover (sum of |weight changes|) per decision.",
+        f"Quintiles: at each decision the scored assets are cut into {N_QUANTILES} equal-count buckets by predicted "
+        f"probability (Q1 lowest .. Q{N_QUANTILES} highest); each earns the equal-weight next-session return of its "
+        f"names (not the traded inverse-volatility book). A monotone Q1 < .. < Q{N_QUANTILES} order means the "
+        f"ranking carries information.",
     ]
     steps = [r for r in cycle_results if getattr(r, "session", None) is not None]
     scored: Dict[str, int] = {}
@@ -238,4 +285,7 @@ def build_report(cycle_results: List[Any], closes: pd.DataFrame, config: CSMConf
         coverage_summary=cov[0],
         coverage_assets=cov[1],
         coverage_by_session=cov[2],
+        quintile_returns=quintiles,
+        quintile_cumulative=(1.0 + quintiles.fillna(0.0)).cumprod(),
+        table_quintiles=quantile_table(quintiles),
     )
