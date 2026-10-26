@@ -6,7 +6,10 @@ Same strategy, paper universe and reusable services as `spatio_temporal_momentum
 row = one **10-minute bar** instead of one session, and a new decision every 10 minutes. It is not the daily
 model re-scored intraday: features, labels, training and scoring are all on 10-minute bars.
 
-* Universe = the paper's US Equities (Appendix B), `data/paper_universe.py`, 48 tickers.
+* Universe = 26 US banks, `data/bank_universe.py` (owner's list, 2026-10-26), universe `stm_us_banks_10m`.
+  The previous universe (the paper's 48 US financials, `data/paper_universe.py`, universe
+  `stm_paper_us_financials_10m`, signal factor `spatio_temporal_momentum_signal_10m`) is kept in
+  `config.PREVIOUS_UNIVERSE`; its results of 2026-10-22 are in `results/spatio_temporal_momentum_10m_paper_20261022/`.
 * Every window is counted in bars (39 per 09:30-16:00 session, `stm_time.bars_per_session(10)`):
   - returns over 1 / 3 / 6 / 39 bars (10 min, 30 min, 1 h, 1 session); vol span 39;
     MACD (3,9), (6,18), (12,36) normalised over 39; winsorise half-life 39;
@@ -21,8 +24,8 @@ model re-scored intraday: features, labels, training and scoring are all on 10-m
   — the engine skips the night (first decision 09:40 when the 09:30 bar has closed, last at 16:00).
 * Kept separate from the daily projects: results `results/spatio_temporal_momentum_10m/`,
   models `weights/spatio_temporal_momentum_10m/`, ML model prefix `stm10m_`, feature factors `stm10m_*`
-  (subgroup `minutes`, frequency `10m`), signal factor `spatio_temporal_momentum_signal_10m`,
-  universe `stm_paper_us_financials_10m`, portfolio `Spatio_Temporal_Momentum_10m_Portfolio`.
+  (subgroup `minutes`, frequency `10m`), signal factor `spatio_temporal_momentum_signal_10m_banks`,
+  universe `stm_us_banks_10m`, portfolio `Spatio_Temporal_Momentum_10m_Portfolio`.
   Dashboard: `/stm/?project=10m`.
 
 ## How the shared STM services handle bars
@@ -60,7 +63,8 @@ spatio_temporal_momentum_project_10m/
 ├── config.py                      # DEFAULT_CONFIG; every window in 10-minute bars
 ├── project_manager.py             # SpatioTemporalMomentum10mProjectManager: backtest + post-run report
 ├── data/
-│   ├── paper_universe.py          # paper's 46 US financials + replacements
+│   ├── bank_universe.py           # 26 US banks (current universe)
+│   ├── paper_universe.py          # paper's 46 US financials + replacements (previous universe)
 │   ├── sector_constituents.py     # reference sectors (not used)
 │   ├── universe_setup.py          # Universe + UniverseConstituent
 │   └── price_ingestion.py         # BarHistoryUpdater (MarketDataService, write-only)
