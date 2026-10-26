@@ -1,8 +1,9 @@
 """
 Configuration for the INTRADAY Spatio-Temporal Momentum project: 10-minute bars, a new decision every 10 minutes.
 
-Same paper universe (Tan, Roberts & Zohren 2023, Appendix B: 48 US financials, data/paper_universe.py) and the
-same reusable STM services as spatio_temporal_momentum_project_full, but every window is counted in 10-minute
+Universe: 26 US banks (data/bank_universe.py, owner's list of 2026-10-26); the previous universe, the paper's 48 US
+financials (Tan, Roberts & Zohren 2023, Appendix B, data/paper_universe.py), is kept as PREVIOUS_UNIVERSE. Same
+reusable STM services as spatio_temporal_momentum_project_full, but every window is counted in 10-minute
 BARS (39 per regular session): returns over 1 / 3 / 6 / 39 bars (10 min, 30 min, 1 h, 1 session), volatility and
 MACD spans in bars, a 24-bar (4 h) model input window, a rolling training window of 10 sessions, label = the next
 bar's return, annualisation 252 x 39. The model is TRAINED on 10-minute bars (option A, owner's choice
@@ -20,6 +21,9 @@ Misbuffet BaseBacktestRunner reads (backtest_start, universe, ...).
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.data.bank_universe import (
+    BANK_UNIVERSE_TICKERS,
+)
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.data.paper_universe import (
     PAPER_UNIVERSE_TICKERS,
 )
@@ -47,12 +51,22 @@ CONFIG_TEST = {
     'CONNECTION_STRING': f'sqlite:///{BASE_PROJECT_ROOT}/base_infrastructure.db',
 }
 
-# ── Research universe: the paper's 46 US financials (+ comparables) ──────────
-STM_UNIVERSE_NAME = 'stm_paper_us_financials_10m'
+# ── Previous research universe (until 2026-10-26): the paper's 46 US financials (+ comparables) ──────────────
+# To run it again: STM_UNIVERSE_NAME, STM_TICKERS and STM_SIGNAL_FACTOR_NAME = the three values below.
+PREVIOUS_UNIVERSE = {
+    'name': 'stm_paper_us_financials_10m',
+    'tickers': list(PAPER_UNIVERSE_TICKERS),
+    'signal_factor_name': 'spatio_temporal_momentum_signal_10m',
+}
+
+# ── Research universe: 26 US banks (owner's list, 2026-10-26) ──────────────────────────────────────────────────
+# Its own universe name (constituents are point-in-time records per name) and its own signal factor, so the two
+# universes' signals never mix in factor_values. Models: the ML model name includes the universe name.
+STM_UNIVERSE_NAME = 'stm_us_banks_10m'
 STM_N_PER_SECTOR = None       # explicit list, no sampling
 STM_UNIVERSE_SEED = None
-STM_TICKERS: List[str] = list(PAPER_UNIVERSE_TICKERS)
-STM_SIGNAL_FACTOR_NAME = 'spatio_temporal_momentum_signal_10m'
+STM_TICKERS: List[str] = list(BANK_UNIVERSE_TICKERS)
+STM_SIGNAL_FACTOR_NAME = 'spatio_temporal_momentum_signal_10m_banks'
 STM_ML_MODEL_PREFIX = 'stm10m_'
 STM_FEATURE_FACTOR_PREFIX = 'stm10m_'     # feature factors apart from the daily 'stm_*' ones (lookup is by name)
 
