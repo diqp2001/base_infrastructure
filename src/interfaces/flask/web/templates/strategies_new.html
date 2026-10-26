@@ -1,0 +1,31 @@
+{% extends "strategies_base.html" %}
+{% block title %}New strategy{% endblock %}
+{% block content %}
+<h3>New strategy configuration</h3>
+<p class="muted">The draft starts from the selected project's current defaults (exactly what the project runs today);
+    you then change only what you want to test.</p>
+<form method="post" class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" required value="{{ form.get('name', '') }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="2">{{ form.get('description', '') }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Project implementation</label>
+            {% for p in projects %}
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_key" id="p_{{ p.key }}" value="{{ p.key }}"
+                       {% if form.get('project_key', projects[0].key) == p.key %}checked{% endif %}>
+                <label class="form-check-label" for="p_{{ p.key }}"><b>{{ p.label }}</b>
+                    <span class="muted small">— {{ p.description }}</span></label>
+            </div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-success" type="submit">Create draft</button>
+    </div>
+</form>
+{% endblock %}

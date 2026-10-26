@@ -33,7 +33,8 @@ class Algorithm(BaseProjectAlgorithm):
 
     def initialize(self):
         super().initialize()
-        self.config = get_config()
+        # the config the runner was given (a configured experiment); the project defaults otherwise
+        self.config = getattr(self, "project_config", None) or get_config()
         portfolio_config = self.config.get('Portfolio', {})
         if self._entity_service:
             portfolio_entity = self.register_portfolio(portfolio_config=portfolio_config)

@@ -1,0 +1,77 @@
+{% extends "strategies_base.html" %}
+{% block title %}Strategy experiments{% endblock %}
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">Project implementations</div>
+    <div class="card-body">
+        <div class="row">
+        {% for p in projects %}
+            <div class="col-md-4 mb-3">
+                <div class="fw-bold">{{ p.label }}</div>
+                <div class="small muted mb-1"><code>{{ p.key }}</code> · {{ p.folder }}</div>
+                <div class="small">{{ p.description }}</div>
+                <div class="small mt-1"><span class="muted">Model:</span> {{ p.model_families|join(', ') }}
+                    · <span class="muted">output:</span> {{ p.output_contract }}</div>
+                <div class="small"><span class="muted">Portfolio:</span> {{ p.portfolio_rules|join(', ') }}
+                    · <span class="muted">decisions:</span> {{ p.decision_frequencies|join(', ') }}</div>
+                <details class="small mt-1"><summary class="muted">Not supported ({{ p.unsupported|length }})</summary>
+                    <ul class="mb-0">{% for u in p.unsupported %}<li>{{ u }}</li>{% endfor %}</ul></details>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Configurations</div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead><tr><th>Name</th><th>Version</th><th>Project</th><th>Status</th><th>Content hash</th><th>Created</th></tr></thead>
+            <tbody>
+            {% for c in configurations %}
+                <tr>
+                    <td><a href="{{ url_for('strategies.view', configuration_id=c.id) }}">{{ c.name }}</a></td>
+                    <td>v{{ c.version }}{% if c.parent_id %} <span class="muted small">(from #{{ c.parent_id }})</span>{% endif %}</td>
+                    <td><code>{{ c.project_key }}</code></td>
+                    <td><span class="badge badge-{{ c.status }}">{{ c.status }}</span></td>
+                    <td class="muted small">{{ c.content_hash[:12] }}</td>
+                    <td class="muted small">{{ c.created_at }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="muted">No configuration yet. <a href="{{ url_for('strategies.new') }}">Create one</a>.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form class="card" method="get" action="{{ url_for('strategies.compare') }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Experiments</span>
+        <button class="btn btn-sm btn-outline-info" type="submit"
+                onclick="this.form.ids.value=[...document.querySelectorAll('input[name=pick]:checked')].map(x=>x.value).join(',')">Compare selected</button>
+        <input type="hidden" name="ids">
+    </div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead><tr><th></th><th>#</th><th>Configuration</th><th>Kind</th><th>Status</th><th>Sharpe</th><th>Started</th><th>Finished</th></tr></thead>
+            <tbody>
+            {% for e in experiments %}
+                <tr>
+                    <td><input type="checkbox" name="pick" value="{{ e.id }}" {% if e.status != 'succeeded' %}disabled{% endif %}></td>
+                    <td><a href="{{ url_for('strategies.experiment', experiment_id=e.id) }}">{{ e.id }}</a></td>
+                    <td>{{ names.get(e.configuration_id, e.configuration_id) }}</td>
+                    <td>{{ e.kind }}</td>
+                    <td><span class="badge badge-{{ e.status }}">{{ e.status }}</span></td>
+                    <td>{% if e.summary.metrics and e.summary.metrics.Sharpe is not none %}{{ '%.2f'|format(e.summary.metrics.Sharpe) }}{% endif %}</td>
+                    <td class="muted small">{{ e.started_at or '' }}</td>
+                    <td class="muted small">{{ e.finished_at or '' }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="muted">No experiment yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>
+{% endblock %}

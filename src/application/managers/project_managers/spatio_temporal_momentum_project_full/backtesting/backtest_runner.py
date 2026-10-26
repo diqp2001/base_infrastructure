@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 class BacktestRunner(BaseBacktestRunner):
 
     def setup_components(self, config: Dict[str, Any]) -> bool:
+        # the run's config also reaches the algorithm (portfolio, universe, results dir), not only the trainer
+        self.project_config = config
         try:
             self.model_trainer = STMModelTrainer(self.database_service, config)
             self.strategy = None
@@ -34,6 +36,7 @@ class BacktestRunner(BaseBacktestRunner):
         algorithm = Algorithm()
         # NB: BaseBacktestRunner uses `self.progress` for its own percentage (float)
         algorithm.progress_tracker = getattr(self, "progress_tracker", None)
+        algorithm.project_config = getattr(self, "project_config", None)
         algorithm.set_trainer(self.model_trainer)
         algorithm.set_entity_service(self.model_trainer.data_loader.financial_asset_service)
         self.algorithm_instance = algorithm

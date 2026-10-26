@@ -45,7 +45,8 @@ class CSMModelProvider:
         self._loaded = {}
 
     def stored(self, entity_id: int, target_date) -> Optional[float]:
-        return CSMStoredSignalProvider(self.factory, self.factor_id).value(entity_id, target_date)
+        return CSMStoredSignalProvider(self.factory, self.factor_id, self.config.bar_minutes).value(entity_id,
+                                                                                                 target_date)
 
     def predict(self, dependencies: dict, entity, target_date) -> Optional[float]:
         if entity is None or getattr(entity, "id", None) is None or self.factory is None:

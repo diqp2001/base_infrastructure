@@ -16,14 +16,16 @@ import pandas as pd
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_configuration import (
     CSMConfiguration,
 )
-from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import bar_key, frequency
 
 ENTITY_TYPE = "CompanyShare"
 SIGNAL_FACTOR_TYPE = "company_share_cross_sectional_momentum_factor"
 
 
-def _date_key(session) -> pd.Timestamp:
-    return pd.Timestamp(session).normalize()
+def _date_key(session, bar_minutes: Optional[int] = None) -> pd.Timestamp:
+    """The bar a value belongs to: the session (daily) or e.g. the 10-minute bar. Normalising an intraday decision
+    to midnight kept only the first decision of each day (2026-10-26)."""
+    return bar_key(session, bar_minutes)
 
 
 class CSMSignalStore:
@@ -52,7 +54,7 @@ class CSMSignalStore:
         from src.domain.entities.factor.factor_value import FactorValue
         factor = self.ensure_signal_factor()
         repo = self.factory.factor_value_local_repo
-        d = _date_key(session).to_pydatetime()
+        d = _date_key(session, self.config.bar_minutes).to_pydatetime()
         written = 0
         for eid, p in probabilities.items():
             if p is None or not np.isfinite(p):
@@ -67,20 +69,21 @@ class CSMSignalStore:
 
     def read(self, session, entity_id: int) -> Optional[float]:
         factor = self.ensure_signal_factor()
-        return CSMStoredSignalProvider(self.factory, factor.id).value(entity_id, session)
+        return CSMStoredSignalProvider(self.factory, factor.id, self.config.bar_minutes).value(entity_id, session)
 
 
 class CSMStoredSignalProvider:
     """The probability the trading cycle stored for (entity, session)."""
 
-    def __init__(self, factory=None, factor_id: Optional[int] = None):
+    def __init__(self, factory=None, factor_id: Optional[int] = None, bar_minutes: Optional[int] = None):
         self.factory = factory
         self.factor_id = factor_id
+        self.bar_minutes = bar_minutes
 
     def value(self, entity_id: int, session) -> Optional[float]:
         if self.factory is None or self.factor_id is None:
             return None
-        d = _date_key(session).strftime("%Y-%m-%d %H:%M:%S")
+        d = _date_key(session, self.bar_minutes).strftime("%Y-%m-%d %H:%M:%S")
         stored = self.factory.factor_value_local_repo.get_by_factor_entity_date(
             int(self.factor_id), int(entity_id), d, ENTITY_TYPE)
         try:
