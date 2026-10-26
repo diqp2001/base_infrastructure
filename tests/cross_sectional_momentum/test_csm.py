@@ -350,6 +350,8 @@ def test_synthetic_run_report_dashboard_and_pdf(tmp_path):
     assert report.table_importance["Gain share %"].sum() == pytest.approx(100.0)
     assert report.coverage_summary is not None and report.coverage_assets is not None
     assert len(report.selection_matrix) == len(retrained)
+    assert list(report.quintile_cumulative.columns) == ["Q1 (lowest)", "Q2", "Q3", "Q4", "Q5 (highest)", "Q5 - Q1"]
+    assert len(report.quintile_returns) == report.n_sessions and len(report.table_quintiles) == 6
     stm_report_store.save_report(report, str(tmp_path), pdf_builder=build_pdf)
     tracker.complete(report)
 
@@ -361,11 +363,32 @@ def test_synthetic_run_report_dashboard_and_pdf(tmp_path):
     assert snap["status"] == "completed" and snap["has_report"] and snap["last_epoch"].startswith("[CSM] Optuna")
     html = client.get("/csm/results").get_data(as_text=True)
     for title in ("Performance", "Prediction Quality", "Feature Importance", "Optuna TPE Feature Selection",
-                  "Retrainings", "Data Coverage – Summary", "Data Coverage by Asset", "Data Coverage by Session"):
+                  "Retrainings", "Data Coverage – Summary", "Data Coverage by Asset", "Data Coverage by Session",
+                  "strategies and score quintiles", "Performance per Score Quintile"):
         assert title in html, title
     assert html.count("data:image/png;base64,") == 5
     pdf = client.get("/csm/report.pdf")
     assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF")
+
+
+def test_quintiles_split_the_scored_assets_and_earn_their_equal_weight_next_return():
+    from types import SimpleNamespace
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_report import (
+        quantile_returns, quantile_table,
+    )
+    day = pd.Timestamp("2026-06-01")
+    names = [f"T{i}" for i in range(10)]
+    scores = {a: i / 10 for i, a in enumerate(names)}                   # T0 lowest .. T9 highest
+    one_day = pd.DataFrame([[0.01 * i for i in range(10)]], index=[day], columns=names)
+    decided = [SimpleNamespace(session=day, scores=scores),
+               SimpleNamespace(session=day + pd.Timedelta(days=1), scores={"T0": 0.1})]   # too few names
+    one_day.loc[day + pd.Timedelta(days=1)] = 0.0
+    q = quantile_returns(decided, one_day)
+    # Q1 = T0, T1 -> (0.00 + 0.01) / 2 ... Q5 = T8, T9 -> (0.08 + 0.09) / 2
+    assert q.iloc[0].tolist() == pytest.approx([0.005, 0.025, 0.045, 0.065, 0.085, 0.08])
+    assert q.iloc[1].isna().all()
+    table = quantile_table(q)
+    assert table.loc["Q5 (highest)", "Cumulative return"] == pytest.approx(0.085)
 
 
 # ── Delta-hedging bands of the reference call ──────────────────────────────────────────────────────────────────────
