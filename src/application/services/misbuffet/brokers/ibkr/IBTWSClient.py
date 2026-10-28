@@ -44,6 +44,11 @@ class IBTWSClient(EWrapper, EClient):
         # Order tracking
         self.order_status = {}
         self.order_fills = {}
+        self.commissions = {}                   # execId -> {commission, currency}
+        self.last_send_attempt_order_id = None  # order id of the last placeOrder attempt (P.03)
+        # P.03: callables(event: dict) told of every orderStatus / execDetails / commissionReport (on the API
+        # thread: a listener must only queue the event, never touch the database)
+        self.order_listeners: List = []
 
         # Reconciliation snapshots (request_positions_snapshot / request_open_orders_snapshot):
         # contract-level rows (conId / localSymbol), filled between the request and its *End callback
@@ -150,6 +155,25 @@ class IBTWSClient(EWrapper, EClient):
             'permId': permId
         }
         self.logger.info(f"Order {orderId} status: {status}, filled: {filled}, remaining: {remaining}")
+        self._tell_order_listeners({"kind": "status", "order_id": orderId, "status": status, "filled": filled,
+                                    "remaining": remaining, "avg_fill_price": avgFillPrice, "perm_id": permId,
+                                    "client_id": clientId, "why_held": whyHeld})
+
+    def _tell_order_listeners(self, event: dict) -> None:
+        event["received_at"] = datetime.now(timezone.utc)
+        for listener in list(getattr(self, "order_listeners", [])):
+            try:
+                listener(event)
+            except Exception as e:
+                self.logger.error(f"order listener failed on {event.get('kind')}: {e}")
+
+    def commissionReport(self, commissionReport):
+        """Commission of one execution (IBKR sends it after execDetails, keyed by execId)."""
+        self.commissions[commissionReport.execId] = {"commission": commissionReport.commission,
+                                                     "currency": commissionReport.currency}
+        self._tell_order_listeners({"kind": "commission", "exec_id": commissionReport.execId,
+                                    "commission": commissionReport.commission,
+                                    "currency": commissionReport.currency})
 
     def execDetails(self, reqId: int, contract: Contract, execution):
         """Execution details callback."""
@@ -164,6 +188,13 @@ class IBTWSClient(EWrapper, EClient):
             'price': execution.price,
             'side': execution.side
         })
+        self._tell_order_listeners({
+            "kind": "execution", "req_id": reqId, "exec_id": execution.execId, "order_id": order_id,
+            "perm_id": getattr(execution, "permId", None), "client_id": getattr(execution, "clientId", None),
+            "account": getattr(execution, "acctNumber", None), "time": execution.time,
+            "shares": float(execution.shares), "price": float(execution.price), "side": execution.side,
+            "symbol": getattr(contract, "localSymbol", "") or getattr(contract, "symbol", ""),
+            "sec_type": getattr(contract, "secType", ""), "con_id": getattr(contract, "conId", None)})
 
         self.logger.info(f"Execution: Order {order_id}, {execution.shares} @ {execution.price}")
 
@@ -626,6 +657,9 @@ class IBTWSClient(EWrapper, EClient):
         self.next_order_id += 1
         self._highest_used_order_id = max(order_id, getattr(self, "_highest_used_order_id", 0))
 
+        # P.03: from here the order may have left (placeOrder writes to the socket); an exception after this line
+        # leaves its outcome UNKNOWN — the caller must never resend it, the broker's state decides
+        self.last_send_attempt_order_id = order_id
         self.placeOrder(order_id, contract, order)
         self.logger.info(f"Placed order {order_id}: {contract.symbol} {order.action} {order.totalQuantity}")
 

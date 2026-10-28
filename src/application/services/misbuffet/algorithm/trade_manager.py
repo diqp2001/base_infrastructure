@@ -3,11 +3,17 @@ TradeManager – mechanics of the Order → Transaction → Position persistence
 
 Called exclusively by UnifiedPortfolioManager, which orchestrates when and what
 to trade. TradeManager only knows *how* to persist the resulting domain entities.
+
+Backtest (no order ledger): the order is booked as filled at the submission price.
+Live (an OrderLedger attached, P.03): the order intent is stored BEFORE sending, the submission outcome after it,
+and nothing is booked at submission — fills, positions and cash move only with the broker's executions
+(OrderLedger.on_execution -> book_execution) and commissions (book_commission).
 """
 
 import math
 import uuid
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional
 
 
@@ -26,6 +32,17 @@ class TradeManager:
         self.holding_repo = repository_factory.holding_local_repo
         self.logger = logger
         self._order_ticket_mapping: Dict[str, Any] = {}  # QC order_id → domain order id
+        self.ledger = None                  # OrderLedger: live order path (attach_ledger)
+        self._submission_probe = None       # () -> the engine order of the last live submission
+
+    def attach_ledger(self, ledger, submission_probe: Optional[Callable[[], Any]] = None) -> None:
+        """Live mode: orders go through the durable ledger (intent before sending, no booking at submission).
+        `submission_probe` returns the engine order of the last submission (QCAlgorithm.last_submitted_order),
+        which the broker annotates with `submission_outcome` / `broker_order_id`."""
+        self.ledger = ledger
+        self._submission_probe = submission_probe
+        if getattr(ledger, "trade_manager", None) is None:
+            ledger.trade_manager = self
 
     # ------------------------------------------------------------------
     # Public API (called by UnifiedPortfolioManager only)
@@ -73,7 +90,12 @@ class TradeManager:
                                   f"account={account_id}) — order not sent")
             return False
 
-        # 1. Order ticket (backtest: in memory; live: sent to the broker)
+        cash_portfolio_id = main_portfolio_id if main_portfolio_id is not None else portfolio_id
+        if self.ledger is not None:
+            return self._execute_live(ticker, order_qty, price, portfolio_id, cash_portfolio_id, current_time,
+                                      submit_order_fn, tag, holding_id, account_id)
+
+        # 1. Order ticket (backtest: in memory)
         ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
         if not ticket:
             return False
@@ -81,7 +103,6 @@ class TradeManager:
         # 2-5. Order, fill, position and cash are booked as ONE database transaction: either all
         # of them are stored or none (a failure in the middle used to leave e.g. cash debited
         # without a position). The order is never re-sent here.
-        cash_portfolio_id = main_portfolio_id if main_portfolio_id is not None else portfolio_id
         booked = self._book_atomically(lambda: self._book(ticket, ticker, order_qty, price, portfolio_id,
                                                           cash_portfolio_id, current_time))
         if not booked:
@@ -96,6 +117,82 @@ class TradeManager:
             self.logger.info(
                 f"TradeManager: {ticker} qty_Δ={order_qty:+d} @ ${price:.2f}"
             )
+        return True
+
+    # ------------------------------------------------------------------
+    # Live order path (P.03)
+    # ------------------------------------------------------------------
+
+    def _execute_live(self, ticker, order_qty, price, portfolio_id, cash_portfolio_id, current_time,
+                      submit_order_fn, tag, holding_id, account_id) -> bool:
+        """Intent stored -> order sent -> outcome stored. Returns True only when the broker took the order;
+        nothing is booked here (executions do that)."""
+        side = "BUY" if order_qty > 0 else "SELL"
+        intent = {}
+
+        def record_intent() -> bool:
+            order = self.order_repo._create_or_get(
+                external_order_id=f"INTENT_{uuid.uuid4().hex[:16]}", portfolio_id=portfolio_id,
+                order_type="MARKET", side=side, quantity=abs(order_qty), created_at=current_time,
+                status="PENDING", symbol=ticker, holding_id=holding_id, account_id=account_id,
+                price=price, filled_quantity=0.0, average_fill_price=None)
+            if order is None:
+                return False
+            intent["bo"] = self.ledger.record_intent(order.id, ticker, side, abs(order_qty), portfolio_id,
+                                                     cash_portfolio_id)
+            return True
+
+        if not self._book_atomically(record_intent):
+            if self.logger:
+                self.logger.error(f"TradeManager: {ticker} order intent could not be stored — order not sent")
+            return False
+        bo = intent["bo"]
+
+        before = self._submission_probe() if self._submission_probe else None
+        error = None
+        try:
+            ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
+        except Exception as e:
+            ticket, error = None, e
+        engine_order = self._submission_probe() if self._submission_probe else None
+        if engine_order is before:
+            engine_order = None                                   # this call never created an engine order
+        outcome = getattr(engine_order, "submission_outcome", None)
+        broker_order_id = getattr(engine_order, "broker_order_id", None)
+        try:
+            if outcome == "unknown" or (self._submission_probe is None and not ticket):
+                reason = f"send attempted, outcome unknown ({error!r})" if error else "send attempted, outcome unknown"
+                self.ledger.mark_unknown(bo, reason, broker_order_id=broker_order_id)
+                return False
+            if outcome == "sent" or (ticket and outcome is None):     # the broker has it (whatever came after)
+                self.ledger.mark_submitted(bo, broker_order_id, getattr(engine_order, "broker_client_id", None))
+                if self.logger:
+                    self.logger.info(f"TradeManager: {ticker} {side} {abs(order_qty)} submitted "
+                                     f"(order {bo.order_id}, broker order {broker_order_id})")
+                return True
+            self.ledger.mark_not_sent(bo, f"not sent ({error!r})" if error else "not sent: refused before sending")
+            return False
+        except Exception as e:
+            if self.logger:
+                self.logger.critical(f"TradeManager: submission outcome of order {bo.order_id} ({ticker}) could not "
+                                     f"be stored ({e!r}) — the intent row stays INTENT; never resent")
+            return False
+
+    def book_execution(self, order_id: int, ticker: str, signed_qty: float, price: float, portfolio_id: int,
+                       cash_portfolio_id: int, when: datetime, ref: str) -> bool:
+        """Book one broker execution: transaction, position and cash (the caller owns the transaction)."""
+        qty = int(round(signed_qty)) if abs(signed_qty - round(signed_qty)) < 1e-9 else signed_qty
+        self._record_fill(SimpleNamespace(order_id=ref), ticker, qty, price, when,
+                          SimpleNamespace(id=order_id, portfolio_id=portfolio_id))
+        self._update_position(ticker, qty, portfolio_id)
+        self._update_cash_for_trade(qty, price * self.contract_multiplier(ticker), cash_portfolio_id, when)
+        return True
+
+    def book_commission(self, amount: float, cash_portfolio_id: int, when: datetime) -> bool:
+        """Book a broker commission on the cash position: a debit (a credit when negative, a rebate)."""
+        if amount == 0:
+            return True
+        self._update_cash_for_trade(1 if amount > 0 else -1, abs(amount), cash_portfolio_id, when)
         return True
 
     # ------------------------------------------------------------------

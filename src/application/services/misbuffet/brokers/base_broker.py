@@ -160,6 +160,9 @@ class BaseBroker(IBrokerage, ABC):
         Returns:
             True if order placed successfully, False otherwise
         """
+        # P.03 submission outcome: 'not_sent' until the implementation sends it ('sent') or cannot tell
+        # ('unknown', set by the implementation when the send was attempted and failed)
+        order.submission_outcome = "not_sent"
         if not self.is_connected():
             self.logger.error("Cannot place order - not connected to broker")
             return False
@@ -182,6 +185,8 @@ class BaseBroker(IBrokerage, ABC):
             
             # Place order with broker
             success = self._place_order_impl(order)
+            if success and getattr(order, "submission_outcome", None) == "not_sent":
+                order.submission_outcome = "sent"         # implementations that do not annotate it
             
             if success:
                 self.logger.info(f"Order placed successfully: {order.id}")

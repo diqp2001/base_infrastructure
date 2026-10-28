@@ -83,6 +83,16 @@ class UnifiedPortfolioManager:
         # Broker reconciliation gate for set_holdings (see position_reconciler.py).
         # Mandatory in live mode: without it set_holdings refuses to trade.
         self._reconciler = None
+        # Durable live order ledger (order_ledger.py, P.03). Mandatory in live mode as well.
+        self._order_ledger = None
+
+    def attach_order_ledger(self, ledger):
+        """Live order path: intents stored before sending, fills booked only from broker executions.
+        Returns the ledger; listen to the broker with ``ledger.attach(ib_client)``."""
+        self._order_ledger = ledger
+        self._trade_manager.attach_ledger(
+            ledger, submission_probe=lambda: getattr(self._algorithm, "last_submitted_order", None))
+        return ledger
 
     def attach_reconciler(self, reconciler_or_provider, **kwargs):
         """
@@ -1219,6 +1229,13 @@ class UnifiedPortfolioManager:
                 self.logger.error("set_holdings: live mode without a position reconciler "
                                   "(attach_reconciler) — refusing to trade")
             return {t: False for t in targeted}
+        if getattr(self._algorithm, "live_mode", False):
+            if getattr(self, "_order_ledger", None) is None:
+                if self.logger:
+                    self.logger.error("set_holdings: live mode without an order ledger "
+                                      "(attach_order_ledger) — refusing to trade")
+                return {t: False for t in targeted}
+            self._order_ledger.drain()          # broker statuses / executions received since the last call
         if self._reconciler is not None:
             from .position_reconciler import normalize_ticker
             rec = self._reconciler.check(extra_tickers=targeted)

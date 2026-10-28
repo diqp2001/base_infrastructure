@@ -204,8 +204,23 @@ class InteractiveBrokersBroker(BaseBroker):
                 self.logger.error(f"Unsupported order type: {order_type}")
                 return False
 
-            # Place order with TWS
-            ib_order_id = self.ib_connection.place_order(contract, ib_order)
+            # Place order with TWS. P.03: the engine order carries the submission outcome — 'not_sent' (never
+            # left), 'unknown' (the send was attempted and failed: never resent, the broker's state decides) or
+            # 'sent' — and the broker order id, for the durable order ledger (TradeManager).
+            order.submission_outcome = "not_sent"
+            tracks_attempts = hasattr(self.ib_connection, "last_send_attempt_order_id")
+            attempt_before = getattr(self.ib_connection, "last_send_attempt_order_id", None)
+            try:
+                ib_order_id = self.ib_connection.place_order(contract, ib_order)
+            except Exception:
+                attempted = getattr(self.ib_connection, "last_send_attempt_order_id", None)
+                if not tracks_attempts or (attempted is not None and attempted != attempt_before):
+                    order.submission_outcome = "unknown"
+                    order.broker_order_id = attempted if tracks_attempts else None
+                raise
+            order.submission_outcome = "sent"
+            order.broker_order_id = ib_order_id
+            order.broker_client_id = getattr(self.ib_connection, "client_id", None)
 
             # Track pending order
             self.pending_orders[ib_order_id] = order
@@ -242,11 +257,10 @@ class InteractiveBrokersBroker(BaseBroker):
                 self.logger.error(f"Cannot cancel order - TWS order ID not found: {order.id}")
                 return False
             
-            # Cancel with TWS
+            # Cancel with TWS. D4 (P.03): the order stays tracked until TWS reports it Cancelled (or Filled: a
+            # fill can race the cancel) — _process_order_updates removes it then
             self.ib_connection.cancel_order(ib_order_id)
-            
-            # Remove from pending orders
-            del self.pending_orders[ib_order_id]
+            order.cancel_requested = True
             
             self.logger.info(f"Order cancellation requested: {order.id} -> TWS Order {ib_order_id}")
             return True

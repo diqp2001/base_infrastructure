@@ -1,0 +1,68 @@
+"""
+P.03 — broker_orders / broker_executions on SQLite and on the SQL Server test database (`backend` fixture):
+the live order path end to end (intent -> submitted -> statuses -> executions -> commission) and the uniqueness the
+idempotency relies on.
+"""
+
+from datetime import datetime
+from types import SimpleNamespace
+
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from src.application.services.misbuffet.algorithm.order_ledger import OrderLedger
+from src.domain.entities.finance.order.broker_order import Execution, SubmissionState
+from src.infrastructure.models.finance.order.broker_order import BrokerExecutionModel, BrokerOrderModel
+from tests.misbuffet.sqlite_portfolio import SqlitePortfolio
+
+NOW = datetime(2026, 10, 28, 15, 0)
+
+
+@pytest.fixture
+def book(backend):
+    b = SqlitePortfolio(engine=backend.engine, shares=("AAPL",))
+    b.ledger = OrderLedger(b.factory, clock=lambda: NOW)
+    engine_order = SimpleNamespace(submission_outcome="sent", broker_order_id=8801, broker_client_id=3)
+    b.tm.attach_ledger(b.ledger, submission_probe=lambda: b.probe)
+    b.probe = None
+
+    def submit(ticker, qty, tag=""):
+        b.probe = engine_order
+        return SimpleNamespace(order_id="QC1")
+    b.submit = submit
+    yield b
+    b.session.rollback()
+    ids = [o.id for o in b.orders()]
+    b.session.query(BrokerExecutionModel).filter(BrokerExecutionModel.exec_id.like("contract-%")).delete(
+        synchronize_session=False)
+    if ids:
+        b.session.query(BrokerOrderModel).filter(BrokerOrderModel.order_id.in_(ids)).delete(synchronize_session=False)
+    b.session.commit()
+    b.close()
+
+
+def test_the_live_path_round_trips_through_the_database(book):
+    assert book.trade("AAPL", 10, 100.0, submit=book.submit) is True
+    bo = book.ledger.orders.get_all()[-1]
+    assert (bo.submission_state, bo.broker_order_id, bo.client_id) == (SubmissionState.SUBMITTED, 8801, 3)
+    book.ledger.enqueue({"kind": "status", "order_id": 8801, "client_id": 3, "status": "Submitted", "filled": 4,
+                         "remaining": 6, "avg_fill_price": 100.0, "perm_id": 123456789})
+    for i, qty in enumerate((4, 6, 6)):                                  # the last one replays the second
+        book.ledger.enqueue({"kind": "execution", "exec_id": f"contract-{min(i, 1)}", "order_id": 8801,
+                             "perm_id": 123456789, "shares": qty, "price": 100.0, "side": "BOT",
+                             "time": "20261028  10:00:00"})
+    book.ledger.enqueue({"kind": "commission", "exec_id": "contract-1", "commission": 1.0, "currency": "USD"})
+    book.ledger.drain()
+    assert book.ledger.anomalies == [] and book.ledger.duplicates == 1
+    assert (book.qty("AAPL"), book.cash()) == (10, pytest.approx(100_000.0 - 1_000.0 - 1.0))
+    bo = book.ledger.orders.get_by_perm_id("IBKR", 123456789)
+    assert (bo.status, bo.filled_quantity, bo.remaining_quantity) == ("PARTIALLY_FILLED", 4, 6)
+    assert [e.booked for e in book.ledger.executions.get_by_order_id(bo.order_id)] == [True, True]
+
+
+def test_an_exec_id_is_stored_once(book):
+    book.trade("AAPL", 1, 100.0, submit=book.submit)
+    repo = book.ledger.executions
+    repo.add(Execution("contract-dup", "IBKR", "AAPL", "BUY", 1, 100.0, NOW))
+    with pytest.raises(IntegrityError):
+        repo.add(Execution("contract-dup", "IBKR", "AAPL", "BUY", 1, 100.0, NOW))

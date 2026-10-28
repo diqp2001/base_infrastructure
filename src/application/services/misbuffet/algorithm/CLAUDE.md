@@ -344,3 +344,26 @@ two defaults, are: order quantity, order notional (× multiplier), position afte
 price freshness (default 60 s), and cash for buys (default on). A missing or stale price, or a provider that fails,
 refuses the order. Each rejection is logged at WARNING and kept in `gate.rejections`. The rules are pure
 (`domain/entities/finance/order/pre_trade_risk.py`). Tests: `tests/misbuffet/test_pre_trade_risk.py`.
+
+### Live order ledger (P.03, 2026-10-28)
+
+```python
+from src.application.services.misbuffet.algorithm.order_ledger import OrderLedger
+ledger = upm.attach_order_ledger(OrderLedger(repository_factory))
+ledger.attach(ib_client)          # IBTWSClient.order_listeners: orderStatus / execDetails / commissionReport
+```
+
+In live mode `set_holdings` refuses to trade without a ledger (like the reconciler) and drains the queued broker
+events first. With a ledger, `TradeManager.execute_trade`:
+
+1. stores the intent **before** sending: `orders` row `PENDING` + `broker_orders` row `INTENT` (one transaction);
+2. sends; the broker annotates the engine order (`submission_outcome` = `not_sent` / `sent` / `unknown`,
+   `broker_order_id`), read back through `QCAlgorithm.last_submitted_order`;
+3. stores the outcome: `SUBMITTED`, `NOT_SENT` (→ `REJECTED`) or `UNKNOWN` (never resent; the broker's next status
+   resolves it);
+4. books **nothing**. Fills, positions and cash move only in `OrderLedger.on_execution` (once per `execId`, one
+   transaction with the `broker_executions` row) and `on_commission` (cash debit, once).
+
+Unexplained / wrong-side / overfilling executions are stored unbooked and listed in `ledger.anomalies`. A cancel is
+only requested (`request_cancel`) until the broker reports `Cancelled`. Backtests (no ledger) book at submission as
+before. Tests: `tests/misbuffet/test_order_lifecycle.py`. Progress: `LIVE_TRADING_READINESS.txt` (P.03).
