@@ -24,8 +24,9 @@
     <div class="card-header">Configuration</div>
     <div class="card-body"><div class="row g-2 small">
         <div class="col-md-3"><label class="form-label">Strategy</label>
-            <select class="form-select form-select-sm" name="strategy">
-            {% for n, s in strategies.items() %}<option value="{{ n }}" {% if n == (args.get('strategy') or primary) %}selected{% endif %}>{{ n }} ({{ s.convention }})</option>{% endfor %}</select></div>
+            <select class="form-select form-select-sm" name="strategy" id="strategy" onchange="updateRange()">
+            {% for n, s in strategies.items() %}<option value="{{ n }}" data-first="{{ s.returns.index.min().strftime('%Y-%m-%d') if s.returns|length else '' }}" data-last="{{ s.returns.index.max().strftime('%Y-%m-%d') if s.returns|length else '' }}" {% if n == (args.get('strategy') or primary) %}selected{% endif %}>{{ n }} ({{ s.convention }})</option>{% endfor %}</select>
+            <div class="muted" id="avail"></div></div>
         <div class="col-md-3"><label class="form-label">Factor return series</label>
             <select class="form-select form-select-sm" name="factor_set">
             {% for f in factor_sets %}<option value="{{ f.name }}" {% if f.name == args.get('factor_set', 'local_market') %}selected{% endif %}>{{ f.name }} — {{ f.factors|join(', ') }}{% if f.last %} (to {{ f.last }}){% endif %}</option>{% endfor %}</select></div>
@@ -37,8 +38,8 @@
         <div class="col-md-2"><label class="form-label">Frequency</label>
             <select class="form-select form-select-sm" name="frequency">
             {% for k, l in [('D','daily'),('W-FRI','weekly'),('M','monthly')] %}<option value="{{ k }}" {% if k == args.get('frequency','D') %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
-        <div class="col-md-2"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ args.get('start','') }}" placeholder="YYYY-MM-DD"></div>
-        <div class="col-md-2"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ args.get('end','') }}" placeholder="YYYY-MM-DD"></div>
+        <div class="col-md-2"><label class="form-label">Start (blank = first)</label><input type="date" class="form-control form-control-sm" id="start" name="start" value="{{ args.get('start','')[:10] }}"></div>
+        <div class="col-md-2"><label class="form-label">End (blank = last)</label><input type="date" class="form-control form-control-sm" id="end" name="end" value="{{ args.get('end','')[:10] }}"></div>
         <div class="col-md-2"><label class="form-label">Return convention</label>
             <select class="form-select form-select-sm" name="convention">
                 <option value="">strategy default</option>
@@ -126,4 +127,15 @@
         <button class="btn btn-sm btn-outline-secondary">Import CSV (date + factor columns)</button></form>
     <div class="muted mt-1">The French library publishes with a lag of one to two months: very recent strategy periods have no factor data and are reported, not filled.</div>
 </div></details>
+{% endblock %}
+{% block scripts %}
+<script>
+function updateRange() {
+    const sel = document.getElementById('strategy'); if (!sel) return;
+    const o = sel.options[sel.selectedIndex];
+    for (const id of ['start', 'end']) { const el = document.getElementById(id); el.min = o.dataset.first; el.max = o.dataset.last; }
+    document.getElementById('avail').textContent = o.dataset.first ? 'Returns available: ' + o.dataset.first + ' .. ' + o.dataset.last : '';
+}
+updateRange();
+</script>
 {% endblock %}

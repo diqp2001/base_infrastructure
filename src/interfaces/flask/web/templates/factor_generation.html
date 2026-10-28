@@ -11,13 +11,14 @@
     <div class="card-header">Request</div>
     <div class="card-body small"><div class="row g-2">
         <div class="col-md-6"><label class="form-label">Company-share universe</label>
-            <select class="form-select form-select-sm" name="universe_id">
+            <select class="form-select form-select-sm" name="universe_id" id="universe" onchange="updateRange()">
             {% for u in universes %}<option value="{{ u.id }}" {% if form.get('universe_id')|string == u.id|string %}selected{% endif %}>{{ u.name }} ({{ u.active_now }} active / {{ u.constituents }} memberships)</option>{% endfor %}</select></div>
         <div class="col-md-6"><label class="form-label">Frequency</label>
-            <select class="form-select form-select-sm" name="frequency" id="freq" onchange="filterFactors()">
+            <select class="form-select form-select-sm" name="frequency" id="freq" onchange="filterFactors(); updateRange()">
             {% for k, l in frequencies %}<option value="{{ k }}" {% if form.get('frequency', '1d') == k %}selected{% endif %}>{{ l }} ({{ k }})</option>{% endfor %}</select></div>
-        <div class="col-md-6"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ form.get('start','') }}" placeholder="YYYY-MM-DD[ HH:MM]" required></div>
-        <div class="col-md-6"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ form.get('end','') }}" placeholder="YYYY-MM-DD[ HH:MM]" required></div>
+        <div class="col-md-6"><label class="form-label">Start</label><input type="date" class="form-control form-control-sm" id="start" name="start" value="{{ form.get('start','')[:10] }}" required></div>
+        <div class="col-md-6"><label class="form-label">End (whole day included)</label><input type="date" class="form-control form-control-sm" id="end" name="end" value="{{ form.get('end','')[:10] }}" required></div>
+        <div class="col-12 muted" id="avail">Select a universe and a frequency to see the dates with stored input data.</div>
         <div class="col-12"><label class="form-label">Factors (calculated; only those defined at the selected frequency are eligible)</label>
             <div class="mb-1"><label><input type="checkbox" name="all_eligible" {% if form.get('all_eligible') %}checked{% endif %}> all eligible factors at this frequency</label></div>
             <select class="form-select form-select-sm" name="factor_ids" id="factors" multiple size="12">
@@ -55,6 +56,17 @@ function filterFactors() {
     const f = document.getElementById('freq').value;
     for (const o of document.getElementById('factors').options) { o.hidden = o.dataset.freq !== f; if (o.hidden) o.selected = false; }
 }
-filterFactors();
+function setLimits(r, what, empty) {
+    const box = document.getElementById('avail');
+    for (const id of ['start', 'end']) { const el = document.getElementById(id); el.min = r.first || ''; el.max = r.last || ''; }
+    box.textContent = r.first ? 'Dates available: ' + r.first + ' .. ' + r.last + ' (' + what + ').' : empty;
+    box.className = 'col-12 ' + (r.first ? 'muted' : 'text-warning');
+}
+async function updateRange() {
+    const u = document.getElementById('universe').value, f = document.getElementById('freq').value;
+    const r = await (await fetch("{{ url_for('factor_research.date_range') }}?inputs=1&universe_id=" + u + "&frequency=" + f)).json();
+    setLimits(r, 'stored ' + f + ' closes of the universe, the inputs', 'No ' + f + ' close is stored for this universe: nothing can be computed.');
+}
+filterFactors(); updateRange();
 </script>
 {% endblock %}

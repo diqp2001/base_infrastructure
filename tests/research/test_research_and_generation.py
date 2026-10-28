@@ -273,3 +273,20 @@ def test_research_and_generation_pages(web):
     assert saved.status_code == 302
     sets = c.get("/factor-analysis/factor-returns").get_json()
     assert any(s["name"] == "r1d_ls" and s["kind"] == "mimicking_portfolio" for s in sets)
+
+
+def test_calendar_pickers_are_limited_to_the_dates_with_stored_data(web):
+    from src.application.services.research.factor_research import inclusive_end
+    db = web.db
+    c = web.client
+    inputs = c.get(f"/powerbuffet/api/date-range?inputs=1&universe_id={db.universe.id}&frequency=1d").get_json()
+    assert inputs == {"first": str(SESSIONS[0].date()), "last": str(SESSIONS[-1].date())}
+    assert c.get(f"/powerbuffet/api/date-range?inputs=1&universe_id={db.universe.id}&frequency=1h").get_json() == \
+        {"first": None, "last": None}                                     # no hourly closes stored
+    empty = c.get(f"/powerbuffet/api/date-range?universe_id={db.universe.id}&factor_ids={db.calc['return_5d']}")
+    assert empty.get_json() == {"first": None, "last": None}             # nothing generated yet
+    for page in ("/powerbuffet/generate", "/powerbuffet/research", "/factor-analysis/?source=csm:test"):
+        assert 'type="date"' in c.get(page).get_data(as_text=True), page
+    assert 'data-first="' in c.get("/factor-analysis/?source=csm:test").get_data(as_text=True)
+    assert inclusive_end("2026-03-20") == pd.Timestamp("2026-03-20 23:59:59.999999")
+    assert inclusive_end("2026-03-20 10:00") == pd.Timestamp("2026-03-20 10:00")
