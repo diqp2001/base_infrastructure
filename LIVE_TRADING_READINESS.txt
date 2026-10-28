@@ -4,15 +4,18 @@ MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth 
 SUMMARY
 -------
 Last updated     : 2026-10-28
-Current phase    : P.02 — Real-time streaming market data (P.01 verified 2026-10-28)
-Overall progress : P.01 done (8/8). P.02 started (1/9). P.03–P.07 not started.
-Task counts      : completed 9 · in progress 1 · blocked 2 · pending 52
+Current phase    : P.03 — Order lifecycle and brokerage integration (P.01, P.02 verified 2026-10-28)
+Overall progress : P.01 done (8/8). P.02 done in simulation (9/9; IBKR verification blocked, see B3). P.03–P.07 not
+                   started.
+Task counts      : completed 17 · in progress 0 · blocked 3 · pending 51
 Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
                    never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
                    refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
-Next actionable  : P.02.02 — streaming quote/trade observation model + IBTWSClient capture (market data type, per-
-                   request errors, per-field receipt times).
+                   [B3] TWS not reachable on 2026-10-28 16:56 (error 502: TWS not running or API socket disabled):
+                   the read-only streaming check (scratch p02_stream_check.py, client id 96) could not run.
+Next actionable  : P.03.02 — durable order intent before submission, and D1 (no fill booked at submission in live
+                   mode); first re-run the P.02 IBKR read-only check when TWS is up.
 Live trading     : NOT ready. Live order submission must stay disabled. See P.07.
 
 Legend: [ ] not started  [~] in progress  [x] completed and verified  [!] blocked
@@ -96,7 +99,7 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               execId de-duplication across restarts. (P.03 / P.04)
  D4 HIGH      _cancel_order_impl forgets the order before IBKR confirms the cancel (interactive_brokers_broker.py:228).
  D5 HIGH      PreTradeGate and PositionReconciler exist and are tested but no live / paper broker attaches them. (P.05)
- D6 HIGH      Streaming market data: latest value only, receipt time only for the whole request, market-data type
+ D6 HIGH      [RESOLVED in simulation by P.02, 2026-10-28; IBKR check pending B3] Streaming market data: latest value only, receipt time only for the whole request, market-data type
               (live / frozen / delayed) not kept, entitlement errors (354, 10089, 10090, 10167, 10168, 10197) not
               routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
  D7 MEDIUM    No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
@@ -134,7 +137,7 @@ Commands / results
 Acceptance  existing implementations identified before proposals; execution path mapped end to end (above). Met.
 
 
-P.02 — Real-time streaming market data                                              [~] IN PROGRESS
+P.02 — Real-time streaming market data                      [x] VERIFIED IN SIMULATION 2026-10-28 (IBKR: [!] B3)
 ------------------------------------------------------------------------------------------------
 Objective  Typed, timestamped, state-aware streaming observations that cannot silently enter decisions when stale,
            delayed, invalid or not entitled.
@@ -144,19 +147,48 @@ Affected  brokers/ibkr/IBTWSClient.py (capture), new domain streaming observatio
 Tasks
  [x] P.02.01 Contracts / subscriptions inspected (reqMktData with snapshot / generic ticks, cancelMktData,
              market_data dict, marketDataType logged only, errors not routed) — see D6.
- [ ] P.02.02 Streaming bid / ask, sizes and last trade as observations (quote, trade).
- [ ] P.02.03 Event time (when IBKR provides it: tick-by-tick), receipt time per field, instrument identity, source,
-             observation type.
- [ ] P.02.04 Distinguish quotes, trades, bars, snapshots.
- [ ] P.02.05 Live / frozen / delayed / delayed-frozen state per subscription (marketDataType).
- [ ] P.02.06 Subscriptions: request ids, cancel, reconnect -> resubscribe, line limit / pacing.
- [ ] P.02.07 Freshness, validity (validate_quote) and entitlement (errors routed per request) checks.
- [ ] P.02.08 Historical data and factor semantics unchanged (existing suites green).
- [ ] P.02.09 Tests: normalisation, stale quotes, delayed state, entitlement error, disconnection and recovery.
+ [x] P.02.02 StreamingObservation (domain/entities/finance/market_data/streaming_observation.py): bid / ask / sizes
+             / last / last size; StreamingMarketDataService.observation normalises IBKR ticks 1/2/4, 0/3/5 and the
+             delayed 66-71.
+ [x] P.02.03 Receipt time PER FIELD (IBTWSClient.tickPrice / tickSize 'received'), event time only when the source
+             stamps it (tick-by-tick, LAST_TIMESTAMP 45 / 88) — a receipt time is never presented as an exchange
+             time; instrument key, source, request id kept. A quote's time = its OLDER side.
+ [x] P.02.04 ObservationType QUOTE / TRADE / BAR / SNAPSHOT; snapshot subscriptions flagged. Historical bars stay on
+             the existing path (BAR type reserved for streamed bars).
+ [x] P.02.05 IBTWSClient.marketDataType stored per request -> MarketDataState LIVE / FROZEN / DELAYED /
+             DELAYED_FROZEN (delayed tick types imply DELAYED when the type has not arrived).
+ [x] P.02.06 subscribe / unsubscribe (cancels quote and tick-by-tick lines), one subscription per instrument, line
+             limit (default 95 < IBKR 100) refuses instead of dropping, connection-closed listener, resubscribe()
+             under new ids discarding old values. Limitation: reconnect orchestration (who reconnects and calls
+             resubscribe) belongs to P.04.07; no reqMktData message-rate pacing beyond the line limit.
+ [x] P.02.07 assess(): NOT_ENTITLED (errors routed per market-data request: 354 / 10089 / 200 ...; notices 10167 /
+             2104 / 2106 / 2158 / 2119 ignored), DELAYED (state other than live where live is required), STALE (policy
+             max age of the older side; any data while disconnected), INVALID (validate_quote: missing side, zero,
+             crossed, spread), MISSING; executable only for a CURRENT LIVE valid two-sided quote; a last trade or a
+             midpoint is never executable.
+ [x] P.02.08 Historical / factor behaviour unchanged: IBTWSClient changes are additive (market-data requests only).
+ [x] P.02.09 tests/misbuffet/test_streaming_market_data.py (14): live quote, older-side staleness, delayed / frozen /
+             delayed tick types, entitlement error, invalid quotes (crossed, zero, missing side), trade-only with
+             exchange time, tick-by-tick, disconnection + resubscription, line limit + cancel, status rows, midpoint
+             not executable, real IBTWSClient callbacks (state, errors, receipt / trade time, listeners, cancel while
+             disconnected).
+ [!] P.02.IB IBKR read-only verification — BLOCKED [B3] (TWS unreachable 2026-10-28 16:56). Expected when it runs:
+             JPM / SPY quotes refused or delayed (B2: no US-equity quote permission) -> NOT_ENTITLED / DELAYED, which
+             is the safe outcome; record the actual codes.
 Acceptance  observations distinguishable by type and source; stale / invalid / delayed / not-entitled data never
             reported as current; MIDPOINT not treated as executable; TRADES history not taken as quote permission;
             IBKR paper verification recorded or its blocker documented.
-Verification  (pending)
+Files  domain/entities/finance/market_data/{__init__,streaming_observation}.py (new),
+       application/services/misbuffet/data/streaming_market_data.py (new), brokers/ibkr/IBTWSClient.py (additive:
+       market_data_type, market_data_errors, tick_by_tick, connection_listeners, per-field receipt times, last-trade
+       time, tickByTickBidAsk / tickByTickAllLast, request / cancel tick-by-tick, state cleared on cancel even when
+       disconnected).
+Commands / results (2026-10-28)
+ pytest tests/misbuffet/test_streaming_market_data.py -> 14 passed
+ pytest tests/misbuffet tests/monitoring tests/architecture tests/integration (lint baseline deselected because of the
+   owner's uncommitted src/main.py) -> 319 passed, 12 deselected
+ lint-imports -> 4 kept, 0 broken; ruff F401/F821/F841 on the changed files -> clean
+Not yet wired: streaming assessments are not consumed by decisions or the pre-trade gate (P.05.05).
 
 
 P.03 — Existing order lifecycle and brokerage integration                           [ ] NOT STARTED
@@ -241,3 +273,5 @@ SESSION LOG
 -----------
 2026-10-28  P.01 audit: engine, broker, IBKR client, persistence, accounting, risk, tests read; 159 existing tests
             run (passed, 1 skipped); defects D1–D10 recorded; P.02 started (P.02.01 done).
+2026-10-28  P.02 implemented and verified in simulation (14 new tests, 319 related tests green); IBKR read-only
+            check blocked (B3, TWS error 502). D6 resolved in simulation (reconnect orchestration left to P.04.07).

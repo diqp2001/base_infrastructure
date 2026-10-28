@@ -7,8 +7,8 @@ from ibapi.wrapper import EWrapper
 
 import logging
 import threading
-from datetime import datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import Callable, Dict, List, Tuple
 
 from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import verify_connected_accounts
 
@@ -69,6 +69,13 @@ class IBTWSClient(EWrapper, EClient):
         
         # Market data subscriptions tracking
         self.market_data_subscriptions = set()
+        # P.02 streaming state: reqId -> IBKR marketDataType (1 live, 2 frozen, 3 delayed, 4 delayed-frozen), the error
+        # IBKR returned for that market-data request (entitlement, unknown contract ...), tick-by-tick events
+        self.market_data_type: Dict[int, int] = {}
+        self.market_data_errors: Dict[int, Tuple[int, str]] = {}
+        self.tick_by_tick: Dict[int, dict] = {}
+        # called (no argument) when the connection closes: streaming subscribers resubscribe after a reconnect
+        self.connection_listeners: List[Callable[[], None]] = []
         
         # News data storage
         self.news_data = {}
@@ -94,6 +101,11 @@ class IBTWSClient(EWrapper, EClient):
         self.logger.info("TWS connection closed")
         self.connected_flag = False
         self.authenticated_flag = False
+        for listener in list(getattr(self, "connection_listeners", [])):
+            try:
+                listener()
+            except Exception as e:                        # a listener never breaks the API thread
+                self.logger.warning(f"connection listener failed: {e}")
 
     def nextValidId(self, orderId: int):
         """Next valid order ID callback."""
@@ -112,6 +124,12 @@ class IBTWSClient(EWrapper, EClient):
             # e.g. 162 "no historical data", 200 "no security definition": the request is over
             self.historical_data_errors[reqId] = (errorCode, errorString)
             done.set()
+        # P.02: an error for a market-data request belongs to that subscription (entitlement 354 / 10089 / 10090 /
+        # 10091 / 10168 / 10197, no security definition 200 ...); 10167 only says delayed data is displayed
+        if reqId in getattr(self, "market_data_subscriptions", ()) or reqId in getattr(self, "market_data", {}) \
+                or reqId in getattr(self, "tick_by_tick", {}):
+            if errorCode not in (2104, 2106, 2158, 10167, 2119):
+                self.market_data_errors[reqId] = (errorCode, errorString)
         if errorCode in [2104, 2106, 2158]:  # Market data warnings
             self.logger.info(f"Market data info ({errorCode}): {errorString}")
         elif errorCode < 1000:  # System errors
@@ -245,6 +263,7 @@ class IBTWSClient(EWrapper, EClient):
 
         self.market_data[reqId]['prices'][tickType] = price
         self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        self.market_data[reqId].setdefault('received', {})[tickType] = datetime.now(timezone.utc)
 
         # Log significant tick types for debugging
         tick_type_names = {
@@ -269,6 +288,7 @@ class IBTWSClient(EWrapper, EClient):
 
         self.market_data[reqId]['sizes'][tickType] = size
         self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        self.market_data[reqId].setdefault('received_sizes', {})[tickType] = datetime.now(timezone.utc)
 
         # Log significant size tick types
         size_tick_names = {
@@ -307,6 +327,11 @@ class IBTWSClient(EWrapper, EClient):
 
         self.market_data[reqId]['strings'][tickType] = value
         self.market_data[reqId]['last_update'] = datetime.now().isoformat()
+        if tickType in (45, 88):                          # LAST_TIMESTAMP / DELAYED_LAST_TIMESTAMP: epoch seconds
+            try:
+                self.market_data[reqId]['last_trade_time'] = datetime.fromtimestamp(int(value), tz=timezone.utc)
+            except (TypeError, ValueError, OSError):
+                pass
 
         self.logger.debug(f"String tick update - Req {reqId}: Type {tickType} = {value}")
 
@@ -317,6 +342,23 @@ class IBTWSClient(EWrapper, EClient):
         }
         data_type_name = data_types.get(marketDataType, f'Unknown({marketDataType})')
         self.logger.info(f"Market data type for req {reqId}: {data_type_name}")
+        self.market_data_type[reqId] = int(marketDataType)
+
+    def tickByTickBidAsk(self, reqId: int, time: int, bidPrice: float, askPrice: float, bidSize, askSize,
+                         tickAttribBidAsk):
+        """Tick-by-tick quote: IBKR stamps the event time (epoch seconds)."""
+        now = datetime.now(timezone.utc)
+        entry = self.tick_by_tick.setdefault(reqId, {})
+        entry.update(bid=bidPrice, ask=askPrice, bid_size=float(bidSize), ask_size=float(askSize),
+                     quote_event_time=datetime.fromtimestamp(int(time), tz=timezone.utc), quote_received=now)
+
+    def tickByTickAllLast(self, reqId: int, tickType: int, time: int, price: float, size, tickAttribLast,
+                          exchange: str, specialConditions: str):
+        """Tick-by-tick trade (tickType 1 Last, 2 AllLast)."""
+        now = datetime.now(timezone.utc)
+        entry = self.tick_by_tick.setdefault(reqId, {})
+        entry.update(last=price, last_size=float(size), trade_event_time=datetime.fromtimestamp(int(time), tz=timezone.utc),
+                     trade_received=now, exchange=exchange)
 
     def historicalData(self, reqId: int, bar):
         """Historical data callback. Bars of a request that is no longer active (finished, timed out) are ignored."""
@@ -797,6 +839,23 @@ class IBTWSClient(EWrapper, EClient):
         data_types = {1: 'Live', 2: 'Frozen', 3: 'Delayed', 4: 'Delayed-Frozen'}
         self.logger.info(f"Requested market data type: {data_types.get(market_data_type, market_data_type)}")
     
+    def request_tick_by_tick(self, req_id: int, contract: Contract, tick_type: str = "BidAsk") -> None:
+        """Tick-by-tick stream ('BidAsk', 'Last', 'AllLast', 'MidPoint'): events stamped by IBKR."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        self.tick_by_tick.pop(req_id, None)
+        self.reqTickByTickData(req_id, contract, tick_type, 0, False)
+        self.logger.info(f"Requested tick-by-tick {tick_type} for {contract.symbol} (req_id: {req_id})")
+
+    def cancel_tick_by_tick(self, req_id: int) -> None:
+        if self.is_connected():
+            try:
+                self.cancelTickByTickData(req_id)
+            except Exception as e:
+                self.logger.debug(f"tick-by-tick cancellation warning for {req_id}: {e}")
+        self.tick_by_tick.pop(req_id, None)
+        self.market_data_errors.pop(req_id, None)
+
     def cancel_market_data(self, req_id: int) -> None:
         """
         Cancel market data subscription.
@@ -805,8 +864,12 @@ class IBTWSClient(EWrapper, EClient):
             req_id: Request identifier to cancel
         """
         if not self.is_connected():
+            # nothing to send: the subscription ended with the connection; its local state must not linger
+            for table in (self.market_data, self.market_data_type, self.market_data_errors):
+                table.pop(req_id, None)
+            self.market_data_subscriptions.discard(req_id)
             return
-        
+
         # Fix Issue #4: Only cancel if subscription is active to avoid Error 300
         if req_id in self.market_data_subscriptions or req_id in self.market_data:
             try:
@@ -820,6 +883,8 @@ class IBTWSClient(EWrapper, EClient):
         
         self.market_data.pop(req_id, None)
         self.market_data_subscriptions.discard(req_id)
+        self.market_data_type.pop(req_id, None)
+        self.market_data_errors.pop(req_id, None)
 
 
     def request_historical_data(self, req_id: int, contract: Contract, end_date_time: str = "",
