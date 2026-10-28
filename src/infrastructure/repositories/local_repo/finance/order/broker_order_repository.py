@@ -11,10 +11,19 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState
-from src.domain.ports.finance.broker_order_port import BrokerOrderPort, ExecutionPort
-from src.infrastructure.models.finance.order.broker_order import BrokerExecutionModel, BrokerOrderModel
+from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+from src.domain.ports.finance.broker_order_port import BrokerOrderPort, DiscrepancyPort, ExecutionPort
+from src.infrastructure.models.finance.order.broker_order import (
+    BrokerExecutionModel,
+    BrokerOrderModel,
+    TradingDiscrepancyModel,
+)
 from src.infrastructure.models.finance.order.order import OrderModel
-from src.infrastructure.repositories.mappers.finance.order.broker_order_mapper import BrokerOrderMapper, ExecutionMapper
+from src.infrastructure.repositories.mappers.finance.order.broker_order_mapper import (
+    BrokerOrderMapper,
+    DiscrepancyMapper,
+    ExecutionMapper,
+)
 
 OPEN_STATUSES = ("PENDING", "SUBMITTED", "PARTIALLY_FILLED")
 
@@ -119,3 +128,26 @@ class ExecutionRepository(_Base, ExecutionPort):
         rows = (self.session.query(BrokerExecutionModel).filter(BrokerExecutionModel.order_id.is_(None))
                 .order_by(BrokerExecutionModel.executed_at).all())
         return [self.mapper.to_domain(r) for r in rows]
+
+
+class DiscrepancyRepository(_Base, DiscrepancyPort):
+    model_class = TradingDiscrepancyModel
+    mapper = DiscrepancyMapper
+
+    def get_open(self, kind: Optional[DiscrepancyKind] = None) -> List[Discrepancy]:
+        q = self.session.query(TradingDiscrepancyModel).filter(TradingDiscrepancyModel.resolved_at.is_(None))
+        if kind is not None:
+            q = q.filter(TradingDiscrepancyModel.kind == kind.value)
+        return [self.mapper.to_domain(r) for r in q.order_by(TradingDiscrepancyModel.id).all()]
+
+    def get_open_by_key(self, kind: DiscrepancyKind, key: str) -> Optional[Discrepancy]:
+        rows = (self.session.query(TradingDiscrepancyModel)
+                .filter(TradingDiscrepancyModel.resolved_at.is_(None), TradingDiscrepancyModel.kind == kind.value,
+                        TradingDiscrepancyModel.key == key).order_by(TradingDiscrepancyModel.id).all())
+        return self.mapper.to_domain(rows[0]) if rows else None
+
+    def get_latest_by_key(self, kind: DiscrepancyKind, key: str) -> Optional[Discrepancy]:
+        row = (self.session.query(TradingDiscrepancyModel)
+               .filter(TradingDiscrepancyModel.kind == kind.value, TradingDiscrepancyModel.key == key)
+               .order_by(TradingDiscrepancyModel.id.desc()).first())
+        return self.mapper.to_domain(row)

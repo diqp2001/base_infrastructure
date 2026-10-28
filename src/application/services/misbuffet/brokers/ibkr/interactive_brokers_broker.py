@@ -203,6 +203,11 @@ class InteractiveBrokersBroker(BaseBroker):
             else:
                 self.logger.error(f"Unsupported order type: {order_type}")
                 return False
+            # P.04: the tag travels to IBKR as orderRef (TradeManager puts the internal order id in it), so start-up
+            # recovery matches open orders and executions even when the broker order id was never stored
+            tag = getattr(order, "tag", "")
+            if tag:
+                ib_order.orderRef = str(tag)[:100]
 
             # Place order with TWS. P.03: the engine order carries the submission outcome — 'not_sent' (never
             # left), 'unknown' (the send was attempted and failed: never resent, the broker's state decides) or

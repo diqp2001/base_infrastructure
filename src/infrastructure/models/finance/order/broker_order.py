@@ -66,3 +66,23 @@ class BrokerExecutionModel(Base):
 
     def __repr__(self) -> str:
         return f"<BrokerExecutionModel({self.broker}:{self.exec_id}, order={self.order_id}, {self.side} {self.quantity})>"
+
+
+class TradingDiscrepancyModel(Base):
+    """Recovery discrepancies (P.04): differences between the books and the broker, and their resolution."""
+    __tablename__ = "trading_discrepancies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kind = Column(String(50), nullable=False, index=True)
+    key = Column(String(200), nullable=False)
+    broker = Column(String(50), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    detail = Column(Text, nullable=False)
+    blocking = Column(Boolean, nullable=False, default=True)
+    detected_at = Column(DateTime, nullable=False)
+    resolved_at = Column(DateTime, nullable=True, index=True)
+    resolution = Column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        state = "open" if self.resolved_at is None else "resolved"
+        return f"<TradingDiscrepancyModel({self.kind} {self.key!r}, {'blocking' if self.blocking else 'info'}, {state})>"

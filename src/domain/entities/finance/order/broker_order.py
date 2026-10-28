@@ -40,6 +40,23 @@ TWS_STATUS = {
 }
 
 
+ORDER_REF_PREFIX = "MB"
+
+
+def order_ref(order_id: int) -> str:
+    """The reference an internal order carries to the broker (IBKR orderRef), e.g. 'MB42'."""
+    return f"{ORDER_REF_PREFIX}{int(order_id)}"
+
+
+def order_id_from_ref(ref) -> Optional[int]:
+    """Internal order id in a broker order reference ('set_holdings_AAPL|MB42' -> 42); None when absent."""
+    for part in reversed(str(ref or "").split("|")):
+        part = part.strip()
+        if part.startswith(ORDER_REF_PREFIX) and part[len(ORDER_REF_PREFIX):].isdigit():
+            return int(part[len(ORDER_REF_PREFIX):])
+    return None
+
+
 def status_from_tws(tws_status: str, filled: float, remaining: float) -> Optional[str]:
     """Internal status for an IBKR orderStatus; None when the string is not one IBKR documents."""
     base = TWS_STATUS.get(str(tws_status or ""))
@@ -130,6 +147,25 @@ class BrokerOrder:
             self.average_fill_price = float(average_price)
         self.last_event_at = at
         return True
+
+    def close_on_recovery(self, status: str, filled: float, reason: str, at: datetime) -> None:
+        """Recovery (P.04): the order is no longer working at the broker. FILLED / CANCELLED with the quantity its
+        executions show, or REJECTED for an order the broker never had (INTENT / UNKNOWN without any trace)."""
+        if self.is_terminal:
+            raise ValueError(f"order {self.order_id} is already {self.status}")
+        if status not in ("FILLED", "CANCELLED", "REJECTED"):
+            raise ValueError(f"recovery closes an order as FILLED, CANCELLED or REJECTED, not {status}")
+        if status == "REJECTED":
+            if self.submission_state not in (SubmissionState.INTENT, SubmissionState.UNKNOWN) or filled:
+                raise ValueError("only an order the broker never had can be closed as REJECTED")
+            self.submission_state = SubmissionState.NOT_SENT
+        elif self.submission_state in (SubmissionState.INTENT, SubmissionState.UNKNOWN):
+            self.submission_state = SubmissionState.SUBMITTED              # it traded: the broker had it
+        self.status = status
+        self.filled_quantity = float(filled)
+        self.remaining_quantity = max(self.requested_quantity - float(filled), 0.0) if status != "FILLED" else 0.0
+        self.message = reason
+        self.last_event_at = at
 
     def request_cancel(self, at: datetime) -> None:
         if self.is_terminal:

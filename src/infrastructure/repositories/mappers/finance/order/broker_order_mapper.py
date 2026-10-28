@@ -1,7 +1,12 @@
 """Domain <-> ORM conversion of the broker order ledger (P.03)."""
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState
-from src.infrastructure.models.finance.order.broker_order import BrokerExecutionModel, BrokerOrderModel
+from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+from src.infrastructure.models.finance.order.broker_order import (
+    BrokerExecutionModel,
+    BrokerOrderModel,
+    TradingDiscrepancyModel,
+)
 
 _ORDER_FIELDS = ("order_id", "broker", "account", "portfolio_id", "cash_portfolio_id", "symbol", "side",
                  "requested_quantity", "broker_order_id", "perm_id", "client_id","status", "filled_quantity", "remaining_quantity", "average_fill_price", "created_at",
@@ -46,4 +51,25 @@ class ExecutionMapper:
         for f in _EXECUTION_FIELDS:
             setattr(orm, f, getattr(entity, f))
         orm.notes = entity.notes or None
+        return orm
+
+
+_DISCREPANCY_FIELDS = ("key", "broker", "order_id", "detail", "detected_at", "resolved_at", "resolution")
+
+
+class DiscrepancyMapper:
+
+    @staticmethod
+    def to_domain(orm: TradingDiscrepancyModel):
+        if orm is None:
+            return None
+        values = {f: getattr(orm, f) for f in _DISCREPANCY_FIELDS}
+        return Discrepancy(id=orm.id, kind=DiscrepancyKind(orm.kind), blocking=bool(orm.blocking), **values)
+
+    @staticmethod
+    def copy_to_orm(entity: Discrepancy, orm: TradingDiscrepancyModel) -> TradingDiscrepancyModel:
+        for f in _DISCREPANCY_FIELDS:
+            setattr(orm, f, getattr(entity, f))
+        orm.kind = entity.kind.value
+        orm.blocking = bool(entity.blocking)
         return orm

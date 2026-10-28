@@ -85,6 +85,14 @@ class UnifiedPortfolioManager:
         self._reconciler = None
         # Durable live order ledger (order_ledger.py, P.03). Mandatory in live mode as well.
         self._order_ledger = None
+        # Start-up / reconnect recovery (startup_recovery.py, P.04). Mandatory in live mode: no order before it
+        # succeeded, and again after every broker disconnection.
+        self._recovery = None
+
+    def attach_startup_recovery(self, recovery):
+        """Live trading is allowed only while ``recovery.ensure()`` is true (it re-runs after a reconnect)."""
+        self._recovery = recovery
+        return recovery
 
     def attach_order_ledger(self, ledger):
         """Live order path: intents stored before sending, fills booked only from broker executions.
@@ -1236,6 +1244,12 @@ class UnifiedPortfolioManager:
                                       "(attach_order_ledger) — refusing to trade")
                 return {t: False for t in targeted}
             self._order_ledger.drain()          # broker statuses / executions received since the last call
+            recovery = getattr(self, "_recovery", None)
+            if recovery is None or not recovery.ensure():
+                if self.logger:
+                    detail = recovery.last_report.summary() if recovery is not None and recovery.last_report else                         "no start-up recovery attached (attach_startup_recovery)"
+                    self.logger.error(f"set_holdings: live trading not allowed — {detail}")
+                return {t: False for t in targeted}
         if self._reconciler is not None:
             from .position_reconciler import normalize_ticker
             rec = self._reconciler.check(extra_tickers=targeted)

@@ -30,7 +30,13 @@ import queue
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional
 
-from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState, status_from_tws
+from src.domain.entities.finance.order.broker_order import (
+    BrokerOrder,
+    Execution,
+    SubmissionState,
+    order_id_from_ref,
+    status_from_tws,
+)
 
 UNSET_DOUBLE = 1e300                    # IBKR sends Double.MAX_VALUE for "not set" commissions
 
@@ -137,7 +143,7 @@ class OrderLedger:
         return n
 
     def on_status(self, event: dict) -> bool:
-        bo = self._match(event.get("perm_id"), event.get("order_id"), event.get("client_id"))
+        bo = self._match(event.get("perm_id"), event.get("order_id"), event.get("client_id"), event.get("order_ref"))
         if bo is None:
             self._anomaly(f"status {event.get('status')} for broker order {event.get('order_id')} / perm "
                           f"{event.get('perm_id')}: no internal order (external order?)")
@@ -167,7 +173,7 @@ class OrderLedger:
             self.duplicates += 1                                   # replayed (reqExecutions, reconnect): once only
             return None
         received = self._naive(event.get("received_at") or self.clock())
-        bo = self._match(event.get("perm_id"), event.get("order_id"), event.get("client_id"))
+        bo = self._match(event.get("perm_id"), event.get("order_id"), event.get("client_id"), event.get("order_ref"))
         ex = Execution(exec_id=exec_id, broker=self.broker, symbol=bo.symbol if bo else str(event.get("symbol") or ""),
                        side=event.get("side"), quantity=float(event.get("shares")), price=float(event.get("price")),
                        executed_at=parse_ibkr_time(event.get("time"), received), broker_order_id=event.get("order_id"),
@@ -251,9 +257,19 @@ class OrderLedger:
         self._anomaly(f"commission {amount} on {ex.exec_id}: booking failed and was rolled back")
         return False
 
-    def _match(self, perm_id, broker_order_id, client_id) -> Optional[BrokerOrder]:
+    def match(self, perm_id=None, broker_order_id=None, client_id=None, order_ref=None) -> Optional[BrokerOrder]:
+        return self._match(perm_id, broker_order_id, client_id, order_ref)
+
+    def _match(self, perm_id, broker_order_id, client_id, order_ref=None) -> Optional[BrokerOrder]:
+        """permId, then our own reference (orderRef 'MB<id>': survives a crash before the broker id was stored),
+        then orderId (+ client id)."""
         if perm_id:
             bo = self.orders.get_by_perm_id(self.broker, int(perm_id))
+            if bo is not None:
+                return bo
+        internal = order_id_from_ref(order_ref)
+        if internal is not None:
+            bo = self.orders.get_by_order_id(internal)
             if bo is not None:
                 return bo
         if broker_order_id is None or int(broker_order_id) <= 0:

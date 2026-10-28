@@ -4,19 +4,24 @@ MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth 
 SUMMARY
 -------
 Last updated     : 2026-10-28
-Current phase    : P.04 — Restart recovery and reconciliation (P.01, P.02 verified; P.03 verified in simulation)
-Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 done in simulation, 2 partial
-                   (P.03.03 enum merge D8, P.03.04 modifications); its IBKR check needs orders -> [B1]. P.04–P.07 not
-                   started.
-Task counts      : completed 26 · in progress 2 · blocked 3 · pending 41
+Current phase    : P.05 — Pre-trade risk and trading controls (P.01–P.02 verified; P.03–P.04 verified in
+                   simulation, P.04 also against IBKR read-only)
+Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
+                   modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
+                   resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05–P.07 not started.
+Task counts      : completed 32 · in progress 3 · blocked 3 · pending 34
 Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
                    never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
                    refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.04.01 / P.04.02 — on start-up, recover open orders and executions (reqOpenOrders /
-                   reqExecutions) into the order ledger and resolve UNKNOWN / INTENT broker orders before trading.
+Next actionable  : P.05.01 — audit existing risk controls (PreTradeGate / RiskLimits, SPX v2 risk manager,
+                   set_holdings gross cap), then wire the gate into the live path (D5). P.04.04 (cash / account values
+                   vs books) can be done alongside P.05.04 (buying power).
+Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
+                   accounts start with D). IBKR_ACCOUNT_MODE / BI-005 refuses orders on a mismatch; P.06 must use a
+                   paper login.
 Live trading     : NOT ready. Live order submission must stay disabled. See P.07.
 
 Legend: [ ] not started  [~] in progress  [x] completed and verified  [!] blocked
@@ -104,7 +109,8 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
  D6 HIGH      [RESOLVED by P.02, 2026-10-28; verified in simulation and against IBKR read-only] Streaming market data: latest value only, receipt time only for the whole request, market-data type
               (live / frozen / delayed) not kept, entitlement errors (354, 10089, 10090, 10167, 10168, 10197) not
               routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
- D7 MEDIUM    No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
+ D7 MEDIUM    [RESOLVED for orders / executions / positions by P.04, 2026-10-28; streaming resubscription on
+              reconnect not orchestrated yet] No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
  D8 MEDIUM    [OPEN; mitigated by P.03: one TWS -> internal mapping (broker_order.status_from_tws) and
               order_state.advances accepts every spelling] Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
  D9 MEDIUM    Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
@@ -263,20 +269,58 @@ Commands / results (2026-10-28)
  lint-imports -> 4 kept, 0 broken; ruff on the changed files -> clean
 
 
-P.04 — Restart recovery and reconciliation                                          [ ] NOT STARTED
+P.04 — Restart recovery and reconciliation      [x] VERIFIED IN SIMULATION + IBKR READ-ONLY 2026-10-28 (04.04 open)
 ------------------------------------------------------------------------------------------------
 Dependencies  P.03.
- [ ] P.04.01 Recover account, positions, open orders (snapshots exist: request_positions_snapshot,
-             request_open_orders_snapshot).
- [ ] P.04.02 Recover and reconcile executions (reqExecutions).
- [ ] P.04.03 Positions internal vs broker (PositionReconciler exists — extend, attach).
- [ ] P.04.04 Cash, currencies, account values.
- [ ] P.04.05 Manual / external trades detected.
- [ ] P.04.06 Discrepancies recorded with their resolution.
- [ ] P.04.07 Safe restart after application or broker disconnection.
- [ ] P.04.08 Tests: missing fills, external trades, restarts.
+Design (owner choice 2026-10-28: new table trading_discrepancies) — StartupRecovery
+(application/services/misbuffet/algorithm/startup_recovery.py), READ-ONLY broker requests:
+   1. reqAllOpenOrders + reqExecutions (IBTWSClient.request_executions_snapshot, new; execDetailsEnd) — incomplete
+      list or no connection -> INCOMPLETE_SNAPSHOT (blocking)
+   2. the day's executions / commissions reach the OrderLedger through order_listeners: booked once per execId
+   3. every open ledger order matched by permId, orderRef 'MB<internal id>' (new: TradeManager appends it to the tag,
+      the IBKR broker sends the tag as orderRef — survives a crash before the broker id was stored), orderId:
+      working -> kept (INTENT / UNKNOWN -> SUBMITTED); gone + traded -> FILLED / CANCELLED with the executed quantity;
+      gone + no trace -> REJECTED (INTENT / UNKNOWN: never at the broker). Each closure recorded (not blocking).
+   4. working broker orders / executions no internal order explains -> UNMANAGED_WORKING_ORDER / EXTERNAL_EXECUTION,
+      blocking when the instrument is managed by the strategy
+   5. PositionReconciler -> POSITION_MISMATCH (blocking); auto-resolved when a later run matches
+   6. verdict: allowed only with complete lists and no open blocking discrepancy (incl. earlier unresolved ones)
+ Gate: UPM.attach_startup_recovery; live set_holdings calls recovery.ensure() and refuses unless it is true. A broker
+ disconnection (connection_listeners) invalidates the recovery; ensure() re-runs it. recovery.resolve(id, text) =
+ the owner's resolution; it forces a re-check; a resolved execution / order discrepancy is not raised again when IBKR
+ replays the same object.
+ [x] P.04.01 Open orders recovered (reqAllOpenOrders) and matched to the ledger; positions via the reconciler.
+             Account values: not compared (P.04.04).
+ [x] P.04.02 Executions recovered (reqExecutions) and booked once; LIMIT: IBKR returns the current day only — fills
+             of earlier days are caught by the position check (blocking mismatch), not booked automatically.
+ [x] P.04.03 Positions internal vs broker: PositionReconciler run by every recovery; mismatches recorded, blocking.
+ [ ] P.04.04 Cash, currencies, account values vs books — not done (strategy cash is an allocation, not the account's
+             cash: needs a rule; do with P.05.04 buying power).
+ [x] P.04.05 Manual / external trades detected: EXTERNAL_EXECUTION, UNMANAGED_WORKING_ORDER.
+ [x] P.04.06 Discrepancies recorded with their resolution: table trading_discrepancies (kind, key, detail, blocking,
+             detected_at, resolved_at, resolution, order_id); one open row per (kind, key).
+ [~] P.04.07 Safe restart: recovery before the first order and after every reconnect (invalidate / ensure).
+             Remaining: call StreamingMarketDataService.resubscribe after a reconnect (no live runner yet, P.06).
+ [x] P.04.08 Tests: tests/misbuffet/test_startup_recovery.py (18): missed fills booked once and replay-safe, UNKNOWN
+             found working, INTENT / UNKNOWN never at the broker, partial fill then gone, position mismatch blocks then
+             auto-resolves, external execution blocks until the owner resolves it, foreign working orders, incomplete
+             lists / disconnected, reconnect invalidation, failure, set_holdings gate, IBKR client callbacks.
+ [x] P.04.IB IBKR read-only (TWS 127.0.0.1:7497, client id 95, 2026-10-28; order methods blocked; in-memory SQLite):
+             account U11494855; open orders + executions lists complete; 0 executions today, 0 working orders,
+             0 positions; recovery OK, 0 discrepancies. Script: scratchpad p04_recovery_check.py (not committed).
 Acceptance  trustworthy state after restart; unexplained discrepancies visible and blocking; internal state never
-            overwritten silently.
+            overwritten silently.  -> met for orders / executions / positions; cash / account values open (P.04.04).
+Files  domain/entities/finance/order/discrepancy.py (new), broker_order.py (close_on_recovery, order_ref,
+       order_id_from_ref), ports/finance/broker_order_port.py (DiscrepancyPort), models + mapper + repository
+       (TradingDiscrepancyModel / DiscrepancyRepository, factory 'TradingDiscrepancy'),
+       algorithm/startup_recovery.py (new), order_ledger.py (orderRef matching), trade_manager.py (orderRef tag),
+       unified_portfolio_manager.py (recovery gate), brokers/ibkr/interactive_brokers_broker.py (orderRef),
+       ibkr/IBTWSClient.py (request_executions_snapshot, execDetailsEnd, orderRef in rows / events).
+Commands / results (2026-10-28)
+ pytest tests/misbuffet/test_startup_recovery.py -> 18 passed
+ pytest tests/contracts/test_broker_order_repository.py -> 3 passed on SQLite, 3 passed on SQL Server base_infra_test
+ fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 1963 passed, 46 skipped, 6 xfailed
+ lint-imports -> 4 kept, 0 broken; ruff F on the changed files -> clean
 
 
 P.05 — Pre-trade risk and trading controls                                          [ ] NOT STARTED
@@ -333,3 +377,5 @@ SESSION LOG
             delayed quotes -> DELAYED, never executable. B3 resolved; P.02 verified.
 2026-10-28  P.03 implemented (owner chose two new tables broker_orders / broker_executions) and verified in
             simulation: D1, D2, D4 resolved; D3 resolved for the live path; D8 open. IBKR check needs orders (B1).
+2026-10-28  P.04 implemented (owner chose a trading_discrepancies table): start-up / reconnect recovery gate; verified
+            in simulation and read-only against IBKR (lists complete, nothing to recover). P.04.04 left open.
