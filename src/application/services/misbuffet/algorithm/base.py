@@ -413,6 +413,9 @@ class QCAlgorithm:
             # nothing may pretend an order was sent.
             if self.transaction_handler is None:
                 raise RuntimeError(f"live mode: no transaction handler attached, order for {symbol} not sent")
+            # P.03: the broker annotates this order with its submission outcome / broker order id; TradeManager
+            # reads it from here even when the submission fails (None ticket)
+            self.last_submitted_order = order
             if not self.transaction_handler.process_order(order):
                 ticket.status = OrderStatus.INVALID
                 self.error(f"Order for {quantity} {symbol} was rejected by the transaction handler")

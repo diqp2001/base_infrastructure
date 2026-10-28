@@ -381,6 +381,10 @@ from src.infrastructure.repositories.local_repo.universe.universe_constituent_re
 from src.infrastructure.repositories.local_repo.ml.ml_model_repository import MLModelRepository
 from src.infrastructure.repositories.local_repo.ml.model_feature_repository import ModelFeatureRepository
 from src.infrastructure.repositories.local_repo.ml.model_training_repository import ModelTrainingRepository
+from src.infrastructure.repositories.local_repo.finance.order.broker_order_repository import (
+    BrokerOrderRepository,
+    ExecutionRepository,
+)
 from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
     StrategyConfigurationRepository,
     StrategyExperimentRepository,
@@ -609,6 +613,8 @@ class RepositoryFactory:
                 'MarketData': MarketDataRepository(self.session, factory=self),
                 # Order and transaction repositories
                 'Order': OrderRepository(self.session, factory=self),
+                'BrokerOrder': BrokerOrderRepository(self.session, factory=self),
+                'BrokerExecution': ExecutionRepository(self.session, factory=self),
                 'Transaction': TransactionRepository(self.session, factory=self),
 
                 # Backtest repositories
@@ -2079,6 +2085,14 @@ class RepositoryFactory:
     @property
     def model_training_local_repo(self):
         return self.get_local_repository('ModelTraining')
+
+    @property
+    def broker_order_local_repo(self):
+        return self.get_local_repository('BrokerOrder')
+
+    @property
+    def broker_execution_local_repo(self):
+        return self.get_local_repository('BrokerExecution')
 
     @property
     def strategy_configuration_local_repo(self):

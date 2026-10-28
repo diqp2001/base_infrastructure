@@ -710,8 +710,10 @@ class BrokerageTransactionHandler(BaseTransactionHandler):
             success = self._brokerage.cancel_order(order)
             
             if success:
-                order.status = OrderStatus.CANCELED
-                self._logger.info(f"Order {order.id} cancelled with brokerage")
+                # D4 (P.03): only REQUESTED — the status stays until the broker confirms the cancel (a fill can
+                # still arrive); the broker's CANCELED event moves it
+                order.cancel_requested = True
+                self._logger.info(f"Order {order.id}: cancel requested from the brokerage (awaiting confirmation)")
             
             return success
             
