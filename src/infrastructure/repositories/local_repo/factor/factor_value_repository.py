@@ -242,6 +242,22 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 .order_by(FactorValueModel.date).all())
         return [d for (d,) in rows]
 
+    def get_date_range(self, factor_ids: List[int], entity_ids: Optional[List[int]] = None,
+                       entity_type: Optional[str] = None) -> tuple:
+        """(first, last) timestamp of the stored values of these factors (and entities), or (None, None)."""
+        from sqlalchemy import func
+        if not factor_ids:
+            return None, None
+        q = self.session.query(func.min(FactorValueModel.date), func.max(FactorValueModel.date)).filter(
+            FactorValueModel.factor_id.in_([int(f) for f in factor_ids]))
+        if entity_ids:
+            q = q.filter(FactorValueModel.entity_id.in_([int(e) for e in entity_ids]))
+        if entity_type:
+            q = q.filter(FactorValueModel.entity_type == entity_type)
+        first, last = q.one()
+        strip = lambda d: d.replace(tzinfo=None) if getattr(d, "tzinfo", None) is not None else d  # noqa: E731
+        return strip(first), strip(last)
+
     def get_values_panel(self, factor_ids: List[int], entity_ids: List[int], entity_type: str,
                          start: datetime, end: datetime) -> List[tuple]:
         """[(factor_id, entity_id, date, float value)] of the given factors and entities in [start, end], in one

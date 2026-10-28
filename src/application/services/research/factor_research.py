@@ -116,6 +116,13 @@ class FactorResearchData:
         frame = pd.DataFrame(rows, columns=["factor_id", "entity_id", "date", "value"])
         return frame.pivot_table(index="date", columns="entity_id", values="value", aggfunc="last").sort_index()
 
+    def date_range(self, factor_ids: List[int], universe_id: Optional[int] = None) -> Dict[str, Optional[str]]:
+        """First and last day with stored values of these factors (for the universe's shares when given)."""
+        entity_ids = sorted({m[0] for m in self.membership(universe_id)}) if universe_id else None
+        first, last = self.factory.factor_value_local_repo.get_date_range(factor_ids, entity_ids, ENTITY_TYPE)
+        return {"first": first.strftime("%Y-%m-%d") if first else None,
+                "last": last.strftime("%Y-%m-%d") if last else None}
+
     def close_factor_id(self, frequency: str) -> Optional[int]:
         """The raw TRADES close factor of the frequency (what forward returns are computed from)."""
         for f in self.factors():
@@ -123,6 +130,14 @@ class FactorResearchData:
                     and f["subgroup"] == "TRADES":
                 return f["id"]
         return None
+
+
+def inclusive_end(value) -> pd.Timestamp:
+    """An end given as a calendar date (no time) covers that whole day."""
+    ts = pd.Timestamp(value)
+    if isinstance(value, str) and len(value.strip()) <= 10:
+        return ts + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+    return ts
 
 
 def to_bars(panel: pd.DataFrame, frequency: str) -> pd.DataFrame:
@@ -236,7 +251,7 @@ class FactorResearchService:
         self.data = data
 
     def run(self, cfg: ResearchConfig) -> ResearchResult:
-        start, end = pd.Timestamp(cfg.start), pd.Timestamp(cfg.end)
+        start, end = pd.Timestamp(cfg.start), inclusive_end(cfg.end)
         if end <= start:
             raise ValueError("the end must be after the start")
         if cfg.method not in st.METHODS:

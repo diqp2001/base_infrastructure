@@ -8,12 +8,12 @@
 <form method="get" class="card mb-3"><input type="hidden" name="run" value="1">
     <div class="card-header">Configuration</div>
     <div class="card-body small"><div class="row g-2">
-        <div class="col-md-3"><label class="form-label">Universe</label><select class="form-select form-select-sm" name="universe_id">
+        <div class="col-md-3"><label class="form-label">Universe</label><select class="form-select form-select-sm" name="universe_id" id="universe" onchange="updateRange()">
             {% for u in universes %}<option value="{{ u.id }}" {% if args.get('universe_id')|string == u.id|string %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></div>
         <div class="col-md-2"><label class="form-label">Frequency</label><select class="form-select form-select-sm" name="frequency" id="freq" onchange="filterFactors()">
             {% for k, l in frequencies %}<option value="{{ k }}" {% if args.get('frequency', '1d') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
-        <div class="col-md-2"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ args.get('start','') }}" required></div>
-        <div class="col-md-2"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ args.get('end','') }}" required></div>
+        <div class="col-md-2"><label class="form-label">Start</label><input type="date" class="form-control form-control-sm" id="start" name="start" value="{{ args.get('start','')[:10] }}" required></div>
+        <div class="col-md-2"><label class="form-label">End (whole day)</label><input type="date" class="form-control form-control-sm" id="end" name="end" value="{{ args.get('end','')[:10] }}" required></div>
         <div class="col-md-1"><label class="form-label">Method</label><select class="form-select form-select-sm" name="method">
             {% for m in ['pearson','spearman'] %}<option value="{{ m }}" {% if args.get('method','pearson') == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
         <div class="col-md-1"><label class="form-label">Quantiles</label><input class="form-control form-control-sm" name="n_quantiles" value="{{ args.get('n_quantiles','5') }}"></div>
@@ -24,6 +24,7 @@
             <input class="form-control form-control-sm d-inline w-auto" id="grp" placeholder="group / subgroup" oninput="filterFactors()"></label>
             <select class="form-select form-select-sm fac" name="comparison_factor_ids" multiple size="8">
             {% for f in factors %}<option value="{{ f.id }}" data-freq="{{ f.frequency }}" data-group="{{ f.group }}/{{ f.subgroup }}" {% if f.id|string in args.getlist('comparison_factor_ids') %}selected{% endif %}>{{ f.name }} — {{ f.group }}/{{ f.subgroup }} [{{ f.frequency }}] #{{ f.id }}</option>{% endfor %}</select></div>
+        <div class="col-12 muted" id="avail">Select the primary factor to see the dates with stored values.</div>
     </div><button class="btn btn-sm btn-success mt-2">Run research</button></div>
 </form>
 
@@ -108,6 +109,20 @@ function sortMatrix() {
     rows.sort((r1, r2) => (parseFloat(r2.cells[+k + 1].dataset.v) || -9) - (parseFloat(r1.cells[+k + 1].dataset.v) || -9));
     rows.forEach(r => body.appendChild(r));
 }
-filterFactors();
+function setLimits(r, what, empty) {
+    const box = document.getElementById('avail');
+    for (const id of ['start', 'end']) { const el = document.getElementById(id); el.min = r.first || ''; el.max = r.last || ''; }
+    box.textContent = r.first ? 'Dates available: ' + r.first + ' .. ' + r.last + ' (' + what + ').' : empty;
+    box.className = 'col-12 ' + (r.first ? 'muted' : 'text-warning');
+}
+async function updateRange() {
+    const ids = [...document.querySelectorAll('select.fac option:checked')].map(o => o.value);
+    const u = document.getElementById('universe').value;
+    if (!ids.length) { document.getElementById('avail').textContent = 'Select the primary factor to see the dates with stored values.'; return; }
+    const r = await (await fetch("{{ url_for('factor_research.date_range') }}?universe_id=" + u + "&factor_ids=" + ids.join(','))).json();
+    setLimits(r, 'stored values of the selected factors for the universe', 'The selected factors have no stored value for this universe: generate them first.');
+}
+document.querySelectorAll('select.fac').forEach(s => s.addEventListener('change', updateRange));
+filterFactors(); updateRange();
 </script>
 {% endblock %}

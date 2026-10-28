@@ -32,6 +32,20 @@ def _frequencies():
     return [(k, v["label"]) for k, v in Factor.FREQUENCIES.items()]
 
 
+@factor_research_bp.route("/api/date-range")
+def date_range():
+    """First and last day with stored values of the selected factors (for the universe's shares): the calendar
+    pickers' limits."""
+    ids = [int(x) for x in request.args.get("factor_ids", "").split(",") if x.strip().isdigit()]
+    universe = request.args.get("universe_id", "")
+    if request.args.get("inputs") == "1":           # generation: the stored raw closes the factors are computed from
+        close_id = services().data.close_factor_id(request.args.get("frequency", ""))
+        ids = [close_id] if close_id is not None else []
+    if not ids:
+        return jsonify({"first": None, "last": None})
+    return jsonify(services().data.date_range(ids, int(universe) if universe.isdigit() else None))
+
+
 # ── generation ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 def _generation_request(form):
