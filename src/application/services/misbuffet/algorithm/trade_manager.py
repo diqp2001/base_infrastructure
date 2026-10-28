@@ -16,6 +16,8 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional
 
+from src.domain.entities.finance.order.broker_order import order_ref
+
 
 class TradeManager:
     """
@@ -151,7 +153,9 @@ class TradeManager:
         before = self._submission_probe() if self._submission_probe else None
         error = None
         try:
-            ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
+            # the internal order id travels with the order (IBKR orderRef): recovery matches it after a crash (P.04)
+            ref_tag = f"{tag or f'set_holdings_{ticker}'}|{order_ref(bo.order_id)}"
+            ticket = submit_order_fn(ticker, order_qty, tag=ref_tag)
         except Exception as e:
             ticket, error = None, e
         engine_order = self._submission_probe() if self._submission_probe else None

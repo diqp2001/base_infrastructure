@@ -54,6 +54,9 @@ class IBTWSClient(EWrapper, EClient):
         # contract-level rows (conId / localSymbol), filled between the request and its *End callback
         self.positions_snapshot: List[dict] = []
         self.open_orders_snapshot: List[dict] = []
+        self.executions_snapshot: List[dict] = []    # request_executions_snapshot (P.04)
+        self._executions_req_id = None
+        self._executions_end_event = threading.Event()
         self._snapshot_lock = threading.Lock()
         self._positions_collecting = False
         self._open_orders_collecting = False
@@ -194,9 +197,23 @@ class IBTWSClient(EWrapper, EClient):
             "account": getattr(execution, "acctNumber", None), "time": execution.time,
             "shares": float(execution.shares), "price": float(execution.price), "side": execution.side,
             "symbol": getattr(contract, "localSymbol", "") or getattr(contract, "symbol", ""),
-            "sec_type": getattr(contract, "secType", ""), "con_id": getattr(contract, "conId", None)})
-
+            "sec_type": getattr(contract, "secType", ""), "con_id": getattr(contract, "conId", None),
+            "order_ref": getattr(execution, "orderRef", "") or ""})
+        with self._snapshot_lock:
+            if reqId is not None and reqId == self._executions_req_id:
+                self.executions_snapshot.append({"execId": execution.execId, "orderId": order_id,
+                                                 "permId": getattr(execution, "permId", None),
+                                                 "orderRef": getattr(execution, "orderRef", "") or "",
+                                                 "shares": float(execution.shares), "side": execution.side,
+                                                 "symbol": getattr(contract, "symbol", ""),
+                                                 "localSymbol": getattr(contract, "localSymbol", ""),
+                                                 "secType": getattr(contract, "secType", "")})
         self.logger.info(f"Execution: Order {order_id}, {execution.shares} @ {execution.price}")
+
+    def execDetailsEnd(self, reqId: int):
+        """End of a reqExecutions answer."""
+        if reqId == self._executions_req_id:
+            self._executions_end_event.set()
 
     def accountSummary(self, reqId: int, account: str, tag: str, value: str, currency: str):
         """Account summary callback."""
@@ -265,6 +282,7 @@ class IBTWSClient(EWrapper, EClient):
             'action': getattr(order, 'action', ''),
             'totalQuantity': float(getattr(order, 'totalQuantity', 0) or 0),
             'orderType': getattr(order, 'orderType', ''),
+            'orderRef': getattr(order, 'orderRef', '') or '',
             'status': getattr(orderState, 'status', ''),
             'remaining': None,
         }
@@ -728,6 +746,22 @@ class IBTWSClient(EWrapper, EClient):
             self._open_orders_collecting = False
         if not complete:
             self.logger.error(f"openOrderEnd not received within {timeout}s")
+        return complete
+
+    def request_executions_snapshot(self, timeout: float = 10.0, req_id: int = 90_001) -> bool:
+        """Today's executions of the account (IBKR returns the current day only) into ``executions_snapshot``; every
+        execution and its commission report also reach the order listeners (P.04 recovery). Read-only."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        from ibapi.execution import ExecutionFilter
+        with self._snapshot_lock:
+            self.executions_snapshot = []
+            self._executions_req_id = req_id
+        self._executions_end_event.clear()
+        self.reqExecutions(req_id, ExecutionFilter())
+        complete = self._executions_end_event.wait(timeout)
+        if not complete:
+            self.logger.error(f"execDetailsEnd not received within {timeout}s")
         return complete
 
     def request_market_data(self, req_id: int, contract: Contract, snapshot: bool = False, generic_tick_list: str = "") -> None:

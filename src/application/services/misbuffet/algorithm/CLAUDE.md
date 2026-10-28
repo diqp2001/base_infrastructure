@@ -367,3 +367,19 @@ events first. With a ledger, `TradeManager.execute_trade`:
 Unexplained / wrong-side / overfilling executions are stored unbooked and listed in `ledger.anomalies`. A cancel is
 only requested (`request_cancel`) until the broker reports `Cancelled`. Backtests (no ledger) book at submission as
 before. Tests: `tests/misbuffet/test_order_lifecycle.py`. Progress: `LIVE_TRADING_READINESS.txt` (P.03).
+
+### Start-up / reconnect recovery (P.04, 2026-10-28)
+
+```python
+from src.application.services.misbuffet.algorithm.startup_recovery import StartupRecovery
+recovery = upm.attach_startup_recovery(StartupRecovery(
+    ib_client, ledger, repository_factory.trading_discrepancy_local_repo, reconciler=reconciler))
+```
+
+Live `set_holdings` calls `recovery.ensure()` and refuses to trade unless it is true. `ensure()` runs the recovery
+when it never ran or the broker connection closed since (it listens to `connection_listeners`). Recovery is read-only:
+`reqAllOpenOrders` + `reqExecutions` (current day only) feed the ledger, open ledger orders are matched by permId,
+`orderRef` (`...|MB<internal order id>`, added by TradeManager) or orderId and closed when no longer working, and the
+reconciler compares positions. Everything found is a row in `trading_discrepancies`; blocking ones (position
+mismatch, external execution on a managed instrument, incomplete lists) keep trading off until a later run no longer
+finds them or the owner calls `recovery.resolve(id, "what was done")`. Tests: `tests/misbuffet/test_startup_recovery.py`.

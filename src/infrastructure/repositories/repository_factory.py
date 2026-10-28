@@ -383,6 +383,7 @@ from src.infrastructure.repositories.local_repo.ml.model_feature_repository impo
 from src.infrastructure.repositories.local_repo.ml.model_training_repository import ModelTrainingRepository
 from src.infrastructure.repositories.local_repo.finance.order.broker_order_repository import (
     BrokerOrderRepository,
+    DiscrepancyRepository,
     ExecutionRepository,
 )
 from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
@@ -615,6 +616,7 @@ class RepositoryFactory:
                 'Order': OrderRepository(self.session, factory=self),
                 'BrokerOrder': BrokerOrderRepository(self.session, factory=self),
                 'BrokerExecution': ExecutionRepository(self.session, factory=self),
+                'TradingDiscrepancy': DiscrepancyRepository(self.session, factory=self),
                 'Transaction': TransactionRepository(self.session, factory=self),
 
                 # Backtest repositories
@@ -2093,6 +2095,10 @@ class RepositoryFactory:
     @property
     def broker_execution_local_repo(self):
         return self.get_local_repository('BrokerExecution')
+
+    @property
+    def trading_discrepancy_local_repo(self):
+        return self.get_local_repository('TradingDiscrepancy')
 
     @property
     def strategy_configuration_local_repo(self):

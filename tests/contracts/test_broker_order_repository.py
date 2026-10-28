@@ -66,3 +66,25 @@ def test_an_exec_id_is_stored_once(book):
     repo.add(Execution("contract-dup", "IBKR", "AAPL", "BUY", 1, 100.0, NOW))
     with pytest.raises(IntegrityError):
         repo.add(Execution("contract-dup", "IBKR", "AAPL", "BUY", 1, 100.0, NOW))
+
+
+def test_discrepancies_are_stored_open_then_resolved(backend):
+    from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+    from src.infrastructure.models.finance.order.broker_order import TradingDiscrepancyModel
+    from src.infrastructure.repositories.local_repo.finance.order.broker_order_repository import DiscrepancyRepository
+    session = backend.session()
+    repo = DiscrepancyRepository(session)
+    try:
+        d = repo.add(Discrepancy(DiscrepancyKind.POSITION_MISMATCH, "contract-AAPL", "strategy 1, broker 2", NOW, True))
+        assert repo.get_open_by_key(DiscrepancyKind.POSITION_MISMATCH, "contract-AAPL").id == d.id
+        d.resolve("matched", NOW)
+        repo.update(d)
+        assert repo.get_open_by_key(DiscrepancyKind.POSITION_MISMATCH, "contract-AAPL") is None
+        latest = repo.get_latest_by_key(DiscrepancyKind.POSITION_MISMATCH, "contract-AAPL")
+        assert (latest.resolution, latest.blocking, latest.is_open) == ("matched", True, False)
+    finally:
+        session.rollback()
+        session.query(TradingDiscrepancyModel).filter(TradingDiscrepancyModel.key.like("contract-%")).delete(
+            synchronize_session=False)
+        session.commit()
+        session.close()

@@ -40,6 +40,7 @@ def make_upm(holdings, classes, live=False):
     upm._algorithm = SimpleNamespace(live_mode=live, market_order=Mock(), time=datetime(2026, 1, 5))
     upm._reconciler = None
     upm._order_ledger = Mock() if live else None      # P.03: live trading needs an order ledger (drain is a no-op)
+    upm._recovery = Mock(**{"ensure.return_value": True}) if live else None   # P.04: and a successful recovery
     upm.get_portfolio_value = lambda backtest_date=None: 100_000.0
     upm._ensure_asset_container = lambda ticker, now, asset_class=None: 1
     upm._find_existing_container = lambda ticker: 1
