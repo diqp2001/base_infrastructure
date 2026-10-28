@@ -1,0 +1,277 @@
+MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth for P.01 – P.07)
+==========================================================================================
+
+SUMMARY
+-------
+Last updated     : 2026-10-28
+Current phase    : P.03 — Order lifecycle and brokerage integration (P.01, P.02 verified 2026-10-28)
+Overall progress : P.01 done (8/8). P.02 done in simulation (9/9; IBKR verification blocked, see B3). P.03–P.07 not
+                   started.
+Task counts      : completed 17 · in progress 0 · blocked 3 · pending 51
+Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
+                   never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
+                   [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
+                   refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
+                   [B3] TWS not reachable on 2026-10-28 16:56 (error 502: TWS not running or API socket disabled):
+                   the read-only streaming check (scratch p02_stream_check.py, client id 96) could not run.
+Next actionable  : P.03.02 — durable order intent before submission, and D1 (no fill booked at submission in live
+                   mode); first re-run the P.02 IBKR read-only check when TWS is up.
+Live trading     : NOT ready. Live order submission must stay disabled. See P.07.
+
+Legend: [ ] not started  [~] in progress  [x] completed and verified  [!] blocked
+
+Rules for every session: read this file first; verify claims against the code and tests before relying on them;
+never mark [x] without evidence; never send orders (paper or live) without the owner's explicit approval.
+
+
+ARCHITECTURE MAP (actual execution path, verified by reading the code on 2026-10-28)
+--------------------------------------------------------------------------------
+Data -> decision -> orders -> broker -> fills -> persistence:
+
+ 1. Engine clock  MisbuffetEngine._run_simulation / _execute_main_loop (engine/misbuffet_engine.py:422, 853) steps a
+    configured interval (days / minutes, optional session window). Live mode reuses the same time-stepping loop: there
+    is NO event-driven loop on streaming data. Each step: MarketDataService.create_data_slice (stored bars through
+    the MarketDataHistoryService frontier) -> algorithm.on_data.
+ 2. Decision  project algorithm -> trading cycle (STM / CSM / SPX v2) -> target weights.
+ 3. Orders  UnifiedPortfolioManager.set_holdings (algorithm/unified_portfolio_manager.py:1103): gross cap, invalid
+    targets, live-mode reconciliation gate (fail closed when live_mode and no reconciler, :1216), PositionReconciler
+    pending tickers skipped, sells before buys -> TradeManager.execute_trade (algorithm/trade_manager.py:34).
+ 4. Submission  TradeManager: resolve holding/account -> submit_order_fn = algorithm.market_order -> engine transaction
+    handler. Backtest: BacktestingTransactionHandler (simulated fill at the submission price). Live (_wire_live_trading,
+    misbuffet_engine.py:932, fails hard without config.brokerage): BrokerageTransactionHandler ->
+    BaseBroker.place_order (brokers/base_broker.py:153: connected check, _validate_order, optional PreTradeGate,
+    in-memory self.orders) -> InteractiveBrokersBroker._place_order_impl (ibkr/interactive_brokers_broker.py:184:
+    MARKET / LIMIT only, ib order id -> in-memory pending_orders) -> IBTWSClient.place_order.
+ 5. Broker events  IBTWSClient callbacks keep dicts in memory: orderStatus -> order_status (incl. permId), execDetails
+    -> order_fills (execId, time, shares, price, side), openOrder, position / positionEnd, accountSummary, tickPrice /
+    tickSize / tickGeneric / tickString -> market_data[reqId] (latest value + one receipt time), marketDataType (logged
+    only), error (historical requests only routed to their request). _monitor_worker -> _process_order_updates turns
+    orderStatus into OrderEvents, applying order_state.advances (forward-only; late / duplicate / out-of-order dropped).
+ 6. Persistence  TradeManager._book_atomically (unit_of_work.atomic, BI-006): Order (status FILLED) + Transaction
+    (fill) + Position + cash, ONE transaction, written right after submission (trade_manager.py:77-111, 166).
+ 7. Valuation / monitoring  UnifiedPortfolioManager.get_portfolio_value (factor resolution), read-only /monitor
+    dashboard (BI-023), project dashboards.
+
+CAPABILITY MATRIX (I = implemented, P = partial, M = missing; V = verified by tests run 2026-10-28)
+-----------------------------------------------------------------------------------------------
+ Engine live wiring (live_mode -> brokerage handler, fail hard without broker) ........ I V (test_live_order_path)
+ Event-driven live loop on streaming data ............................................. M (time-stepping loop only)
+ IBKR connect / disconnect / client-id release at exit (BI-020) ....................... I V (test_tws_client_release)
+ Reconnect during a run, resubscribe, re-request open orders .......................... M
+ Historical bars: pacing, retries, 162 / 200 routed to the request, preload ............ I V (history tests, BI-029)
+ Streaming quotes: request / cancel, latest tick per request ........................... P (no event time, no per-
+   field receipt time, market-data type not stored, entitlement errors not routed, no freshness / validity)
+ Quote validation rules (Quote, QuotePolicy, validate_quote: crossed, one-sided, spread,
+   stale, future-dated) — domain/entities/factor/quote_validation.py (BI-027) .......... I V (unit tests) — not wired
+   to streaming quotes
+ Order status transition rule order_state.advances (BI-021) ........................... I V
+ Two OrderStatus enums (back_testing/enums.py vs order/order.py) ....................... P (merge pending, BI-021)
+ Durable order intent BEFORE submission ................................................ M
+ Live fills booked from broker executions .............................................. M — DEFECT D1
+ Partial fills / remaining quantity in persistence ..................................... M
+ IBKR order id / permId / execId correlation persisted ................................. M (memory only)
+ Commissions (commissionReport) ........................................................ M
+ Order modify (update) ................................................................. M (logs "not implemented")
+ Cancel confirmed by broker before forgetting the order ................................ M — DEFECT D4
+ Ambiguous submission (timeout) handling ............................................... M
+ Position reconciliation strategy DB vs broker, pending orders, fail closed (BI-021) .. I V (test_reconciler_lifecycle,
+   test_order_safety) — not attached by any project
+ Cash / account-value reconciliation ................................................... M
+ Execution recovery after restart (reqExecutions) ...................................... M
+ Pre-trade gate: quantity, notional x multiplier, position, gross exposure, price
+   freshness, cash (BI-022) ............................................................ I V (test_pre_trade_risk) —
+   attached nowhere (providers not wired) — DEFECT D5
+ Net exposure / concentration / duplicate-order / order-rate limits .................... M
+ Account / strategy trading enable-disable, kill switch ................................ M
+ Read-only monitoring dashboard (connectivity, freshness, jobs, account) (BI-023) ...... I V (tests/monitoring)
+ Separate paper vs live deployment path, explicit live-submission switch ............... P (live_mode flag only)
+ Atomic booking of order + fill + position + cash (BI-006) ............................. I V
+
+DEFECTS / GAPS FOUND IN P.01 (highest priority first)
+---------------------------------------------------
+ D1 CRITICAL  In live mode TradeManager books every order as FILLED, with a fill at the submission price, a position
+              change and a cash movement, immediately after submission (trade_manager.py:77-111, status literal :166).
+              The database would show fills that never happened. Must be split: live = record intent / SUBMITTED;
+              fills, positions and cash only from broker executions. (P.03)
+ D2 CRITICAL  No durable order intent before submission: TradeManager submits first, books after; the broker keeps
+              ib order ids only in memory. A crash between submit and book loses the order. (P.03)
+ D3 HIGH      Executions (execId), permId and commissions are memory-only; no commissionReport handler; no
+              execId de-duplication across restarts. (P.03 / P.04)
+ D4 HIGH      _cancel_order_impl forgets the order before IBKR confirms the cancel (interactive_brokers_broker.py:228).
+ D5 HIGH      PreTradeGate and PositionReconciler exist and are tested but no live / paper broker attaches them. (P.05)
+ D6 HIGH      [RESOLVED in simulation by P.02, 2026-10-28; IBKR check pending B3] Streaming market data: latest value only, receipt time only for the whole request, market-data type
+              (live / frozen / delayed) not kept, entitlement errors (354, 10089, 10090, 10167, 10168, 10197) not
+              routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
+ D7 MEDIUM    No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
+ D8 MEDIUM    Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
+ D9 MEDIUM    Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
+ D10 MEDIUM   Live mode runs the backtest time-stepping loop on stored bars; there is no event-driven live loop. (P.06)
+
+
+P.01 — Repository audit and architecture mapping                                   [x] VERIFIED 2026-10-28
+-------------------------------------------------------------------------------------------------------------
+Objective  Map what exists before building anything.
+Tasks
+ [x] P.01.01 MisbuffetEngine lifecycle — run(): setup, handlers, _wire_live_trading, initialize, _run_simulation
+             (time-stepping), report. Live mode reuses the stepping loop (D10).
+ [x] P.01.02 Domain entities — Order (domain/entities/finance/order/order.py + misbuffet common/orders), Transaction,
+             Position (portfolio_id, quantity, position_type), Holding / Portfolio tree, order_state.advances,
+             pre_trade_risk, quote_validation, observation_quality.
+ [x] P.01.03 Broker abstraction — BaseBroker (connect, place / update / cancel, events, risk gate),
+             InteractiveBrokersBroker, IBTWSClient (EWrapper/EClient), broker_factory, contract_resolver, history
+             pacing / diagnostics, ReadOnlyIBKRClient (monitoring).
+ [x] P.01.04 Market data — historical bars through MarketDataService / IBKR repositories (preload, pacing, 162 / 200
+             routed); streaming = reqMktData into a latest-tick dict (D6).
+ [x] P.01.05 Persistence — repositories + mappers, unit_of_work.atomic (BI-006), provenance / lineage tables
+             (BI-025, BI-028), create_all + BaseFactory._migrate_schema (the project's migration mechanism: new tables
+             via create_all, column changes in _migrate_schema, proven on base_infra_test first).
+ [x] P.01.06 Accounting / risk / managers — UnifiedPortfolioManager (set_holdings, valuation), TradeManager (D1, D2),
+             PositionReconciler, PreTradeGate (D5), project-level SPX v2 risk_manager.
+ [x] P.01.07 Tests — live path, order safety, reconciler, risk gate, trade manager, monitoring: run below. Untested:
+             fill booking from executions, partial fills persisted, restart recovery, reconnect, streaming freshness.
+ [x] P.01.08 Capability matrix — above.
+Commands / results
+ .venv/Scripts/python -m pytest tests/misbuffet/test_live_order_path.py tests/misbuffet/test_order_safety.py
+   tests/misbuffet/test_reconciler_lifecycle.py tests/misbuffet/test_pre_trade_risk.py tests/misbuffet/test_trade_manager.py
+   tests/monitoring  ->  159 passed, 1 skipped (2026-10-28)
+Acceptance  existing implementations identified before proposals; execution path mapped end to end (above). Met.
+
+
+P.02 — Real-time streaming market data                      [x] VERIFIED IN SIMULATION 2026-10-28 (IBKR: [!] B3)
+------------------------------------------------------------------------------------------------
+Objective  Typed, timestamped, state-aware streaming observations that cannot silently enter decisions when stale,
+           delayed, invalid or not entitled.
+Dependencies  P.01. Reuses quote_validation (Quote, QuotePolicy, validate_quote) and observation_quality.
+Affected  brokers/ibkr/IBTWSClient.py (capture), new domain streaming observation model, new application streaming
+          service (subscriptions, state, freshness), tests/misbuffet.
+Tasks
+ [x] P.02.01 Contracts / subscriptions inspected (reqMktData with snapshot / generic ticks, cancelMktData,
+             market_data dict, marketDataType logged only, errors not routed) — see D6.
+ [x] P.02.02 StreamingObservation (domain/entities/finance/market_data/streaming_observation.py): bid / ask / sizes
+             / last / last size; StreamingMarketDataService.observation normalises IBKR ticks 1/2/4, 0/3/5 and the
+             delayed 66-71.
+ [x] P.02.03 Receipt time PER FIELD (IBTWSClient.tickPrice / tickSize 'received'), event time only when the source
+             stamps it (tick-by-tick, LAST_TIMESTAMP 45 / 88) — a receipt time is never presented as an exchange
+             time; instrument key, source, request id kept. A quote's time = its OLDER side.
+ [x] P.02.04 ObservationType QUOTE / TRADE / BAR / SNAPSHOT; snapshot subscriptions flagged. Historical bars stay on
+             the existing path (BAR type reserved for streamed bars).
+ [x] P.02.05 IBTWSClient.marketDataType stored per request -> MarketDataState LIVE / FROZEN / DELAYED /
+             DELAYED_FROZEN (delayed tick types imply DELAYED when the type has not arrived).
+ [x] P.02.06 subscribe / unsubscribe (cancels quote and tick-by-tick lines), one subscription per instrument, line
+             limit (default 95 < IBKR 100) refuses instead of dropping, connection-closed listener, resubscribe()
+             under new ids discarding old values. Limitation: reconnect orchestration (who reconnects and calls
+             resubscribe) belongs to P.04.07; no reqMktData message-rate pacing beyond the line limit.
+ [x] P.02.07 assess(): NOT_ENTITLED (errors routed per market-data request: 354 / 10089 / 200 ...; notices 10167 /
+             2104 / 2106 / 2158 / 2119 ignored), DELAYED (state other than live where live is required), STALE (policy
+             max age of the older side; any data while disconnected), INVALID (validate_quote: missing side, zero,
+             crossed, spread), MISSING; executable only for a CURRENT LIVE valid two-sided quote; a last trade or a
+             midpoint is never executable.
+ [x] P.02.08 Historical / factor behaviour unchanged: IBTWSClient changes are additive (market-data requests only).
+ [x] P.02.09 tests/misbuffet/test_streaming_market_data.py (14): live quote, older-side staleness, delayed / frozen /
+             delayed tick types, entitlement error, invalid quotes (crossed, zero, missing side), trade-only with
+             exchange time, tick-by-tick, disconnection + resubscription, line limit + cancel, status rows, midpoint
+             not executable, real IBTWSClient callbacks (state, errors, receipt / trade time, listeners, cancel while
+             disconnected).
+ [!] P.02.IB IBKR read-only verification — BLOCKED [B3] (TWS unreachable 2026-10-28 16:56). Expected when it runs:
+             JPM / SPY quotes refused or delayed (B2: no US-equity quote permission) -> NOT_ENTITLED / DELAYED, which
+             is the safe outcome; record the actual codes.
+Acceptance  observations distinguishable by type and source; stale / invalid / delayed / not-entitled data never
+            reported as current; MIDPOINT not treated as executable; TRADES history not taken as quote permission;
+            IBKR paper verification recorded or its blocker documented.
+Files  domain/entities/finance/market_data/{__init__,streaming_observation}.py (new),
+       application/services/misbuffet/data/streaming_market_data.py (new), brokers/ibkr/IBTWSClient.py (additive:
+       market_data_type, market_data_errors, tick_by_tick, connection_listeners, per-field receipt times, last-trade
+       time, tickByTickBidAsk / tickByTickAllLast, request / cancel tick-by-tick, state cleared on cancel even when
+       disconnected).
+Commands / results (2026-10-28)
+ pytest tests/misbuffet/test_streaming_market_data.py -> 14 passed
+ pytest tests/misbuffet tests/monitoring tests/architecture tests/integration (lint baseline deselected because of the
+   owner's uncommitted src/main.py) -> 319 passed, 12 deselected
+ lint-imports -> 4 kept, 0 broken; ruff F401/F821/F841 on the changed files -> clean
+Not yet wired: streaming assessments are not consumed by decisions or the pre-trade gate (P.05.05).
+
+
+P.03 — Existing order lifecycle and brokerage integration                           [ ] NOT STARTED
+------------------------------------------------------------------------------------------------
+Dependencies  P.01; D1, D2, D3, D4, D8.
+ [ ] P.03.01 Map Order lifecycle and IBKR id mapping (P.01 notes: memory-only pending_orders / order_status).
+ [ ] P.03.02 Durable order intent before submission (D2).
+ [ ] P.03.03 Status transitions incl. pending / submitted / acknowledged / partial / filled / cancelled / rejected /
+             expired (reuse order_state.advances; merge enums D8).
+ [ ] P.03.04 Modifications, cancellations (confirmed, D4), asynchronous callbacks.
+ [ ] P.03.05 Duplicate, delayed, out-of-order events idempotent (orderStatus done; executions by execId).
+ [ ] P.03.06 Requested / filled / remaining quantities persisted.
+ [ ] P.03.07 Internal id <-> IBKR orderId / permId correlation persisted.
+ [ ] P.03.08 Executions and commissions processed consistently; live fills from executions only (D1).
+ [ ] P.03.09 Ambiguous submission (timeout) -> query broker state before any resubmission.
+ [ ] P.03.10 Deterministic lifecycle and fault-injection tests.
+Acceptance  consistent state across partial fills, cancel races, duplicates, disconnections; a timeout is never
+            taken as a failed submission.
+
+
+P.04 — Restart recovery and reconciliation                                          [ ] NOT STARTED
+------------------------------------------------------------------------------------------------
+Dependencies  P.03.
+ [ ] P.04.01 Recover account, positions, open orders (snapshots exist: request_positions_snapshot,
+             request_open_orders_snapshot).
+ [ ] P.04.02 Recover and reconcile executions (reqExecutions).
+ [ ] P.04.03 Positions internal vs broker (PositionReconciler exists — extend, attach).
+ [ ] P.04.04 Cash, currencies, account values.
+ [ ] P.04.05 Manual / external trades detected.
+ [ ] P.04.06 Discrepancies recorded with their resolution.
+ [ ] P.04.07 Safe restart after application or broker disconnection.
+ [ ] P.04.08 Tests: missing fills, external trades, restarts.
+Acceptance  trustworthy state after restart; unexplained discrepancies visible and blocking; internal state never
+            overwritten silently.
+
+
+P.05 — Pre-trade risk and trading controls                                          [ ] NOT STARTED
+------------------------------------------------------------------------------------------------
+Dependencies  P.02 (fresh prices), P.03.
+ [ ] P.05.01 Audit existing risk (PreTradeGate / RiskLimits, SPX v2 risk_manager, set_holdings gross cap).
+ [ ] P.05.02 Quantity, notional, price validation (rules exist; wire).
+ [ ] P.05.03 Position, concentration, gross, net limits (net / concentration missing).
+ [ ] P.05.04 Buying power / margin from broker account values.
+ [ ] P.05.05 Reject orders on stale / invalid data (gate has freshness; feed it streaming state from P.02).
+ [ ] P.05.06 Duplicate-order and order-rate protections.
+ [ ] P.05.07 Account- and strategy-level enable / disable.
+ [ ] P.05.08 Kill switch; cancel-working-orders and liquidate as separate explicit actions.
+ [ ] P.05.09 Tests: breaches, missing data, invalid orders, fail-safe behaviour.
+Acceptance  every new order passes the central gate; no bypass; kill switch stops new risk.
+
+
+P.06 — Paper trading, operational monitoring and resilience                         [ ] NOT STARTED
+------------------------------------------------------------------------------------------------
+Dependencies  P.02–P.05.
+ [ ] P.06.01 Paper deployment path separate from live.
+ [ ] P.06.02 Health indicators: broker connectivity, market data (monitor dashboard exists, BI-023).
+ [ ] P.06.03 Account, positions, open orders, recent executions exposed.
+ [ ] P.06.04 Discrepancies, risk breaches, unresolved orders monitored.
+ [ ] P.06.05 Structured logs, auditable decision / order / execution history.
+ [ ] P.06.06 Controlled shutdown / restart.
+ [ ] P.06.07 Database failure, broker disconnection, recovery tests.
+ [!] P.06.08 Simple strategy in IBKR paper trading — BLOCKED [B1] (owner approval to send paper orders).
+ [!] P.06.09 Partial fills / rejects / restarts / stale data in paper — BLOCKED [B1].
+Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
+            behaviour recorded separately.
+
+
+P.07 — Controlled live-trading readiness assessment                                 [ ] NOT STARTED
+------------------------------------------------------------------------------------------------
+Dependencies  P.01–P.06.
+ [ ] P.07.01 Critical P.01–P.06 criteria verified.
+ [ ] P.07.02 Instruments, order types, data subscriptions, account constraints confirmed.
+ [ ] P.07.03 Live submission explicitly configured and disabled by default.
+ [ ] P.07.04 Startup reconciliation precedes permission to trade.
+ [ ] P.07.05 Unresolved critical errors disable new orders.
+ [ ] P.07.06 Monitoring, alerts, kill switch, recovery procedures documented.
+ [ ] P.07.07 Final readiness report (ready for pilot / implemented-not-verified / missing / blocked / deferred).
+Acceptance  no positive recommendation while any critical execution, reconciliation, risk or recovery defect is open.
+
+
+SESSION LOG
+-----------
+2026-10-28  P.01 audit: engine, broker, IBKR client, persistence, accounting, risk, tests read; 159 existing tests
+            run (passed, 1 skipped); defects D1–D10 recorded; P.02 started (P.02.01 done).
+2026-10-28  P.02 implemented and verified in simulation (14 new tests, 319 related tests green); IBKR read-only
+            check blocked (B3, TWS error 502). D6 resolved in simulation (reconnect orchestration left to P.04.07).
