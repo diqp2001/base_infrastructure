@@ -5,17 +5,16 @@ SUMMARY
 -------
 Last updated     : 2026-10-28
 Current phase    : P.03 — Order lifecycle and brokerage integration (P.01, P.02 verified 2026-10-28)
-Overall progress : P.01 done (8/8). P.02 done in simulation (9/9; IBKR verification blocked, see B3). P.03–P.07 not
-                   started.
-Task counts      : completed 17 · in progress 0 · blocked 3 · pending 51
+Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only verification). P.03–P.07 not started.
+Task counts      : completed 18 · in progress 0 · blocked 2 · pending 51
 Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
                    never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
                    refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
-                   [B3] TWS not reachable on 2026-10-28 16:56 (error 502: TWS not running or API socket disabled):
-                   the read-only streaming check (scratch p02_stream_check.py, client id 96) could not run.
+                   [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
+                   connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
 Next actionable  : P.03.02 — durable order intent before submission, and D1 (no fill booked at submission in live
-                   mode); first re-run the P.02 IBKR read-only check when TWS is up.
+                   mode).
 Live trading     : NOT ready. Live order submission must stay disabled. See P.07.
 
 Legend: [ ] not started  [~] in progress  [x] completed and verified  [!] blocked
@@ -99,7 +98,7 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               execId de-duplication across restarts. (P.03 / P.04)
  D4 HIGH      _cancel_order_impl forgets the order before IBKR confirms the cancel (interactive_brokers_broker.py:228).
  D5 HIGH      PreTradeGate and PositionReconciler exist and are tested but no live / paper broker attaches them. (P.05)
- D6 HIGH      [RESOLVED in simulation by P.02, 2026-10-28; IBKR check pending B3] Streaming market data: latest value only, receipt time only for the whole request, market-data type
+ D6 HIGH      [RESOLVED by P.02, 2026-10-28; verified in simulation and against IBKR read-only] Streaming market data: latest value only, receipt time only for the whole request, market-data type
               (live / frozen / delayed) not kept, entitlement errors (354, 10089, 10090, 10167, 10168, 10197) not
               routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
  D7 MEDIUM    No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
@@ -137,7 +136,7 @@ Commands / results
 Acceptance  existing implementations identified before proposals; execution path mapped end to end (above). Met.
 
 
-P.02 — Real-time streaming market data                      [x] VERIFIED IN SIMULATION 2026-10-28 (IBKR: [!] B3)
+P.02 — Real-time streaming market data                      [x] VERIFIED 2026-10-28 (simulation + IBKR read-only)
 ------------------------------------------------------------------------------------------------
 Objective  Typed, timestamped, state-aware streaming observations that cannot silently enter decisions when stale,
            delayed, invalid or not entitled.
@@ -172,9 +171,15 @@ Tasks
              exchange time, tick-by-tick, disconnection + resubscription, line limit + cancel, status rows, midpoint
              not executable, real IBTWSClient callbacks (state, errors, receipt / trade time, listeners, cancel while
              disconnected).
- [!] P.02.IB IBKR read-only verification — BLOCKED [B3] (TWS unreachable 2026-10-28 16:56). Expected when it runs:
-             JPM / SPY quotes refused or delayed (B2: no US-equity quote permission) -> NOT_ENTITLED / DELAYED, which
-             is the safe outcome; record the actual codes.
+ [x] P.02.IB IBKR read-only verification (TWS 127.0.0.1:7497, client id 96, data only, 2026-10-28 17:01-17:03):
+             - live data requested (marketDataType 1): JPM, SPY -> IBKR error 10089 "Requested market data requires
+               additional subscription for API ... Delayed market data is available" -> routed to each subscription ->
+               usability NOT_ENTITLED, executable False (B2 confirmed: no US-equity quote permission for the API).
+             - delayed requested (type 4): IBKR answered marketDataType 3 with delayed ticks 66 / 67 / 68 (JPM bid
+               339.30 ask 340.09 last 340.08; SPY 769.64 / 769.71 / 769.65) -> data_state DELAYED, usability DELAYED
+               where live is required; with require_live=False CURRENT but executable False ("delayed data: never
+               executable").
+             Scripts: scratchpad p02_stream_check.py / p02_stream_check_delayed.py (not committed).
 Acceptance  observations distinguishable by type and source; stale / invalid / delayed / not-entitled data never
             reported as current; MIDPOINT not treated as executable; TRADES history not taken as quote permission;
             IBKR paper verification recorded or its blocker documented.
@@ -275,3 +280,5 @@ SESSION LOG
             run (passed, 1 skipped); defects D1–D10 recorded; P.02 started (P.02.01 done).
 2026-10-28  P.02 implemented and verified in simulation (14 new tests, 319 related tests green); IBKR read-only
             check blocked (B3, TWS error 502). D6 resolved in simulation (reconnect orchestration left to P.04.07).
+2026-10-28  TWS reconnected by the owner: P.02 IBKR read-only check run — live quotes refused (10089) -> NOT_ENTITLED;
+            delayed quotes -> DELAYED, never executable. B3 resolved; P.02 verified.
