@@ -1,0 +1,60 @@
+{% extends "research_base.html" %}
+{% block title %}Factor value generation{% endblock %}
+{% block content %}
+<h4>Factor value generation</h4>
+<p class="muted small">Computes stored CALCULATED factors for a company-share universe at the close of every NYSE bar
+    of the interval, through the factor dependency resolution (closed bars only, point-in-time membership). Existing
+    values are kept; inputs are read from the database only. Raw IBKR series are imported by the data preload.</p>
+<div class="row">
+<div class="col-lg-7">
+<form method="post" action="{{ url_for('factor_research.generate_plan') }}" class="card mb-3">
+    <div class="card-header">Request</div>
+    <div class="card-body small"><div class="row g-2">
+        <div class="col-md-6"><label class="form-label">Company-share universe</label>
+            <select class="form-select form-select-sm" name="universe_id">
+            {% for u in universes %}<option value="{{ u.id }}" {% if form.get('universe_id')|string == u.id|string %}selected{% endif %}>{{ u.name }} ({{ u.active_now }} active / {{ u.constituents }} memberships)</option>{% endfor %}</select></div>
+        <div class="col-md-6"><label class="form-label">Frequency</label>
+            <select class="form-select form-select-sm" name="frequency" id="freq" onchange="filterFactors()">
+            {% for k, l in frequencies %}<option value="{{ k }}" {% if form.get('frequency', '1d') == k %}selected{% endif %}>{{ l }} ({{ k }})</option>{% endfor %}</select></div>
+        <div class="col-md-6"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ form.get('start','') }}" placeholder="YYYY-MM-DD[ HH:MM]" required></div>
+        <div class="col-md-6"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ form.get('end','') }}" placeholder="YYYY-MM-DD[ HH:MM]" required></div>
+        <div class="col-12"><label class="form-label">Factors (calculated; only those defined at the selected frequency are eligible)</label>
+            <div class="mb-1"><label><input type="checkbox" name="all_eligible" {% if form.get('all_eligible') %}checked{% endif %}> all eligible factors at this frequency</label></div>
+            <select class="form-select form-select-sm" name="factor_ids" id="factors" multiple size="12">
+            {% for f in factors %}<option value="{{ f.id }}" data-freq="{{ f.frequency }}" {% if selected is defined and f.id in selected %}selected{% endif %}>{{ f.name }} — {{ f.group }} / {{ f.subgroup }} [{{ f.frequency }}] #{{ f.id }}</option>{% endfor %}</select></div>
+    </div>
+    <button class="btn btn-sm btn-outline-info mt-2" type="submit">Validate and preview</button>
+    {% if plan and not plan.errors %}<button class="btn btn-sm btn-success mt-2" formaction="{{ url_for('factor_research.generate_launch') }}">Launch ({{ plan.calculations }} calculations)</button>{% endif %}
+    </div>
+</form>
+{% if plan %}
+<div class="card mb-3"><div class="card-header">Preview</div><div class="card-body small">
+    {% for e in plan.errors %}<div class="text-danger">{{ e }}</div>{% endfor %}
+    {% for fid, why in plan.refused.items() %}<div class="text-warning">#{{ fid }}: {{ why }}</div>{% endfor %}
+    {% if not plan.errors %}
+    <div>{{ plan.factors|length }} factor(s): {{ plan.factors|map(attribute='name')|join(', ') }}</div>
+    <div>{{ plan.timestamps }} bar closes ({{ plan.first }} .. {{ plan.last }}) · {{ plan.eligible_constituents }} constituents ·
+        {{ plan.constituent_timestamps }} member-timestamps · <b>{{ plan.calculations }}</b> calculations</div>
+    {% endif %}
+</div></div>
+{% endif %}
+</div>
+<div class="col-lg-5">
+<div class="card mb-3"><div class="card-header">Recent jobs</div><div class="card-body p-0"><table class="table table-sm mb-0">
+    <tr><th>Job</th><th>Status</th><th>Progress</th></tr>
+    {% for j in jobs %}<tr><td><a href="{{ url_for('factor_research.job', job_id=j.id) }}">{{ j.id }}</a></td><td>{{ j.status }}</td>
+        <td>{{ j.progress.get('done', 0) }} / {{ j.progress.get('total', '?') }}</td></tr>
+    {% else %}<tr><td colspan="3" class="muted">No job yet.</td></tr>{% endfor %}
+</table></div></div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function filterFactors() {
+    const f = document.getElementById('freq').value;
+    for (const o of document.getElementById('factors').options) { o.hidden = o.dataset.freq !== f; if (o.hidden) o.selected = false; }
+}
+filterFactors();
+</script>
+{% endblock %}

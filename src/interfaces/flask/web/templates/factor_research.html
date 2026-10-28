@@ -1,0 +1,113 @@
+{% extends "research_base.html" %}
+{% block title %}Factor research{% endblock %}
+{% block content %}
+<h4>Factor research</h4>
+<p class="muted small">Stored company-share factor values over a universe (point-in-time membership), an interval and a
+    frequency. Pairwise deletion everywhere; every statistic shows its sample size.</p>
+
+<form method="get" class="card mb-3"><input type="hidden" name="run" value="1">
+    <div class="card-header">Configuration</div>
+    <div class="card-body small"><div class="row g-2">
+        <div class="col-md-3"><label class="form-label">Universe</label><select class="form-select form-select-sm" name="universe_id">
+            {% for u in universes %}<option value="{{ u.id }}" {% if args.get('universe_id')|string == u.id|string %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label">Frequency</label><select class="form-select form-select-sm" name="frequency" id="freq" onchange="filterFactors()">
+            {% for k, l in frequencies %}<option value="{{ k }}" {% if args.get('frequency', '1d') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ args.get('start','') }}" required></div>
+        <div class="col-md-2"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ args.get('end','') }}" required></div>
+        <div class="col-md-1"><label class="form-label">Method</label><select class="form-select form-select-sm" name="method">
+            {% for m in ['pearson','spearman'] %}<option value="{{ m }}" {% if args.get('method','pearson') == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+        <div class="col-md-1"><label class="form-label">Quantiles</label><input class="form-control form-control-sm" name="n_quantiles" value="{{ args.get('n_quantiles','5') }}"></div>
+        <div class="col-md-1"><label class="form-label">Horizons</label><input class="form-control form-control-sm" name="horizons" value="{{ args.get('horizons','1,5') }}"></div>
+        <div class="col-md-4"><label class="form-label">Primary factor</label><select class="form-select form-select-sm fac" name="primary_factor_id" size="8">
+            {% for f in factors %}<option value="{{ f.id }}" data-freq="{{ f.frequency }}" data-group="{{ f.group }}" {% if args.get('primary_factor_id')|string == f.id|string %}selected{% endif %}>{{ f.name }} — {{ f.group }}/{{ f.subgroup }} [{{ f.frequency }}] #{{ f.id }}</option>{% endfor %}</select></div>
+        <div class="col-md-5"><label class="form-label">Comparison factors (ctrl-click; filter by group:)
+            <input class="form-control form-control-sm d-inline w-auto" id="grp" placeholder="group / subgroup" oninput="filterFactors()"></label>
+            <select class="form-select form-select-sm fac" name="comparison_factor_ids" multiple size="8">
+            {% for f in factors %}<option value="{{ f.id }}" data-freq="{{ f.frequency }}" data-group="{{ f.group }}/{{ f.subgroup }}" {% if f.id|string in args.getlist('comparison_factor_ids') %}selected{% endif %}>{{ f.name }} — {{ f.group }}/{{ f.subgroup }} [{{ f.frequency }}] #{{ f.id }}</option>{% endfor %}</select></div>
+    </div><button class="btn btn-sm btn-success mt-2">Run research</button></div>
+</form>
+
+{% if error %}<div class="alert alert-warning py-2">{{ error }}</div>{% endif %}
+{% if result %}{% set r = result %}{% set q = request.query_string.decode() %}
+{% for w in r.warnings %}<div class="alert alert-warning py-1 small mb-1">{{ w }}</div>{% endfor %}
+<div class="card mb-3"><div class="card-header">Method</div><div class="card-body small"><ul class="mb-0">{% for n in r.notes %}<li>{{ n }}</li>{% endfor %}</ul></div></div>
+
+<div class="card mb-3"><div class="card-header">A. Correlation matrix (pooled security-time pairs, {{ r.config.method }}) —
+    click a cell to inspect the pair · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=matrix">CSV</a> · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=counts">counts CSV</a>
+    · sort by <select id="sortby" class="form-select form-select-sm d-inline w-auto" onchange="sortMatrix()"><option value="">order</option>{% for row in cells %}<option value="{{ loop.index0 }}">{{ row[0].a }}</option>{% endfor %}</select></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-sm corr mb-0" id="matrix">
+        <thead><tr><th></th>{% for row in cells %}<th style="white-space:normal;max-width:120px">{{ row[0].a }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for row in cells %}<tr><td>{{ row[0].a }}</td>{% for c in row %}
+            <td class="cellv" style="background:{{ c.color }}" title="{{ c.a }} vs {{ c.b }}: n={{ c.n }} {{ c.note }}" data-v="{{ c.value if c.value is not none else '' }}"
+                onclick="pair(this, '{{ c.a }}', '{{ c.b }}')">{{ '%.2f'|format(c.value) if c.value is not none else '—' }}<br><span class="muted" style="font-size:0.7rem">n={{ c.n }}</span></td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div></div>
+    <div class="card-body" id="pairbox" style="display:none"><img id="pairimg" class="figure" alt="pair"></div>
+</div>
+
+<div class="row">
+<div class="col-lg-5"><div class="card mb-3"><div class="card-header">B. Primary factor — {{ r.names[r.config.primary_factor_id] }} · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=primary_stats">CSV</a></div>
+    <div class="card-body p-0"><table class="table table-sm mb-0">{% for k, v in r.primary_stats.items() %}<tr><td>{{ k }}</td><td>{{ '%.6g'|format(v) if v is not none else '—' }}</td></tr>{% endfor %}</table></div></div></div>
+<div class="col-lg-7"><div class="card mb-3"><div class="card-body">
+    <img class="figure mb-2" src="data:image/png;base64,{{ figures.distribution }}" alt="distribution">
+    <img class="figure" src="data:image/png;base64,{{ figures.profile }}" alt="profile"></div></div></div>
+</div>
+
+<div class="card mb-3"><div class="card-header">C. Relationships with the primary factor · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=cross_sectional">per-date CSV</a></div>
+    <div class="card-body p-0"><table class="table table-sm mb-0">
+        <tr><th>Comparison factor</th><th>Pooled (n)</th><th>Cross-sectional mean</th><th>median</th><th>std</th><th>t of mean</th><th>% dates &gt; 0</th><th>1st half</th><th>2nd half</th><th>dates</th></tr>
+        {% for fid, p in r.pooled.items() %}{% set x = r.cross_sectional[fid].summary %}
+        <tr><td>{{ r.names[fid] }}</td><td>{{ '%.3f'|format(p.value) if p.value is not none else '—' }} ({{ p.n }}){{ ' ' ~ p.note if p.note }}</td>
+            {% for k in ['mean','median','std','t_stat','share_positive','first_half_mean','second_half_mean'] %}<td>{{ '%.3f'|format(x[k]) if x.get(k) is not none else '—' }}</td>{% endfor %}
+            <td>{{ x.dates_with_value|int }}/{{ x.dates|int }}</td></tr>
+        {% else %}<tr><td colspan="10" class="muted">Choose comparison factors.</td></tr>{% endfor %}
+    </table></div>
+    {% if figures.cross_sectional %}<div class="card-body"><img class="figure" src="data:image/png;base64,{{ figures.cross_sectional }}" alt="xs"></div>{% endif %}
+    <div class="card-body small muted">Pooled: one coefficient over all security-time pairs. Cross-sectional: one coefficient per timestamp across securities, summarised over time.
+        Time-series correlation of the factors' long-short portfolio returns is in section D.</div>
+</div>
+
+{% if r.quantiles is not none %}
+<div class="card mb-3"><div class="card-header">D. Quantile portfolios of the primary factor · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=quantiles">returns CSV</a> · <a href="{{ url_for('factor_research.research_csv') }}?{{ q }}&part=quantile_counts">counts CSV</a></div>
+    <div class="card-body"><img class="figure mb-2" src="data:image/png;base64,{{ figures.quantiles }}" alt="quantiles">
+        <table class="table table-sm"><tr><th>Portfolio</th><th>obs</th><th>cumulative</th><th>ann. return</th><th>ann. vol</th><th>Sharpe</th><th>max DD</th><th>avg names</th><th>avg turnover</th></tr>
+        {% for name, p in r.quantile_performance.items() %}<tr><td>{{ name }}</td>
+            {% for k in ['observations','cumulative_return','annualised_return','annualised_volatility','sharpe','max_drawdown'] %}<td>{{ '%.4g'|format(p[k]) if p.get(k) is not none else '—' }}</td>{% endfor %}
+            <td>{{ '%.1f'|format(r.quantiles.counts[name].mean()) if name in r.quantiles.counts else '—' }}</td>
+            <td>{{ '%.2f'|format(r.quantiles.turnover[name].mean()) if name in r.quantiles.turnover else '—' }}</td></tr>{% endfor %}</table>
+        {% if r.long_short_correlations is not none %}<div class="small">Time-series correlation of the factors' long-short portfolio returns:</div>{{ table(r.long_short_correlations, 3)|safe }}{% endif %}
+        <div class="small mt-2">Forward-return information coefficient (Spearman, per timestamp):</div>
+        <table class="table table-sm"><tr><th>Horizon (bars)</th><th>mean IC</th><th>median</th><th>t of mean</th><th>% dates &gt; 0</th><th>dates</th></tr>
+        {% for h, ic in r.ic_by_horizon.items() %}<tr><td>{{ h }}</td>{% for k in ['mean','median','t_stat','share_positive'] %}<td>{{ '%.3f'|format(ic[k]) if ic.get(k) is not none else '—' }}</td>{% endfor %}<td>{{ ic.dates_with_value|int }}</td></tr>{% endfor %}</table>
+        <form method="post" action="{{ url_for('factor_research.research_save_long_short') }}" class="small">
+            {% for k, vs in args.lists() %}{% for v in vs %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}{% endfor %}
+            <input type="hidden" name="query" value="{{ q }}">
+            Save the long-short (Q{{ r.config.n_quantiles }} - Q1) return as a custom factor return for the Factor Analysis:
+            <input class="form-control form-control-sm d-inline w-auto" name="name" placeholder="e.g. mom_ls" pattern="[A-Za-z0-9_.-]+" required>
+            <button class="btn btn-sm btn-outline-info">Save</button></form>
+    </div></div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function filterFactors() {
+    const f = document.getElementById('freq').value, g = (document.getElementById('grp') || {}).value || '';
+    for (const sel of document.querySelectorAll('select.fac'))
+        for (const o of sel.options) o.hidden = o.dataset.freq !== f || (g && !o.dataset.group.toLowerCase().includes(g.toLowerCase()));
+}
+function pair(td, a, b) {
+    document.querySelectorAll('td.cellv.sel').forEach(x => x.classList.remove('sel')); td.classList.add('sel');
+    const id = s => s.match(/#(\d+)\]$/)[1];
+    const img = document.getElementById('pairimg');
+    img.src = "{{ url_for('factor_research.research_pair') }}?{{ request.query_string.decode() }}&a=" + id(a) + "&b=" + id(b);
+    document.getElementById('pairbox').style.display = 'block';
+}
+function sortMatrix() {
+    const k = document.getElementById('sortby').value; if (k === '') return;
+    const body = document.querySelector('#matrix tbody'); const rows = [...body.rows];
+    rows.sort((r1, r2) => (parseFloat(r2.cells[+k + 1].dataset.v) || -9) - (parseFloat(r1.cells[+k + 1].dataset.v) || -9));
+    rows.forEach(r => body.appendChild(r));
+}
+filterFactors();
+</script>
+{% endblock %}

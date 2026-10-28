@@ -28,5 +28,6 @@
     </div>
 </div>
 {% endfor %}
+    {% set fa_source = 'experiment:' ~ e.id %}{% include "_factor_analysis_section.html" %}
 {% endif %}
 {% endblock %}
