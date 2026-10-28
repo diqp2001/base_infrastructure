@@ -1,0 +1,50 @@
+{% extends "research_base.html" %}
+{% block title %}Generation job {{ job.id }}{% endblock %}
+{% block content %}
+<h4>Factor generation job <code>{{ job.id }}</code> — <span id="status">{{ job.status }}</span></h4>
+<div class="muted small mb-2">universe {{ job.request.universe_id }} · {{ job.request.frequency }} · {{ job.request.start }} .. {{ job.request.end }} ·
+    worker {{ job.pid }} on {{ job.host }}</div>
+<div class="card mb-3"><div class="card-header">Progress</div><div class="card-body small" id="progress">
+    {{ job.progress.get('done', 0) }} / {{ job.progress.get('total', '?') }} — generated {{ job.progress.get('generated', 0) }},
+    existing {{ job.progress.get('existing', 0) }}, missing input {{ job.progress.get('missing_input', 0) }}, failed {{ job.progress.get('failed', 0) }}
+</div></div>
+{% if job.status in ('queued', 'running') %}
+<form method="post" action="{{ url_for('factor_research.job_stop', job_id=job.id) }}"><button class="btn btn-sm btn-outline-warning">Stop</button></form>
+{% endif %}
+{% if job.error %}<div class="alert alert-danger"><pre class="mb-0" style="white-space:pre-wrap">{{ job.error }}</pre></div>{% endif %}
+{% if job.summary %}{% set s = job.summary %}
+<div class="card mb-3"><div class="card-header">Summary — {{ s.status }} in {{ s.duration_seconds }} s</div><div class="card-body small">
+    <table class="table table-sm">
+        <tr><td>Universe</td><td>{{ s.universe_id }}</td></tr>
+        <tr><td>Factors</td><td style="white-space:normal">{{ s.factors|join(', ') }}</td></tr>
+        <tr><td>Interval / frequency</td><td>{{ s.start }} .. {{ s.end }} · {{ s.frequency }} ({{ s.timestamps }} bar closes)</td></tr>
+        <tr><td>Eligible constituents</td><td>{{ s.eligible_constituents }}</td></tr>
+        <tr><td>Calculations planned / done</td><td>{{ s.calculations }} / {{ s.done }}</td></tr>
+        <tr><td>Values generated (new)</td><td>{{ s.generated }}</td></tr>
+        <tr><td>Already stored (kept)</td><td>{{ s.existing }}</td></tr>
+        <tr><td>Updated</td><td>{{ s.updated }}</td></tr>
+        <tr><td>Skipped (existing + missing input)</td><td>{{ s.skipped }}</td></tr>
+        <tr><td>Missing input data</td><td>{{ s.missing_input }}</td></tr>
+        <tr><td>Failed calculations</td><td>{{ s.failed }}</td></tr>
+    </table>
+    {% for fid, why in s.refused.items() %}<div class="text-warning">Refused #{{ fid }}: {{ why }}</div>{% endfor %}
+    <ul class="muted">{% for n in s.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+</div></div>
+{% if s.report %}
+<details class="card mb-3"><summary class="card-header">Error report ({{ s.report|length }}{% if s.report|length >= 2000 %}, first 2000{% endif %})</summary>
+<div class="card-body p-0"><table class="table table-sm mb-0"><tr><th>Factor</th><th>Entity</th><th>Time</th><th>Status</th><th>Detail</th></tr>
+{% for r in s.report %}<tr><td>{{ r.factor }}</td><td>{{ r.entity_id }}</td><td>{{ r.time }}</td><td>{{ r.status }}</td><td style="white-space:normal">{{ r.detail }}</td></tr>{% endfor %}
+</table></div></details>
+{% endif %}
+{% endif %}
+{% if job.status in ('queued', 'running') %}
+<script>
+async function poll(){ try { const j = await (await fetch("{{ url_for('factor_research.job_status', job_id=job.id) }}")).json();
+  document.getElementById('status').textContent = j.status; const p = j.progress || {};
+  document.getElementById('progress').textContent = `${p.done||0} / ${p.total||'?'} — generated ${p.generated||0}, existing ${p.existing||0}, missing input ${p.missing_input||0}, failed ${p.failed||0}`;
+  if (j.status !== 'queued' && j.status !== 'running') { location.reload(); return; } } catch(e) {}
+  setTimeout(poll, 4000); }
+setTimeout(poll, 4000);
+</script>
+{% endif %}
+{% endblock %}

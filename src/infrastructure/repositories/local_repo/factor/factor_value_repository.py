@@ -242,6 +242,33 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
                 .order_by(FactorValueModel.date).all())
         return [d for (d,) in rows]
 
+    def get_values_panel(self, factor_ids: List[int], entity_ids: List[int], entity_type: str,
+                         start: datetime, end: datetime) -> List[tuple]:
+        """[(factor_id, entity_id, date, float value)] of the given factors and entities in [start, end], in one
+        query (research reads). The numeric copy is used when present, the text value otherwise; values that are
+        not numbers are left out."""
+        if not factor_ids or not entity_ids:
+            return []
+        rows = (self.session.query(FactorValueModel.factor_id, FactorValueModel.entity_id, FactorValueModel.date,
+                                   FactorValueModel.value_numeric, FactorValueModel.value)
+                .filter(FactorValueModel.factor_id.in_([int(f) for f in factor_ids]),
+                        FactorValueModel.entity_id.in_([int(e) for e in entity_ids]),
+                        FactorValueModel.entity_type == entity_type,
+                        FactorValueModel.date >= start, FactorValueModel.date <= end)
+                .all())
+        out = []
+        for fid, eid, d, numeric, text in rows:
+            v = numeric
+            if v is None:
+                try:
+                    v = float(text)
+                except (TypeError, ValueError):
+                    continue
+            if getattr(d, "tzinfo", None) is not None:
+                d = d.replace(tzinfo=None)
+            out.append((int(fid), int(eid), d, float(v)))
+        return out
+
     def get_all_dates_by_id_entity_id(
         self, factor_id: int, entity_id: int, entity_type: Optional[str] = None
     ) -> List[str]:

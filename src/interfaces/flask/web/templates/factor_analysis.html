@@ -1,0 +1,129 @@
+{% extends "research_base.html" %}
+{% block title %}Factor analysis{% endblock %}
+{% block content %}
+<h4 class="mb-1">Factor Analysis {% if source is defined %}<small class="muted">— {{ source.label }}</small>{% endif %}</h4>
+<p class="muted small mb-2">Regression of the strategy's returns on factor RETURN series (CAPM, Fama-French 3 / 5, or custom).
+    Security-level characteristics stored as factors are not factor returns; build a factor-mimicking portfolio in
+    the factor research first to use one.</p>
+
+{% if not source_key %}
+<div class="card mb-3"><div class="card-body">
+    <form method="get" class="row g-2">
+        <div class="col-md-6"><select class="form-select form-select-sm" name="source">
+            {% for s in sources %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><button class="btn btn-sm btn-primary">Open</button></div>
+    </form>
+</div></div>
+{% endif %}
+
+{% if error and not result %}<div class="alert alert-warning py-2">{{ error }}</div>{% endif %}
+
+{% if strategies is defined and strategies %}
+<form method="get" class="card mb-3">
+    <input type="hidden" name="source" value="{{ source_key }}"><input type="hidden" name="run" value="1">{% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+    <div class="card-header">Configuration</div>
+    <div class="card-body"><div class="row g-2 small">
+        <div class="col-md-3"><label class="form-label">Strategy</label>
+            <select class="form-select form-select-sm" name="strategy">
+            {% for n, s in strategies.items() %}<option value="{{ n }}" {% if n == (args.get('strategy') or primary) %}selected{% endif %}>{{ n }} ({{ s.convention }})</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label">Factor return series</label>
+            <select class="form-select form-select-sm" name="factor_set">
+            {% for f in factor_sets %}<option value="{{ f.name }}" {% if f.name == args.get('factor_set', 'local_market') %}selected{% endif %}>{{ f.name }} — {{ f.factors|join(', ') }}{% if f.last %} (to {{ f.last }}){% endif %}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label">Model</label>
+            <select class="form-select form-select-sm" name="model">
+            {% for k, l in [('capm','CAPM'),('ff3','Fama-French 3'),('ff5','Fama-French 5'),('custom','Custom')] %}<option value="{{ k }}" {% if k == args.get('model','capm') %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label">Custom factors (custom model)</label>
+            <input class="form-control form-control-sm" name="factors" value="{{ args.get('factors','') }}" placeholder="e.g. MOM_LS"></div>
+        <div class="col-md-2"><label class="form-label">Frequency</label>
+            <select class="form-select form-select-sm" name="frequency">
+            {% for k, l in [('D','daily'),('W-FRI','weekly'),('M','monthly')] %}<option value="{{ k }}" {% if k == args.get('frequency','D') %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label">Start</label><input class="form-control form-control-sm" name="start" value="{{ args.get('start','') }}" placeholder="YYYY-MM-DD"></div>
+        <div class="col-md-2"><label class="form-label">End</label><input class="form-control form-control-sm" name="end" value="{{ args.get('end','') }}" placeholder="YYYY-MM-DD"></div>
+        <div class="col-md-2"><label class="form-label">Return convention</label>
+            <select class="form-select form-select-sm" name="convention">
+                <option value="">strategy default</option>
+                <option value="total" {% if args.get('convention') == 'total' %}selected{% endif %}>total (subtract RF once)</option>
+                <option value="excess" {% if args.get('convention') == 'excess' %}selected{% endif %}>excess (self-financing)</option></select></div>
+        <div class="col-md-2"><label class="form-label">Rolling window (periods)</label><input class="form-control form-control-sm" name="rolling_window" value="{{ args.get('rolling_window','') }}" placeholder="e.g. 60"></div>
+        <div class="col-md-2"><label class="form-label">HAC lags (blank = rule)</label><input class="form-control form-control-sm" name="hac_lags" value="{{ args.get('hac_lags','') }}"></div>
+        <div class="col-md-12"><label class="form-label">Compare with (same model, common sample)</label><br>
+            {% for n in strategies %}<label class="me-3"><input type="checkbox" name="compare" value="{{ n }}" {% if n in args.getlist('compare') %}checked{% endif %}> {{ n }}</label>{% endfor %}</div>
+    </div>
+    <button class="btn btn-sm btn-success mt-2">Run factor analysis</button></div>
+</form>
+{% endif %}
+
+{% if result %}
+{% set r = result %}
+{% for w in r.warnings %}<div class="alert alert-warning py-1 small mb-1">{{ w }}</div>{% endfor %}
+<div class="row">
+<div class="col-lg-7">
+<div class="card mb-3"><div class="card-header">A. Exposures — {{ r.model_label }} on {{ r.strategy }}</div>
+    <div class="card-body p-0">{{ coef_html|safe }}</div>
+    <div class="card-body small">
+        Annualised alpha <b>{{ '%.4f'|format(r.alpha_annualised.alpha) }}</b>
+        [{{ '%.4f'|format(r.alpha_annualised.ci_low) }}, {{ '%.4f'|format(r.alpha_annualised.ci_high) }}],
+        t {{ '%.2f'|format(r.alpha_annualised.t) }}, p {{ '%.3f'|format(r.alpha_annualised.p_value) }} — {{ r.alpha_annualised.method }}.<br>
+        R² {{ '%.3f'|format(r.regression.r2) }} · adjusted R² {{ '%.3f'|format(r.regression.adj_r2) }} ·
+        {{ r.regression.n }} observations · {{ r.regression.df }} degrees of freedom ·
+        sample {{ r.sample.first }} .. {{ r.sample.last }} ({{ r.frequency }}, {{ r.periods_per_year }}/year).<br>
+        *** p&lt;0.01, ** p&lt;0.05, * p&lt;0.1.
+        <a href="{{ url_for('factor_analysis.csv') }}?{{ request.query_string.decode() }}&part=coefficients">CSV</a> ·
+        <a href="{{ url_for('factor_analysis.csv') }}?{{ request.query_string.decode() }}&part=series">series CSV</a>
+    </div></div>
+</div>
+<div class="col-lg-5">
+<div class="card mb-3"><div class="card-header">Method and sample</div><div class="card-body small">
+    <ul class="mb-1">{% for n in r.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+    <div class="muted">Factor series: {{ factor_set }} · strategy periods {{ r.sample.strategy_periods }} ({{ r.sample.strategy_first }} .. {{ r.sample.strategy_last }}) ·
+        aligned {{ r.sample.aligned_periods }} · factor data ends {{ r.sample.factor_last }}</div>
+</div></div>
+</div>
+</div>
+
+<div class="card mb-3"><div class="card-header">B. Factor contribution</div><div class="card-body">
+    <img class="figure mb-2" src="data:image/png;base64,{{ figures.cumulative }}" alt="cumulative">
+    <img class="figure" src="data:image/png;base64,{{ figures.contributions }}" alt="contributions">
+    <div class="small muted mt-1">The strategy line compounds the excess return; the factor, alpha and residual parts are additive sums of the regression's terms. A model-based decomposition, not causal attribution.</div>
+</div></div>
+
+<details class="card mb-3" {% if figures.rolling %}open{% endif %}><summary class="card-header">C. Rolling exposure</summary><div class="card-body">
+    {% if figures.rolling %}<img class="figure" src="data:image/png;base64,{{ figures.rolling }}" alt="rolling">
+    <div class="small"><a href="{{ url_for('factor_analysis.csv') }}?{{ request.query_string.decode() }}&part=rolling">rolling CSV</a></div>
+    {% else %}<div class="muted small">Set a rolling window (periods) to see rolling betas, alpha and R².</div>{% endif %}
+</div></details>
+
+<details class="card mb-3"><summary class="card-header">D. Residuals and diagnostics</summary><div class="card-body">
+    <img class="figure mb-2" src="data:image/png;base64,{{ figures.residuals }}" alt="residuals">
+    <div class="row small">
+        <div class="col-md-6"><table class="table table-sm">{% for k, v in r.residual_stats.items() %}<tr><td>{{ k }}</td><td>{{ '%.4g'|format(v) if v is not none else '—' }}</td></tr>{% endfor %}</table></div>
+        <div class="col-md-6"><div class="muted">Outliers (|residual| &gt; 3 sd): {{ r.outliers|length }}</div>{{ outliers_html|safe }}</div>
+    </div>
+</div></details>
+
+{% if comparison %}
+<div class="card mb-3"><div class="card-header">E. Strategy comparison — same model, {{ comparison.periods }} common periods ({{ comparison.first }} .. {{ comparison.last }})</div>
+    <div class="card-body p-0">{{ comparison_html|safe }}</div>
+    {% if comparison.skipped %}<div class="card-body small text-warning">Not compared: {% for n, why in comparison.skipped.items() %}{{ n }} ({{ why }}){% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+    <div class="card-body small"><a href="{{ url_for('factor_analysis.csv') }}?{{ request.query_string.decode() }}&part=comparison">comparison CSV</a></div>
+</div>
+{% endif %}
+{% endif %}
+
+<details class="card mb-3"><summary class="card-header">Factor return data</summary><div class="card-body small">
+    <table class="table table-sm mb-2"><tr><th>Series</th><th>Kind</th><th>Factors</th><th>From</th><th>To</th><th>Source</th></tr>
+    {% for f in factor_sets %}<tr><td>{{ f.name }}</td><td>{{ f.kind }}</td><td>{{ f.factors|join(', ') }}</td><td>{{ f.first or '—' }}</td><td>{{ f.last or '—' }}</td><td style="white-space:normal">{{ f.source }}</td></tr>{% endfor %}</table>
+    <form method="post" action="{{ url_for('factor_analysis.import_french') }}" class="d-inline">
+        <input type="hidden" name="back" value="{{ request.full_path }}">
+        <select class="form-select form-select-sm d-inline w-auto" name="dataset"><option value="ff3_daily">Fama-French 3 factors (daily)</option><option value="ff5_daily">Fama-French 5 factors (daily)</option></select>
+        <button class="btn btn-sm btn-outline-info">Download from the Kenneth R. French data library</button></form>
+    <form method="post" action="{{ url_for('factor_analysis.upload') }}" enctype="multipart/form-data" class="mt-2">
+        <input type="hidden" name="back" value="{{ request.full_path }}">
+        <input class="form-control form-control-sm d-inline w-auto" name="name" placeholder="series name" required>
+        <input class="form-control form-control-sm d-inline w-auto" type="file" name="file" accept=".csv">
+        <select class="form-select form-select-sm d-inline w-auto" name="unit"><option value="percent">percent</option><option value="decimal">decimal</option></select>
+        <select class="form-select form-select-sm d-inline w-auto" name="frequency"><option value="D">daily</option><option value="W-FRI">weekly</option><option value="M">monthly</option></select>
+        <button class="btn btn-sm btn-outline-secondary">Import CSV (date + factor columns)</button></form>
+    <div class="muted mt-1">The French library publishes with a lag of one to two months: very recent strategy periods have no factor data and are reported, not filled.</div>
+</div></details>
+{% endblock %}
