@@ -311,3 +311,49 @@ def test_without_any_short_stock_file_nothing_is_restricted():
     )
     inv = ShortableInventory(fetch=Mock(side_effect=OSError("ftp down")), today=lambda: date(2026, 10, 29))
     assert inv.restrict({"BAC": -0.1}) == ({"BAC": -0.1}, {})
+
+
+# ---------------------------------------------------------------- operator commands (database only)
+@pytest.fixture
+def sqlite_factory():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from src.infrastructure.models import ModelBase
+    from src.infrastructure.repositories.repository_factory import RepositoryFactory
+    engine = create_engine("sqlite://")
+    ModelBase.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield RepositoryFactory(session)
+
+
+def test_ops_kill_reduce_only_and_enable_change_what_the_session_reads(sqlite_factory, monkeypatch):
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live import ops
+    from src.application.services.misbuffet.brokers.trading_controls import TradingControlsService
+    monkeypatch.setenv("STM_OPERATOR", "philippe")
+    lines = []
+    controls = TradingControlsService(sqlite_factory.trading_control_local_repo)
+    mode = lambda: controls.mode_for("DUR314497", "STM_10M_BANKS")[0].value  # noqa: E731
+    assert mode() == "enabled"
+    assert ops.main(["reduce-only", "end of day"], factory=sqlite_factory, out=lines.append) == 0
+    assert mode() == "reduce_only"
+    ops.main(["kill", "test"], factory=sqlite_factory, out=lines.append)
+    ops.main(["enable", "strategy back"], factory=sqlite_factory, out=lines.append)
+    assert mode() == "disabled"                                    # the global kill stays in force
+    ops.main(["unkill", "test over"], factory=sqlite_factory, out=lines.append)
+    assert mode() == "enabled"
+    assert controls.history()[-1].changed_by == "philippe"
+    assert any("trading: ENABLED" in line for line in lines)
+
+
+def test_ops_resolve_records_the_reason_and_the_operator(sqlite_factory, monkeypatch):
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live import ops
+    from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+    monkeypatch.setenv("STM_OPERATOR", "philippe")
+    repo = sqlite_factory.trading_discrepancy_local_repo
+    d = repo.add(Discrepancy(kind=DiscrepancyKind.EXTERNAL_EXECUTION, key="E.1", detail="manual sell", blocking=True,
+                             detected_at=datetime(2026, 10, 29, 15, 0)))
+    lines = []
+    assert ops.main(["resolve", str(d.id), "manual trade in TWS, books adjusted"], factory=sqlite_factory,
+                    out=lines.append) == 0
+    assert repo.get_open() == [] and "philippe" in repo.get_by_id(d.id).resolution
+    assert ops.main(["resolve", "999", "x"], factory=sqlite_factory, out=lines.append) == 1

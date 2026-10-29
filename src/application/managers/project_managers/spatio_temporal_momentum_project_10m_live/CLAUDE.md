@@ -16,8 +16,9 @@ m.run()     # one session: next 10-minute decision .. the session's last (15:50)
 ```
 
 Follow it: `/stm/?project=10m_live` (decisions, timings) and `/monitor/trading` (orders, executions, controls,
-discrepancies). Kill switch / reduce-only: `TradingControlsService` (scope account `DUR314497` or strategy
-`STM_10M_BANKS`).
+discrepancies). Operating it day to day: **RUNBOOK.md**. Kill switch / reduce-only / resolve a discrepancy:
+`python -m ...spatio_temporal_momentum_project_10m_live.ops <command>` (database only; the running session reads
+the controls before every order).
 
 ## How a session runs
 
