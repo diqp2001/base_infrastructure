@@ -197,7 +197,7 @@ def test_streaming_prices_size_orders_only_when_executable():
     svc.assess.return_value = Assessment(Usability.CURRENT, True, ())
     snap = StreamingPriceProvider(svc, clock=lambda: NOW)("AAPL")
     assert (snap.price, snap.as_of, snap.unusable_reason) == (100.1, NOW, None)
-    svc.assess.assert_called_with("STK:AAPL", NOW)
+    svc.assess.assert_called_with("STK:AAPL", NOW, require_live=True)
     svc.assess.return_value = Assessment(Usability.DELAYED, False, ("delayed data: never executable",))
     snap = StreamingPriceProvider(svc, clock=lambda: NOW)("AAPL")
     assert snap.price is None and "delayed" in snap.unusable_reason
@@ -268,3 +268,14 @@ def test_liquidate_all_targets_zero_for_every_held_instrument():
     assert liquidate_all(upm, "data") == {"AAPL": True}
     upm.set_holdings.assert_called_once_with({"AAPL": 0.0, "MSFT": 0.0}, "data", tag="liquidate_all")
     assert liquidate_all(Mock(**{"_get_all_held_tickers.return_value": set()}), "data") == {}
+
+
+def test_delayed_quotes_size_orders_only_when_explicitly_allowed():
+    from src.domain.entities.finance.market_data.streaming_observation import Assessment, Usability
+    svc = Mock()
+    svc.observation.return_value = SimpleNamespace(bid=9.9, ask=10.1, quote_time=NOW, received_at=NOW)
+    svc.assess.return_value = Assessment(Usability.CURRENT, False, ("delayed data: never executable",))
+    assert StreamingPriceProvider(svc, clock=lambda: NOW, allow_delayed=True)("F").price == 10.1
+    svc.assess.assert_called_with("STK:F", NOW, require_live=False)
+    svc.assess.return_value = Assessment(Usability.STALE, False, ("stale",))
+    assert StreamingPriceProvider(svc, clock=lambda: NOW, allow_delayed=True)("F").price is None

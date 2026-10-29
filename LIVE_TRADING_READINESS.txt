@@ -9,17 +9,22 @@ Current phase    : P.06 — Paper trading, operational monitoring and resilience
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
                    modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
                    resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
-                   read-only account values). P.06–P.07 not started.
-Task counts      : completed 41 · in progress 3 · blocked 3 · pending 25
-Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
-                   never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
+                   read-only account values). P.06 in progress: 01 done, paper refusal paths verified; fills
+                   wait for the market open. P.07 not started.
+Task counts      : completed 42 · in progress 7 · blocked 0 · pending 23
+Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
+                   paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
+                   position). Live account U11494855: still NO orders.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
                    refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
+                   Confirmed on the paper login too (354 "not subscribed"; delayed available) -> paper orders are sized
+                   on DELAYED quotes (LiveStackConfig.allow_delayed_prices, refused for live accounts); live trading
+                   needs the real-time US-equity bundle shared with the API.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.06.01 — one paper deployment path that wires everything built in P.02–P.05 (ledger,
-                   recovery, reconciler, gate with controls / throttle / streaming prices / IBKR account values),
-                   then P.06.02–P.06.05 monitoring. Paper orders stay blocked by [B1]; the TWS login is a LIVE account.
+Next actionable  : P.06.08 at the US market open (13:30 UTC): rerun scratchpad p06_paper_check.py — BUY 1 F sent,
+                   acknowledged, cancel confirmed; then a filled round trip (buy 1, sell 1) to verify executions,
+                   commissions and positions (P.03.IB). TWS is now logged into the paper account DUR314497 (port 7497).
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
                    accounts start with D). IBKR_ACCOUNT_MODE / BI-005 refuses orders on a mismatch; P.06 must use a
                    paper login.
@@ -251,7 +256,7 @@ sent; unique order_id) and broker_executions (one row per execId; unique (broker
              its order id resolves it to SUBMITTED. The reconciler keeps the ticker pending (note_submitted). The active
              broker query at start-up is P.04.01 / P.04.02.
  [x] P.03.10 Deterministic lifecycle and fault-injection tests: tests/misbuffet/test_order_lifecycle.py (21).
- [!] P.03.IB IBKR verification needs orders to be sent (paper) -> BLOCKED [B1].
+ [ ] P.03.IB IBKR paper verification (B1 lifted for paper): needs market hours for fills — see P.06.08.
 Acceptance  consistent state across partial fills, cancel races, duplicates, disconnections; a timeout is never
             taken as a failed submission.  -> met in simulation (tests below); IBKR paper behaviour not verified (B1).
 Known limits  commission cash is rounded to the cent by the existing cash leg (_update_cash_for_trade); IBKR execution
@@ -368,18 +373,30 @@ Commands / results (2026-10-28)
  lint-imports -> 4 kept, 0 broken; ruff F on the changed files -> clean
 
 
-P.06 — Paper trading, operational monitoring and resilience                         [ ] NOT STARTED
+P.06 — Paper trading, operational monitoring and resilience                         [~] IN PROGRESS 2026-10-28
 ------------------------------------------------------------------------------------------------
 Dependencies  P.02–P.05.
- [ ] P.06.01 Paper deployment path separate from live.
- [ ] P.06.02 Health indicators: broker connectivity, market data (monitor dashboard exists, BI-023).
- [ ] P.06.03 Account, positions, open orders, recent executions exposed.
- [ ] P.06.04 Discrepancies, risk breaches, unresolved orders monitored.
+ [x] P.06.01 One deployment path: live/live_stack.py build_live_stack(broker, upm, factory, LiveStackConfig) wires
+             streaming quotes, ledger, reconciler (IBKRSnapshotProvider of the account), recovery, gate (controls,
+             throttle on ledger working orders, IBKRAccountProvider, StreamingPriceProvider) onto a connected
+             InteractiveBrokersBroker. Refuses: not connected, account not managed, account kind != IBKR_ACCOUNT_MODE
+             (default paper), delayed prices on a live account. Paper vs live = the logged-in account + the mode;
+             same code. Tests: tests/misbuffet/test_live_stack.py.
+ [~] P.06.02 Health: LiveStack.status() (connection, control mode, recovery verdict, quotes usability). Not yet on the
+             monitor dashboard (BI-023).
+ [~] P.06.03 LiveStack.status(): open orders (ledger), open discrepancies; account / positions via the providers.
+             Recent executions not listed yet.
+ [~] P.06.04 LiveStack.status(): open discrepancies, ledger anomalies, last gate rejections. No alerting yet.
  [ ] P.06.05 Structured logs, auditable decision / order / execution history.
  [ ] P.06.06 Controlled shutdown / restart.
  [ ] P.06.07 Database failure, broker disconnection, recovery tests.
- [!] P.06.08 Simple strategy in IBKR paper trading — BLOCKED [B1] (owner approval to send paper orders).
- [!] P.06.09 Partial fills / rejects / restarts / stale data in paper — BLOCKED [B1].
+ [~] P.06.08 Paper (DUR314497, TWS 7497, client id 93, 2026-10-29 02:0x UTC, market CLOSED), real path TradeManager ->
+             QCAlgorithm.market_order -> BrokerageTransactionHandler -> InteractiveBrokersBroker (gate) -> TWS, books in
+             in-memory SQLite: recovery before OK; kill switch -> refused, intent NOT_SENT / REJECTED; 3 shares >
+             max 2 -> refused; no quote (IBKR sends no delayed ticks while closed) -> refused "no usable price";
+             broker received 0 orders; recovery after OK. Remaining at the open: send -> ack -> cancel confirmed, then a
+             filled round trip. Script: scratchpad p06_paper_check.py (not committed).
+ [ ] P.06.09 Partial fills / rejects / restarts / stale data in paper (B1 lifted for paper).
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -411,3 +428,5 @@ SESSION LOG
             in simulation and read-only against IBKR (lists complete, nothing to recover). P.04.04 left open.
 2026-10-28  P.05 implemented (owner chose a trading_controls table): mandatory gate on the IBKR broker, controls /
             kill switch, throttle, net / concentration / buying-power limits, streaming prices, emergency actions.
+2026-10-29  Owner logged TWS into paper DUR314497 and approved paper orders (B1 lifted for paper). P.06.01 stack built;
+            paper refusal paths verified with the market closed (nothing reached IBKR). Fills wait for the open.
