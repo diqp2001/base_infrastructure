@@ -106,17 +106,21 @@ class StreamingPriceProvider:
     """symbol -> PriceSnapshot from StreamingMarketDataService; never sizes an order with non-executable data."""
 
     def __init__(self, service, instrument_for: Callable[[str], str] = lambda s: f"STK:{s}",
-                 clock: Callable[[], datetime] = _utcnow):
+                 clock: Callable[[], datetime] = _utcnow, allow_delayed: bool = False):
+        """allow_delayed: PAPER ONLY (the live stack refuses it) — a current, valid DELAYED quote may size an order
+        when the account has no real-time permission (B2). Never for a live account."""
         self.service = service
         self.instrument_for = instrument_for
         self.clock = clock
+        self.allow_delayed = allow_delayed
 
     def __call__(self, symbol: str) -> Optional[PriceSnapshot]:
         instrument = self.instrument_for(symbol)
         now = self.clock()
-        assessment = self.service.assess(instrument, now)
+        assessment = self.service.assess(instrument, now, require_live=not self.allow_delayed)
         obs = self.service.observation(instrument)
-        if not assessment.executable or obs is None:
+        usable = assessment.executable or (self.allow_delayed and assessment.current)
+        if not usable or obs is None:
             reason = "; ".join(assessment.reasons) or assessment.usability.value
             return PriceSnapshot(None, None, unusable_reason=f"{assessment.usability.value}: {reason}")
         price = max(obs.bid, obs.ask)                     # the more expensive side: conservative for every limit
