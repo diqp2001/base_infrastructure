@@ -9,9 +9,9 @@ Current phase    : P.06 — Paper trading, operational monitoring and resilience
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
                    modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
                    resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
-                   read-only account values). P.06 in progress: 01 done, paper refusal paths verified; fills
-                   wait for the market open. P.07 not started.
-Task counts      : completed 42 · in progress 7 · blocked 0 · pending 23
+                   read-only account values). P.06 in progress: 01 and 08 done — paper round trips filled,
+                   booked once, cancel confirmed, restart resumed; 5 defects found and fixed. P.07 not started.
+Task counts      : completed 44 · in progress 7 · blocked 0 · pending 21
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -22,9 +22,11 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    needs the real-time US-equity bundle shared with the API.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.06.08 at the US market open (13:30 UTC): rerun scratchpad p06_paper_check.py — BUY 1 F sent,
-                   acknowledged, cancel confirmed; then a filled round trip (buy 1, sell 1) to verify executions,
-                   commissions and positions (P.03.IB). TWS is now logged into the paper account DUR314497 (port 7497).
+Next actionable  : P.06.09 in paper — partial fill (larger limit order in a thin name), IBKR rejection, a restart
+                   while an order is working, stale prices; then P.06.02–P.06.05 (status on the monitor dashboard,
+                   alerting, structured audit log) and P.06.06 / P.06.07.
+TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
+                   (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
                    accounts start with D). IBKR_ACCOUNT_MODE / BI-005 refuses orders on a mismatch; P.06 must use a
                    paper login.
@@ -256,7 +258,9 @@ sent; unique order_id) and broker_executions (one row per execId; unique (broker
              its order id resolves it to SUBMITTED. The reconciler keeps the ticker pending (note_submitted). The active
              broker query at start-up is P.04.01 / P.04.02.
  [x] P.03.10 Deterministic lifecycle and fault-injection tests: tests/misbuffet/test_order_lifecycle.py (21).
- [ ] P.03.IB IBKR paper verification (B1 lifted for paper): needs market hours for fills — see P.06.08.
+ [x] P.03.IB IBKR paper verification 2026-10-29 (see P.06.08): intent -> SUBMITTED -> FILLED from orderStatus,
+             executions booked once per execId, commissionReport booked once, cancel confirmed by IBKR, orderRef MB<id>
+             correlates a fill to its internal order.
 Acceptance  consistent state across partial fills, cancel races, duplicates, disconnections; a timeout is never
             taken as a failed submission.  -> met in simulation (tests below); IBKR paper behaviour not verified (B1).
 Known limits  commission cash is rounded to the cent by the existing cash leg (_update_cash_for_trade); IBKR execution
@@ -390,13 +394,38 @@ Dependencies  P.02–P.05.
  [ ] P.06.05 Structured logs, auditable decision / order / execution history.
  [ ] P.06.06 Controlled shutdown / restart.
  [ ] P.06.07 Database failure, broker disconnection, recovery tests.
- [~] P.06.08 Paper (DUR314497, TWS 7497, client id 93, 2026-10-29 02:0x UTC, market CLOSED), real path TradeManager ->
-             QCAlgorithm.market_order -> BrokerageTransactionHandler -> InteractiveBrokersBroker (gate) -> TWS, books in
-             in-memory SQLite: recovery before OK; kill switch -> refused, intent NOT_SENT / REJECTED; 3 shares >
-             max 2 -> refused; no quote (IBKR sends no delayed ticks while closed) -> refused "no usable price";
-             broker received 0 orders; recovery after OK. Remaining at the open: send -> ack -> cancel confirmed, then a
-             filled round trip. Script: scratchpad p06_paper_check.py (not committed).
- [ ] P.06.09 Partial fills / rejects / restarts / stale data in paper (B1 lifted for paper).
+ [x] P.06.08 Paper DUR314497 (TWS 7497, client id 93), real path TradeManager -> QCAlgorithm.market_order ->
+             BrokerageTransactionHandler -> InteractiveBrokersBroker (gate) -> TWS; books in a SQLite file under %TEMP%
+             (never base_infra), resumed between runs:
+             2026-10-29 02:0x UTC (closed): kill switch / size limit / no price -> refused, 0 orders at IBKR.
+             2026-10-29 14:16–14:24 UTC (open), last run (resumed books): recovery OK; S0 SELL 1 F (held from the
+               previous run) FILLED, books flat; kill switch and 3 > max 2 refused (0 orders sent); A BUY 1 F FILLED @
+               12.19, execution booked once, commission 0.124903 booked once, qty 1, cash 9 987.13; B SELL 1 F FILLED
+               @ 12.18, qty 0, cash 9 999.18; recovery after OK (16 broker events replayed, nothing booked twice).
+             Earlier run: resting LIMIT BUY 1 F @ 6.04 acknowledged (Submitted), cancel requested -> engine order still
+               SUBMITTED and tracked; IBKR Cancelled -> CANCELED, untracked (D4 verified on IBKR, twice).
+             Prices: the paper login gets no streaming quotes at all (neither 354-real-time nor delayed ticks), so
+               paper orders are sized on the last COMPLETED 5-min TRADES bar (LastTradeBarPriceProvider, ~15-20 min
+               old, max_quote_age_seconds 1800; refused for live accounts). Scripts: scratchpad p06_paper_open.py,
+               p06_cleanup.py (one direct SELL 1 F to flatten test residue), p06_state.py (read-only).
+             Residue handled through the P.04 workflow: a BUY 1 F from an earlier in-memory session (orderRef MB3, held
+               by a TWS precaution dialog, filled later) and its cleanup sale were reported as EXTERNAL_EXECUTION,
+               blocked trading, were resolved with a written reason, then recovery passed.
+             Defects found on paper and fixed (each with a test):
+               P06-1 IBKR order errors never reached the ledger (321 read-only left the order SUBMITTED forever):
+                     IBTWSClient forwards errors of its own orders; OrderLedger.on_order_error.
+               P06-2 cancel_order called cancelOrder(id, "") — ibapi 9.81 takes cancelOrder(id): NO API cancel ever
+                     reached IBKR. Fixed (both signatures).
+               P06-3 ibapi 9.81 sends eTradeOnly / firmQuoteOnly = True; current TWS rejects with 10268 -> no order
+                     built by this code could be accepted. Orders now send both False.
+               P06-4 algorithm LimitOrder could not be instantiated (dataclass over the domain Order, abstract clone).
+               P06-5 the pre-trade gate read engine SELL orders (quantity 1, direction SELL) as BUYS — position,
+                     cash, reduce-only and duplicate checks were wrong for every sell. Signed from the direction now.
+               P06-6 (found while fixing P06-1) treating every non-notice code as a rejection rejected filled orders on
+                     10349 "TIF set to DAY"; only an explicit list of rejection codes rejects now.
+ [~] P.06.09 Paper: restart with persisted books verified (3 runs, recovery replays without double booking); IBKR
+             rejections observed (321, 10268). Remaining: partial fills, a restart while an order is working, stale
+             prices in a running session.
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -430,3 +459,6 @@ SESSION LOG
             kill switch, throttle, net / concentration / buying-power limits, streaming prices, emergency actions.
 2026-10-29  Owner logged TWS into paper DUR314497 and approved paper orders (B1 lifted for paper). P.06.01 stack built;
             paper refusal paths verified with the market closed (nothing reached IBKR). Fills wait for the open.
+2026-10-29  Market open: paper round trips on DUR314497 filled and booked once, cancel confirmed by IBKR, restart with
+            persisted books clean. Six defects found on paper and fixed (P06-1 … P06-6). P.06.08 and P.03.IB done.
+            fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 1999 passed, 46 skipped, 6 xfailed

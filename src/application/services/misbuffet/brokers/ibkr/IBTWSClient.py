@@ -46,6 +46,7 @@ class IBTWSClient(EWrapper, EClient):
         self.order_fills = {}
         self.commissions = {}                   # execId -> {commission, currency}
         self.last_send_attempt_order_id = None  # order id of the last placeOrder attempt (P.03)
+        self.placed_order_ids = set()           # order ids this client sent: their errors are order events (P.06)
         # P.03: callables(event: dict) told of every orderStatus / execDetails / commissionReport (on the API
         # thread: a listener must only queue the event, never touch the database)
         self.order_listeners: List = []
@@ -141,6 +142,11 @@ class IBTWSClient(EWrapper, EClient):
                 or reqId in getattr(self, "tick_by_tick", {}):
             if errorCode not in (2104, 2106, 2158, 10167, 2119):
                 self.market_data_errors[reqId] = (errorCode, errorString)
+        # P.06: an error for an order this client sent is an order event (e.g. 321 API read-only, 201 rejected):
+        # the order ledger decides whether it rejects the order
+        if reqId in getattr(self, "placed_order_ids", ()):
+            self._tell_order_listeners({"kind": "order_error", "order_id": reqId, "code": int(errorCode),
+                                        "message": str(errorString), "client_id": self.client_id})
         if errorCode in [2104, 2106, 2158]:  # Market data warnings
             self.logger.info(f"Market data info ({errorCode}): {errorString}")
         elif errorCode < 1000:  # System errors
@@ -690,6 +696,7 @@ class IBTWSClient(EWrapper, EClient):
         # P.03: from here the order may have left (placeOrder writes to the socket); an exception after this line
         # leaves its outcome UNKNOWN — the caller must never resend it, the broker's state decides
         self.last_send_attempt_order_id = order_id
+        self.placed_order_ids.add(order_id)
         self.placeOrder(order_id, contract, order)
         self.logger.info(f"Placed order {order_id}: {contract.symbol} {order.action} {order.totalQuantity}")
 
@@ -700,8 +707,13 @@ class IBTWSClient(EWrapper, EClient):
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
 
-        self.cancelOrder(order_id, "")
-        self.logger.info(f"Cancelled order {order_id}")
+        # ibapi 9.81 takes cancelOrder(orderId); 10.x adds manualCancelOrderTime (P.06: the 2-argument call raised
+        # TypeError with the installed 9.81, so no API cancel ever reached IBKR)
+        try:
+            self.cancelOrder(order_id)
+        except TypeError:
+            self.cancelOrder(order_id, "")
+        self.logger.info(f"Cancel requested for order {order_id}")
 
     def request_account_summary(self, account: str = "All") -> None:
         """Request account summary."""
@@ -1016,7 +1028,7 @@ class IBTWSClient(EWrapper, EClient):
         order.totalQuantity = quantity
         order.orderType = "LMT"
         order.lmtPrice = limit_price
-        return order
+        return self._without_legacy_flags(order)
 
     def create_market_order(self, action: str, quantity: int) -> IBOrder:
         """Create a market order."""
@@ -1024,4 +1036,12 @@ class IBTWSClient(EWrapper, EClient):
         order.action = action
         order.totalQuantity = quantity
         order.orderType = "MKT"
+        return self._without_legacy_flags(order)
+
+    @staticmethod
+    def _without_legacy_flags(order: IBOrder) -> IBOrder:
+        """ibapi 9.81 sends eTradeOnly / firmQuoteOnly = True by default; current TWS rejects such an order with
+        10268 "The 'EtradeOnly' order attribute is not supported" (P.06 paper finding): send them False."""
+        order.eTradeOnly = False
+        order.firmQuoteOnly = False
         return order

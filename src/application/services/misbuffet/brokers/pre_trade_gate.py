@@ -47,23 +47,37 @@ class PreTradeGate:
         symbol = getattr(order, "symbol", "")
         return str(getattr(symbol, "value", None) or getattr(symbol, "ticker", None) or symbol)
 
+    @staticmethod
+    def signed_quantity(order) -> float:
+        """Buy > 0, sell < 0. Engine orders keep a POSITIVE quantity and a SELL direction (P.06 paper finding: the
+        gate judged every sell as a buy); a sign that contradicts the direction is refused."""
+        quantity = float(order.quantity)
+        direction = getattr(order, "direction", None)
+        name = str(getattr(direction, "name", direction) or "").upper()
+        if name.endswith("SELL"):
+            return -abs(quantity)
+        if name.endswith("BUY") and quantity < 0:
+            raise ValueError(f"negative quantity {quantity} with direction BUY")
+        return quantity
+
     def allows(self, order) -> bool:
         symbol = self.symbol_of(order)
+        quantity = None
         try:
-            reasons = self._reasons(order, symbol)
+            quantity = self.signed_quantity(order)
+            reasons = self._reasons(quantity, symbol)
         except Exception as e:                                           # no snapshot: fail closed
             reasons = (f"risk check failed: {e}",)
         if reasons:
             self.rejections.append((symbol, reasons))
-            self.logger.warning(f"Pre-trade risk: order {getattr(order, 'id', '?')} {symbol} {order.quantity} "
-                                f"refused — {'; '.join(reasons)}")
+            self.logger.warning(f"Pre-trade risk: order {getattr(order, 'id', '?')} {symbol} "
+                                f"{quantity if quantity is not None else order.quantity} refused — {'; '.join(reasons)}")
             return False
         if self.throttle is not None:
-            self.throttle.record(symbol, float(order.quantity))
+            self.throttle.record(symbol, quantity)
         return True
 
-    def _reasons(self, order, symbol: str) -> Tuple[str, ...]:
-        quantity = float(order.quantity)
+    def _reasons(self, quantity: float, symbol: str) -> Tuple[str, ...]:
         account = None
         if self.controls is not None:
             mode, why = self.controls.mode_for(self.account, self.strategy)

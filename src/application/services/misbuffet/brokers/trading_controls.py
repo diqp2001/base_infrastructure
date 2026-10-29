@@ -207,3 +207,45 @@ def liquidate_all(portfolio_manager, data, tag: str = "liquidate_all") -> dict:
     if not held:
         return {}
     return portfolio_manager.set_holdings({t: 0.0 for t in held}, data, tag=tag)
+
+
+class LastTradeBarPriceProvider:
+    """PAPER ONLY (the live stack refuses it): the close of the last COMPLETED TRADES bar as the sizing price, dated at
+    the bar's end — for a session that receives no streaming quotes at all (P.06 finding: the paper login gets neither
+    real-time nor delayed ticks, while TRADES history about 15 minutes behind is served). The gate's
+    max_quote_age_seconds decides whether that is fresh enough. Read-only (reqHistoricalData), cached per symbol."""
+
+    def __init__(self, broker, contract_for: Callable[[str], object], bar_seconds: int = 300,
+                 duration: str = "2 D", cache_seconds: float = 60.0, clock: Callable[[], datetime] = _utcnow):
+        self.broker = broker
+        self.contract_for = contract_for
+        self.bar_seconds = bar_seconds
+        self.duration = duration
+        self.cache_seconds = cache_seconds
+        self.clock = clock
+        self._cache: Dict[str, Tuple[float, PriceSnapshot]] = {}
+
+    def __call__(self, symbol: str) -> Optional[PriceSnapshot]:
+        hit = self._cache.get(symbol)
+        if hit is not None and time.monotonic() - hit[0] < self.cache_seconds:
+            return hit[1]
+        snap = self._fetch(symbol)
+        self._cache[symbol] = (time.monotonic(), snap)
+        return snap
+
+    def _fetch(self, symbol: str) -> PriceSnapshot:
+        bar_size = f"{self.bar_seconds // 60} mins" if self.bar_seconds >= 120 else "1 min"
+        try:
+            result = self.broker.request_history(self.contract_for(symbol), "", self.duration, bar_size, "TRADES",
+                                                 use_rth=False, format_date=2, timeout=30)
+        except Exception as e:
+            return PriceSnapshot(None, None, unusable_reason=f"history request failed: {e!r}")
+        if result.status != "complete" or not result.bars:
+            return PriceSnapshot(None, None, unusable_reason=f"no TRADES bars ({result.status} "
+                                                             f"{result.error_code or ''} {result.error_message})")
+        now = self.clock()
+        for bar in reversed(result.bars):
+            end = datetime.fromtimestamp(int(str(bar["date"]).strip()), tz=timezone.utc).timestamp() + self.bar_seconds
+            if end <= now.timestamp():                       # a bar still forming is not a price yet
+                return PriceSnapshot(float(bar["close"]), datetime.fromtimestamp(end, tz=timezone.utc))
+        return PriceSnapshot(None, None, unusable_reason="no completed TRADES bar")

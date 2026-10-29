@@ -35,6 +35,7 @@ from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import accoun
 from src.application.services.misbuffet.brokers.pre_trade_gate import PreTradeGate
 from src.application.services.misbuffet.brokers.trading_controls import (
     IBKRAccountProvider,
+    LastTradeBarPriceProvider,
     OrderThrottle,
     StreamingPriceProvider,
     TradingControlsService,
@@ -51,6 +52,7 @@ class LiveStackConfig:
     strategy: str
     limits: RiskLimits
     allow_delayed_prices: bool = False                  # PAPER ONLY: size orders on delayed quotes (B2)
+    paper_bar_prices: bool = False                      # PAPER ONLY: size orders on the last completed TRADES bar
     max_orders: Optional[int] = 20
     order_window_seconds: float = 60.0
     duplicate_seconds: Optional[float] = 30.0
@@ -65,7 +67,7 @@ class LiveStack:
     mode: str
     client: object
     streaming: StreamingMarketDataService
-    prices: StreamingPriceProvider
+    prices: Callable                                    # StreamingPriceProvider or LastTradeBarPriceProvider (paper)
     ledger: OrderLedger
     reconciler: object
     recovery: StartupRecovery
@@ -124,14 +126,17 @@ def build_live_stack(broker, portfolio_manager, repository_factory, config: Live
     kind = account_kind(config.account)
     if kind != mode:
         raise PermissionError(f"IBKR_ACCOUNT_MODE={mode} but {config.account} is a {kind} account")
-    if config.allow_delayed_prices and kind != "paper":
-        raise PermissionError("delayed prices may size orders on a PAPER account only")
+    if (config.allow_delayed_prices or config.paper_bar_prices) and kind != "paper":
+        raise PermissionError("delayed prices / last-trade bars may size orders on a PAPER account only")
 
     if config.allow_delayed_prices:
         client.request_market_data_type(DELAYED_FROZEN)
     streaming = StreamingMarketDataService(client)
-    prices = StreamingPriceProvider(streaming, instrument_for=config.instrument_for,
-                                    allow_delayed=config.allow_delayed_prices)
+    if config.paper_bar_prices:
+        prices = LastTradeBarPriceProvider(broker, contract_for=stock_contract)
+    else:
+        prices = StreamingPriceProvider(streaming, instrument_for=config.instrument_for,
+                                        allow_delayed=config.allow_delayed_prices)
 
     ledger = OrderLedger(repository_factory, logger=log)
     ledger.attach(client)
@@ -155,5 +160,6 @@ def build_live_stack(broker, portfolio_manager, repository_factory, config: Live
                         strategy=config.strategy, throttle=throttle)
     broker.attach_risk_gate(gate)
     log.warning(f"live stack ready: {mode} account {config.account}, strategy {config.strategy}"
-                + (" — DELAYED prices allowed (paper)" if config.allow_delayed_prices else ""))
+                + (" — DELAYED prices allowed (paper)" if config.allow_delayed_prices else "")
+                + (" (paper: sizing on last-trade bars)" if config.paper_bar_prices else ""))
     return LiveStack(config, mode, client, streaming, prices, ledger, reconciler, recovery, controls, throttle, gate)
