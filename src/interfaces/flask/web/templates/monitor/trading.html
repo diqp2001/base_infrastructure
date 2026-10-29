@@ -1,0 +1,7 @@
+{% extends "monitor/base.html" %}
+{% from "monitor/_section.html" import section %}
+{% block title %}Trading{% endblock %}
+{% block content %}
+<h1>Trading (live order path)</h1>
+{{ section("Orders, executions, discrepancies and controls", url_for('monitor.api_trading'), intervals.data, "trading") }}
+{% endblock %}

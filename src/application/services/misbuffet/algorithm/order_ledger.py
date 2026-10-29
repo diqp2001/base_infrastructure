@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import logging
 import math
-import queue
+import threading
+from collections import deque
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional
 
@@ -45,6 +46,22 @@ UNSET_DOUBLE = 1e300                    # IBKR sends Double.MAX_VALUE for "not s
 # logged; the broker's order statuses and P.04 recovery settle the order.
 ORDER_REJECTION_CODES = frozenset({103, 104, 105, 106, 107, 109, 110, 111, 113, 116, 117, 118, 135, 200, 201, 203,
                                    321, 382, 383, 387, 388, 10268})
+
+
+class LedgerStorageError(RuntimeError):
+    """A ledger row could not be written (database unavailable): the broker event must be retried, not dropped."""
+
+
+MAX_EVENT_ATTEMPTS = 20                 # a failed event is retried this many drains, then dropped (reported)
+_OUTAGE_ERRORS = {"OperationalError", "InterfaceError", "DisconnectionError", "TimeoutError"}
+
+
+def _is_storage_failure(e: Exception) -> bool:
+    """An outage worth retrying (connection lost, database unavailable) — not a data error such as an
+    IntegrityError, which would fail again forever."""
+    if isinstance(e, (LedgerStorageError, ConnectionError, OSError)):
+        return True
+    return any(cls.__name__ in _OUTAGE_ERRORS for cls in type(e).__mro__)
 
 
 def _utcnow() -> datetime:
@@ -77,7 +94,10 @@ class OrderLedger:
         self.broker = broker
         self.clock = clock
         self.logger = logger or logging.getLogger(self.__class__.__name__)
-        self._events: "queue.Queue[dict]" = queue.Queue()
+        self._events: "deque[dict]" = deque()
+        self._events_lock = threading.Lock()
+        self.storage_failures = 0                  # drains stopped by a database failure (events kept, retried)
+        self.last_storage_error: Optional[str] = None
         self._pending_commissions: Dict[str, dict] = {}
         self.anomalies: List[str] = []
         self.duplicates = 0
@@ -89,7 +109,8 @@ class OrderLedger:
 
     def enqueue(self, event: dict) -> None:
         """Called on the broker's API thread: queue only."""
-        self._events.put(dict(event))
+        with self._events_lock:
+            self._events.append(dict(event))
 
     # -- submission (engine thread) ----------------------------------------------------------------------------------
     def record_intent(self, order_id: int, symbol: str, side: str, quantity: float, portfolio_id: int,
@@ -125,15 +146,20 @@ class OrderLedger:
         return self.orders.get_open()
 
     # -- broker events (engine thread) -------------------------------------------------------------------------------
+    def pending_events(self) -> int:
+        with self._events_lock:
+            return len(self._events)
+
     def drain(self, max_events: Optional[int] = None) -> int:
-        """Apply the queued broker events in arrival order; returns how many were applied."""
+        """Apply the queued broker events in arrival order; returns how many were applied. A DATABASE failure puts
+        the event back at the front and stops the drain (P.06.07): nothing is lost, the next drain retries it in
+        order. Any other failure is reported and the event dropped (the broker replays executions on recovery)."""
         n = 0
         while max_events is None or n < max_events:
-            try:
-                event = self._events.get_nowait()
-            except queue.Empty:
-                break
-            n += 1
+            with self._events_lock:
+                if not self._events:
+                    break
+                event = self._events.popleft()
             try:
                 kind = event.get("kind")
                 if kind == "status":
@@ -146,7 +172,18 @@ class OrderLedger:
                     self.on_order_error(event)
                 else:
                     self._anomaly(f"unknown broker event kind {kind!r}")
+                n += 1
             except Exception as e:
+                event["_attempts"] = event.get("_attempts", 0) + 1
+                if _is_storage_failure(e) and event["_attempts"] < MAX_EVENT_ATTEMPTS:
+                    with self._events_lock:
+                        self._events.appendleft(event)
+                    self.storage_failures += 1
+                    self.last_storage_error = repr(e)[:500]
+                    self.logger.critical(f"OrderLedger: database failure, {self.pending_events()} broker event(s) "
+                                         f"kept for retry: {e!r}")
+                    break
+                n += 1
                 self._anomaly(f"broker event {event.get('kind')} not applied: {e!r}")
         return n
 
@@ -319,7 +356,7 @@ class OrderLedger:
             self.orders.mirror_to_order(bo)
             return True
         if not self._atomically(write):
-            raise RuntimeError(f"broker order {bo.order_id} not stored")
+            raise LedgerStorageError(f"broker order {bo.order_id} not stored")
         return bo
 
     def _atomically(self, step) -> bool:

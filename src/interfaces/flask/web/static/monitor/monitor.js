@@ -120,6 +120,9 @@
                  (d.market_data.summary.stale || 0) + " stale"),
       statusCard("Factors", d.factors, text(fmtNum(d.factors.summary.factor_values, 0)),
                  "factor values · " + d.factors.summary.running_jobs + " running job(s)"),
+      d.trading ? statusCard("Trading", d.trading, (d.trading.summary.open_orders || 0) + " open order(s)",
+                 (d.trading.summary.alerts || 0) + " alert(s)" +
+                 (d.trading.summary.controls && d.trading.summary.controls.length ? " · global " + d.trading.summary.controls[0] : "")) : null,
     ]));
     out.push(panel("Latest errors", d.errors.status, [table([
       { label: "Time", render: function (r) { return when(r.ts); } },
@@ -257,6 +260,54 @@
     panel("Recent connection failures", null, [table([
       { label: "Time", render: function (r) { return when(r.ts); } }, { label: "Message", key: "message", cls: "msg" }],
       (ib.connection_failures || []), "None recorded")]),
+    ];
+  };
+
+  R.trading = function (p) {
+    const d = p.data;
+    if (!d) return [el("div", { class: "empty", text: p.error || "Unavailable" })];
+    const orderCols = [
+      { label: "Order", key: "order_id", num: true }, { label: "Symbol", key: "symbol" }, { label: "Side", key: "side" },
+      { label: "Qty", num: true, render: function (r) { return num(r.requested_quantity, 0); } },
+      { label: "Filled", num: true, render: function (r) { return num(r.filled_quantity, 0); } },
+      { label: "Avg price", num: true, render: function (r) { return r.average_fill_price ? fmtNum(r.average_fill_price, 4) : null; }, missing: "-" },
+      { label: "Status", render: function (r) { return badge(String(r.status).toLowerCase()); } },
+      { label: "Submission", key: "submission_state" }, { label: "Broker id", key: "broker_order_id", num: true, missing: "-" },
+      { label: "Last event", render: function (r) { return when(r.last_event_at || r.submitted_at || r.created_at); } },
+      { label: "Cancel requested", render: function (r) { return r.cancel_requested_at ? when(r.cancel_requested_at) : null; }, missing: "-" },
+      { label: "Message", key: "message", cls: "msg", missing: "-" }];
+    return [
+      el("h2", { class: "sub-h", text: "Alerts" }),
+      table([{ label: "Severity", render: function (r) { return badge(r.severity === "critical" ? "error" : "degraded"); } },
+             { label: "Kind", key: "kind" }, { label: "Message", key: "message", cls: "msg" }], d.alerts, "No alerts"),
+      el("h2", { class: "sub-h", text: "Trading controls in force" }),
+      table([{ label: "Scope", key: "scope" }, { label: "Target", key: "target" },
+             { label: "Mode", render: function (r) { return badge(r.mode === "enabled" ? "healthy" : r.mode === "disabled" ? "error" : "degraded"); } },
+             { label: "Mode name", key: "mode" }, { label: "Reason", key: "reason", cls: "msg" },
+             { label: "By", key: "changed_by" }, { label: "Since", render: function (r) { return when(r.changed_at); } }],
+            d.controls, "No control recorded: every scope enabled"),
+      el("h2", { class: "sub-h", text: "Open orders" }), table(orderCols, d.open_orders, "No open orders"),
+      el("h2", { class: "sub-h", text: "Open discrepancies" }),
+      table([{ label: "Id", key: "id", num: true }, { label: "Kind", key: "kind" }, { label: "Key", key: "key" },
+             { label: "Blocking", render: function (r) { return bool(r.blocking); } },
+             { label: "Detected", render: function (r) { return when(r.detected_at); } },
+             { label: "Detail", key: "detail", cls: "msg" }], d.open_discrepancies, "None"),
+      el("h2", { class: "sub-h", text: "Recent executions" }),
+      table([{ label: "Exec id", key: "exec_id" }, { label: "Order", key: "order_id", num: true, missing: "external" },
+             { label: "Symbol", key: "symbol" }, { label: "Side", key: "side" },
+             { label: "Qty", num: true, render: function (r) { return num(r.quantity, 0); } },
+             { label: "Price", num: true, render: function (r) { return fmtNum(r.price, 4); } },
+             { label: "Executed", render: function (r) { return when(r.executed_at); } },
+             { label: "Commission", num: true, render: function (r) { return r.commission !== null && r.commission !== undefined ? fmtNum(r.commission, 4) : null; }, missing: "-" },
+             { label: "Booked", render: function (r) { return bool(r.booked); } },
+             { label: "Commission booked", render: function (r) { return bool(r.commission_booked); } },
+             { label: "Notes", key: "notes", cls: "msg", missing: "-" }], d.executions, "No executions"),
+      el("h2", { class: "sub-h", text: "Recent orders" }), table(orderCols, d.recent_orders, "No orders"),
+      el("h2", { class: "sub-h", text: "Recently resolved discrepancies" }),
+      table([{ label: "Id", key: "id", num: true }, { label: "Kind", key: "kind" }, { label: "Key", key: "key" },
+             { label: "Resolved", render: function (r) { return when(r.resolved_at); } },
+             { label: "Resolution", key: "resolution", cls: "msg" }], d.resolved_discrepancies, "None"),
+      el("div", { class: "note", text: "Monitoring view only - nothing can be changed from this site. Controls are changed through TradingControlsService (audited)." }),
     ];
   };
 

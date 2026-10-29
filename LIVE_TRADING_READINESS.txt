@@ -9,9 +9,10 @@ Current phase    : P.06 — Paper trading, operational monitoring and resilience
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
                    modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
                    resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
-                   read-only account values). P.06 in progress: 01 and 08 done — paper round trips filled,
-                   booked once, cancel confirmed, restart resumed; 5 defects found and fixed. P.07 not started.
-Task counts      : completed 44 · in progress 7 · blocked 0 · pending 21
+                   read-only account values). P.06 7/9 done (paper round trips, restart with a working order,
+                   monitoring page, shutdown, database-failure handling); 05 audit log and 09 partial fills partial.
+                   P.07 not started.
+Task counts      : completed 49 · in progress 5 · blocked 0 · pending 18
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -22,9 +23,10 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    needs the real-time US-equity bundle shared with the API.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.06.09 in paper — partial fill (larger limit order in a thin name), IBKR rejection, a restart
-                   while an order is working, stale prices; then P.06.02–P.06.05 (status on the monitor dashboard,
-                   alerting, structured audit log) and P.06.06 / P.06.07.
+Next actionable  : P.07 — readiness assessment. Before it, the open items that matter for live: a live runner that
+                   calls build_live_stack (none of the projects is wired yet), the real-time US-equity quote bundle for
+                   the API (B2), D8 (two OrderStatus enums), P.04.04 (cash / account values vs books), P.06.05 (link
+                   decisions to orders in the audit trail).
 TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
                    (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
@@ -386,14 +388,29 @@ Dependencies  P.02–P.05.
              InteractiveBrokersBroker. Refuses: not connected, account not managed, account kind != IBKR_ACCOUNT_MODE
              (default paper), delayed prices on a live account. Paper vs live = the logged-in account + the mode;
              same code. Tests: tests/misbuffet/test_live_stack.py.
- [~] P.06.02 Health: LiveStack.status() (connection, control mode, recovery verdict, quotes usability). Not yet on the
-             monitor dashboard (BI-023).
- [~] P.06.03 LiveStack.status(): open orders (ledger), open discrepancies; account / positions via the providers.
-             Recent executions not listed yet.
- [~] P.06.04 LiveStack.status(): open discrepancies, ledger anomalies, last gate rejections. No alerting yet.
- [ ] P.06.05 Structured logs, auditable decision / order / execution history.
- [ ] P.06.06 Controlled shutdown / restart.
- [ ] P.06.07 Database failure, broker disconnection, recovery tests.
+ [x] P.06.02 Health: monitor dashboard (BI-023) page "Trading" (/monitor/trading, API /monitor/api/trading/status) +
+             an overview card, read from the database READ-ONLY (works when the trading process is stuck); in process:
+             LiveStack.status() (connection, control mode, recovery verdict, quote usability). IBKR connection / account
+             / positions / IBKR open orders: existing IBKR monitor pages.
+ [x] P.06.03 Open and recent broker orders, recent executions (commission, booked flags), controls in force and their
+             history, open and resolved discrepancies (monitoring_read_repository.trading_state).
+ [x] P.06.04 Alerts (service.trading_alerts): critical — control DISABLED, blocking discrepancy, order submission
+             UNKNOWN / INTENT; warning — reduce-only, non-blocking discrepancy, order without broker event for 10 min,
+             executions stored unbooked (owner-resolved ones excluded). Critical alerts make the overview ERROR.
+             Checked on the paper books file: healthy, 14 orders, 8 executions, 2 resolved discrepancies.
+             No push notification (dashboard only).
+ [~] P.06.05 Auditable order / execution / control / discrepancy history in the database (append-only controls,
+             one row per execId, resolutions with reasons). Remaining: link strategy decisions (signals, targets) to
+             the orders they produced.
+ [x] P.06.06 LiveStack.shutdown(reason, cancel_working=False): applies pending broker events, cancels working orders
+             only when asked (confirmed later, resolved by the next recovery), unsubscribes quotes, reports what stays
+             open. Restart: verified on paper (P.06.09).
+ [x] P.06.07 Database failure: a broker event whose ledger write fails on an OUTAGE (OperationalError, disconnect,
+             OSError) goes back to the front of the queue and the drain stops — nothing lost, retried in order, booked
+             once when the database is back; data errors (e.g. IntegrityError) are reported, not retried; at most
+             20 attempts per event. Broker disconnection: recovery invalidated, re-run before the next order (P.04);
+             gate providers fail closed when not connected (P.05). Tests in test_order_lifecycle / test_live_stack /
+             test_startup_recovery.
  [x] P.06.08 Paper DUR314497 (TWS 7497, client id 93), real path TradeManager -> QCAlgorithm.market_order ->
              BrokerageTransactionHandler -> InteractiveBrokersBroker (gate) -> TWS; books in a SQLite file under %TEMP%
              (never base_infra), resumed between runs:
@@ -423,9 +440,13 @@ Dependencies  P.02–P.05.
                      cash, reduce-only and duplicate checks were wrong for every sell. Signed from the direction now.
                P06-6 (found while fixing P06-1) treating every non-notice code as a rejection rejected filled orders on
                      10349 "TIF set to DAY"; only an explicit list of rejection codes rejects now.
- [~] P.06.09 Paper: restart with persisted books verified (3 runs, recovery replays without double booking); IBKR
-             rejections observed (321, 10268). Remaining: partial fills, a restart while an order is working, stale
-             prices in a running session.
+ [~] P.06.09 Paper, 2026-10-29 ~15:00 UTC: restart WHILE AN ORDER IS WORKING — process 1 placed LIMIT BUY 1 F @ 6.13
+             through TradeManager + ledger (acknowledged, perm 694374509) and exited without cancelling; process 2 on the
+             same books: recovery kept it open (matched), cancel requested, IBKR Cancelled -> ledger CANCELLED, recovery
+             clean. Stale price in a running session: bar 631 s old refused at max 60 s ("fresh_price"), accepted at
+             1800 s. IBKR rejections observed (321, 10268). Restart with persisted books: 4 runs, no double booking.
+             Not done on paper: a PARTIAL fill (paper fills small orders at once; forcing one needs a large order) —
+             covered in simulation (test_order_lifecycle, test_startup_recovery). Script: scratchpad p06_restart.py.
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -461,4 +482,7 @@ SESSION LOG
             paper refusal paths verified with the market closed (nothing reached IBKR). Fills wait for the open.
 2026-10-29  Market open: paper round trips on DUR314497 filled and booked once, cancel confirmed by IBKR, restart with
             persisted books clean. Six defects found on paper and fixed (P06-1 … P06-6). P.06.08 and P.03.IB done.
+2026-10-29  P.06.09 restart with a working order and stale-price refusal verified on paper; Trading page on the monitor
+            dashboard with alerts; LiveStack.shutdown; ledger keeps broker events through a database outage.
+            fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 2008 passed, 46 skipped, 6 xfailed
             fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 1999 passed, 46 skipped, 6 xfailed

@@ -27,6 +27,7 @@ PAGES = (
     ("overview", "/", "Overview"),
     ("ibkr", "/ibkr", "IBKR & account"),
     ("infrastructure", "/infrastructure", "Infrastructure"),
+    ("trading", "/trading", "Trading"),
     ("market_data", "/market-data", "Market data"),
     ("factors", "/factors", "Factors & jobs"),
     ("logs", "/logs", "Logs"),
@@ -152,6 +153,10 @@ def create_monitor_blueprint(service_provider: Callable[[], Any]) -> Blueprint:
         limit = _int_arg("limit", 200, 1, 1000)
         stale_only = _choice_arg("stale_only", {"0", "1", "true", "false"}, "0") in ("1", "true")
         return api(svc().market_data(limit=limit, stale_only=stale_only, query=_text_arg("q")))
+
+    @bp.get("/api/trading/status")
+    def api_trading():
+        return api(svc().trading())
 
     @bp.get("/api/data-quality/status")
     def api_data_quality():
