@@ -118,3 +118,95 @@ def _order_row(book):
     from src.infrastructure.models.finance.order.order import OrderModel
     book.trade("F", 1, 10.0)                                   # backtest path creates holding, account and order
     return book.session.query(OrderModel).order_by(OrderModel.id.desc()).first().id
+
+
+# ---------------------------------------------------------------- P.04.07: reconnect in the middle of a session
+class _Conn:
+    def __init__(self, alive=True):
+        self.alive = alive
+
+    def is_connected(self):
+        return self.alive
+
+
+class _Broker:
+    def __init__(self, alive=True, reconnect_ok=True):
+        self.ib_connection = _Conn(alive)
+        self.reconnect_ok = reconnect_ok
+        self.connects = 0
+
+    def disconnect(self):
+        self.ib_connection = None
+
+    def connect(self):
+        self.connects += 1
+        self.ib_connection = _Conn(self.reconnect_ok)       # a reconnect makes a NEW client
+        return self.reconnect_ok
+
+
+def _stack_on(broker):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    return SimpleNamespace(client=broker.ib_connection, ledger=Mock())
+
+
+def test_the_guard_keeps_a_healthy_stack():
+    from src.application.services.misbuffet.live.live_stack import LiveConnectionGuard
+    broker = _Broker()
+    stack = _stack_on(broker)
+    guard = LiveConnectionGuard(broker, rebuild=lambda: (_ for _ in ()).throw(AssertionError("no rebuild")))
+    assert guard.check(stack) is stack and broker.connects == 0
+
+
+def test_a_dropped_order_connection_is_reconnected_and_the_stack_rebuilt_on_the_new_client():
+    from src.application.services.misbuffet.live.live_stack import LiveConnectionGuard
+    broker = _Broker()
+    stack = _stack_on(broker)
+    broker.ib_connection.alive = False                      # TWS restarted: the socket is gone
+    rebuilt = []
+    guard = LiveConnectionGuard(broker, rebuild=lambda: rebuilt.append(_stack_on(broker)) or rebuilt[-1])
+    new = guard.check(stack)
+    stack.ledger.drain.assert_called_once()                 # events received before the drop applied first
+    assert broker.connects == 1 and new is rebuilt[0] and new.client is broker.ib_connection
+    assert guard.check(new) is new and guard.reconnects == 1
+
+
+def test_a_failed_reconnect_means_no_order_this_step_and_a_retry_next_step():
+    from src.application.services.misbuffet.live.live_stack import LiveConnectionGuard
+    broker = _Broker(reconnect_ok=False)
+    stack = _stack_on(broker)
+    broker.ib_connection.alive = False
+    guard = LiveConnectionGuard(broker, rebuild=lambda: _stack_on(broker))
+    assert guard.check(stack) is None and guard.failures == 1
+    broker.reconnect_ok = True
+    assert guard.check(None) is not None and broker.connects == 2
+
+
+def test_the_data_connection_is_reconnected_in_place():
+    from src.application.services.misbuffet.live.live_stack import LiveConnectionGuard
+    broker, data = _Broker(), _Broker()
+    stack = _stack_on(broker)
+    data.ib_connection.alive = False
+    guard = LiveConnectionGuard(broker, rebuild=lambda: _stack_on(broker), data_broker=data)
+    assert guard.check(stack) is stack                      # the order path is untouched
+    assert data.connects == 1 and data.ib_connection.is_connected()
+
+
+def test_tws_connectivity_codes_reach_recovery_and_streaming():
+    from unittest.mock import Mock
+    from src.application.services.misbuffet.algorithm.startup_recovery import StartupRecovery
+    from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+    from src.application.services.misbuffet.data.streaming_market_data import StreamingMarketDataService
+    client = IBTWSClient("127.0.0.1", 7497, 99)
+    client.request_market_data = Mock()
+    recovery = StartupRecovery(client, Mock(), Mock())
+    streaming = StreamingMarketDataService(client)
+    streaming.subscribe("STK:JPM", object())
+    recovery._valid = True
+    client.error(-1, 1100, "Connectivity between IBKR and Trader Workstation has been lost.")
+    assert recovery._valid is False and streaming.connected is False
+    recovery._valid = True
+    client.error(-1, 1102, "Connectivity restored - data maintained.")
+    assert recovery._valid is False and streaming.connected and client.request_market_data.call_count == 1
+    client.error(-1, 1101, "Connectivity restored - data lost.")
+    assert client.request_market_data.call_count == 2          # 1101: market-data lines requested again

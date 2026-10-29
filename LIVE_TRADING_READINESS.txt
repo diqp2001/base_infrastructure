@@ -13,7 +13,7 @@ Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 
                    monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
                    P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
                    P.07 assessed 2026-10-29: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 59 · in progress 5 · blocked 0 · pending 5 (counted from the task lines, 2026-10-29)
+Task counts      : completed 60 · in progress 4 · blocked 0 · pending 5 (counted from the task lines, 2026-10-29)
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -30,7 +30,7 @@ Next actionable  : TO DO, in order:
                       shortable check, account snapshot request ids).
                    3. P.06.12 one full paper session 09:40–15:50 (morning retrain, end-of-day shutdown).
                    4. [done] P.07 assessed: NOT ready for live. A live pilot needs B2, P.06.12, P.07.08 owner decisions
-                      (capital, limits, net cap, day-trading equity), a mid-session reconnect test. Runbook: done.
+                      (capital, limits, net cap, day-trading equity). Runbook and mid-session reconnect: done.
                    Open gaps: P.06.13 financing / borrow / dividends not booked (with P.04.04 cash vs books),
                    P.06.14 first decision of the day late by the retrain, D8 (two OrderStatus enums), P.06.05 (link
                    decisions to orders in the audit trail), P.06.09 partial fill on paper.
@@ -323,8 +323,17 @@ Design (owner choice 2026-10-28: new table trading_discrepancies) — StartupRec
  [x] P.04.05 Manual / external trades detected: EXTERNAL_EXECUTION, UNMANAGED_WORKING_ORDER.
  [x] P.04.06 Discrepancies recorded with their resolution: table trading_discrepancies (kind, key, detail, blocking,
              detected_at, resolved_at, resolution, order_id); one open row per (kind, key).
- [~] P.04.07 Safe restart: recovery before the first order and after every reconnect (invalidate / ensure).
-             Remaining: call StreamingMarketDataService.resubscribe after a reconnect (no live runner yet, P.06).
+ [x] P.04.07 Safe restart: recovery before the first order and after every reconnect (invalidate / ensure).
+             2026-10-29: live/live_stack.py LiveConnectionGuard, called before every live step (STM live
+             before_step): a dropped DATA connection is reconnected in place; a dropped ORDER connection -> pending
+             broker events applied, broker reconnects (new client), the stack is rebuilt on it (ledger, reconciler,
+             recovery, gate, quote subscriptions) and recovery re-runs before the next order; a failed reconnect =
+             no order this step, retried next step. TWS <-> IBKR connectivity codes (socket open): 1100 / 1101 /
+             1102 invalidate recovery (IBTWSClient.connectivity_listeners); 1101 resubscribes the quotes.
+             Verified on paper TWS (no orders): both sockets dropped from our side -> recovery invalidated ->
+             reconnected in 3 s each -> stack rebuilt -> recovery OK, trading allowed. Not exercised: a real TWS
+             restart (minutes without TWS: the guard retries each step) and 1100/1101/1102 from IBKR (simulation).
+             Tests: test_live_stack (guard, connectivity codes), test_stm_10m_live.
  [x] P.04.08 Tests: tests/misbuffet/test_startup_recovery.py (18): missed fills booked once and replay-safe, UNKNOWN
              found working, INTENT / UNKNOWN never at the broker, partial fill then gone, position mismatch blocks then
              auto-resolves, external execution blocks until the owner resolves it, foreign working orders, incomplete
@@ -502,9 +511,9 @@ Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM
                                   (external executions and a cancelled-before-ack order resolved), mandatory gate,
                                   kill switch / controls, monitoring page, shutdown, one strategy end to end
                                   (4 capped sessions, 12 s per decision).
-             simulation only    — partial fills (P.06.09), database outage during a session (P.06.07), reconnect in
-                                  the middle of a session with the STM runner (P.04.07: streaming resubscription not
-                                  orchestrated; the stack is bound to the client and must be rebuilt after a reconnect).
+             simulation only    — partial fills (P.06.09), database outage during a session (P.06.07).
+             paper, partly      — reconnect in the middle of a session (P.04.07: sockets dropped from our side;
+                                  a real TWS restart not exercised).
              open               — D8 (two OrderStatus enums, mitigated), P.04.04 / P.06.13 cash and financing not
                                   reconciled, P.06.05 decision -> order link, P.06.12 full session not run yet.
              No CRITICAL defect is open (D1, D2 resolved; D3–D7, D10 resolved; D9 partly, see P.07.03).
@@ -545,7 +554,7 @@ Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM
                1. B2  real-time US-equity data for the API (blocker; required by the code for a live account).
                2. P.06.12 a full paper session 09:40–15:50 and a restart the next morning, clean.
                3. P.07.08 owner decisions (capital, limits, net-exposure cap) and the day-trading equity check.
-               4. Reconnect in the middle of a session tested with the STM runner (P.04.07).
+               4. [done 2026-10-29, paper, sockets dropped from our side] mid-session reconnect (P.04.07).
                5. [done 2026-10-29] P.07.06 operator runbook + ops command.
              Acceptable for a small pilot if documented, to fix soon after: P.06.13 / P.04.04 financing and cash not
              reconciled (book cash drifts by interest, borrow fees, dividends), P.06.14 first decision late by the
@@ -586,3 +595,5 @@ SESSION LOG
 2026-10-29  P.07 readiness assessment: ready for continued paper trading; NOT ready for a live pilot (B2, P.06.12,
             P.07.08, mid-session reconnect, runbook). D10 resolved for bar-driven strategies.
 2026-10-29  P.07.06 operator runbook (STM live RUNBOOK.md) and ops command (kill / reduce-only / resolve ...).
+2026-10-29  P.04.07 LiveConnectionGuard: reconnect + stack rebuild before each live step; TWS connectivity codes
+            invalidate recovery; verified on paper by dropping both sockets (no orders).

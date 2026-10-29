@@ -72,6 +72,9 @@ class StreamingMarketDataService:
         listeners = getattr(client, "connection_listeners", None)
         if listeners is not None:
             listeners.append(self._on_connection_closed)
+        connectivity = getattr(client, "connectivity_listeners", None)
+        if connectivity is not None:
+            connectivity.append(self._on_connectivity)
 
     # -- subscriptions ----------------------------------------------------------------------------------------------
     def _lines(self) -> int:
@@ -113,6 +116,16 @@ class StreamingMarketDataService:
     def _on_connection_closed(self) -> None:
         self.connected = False
         self.disconnected_at = self.clock()
+
+    def _on_connectivity(self, code: int) -> None:
+        """TWS <-> IBKR link (socket open): 1100 lost — quotes stop; 1101 restored, market data lost — every
+        subscription is requested again; 1102 restored, data kept."""
+        if code == 1100:
+            self._on_connection_closed()
+        elif code in (1101, 1102):
+            self.connected = True
+            if code == 1101:
+                self.resubscribe()
 
     def resubscribe(self) -> Dict[str, int]:
         """After a reconnect: every subscription requested again under new ids; old values discarded."""

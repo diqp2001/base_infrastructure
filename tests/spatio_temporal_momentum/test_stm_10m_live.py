@@ -357,3 +357,19 @@ def test_ops_resolve_records_the_reason_and_the_operator(sqlite_factory, monkeyp
                     out=lines.append) == 0
     assert repo.get_open() == [] and "philippe" in repo.get_by_id(d.id).resolution
     assert ops.main(["resolve", "999", "x"], factory=sqlite_factory, out=lines.append) == 1
+
+
+def test_a_blocked_recovery_after_a_reconnect_does_not_stop_the_session(monkeypatch):
+    runner, algorithm, stack, _ = _runner_with_stack(monkeypatch, recovery_ok=False)
+    assert runner.build_stack(algorithm, at_start=False) is stack       # orders refused by set_holdings, run goes on
+    stack.shutdown.assert_not_called()
+
+
+def test_before_step_checks_the_connections_first():
+    algorithm = Algorithm()
+    order = []
+    algorithm.live_stack = "OLD"
+    algorithm.connection_guard = SimpleNamespace(check=lambda s: order.append(("guard", s)) or "NEW")
+    algorithm.cycle = SimpleNamespace(data_updater=None)
+    algorithm.before_step(datetime(2026, 10, 30, 9, 40))
+    assert order == [("guard", "OLD")] and algorithm.live_stack == "NEW"

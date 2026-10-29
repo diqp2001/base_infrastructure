@@ -80,9 +80,15 @@ The running session re-checks IBKR before its next order. Typical cases:
 
 ## 6. After a crash or a lost connection
 
-Start again (§2). Start-up recovery reads IBKR's open orders, today's executions and positions, books missed fills
-once, and blocks on anything it cannot explain. A connection lost **during** a session has not been tested with this
-runner (readiness P.04.07): stop the session and start it again rather than letting it continue.
+**Lost connection during a session** (TWS restarted, network): nothing to do. Before each step the session
+checks both IBKR connections; a dropped one is reconnected, the order path is rebuilt and start-up recovery runs
+again before the next order. Log lines: `IBKR order connection lost: reconnecting` / `re-established` / `live stack
+rebuilt`. While TWS is down, steps run without orders (`reconnect failed: no order this step`). If recovery is
+blocked after the reconnect, the session keeps running without orders until §4 is done. Verified by dropping the
+sockets; a real TWS restart has not been exercised yet — watch the first one.
+
+**Crash** (process died): start again (§2). Start-up recovery reads IBKR's open orders, today's executions and
+positions, books missed fills once, and blocks on anything it cannot explain.
 
 ## 7. Reference
 

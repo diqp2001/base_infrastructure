@@ -48,6 +48,7 @@ class Algorithm(BaseProjectAlgorithm):
         self.project_config: Optional[Dict[str, Any]] = None       # the runner's config (rolling dates)
         self.live_stack_factory: Optional[Callable[["Algorithm"], Any]] = None
         self.live_stack = None
+        self.connection_guard = None          # LiveConnectionGuard, set by the runner (reconnect + rebuild, P.04.07)
         self.shortable: Optional[ShortableInventory] = None       # set by the runner (config live.shortable_check)
         self._last_bars: Dict[str, tuple] = {}                    # ticker -> (close, bar close time) known at the step
 
@@ -88,6 +89,10 @@ class Algorithm(BaseProjectAlgorithm):
         that just closed (one '1 D' request per ticker) and mark the series complete up to the step, so the slice,
         the cycle, the valuation and the order pricing read locally instead of each asking IBKR for a week of bars
         (paper smoke run 2026-10-29: 88 requests and 11 minutes for one decision)."""
+        if self.connection_guard is not None:
+            stack = self.connection_guard.check(self.live_stack)
+            if stack is not None:
+                self.live_stack = stack
         if self.cycle is None or self.cycle.data_updater is None:
             return
         status = self.cycle.data_updater(step_time)
