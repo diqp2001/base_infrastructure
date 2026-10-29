@@ -27,6 +27,17 @@ def covers(factor_id: int, entity_id: int, when: datetime) -> bool:
         return any(start <= when <= end for start, end in _ranges.get((int(factor_id), int(entity_id)), ()))
 
 
+def extend(through: datetime) -> int:
+    """Live: every registered series is complete up to ``through`` as well (its newly closed bars were just imported).
+    Returns the number of series extended."""
+    with _lock:
+        for ranges in _ranges.values():
+            start = min(s for s, _ in ranges)
+            if max(e for _, e in ranges) < through:
+                ranges.append((start, through))
+        return len(_ranges)
+
+
 def clear() -> None:
     with _lock:
         _ranges.clear()

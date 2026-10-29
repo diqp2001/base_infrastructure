@@ -254,7 +254,7 @@ def test_cancel_working_orders_requests_cancels_only():
 def test_the_ibkr_client_collects_account_values():
     from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
     c = IBTWSClient("127.0.0.1", 7497, 99)
-    c._account_summary_collecting = True
+    c._account_summary_collecting, c._account_summary_req_id = True, 1          # request 1 in progress
     c.accountSummary(1, "U1", "NetLiquidation", "123.4", "USD")
     c.accountSummaryEnd(1)
     c.accountSummary(1, "U1", "BuyingPower", "9", "USD")                # after the end: not collected
@@ -313,3 +313,27 @@ def test_engine_sell_orders_are_judged_as_sells():
     assert g.allows(buy)                                         # not a duplicate of the sell
     bad = SimpleNamespace(id="x", symbol="AAPL", quantity=-1, direction=OrderDirection.BUY)
     assert not g.allows(bad) and "negative quantity" in g.rejections[-1][1][0]
+
+
+def test_a_late_end_of_a_cancelled_account_snapshot_does_not_complete_the_next_one():
+    """P.06.11 (paper 2026-10-29): snapshots taken back to back reused one request id; the end of the cancelled
+    previous request completed the new one before its values arrived -> 'no account values', order refused."""
+    from unittest.mock import Mock
+    from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+    c = IBTWSClient("127.0.0.1", 7497, 99)
+    c.is_connected = lambda: True
+    c.cancelAccountSummary = Mock()
+    sent = []
+
+    def answer(req_id, group, tags):
+        sent.append(req_id)
+        if len(sent) == 2:
+            c.accountSummaryEnd(sent[0])                       # late end of the FIRST (cancelled) request
+            c.accountSummary(sent[0], "DUR314497", "NetLiquidation", "1", "USD")
+        c.accountSummary(req_id, "DUR314497", "NetLiquidation", "1000000", "USD")
+        c.accountSummaryEnd(req_id)
+    c.reqAccountSummary = answer
+    assert c.request_account_values_snapshot(timeout=1)
+    assert c.request_account_values_snapshot(timeout=1)
+    assert sent[0] != sent[1]
+    assert c.account_values_snapshot == {"DUR314497": {"NetLiquidation": ("1000000", "USD")}}

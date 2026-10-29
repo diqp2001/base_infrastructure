@@ -19,6 +19,10 @@ Refuses (ValueError / PermissionError) when: the broker is not connected; the ac
 manages; the account's kind (paper D… / live) differs from IBKR_ACCOUNT_MODE (default paper); delayed prices are
 asked for a live account. The stack is bound to the broker's current client: after a reconnect that creates a new
 client, build the stack again.
+
+``bar_prices`` (PAPER ONLY, with paper_bar_prices): the caller's own completed-bar prices (symbol -> PriceSnapshot,
+dated at the bar's close) instead of LastTradeBarPriceProvider — a strategy that has just imported its bars must
+not make the gate ask IBKR again for every order and position (IBKR pacing: 60 historical requests / 10 min).
 """
 
 from __future__ import annotations
@@ -135,7 +139,8 @@ def _utcnow() -> datetime:
 
 
 def build_live_stack(broker, portfolio_manager, repository_factory, config: LiveStackConfig,
-                     multiplier_provider: Optional[Callable[[str], float]] = None, logger=None) -> LiveStack:
+                     multiplier_provider: Optional[Callable[[str], float]] = None, logger=None,
+                     bar_prices: Optional[Callable] = None) -> LiveStack:
     log = logger or logging.getLogger("live_stack")
     client = getattr(broker, "ib_connection", None)
     if client is None or not client.is_connected():
@@ -149,12 +154,14 @@ def build_live_stack(broker, portfolio_manager, repository_factory, config: Live
         raise PermissionError(f"IBKR_ACCOUNT_MODE={mode} but {config.account} is a {kind} account")
     if (config.allow_delayed_prices or config.paper_bar_prices) and kind != "paper":
         raise PermissionError("delayed prices / last-trade bars may size orders on a PAPER account only")
+    if bar_prices is not None and not config.paper_bar_prices:
+        raise ValueError("bar_prices replaces the paper last-trade bars: set paper_bar_prices (paper accounts only)")
 
     if config.allow_delayed_prices:
         client.request_market_data_type(DELAYED_FROZEN)
     streaming = StreamingMarketDataService(client)
     if config.paper_bar_prices:
-        prices = LastTradeBarPriceProvider(broker, contract_for=stock_contract)
+        prices = bar_prices or LastTradeBarPriceProvider(broker, contract_for=stock_contract)
     else:
         prices = StreamingPriceProvider(streaming, instrument_for=config.instrument_for,
                                         allow_delayed=config.allow_delayed_prices)

@@ -8,9 +8,13 @@ from ibapi.wrapper import EWrapper
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import verify_connected_accounts
+
+
+ACCOUNT_SUMMARY_FIRST_REQ_ID = 90_002         # reqAccountSummary ids: 90_002 .. 90_901, one per snapshot
+ACCOUNT_SUMMARY_REQ_IDS = 900
 
 
 class IBTWSClient(EWrapper, EClient):
@@ -59,6 +63,8 @@ class IBTWSClient(EWrapper, EClient):
         self.account_values_snapshot: Dict[str, Dict[str, tuple]] = {}   # account -> tag -> (value, currency) (P.05)
         self._account_summary_collecting = False
         self._account_summary_end_event = threading.Event()
+        self._account_summary_req_id: Optional[int] = None          # the snapshot request being collected
+        self._account_summary_next_id = ACCOUNT_SUMMARY_FIRST_REQ_ID
         self._executions_req_id = None
         self._executions_end_event = threading.Event()
         self._snapshot_lock = threading.Lock()
@@ -232,12 +238,15 @@ class IBTWSClient(EWrapper, EClient):
             'account': account
         }
         with self._snapshot_lock:
-            if self._account_summary_collecting:
+            if self._account_summary_collecting and reqId == self._account_summary_req_id:
                 self.account_values_snapshot.setdefault(account, {})[tag] = (value, currency)
 
     def accountSummaryEnd(self, reqId: int):
-        """End of a reqAccountSummary answer."""
+        """End of a reqAccountSummary answer. The end of an earlier, cancelled request (same connection, snapshots
+        taken back to back by the pre-trade gate) must not complete the current one with no values (P.06.11)."""
         with self._snapshot_lock:
+            if reqId != self._account_summary_req_id:
+                return
             self._account_summary_collecting = False
         self._account_summary_end_event.set()
 
@@ -728,16 +737,21 @@ class IBTWSClient(EWrapper, EClient):
         self.reqAccountSummary(1, group_name, tags)
         self.logger.info(f"Requesting account summary with groupName: {group_name}")
 
-    def request_account_values_snapshot(self, timeout: float = 10.0, req_id: int = 90_002,
+    def request_account_values_snapshot(self, timeout: float = 10.0, req_id: Optional[int] = None,
                                         tags: str = "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,"
                                                     "GrossPositionValue") -> bool:
-        """Account values of every managed account into ``account_values_snapshot`` (P.05 risk). Read-only."""
+        """Account values of every managed account into ``account_values_snapshot`` (P.05 risk). Read-only.
+        Each snapshot has its own request id; answers to any other id are ignored."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
         with self._snapshot_lock:
+            if req_id is None:
+                req_id = self._account_summary_next_id
+                self._account_summary_next_id = ACCOUNT_SUMMARY_FIRST_REQ_ID +                     (req_id - ACCOUNT_SUMMARY_FIRST_REQ_ID + 1) % ACCOUNT_SUMMARY_REQ_IDS
+            self._account_summary_req_id = req_id
             self.account_values_snapshot = {}
             self._account_summary_collecting = True
-        self._account_summary_end_event.clear()
+            self._account_summary_end_event.clear()
         self.reqAccountSummary(req_id, "All", tags)
         complete = self._account_summary_end_event.wait(timeout)
         try:
@@ -746,6 +760,7 @@ class IBTWSClient(EWrapper, EClient):
             self.logger.warning(f"cancelAccountSummary failed: {e}")
         with self._snapshot_lock:
             self._account_summary_collecting = False
+            self._account_summary_req_id = None
         if not complete:
             self.logger.error(f"accountSummaryEnd not received within {timeout}s")
         return complete

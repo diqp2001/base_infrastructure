@@ -3,16 +3,17 @@ MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth 
 
 SUMMARY
 -------
-Last updated     : 2026-10-28
+Last updated     : 2026-10-29
 Current phase    : P.06 — Paper trading, operational monitoring and resilience (P.01–P.05 implemented; P.03 /
                    P.05 order paths verified in simulation, P.02 / P.04 / P.05 providers also against IBKR read-only)
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
                    modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
                    resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
-                   read-only account values). P.06 7/9 done (paper round trips, restart with a working order,
-                   monitoring page, shutdown, database-failure handling); 05 audit log and 09 partial fills partial.
-                   P.07 not started.
-Task counts      : completed 49 · in progress 5 · blocked 0 · pending 18
+                   read-only account values). P.06 9/14 done (paper round trips, restart with a working order,
+                   monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
+                   P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
+                   P.07 not started (P.07.08 owner decisions added).
+Task counts      : completed 51 · in progress 5 · blocked 0 · pending 22
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -23,10 +24,16 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    needs the real-time US-equity bundle shared with the API.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.07 — readiness assessment. Before it, the open items that matter for live: a live runner that
-                   calls build_live_stack (none of the projects is wired yet), the real-time US-equity quote bundle for
-                   the API (B2), D8 (two OrderStatus enums), P.04.04 (cash / account values vs books), P.06.05 (link
-                   decisions to orders in the audit trail).
+Next actionable  : TO DO, in order:
+                   1. [done] P.06.11 account-values race fixed.
+                   2. Commit + merge P.06.10 / P.06.11 (STM 10m live copy, LiveClock, engine hooks, bar_prices,
+                      shortable check, account snapshot request ids).
+                   3. P.06.12 one full paper session 09:40–15:50 (morning retrain, end-of-day shutdown).
+                   4. P.07 readiness assessment; owner decisions P.07.08 (B2 quote bundle, live capital / limits /
+                      net-exposure cap).
+                   Open gaps: P.06.13 financing / borrow / dividends not booked (with P.04.04 cash vs books),
+                   P.06.14 first decision of the day late by the retrain, D8 (two OrderStatus enums), P.06.05 (link
+                   decisions to orders in the audit trail), P.06.09 partial fill on paper.
 TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
                    (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
@@ -447,6 +454,37 @@ Dependencies  P.02–P.05.
              1800 s. IBKR rejections observed (321, 10268). Restart with persisted books: 4 runs, no double booking.
              Not done on paper: a PARTIAL fill (paper fills small orders at once; forcing one needs a large order) —
              covered in simulation (test_order_lifecycle, test_startup_recovery). Script: scratchpad p06_restart.py.
+ [x] P.06.10 First strategy wired to build_live_stack: project_managers/spatio_temporal_momentum_project_10m_live (copy
+             of the 10m STM, 24 tradable US banks; own book Spatio_Temporal_Momentum_10m_Live_Portfolio, signals,
+             models, results). manager.check() (no order) / manager.run() (one session, next decision .. 15:50).
+             Shared additions: live/live_clock.py LiveClock (engine waits for bar close + 20 s, skips steps > 300 s
+             late, stops on request); engine hooks config.live_clock and algorithm.before_step (live only);
+             build_live_stack(bar_prices=...) (paper only); preloaded_coverage.extend. Copy only: preload coverage up to
+             the last CLOSED bar, before_step imports the closed bar, gate prices = stored bars dated at their real
+             close, daily IBKR short-stock file check (shorts cut to 0 when IBKR cannot lend), BK -> BNY (owner).
+             Paper DUR314497 2026-10-29, 4 capped sessions (12:40–15:20): recovery OK each start (8 external test
+             executions of F resolved with a reason before the first one), orders filled and booked, shutdown clean.
+             Defects found and fixed: S1 coverage registered to session end froze every decision on the start bar;
+             S2 BK / CMA 15 s timeouts each step; S3 88 IBKR requests / 11 min per decision (valuation and pricing
+             asked IBKR for a week of bars); S4 gate LastTradeBarPriceProvider 36 requests per step -> IBKR pacing.
+             After the fixes: 12 s per decision, 0 data requests. Finding: without real-time data IBKR serves
+             10-minute bars ~10-15 min late (B2) -> decisions see the bar before the one that just closed.
+             Tests: tests/spatio_temporal_momentum/test_stm_10m_live.py, tests/misbuffet/test_live_clock.py.
+ [x] P.06.11 Gate refused STT (paper 2026-10-29 14:50) "risk check failed: no account values for DUR314497". Cause:
+             the gate takes an account snapshot per order (~150 ms apart), every reqAccountSummary used request id
+             90002; the accountSummaryEnd of the previous, cancelled request completed the new one before its values
+             arrived -> empty snapshot -> refused (fail-closed, right). Fix (IBTWSClient): one request id per snapshot
+             (90002..90901), answers to any other id ignored. Test: test_trading_controls (late end of a cancelled
+             snapshot). Same session: order 15544 (MTB, cancelled at the previous shutdown before any ack) closed by
+             start-up recovery as CANCELLED, 0 filled; position check matched. Remaining risk: reqPositions has no
+             request id (same pattern possible for back-to-back position snapshots).
+ [ ] P.06.12 One full paper session 09:40–15:50 with the STM 10m live copy (morning retrain, every decision, end-of-
+             day shutdown), then a restart the next morning on the same book.
+ [ ] P.06.13 Financing not booked: short-credit interest, borrow fees (0.25–0.41 %/yr for the banks), dividends paid on
+             shorts / received on longs. Book cash drifts from IBKR's; book them daily from IBKR account values
+             (with P.04.04).
+ [ ] P.06.14 First decision of the day waits for the daily retrain (~2.5 min CPU): its orders leave late. Retrain before
+             the open (or on the previous evening's bars).
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -461,6 +499,9 @@ Dependencies  P.01–P.06.
  [ ] P.07.05 Unresolved critical errors disable new orders.
  [ ] P.07.06 Monitoring, alerts, kill switch, recovery procedures documented.
  [ ] P.07.07 Final readiness report (ready for pilot / implemented-not-verified / missing / blocked / deferred).
+ [ ] P.07.08 Owner decisions for a live pilot of STM_10M_BANKS: real-time US-equity bundle for the API (B2; required —
+             paper_bar_prices is refused for a live account); capital (paper: 25 000 USD); order / position / gross
+             limits; net-exposure cap (none today — the first paper decision was 100 % short).
 Acceptance  no positive recommendation while any critical execution, reconciliation, risk or recovery defect is open.
 
 
@@ -486,3 +527,7 @@ SESSION LOG
             dashboard with alerts; LiveStack.shutdown; ledger keeps broker events through a database outage.
             fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 2008 passed, 46 skipped, 6 xfailed
             fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 1999 passed, 46 skipped, 6 xfailed
+2026-10-29  P.06.10 STM 10m wired for live (spatio_temporal_momentum_project_10m_live) and run on paper DUR314497 in 4
+            capped sessions; defects S1–S4 fixed; BK -> BNY (owner); shortable check. Open: P.06.11–P.06.14, P.07.08.
+            P.06.11 account-values race fixed (one request id per snapshot).
+            fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 2036 passed, 46 skipped, 6 xfailed
