@@ -12,8 +12,8 @@ Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 
                    read-only account values). P.06 9/14 done (paper round trips, restart with a working order,
                    monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
                    P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
-                   P.07 not started (P.07.08 owner decisions added).
-Task counts      : completed 51 · in progress 5 · blocked 0 · pending 22
+                   P.07 assessed 2026-10-29: ready for continued PAPER trading, NOT ready for a live pilot.
+Task counts      : completed 58 · in progress 6 · blocked 0 · pending 5 (counted from the task lines, 2026-10-29)
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -29,8 +29,8 @@ Next actionable  : TO DO, in order:
                    2. Commit + merge P.06.10 / P.06.11 (STM 10m live copy, LiveClock, engine hooks, bar_prices,
                       shortable check, account snapshot request ids).
                    3. P.06.12 one full paper session 09:40–15:50 (morning retrain, end-of-day shutdown).
-                   4. P.07 readiness assessment; owner decisions P.07.08 (B2 quote bundle, live capital / limits /
-                      net-exposure cap).
+                   4. [done] P.07 assessed: NOT ready for live. A live pilot needs B2, P.06.12, P.07.08 owner decisions
+                      (capital, limits, net cap, day-trading equity), a mid-session reconnect test, a runbook.
                    Open gaps: P.06.13 financing / borrow / dividends not booked (with P.04.04 cash vs books),
                    P.06.14 first decision of the day late by the retrain, D8 (two OrderStatus enums), P.06.05 (link
                    decisions to orders in the audit trail), P.06.09 partial fill on paper.
@@ -39,7 +39,7 @@ TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Ord
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
                    accounts start with D). IBKR_ACCOUNT_MODE / BI-005 refuses orders on a mismatch; P.06 must use a
                    paper login.
-Live trading     : NOT ready. Live order submission must stay disabled. See P.07.
+Live trading     : NOT ready (P.07.07, 2026-10-29). Live order submission must stay disabled. Paper: ready.
 
 Legend: [ ] not started  [~] in progress  [x] completed and verified  [!] blocked
 
@@ -134,7 +134,9 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               order_state.advances accepts every spelling] Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
  D9 MEDIUM    [PARTLY RESOLVED by P.05: kill switch + account / strategy controls; the separate live-submission
               switch disabled by default is P.07.03] Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
- D10 MEDIUM   Live mode runs the backtest time-stepping loop on stored bars; there is no event-driven live loop. (P.06)
+ D10 MEDIUM   [RESOLVED for bar-driven strategies by P.06.10, 2026-10-29: LiveClock paces the loop on the wall clock,
+              before_step imports each bar as it closes; an event-driven (tick) loop does not exist and no strategy
+              needs one] Live mode runs the backtest time-stepping loop on stored bars; there is no event-driven live loop. (P.06)
 
 
 P.01 — Repository audit and architecture mapping                                   [x] VERIFIED 2026-10-28
@@ -489,19 +491,67 @@ Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths;
             behaviour recorded separately.
 
 
-P.07 — Controlled live-trading readiness assessment                                 [ ] NOT STARTED
+P.07 — Controlled live-trading readiness assessment                 [x] ASSESSED 2026-10-29: NOT READY FOR LIVE
 ------------------------------------------------------------------------------------------------
 Dependencies  P.01–P.06.
- [ ] P.07.01 Critical P.01–P.06 criteria verified.
- [ ] P.07.02 Instruments, order types, data subscriptions, account constraints confirmed.
- [ ] P.07.03 Live submission explicitly configured and disabled by default.
- [ ] P.07.04 Startup reconciliation precedes permission to trade.
- [ ] P.07.05 Unresolved critical errors disable new orders.
- [ ] P.07.06 Monitoring, alerts, kill switch, recovery procedures documented.
- [ ] P.07.07 Final readiness report (ready for pilot / implemented-not-verified / missing / blocked / deferred).
+Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM_10M_BANKS
+             (spatio_temporal_momentum_project_10m_live), paper DUR314497 vs a live pilot on U11494855.
+ [x] P.07.01 Critical P.01–P.06 criteria:
+             verified on paper  — durable intent before send, executions / commissions booked once, forward-only
+                                  statuses, cancel confirmed by IBKR, restart with working orders, start-up recovery
+                                  (external executions and a cancelled-before-ack order resolved), mandatory gate,
+                                  kill switch / controls, monitoring page, shutdown, one strategy end to end
+                                  (4 capped sessions, 12 s per decision).
+             simulation only    — partial fills (P.06.09), database outage during a session (P.06.07), reconnect in
+                                  the middle of a session with the STM runner (P.04.07: streaming resubscription not
+                                  orchestrated; the stack is bound to the client and must be rebuilt after a reconnect).
+             open               — D8 (two OrderStatus enums, mitigated), P.04.04 / P.06.13 cash and financing not
+                                  reconciled, P.06.05 decision -> order link, P.06.12 full session not run yet.
+             No CRITICAL defect is open (D1, D2 resolved; D3–D7, D10 resolved; D9 partly, see P.07.03).
+ [x] P.07.02 Instruments / orders / data / account:
+             instruments  US common stocks, STK / SMART / USD, 24 banks (BK -> BNY; CMA has no contract). All 24
+                          shortable at IBKR on 2026-10-29 (0.85 M to >10 M shares, borrow 0.25–0.41 %/yr), checked
+                          daily (shortable_inventory).
+             orders       MARKET, TIF DAY (TWS preset; notice 10349); last decision 15:50. Limit orders supported by
+                          the path, not used by the strategy. Modifications not supported.
+             data         [BLOCKER B2] no real-time US-equity data for the API on either login: bars arrive 10–15 min
+                          late, decisions use the bar before the one that just closed, and the gate prices on stored
+                          bars (paper_bar_prices) — REFUSED by build_live_stack for a live account. A live pilot needs
+                          the real-time US-equity bundle enabled for API use.
+             account      margin account with shorting; TWS "Bypass Order Precautions for API Orders" on; API not
+                          read-only. [CHECK] US pattern-day-trader rule: the strategy trades intraday several times a
+                          day — the live account must meet the FINRA day-trading equity requirement in force (25 000 USD
+                          under the rule as last known) or it will be restricted.
+ [x] P.07.03 Live submission disabled by default — verified in code: IBKR_ACCOUNT_MODE defaults to paper;
+             IBKR_ACCOUNT_MODE=live needs IBKR_ALLOW_LIVE=yes; IBTWSClient.place_order refuses when the logged-in
+             account's kind differs (BI-005; architecture test: one placeOrder in src); build_live_stack refuses an
+             account the connection does not manage or of the wrong kind; the STM live config names the PAPER account
+             (env STM_LIVE_ACCOUNT to change). Remaining from D9: no per-strategy "submission enabled" flag beyond the
+             trading controls (a DISABLED control on the strategy is the switch).
+ [x] P.07.04 Start-up recovery before the first order — verified: LiveRunner.build_stack refuses to start when recovery
+             is blocked; set_holdings runs recovery.ensure() and the reconciler before every rebalance (paper: 4 starts).
+ [x] P.07.05 Critical errors stop new orders — verified: blocking discrepancies, DISABLED / reduce-only controls, gate
+             fail-closed on missing prices / account values (paper 14:50: an order refused when account values were
+             missing; cause fixed P.06.11), UNKNOWN submissions never resent, throttle.
+ [~] P.07.06 Procedures: monitoring (/monitor/trading, alerts), kill switch (TradingControlsService.kill), discrepancy
+             resolution (Discrepancy.resolve with a reason), shutdown / restart documented in
+             misbuffet/algorithm/CLAUDE.md and the STM live CLAUDE.md. Missing: an operator runbook (daily start, TWS
+             nightly restart, what to do on each alert) and push alerts (dashboard only).
+ [x] P.07.07 Verdict (2026-10-29):
+             READY FOR CONTINUED PAPER TRADING of STM_10M_BANKS on DUR314497.
+             NOT READY FOR A LIVE PILOT. Before one, in order:
+               1. B2  real-time US-equity data for the API (blocker; required by the code for a live account).
+               2. P.06.12 a full paper session 09:40–15:50 and a restart the next morning, clean.
+               3. P.07.08 owner decisions (capital, limits, net-exposure cap) and the day-trading equity check.
+               4. Reconnect in the middle of a session tested with the STM runner (P.04.07).
+               5. P.07.06 operator runbook.
+             Acceptable for a small pilot if documented, to fix soon after: P.06.13 / P.04.04 financing and cash not
+             reconciled (book cash drifts by interest, borrow fees, dividends), P.06.14 first decision late by the
+             retrain, D8, P.06.05, partial fill not seen on paper.
  [ ] P.07.08 Owner decisions for a live pilot of STM_10M_BANKS: real-time US-equity bundle for the API (B2; required —
              paper_bar_prices is refused for a live account); capital (paper: 25 000 USD); order / position / gross
-             limits; net-exposure cap (none today — the first paper decision was 100 % short).
+             limits; net-exposure cap (none today — the first paper decision was 100 % short); confirm the live account
+             meets the day-trading equity requirement.
 Acceptance  no positive recommendation while any critical execution, reconciliation, risk or recovery defect is open.
 
 
@@ -531,3 +581,5 @@ SESSION LOG
             capped sessions; defects S1–S4 fixed; BK -> BNY (owner); shortable check. Open: P.06.11–P.06.14, P.07.08.
             P.06.11 account-values race fixed (one request id per snapshot).
             fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 2036 passed, 46 skipped, 6 xfailed
+2026-10-29  P.07 readiness assessment: ready for continued paper trading; NOT ready for a live pilot (B2, P.06.12,
+            P.07.08, mid-session reconnect, runbook). D10 resolved for bar-driven strategies.
