@@ -441,8 +441,26 @@ class MisbuffetEngine(BaseEngine):
         universe = getattr(self.algorithm, 'universe')
         bar_size_setting = getattr(self.algorithm, 'bar_size_setting')
         duration_str = getattr(self.algorithm, 'duration_str')
+        # Live / paper: config.live_clock (misbuffet.live.LiveClock) holds each step until the wall clock reaches it,
+        # skips steps reached too late and stops on request. Backtests have no clock and run as fast as they can.
+        live_clock = getattr(config, 'live_clock', None)
         # Configurable simulation loop - process data at specified intervals
         while current_date <= end_date:
+            if live_clock is not None:
+                verdict = live_clock.wait_for(current_date)
+                if verdict == "stop":
+                    self.logger.warning(f"Live clock stopped the run before {current_date}: {live_clock.stop_reason}")
+                    break
+                if verdict == "skip":
+                    current_date = self._add_time_interval(current_date, time_interval)
+                    continue
+                # Live: the bar that just closed is imported before the slice is built (algorithm.before_step)
+                before_step = getattr(self.algorithm, 'before_step', None)
+                if callable(before_step):
+                    try:
+                        before_step(current_date)
+                    except Exception as e:
+                        self.logger.error(f"before_step failed at {current_date}: {e!r}")
             # Create data slice with real stock data for this date
             if self.algorithm and hasattr(self.algorithm, 'on_data'):
                 try:

@@ -37,6 +37,8 @@ PROJECTS = {
              "src.application.managers.project_managers.spatio_temporal_momentum_project_full.config"),
     "10m": ("Paper universe, model trained on 10-minute bars",
             "src.application.managers.project_managers.spatio_temporal_momentum_project_10m.config"),
+    "10m_live": ("Live / paper session, 10-minute bars (26 US banks)",
+                 "src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.config"),
 }
 
 
