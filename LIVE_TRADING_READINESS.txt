@@ -4,21 +4,22 @@ MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth 
 SUMMARY
 -------
 Last updated     : 2026-10-28
-Current phase    : P.05 — Pre-trade risk and trading controls (P.01–P.02 verified; P.03–P.04 verified in
-                   simulation, P.04 also against IBKR read-only)
+Current phase    : P.06 — Paper trading, operational monitoring and resilience (P.01–P.05 implemented; P.03 /
+                   P.05 order paths verified in simulation, P.02 / P.04 / P.05 providers also against IBKR read-only)
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
                    modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
-                   resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05–P.07 not started.
-Task counts      : completed 32 · in progress 3 · blocked 3 · pending 34
+                   resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
+                   read-only account values). P.06–P.07 not started.
+Task counts      : completed 41 · in progress 3 · blocked 3 · pending 25
 Current blockers : [B1] owner approval required before ANY order is sent to IBKR, paper included (standing rule:
                    never place / modify / cancel broker orders) -> P.06.08, P.06.09 blocked.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
                    refused); streaming bid/ask for shares may be unavailable -> P.02 paper verification limited.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : P.05.01 — audit existing risk controls (PreTradeGate / RiskLimits, SPX v2 risk manager,
-                   set_holdings gross cap), then wire the gate into the live path (D5). P.04.04 (cash / account values
-                   vs books) can be done alongside P.05.04 (buying power).
+Next actionable  : P.06.01 — one paper deployment path that wires everything built in P.02–P.05 (ledger,
+                   recovery, reconciler, gate with controls / throttle / streaming prices / IBKR account values),
+                   then P.06.02–P.06.05 monitoring. Paper orders stay blocked by [B1]; the TWS login is a LIVE account.
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
                    accounts start with D). IBKR_ACCOUNT_MODE / BI-005 refuses orders on a mismatch; P.06 must use a
                    paper login.
@@ -105,7 +106,9 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               (execId), permId and commissions are memory-only; no commissionReport handler; no
               execId de-duplication across restarts. (P.03 / P.04)
  D4 HIGH      [RESOLVED by P.03, 2026-10-28; verified in simulation] _cancel_order_impl forgets the order before IBKR confirms the cancel (interactive_brokers_broker.py:228).
- D5 HIGH      PreTradeGate and PositionReconciler exist and are tested but no live / paper broker attaches them. (P.05)
+ D5 HIGH      [RESOLVED by P.05, 2026-10-28: InteractiveBrokersBroker refuses every order without a gate;
+              live set_holdings refuses without reconciler / ledger / recovery. No runner wires them yet: P.06.01]
+              PreTradeGate and PositionReconciler exist and are tested but no live / paper broker attaches them. (P.05)
  D6 HIGH      [RESOLVED by P.02, 2026-10-28; verified in simulation and against IBKR read-only] Streaming market data: latest value only, receipt time only for the whole request, market-data type
               (live / frozen / delayed) not kept, entitlement errors (354, 10089, 10090, 10167, 10168, 10197) not
               routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
@@ -113,7 +116,8 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               reconnect not orchestrated yet] No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
  D8 MEDIUM    [OPEN; mitigated by P.03: one TWS -> internal mapping (broker_order.status_from_tws) and
               order_state.advances accepts every spelling] Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
- D9 MEDIUM    Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
+ D9 MEDIUM    [PARTLY RESOLVED by P.05: kill switch + account / strategy controls; the separate live-submission
+              switch disabled by default is P.07.03] Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
  D10 MEDIUM   Live mode runs the backtest time-stepping loop on stored bars; there is no event-driven live loop. (P.06)
 
 
@@ -323,19 +327,45 @@ Commands / results (2026-10-28)
  lint-imports -> 4 kept, 0 broken; ruff F on the changed files -> clean
 
 
-P.05 — Pre-trade risk and trading controls                                          [ ] NOT STARTED
+P.05 — Pre-trade risk and trading controls        [x] VERIFIED IN SIMULATION 2026-10-28 (+ IBKR read-only account values)
 ------------------------------------------------------------------------------------------------
 Dependencies  P.02 (fresh prices), P.03.
- [ ] P.05.01 Audit existing risk (PreTradeGate / RiskLimits, SPX v2 risk_manager, set_holdings gross cap).
- [ ] P.05.02 Quantity, notional, price validation (rules exist; wire).
- [ ] P.05.03 Position, concentration, gross, net limits (net / concentration missing).
- [ ] P.05.04 Buying power / margin from broker account values.
- [ ] P.05.05 Reject orders on stale / invalid data (gate has freshness; feed it streaming state from P.02).
- [ ] P.05.06 Duplicate-order and order-rate protections.
- [ ] P.05.07 Account- and strategy-level enable / disable.
- [ ] P.05.08 Kill switch; cancel-working-orders and liquidate as separate explicit actions.
- [ ] P.05.09 Tests: breaches, missing data, invalid orders, fail-safe behaviour.
-Acceptance  every new order passes the central gate; no bypass; kill switch stops new risk.
+Design (owner choice 2026-10-28: new table trading_controls). The central gate is PreTradeGate on the broker:
+BaseBroker.place_order -> gate.allows(order); InteractiveBrokersBroker.requires_risk_gate = True, so nothing reaches
+IBKR (paper or live) without it. Checks in order: controls -> throttle -> limits.
+ [x] P.05.01 Audit: PreTradeGate / RiskLimits (BI-022) had quantity, notional, position, gross, freshness, cash; no
+             broker attached it (D5). set_holdings has its own budget check (_has_budget_for_trade) and gross cap;
+             the SPX v2 risk manager is strategy-level (kept, not the central gate).
+ [x] P.05.02 Quantity / notional / price validation wired: the gate is mandatory on the IBKR broker.
+ [x] P.05.03 Position, gross, NET exposure and CONCENTRATION (position notional / net liquidation) limits.
+ [x] P.05.04 Buying power: an order that increases |position| must fit BuyingPower; IBKRAccountProvider reads
+             NetLiquidation / TotalCashValue / BuyingPower (IBTWSClient.request_account_values_snapshot, new) and the
+             positions of ONE account. Verified read-only against IBKR (5 tags received, 0 positions).
+ [x] P.05.05 Stale / invalid data: StreamingPriceProvider gives a price only for an executable P.02 assessment
+             (live, entitled, fresh, valid two-sided; dearer side); otherwise the reason refuses the order.
+ [x] P.05.06 OrderThrottle: N orders per window, the same order again within duplicate_seconds, an order while one
+             on the symbol is still working (working_symbols, e.g. from the ledger). Refused orders are not counted.
+ [x] P.05.07 Controls per scope (global / account / strategy), modes enabled / reduce_only / disabled, most
+             restrictive wins; append-only rows with reason + author = audit trail; unreadable store = disabled.
+ [x] P.05.08 Kill switch TradingControlsService.kill; cancel_working_orders (explicit; cancel requested, status moves
+             on IBKR confirmation); liquidate_all (explicit; set_holdings to 0 under reduce_only). Never automatic.
+ [x] P.05.09 Tests: tests/misbuffet/test_trading_controls.py (25 incl. parametrised) + contract test on SQLite and
+             SQL Server; test_live_order_path: the IBKR broker sends nothing without a gate.
+Acceptance  every new order passes the central gate; no bypass; kill switch stops new risk.  -> met in code and
+            simulation; no runner wires a gate yet (P.06.01), so live / paper trading stays impossible (fail closed).
+Files  domain/entities/finance/order/trading_control.py (new), pre_trade_risk.py (net, concentration, buying power,
+       unusable_reason), ports (TradingControlPort), models/finance/order/trading_control.py (new), mapper + repository
+       (TradingControlRepository, factory 'TradingControl'), brokers/trading_controls.py (new), pre_trade_gate.py
+       (controls, throttle), base_broker.py + ibkr/interactive_brokers_broker.py (mandatory gate),
+       ibkr/IBTWSClient.py (account values snapshot, accountSummaryEnd).
+Commands / results (2026-10-28)
+ pytest tests/misbuffet/test_trading_controls.py tests/misbuffet/test_pre_trade_risk.py
+   tests/misbuffet/test_live_order_path.py -> all passed
+ pytest tests/contracts/test_broker_order_repository.py -> 4 passed on SQLite, 4 passed on SQL Server base_infra_test
+ IBKR read-only (client id 94, order methods blocked): IBKRAccountProvider -> 5 account tags, 0 positions, buying
+   power and net liquidation present. Script: scratchpad p05_account_check.py (not committed).
+ fast suite (lint baseline deselected: owner's uncommitted src/main.py) -> 1985 passed, 46 skipped, 6 xfailed
+ lint-imports -> 4 kept, 0 broken; ruff F on the changed files -> clean
 
 
 P.06 — Paper trading, operational monitoring and resilience                         [ ] NOT STARTED
@@ -379,3 +409,5 @@ SESSION LOG
             simulation: D1, D2, D4 resolved; D3 resolved for the live path; D8 open. IBKR check needs orders (B1).
 2026-10-28  P.04 implemented (owner chose a trading_discrepancies table): start-up / reconnect recovery gate; verified
             in simulation and read-only against IBKR (lists complete, nothing to recover). P.04.04 left open.
+2026-10-28  P.05 implemented (owner chose a trading_controls table): mandatory gate on the IBKR broker, controls /
+            kill switch, throttle, net / concentration / buying-power limits, streaming prices, emergency actions.

@@ -238,6 +238,9 @@ class InteractiveBrokersBrokerOrderTest(unittest.TestCase):
 
     def test_place_order_works_with_framework_orders(self):
         self.broker.status = self.broker.status.__class__.CONNECTED
+        self.assertFalse(self.broker.place_order(market("SPY", 10)))         # P.05: no gate, nothing sent
+        self.assertEqual(self.tws.orders, [])
+        self.broker.attach_risk_gate(Mock(**{"allows.return_value": True}))
         self.assertTrue(self.broker.place_order(market("SPY", 10)))
         self.assertEqual(len(self.tws.orders), 1)
 

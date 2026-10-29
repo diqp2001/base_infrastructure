@@ -2,11 +2,13 @@
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+from src.domain.entities.finance.order.trading_control import ControlMode, ControlScope, TradingControl
 from src.infrastructure.models.finance.order.broker_order import (
     BrokerExecutionModel,
     BrokerOrderModel,
     TradingDiscrepancyModel,
 )
+from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 
 _ORDER_FIELDS = ("order_id", "broker", "account", "portfolio_id", "cash_portfolio_id", "symbol", "side",
                  "requested_quantity", "broker_order_id", "perm_id", "client_id","status", "filled_quantity", "remaining_quantity", "average_fill_price", "created_at",
@@ -72,4 +74,20 @@ class DiscrepancyMapper:
             setattr(orm, f, getattr(entity, f))
         orm.kind = entity.kind.value
         orm.blocking = bool(entity.blocking)
+        return orm
+
+
+class TradingControlMapper:
+
+    @staticmethod
+    def to_domain(orm: TradingControlModel):
+        if orm is None:
+            return None
+        return TradingControl(scope=ControlScope(orm.scope), target=orm.target, mode=ControlMode(orm.mode),
+                              reason=orm.reason, changed_by=orm.changed_by, changed_at=orm.changed_at, id=orm.id)
+
+    @staticmethod
+    def copy_to_orm(entity: TradingControl, orm: TradingControlModel) -> TradingControlModel:
+        orm.scope, orm.target, orm.mode = entity.scope.value, entity.target, entity.mode.value
+        orm.reason, orm.changed_by, orm.changed_at = entity.reason, entity.changed_by, entity.changed_at
         return orm

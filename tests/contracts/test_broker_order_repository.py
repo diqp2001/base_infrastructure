@@ -88,3 +88,24 @@ def test_discrepancies_are_stored_open_then_resolved(backend):
             synchronize_session=False)
         session.commit()
         session.close()
+
+
+def test_trading_controls_are_appended_and_read_back(backend):
+    from src.application.services.misbuffet.brokers.trading_controls import TradingControlsService
+    from src.domain.entities.finance.order.trading_control import ControlMode, ControlScope
+    from src.infrastructure.models.finance.order.trading_control import TradingControlModel
+    from src.infrastructure.repositories.local_repo.finance.order.broker_order_repository import (
+        TradingControlRepository,
+    )
+    session = backend.session()
+    svc = TradingControlsService(TradingControlRepository(session), clock=lambda: NOW)
+    try:
+        svc.set(ControlScope.STRATEGY, "contract-strategy", ControlMode.REDUCE_ONLY, "contract test", "pytest")
+        mode, reasons = svc.mode_for(None, "contract-strategy")
+        assert mode is ControlMode.REDUCE_ONLY and "contract test" in reasons[0]
+    finally:
+        session.rollback()
+        session.query(TradingControlModel).filter(TradingControlModel.target == "contract-strategy").delete(
+            synchronize_session=False)
+        session.commit()
+        session.close()

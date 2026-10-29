@@ -12,17 +12,24 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
-from src.domain.ports.finance.broker_order_port import BrokerOrderPort, DiscrepancyPort, ExecutionPort
+from src.domain.ports.finance.broker_order_port import (
+    BrokerOrderPort,
+    DiscrepancyPort,
+    ExecutionPort,
+    TradingControlPort,
+)
 from src.infrastructure.models.finance.order.broker_order import (
     BrokerExecutionModel,
     BrokerOrderModel,
     TradingDiscrepancyModel,
 )
 from src.infrastructure.models.finance.order.order import OrderModel
+from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 from src.infrastructure.repositories.mappers.finance.order.broker_order_mapper import (
     BrokerOrderMapper,
     DiscrepancyMapper,
     ExecutionMapper,
+    TradingControlMapper,
 )
 
 OPEN_STATUSES = ("PENDING", "SUBMITTED", "PARTIALLY_FILLED")
@@ -151,3 +158,12 @@ class DiscrepancyRepository(_Base, DiscrepancyPort):
                .filter(TradingDiscrepancyModel.kind == kind.value, TradingDiscrepancyModel.key == key)
                .order_by(TradingDiscrepancyModel.id.desc()).first())
         return self.mapper.to_domain(row)
+
+
+class TradingControlRepository(_Base, TradingControlPort):
+    """Append-only: a control changes by adding a row, never by updating one (the history is the audit trail)."""
+    model_class = TradingControlModel
+    mapper = TradingControlMapper
+
+    def update(self, entity):
+        raise NotImplementedError("trading controls are append-only: add a new row")
