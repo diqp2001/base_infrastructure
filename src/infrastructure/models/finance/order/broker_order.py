@@ -35,6 +35,9 @@ class BrokerOrderModel(Base):
     last_event_at = Column(DateTime, nullable=True)
     cancel_requested_at = Column(DateTime, nullable=True)
     message = Column(Text, nullable=True)
+    # TradingDecision that sent the order (P.06.05); no FK constraint so that databases migrated by ALTER and
+    # databases created by create_all are identical
+    decision_id = Column(Integer, nullable=True, index=True)
 
     def __repr__(self) -> str:
         return (f"<BrokerOrderModel(order={self.order_id}, {self.broker}:{self.broker_order_id}, "

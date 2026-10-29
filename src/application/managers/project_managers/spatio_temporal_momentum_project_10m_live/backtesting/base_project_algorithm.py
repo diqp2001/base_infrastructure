@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+from datetime import datetime
 
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.config import get_config
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.data.shortable_inventory import (
@@ -48,6 +49,7 @@ class Algorithm(BaseProjectAlgorithm):
         self.project_config: Optional[Dict[str, Any]] = None       # the runner's config (rolling dates)
         self.live_stack_factory: Optional[Callable[["Algorithm"], Any]] = None
         self.live_stack = None
+        self.connection_guard = None          # LiveConnectionGuard, set by the runner (reconnect + rebuild, P.04.07)
         self.shortable: Optional[ShortableInventory] = None       # set by the runner (config live.shortable_check)
         self._last_bars: Dict[str, tuple] = {}                    # ticker -> (close, bar close time) known at the step
 
@@ -82,12 +84,30 @@ class Algorithm(BaseProjectAlgorithm):
         )
         # the engine builds its data slice for these: only the tickers with an entity (an IBKR contract)
         self.universe = {CompanyShare: list(self.cycle.ticker_to_entity)}
+        if self.config.get('pretrain_before_first_decision', False):
+            self.pretrain()
+
+    def pretrain(self, now=None) -> Optional[int]:
+        """Train on the history known now, before the engine's first step (P.06.14): the first decision then uses
+        this model instead of retraining (~2.5 min CPU) and trading nothing."""
+        from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.data.price_ingestion import (
+            exchange_now,
+        )
+        at = pd.Timestamp(now if now is not None else exchange_now()).floor(f"{self.cycle.config.bar_minutes}min")
+        artifact = self.cycle.train_now(at)
+        self.log(f"STM model pre-trained at {at} on the history known then (artifact {artifact})"
+                 if artifact is not None else f"STM pre-training at {at}: nothing new to train on")
+        return artifact
 
     def before_step(self, step_time):
         """Called by the engine (live clock) once the step is due, BEFORE it builds the data slice: import the bar
         that just closed (one '1 D' request per ticker) and mark the series complete up to the step, so the slice,
         the cycle, the valuation and the order pricing read locally instead of each asking IBKR for a week of bars
         (paper smoke run 2026-10-29: 88 requests and 11 minutes for one decision)."""
+        if self.connection_guard is not None:
+            stack = self.connection_guard.check(self.live_stack)
+            if stack is not None:
+                self.live_stack = stack
         if self.cycle is None or self.cycle.data_updater is None:
             return
         status = self.cycle.data_updater(step_time)
@@ -123,6 +143,24 @@ class Algorithm(BaseProjectAlgorithm):
         tz = ZoneInfo(self.config['live']['exchange_timezone'])
         return PriceSnapshot(bar[0], bar[1].replace(tzinfo=tz))
 
+    def record_decision(self, result, weights: Dict[str, float]):
+        """Store what this step decides (P.06.05) before any order: the orders it sends carry its id. A failure to
+        store it is logged; the orders still go (the audit link is then missing, never the trade)."""
+        from datetime import timezone
+        from src.domain.entities.finance.order.trading_decision import TradingDecision
+        live = self.config.get('live', {})
+        selected = self.cycle.artifact_store.select(result.session) if result.session is not None else None
+        try:
+            return self.repository_factory.trading_decision_local_repo.add(TradingDecision(
+                strategy=live.get('strategy', 'STM_10M_BANKS'), account=live.get('account'),
+                bar=pd.Timestamp(result.session).to_pydatetime(),
+                decided_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                targets=dict(weights), artifact_id=getattr(selected[0], 'id', None) if selected else None,
+                note=result.note or ""))
+        except Exception as e:
+            self.logger.error(f"decision at {result.session} not recorded: {e!r}")
+            return None
+
     def on_data(self, data):
         try:
             if not self.initialized or self.cycle is None:
@@ -142,12 +180,20 @@ class Algorithm(BaseProjectAlgorithm):
                 if cut:
                     self.logger.warning(f"{bar_time}: IBKR cannot lend {cut}: short targets set to 0")
             if weights and self._unified_portfolio_manager:
-                with timings.section("orders"):
-                    placed = self._unified_portfolio_manager.set_holdings(
-                        {CompanyShare: [{'name': t, 'weight': w} for t, w in weights.items()]},
-                        data=data,
-                        max_gross_weight=self.config.get('gross_exposure_cap', 1.0),
-                    )
+                decision = self.record_decision(result, weights)
+                ledger = getattr(self.live_stack, "ledger", None)
+                if ledger is not None:
+                    ledger.current_decision_id = decision.id if decision is not None else None
+                try:
+                    with timings.section("orders"):
+                        placed = self._unified_portfolio_manager.set_holdings(
+                            {CompanyShare: [{'name': t, 'weight': w} for t, w in weights.items()]},
+                            data=data,
+                            max_gross_weight=self.config.get('gross_exposure_cap', 1.0),
+                        )
+                finally:
+                    if ledger is not None:
+                        ledger.current_decision_id = None
                 refused = sorted(t for t, ok in (placed or {}).items() if not ok)
                 if refused:
                     self.logger.warning(f"{bar_time}: orders not placed for {refused}")

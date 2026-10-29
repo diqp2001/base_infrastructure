@@ -372,3 +372,60 @@ class TestTrainAsOfMatchesWalkForward(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLiveRetrainingRules(unittest.TestCase):
+    """P.06.14 (live): a late bar does not retrain at once; a model can be trained before the first decision."""
+
+    def _cycle(self, env, patience):
+        return STMTradingCycle(env.factory, env.cfg, env.history, ENTITY_IDS, history_start="2015-01-01",
+                               retrain_every_days=365, missing_asset_patience=patience)
+
+    def test_a_short_gap_skips_the_decision_without_retraining(self):
+        closes = synthetic_closes(900)
+        gap = [pd.Timestamp("2016-11-01"), pd.Timestamp("2016-11-02")]          # DDD's bars are late twice
+        closes.loc[closes.index.isin(gap), "DDD"] = np.nan
+        env = _Env(closes)
+        try:
+            cycle = self._cycle(env, patience=3)
+            results = [cycle.step(t) for t in _bars("2016-10-25", "2016-11-08")]
+        finally:
+            env.close()
+        retrained = [r.session for r in results if r.retrained]
+        self.assertEqual(retrained, [results[0].session])                      # only the first training
+        in_gap = [r for r in results if r.session in gap]
+        self.assertTrue(in_gap)
+        for r in in_gap:
+            self.assertEqual(r.weights, {})                                     # not traded
+            self.assertIn("DDD", r.note)
+        after = [r for r in results if r.session > gap[-1]]
+        self.assertTrue(after and all("DDD" in r.scores for r in after))      # same model, DDD back
+
+    def test_a_long_gap_retrains_after_the_patience(self):
+        closes = synthetic_closes(900)
+        delist = pd.Timestamp("2016-11-01")
+        closes.loc[closes.index > delist, "DDD"] = np.nan
+        env = _Env(closes)
+        try:
+            cycle = self._cycle(env, patience=3)
+            results = [cycle.step(t) for t in _bars("2016-10-25", "2016-11-15")]
+        finally:
+            env.close()
+        after = [r for r in results if r.session is not None and r.session > delist]
+        first_retrain = next(i for i, r in enumerate(after) if r.retrained)
+        self.assertEqual(first_retrain, 3)                                      # 3 skipped decisions, then retrain
+        self.assertTrue(all("DDD" not in r.scores for r in after))
+
+    def test_train_now_lets_the_first_decision_trade(self):
+        env = _Env(synthetic_closes(900))
+        try:
+            cycle = self._cycle(env, patience=0)
+            artifact = cycle.train_now(pd.Timestamp("2016-11-01 09:00"))       # before the open: last bar 10-31
+            again = cycle.train_now(pd.Timestamp("2016-11-01 09:30"))
+            first = cycle.step(pd.Timestamp("2016-11-02 16:00"))                # first decision (bar 11-01)
+        finally:
+            env.close()
+        self.assertIsNotNone(artifact)
+        self.assertFalse(first.retrained)
+        self.assertTrue(first.weights)                                          # traded with the pre-trained model
+        self.assertIsNone(again)                                                # a model already ends at that bar

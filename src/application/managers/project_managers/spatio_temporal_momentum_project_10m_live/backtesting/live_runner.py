@@ -27,7 +27,7 @@ from src.application.managers.project_managers.spatio_temporal_momentum_project_
 from src.application.services.misbuffet import Misbuffet
 from src.application.services.misbuffet.engine.base_backtest_runner import BaseBacktestRunner
 from src.application.services.misbuffet.launcher.interfaces import LauncherConfiguration, LauncherMode
-from src.application.services.misbuffet.live.live_stack import LiveStackConfig, build_live_stack
+from src.application.services.misbuffet.live.live_stack import LiveConnectionGuard, LiveStackConfig, build_live_stack
 
 logger = logging.getLogger(__name__)
 
@@ -76,19 +76,29 @@ class LiveRunner(BaseBacktestRunner):
             duplicate_seconds=live.get("duplicate_seconds", 30.0),
         )
 
-    def build_stack(self, algorithm):
-        """Called by Algorithm.initialize (live mode, book registered): wire the order path or refuse."""
+    def build_stack(self, algorithm, at_start: bool = True):
+        """Called by Algorithm.initialize (live mode, book registered): wire the order path or refuse. Also called
+        by the connection guard after a reconnect (at_start=False): a blocked recovery then does not stop the
+        session — set_holdings refuses every order until it passes (monitor Trading page)."""
         live = self.config["live"]
         stack = build_live_stack(self.broker, algorithm._unified_portfolio_manager, algorithm.repository_factory,
                                  self.stack_config(), logger=self.logger,
                                  # paper: the gate prices on the bars the step imported (no IBKR request per order)
                                  bar_prices=algorithm.bar_price if live.get("paper_bar_prices") else None)
-        if live.get("shortable_check", True):
+        if live.get("shortable_check", True) and getattr(algorithm, "shortable", None) is None:
             algorithm.shortable = ShortableInventory(logger=self.logger)
+        if at_start:
+            algorithm.connection_guard = LiveConnectionGuard(
+                self.broker, rebuild=lambda: self.build_stack(algorithm, at_start=False),
+                data_broker=getattr(algorithm.repository_factory, "ibkr_client", None), logger=self.logger)
         if not self.config["live"].get("paper_bar_prices", False):
             stack.subscribe(self.model_trainer.stm_config.universe.tickers)     # quotes that size orders
         if not stack.recovery.ensure():
             report = stack.recovery.last_report
+            if not at_start:
+                self.logger.critical("recovery after reconnect BLOCKED trading: "
+                                     + (report.summary() if report else "no report"))
+                return stack
             stack.shutdown("start-up recovery blocked trading")
             raise RuntimeError("start-up recovery blocked trading: "
                                + (report.summary() if report else "no report")

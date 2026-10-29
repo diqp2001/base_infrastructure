@@ -62,6 +62,15 @@ class BaseFactory:
                     with self.engine.begin() as conn:            # cash keeps cents (schema change approved)
                         conn.execute(text("ALTER TABLE positions ALTER COLUMN quantity DECIMAL(18, 4) NOT NULL"))
                     print("Migrated: positions.quantity INTEGER -> DECIMAL(18, 4)")
+            if 'broker_orders' in existing_tables:
+                order_cols = {c['name'] for c in inspector.get_columns('broker_orders')}
+                if 'decision_id' not in order_cols:              # P.06.05 (schema change approved 2026-10-29)
+                    sql = ("ALTER TABLE broker_orders ADD COLUMN decision_id INTEGER"
+                           if self.engine.dialect.name == 'sqlite'
+                           else "ALTER TABLE broker_orders ADD decision_id INTEGER NULL")
+                    with self.engine.begin() as conn:
+                        conn.execute(text(sql))
+                    print("Migrated: added decision_id to broker_orders")
             if 'factor_value_provenance' in existing_tables:
                 provenance_cols = {c['name'] for c in inspector.get_columns('factor_value_provenance')}
                 if 'selection' not in provenance_cols:          # BI-026 column on a BI-025 table

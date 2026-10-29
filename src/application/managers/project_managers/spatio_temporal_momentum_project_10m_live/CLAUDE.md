@@ -82,6 +82,10 @@ Portfolio `Spatio_Temporal_Momentum_10m_Live_Portfolio`, signal factor
 * The first decision of the day retrains (~2.5 min on CPU): its orders leave a few minutes after the decision
   time. Later steps take ~10-40 s.
 
+* Lost connections (P.04.07): the runner's `LiveConnectionGuard` runs first in `before_step`: data connection
+  reconnected in place; order connection reconnected and the live stack rebuilt on the new client
+  (`build_stack(at_start=False)`: a blocked recovery then refuses orders instead of stopping the session).
+
 ## Rules
 
 * Times are naive **New York** times everywhere (engine clock, stored bars, `BarHistoryUpdater.exchange_now`), not

@@ -108,6 +108,11 @@ class StartupRecovery:
         listeners = getattr(client, "connection_listeners", None)
         if listeners is not None:
             listeners.append(self.invalidate)
+        # TWS lost / regained IBKR with the socket open (1100 / 1101 / 1102): fills and statuses of the outage are
+        # re-read before the next order
+        connectivity = getattr(client, "connectivity_listeners", None)
+        if connectivity is not None:
+            connectivity.append(lambda code: self.invalidate())
 
     # -- gate ----------------------------------------------------------------------------------------------------
     def invalidate(self) -> None:

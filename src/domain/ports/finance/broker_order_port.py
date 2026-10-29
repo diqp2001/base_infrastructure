@@ -6,6 +6,7 @@ from typing import List, Optional
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
 from src.domain.entities.finance.order.trading_control import TradingControl
+from src.domain.entities.finance.order.trading_decision import TradingDecision
 
 
 class BrokerOrderPort(ABC):
@@ -83,3 +84,16 @@ class TradingControlPort(ABC):
 
     @abstractmethod
     def get_all(self) -> List[TradingControl]: ...
+
+
+class TradingDecisionPort(ABC):
+    """Strategy decisions (P.06.05): append-only; orders point to them by decision_id."""
+
+    @abstractmethod
+    def add(self, entity: TradingDecision) -> TradingDecision: ...
+
+    @abstractmethod
+    def get_by_id(self, id: int) -> Optional[TradingDecision]: ...
+
+    @abstractmethod
+    def get_all(self) -> List[TradingDecision]: ...

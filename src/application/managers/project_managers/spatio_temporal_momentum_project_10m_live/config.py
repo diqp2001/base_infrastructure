@@ -159,9 +159,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # BarHistoryUpdater after each bar closes
     'preload_data': True,
 
-    # Model lifecycle: retrain every day on the last training_window bars known at the bar, validation = latest
-    # val_days, model used from the next bar
-    'retrain_every_days': 1,
+    # Model lifecycle (live): trained every morning before the first decision (pretrain_before_first_decision) on
+    # the last training_window bars; artifacts store their validation END DATE, so with 1 day the cycle's own rule
+    # would retrain again at 09:40 (session date - yesterday's date = 1 day). 2 = a safety net only.
+    'retrain_every_days': 2,
+    # Live: train once before the first decision (on the history known then), so the 09:40 decision trades with a
+    # fresh model; a model asset missing its bar (IBKR bars arrive late) retrains only after 3 decisions in a row
+    'pretrain_before_first_decision': True,
+    'missing_asset_patience': 3,
 
     # Factors created through Misbuffet BaseModelTrainer.create_factors
     'factors': _feature_factor_configs(),

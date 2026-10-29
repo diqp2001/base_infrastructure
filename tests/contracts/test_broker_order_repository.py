@@ -109,3 +109,30 @@ def test_trading_controls_are_appended_and_read_back(backend):
             synchronize_session=False)
         session.commit()
         session.close()
+
+
+def test_an_order_points_to_the_decision_that_sent_it(book):
+    """P.06.05: trading_decisions + broker_orders.decision_id, on SQLite and on the SQL Server test database."""
+    from src.domain.entities.finance.order.trading_decision import TradingDecision
+    from src.infrastructure.models.finance.order.trading_decision import TradingDecisionModel
+    decisions = book.factory.trading_decision_local_repo
+    d = decisions.add(TradingDecision(strategy="CONTRACT_TEST", account="DU1", bar=datetime(2026, 10, 28, 14, 50),
+                                      decided_at=NOW, targets={"AAPL": 0.25, "MSFT": -0.1}, artifact_id=38,
+                                      note="contract"))
+    try:
+        book.ledger.current_decision_id = d.id
+        assert book.trade("AAPL", 10, 100.0, submit=book.submit) is True
+        book.ledger.current_decision_id = None
+        bo = book.ledger.orders.get_all()[-1]
+        assert bo.decision_id == d.id
+        stored = decisions.get_by_id(d.id)
+        assert (stored.strategy, stored.targets, stored.artifact_id) == ("CONTRACT_TEST",
+                                                                          {"AAPL": 0.25, "MSFT": -0.1}, 38)
+        assert decisions.get_recent("CONTRACT_TEST")[0].id == d.id
+        with pytest.raises(NotImplementedError):
+            decisions.update(stored)                                  # append-only
+    finally:
+        book.session.rollback()
+        book.session.query(TradingDecisionModel).filter(TradingDecisionModel.strategy == "CONTRACT_TEST").delete(
+            synchronize_session=False)
+        book.session.commit()

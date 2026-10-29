@@ -132,10 +132,12 @@ def test_the_algorithm_refuses_to_run_as_a_backtest():
 def test_the_algorithm_builds_the_live_stack_before_the_cycle():
     order = []
     algorithm = _algorithm(factory=lambda a: order.append("stack") or "STACK")
-    cycle = SimpleNamespace(ticker_to_entity={"JPM": 1, "BAC": 2})
+    cycle = SimpleNamespace(ticker_to_entity={"JPM": 1, "BAC": 2}, config=SimpleNamespace(bar_minutes=10),
+                            train_now=lambda t: order.append(("pretrain", t.minute % 10)) or 7)
     algorithm.trainer.build_cycle.side_effect = lambda **kw: order.append("cycle") or cycle
     algorithm.initialize()
-    assert order == ["stack", "cycle"] and algorithm.live_stack == "STACK" and algorithm.cycle is cycle
+    # order path first, then the cycle, then one training on the history known now (bar-aligned time)
+    assert order == ["stack", "cycle", ("pretrain", 0)] and algorithm.live_stack == "STACK" and algorithm.cycle is cycle
     assert algorithm.universe == {CompanyShare: ["JPM", "BAC"]}          # the engine slices only resolved tickers
     assert algorithm.register_portfolio.call_args.kwargs["portfolio_config"]["name"] == \
         "Spatio_Temporal_Momentum_10m_Live_Portfolio"
@@ -357,3 +359,69 @@ def test_ops_resolve_records_the_reason_and_the_operator(sqlite_factory, monkeyp
                     out=lines.append) == 0
     assert repo.get_open() == [] and "philippe" in repo.get_by_id(d.id).resolution
     assert ops.main(["resolve", "999", "x"], factory=sqlite_factory, out=lines.append) == 1
+
+
+def test_a_blocked_recovery_after_a_reconnect_does_not_stop_the_session(monkeypatch):
+    runner, algorithm, stack, _ = _runner_with_stack(monkeypatch, recovery_ok=False)
+    assert runner.build_stack(algorithm, at_start=False) is stack       # orders refused by set_holdings, run goes on
+    stack.shutdown.assert_not_called()
+
+
+def test_before_step_checks_the_connections_first():
+    algorithm = Algorithm()
+    order = []
+    algorithm.live_stack = "OLD"
+    algorithm.connection_guard = SimpleNamespace(check=lambda s: order.append(("guard", s)) or "NEW")
+    algorithm.cycle = SimpleNamespace(data_updater=None)
+    algorithm.before_step(datetime(2026, 10, 30, 9, 40))
+    assert order == [("guard", "OLD")] and algorithm.live_stack == "NEW"
+
+
+def test_the_live_config_pretrains_and_tolerates_late_bars():
+    cfg = live_cfg.get_config()
+    assert cfg["pretrain_before_first_decision"] and cfg["missing_asset_patience"] == 3
+    assert cfg["retrain_every_days"] == 2            # the morning pre-training is the daily one (date-only metadata)
+    assert backtest_cfg.get_config().get("missing_asset_patience", 0) == 0          # backtests unchanged
+
+
+# ---------------------------------------------------------------- P.06.05: decision -> orders
+def test_a_decision_is_recorded_before_its_orders_and_stamps_them():
+    algorithm = Algorithm()
+    algorithm.config = live_cfg.get_config()
+    algorithm.initialized = True
+    seen = []
+    ledger = SimpleNamespace(current_decision_id=None)
+    algorithm.live_stack = SimpleNamespace(ledger=ledger)
+
+    class Decisions:
+        def add(self, d):
+            seen.append(d)
+            d.id = 41
+            return d
+    algorithm._entity_service = SimpleNamespace(repository_factory=SimpleNamespace(
+        trading_decision_local_repo=Decisions()))
+    result = SimpleNamespace(session=pd.Timestamp("2026-10-30 09:30"), retrained=False, weights={"JPM": -0.1},
+                             note="", artifact_id=None)
+    algorithm.cycle = SimpleNamespace(step=lambda t: result,
+                                      artifact_store=SimpleNamespace(select=lambda s: (SimpleNamespace(id=39), {})))
+    upm = Mock()
+    upm.set_holdings.side_effect = lambda *a, **k: seen.append(("orders sent with", ledger.current_decision_id)) or {}
+    algorithm._unified_portfolio_manager = upm
+    algorithm._update_portfolio_value = algorithm._update_performance_tracking = lambda data: None
+    algorithm.on_data(SimpleNamespace(time=datetime(2026, 10, 30, 9, 40)))
+    decision = seen[0]
+    assert (decision.strategy, decision.account, decision.targets, decision.artifact_id) == \
+        ("STM_10M_BANKS", "DUR314497", {"JPM": -0.1}, 39)
+    assert seen[1] == ("orders sent with", 41) and ledger.current_decision_id is None    # reset afterwards
+
+
+def test_the_decision_column_is_added_to_an_existing_broker_orders_table(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine, inspect, text
+    from src.infrastructure.database import base_factory
+    url = f"sqlite:///{tmp_path / 'old.sqlite'}"
+    with create_engine(url).begin() as conn:                     # a broker_orders table from before P.06.05
+        conn.execute(text("CREATE TABLE broker_orders (id INTEGER PRIMARY KEY, order_id INTEGER)"))
+    monkeypatch.setattr(base_factory, "get_database_url", lambda db_type: url)
+    base_factory.BaseFactory("sqlite")                           # runs create_all + _migrate_schema
+    cols = {c["name"] for c in inspect(create_engine(url)).get_columns("broker_orders")}
+    assert "decision_id" in cols

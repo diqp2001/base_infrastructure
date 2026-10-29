@@ -13,6 +13,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 from src.application.services.misbuffet.brokers.ibkr.ibkr_settings import verify_connected_accounts
 
 
+CONNECTIVITY_LOST, CONNECTIVITY_RESTORED_DATA_LOST, CONNECTIVITY_RESTORED = 1100, 1101, 1102
+CONNECTIVITY_CODES = (CONNECTIVITY_LOST, CONNECTIVITY_RESTORED_DATA_LOST, CONNECTIVITY_RESTORED)
 ACCOUNT_SUMMARY_FIRST_REQ_ID = 90_002         # reqAccountSummary ids: 90_002 .. 90_901, one per snapshot
 ACCOUNT_SUMMARY_REQ_IDS = 900
 
@@ -94,6 +96,9 @@ class IBTWSClient(EWrapper, EClient):
         self.tick_by_tick: Dict[int, dict] = {}
         # called (no argument) when the connection closes: streaming subscribers resubscribe after a reconnect
         self.connection_listeners: List[Callable[[], None]] = []
+        # called with the code when TWS loses / regains its link to IBKR while the API socket stays open:
+        # 1100 lost, 1101 restored with market data lost (resubscribe), 1102 restored with data kept (P.04.07)
+        self.connectivity_listeners: List[Callable[[int], None]] = []
         
         # News data storage
         self.news_data = {}
@@ -153,6 +158,13 @@ class IBTWSClient(EWrapper, EClient):
         if reqId in getattr(self, "placed_order_ids", ()):
             self._tell_order_listeners({"kind": "order_error", "order_id": reqId, "code": int(errorCode),
                                         "message": str(errorString), "client_id": self.client_id})
+        if errorCode in CONNECTIVITY_CODES:
+            self.logger.warning(f"TWS connectivity {errorCode}: {errorString}")
+            for listener in list(getattr(self, "connectivity_listeners", [])):
+                try:
+                    listener(int(errorCode))
+                except Exception as e:                    # a listener never breaks the API thread
+                    self.logger.warning(f"connectivity listener failed: {e}")
         if errorCode in [2104, 2106, 2158]:  # Market data warnings
             self.logger.info(f"Market data info ({errorCode}): {errorString}")
         elif errorCode < 1000:  # System errors

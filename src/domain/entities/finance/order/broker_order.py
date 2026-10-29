@@ -91,6 +91,7 @@ class BrokerOrder:
     last_event_at: Optional[datetime] = None
     cancel_requested_at: Optional[datetime] = None
     message: str = ""
+    decision_id: Optional[int] = None               # TradingDecision that sent the order (P.06.05)
 
     def __post_init__(self):
         if self.requested_quantity <= 0:

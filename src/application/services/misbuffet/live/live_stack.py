@@ -127,6 +127,74 @@ class LiveStack:
         }
 
 
+def _socket_alive(broker) -> bool:
+    """The API socket, not the broker's own status (which stays READY after the socket dies)."""
+    client = getattr(broker, "ib_connection", None)
+    return client is not None and bool(client.is_connected())
+
+
+class LiveConnectionGuard:
+    """Called before each live step (P.04.07): a dropped IBKR connection is reconnected and the order path rebuilt.
+
+    * data connection (historical bars; repository factory's broker): reconnected in place — the IBKR repositories
+      reach the broker's current client at every call;
+    * order connection: broker events already received are applied, the broker reconnects (a NEW client), and
+      ``rebuild()`` builds the live stack again on it (ledger, reconciler, start-up recovery, gate): recovery runs
+      again before the next order.
+
+    check(stack) returns the stack to use: the same one, a rebuilt one, or None while the order connection is still
+    down (no order this step; the next step tries again). Never raises: a failed attempt is logged and counted."""
+
+    def __init__(self, broker, rebuild: Callable[[], "LiveStack"], data_broker=None, logger=None):
+        self.broker = broker
+        self.rebuild = rebuild
+        self.data_broker = data_broker
+        self.logger = logger or logging.getLogger("live_connection")
+        self.reconnects = 0
+        self.failures = 0
+
+    def _reconnect(self, broker, what: str) -> bool:
+        self.logger.critical(f"IBKR {what} connection lost: reconnecting")
+        try:
+            broker.disconnect()
+        except Exception as e:
+            self.logger.warning(f"disconnect of the dead {what} connection failed: {e!r}")
+        try:
+            ok = bool(broker.connect()) and _socket_alive(broker)
+        except Exception as e:
+            ok = False
+            self.logger.error(f"IBKR {what} reconnect raised {e!r}")
+        if ok:
+            self.reconnects += 1
+            self.logger.warning(f"IBKR {what} connection re-established")
+        else:
+            self.failures += 1
+            self.logger.error(f"IBKR {what} reconnect failed: no order this step, next step tries again")
+        return ok
+
+    def check(self, stack: Optional["LiveStack"]) -> Optional["LiveStack"]:
+        if self.data_broker is not None and self.data_broker is not self.broker and not _socket_alive(self.data_broker):
+            self._reconnect(self.data_broker, "data")
+        if stack is not None and _socket_alive(self.broker) and stack.client is self.broker.ib_connection:
+            return stack
+        if stack is not None:
+            try:
+                stack.ledger.drain()                 # events received before the drop are not lost
+            except Exception as e:
+                self.logger.warning(f"ledger drain before reconnect failed: {e!r}")
+        if not _socket_alive(self.broker) and not self._reconnect(self.broker, "order"):
+            return None
+        try:
+            new_stack = self.rebuild()
+        except Exception as e:
+            self.failures += 1
+            self.logger.error(f"live stack rebuild after reconnect failed: {e!r}")
+            return None
+        self.logger.warning("live stack rebuilt on the new IBKR connection; start-up recovery re-runs before "
+                            "the next order")
+        return new_stack
+
+
 def stock_contract(symbol: str):
     from ibapi.contract import Contract
     c = Contract()
