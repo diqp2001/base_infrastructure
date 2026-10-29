@@ -80,6 +80,27 @@ class LiveStack:
             self.streaming.subscribe(self.config.instrument_for(symbol),
                                      (contract_for or stock_contract)(symbol))
 
+    def shutdown(self, reason: str, cancel_working: bool = False) -> dict:
+        """Controlled shutdown (P.06.06): apply the broker events received so far, optionally cancel the working
+        orders (explicit; the cancels are confirmed by the broker later and resolved by the next start-up recovery),
+        stop the quote subscriptions. Working orders that are not cancelled stay working at the broker: the next
+        recovery finds them by permId / orderRef. Returns what is left open."""
+        applied = self.ledger.drain()
+        cancelled = []
+        if cancel_working:
+            from src.application.services.misbuffet.brokers.trading_controls import cancel_working_orders
+            cancelled = cancel_working_orders(self.ledger, self.client, f"shutdown: {reason}")
+            self.ledger.drain()
+        for sub in list(self.streaming.subscriptions()):
+            self.streaming.unsubscribe(sub.instrument)
+        left = [{"order_id": b.order_id, "symbol": b.symbol, "status": b.status, "broker_order_id": b.broker_order_id,
+                 "cancel_requested": b.cancel_requested_at is not None} for b in self.ledger.open_orders()]
+        logging.getLogger("live_stack").warning(
+            f"live stack shutdown ({reason}): {applied} event(s) applied, cancels requested {cancelled}, "
+            f"{len(left)} order(s) still open, {self.ledger.pending_events()} event(s) not yet stored")
+        return {"events_applied": applied, "cancel_requested": cancelled, "open_orders": left,
+                "events_pending": self.ledger.pending_events()}
+
     def status(self) -> dict:
         """Monitoring view (P.06.02–P.06.04): connection, quotes, open orders, recovery, controls, rejections."""
         mode, reasons = self.controls.mode_for(self.config.account, self.config.strategy)

@@ -20,6 +20,12 @@ from src.infrastructure.models.factor.factor import FactorModel
 from src.infrastructure.models.factor.factor_value import FactorValueModel
 from src.infrastructure.models.factor.factor_value_provenance import FactorValueProvenanceModel
 from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+from src.infrastructure.models.finance.order.broker_order import (
+    BrokerExecutionModel,
+    BrokerOrderModel,
+    TradingDiscrepancyModel,
+)
+from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 
 READ_ONLY_PREFIXES = ("SELECT", "WITH", "SET")
 
@@ -170,6 +176,53 @@ class MonitoringReadRepository:
         with self.engine.connect() as conn:
             return {"counts": [dict(r) for r in conn.execute(counts).mappings()],
                     "problems": [dict(r) for r in conn.execute(problems).mappings()]}
+
+    def trading_state(self, limit: int = 50) -> Optional[Dict[str, Any]]:
+        """Live order path (P.03–P.05 tables): open and recent broker orders, recent executions, open discrepancies,
+        trading controls in force. None when the tables do not exist (a database created before P.03)."""
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        bo, ex = BrokerOrderModel.__table__, BrokerExecutionModel.__table__
+        dq, tc = TradingDiscrepancyModel.__table__, TradingControlModel.__table__
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(select(bo.c.id).limit(1)).first()
+        except (OperationalError, ProgrammingError):
+            return None
+        order_cols = (bo.c.order_id, bo.c.broker, bo.c.account, bo.c.symbol, bo.c.side, bo.c.requested_quantity,
+                      bo.c.filled_quantity, bo.c.remaining_quantity, bo.c.average_fill_price, bo.c.status,
+                      bo.c.submission_state, bo.c.broker_order_id, bo.c.perm_id, bo.c.created_at, bo.c.submitted_at,
+                      bo.c.last_event_at, bo.c.cancel_requested_at, bo.c.message)
+        is_open = bo.c.status.in_(("PENDING", "SUBMITTED", "PARTIALLY_FILLED")) | \
+            (bo.c.submission_state.in_(("intent", "unknown")))
+        with self.engine.connect() as conn:
+            open_orders = [dict(r) for r in conn.execute(select(*order_cols).where(is_open)
+                                                          .order_by(bo.c.id)).mappings()]
+            recent_orders = [dict(r) for r in conn.execute(select(*order_cols).order_by(bo.c.id.desc())
+                                                            .limit(limit)).mappings()]
+            executions = [dict(r) for r in conn.execute(
+                select(ex.c.exec_id, ex.c.order_id, ex.c.symbol, ex.c.side, ex.c.quantity, ex.c.price,
+                       ex.c.executed_at, ex.c.commission, ex.c.commission_currency, ex.c.booked,
+                       ex.c.commission_booked, ex.c.notes)
+                .order_by(ex.c.id.desc()).limit(limit)).mappings()]
+            resolved_keys = select(dq.c.key).where(dq.c.kind == "external_execution", dq.c.resolved_at.isnot(None))
+            unbooked = int(conn.execute(select(func.count()).select_from(ex).where(       # owner-resolved ones excluded
+                ex.c.booked.is_(False), ex.c.exec_id.not_in(resolved_keys))).scalar())
+            discrepancies = [dict(r) for r in conn.execute(
+                select(dq.c.id, dq.c.kind, dq.c.key, dq.c.detail, dq.c.blocking, dq.c.detected_at, dq.c.order_id)
+                .where(dq.c.resolved_at.is_(None)).order_by(dq.c.id)).mappings()]
+            resolved = [dict(r) for r in conn.execute(
+                select(dq.c.id, dq.c.kind, dq.c.key, dq.c.detected_at, dq.c.resolved_at, dq.c.resolution)
+                .where(dq.c.resolved_at.isnot(None)).order_by(dq.c.resolved_at.desc()).limit(limit)).mappings()]
+            controls = [dict(r) for r in conn.execute(
+                select(tc.c.id, tc.c.scope, tc.c.target, tc.c.mode, tc.c.reason, tc.c.changed_by, tc.c.changed_at)
+                .order_by(tc.c.changed_at, tc.c.id)).mappings()]
+        latest = {}
+        for c in controls:                                    # append-only: the latest row per scope / target
+            latest[(c["scope"], c["target"])] = c
+        return {"open_orders": open_orders, "recent_orders": recent_orders, "executions": executions,
+                "unbooked_executions": unbooked, "open_discrepancies": discrepancies,
+                "resolved_discrepancies": resolved, "controls": list(latest.values()),
+                "control_history": controls[-limit:][::-1]}
 
     def data_sources(self) -> List[Dict[str, Any]]:
         f = self.factors

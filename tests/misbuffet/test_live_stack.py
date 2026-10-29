@@ -94,3 +94,27 @@ def test_the_stack_needs_a_connected_broker(book):
     broker = FakeBroker(SimpleNamespace(is_connected=lambda: False))
     with pytest.raises(ValueError, match="not connected"):
         build_live_stack(broker, book.upm, book.factory, config())
+
+
+def test_shutdown_applies_events_unsubscribes_and_cancels_only_when_asked(book, monkeypatch):
+    from unittest.mock import Mock
+    monkeypatch.delenv("IBKR_ACCOUNT_MODE", raising=False)
+    client = FakeClient()
+    client.cancel_market_data, client.cancel_order = Mock(), Mock()
+    order_id = _order_row(book)                                # before the ledger: the backtest path books it
+    stack = build_live_stack(FakeBroker(client), book.upm, book.factory, config())
+    stack.subscribe(["F"])
+    bo = stack.ledger.record_intent(order_id, "F", "BUY", 1, 1, 1)
+    stack.ledger.mark_submitted(bo, 77, 7)
+    left = stack.shutdown("end of day")
+    assert left["open_orders"][0]["broker_order_id"] == 77 and left["cancel_requested"] == []
+    assert stack.streaming.subscriptions() == [] and client.cancel_order.call_count == 0
+    left = stack.shutdown("kill", cancel_working=True)
+    client.cancel_order.assert_called_once_with(77)
+    assert left["cancel_requested"] == [bo.order_id] and left["open_orders"][0]["cancel_requested"]
+
+
+def _order_row(book):
+    from src.infrastructure.models.finance.order.order import OrderModel
+    book.trade("F", 1, 10.0)                                   # backtest path creates holding, account and order
+    return book.session.query(OrderModel).order_by(OrderModel.id.desc()).first().id

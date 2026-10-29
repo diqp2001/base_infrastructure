@@ -55,6 +55,36 @@ def _as_utc(value: Any) -> Optional[datetime]:
         return None
 
 
+STUCK_ORDER_SECONDS = 600            # an order without any broker event for this long is an alert
+
+
+def trading_alerts(state: Dict[str, Any], now: datetime) -> List[Dict[str, Any]]:
+    """Alerts on the live order path (P.06.04). critical: trading is or should be blocked; warning: look at it."""
+    alerts: List[Dict[str, Any]] = []
+
+    def add(severity, kind, message):
+        alerts.append({"severity": severity, "kind": kind, "message": message})
+    for c in state.get("controls") or []:
+        if c["mode"] == "disabled":
+            add("critical", "control", f"{c['scope']} {c['target']} DISABLED: {c['reason']} ({c['changed_by']})")
+        elif c["mode"] == "reduce_only":
+            add("warning", "control", f"{c['scope']} {c['target']} reduce-only: {c['reason']} ({c['changed_by']})")
+    for d in state.get("open_discrepancies") or []:
+        add("critical" if d["blocking"] else "warning", "discrepancy", f"{d['kind']} {d['key']}: {d['detail']}")
+    for o in state.get("open_orders") or []:
+        if o["submission_state"] in ("unknown", "intent"):
+            add("critical", "order", f"order {o['order_id']} {o['side']} {o['requested_quantity']:g} {o['symbol']}: "
+                                     f"submission {o['submission_state'].upper()} — check the broker")
+        last = _as_utc(o.get("last_event_at") or o.get("submitted_at") or o.get("created_at"))
+        if last is not None and (now - last).total_seconds() > STUCK_ORDER_SECONDS:
+            add("warning", "order", f"order {o['order_id']} {o['symbol']} {o['status']}: no broker event for "
+                                    f"{(now - last).total_seconds() / 60:.0f} min")
+    if state.get("unbooked_executions"):
+        add("warning", "execution", f"{state['unbooked_executions']} execution(s) stored but not booked "
+                                    f"(external / wrong side / overfill / failed booking)")
+    return alerts
+
+
 class MonitoringService:
 
     def __init__(self, config: MonitoringConfig, db: Optional[DatabaseMonitor] = None, ibkr=None,
@@ -71,6 +101,7 @@ class MonitoringService:
         self.s_factors = Section("factors", stale_after_seconds=iv.data * k + 5)
         self.s_market = Section("market_data", stale_after_seconds=iv.data * k + 5)
         self.s_quality = Section("data_quality", stale_after_seconds=iv.data * k + 5)
+        self.s_trading = Section("trading", stale_after_seconds=iv.data * k + 5)
         self.started_at = utcnow()
         self._db_thread: Optional[threading.Thread] = None
         self._last_db_tick: Optional[datetime] = None
@@ -130,7 +161,7 @@ class MonitoringService:
 
     def collect_data(self) -> None:
         if self.db is None:
-            for s in (self.s_factors, self.s_market, self.s_quality):
+            for s in (self.s_factors, self.s_market, self.s_quality, self.s_trading):
                 s.update(UNKNOWN, error="database monitoring not configured")
             return
         limit = self.config.max_rows
@@ -155,6 +186,17 @@ class MonitoringService:
                 self.s_quality.update(DEGRADED if bad else HEALTHY, {**quality, "not_valid": bad})
         except Exception as e:
             self.s_quality.update(ERROR, error=redact_text(f"{type(e).__name__}: {e}")[:500])
+        try:
+            state = self.db.repo.trading_state(limit=min(limit, 100))
+            if state is None:
+                self.s_trading.update(UNKNOWN, error="no live order tables in this database (created before P.03)")
+            else:
+                alerts = trading_alerts(state, utcnow())
+                status = ERROR if any(a["severity"] == "critical" for a in alerts) else \
+                    DEGRADED if alerts else HEALTHY
+                self.s_trading.update(status, {**state, "alerts": alerts})
+        except Exception as e:
+            self.s_trading.update(ERROR, error=redact_text(f"{type(e).__name__}: {e}")[:500])
 
     # ------------------------------------------------------------------ views
     def application(self) -> Dict[str, Any]:
@@ -218,6 +260,10 @@ class MonitoringService:
     def orders(self) -> Dict[str, Any]:
         data = self.ibkr.orders_view() if self.ibkr is not None else {}
         return self._ibkr_data_view("open_orders", data, self.config.intervals.positions)
+
+    def trading(self) -> Dict[str, Any]:
+        """P.06.02–P.06.04: the live order path as recorded in the database (read-only)."""
+        return self.s_trading.view()
 
     def data_quality(self) -> Dict[str, Any]:
         """Observation quality (BI-034): counts per status / data type and the latest non-VALID observations
@@ -326,11 +372,14 @@ class MonitoringService:
         app, db, ib = self.application(), self.database(), self.ibkr_connection()
         acct = self.account_summary()
         md, fac = self.market_data(limit=0), self.factors(limit=0)
+        trd = self.trading()
         errors = self.logs.recent(min_level="ERROR", limit=8)
         core = [app["status"], db["status"]] + ([ib["status"]] if self.config.ibkr_enabled else [])
         overall = worst(*core)
         if overall == HEALTHY and (md["status"] in (STALE, DEGRADED) or fac["status"] in (DEGRADED,)):
             overall = DEGRADED
+        if trd["data"] and trd["data"].get("alerts"):               # trading ALERTS surface on the overview
+            overall = worst(overall, trd["status"])
         if overall == STALE:
             overall = DEGRADED
 
@@ -354,6 +403,10 @@ class MonitoringService:
             "factors": card(fac, {"factor_values": ((fac["data"] or {}).get("counts") or {}).get("factor_values"),
                                   "running_jobs": len(fac["data"]["running_jobs"]),
                                   "last_failure": (fac["data"]["last_failure"] or {}).get("finished_at")}),
+            "trading": card(trd, {"open_orders": len((trd["data"] or {}).get("open_orders") or []),
+                                  "alerts": len((trd["data"] or {}).get("alerts") or []),
+                                  "controls": [c["mode"] for c in (trd["data"] or {}).get("controls") or []
+                                               if c["scope"] == "global"][:1]}),
             "errors": {"status": ERROR if errors else HEALTHY, "records": errors},
         }, utcnow(), stale_after=60)
 

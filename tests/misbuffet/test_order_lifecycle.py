@@ -405,3 +405,38 @@ def test_10349_and_unknown_codes_are_notices_not_rejections(live):
     assert broker_order(live).status == "SUBMITTED"
     status(live, "Filled", 10, 0, 150.0)
     assert broker_order(live).status == "FILLED"
+
+
+def test_a_database_failure_keeps_broker_events_for_retry_in_order(live):
+    from sqlalchemy.exc import OperationalError
+    send(live)
+    real = live.ledger.executions.get_by_exec_id
+    live.ledger.executions.get_by_exec_id = Mock(side_effect=OperationalError("SELECT", {}, Exception("db down")))
+    live.ledger.enqueue({"kind": "execution", "exec_id": "D1", "order_id": 501, "perm_id": 9001, "shares": 4,
+                         "price": 100.0, "side": "BOT", "time": ""})
+    live.ledger.enqueue({"kind": "commission", "exec_id": "D1", "commission": 1.0, "currency": "USD"})
+    assert live.ledger.drain() == 0 and live.ledger.pending_events() == 2 and live.ledger.storage_failures == 1
+    assert live.qty("AAPL") == 0                                                    # nothing booked, nothing lost
+    live.ledger.executions.get_by_exec_id = real                                    # the database is back
+    assert live.ledger.drain() == 2 and live.ledger.pending_events() == 0
+    assert live.qty("AAPL") == 4 and live.cash() == pytest.approx(100_000.0 - 400.0 - 1.0)
+
+
+def test_a_data_error_or_an_endless_outage_is_not_retried_forever(live):
+    from sqlalchemy.exc import IntegrityError, OperationalError
+    from src.application.services.misbuffet.algorithm import order_ledger
+    send(live)
+    live.ledger.on_status = Mock(side_effect=IntegrityError("INSERT", {}, Exception("unique")))
+    status(live, "Submitted", 0, 10)
+    assert live.ledger.pending_events() == 0 and live.ledger.storage_failures == 0     # dropped, reported
+    live.ledger.on_status = Mock(side_effect=OperationalError("SELECT", {}, Exception("down")))
+    live.ledger.enqueue({"kind": "status", "order_id": 501, "status": "Submitted", "filled": 0, "remaining": 10})
+    for _ in range(order_ledger.MAX_EVENT_ATTEMPTS):
+        live.ledger.drain()
+    assert live.ledger.pending_events() == 0 and live.ledger.storage_failures == order_ledger.MAX_EVENT_ATTEMPTS - 1
+
+
+def test_a_non_storage_failure_is_reported_and_dropped(live):
+    live.ledger.enqueue({"kind": "execution", "exec_id": "B1", "order_id": 501, "shares": "not a number",
+                         "price": 1.0, "side": "BOT"})
+    assert live.ledger.drain() == 1 and live.ledger.pending_events() == 0 and live.ledger.anomalies
