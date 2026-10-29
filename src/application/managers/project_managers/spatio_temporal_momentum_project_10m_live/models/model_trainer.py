@@ -120,4 +120,5 @@ class STMModelTrainer(BaseModelTrainer):
             universe_id=getattr(universe, "id", None),
             gross_cap=self.config.get("gross_exposure_cap", 1.0),
             log=log or self.logger.info,
+            missing_asset_patience=self.config.get("missing_asset_patience", 0),
         )

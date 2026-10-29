@@ -273,6 +273,7 @@
       { label: "Avg price", num: true, render: function (r) { return r.average_fill_price ? fmtNum(r.average_fill_price, 4) : null; }, missing: "-" },
       { label: "Status", render: function (r) { return badge(String(r.status).toLowerCase()); } },
       { label: "Submission", key: "submission_state" }, { label: "Broker id", key: "broker_order_id", num: true, missing: "-" },
+      { label: "Decision", key: "decision_id", num: true, missing: "-" },
       { label: "Last event", render: function (r) { return when(r.last_event_at || r.submitted_at || r.created_at); } },
       { label: "Cancel requested", render: function (r) { return r.cancel_requested_at ? when(r.cancel_requested_at) : null; }, missing: "-" },
       { label: "Message", key: "message", cls: "msg", missing: "-" }];

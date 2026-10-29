@@ -17,6 +17,7 @@ from src.domain.ports.finance.broker_order_port import (
     DiscrepancyPort,
     ExecutionPort,
     TradingControlPort,
+    TradingDecisionPort,
 )
 from src.infrastructure.models.finance.order.broker_order import (
     BrokerExecutionModel,
@@ -25,11 +26,13 @@ from src.infrastructure.models.finance.order.broker_order import (
 )
 from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.order.trading_control import TradingControlModel
+from src.infrastructure.models.finance.order.trading_decision import TradingDecisionModel
 from src.infrastructure.repositories.mappers.finance.order.broker_order_mapper import (
     BrokerOrderMapper,
     DiscrepancyMapper,
     ExecutionMapper,
     TradingControlMapper,
+    TradingDecisionMapper,
 )
 
 OPEN_STATUSES = ("PENDING", "SUBMITTED", "PARTIALLY_FILLED")
@@ -167,3 +170,17 @@ class TradingControlRepository(_Base, TradingControlPort):
 
     def update(self, entity):
         raise NotImplementedError("trading controls are append-only: add a new row")
+
+
+class TradingDecisionRepository(_Base, TradingDecisionPort):
+    """Append-only: a decision is what the strategy asked for at a bar; it is never rewritten."""
+    model_class = TradingDecisionModel
+    mapper = TradingDecisionMapper
+
+    def update(self, entity):
+        raise NotImplementedError("trading decisions are append-only")
+
+    def get_recent(self, strategy: str, limit: int = 50):
+        rows = (self.session.query(TradingDecisionModel).filter(TradingDecisionModel.strategy == strategy)
+                .order_by(TradingDecisionModel.id.desc()).limit(limit).all())
+        return [self.mapper.to_domain(r) for r in rows]

@@ -191,7 +191,7 @@ class MonitoringReadRepository:
         order_cols = (bo.c.order_id, bo.c.broker, bo.c.account, bo.c.symbol, bo.c.side, bo.c.requested_quantity,
                       bo.c.filled_quantity, bo.c.remaining_quantity, bo.c.average_fill_price, bo.c.status,
                       bo.c.submission_state, bo.c.broker_order_id, bo.c.perm_id, bo.c.created_at, bo.c.submitted_at,
-                      bo.c.last_event_at, bo.c.cancel_requested_at, bo.c.message)
+                      bo.c.last_event_at, bo.c.cancel_requested_at, bo.c.message, bo.c.decision_id)
         is_open = bo.c.status.in_(("PENDING", "SUBMITTED", "PARTIALLY_FILLED")) | \
             (bo.c.submission_state.in_(("intent", "unknown")))
         with self.engine.connect() as conn:

@@ -77,7 +77,7 @@ class STMTradingCycle:
                  retrain_every_days: int = 365, data_updater: Optional[Callable] = None,
                  universe_service=None, universe_id: Optional[int] = None,
                  gross_cap: Optional[float] = 1.0, persist: bool = True,
-                 log: Optional[Callable[[str], None]] = None):
+                 log: Optional[Callable[[str], None]] = None, missing_asset_patience: int = 0):
         self.factory = factory
         self.config = config
         self.history_service = history_service
@@ -90,6 +90,11 @@ class STMTradingCycle:
         self.gross_cap = gross_cap
         self.persist = persist
         self.log = log or (lambda msg: None)
+        # live: a model asset without a bar at the decision (usually a bar arriving late) only triggers a retrain
+        # after this many decisions in a row; meanwhile the decision is not traded. 0 = retrain at once (backtests)
+        self.missing_asset_patience = int(missing_asset_patience)
+        self._missing_steps = 0
+        self._missing_note = ""
 
         from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
         self.reader = STMFrontierPriceReader(history_service, frequency=frequency(config.bar_minutes),
@@ -140,7 +145,16 @@ class STMTradingCycle:
             return False                                             # already trained this session
         if (session - last).days >= self.retrain_every_days:
             return True
-        return not set(newest["assets"]).issubset(eligible)          # model assets left the universe
+        missing = sorted(set(newest["assets"]) - set(eligible))      # model assets not eligible at this session
+        if not missing:
+            self._missing_steps = 0
+            return False
+        self._missing_steps += 1
+        if self._missing_steps > self.missing_asset_patience:
+            return True
+        self._missing_note = (f"model assets without a bar at {session}: {missing} "
+                              f"({self._missing_steps}/{self.missing_asset_patience} before retraining)")
+        return False
 
     def _train(self, closes: pd.DataFrame, session: pd.Timestamp, eligible: List[str]):
         # Training close panel: one column per eligible asset, one row per session.
@@ -177,6 +191,25 @@ class STMTradingCycle:
 
     # ------------------------------------------------------------------
 
+    def train_now(self, now) -> Optional[int]:
+        """Train on the history known at ``now`` whatever the schedule (live: before the first decision of the day,
+        so the 09:40 decision trades with a fresh model instead of waiting for it). Returns the artifact id, None
+        when there is nothing to train on or a model already ends at that bar — artifacts store the validation END
+        DATE only (also intraday), so one pre-training per session date."""
+        now = pd.Timestamp(now)
+        self.history_service.set_frontier(now.to_pydatetime())
+        id_to_ticker = {eid: t for t, eid in self.ticker_to_entity.items()}
+        closes = self.reader.load_close_panel(id_to_ticker, start=self.history_start)
+        if closes.empty:
+            return None
+        session = closes.index.max()
+        newest = self._newest_artifact_meta(session)
+        if newest is not None and pd.Timestamp(newest["validation_end"]).date() == session.date():
+            return None
+        wr = self._train(closes, session, self._eligible(closes, session))
+        self._missing_steps = 0
+        return None if wr is None else wr.artifact_id
+
     def step(self, now) -> CycleResult:
         now = pd.Timestamp(now)
         self.history_service.set_frontier(now.to_pydatetime())
@@ -202,6 +235,7 @@ class STMTradingCycle:
         eligible = self._eligible(closes, session)
         result.eligible = eligible
 
+        self._missing_note = ""
         with timed("read"):
             retrain_due = self._retrain_due(session, eligible)
         if retrain_due:
@@ -209,6 +243,8 @@ class STMTradingCycle:
             if wr is not None:
                 result.retrained = True
                 result.artifact_id = wr.artifact_id
+                self._missing_steps = 0
+        result.note = self._missing_note
 
         details = self.provider.score_details(session)
         if not details:

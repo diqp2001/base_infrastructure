@@ -100,6 +100,7 @@ class OrderLedger:
         self.last_storage_error: Optional[str] = None
         self._pending_commissions: Dict[str, dict] = {}
         self.anomalies: List[str] = []
+        self.current_decision_id: Optional[int] = None   # set by the strategy around a rebalance (P.06.05)
         self.duplicates = 0
 
     # -- wiring ------------------------------------------------------------------------------------------------------
@@ -117,7 +118,8 @@ class OrderLedger:
                       cash_portfolio_id: int, account: Optional[str] = None) -> BrokerOrder:
         bo = BrokerOrder(order_id=int(order_id), broker=self.broker, symbol=symbol, side=side,
                          requested_quantity=float(quantity), account=account, portfolio_id=portfolio_id,
-                         cash_portfolio_id=cash_portfolio_id, created_at=self._naive(self.clock()))
+                         cash_portfolio_id=cash_portfolio_id, created_at=self._naive(self.clock()),
+                         decision_id=self.current_decision_id)
         return self.orders.add(bo)
 
     def mark_submitted(self, bo: BrokerOrder, broker_order_id: Optional[int], client_id: Optional[int] = None):
