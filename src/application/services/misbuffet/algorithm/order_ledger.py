@@ -39,6 +39,12 @@ from src.domain.entities.finance.order.broker_order import (
 )
 
 UNSET_DOUBLE = 1e300                    # IBKR sends Double.MAX_VALUE for "not set" commissions
+# IBKR order-level error codes that mean the order was NOT accepted (P.06). Only these reject an unacknowledged
+# order: rejecting on any other code would free a symbol whose order may still be working (duplicate-order risk).
+# Every other code (e.g. 399 held until the open, 10349 TIF set to DAY by a preset, 202 cancel confirmation) is
+# logged; the broker's order statuses and P.04 recovery settle the order.
+ORDER_REJECTION_CODES = frozenset({103, 104, 105, 106, 107, 109, 110, 111, 113, 116, 117, 118, 135, 200, 201, 203,
+                                   321, 382, 383, 387, 388, 10268})
 
 
 def _utcnow() -> datetime:
@@ -136,6 +142,8 @@ class OrderLedger:
                     self.on_execution(event)
                 elif kind == "commission":
                     self.on_commission(event)
+                elif kind == "order_error":
+                    self.on_order_error(event)
                 else:
                     self._anomaly(f"unknown broker event kind {kind!r}")
             except Exception as e:
@@ -162,6 +170,31 @@ class OrderLedger:
         changed = bo.apply_status(status, filled, remaining, float(avg) if avg else None, at,
                                   perm_id=event.get("perm_id"))
         self._save(bo)
+        return changed
+
+    def on_order_error(self, event: dict) -> bool:
+        """An IBKR error for one of our orders. Before the broker acknowledged the order (no permId, nothing
+        filled), a rejection code (ORDER_REJECTION_CODES: e.g. 321 API read-only, 201 rejected, 10268) rejects it.
+        After that, the broker's statuses decide: the error is reported, not applied."""
+        code, message = int(event.get("code") or 0), str(event.get("message") or "")
+        bo = self._match(None, event.get("order_id"), event.get("client_id"))
+        if bo is None:
+            self._anomaly(f"IBKR error {code} for broker order {event.get('order_id')}: no internal order ({message})")
+            return False
+        if code not in ORDER_REJECTION_CODES:
+            self.logger.warning(f"OrderLedger: order {bo.order_id} notice {code}: {message}")
+            return False
+        if bo.is_terminal:
+            return False
+        if bo.perm_id or bo.filled_quantity > 0:
+            self._anomaly(f"order {bo.order_id}: IBKR error {code} after acknowledgement ({message}) — status "
+                          f"left to the broker's order status")
+            return False
+        at = self._naive(event.get("received_at") or self.clock())
+        changed = bo.apply_status("REJECTED", 0.0, bo.requested_quantity, None, at)
+        bo.message = f"IBKR {code}: {message}"[:2000]
+        self._save(bo)
+        self.logger.critical(f"OrderLedger: order {bo.order_id} REJECTED by IBKR {code}: {message}")
         return changed
 
     def on_execution(self, event: dict) -> Optional[Execution]:

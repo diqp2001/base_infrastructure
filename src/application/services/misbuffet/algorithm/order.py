@@ -194,16 +194,35 @@ class MarketOrder(Order, DomainMarketOrder):
 
 
 
-@dataclass
 class LimitOrder(Order):
     """
-    Limit order - executes only at specified price or better
+    Limit order - executes only at specified price or better.
+
+    P.06: was a @dataclass over the domain Order — its generated __init__ did not match the base constructor and the
+    abstract ``clone`` was never implemented, so no LimitOrder could be created (algorithm.limit_order raised).
     """
-    limit_price: float = 0.0
-    
+
+    def __init__(self, symbol: Symbol, quantity: int, direction: OrderDirection, limit_price: float = 0.0,
+                 tag: str = "", time: datetime = None):
+        self._order_type = OrderType.LIMIT
+        super().__init__(symbol, quantity, direction, tag, time)
+        if limit_price is None or float(limit_price) <= 0:
+            raise ValueError("Limit price must be positive")
+        self.limit_price = float(limit_price)
+
     @property
     def order_type(self) -> OrderType:
         return OrderType.LIMIT
+
+    @order_type.setter
+    def order_type(self, value: OrderType):
+        self._order_type = value
+
+    def clone(self) -> "LimitOrder":
+        cloned = LimitOrder(self.symbol, self.quantity, self.direction, self.limit_price, self.tag, self.time)
+        cloned.id = self.id
+        cloned.status = self.status
+        return cloned
 
 
 @dataclass

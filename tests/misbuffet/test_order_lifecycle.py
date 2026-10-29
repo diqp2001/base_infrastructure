@@ -331,3 +331,77 @@ def test_domain_rules():
         Execution("e", "IBKR", "AAPL", "XXX", 2, 1.0, NOW)
     assert parse_ibkr_time("20261028-14:30:00", NOW) == datetime(2026, 10, 28, 14, 30)
     assert parse_ibkr_time("garbage", NOW) is NOW
+
+
+def test_an_ibkr_error_rejects_an_order_the_broker_never_acknowledged(live):
+    send(live)
+    live.ledger.enqueue({"kind": "order_error", "order_id": 501, "code": 399, "message": "held until the open"})
+    live.ledger.drain()
+    assert broker_order(live).status == "SUBMITTED"                          # a notice: unchanged
+    live.ledger.enqueue({"kind": "order_error", "order_id": 501, "code": 321,
+                         "message": "The API interface is currently in Read-Only mode."})
+    live.ledger.drain()
+    bo = broker_order(live)
+    assert bo.status == "REJECTED" and "321" in bo.message and live.orders()[0].status.name == "REJECTED"
+    assert bo not in live.ledger.open_orders()                               # not "working": the throttle frees F
+
+
+def test_an_error_after_acknowledgement_is_reported_not_applied(live):
+    send(live)
+    status(live, "Submitted", 0, 10)                                         # acknowledged: perm id known
+    live.ledger.enqueue({"kind": "order_error", "order_id": 501, "code": 201, "message": "late"})
+    live.ledger.drain()
+    assert broker_order(live).status == "SUBMITTED" and live.ledger.anomalies
+
+
+def test_the_ibkr_client_forwards_errors_of_its_orders_and_cancels_with_one_argument():
+    from unittest.mock import patch
+    from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+    c = IBTWSClient("127.0.0.1", 7497, 99)
+    events = []
+    c.order_listeners.append(events.append)
+    c.placed_order_ids.add(7)
+    c.error(7, 321, "read-only")
+    c.error(8, 321, "not ours")
+    assert [(e["kind"], e["order_id"], e["code"]) for e in events] == [("order_error", 7, 321)]
+    c.connected_flag = True
+    with patch.object(IBTWSClient, "is_connected", return_value=True), \
+            patch.object(IBTWSClient, "cancelOrder") as cancel:
+        c.cancel_order(7)
+    cancel.assert_called_once_with(7)
+
+
+def test_10268_rejects_and_new_ibkr_orders_never_carry_the_legacy_flags():
+    from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
+    c = IBTWSClient("127.0.0.1", 7497, 99)
+    for order in (c.create_market_order("BUY", 1), c.create_limit_order("BUY", 1, 5.0)):
+        assert order.eTradeOnly is False and order.firmQuoteOnly is False
+
+
+def test_10268_rejects_an_unacknowledged_order(live):
+    send(live)
+    live.ledger.enqueue({"kind": "order_error", "order_id": 501, "code": 10268,
+                         "message": "The 'EtradeOnly' order attribute is not supported."})
+    live.ledger.drain()
+    assert broker_order(live).status == "REJECTED"
+
+
+def test_limit_orders_can_be_created_and_cloned():
+    from src.application.services.misbuffet.algorithm.enums import OrderDirection
+    from src.application.services.misbuffet.algorithm.order import LimitOrder
+    from src.application.services.misbuffet.algorithm.symbol import Symbol
+    order = LimitOrder(symbol=Symbol.create_equity("F"), quantity=1, direction=OrderDirection.BUY, limit_price=6.0)
+    assert (order.order_type.name, order.limit_price, order.clone().limit_price) == ("LIMIT", 6.0, 6.0)
+    with pytest.raises(ValueError):
+        LimitOrder(symbol=Symbol.create_equity("F"), quantity=1, direction=OrderDirection.BUY, limit_price=0)
+
+
+def test_10349_and_unknown_codes_are_notices_not_rejections(live):
+    """P.06 paper finding: 10349 'Order TIF was set to DAY based on order preset' arrives before the fill."""
+    send(live)
+    for code in (10349, 2109, 399, 12345):
+        live.ledger.enqueue({"kind": "order_error", "order_id": 501, "code": code, "message": "notice"})
+    live.ledger.drain()
+    assert broker_order(live).status == "SUBMITTED"
+    status(live, "Filled", 10, 0, 150.0)
+    assert broker_order(live).status == "FILLED"

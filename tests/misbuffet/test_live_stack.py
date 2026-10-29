@@ -76,10 +76,18 @@ def test_the_stack_refuses_a_live_account_in_paper_mode_and_delayed_prices_on_li
         build_live_stack(FakeBroker(FakeClient(["DU1"])), book.upm, book.factory, config())
     monkeypatch.setenv("IBKR_ACCOUNT_MODE", "live")
     monkeypatch.setenv("IBKR_ALLOW_LIVE", "yes")
-    with pytest.raises(PermissionError, match="PAPER account only"):
-        build_live_stack(FakeBroker(FakeClient(["U11494855"])), book.upm, book.factory,
-                         LiveStackConfig(account="U11494855", strategy="x", limits=RiskLimits(),
-                                         allow_delayed_prices=True))
+    for option in ("allow_delayed_prices", "paper_bar_prices"):
+        with pytest.raises(PermissionError, match="PAPER account only"):
+            build_live_stack(FakeBroker(FakeClient(["U11494855"])), book.upm, book.factory,
+                             LiveStackConfig(account="U11494855", strategy="x", limits=RiskLimits(),
+                                             **{option: True}))
+
+
+def test_paper_bar_prices_use_the_last_trade_bar_provider(book, monkeypatch):
+    from src.application.services.misbuffet.brokers.trading_controls import LastTradeBarPriceProvider
+    monkeypatch.delenv("IBKR_ACCOUNT_MODE", raising=False)
+    stack = build_live_stack(FakeBroker(FakeClient()), book.upm, book.factory, config(paper_bar_prices=True))
+    assert isinstance(stack.prices, LastTradeBarPriceProvider) and stack.gate.price_provider is stack.prices
 
 
 def test_the_stack_needs_a_connected_broker(book):

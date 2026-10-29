@@ -279,3 +279,37 @@ def test_delayed_quotes_size_orders_only_when_explicitly_allowed():
     svc.assess.assert_called_with("STK:F", NOW, require_live=False)
     svc.assess.return_value = Assessment(Usability.STALE, False, ("stale",))
     assert StreamingPriceProvider(svc, clock=lambda: NOW, allow_delayed=True)("F").price is None
+
+
+def test_last_trade_bar_prices_use_completed_bars_only():
+    from src.application.services.misbuffet.brokers.trading_controls import LastTradeBarPriceProvider
+    now = datetime(2026, 10, 29, 14, 7, tzinfo=timezone.utc)
+    t0 = int(datetime(2026, 10, 29, 13, 55, tzinfo=timezone.utc).timestamp())
+    bars = [{"date": str(t0), "close": 11.0}, {"date": str(t0 + 300), "close": 11.2},
+            {"date": str(t0 + 600), "close": 11.5}]                         # 14:05 bar still forming at 14:07
+    broker = Mock(**{"request_history.return_value": SimpleNamespace(status="complete", bars=bars, error_code=None,
+                                                                         error_message="")})
+    provider = LastTradeBarPriceProvider(broker, contract_for=lambda s: s, clock=lambda: now)
+    snap = provider("F")
+    assert (snap.price, snap.as_of) == (11.2, datetime(2026, 10, 29, 14, 5, tzinfo=timezone.utc))
+    provider("F")
+    assert broker.request_history.call_count == 1                           # cached
+    broker.request_history.return_value = SimpleNamespace(status="failed", bars=[], error_code=162,
+                                                          error_message="no data")
+    assert "162" in LastTradeBarPriceProvider(broker, lambda s: s, clock=lambda: now)("F").unusable_reason
+
+
+def test_engine_sell_orders_are_judged_as_sells():
+    """P.06 paper finding: engine orders keep quantity 1 with direction SELL; the gate read them as buys."""
+    from src.application.services.misbuffet.algorithm.enums import OrderDirection
+    t = [0.0]
+    g = gate(controls=FakeControls(ControlMode.REDUCE_ONLY),
+             throttle=OrderThrottle(duplicate_seconds=30, clock=lambda: t[0]))
+    buy = SimpleNamespace(id="b", symbol="AAPL", quantity=1, direction=OrderDirection.BUY)
+    sell = SimpleNamespace(id="s", symbol="AAPL", quantity=1, direction=OrderDirection.SELL)
+    assert not g.allows(buy)                                     # reduce-only: a buy adds to the long position
+    assert g.allows(sell)                                        # a sell reduces it
+    g.controls.mode = ControlMode.ENABLED
+    assert g.allows(buy)                                         # not a duplicate of the sell
+    bad = SimpleNamespace(id="x", symbol="AAPL", quantity=-1, direction=OrderDirection.BUY)
+    assert not g.allows(bad) and "negative quantity" in g.rejections[-1][1][0]
