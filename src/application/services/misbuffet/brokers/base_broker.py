@@ -177,6 +177,10 @@ class BaseBroker(IBrokerage, ABC):
 
             # Shared pre-trade risk gate (BI-022), when one is attached: a refused order is never sent
             gate = getattr(self, "risk_gate", None)
+            if gate is None and getattr(self, "requires_risk_gate", False):
+                # P.05 (D5): a real broker sends nothing without the central pre-trade gate
+                self.logger.error(f"Order {order.id} refused: no pre-trade risk gate attached (attach_risk_gate)")
+                return False
             if gate is not None and not gate.allows(order):
                 return False
 

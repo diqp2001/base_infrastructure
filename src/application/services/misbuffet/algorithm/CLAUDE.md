@@ -383,3 +383,16 @@ when it never ran or the broker connection closed since (it listens to `connecti
 reconciler compares positions. Everything found is a row in `trading_discrepancies`; blocking ones (position
 mismatch, external execution on a managed instrument, incomplete lists) keep trading off until a later run no longer
 finds them or the owner calls `recovery.resolve(id, "what was done")`. Tests: `tests/misbuffet/test_startup_recovery.py`.
+
+### Trading controls and the mandatory gate (P.05, 2026-10-28)
+
+`InteractiveBrokersBroker.requires_risk_gate = True`: `BaseBroker.place_order` sends nothing to IBKR without an
+attached `PreTradeGate`. The gate checks, in order: trading controls (`trading_controls` table, append-only; modes
+`enabled` / `reduce_only` / `disabled`, most restrictive of global / account / strategy wins; unreadable = disabled),
+`OrderThrottle` (order rate, duplicates, working order on the symbol), then the limits of
+`domain/.../pre_trade_risk.py` (now also net exposure, concentration vs net liquidation, buying power, and
+`PriceSnapshot.unusable_reason`). Providers in `brokers/trading_controls.py`: `StreamingPriceProvider` (only an
+executable P.02 quote sizes an order, at the dearer side), `IBKRAccountProvider` (account values + positions of one
+account). Emergency actions, never automatic: `TradingControlsService.kill(reason, by)`,
+`cancel_working_orders(ledger, client, reason)` (cancel requested; status moves when IBKR confirms),
+`liquidate_all(upm, data)` after setting `reduce_only`. Tests: `tests/misbuffet/test_trading_controls.py`.

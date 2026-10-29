@@ -385,6 +385,7 @@ from src.infrastructure.repositories.local_repo.finance.order.broker_order_repos
     BrokerOrderRepository,
     DiscrepancyRepository,
     ExecutionRepository,
+    TradingControlRepository,
 )
 from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
     StrategyConfigurationRepository,
@@ -617,6 +618,7 @@ class RepositoryFactory:
                 'BrokerOrder': BrokerOrderRepository(self.session, factory=self),
                 'BrokerExecution': ExecutionRepository(self.session, factory=self),
                 'TradingDiscrepancy': DiscrepancyRepository(self.session, factory=self),
+                'TradingControl': TradingControlRepository(self.session, factory=self),
                 'Transaction': TransactionRepository(self.session, factory=self),
 
                 # Backtest repositories
@@ -2099,6 +2101,10 @@ class RepositoryFactory:
     @property
     def trading_discrepancy_local_repo(self):
         return self.get_local_repository('TradingDiscrepancy')
+
+    @property
+    def trading_control_local_repo(self):
+        return self.get_local_repository('TradingControl')
 
     @property
     def strategy_configuration_local_repo(self):

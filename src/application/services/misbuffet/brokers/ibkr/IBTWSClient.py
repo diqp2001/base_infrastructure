@@ -55,6 +55,9 @@ class IBTWSClient(EWrapper, EClient):
         self.positions_snapshot: List[dict] = []
         self.open_orders_snapshot: List[dict] = []
         self.executions_snapshot: List[dict] = []    # request_executions_snapshot (P.04)
+        self.account_values_snapshot: Dict[str, Dict[str, tuple]] = {}   # account -> tag -> (value, currency) (P.05)
+        self._account_summary_collecting = False
+        self._account_summary_end_event = threading.Event()
         self._executions_req_id = None
         self._executions_end_event = threading.Event()
         self._snapshot_lock = threading.Lock()
@@ -222,6 +225,15 @@ class IBTWSClient(EWrapper, EClient):
             'currency': currency,
             'account': account
         }
+        with self._snapshot_lock:
+            if self._account_summary_collecting:
+                self.account_values_snapshot.setdefault(account, {})[tag] = (value, currency)
+
+    def accountSummaryEnd(self, reqId: int):
+        """End of a reqAccountSummary answer."""
+        with self._snapshot_lock:
+            self._account_summary_collecting = False
+        self._account_summary_end_event.set()
 
     def managedAccounts(self, accountsList: str):
         """Managed accounts callback - receives list of managed accounts."""
@@ -703,6 +715,28 @@ class IBTWSClient(EWrapper, EClient):
         tags = "TotalCashValue,NetLiquidation,BuyingPower,DayTradesRemaining"
         self.reqAccountSummary(1, group_name, tags)
         self.logger.info(f"Requesting account summary with groupName: {group_name}")
+
+    def request_account_values_snapshot(self, timeout: float = 10.0, req_id: int = 90_002,
+                                        tags: str = "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,"
+                                                    "GrossPositionValue") -> bool:
+        """Account values of every managed account into ``account_values_snapshot`` (P.05 risk). Read-only."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        with self._snapshot_lock:
+            self.account_values_snapshot = {}
+            self._account_summary_collecting = True
+        self._account_summary_end_event.clear()
+        self.reqAccountSummary(req_id, "All", tags)
+        complete = self._account_summary_end_event.wait(timeout)
+        try:
+            self.cancelAccountSummary(req_id)
+        except Exception as e:
+            self.logger.warning(f"cancelAccountSummary failed: {e}")
+        with self._snapshot_lock:
+            self._account_summary_collecting = False
+        if not complete:
+            self.logger.error(f"accountSummaryEnd not received within {timeout}s")
+        return complete
 
     def request_positions(self) -> None:
         """Request all positions."""

@@ -31,6 +31,8 @@ from ...common.enums import OrderType, OrderStatus, OrderDirection
 
 
 class InteractiveBrokersBroker(BaseBroker):
+    # P.05 (D5): no order reaches IBKR (paper or live) without a PreTradeGate (BaseBroker.place_order)
+    requires_risk_gate = True
     """
     Interactive Brokers broker implementation.
     

@@ -114,6 +114,7 @@ from src.infrastructure.models.finance.holding.derivative.derivative_portfolio_h
 from src.infrastructure.models.finance.account import AccountModel
 from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.order.broker_order import BrokerOrderModel, BrokerExecutionModel, TradingDiscrepancyModel
+from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 
 # Backtest / model registry / time-series tables (were registered only when a repository module
@@ -187,7 +188,7 @@ __all__ = [
     'CurrencyPortfolioModel', 'CurrencyPortfolioHoldingModel', 'CurrencyPortfolioPortfolioHoldingModel',
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'CompanyShareOptionPortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorValueProvenanceModel','FactorValueLineageModel','FactorDependencyModel',
-    'AccountModel', 'OrderModel', 'BrokerOrderModel', 'BrokerExecutionModel', 'TradingDiscrepancyModel', 'TransactionModel',
+    'AccountModel', 'OrderModel', 'BrokerOrderModel', 'BrokerExecutionModel', 'TradingDiscrepancyModel', 'TradingControlModel', 'TransactionModel',
     'UniverseModel', 'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
     'StrategyConfigurationModel', 'StrategyExperimentModel',

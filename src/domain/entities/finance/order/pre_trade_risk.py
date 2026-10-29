@@ -9,6 +9,9 @@ instrument, notionals in account currency (price × |quantity| × multiplier).
   max_order_notional     |order notional|
   max_position_quantity  |position after the order|
   max_gross_exposure     gross exposure after the order (sum of |position notional|)
+  max_net_exposure       |net exposure| after the order (sum of signed position notionals)       (P.05)
+  max_concentration      |position notional after the order| / net liquidation value (0.2 = 20 %) (P.05)
+  require_buying_power   an order that increases |position| must fit the broker's buying power   (P.05)
   max_quote_age_seconds  the price used to judge the order must be this fresh — no price, or an older one,
                          refuses the order (stale market data never sizes an order)
   require_cash           a buy's notional must not exceed available cash
@@ -32,6 +35,9 @@ class RiskLimits:
     max_gross_exposure: Optional[float] = None
     max_quote_age_seconds: Optional[float] = 60.0
     require_cash: bool = True
+    max_net_exposure: Optional[float] = None
+    max_concentration: Optional[float] = None
+    require_buying_power: bool = False
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,7 @@ class OrderIntent:
 class PriceSnapshot:
     price: Optional[float]
     as_of: Optional[datetime]
+    unusable_reason: Optional[str] = None      # why the market data may not size an order (delayed, stale ...)
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,9 @@ class AccountSnapshot:
     cash: float
     positions: Dict[str, float] = field(default_factory=dict)          # symbol -> signed quantity
     gross_exposure: float = 0.0                                         # sum of |position notional| now
+    net_exposure: float = 0.0                                           # sum of signed position notionals now
+    net_liquidation: Optional[float] = None                             # account value (concentration)
+    buying_power: Optional[float] = None                                # broker buying power (margin)
 
 
 def check_order(intent: OrderIntent, price: Optional[PriceSnapshot], account: AccountSnapshot, limits: RiskLimits,
@@ -73,11 +83,15 @@ def check_order(intent: OrderIntent, price: Optional[PriceSnapshot], account: Ac
               f"position after order {position_after} exceeds {limits.max_position_quantity}")
 
     needs_price = (limits.max_order_notional is not None or limits.max_gross_exposure is not None
-                   or limits.require_cash or limits.max_quote_age_seconds is not None)
+                   or limits.require_cash or limits.max_quote_age_seconds is not None
+                   or limits.max_net_exposure is not None or limits.max_concentration is not None
+                   or limits.require_buying_power)
     if not needs_price:
         return results
-    usable = price is not None and price.price is not None and math.isfinite(price.price) and price.price > 0
-    check("price_available", usable, f"no usable price for {intent.symbol}")
+    usable = (price is not None and price.unusable_reason is None and price.price is not None
+              and math.isfinite(price.price) and price.price > 0)
+    check("price_available", usable, f"no usable price for {intent.symbol}"
+          + (f" ({price.unusable_reason})" if price is not None and price.unusable_reason else ""))
     if not usable:
         return results
     if limits.max_quote_age_seconds is not None:
@@ -96,4 +110,22 @@ def check_order(intent: OrderIntent, price: Optional[PriceSnapshot], account: Ac
               f"gross exposure after order {after:.2f} > {limits.max_gross_exposure}")
     if limits.require_cash and qty > 0:
         check("cash_available", notional <= account.cash, f"buy notional {notional:.2f} > cash {account.cash:.2f}")
+    unit = price.price * intent.multiplier
+    position_before = account.positions.get(intent.symbol, 0.0)
+    if limits.max_net_exposure is not None:
+        net_after = account.net_exposure + qty * unit
+        check("max_net_exposure", abs(net_after) <= limits.max_net_exposure,
+              f"|net exposure after order| {abs(net_after):.2f} > {limits.max_net_exposure}")
+    if limits.max_concentration is not None:
+        nlv = account.net_liquidation
+        ok = nlv is not None and nlv > 0 and abs(position_after) * unit <= limits.max_concentration * nlv
+        check("max_concentration", ok, "no net liquidation value" if not nlv or nlv <= 0 else
+              f"{intent.symbol} after order {abs(position_after) * unit:.2f} > {limits.max_concentration:.0%} "
+              f"of {nlv:.2f}")
+    if limits.require_buying_power and abs(position_after) > abs(position_before):
+        added = (abs(position_after) - abs(position_before)) * unit
+        bp = account.buying_power
+        check("buying_power", bp is not None and added <= bp,
+              "no buying power from the broker" if bp is None else f"added exposure {added:.2f} > buying power "
+                                                                   f"{bp:.2f}")
     return results

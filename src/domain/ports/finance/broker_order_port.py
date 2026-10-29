@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+from src.domain.entities.finance.order.trading_control import TradingControl
 
 
 class BrokerOrderPort(ABC):
@@ -72,3 +73,13 @@ class DiscrepancyPort(ABC):
     @abstractmethod
     def get_latest_by_key(self, kind: DiscrepancyKind, key: str) -> Optional[Discrepancy]:
         """The most recent discrepancy of that kind and key, open or resolved."""
+
+
+class TradingControlPort(ABC):
+    """Trading controls (P.05): append-only history; the latest row per (scope, target) is in force."""
+
+    @abstractmethod
+    def add(self, entity: TradingControl) -> TradingControl: ...
+
+    @abstractmethod
+    def get_all(self) -> List[TradingControl]: ...
