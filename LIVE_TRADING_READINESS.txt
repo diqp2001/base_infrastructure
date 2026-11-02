@@ -6,14 +6,14 @@ SUMMARY
 Last updated     : 2026-11-02
 Current phase    : P.06 — Paper trading, operational monitoring and resilience (P.01–P.05 implemented; P.03 /
                    P.05 order paths verified in simulation, P.02 / P.04 / P.05 providers also against IBKR read-only)
-Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
-                   modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
+Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 9/10 in simulation, 1 partial
+                   (modifications); IBKR check needs orders -> [B1]. P.04 6/8 done, 1 partial (P.04.07 streaming
                    resubscription not orchestrated), 1 pending (P.04.04 cash / account values). P.05 9/9 in simulation (+ IBKR
                    read-only account values). P.06 9/14 done (paper round trips, restart with a working order,
                    monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
                    P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
                    P.07 assessed 2026-10-29: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 63 · in progress 3 · blocked 0 · pending 4 (counted from the task lines, 2026-10-30)
+Task counts      : completed 64 · in progress 3 · blocked 0 · pending 3 (counted from the task lines, 2026-11-02)
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -38,7 +38,7 @@ Next actionable  : TO DO, in order:
                    4. [done] P.07 assessed: NOT ready for live. A live pilot needs B2 and P.07.08 owner decisions
                       (capital, limits, net cap, day-trading equity). Runbook and mid-session reconnect: done.
                    Open gaps: P.06.13 financing / borrow / dividends not booked (with P.04.04 cash vs books),
-                   D8 (two OrderStatus enums), P.06.09 partial fill on paper. Done tonight: P.04.07 reconnect,
+                   P.06.09 partial fill on paper (D8 resolved 2026-11-02). Done tonight: P.04.07 reconnect,
                    P.06.14 pre-training, P.06.05 decision -> orders.
 TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
                    (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
@@ -136,8 +136,12 @@ DEFECTS / GAPS FOUND IN P.01 (highest priority first)
               routed to the subscription, no freshness / validity state, no reconnect / resubscribe. (P.02)
  D7 MEDIUM    [RESOLVED for orders / executions / positions by P.04, 2026-10-28; streaming resubscription on
               reconnect not orchestrated yet] No reconnect handling during a run; no recovery of open orders / executions into internal state. (P.04)
- D8 MEDIUM    [OPEN; mitigated by P.03: one TWS -> internal mapping (broker_order.status_from_tws) and
-              order_state.advances accepts every spelling] Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
+ D8 MEDIUM    [RESOLVED 2026-11-02: domain/entities/finance/back_testing/enums.py re-exports the persisted enum
+              (order/order.py, stored by NAME in orders.status); back-testing Order / OrderEvent use PENDING / CANCELLED.
+              No data migration: no code read the lower-case values and the back-testing lookup table order_statuses
+              is not in base_infra. The framework enums misbuffet/common + misbuffet/algorithm (never stored) keep their
+              own copies; order_state.advances maps every spelling — merging those is the wider refactor R1 in
+              docs/development/graphify_architecture_findings.txt] Two OrderStatus enums with different stored spellings (BI-021 remaining). (P.03)
  D9 MEDIUM    [PARTLY RESOLVED by P.05: kill switch + account / strategy controls; the separate live-submission
               switch disabled by default is P.07.03] Live enable is a single config flag; no separate "submission enabled" switch, no kill switch. (P.05/P.07)
  D10 MEDIUM   [RESOLVED for bar-driven strategies by P.06.10, 2026-10-29: LiveClock paces the loop on the wall clock,
@@ -251,11 +255,11 @@ sent; unique order_id) and broker_executions (one row per execId; unique (broker
              InteractiveBrokersBroker._place_order_impl -> IBTWSClient.place_order (only placeOrder in src);
              callbacks orderStatus (permId kept) / execDetails / commissionReport (new) -> order_listeners -> ledger.
  [x] P.03.02 Durable order intent before submission (D2): TradeManager._execute_live, OrderLedger.record_intent.
- [~] P.03.03 Transitions: broker statuses mapped once (broker_order.TWS_STATUS / status_from_tws: PendingSubmit /
+ [x] P.03.03 Transitions: broker statuses mapped once (broker_order.TWS_STATUS / status_from_tws: PendingSubmit /
              ApiPending / PreSubmitted / Submitted / PendingCancel -> SUBMITTED or PARTIALLY_FILLED, Filled, Cancelled /
              ApiCancelled -> CANCELLED, Inactive -> REJECTED; unknown strings reported, not applied) and applied only
-             forward (order_state.advances). EXPIRED has no TWS status (DAY orders end as Cancelled). Remaining: merge
-             the two OrderStatus enums (D8).
+             forward (order_state.advances). EXPIRED has no TWS status (DAY orders end as Cancelled). D8 merged
+             2026-11-02: one domain OrderStatus (test_live_order_path OrderStateRuleTest.test_one_domain_order_status_model).
  [~] P.03.04 Cancellations confirmed (D4): BrokerageTransactionHandler no longer sets CANCELED on request
              (order.cancel_requested); the IBKR broker keeps the order tracked until TWS reports Cancelled / Filled;
              OrderLedger.request_cancel records cancel_requested_at, status unchanged until the broker confirms.
@@ -517,6 +521,15 @@ Dependencies  P.02–P.05.
  [ ] P.06.13 Financing not booked: short-credit interest, borrow fees (0.25–0.41 %/yr for the banks), dividends paid on
              shorts / received on longs. Book cash drifts from IBKR's; book them daily from IBKR account values
              (with P.04.04).
+             Proposal 2026-11-02 (awaiting owner decision, nothing implemented): the account is dedicated to the
+             strategy, so each session start compares the CHANGE in IBKR TotalCashValue since the previous start with
+             the change in book cash from booked fills / commissions; the difference is financing + dividends + fees
+             (+ any deposit / withdrawal). Book it as one cash-only FINANCING transaction per day (audit: both cash
+             values kept), and record a non-blocking CASH_DRIFT discrepancy above a threshold (deposits, errors).
+             Needs: (1) owner confirms the account trades only this strategy (paper DUR314497 and the future live
+             sub-account); (2) a table for the daily cash snapshots (schema change on base_infra -> owner approval +
+             COPY_ONLY backup first). Alternative without schema change: itemised model (dividends from ex-dates,
+             borrow fee from the shortable rate) — approximate, not reconcilable to IBKR.
  [x] P.06.14 First decision of the day no longer waits for training: STMTradingCycle.train_now (pre-training on the
              history known before the first step; one per session date — artifacts store the validation END DATE)
              and missing_asset_patience (a model asset without a bar retrains only after N decisions in a row; live 3,
@@ -526,11 +539,17 @@ Dependencies  P.02–P.05.
              reused it, no retrain due at 2026-10-30 09:30, model selected. Finding: in paper session 2 two mid-day
              retrains (91 s each, decision not traded) came from a late bar of one asset — now absorbed by the
              patience. Tests: test_stm_trading_cycle (TestLiveRetrainingRules), test_stm_10m_live.
- [ ] P.06.15 Adopt a manual / external execution into the strategy's book (runbook gap: a manual flatten in TWS
+ [~] P.06.15 Adopt a manual / external execution into the strategy's book (runbook gap: a manual flatten in TWS
              leaves a position_mismatch that blocks the next start). Design: `ops adopt <exec_id>` — create the
              internal order row the fill needs, book transaction + position + cash through TradeManager.book_execution
              in one atomic write, mark the execution booked, resolve the EXTERNAL_EXECUTION discrepancy with the
-             reason. Not started 2026-10-29: writes to the real book, no real case to verify against.
+             reason. 2026-11-02 implemented: OrderLedger.adopt(exec_id, portfolio_id, cash_portfolio_id, reason) —
+             only a stored execution no internal order explains; creates orders row (FILLED, external id
+             IBKR:ADOPTED:<execId>) + broker_orders row (perm id kept), books fill + USD commission in ONE transaction,
+             marks the execution booked; any failure writes nothing. `ops adopt <exec id> "<why>"` (session stopped;
+             portfolios default to the strategy's latest order) also resolves the EXTERNAL_EXECUTION discrepancy;
+             RUNBOOK §4 / §5 updated. Tests test_order_lifecycle (4, SQLite). Remaining: one real case on paper
+             (manual trade in TWS on DUR314497 -> start -> ops adopt -> start: no mismatch).
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -549,7 +568,7 @@ Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM
              simulation only    — partial fills (P.06.09), database outage during a session (P.06.07).
              paper, partly      — reconnect in the middle of a session (P.04.07: sockets dropped from our side;
                                   a real TWS restart not exercised).
-             open               — D8 (two OrderStatus enums, mitigated), P.04.04 / P.06.13 cash and financing not
+             open               — P.04.04 / P.06.13 cash and financing not
                                   reconciled (P.06.12 full paper session done 2026-10-30).
              No CRITICAL defect is open (D1, D2 resolved; D3–D7, D10 resolved; D9 partly, see P.07.03).
  [x] P.07.02 Instruments / orders / data / account:
@@ -592,7 +611,7 @@ Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM
                4. [done 2026-10-29, paper, sockets dropped from our side] mid-session reconnect (P.04.07).
                5. [done 2026-10-29] P.07.06 operator runbook + ops command.
              Acceptable for a small pilot if documented, to fix soon after: P.06.13 / P.04.04 financing and cash not
-             reconciled (book cash drifts by interest, borrow fees, dividends), D8, partial fill not seen on paper.
+             reconciled (book cash drifts by interest, borrow fees, dividends), partial fill not seen on paper.
              (P.06.14 and P.06.05 done 2026-10-29.)
  [ ] P.07.08 Owner decisions for a live pilot of STM_10M_BANKS: real-time US-equity bundle for the API (B2; required —
              paper_bar_prices is refused for a live account); capital (paper: 25 000 USD); order / position / gross
@@ -638,3 +657,5 @@ SESSION LOG
             cross-process kill OK, clean shutdown and recovery. Closed (owner: exact 09:40 timing not needed).
 2026-11-02  B2: real-time US-equity data entitled for the API on the live login (read-only check); not yet
             shared with the paper login.
+2026-11-02  D8 resolved: back-testing OrderStatus = persisted domain enum (no migration); P.03.03 done.
+2026-11-02  P.06.15 ops adopt implemented + SQLite tests; paper case pending.

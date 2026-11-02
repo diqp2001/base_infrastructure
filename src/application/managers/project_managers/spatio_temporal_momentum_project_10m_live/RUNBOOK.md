@@ -60,10 +60,18 @@ ops resolve <id> "<what you checked and did>"
 The running session re-checks IBKR before its next order. Typical cases:
 
 * `external_execution`: a trade not made by this strategy (manual trade in TWS, a test). Today's executions are
-  re-read at every start, so resolve them before starting.
-* `position_mismatch`: IBKR position ≠ book. **The book is not corrected by `ops`**: a manual trade that changes a
-  strategy position leaves the book wrong until it is corrected in the database. Avoid manual trades in the
-  strategy's 24 names.
+  re-read at every start, so settle them before starting:
+  * the trade belongs to the strategy (e.g. you flattened a strategy position by hand): **adopt** it, with the
+    session STOPPED — the fill is booked into the strategy's book (order, transaction, position, cash, USD commission
+    in one database transaction) and the discrepancy is resolved:
+    ```
+    ops adopt <exec id> "<why>"          # exec id = the discrepancy's key; portfolios default to the strategy's
+    ```
+  * it does not (another account activity, a test outside the strategy's names): `ops resolve <id> "<why>"`.
+* `position_mismatch`: IBKR position ≠ book. A manual trade in a strategy name causes it together with an
+  `external_execution`: `ops adopt` that execution and the mismatch resolves itself at the next start. IBKR returns
+  only **today's** executions: a manual trade from an earlier day cannot be adopted and must be corrected in the
+  database. Avoid manual trades in the strategy's 24 names.
 * `order_closed_on_recovery`: an order the book thought working was no longer at IBKR (e.g. cancelled at shutdown
   before IBKR answered); informational.
 
@@ -75,8 +83,9 @@ The running session re-checks IBKR before its next order. Typical cases:
 * **Emergency, no new risk**: `ops kill "<reason>"` (every order refused), or `ops reduce-only "<reason>"` (only
   reductions allowed). Both apply to the next order of the running session.
 * **Emergency, flatten everything**: there is no `ops` command for it. `ops kill`, stop the session, then flatten in
-  TWS. The book will then disagree with IBKR (§4 `position_mismatch`): the book must be corrected before the next
-  start.
+  TWS. The book will then disagree with IBKR (§4 `position_mismatch`): start the session once (recovery records each
+  manual fill as `external_execution` and blocks), stop it, `ops adopt` each execution the SAME DAY, then start
+  again.
 
 ## 6. After a crash or a lost connection
 
