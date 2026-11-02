@@ -203,7 +203,7 @@ class IBKRSnapshotProvider:
     def __call__(self) -> BrokerSnapshot:
         if not self.ib or not self.ib.is_connected():
             raise ConnectionError("IBKR not connected")
-        positions_ok = self.ib.request_positions_snapshot(timeout=self.timeout)
+        positions_ok = self.ib.request_positions_snapshot(timeout=self.timeout, account=self.account or "")
         orders_ok = self.ib.request_open_orders_snapshot(timeout=self.timeout)
         if self.account is None:
             accounts = {p.get("account") for p in self.ib.positions_snapshot if p.get("account")}

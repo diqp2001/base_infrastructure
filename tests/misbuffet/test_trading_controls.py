@@ -217,7 +217,8 @@ class FakeAccountClient:
     def request_account_values_snapshot(self, timeout=10.0):
         return self.values_ok
 
-    def request_positions_snapshot(self, timeout=10.0):
+    def request_positions_snapshot(self, timeout=10.0, account=""):
+        self.positions_account = account
         return self.positions_ok
 
 
@@ -226,6 +227,7 @@ def test_the_ibkr_account_provider_values_one_account_and_fails_closed():
     prices = {"AAPL": PriceSnapshot(150.0, NOW), "SPY 261218C00700000": PriceSnapshot(5.0, NOW)}
     provider = IBKRAccountProvider(client, "U1", prices.get, multiplier_provider=lambda s: 100.0 if "SPY" in s else 1)
     snap = provider()
+    assert client.positions_account == "U1"                   # the snapshot asks for this account only
     assert snap.positions == {"AAPL": 100, "SPY 261218C00700000": -2}
     assert (snap.cash, snap.net_liquidation, snap.buying_power) == (20_000, 50_000, 80_000)
     assert (snap.gross_exposure, snap.net_exposure) == (15_000 + 1_000, 15_000 - 1_000)

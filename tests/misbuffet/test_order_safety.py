@@ -233,8 +233,9 @@ class FakeIB:
     def is_connected(self):
         return True
 
-    def request_positions_snapshot(self, timeout):
+    def request_positions_snapshot(self, timeout, account=""):
         self.calls.append("positions")
+        self.positions_account = account
         return self.complete
 
     def request_open_orders_snapshot(self, timeout):
@@ -260,6 +261,7 @@ class IBKRSnapshotProviderTest(unittest.TestCase):
         self.assertEqual([o.key for o in snap.open_orders if o.working], [normalize_ticker(OPTION)])
         self.assertTrue(snap.complete)
         self.assertEqual(ib.calls, ["positions", "orders"])
+        self.assertEqual(ib.positions_account, "U1")
 
     def test_incomplete_and_disconnected(self):
         self.assertFalse(IBKRSnapshotProvider(FakeIB([], [], complete=False))().complete)
@@ -286,22 +288,55 @@ class IBTWSClientSnapshotTest(unittest.TestCase):
                                conId=con_id, currency="USD")
 
     def test_positions_snapshot(self):
-        def req_positions():
-            self.client.position("U1", self.contract("SPY", "STK", "SPY", 756733), 10, 500.0)
-            self.client.position("U1", self.contract("SPY", "OPT", OPTION, 1234), -2, 3.1)
-            self.client.positionEnd()
-        with patch.object(self.client, "reqPositions", side_effect=req_positions), \
-                patch.object(self.client, "cancelPositions") as cancel:
-            self.assertTrue(self.client.request_positions_snapshot(timeout=1))
+        def req_positions_multi(req_id, account, model_code):
+            self.assertEqual((account, model_code), ("U1", ""))
+            self.client.positionMulti(req_id, "U1", "", self.contract("SPY", "STK", "SPY", 756733), 10, 500.0)
+            self.client.positionMulti(req_id, "U1", "", self.contract("SPY", "OPT", OPTION, 1234), -2, 3.1)
+            self.client.positionMultiEnd(req_id)
+        with patch.object(self.client, "reqPositionsMulti", side_effect=req_positions_multi), \
+                patch.object(self.client, "cancelPositionsMulti") as cancel:
+            self.assertTrue(self.client.request_positions_snapshot(timeout=1, account="U1"))
         cancel.assert_called_once()
         self.assertEqual([(p["localSymbol"], p["conId"], p["position"]) for p in self.client.positions_snapshot],
                          [("SPY", 756733, 10), (OPTION, 1234, -2)])
-        # legacy symbol-keyed list still merges the option into the share row
-        self.assertEqual(len(self.client.positions), 1)
 
     def test_positions_snapshot_timeout(self):
-        with patch.object(self.client, "reqPositions"), patch.object(self.client, "cancelPositions"):
+        with patch.object(self.client, "reqPositionsMulti"), patch.object(self.client, "cancelPositionsMulti"):
             self.assertFalse(self.client.request_positions_snapshot(timeout=0.05))
+
+    def test_positions_snapshot_ignores_other_requests(self):
+        """Each snapshot has its own id: the broker's position refresh (reqPositions) and the late end / rows of an
+        earlier, timed-out snapshot never complete or pollute the current one."""
+        ids = []
+        with patch.object(self.client, "reqPositionsMulti", side_effect=lambda r, a, m: ids.append(r)), \
+                patch.object(self.client, "cancelPositionsMulti"):
+            self.assertFalse(self.client.request_positions_snapshot(timeout=0.05))   # first one times out
+        stale = ids[0]
+
+        def req_positions_multi(req_id, account, model_code):
+            ids.append(req_id)
+            self.client.positionMultiEnd(stale)                                       # late end of the first
+            self.client.positionMulti(stale, "U1", "", self.contract("JPM", "STK", "JPM", 1), 5, 1.0)
+            self.client.position("U1", self.contract("BAC", "STK", "BAC", 2), 7, 1.0)  # broker refresh row
+            self.client.positionEnd()
+            self.assertFalse(self.client._positions_end_event.is_set())
+            self.client.positionMulti(req_id, "U1", "", self.contract("KEY", "STK", "KEY", 3), -4, 1.0)
+            self.client.positionMultiEnd(req_id)
+        with patch.object(self.client, "reqPositionsMulti", side_effect=req_positions_multi), \
+                patch.object(self.client, "cancelPositionsMulti"):
+            self.assertTrue(self.client.request_positions_snapshot(timeout=1))
+        self.assertNotEqual(ids[0], ids[1])
+        self.assertEqual([(p["symbol"], p["position"]) for p in self.client.positions_snapshot], [("KEY", -4)])
+
+    def test_account_refresh_has_its_own_subscription(self):
+        """request_account_summary (broker refresh) used id 1 and never cancelled it: it now uses its own id and
+        cancels the previous subscription before asking again."""
+        with patch.object(self.client, "reqAccountSummary") as req, \
+                patch.object(self.client, "cancelAccountSummary") as cancel:
+            self.client.request_account_summary()
+            self.client.request_account_summary()
+        self.assertEqual({c.args[0] for c in req.call_args_list}, {89_001})
+        cancel.assert_called_once_with(89_001)
 
     def test_open_orders_snapshot(self):
         order = SimpleNamespace(permId=55, clientId=0, account="U1", action="SELL", totalQuantity=2,

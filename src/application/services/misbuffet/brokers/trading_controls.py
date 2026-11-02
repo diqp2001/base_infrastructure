@@ -147,7 +147,7 @@ class IBKRAccountProvider:
     def __call__(self) -> AccountSnapshot:
         if not self.client.request_account_values_snapshot(timeout=self.timeout):
             raise RuntimeError("account values incomplete (no accountSummaryEnd)")
-        if not self.client.request_positions_snapshot(timeout=self.timeout):
+        if not self.client.request_positions_snapshot(timeout=self.timeout, account=self.account):
             raise RuntimeError("positions incomplete (no positionEnd)")
         values = self.client.account_values_snapshot.get(self.account)
         if not values:
