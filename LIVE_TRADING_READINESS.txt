@@ -3,7 +3,7 @@ MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth 
 
 SUMMARY
 -------
-Last updated     : 2026-10-30
+Last updated     : 2026-11-02
 Current phase    : P.06 — Paper trading, operational monitoring and resilience (P.01–P.05 implemented; P.03 /
                    P.05 order paths verified in simulation, P.02 / P.04 / P.05 providers also against IBKR read-only)
 Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 8/10 in simulation, 2 partial (D8 enum merge,
@@ -22,6 +22,11 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    Confirmed on the paper login too (354 "not subscribed"; delayed available) -> paper orders are sized
                    on DELAYED quotes (LiveStackConfig.allow_delayed_prices, refused for live accounts); live trading
                    needs the real-time US-equity bundle shared with the API.
+                   2026-11-02: owner subscribed (US Equity and Options Add-On Streaming Bundle NP; US Securities
+                   Snapshot and Futures Value Bundle NP,L1). Read-only check (no order), LIVE login U11494855:
+                   marketDataType 1, real-time bid/ask/last, shortable ticks 46/89, 10-min bars current. PAPER login:
+                   still 354 -> remaining step: Client Portal > Paper Trading Account > share real-time market data
+                   with the paper account (one session at a time). Script: scratchpad b2_realtime_check.py.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
 Next actionable  : TO DO, in order:
@@ -631,3 +636,5 @@ SESSION LOG
             (trading_decisions + broker_orders.decision_id, base_infra migrated after a COPY_ONLY backup).
 2026-10-30  P.06.12 paper session 11:00–15:50 on DUR314497: 30 decisions, 425 orders all linked, 409 filled,
             cross-process kill OK, clean shutdown and recovery. Closed (owner: exact 09:40 timing not needed).
+2026-11-02  B2: real-time US-equity data entitled for the API on the live login (read-only check); not yet
+            shared with the paper login.
