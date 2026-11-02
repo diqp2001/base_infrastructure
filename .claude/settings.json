@@ -18,5 +18,29 @@
       "Bash(git -C \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\" diff HEAD -- \"src/infrastructure/repositories/local_repo/finance/financial_assets/derivatives/option/company_share_option_repository.py\")",
       "PowerShell(cd \"c:\\\\Users\\\\Philippe\\\\coding\\\\git\\\\base_infrastructure\"; python \"C:\\\\Users\\\\Philippe\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Philippe-coding-git-base-infrastructure\\\\e43f4d2f-fde8-48a6-9fba-82f67b5fc87e\\\\scratchpad\\\\check_entities.py\" 2>&1 | Where-Object { $_ -notmatch \"^\\\\[OK\\\\]\" })"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard read",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
