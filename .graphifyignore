@@ -1,0 +1,100 @@
+# Graphify scope for base_infrastructure (see docs/development/graphify_setup_checklist.txt, P.04).
+# The graph is code-only and built offline. Everything below stays out of it, in addition to .gitignore.
+
+# Virtual environments, caches, build artifacts
+/.venv/
+/venv/
+/env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+.coverage.*
+htmlcov/
+/build/
+/dist/
+*.egg-info/
+node_modules/
+
+# Graphify's own output
+/graphify-out/
+
+# Data, market history, run outputs, model weights.
+# Top-level folders are anchored with '/': src/ has code packages named data/ and results/.
+/data/
+/downloads/
+/cache/
+/results/
+/reports/
+/weights/
+/mlruns/
+/.mlruns/
+/mlartifacts/
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.zip
+*.gz
+*.xlsx
+*.xls
+
+# Databases, backups, dumps
+*.db
+*.db3
+*.sqlite
+*.sqlite3
+*.bak
+*.mdf
+*.ldf
+*.dump
+*.sql
+
+# Secrets, credentials, local environment and private configuration
+.env
+.env.*
+secrets/
+.monitor/
+*credentials*
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Config / data formats that graphify treats as code (not indexed without owner approval, P.04.04)
+*.json
+*.yaml
+*.yml
+*.toml
+*.tf
+*.tfvars
+
+# Tooling, editor and agent configuration; notes, docs, containers
+.claude/
+.vscode/
+.devcontainer/
+.github/
+/docker/
+/docs/
+/z_notes/
+*.log
+*.md
+*.rst
+*.txt
+output.txt
+
+# Code packages that an unanchored .gitignore line ('results/') would otherwise hide from the graph
+!src/application/services/misbuffet/results/

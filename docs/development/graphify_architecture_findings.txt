@@ -1,0 +1,224 @@
+==================================================================================================================
+ GRAPHIFY — REPOSITORY ARCHITECTURE FINDINGS (P.05)
+==================================================================================================================
+Graph        : graphify-out/graph.json, graphifyy 0.9.100, code-only offline build (AST, 0 tokens),
+               built_at_commit 6c488df9 (branch feature/graphify-setup); 2037 files, 33439 nodes, 77230 edges.
+Scope        : every tracked .py/.js file except z_notes/ (see .graphifyignore).
+Cross-check  : lint-imports (import-linter, pyproject.toml) run on the same tree: 4 contracts kept, 0 broken.
+Scripts      : read-only analysis over graph.json; not committed (they lived in the session scratchpad).
+Date         : 2026-11-02
+
+Evidence tags
+  [G] graph-extracted fact (counts/edges computed from graph.json)
+  [S] confirmed in the source file named
+  [I] inference / judgement — not proven by the graph, to be weighed by the owner
+
+Caveats on the graph itself
+  - "INFERRED" edges in graphify's code-only mode come from local name resolution, not from an LLM; 90 % of
+    edges are EXTRACTED (direct AST). Treat INFERRED "uses" edges on very common names (Symbol, Order...) with
+    care: four classes share several of those names (see F7).
+  - Import edges include function-level (lazy) and `if TYPE_CHECKING:` imports. Cycles below are therefore
+    static-import cycles; runtime behaviour was checked in the source for each one.
+  - Graph matches import-linter exactly on the layer contracts (F1), which is the main evidence that the
+    graph's import layer is complete after the P.04 scope fix.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.01  DDD / hexagonal boundaries
+------------------------------------------------------------------------------------------------------------------
+F1 [G][S] Layer import matrix (file -> file, src only):
+            application    -> application 1142 | domain 356 | infrastructure 142 | interfaces 1 | dto 4
+            domain         -> domain 775 (nothing else)
+            infrastructure -> infrastructure 1543 | domain 867 | application 11 | dto 2
+            interfaces     -> application 40 | domain 7 | infrastructure 1 | interfaces 13
+          Domain imports no other src layer and no sqlalchemy / ibapi (graph: 0 edges; import-linter: KEPT).
+          Boundary breaks found by the graph = exactly the import-linter ignore lists:
+            application -> infrastructure.models : 19 modules (= 24 ignore entries, 5 are `.**`/bare pairs)
+            infrastructure -> application        : 8 modules  (= 8 ignore entries)
+            application -> interfaces            : 1 module   (misbuffet/web/web_interface -> interfaces.flask.app)
+F2 [G][S] Ports are implemented but never consumed. src/application imports src.domain.ports in 0 files;
+          src/infrastructure imports it in 214 files (repositories implementing the port ABCs). Application
+          code depends on concrete repositories (63 import edges) and on RepositoryFactory (10 modules).
+F3 [I]    Practical consequence of F1/F2: the architecture is layered DDD with a clean domain, but not
+          hexagonal on the application side — swapping a repository implementation means editing application
+          code or RepositoryFactory, not wiring a different adapter behind a port.
+F4 [G]    interfaces -> infrastructure: 1 edge, flask/api/controllers/backtest_controller.py imports
+          CompanyShareRepository directly (not covered by any import-linter contract).
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.02  Domain entities and value objects
+------------------------------------------------------------------------------------------------------------------
+F5 [G]    src/domain/entities: 355 files, 470 classes. src/domain/ports: 259 files, 286 classes.
+          Most-referenced domain types: DependencySpec (250 edges, 56 importing files), FactorValue (177),
+          CompanyShare (147, 60 importers), Factor (141), CompanyShareFactor (136), FactorDependency (135).
+F6 [G][S] One domain static cycle: entities/finance/holding/portfolio_holding.py <-> portfolio/portfolio.py.
+          portfolio.py imports PortfolioHolding only under `if TYPE_CHECKING:` [S] -> no runtime cycle.
+F7 [G][S] Parallel type hierarchies. 107 class names are defined in more than one src file (84 outside
+          project_managers). Core trading vocabulary exists in 3-4 copies:
+            Symbol (3)          misbuffet/algorithm/symbol.py, misbuffet/common/symbol.py,
+                                domain/entities/finance/back_testing/financial_assets/symbol.py
+            OrderStatus/OrderType (4)   misbuffet/algorithm/enums.py, misbuffet/common/enums.py,
+                                domain/.../back_testing/enums.py, domain/entities/finance/order/order.py
+            Order (4), Portfolio (4), SecurityType (4), Resolution (4), Slice (4), TradeBar (4), Tick (4),
+            QuoteBar (4), OrderDirection (4), OrderEvent (3), Security (3), SecurityHolding (3), OrderTicket (3)
+          Slice/TradeBar also exist in src/infrastructure/models/finance/back_testing/back_testing_data_types.py
+          (non-ORM data types inside the ORM models package).
+          Two Universe entities: domain/entities/backtest/universe.py and domain/entities/universe/universe.py.
+F8 [I]    F7 is the broad version of readiness item D8 (duplicate OrderStatus). The 4-copy families look like a
+          QuantConnect-style port (misbuffet/common + misbuffet/algorithm) alongside the original
+          domain/back_testing model; merging them is one refactoring theme, not many.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.03  Application services and orchestration
+------------------------------------------------------------------------------------------------------------------
+F9  [G]   src/application/services: 331 files, 746 classes; src/application/managers: 187 files, 107 classes.
+F10 [G][S] Largest application classes by method count: QCAlgorithm 82 (misbuffet/algorithm/base.py, 1461
+          lines), IBTWSClient 66 (1073 lines), FactorValueResolutionService 55 (2420 lines),
+          UnifiedPortfolioManager 45, InteractiveBrokersBroker 42, PerformanceAnalyzer 39, AlgorithmHandler 35,
+          PowerBuffetService 35.
+F11 [G]   DatabaseService (application/services/database_service) has 42 importing files and 126 edges: the
+          application-layer session/engine entry point used across services, controllers and tests.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.04  Infrastructure adapters, SQLAlchemy models, repositories, persistence
+------------------------------------------------------------------------------------------------------------------
+F12 [G]   infrastructure/models 104 files / 263 classes; infrastructure/repositories 577 files / 716 classes,
+          of which mappers 218 files / 269 classes.
+F13 [G][S] 78-file static import cycle inside src/infrastructure/models: models/__init__.py imports every model
+          (documented: "All models MUST be imported here") and each model imports ModelBase from the package
+          [S]. This is the usual SQLAlchemy declarative-registry pattern; benign while ModelBase is defined
+          before the imports in __init__.py.
+F14 [G][S] 4-file cycle among local_repo/finance repositories (portfolio <-> holding, order, transaction):
+          all edges are function-level imports [S] (e.g. portfolio_repository.py L258-L260 builds
+          TransactionRepository / OrderRepository / HoldingRepository inside a method).
+F15 [I]   F14 means repositories construct other repositories themselves — dependency wiring hidden inside
+          persistence code, outside RepositoryFactory.
+F16 [G]   Highest fan-in infrastructure files: models/factor/factor.py (149 importers),
+          local_repo/factor/base_factor_repository.py (112), mappers/factor/factor_value_mapper.py (107),
+          mappers/factor/base_factor_mapper.py (101), models/__init__.py (79).
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.05  RepositoryFactory and dependency injection
+------------------------------------------------------------------------------------------------------------------
+F17 [G][S] RepositoryFactory (infrastructure/repositories/repository_factory.py, 2137 lines) is the top god node:
+          220 methods, 501 non-structural edges, imports 269 files (268 repositories + 1 application module),
+          highest betweenness in the graph (0.092). create_local_repositories() alone has 250 edges,
+          create_ibkr_repositories() 168, get_local_repository() 138, get_ibkr_repository() 81.
+F18 [G][S] Its one application import is a lazy import of
+          application/services/misbuffet/brokers/broker_factory.create_interactive_brokers_broker (L989): the
+          persistence factory also builds the IBKR broker.
+F19 [G]   Imported by 10 application modules, src tests (~15 files), examples and root scripts.
+F20 [I]   RepositoryFactory is the de-facto DI container. Combined with F2 (no port consumption) and F15
+          (repositories building repositories), the composition root is spread over three places.
+          Splitting it by context (factor / finance / ibkr) is the obvious first decomposition.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.06  MarketDataService and MarketDataHistoryService
+------------------------------------------------------------------------------------------------------------------
+F21 [G]   misbuffet/data/market_data_service.py: imports EntityService, misbuffet common data_types, domain
+          factor/portfolio/universe entities and infrastructure FactorMapper; imported by 7 files
+          (misbuffet/algorithm 2, misbuffet/data 2, test_base_project, 2 tests).
+F22 [G][S] misbuffet/data/market_data_history_service.py: imports MarketDataService, Frontier, dto factor
+          batches, ibkr_repo/factor/what_to_show, and ORM FactorModel / FactorValueModel (lazy, L303-L304, on
+          the import-linter ignore list). Imported by 12 files including every STM / CSM project copy.
+F23 [I]   History service reaches ORM models directly for bulk reads: a performance shortcut that bypasses the
+          repository layer; a candidate for a dedicated read repository / query port.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.07  Misbuffet engine, brokers, orders, transactions, positions, portfolio
+------------------------------------------------------------------------------------------------------------------
+F24 [G]   Coupling between misbuffet sub-packages is mostly one-directional toward `common`
+          (data->common 37, engine->common 35, algorithm_factory->common 8, brokers->common 4).
+          Only two reverse pairs: launcher <-> engine (8 / 1) and package __init__ <-> engine (2 / 1).
+F25 [G]   live -> brokers 3, live -> algorithm 3; brokers -> algorithm 2. The live stack sits on top of
+          brokers + algorithm, as intended.
+F26 [G][S] Orders / positions / portfolio: see F7. The live path uses misbuffet/common + algorithm enums; the
+          persisted order status is domain/entities/finance/order/order.py (stored in orders.status).
+F27 [G]   Two application-side ORM shortcuts in this area (import-linter ignore list):
+          misbuffet/algorithm/trade_manager and misbuffet/algorithm/unified_portfolio_manager.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.08  Factor models, dependencies and factor value resolution
+------------------------------------------------------------------------------------------------------------------
+F28 [G]   The factor subsystem is the graph's centre of mass: 8 of the 10 god nodes are factor types
+          (FactorValueMapper 372, BaseFactorMapper 278, FactorModel 278, DependencySpec 250,
+          BaseFactorRepository 230, FactorMapper 193, FactorValue 177, FactorDependency 135).
+F29 [G][S] FactorMapper (mappers/factor/factor_mapper.py, 965 lines) imports 106 files; to_domain() has 144
+          if/elif branches [S] — the polymorphic dispatch that every new factor type must extend (matches
+          the existing "FactorMapper dispatch completeness" rule).
+F30 [G][S] FactorValueResolutionService (2420 lines, 55 methods) is imported by 19 files, including two
+          infrastructure repositories (local factor_value_repository L15, ibkr_factor_value_repository):
+          the resolution logic lives in application but persistence depends on it.
+F31 [G]   5 of the 8 infrastructure->application breaks are factor repositories importing application model
+          providers (implied_vol_ml, lgbm_momentum, spatio_temporal_momentum, cross_sectional_momentum) —
+          ML inference is invoked from inside repositories.
+F32 [G]   local_repo/factor/factor_repository_registry.py imports 34 files but is imported by one file only
+          (root example_individual_factor_repositories.py) [I: likely superseded by RepositoryFactory].
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.09  Project managers and research / backtesting workflows
+------------------------------------------------------------------------------------------------------------------
+F33 [G]   11 projects; no project imports another (only the shared project_manager.py base). Entry points:
+          src/main.py (7 project managers), Flask controllers (test_base_project, base_project config,
+          market_making_SPX_call_spread_project_v2 reporting/config), examples/.
+F34 [S]   Projects are copies, measured byte-for-byte by relative path:
+            spatio_temporal_momentum_project vs _10m        13 common, 6 identical
+            spatio_temporal_momentum_project vs _10m_live   10 common, 4 identical
+            spatio_temporal_momentum_project vs _full       13 common, 7 identical
+            cross_sectionnal_project vs _10m                13 common, 6 identical
+            market_making_SPX_call_spread_project vs _v2    18 common, 5 identical
+F35 [G]   8 of the 19 application->ORM breaks are in project_managers: backtesting/synthetic_demo.py (STM x3,
+          CSM x2) plus SPX base_project_algorithm, SPX v2 position_book, market_making data_loader.
+F36 [I]   Copy-per-variant keeps projects isolated (consistent with "only modify the requested project") at the
+          cost of fixes needing N edits; byte-identical files are the first candidates to move into shared
+          services if the owner wants less duplication.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.10  Flask interfaces and entry points
+------------------------------------------------------------------------------------------------------------------
+F37 [G]   src/interfaces: 21 files, 2 classes (blueprint/function style). app.py registers 8 web blueprints +
+          API routes; monitoring_app.py is a separate app on application/services/monitoring.
+F38 [G][S] 7-file static cycle: interfaces/flask/app.py -> api/routes -> backtest_controller ->
+          test_base_project_manager -> (lazy, L97) misbuffet/web/web_interface -> (lazy, L58)
+          interfaces.flask.app. Both closing edges are function-level imports [S], so it is not an import-time
+          failure, but it is the only application->interfaces dependency (import-linter ignore entry).
+F39 [G]   Controllers reach into project_managers directly (dashboard, backtest, spx_v2) rather than through an
+          application service; see F33.
+
+
+------------------------------------------------------------------------------------------------------------------
+P.05.11  Summary — key nodes, god objects, cycles, coupling, refactoring candidates
+------------------------------------------------------------------------------------------------------------------
+Key nodes [G]      RepositoryFactory, FactorValueMapper, BaseFactorMapper, FactorModel, DependencySpec,
+                   BaseFactorRepository, FactorMapper, FactorValue, DatabaseService, misbuffet common Symbol.
+God objects [G][S] RepositoryFactory (220 methods, 2137 lines), QCAlgorithm (82 / 1461), IBKRFactorValueRepository
+                   (75), IBTWSClient (66 / 1073), FactorValueResolutionService (55 / 2420), FactorMapper.to_domain
+                   (144 branches).
+Cycles [G][S]      4 static cycles; none fails at import time: ORM registry (by design, F13), repository
+                   cross-construction (lazy, F14), Flask <-> test_base_project (lazy, F38), domain portfolio /
+                   holding (TYPE_CHECKING only, F6).
+Coupling [G]       All cross-layer breaks are already on import-linter's known-debt lists (F1) plus one
+                   uncontracted interfaces -> infrastructure edge (F4).
+Unclear boundaries Ports unused by application (F2); 3-4 parallel trading type hierarchies (F7); ML inference
+  [G][I]           inside repositories (F31); resolution logic in application used by persistence (F30).
+Refactoring candidates, ordered by [I] leverage / risk (none started; each needs owner approval):
+  R1  Consolidate the order/symbol/security type families (extends D8): one Order*/Symbol/Security model.
+  R2  Split RepositoryFactory by bounded context and move broker creation out of it (F17, F18).
+  R3  Make application depend on domain ports for new code; inject repositories instead of letting
+      repositories build each other (F2, F14, F15).
+  R4  Move model-provider calls out of factor repositories into the resolution service (F31) and move
+      FactorValueResolutionService's persistence-facing part behind a port (F30) -> removes 6 of 8
+      infrastructure->application ignores.
+  R5  Replace the 144-branch FactorMapper.to_domain with a registry keyed by discriminator (F29).
+  R6  Shared helpers for byte-identical project files (F34) — only if the owner accepts touching shared code
+      for projects other than the one being worked on.
+  R7  Add an import-linter contract for interfaces -> infrastructure (F4) to stop new direct repository use.
