@@ -9,8 +9,10 @@ work while a session is running in another process: trading controls are read be
     ... ops enable "<reason>"               # this strategy back to normal (a global kill stays in force)
     ... ops unkill "<reason>"               # GLOBAL back to enabled
     ... ops resolve <discrepancy id> "<what was checked / done>"
+    ... ops adopt <exec id> "<why>"         # book an external execution into the strategy's book (session STOPPED)
 
 The author of every control and resolution is the OS user (STM_OPERATOR overrides it). Controls are append-only.
+`adopt` is the one command that writes to the book: run it only while no session is running.
 """
 
 import argparse
@@ -49,6 +51,53 @@ def status(factory, out=print) -> None:
             f"submission {o.submission_state.value} broker id {o.broker_order_id}")
 
 
+def _book_portfolios(factory, symbol: str):
+    """(portfolio_id, cash_portfolio_id) of the strategy's book: those of its latest order in `symbol`, else of its
+    latest order (every broker order of this database's live ledger belongs to the strategy)."""
+    orders = sorted((o for o in factory.broker_order_local_repo.get_all() if o.portfolio_id is not None
+                     and o.cash_portfolio_id is not None), key=lambda o: o.order_id)
+    same = [o for o in orders if o.symbol == symbol]
+    last = (same or orders or [None])[-1]
+    return (last.portfolio_id, last.cash_portfolio_id) if last else (None, None)
+
+
+def adopt(factory, exec_id: str, reason: str, portfolio_id=None, cash_portfolio_id=None, out=print) -> int:
+    """P.06.15: book an external execution (manual trade in TWS) as a fill of the strategy and resolve its
+    external_execution discrepancy; the position check then matches IBKR again."""
+    from src.application.services.misbuffet.algorithm.order_ledger import OrderLedger
+    from src.application.services.misbuffet.algorithm.trade_manager import TradeManager
+    from src.domain.entities.finance.order.discrepancy import DiscrepancyKind
+    ledger = OrderLedger(factory, TradeManager(factory))
+    ex = ledger.executions.get_by_exec_id(ledger.broker, exec_id)
+    if ex is None:
+        out(f"execution {exec_id} is not stored")
+        return 1
+    default_portfolio, default_cash = _book_portfolios(factory, ex.symbol)
+    portfolio_id = portfolio_id if portfolio_id is not None else default_portfolio
+    cash_portfolio_id = cash_portfolio_id if cash_portfolio_id is not None else default_cash
+    if portfolio_id is None or cash_portfolio_id is None:
+        out("no strategy order to take the book's portfolios from: pass --portfolio-id and --cash-portfolio-id")
+        return 1
+    who = f"{reason} ({_operator()})"
+    try:
+        bo = ledger.adopt(exec_id, portfolio_id, cash_portfolio_id, who)
+    except ValueError as e:
+        out(str(e))
+        return 1
+    out(f"execution {exec_id} {ex.side} {ex.quantity:g} {ex.symbol} @ {ex.price} adopted as order {bo.order_id} "
+        f"(portfolio {portfolio_id}, cash portfolio {cash_portfolio_id})")
+    for message in ledger.anomalies:
+        out(f"  warning: {message}")
+    repo = factory.trading_discrepancy_local_repo
+    d = repo.get_open_by_key(DiscrepancyKind.EXTERNAL_EXECUTION, exec_id)
+    if d is not None:
+        d.resolve(f"adopted into order {bo.order_id}: {who}", datetime.now(timezone.utc))
+        repo.update(d)
+        out(f"discrepancy {d.id} resolved")
+    out("a position_mismatch on this name resolves itself at the next start once book and IBKR agree")
+    return 0
+
+
 def main(argv=None, factory=None, out=print) -> int:
     parser = argparse.ArgumentParser(prog="ops", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -58,12 +107,19 @@ def main(argv=None, factory=None, out=print) -> int:
     resolve = sub.add_parser("resolve")
     resolve.add_argument("discrepancy_id", type=int)
     resolve.add_argument("resolution")
+    adopt_cmd = sub.add_parser("adopt")
+    adopt_cmd.add_argument("exec_id")
+    adopt_cmd.add_argument("reason")
+    adopt_cmd.add_argument("--portfolio-id", type=int)
+    adopt_cmd.add_argument("--cash-portfolio-id", type=int)
     args = parser.parse_args(argv)
 
     factory = factory or _factory()
     if args.command == "status":
         status(factory, out)
         return 0
+    if args.command == "adopt":
+        return adopt(factory, args.exec_id, args.reason, args.portfolio_id, args.cash_portfolio_id, out)
     if args.command == "resolve":
         repo = factory.trading_discrepancy_local_repo
         d = repo.get_by_id(args.discrepancy_id)

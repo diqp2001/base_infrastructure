@@ -277,6 +277,69 @@ class OrderLedger:
         bo = self.orders.get_by_order_id(ex.order_id) if ex.order_id is not None else None
         return self._book_commission(ex, bo, float(amount), event.get("currency"))
 
+    # -- adoption (P.06.15) ------------------------------------------------------------------------------------------
+    def adopt(self, exec_id: str, portfolio_id: int, cash_portfolio_id: int, reason: str) -> BrokerOrder:
+        """Adopt an external execution (e.g. a manual flatten in TWS) into the strategy's book, as if it were a fill
+        of our own order: the internal order it lacks is created (FILLED at the execution's quantity and price, perm
+        id kept) and the fill is booked — transaction, position, cash, and its USD commission — in ONE database
+        transaction with the execution row. Raises ValueError when it cannot be adopted; nothing is written then."""
+        if not reason or not reason.strip():
+            raise ValueError("an adoption needs a reason")
+        if self.trade_manager is None:
+            raise ValueError("no trade manager to book it")
+        ex = self.executions.get_by_exec_id(self.broker, str(exec_id))
+        if ex is None:
+            raise ValueError(f"execution {exec_id} is not stored")
+        if ex.order_id is not None or ex.booked:
+            raise ValueError(f"execution {exec_id} already belongs to order {ex.order_id} (booked: {ex.booked}) — "
+                             f"only an execution no internal order explains can be adopted")
+        tm, now = self.trade_manager, self._naive(self.clock())
+        book_commission = (ex.commission is not None and not ex.commission_booked
+                           and ex.commission_currency in (None, "", "USD"))
+        outcome: dict = {}
+
+        def write() -> bool:
+            holding_id = tm._resolve_holding_id(ex.symbol, portfolio_id, ex.executed_at)
+            account_id = tm._resolve_account_id(ex.executed_at)
+            if holding_id is None or account_id is None:
+                outcome["problem"] = f"cannot be booked (holding={holding_id}, account={account_id})"
+                return False
+            order = tm.order_repo._create_or_get(
+                external_order_id=f"{self.broker}:ADOPTED:{ex.exec_id}", portfolio_id=portfolio_id,
+                order_type="MARKET", side=ex.side, quantity=ex.quantity, created_at=ex.executed_at, status="FILLED",
+                symbol=ex.symbol, holding_id=holding_id, account_id=account_id, price=ex.price,
+                filled_quantity=ex.quantity, average_fill_price=ex.price)
+            if order is None:
+                outcome["problem"] = "the internal order could not be created"
+                return False
+            bo = self.orders.add(BrokerOrder(
+                order_id=order.id, broker=self.broker, symbol=ex.symbol, side=ex.side,
+                requested_quantity=ex.quantity, account=ex.account, portfolio_id=portfolio_id,
+                cash_portfolio_id=cash_portfolio_id, submission_state=SubmissionState.SUBMITTED,
+                perm_id=ex.perm_id, status="FILLED", filled_quantity=ex.quantity, remaining_quantity=0.0,
+                average_fill_price=ex.price, created_at=now, submitted_at=ex.executed_at, last_event_at=now,
+                message=f"adopted external execution {ex.exec_id}: {reason}"))
+            ex.order_id, ex.booked, ex.commission_booked = bo.order_id, True, book_commission
+            ex.notes = (f"{ex.notes}; " if ex.notes else "") + f"adopted into order {bo.order_id}: {reason}"
+            self.executions.update(ex)
+            if not tm.book_execution(order_id=bo.order_id, ticker=ex.symbol, signed_qty=ex.signed_quantity,
+                                     price=ex.price, portfolio_id=portfolio_id, cash_portfolio_id=cash_portfolio_id,
+                                     when=ex.executed_at, ref=ex.exec_id):
+                return False
+            if book_commission and not tm.book_commission(ex.commission, cash_portfolio_id, ex.executed_at):
+                return False
+            outcome["order"] = bo
+            return True
+
+        if not self._atomically(write):
+            ex.order_id, ex.booked, ex.commission_booked = None, False, False
+            raise ValueError(f"execution {exec_id} not adopted: "
+                             f"{outcome.get('problem', 'booking failed and was rolled back')}")
+        if ex.commission is not None and not book_commission and not ex.commission_booked:
+            self._anomaly(f"commission {ex.commission} {ex.commission_currency} on adopted {ex.exec_id}: "
+                          f"non-USD commission not booked")
+        return outcome["order"]
+
     # -- internals ---------------------------------------------------------------------------------------------------
     def _booking_problem(self, ex: Execution, bo: Optional[BrokerOrder]) -> Optional[str]:
         if bo is None:

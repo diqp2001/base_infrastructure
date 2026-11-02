@@ -231,6 +231,70 @@ def test_unexplained_executions_are_stored_unbooked_and_reported(live, case):
         assert ex.order_id is None and live.ledger.executions.get_unexplained() == [ex]
 
 
+# ── adoption of an external execution (P.06.15) ─────────────────────────────────────────────────────────────────
+
+def _own_fill_then_manual_sell(book):
+    send(book)
+    execution(book, "B1", 10, 100.0)
+    execution(book, "X1", 4, 110.0, side="SLD", order_id=0, perm_id=777)              # manual sell in TWS
+    commission(book, "X1", 1.0)                                                     # recorded, not booked
+    own = broker_order(book)
+    return own.portfolio_id, own.cash_portfolio_id
+
+
+def test_an_external_execution_is_adopted_once_with_its_commission(live):
+    portfolio_id, cash_portfolio_id = _own_fill_then_manual_sell(live)
+    assert (live.qty("AAPL"), live.cash()) == (10, pytest.approx(99_000.0))           # the book ignores it so far
+    bo = live.ledger.adopt("X1", portfolio_id, cash_portfolio_id, "manual flatten (philippe)")
+    assert (live.qty("AAPL"), live.cash()) == (6, pytest.approx(99_000.0 + 440.0 - 1.0))
+    assert (bo.side, bo.requested_quantity, bo.status, bo.perm_id, bo.average_fill_price) == ("SELL", 4, "FILLED",
+                                                                                              777, 110.0)
+    assert (bo.portfolio_id, bo.cash_portfolio_id) == (portfolio_id, cash_portfolio_id)
+    ex = live.ledger.executions.get_by_exec_id("IBKR", "X1")
+    assert (ex.order_id, ex.booked, ex.commission_booked) == (bo.order_id, True, True)
+    assert "manual flatten" in ex.notes and live.ledger.executions.get_unexplained() == []
+    with pytest.raises(ValueError, match="already belongs"):
+        live.ledger.adopt("X1", portfolio_id, cash_portfolio_id, "again")
+    assert live.qty("AAPL") == 6
+
+
+def test_only_a_stored_unexplained_execution_can_be_adopted(live):
+    portfolio_id, cash_portfolio_id = _own_fill_then_manual_sell(live)
+    for exec_id, message in (("B1", "already belongs"), ("NOPE", "not stored")):
+        with pytest.raises(ValueError, match=message):
+            live.ledger.adopt(exec_id, portfolio_id, cash_portfolio_id, "x")
+    with pytest.raises(ValueError, match="reason"):
+        live.ledger.adopt("X1", portfolio_id, cash_portfolio_id, " ")
+    assert live.ledger.executions.get_unexplained()[0].exec_id == "X1"
+
+
+def test_a_failed_adoption_writes_nothing(live):
+    portfolio_id, cash_portfolio_id = _own_fill_then_manual_sell(live)
+    orders_before = len(live.ledger.orders.get_all())
+    live.tm._update_position = Mock(side_effect=lambda *a: live.tm._step_failed("position: boom"))
+    with pytest.raises(ValueError, match="not adopted"):
+        live.ledger.adopt("X1", portfolio_id, cash_portfolio_id, "manual flatten")
+    ex = live.ledger.executions.get_by_exec_id("IBKR", "X1")
+    assert (ex.order_id, ex.booked, ex.commission_booked) == (None, False, False)
+    assert (len(live.ledger.orders.get_all()), live.cash()) == (orders_before, pytest.approx(99_000.0))
+
+
+def test_ops_adopt_books_the_execution_and_resolves_its_discrepancy(live, monkeypatch):
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live import ops
+    from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
+    monkeypatch.setenv("STM_OPERATOR", "philippe")
+    _own_fill_then_manual_sell(live)
+    repo = live.factory.trading_discrepancy_local_repo
+    d = repo.add(Discrepancy(kind=DiscrepancyKind.EXTERNAL_EXECUTION, key="X1", detail="manual sell", blocking=True,
+                             detected_at=datetime(2026, 10, 28, 16, 0)))
+    lines = []
+    assert ops.main(["adopt", "X1", "manual flatten in TWS"], factory=live.factory, out=lines.append) == 0
+    assert live.qty("AAPL") == 6 and repo.get_open() == []
+    assert "adopted into order" in repo.get_by_id(d.id).resolution and "philippe" in repo.get_by_id(d.id).resolution
+    assert ops.main(["adopt", "X1", "again"], factory=live.factory, out=lines.append) == 1
+    assert ops.main(["adopt", "NOPE", "x"], factory=live.factory, out=lines.append) == 1
+
+
 def test_a_failed_booking_rolls_back_the_execution_and_keeps_it_visible(live):
     send(live)
     live.tm._update_position = Mock(side_effect=lambda *a: live.tm._step_failed("position: boom"))

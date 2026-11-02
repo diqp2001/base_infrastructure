@@ -36,7 +36,7 @@ class OrderEvent:
     """Represents an order event (status change, fill, etc.)."""
     event_id: str = field(default_factory=lambda: str(uuid4()))
     order_id: str = ""
-    status: OrderStatus = OrderStatus.NEW
+    status: OrderStatus = OrderStatus.PENDING
     quantity: int = 0
     fill_price: Optional[Decimal] = None
     message: str = ""
@@ -59,7 +59,7 @@ class Order(ABC):
         self.direction = direction
         self.tag = tag or ""
         self.time = time or datetime.now(timezone.utc)
-        self.status = OrderStatus.NEW
+        self.status = OrderStatus.PENDING
         self.order_type = OrderType.MARKET  # Override in subclasses
         
         # Fill tracking
@@ -117,10 +117,10 @@ class Order(ABC):
     
     def cancel(self):
         """Cancel this order."""
-        if self.status in [OrderStatus.FILLED, OrderStatus.CANCELED]:
+        if self.status in [OrderStatus.FILLED, OrderStatus.CANCELLED]:
             raise ValueError(f"Cannot cancel order with status {self.status}")
         
-        self.status = OrderStatus.CANCELED
+        self.status = OrderStatus.CANCELLED
     
     @abstractmethod
     def clone(self) -> 'Order':
