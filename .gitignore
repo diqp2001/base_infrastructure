@@ -44,3 +44,6 @@ htmlcov/
 
 # Downloaded / imported factor return series (Kenneth R. French data library, user CSVs)
 data/factor_returns/
+
+# Graphify knowledge graph (local, regenerated with `graphify update .`; see docs/development/graphify_setup_checklist.txt)
+/graphify-out/

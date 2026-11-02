@@ -7,7 +7,7 @@ Purpose      : give the coding agent a queryable knowledge graph of the codebase
 Rules        : one phase at a time; stop for the owner's review after each phase. [x] only when verified.
                If interrupted, resume from the first [ ] task. Record decisions, versions, commands, results
                and blockers here.
-Last updated : 2026-11-02 (P.05 done, awaiting review before P.06)
+Last updated : 2026-11-02 (P.06 done, awaiting review before P.07)
 
 Legend: [ ] pending  [x] completed and verified  [~] in progress / partial  [!] blocked
 
@@ -227,13 +227,30 @@ P.05 — Repository-aware architecture analysis                                 
  [x] P.05.11 Summary + refactoring candidates R1-R7 in the findings file (none started; owner approval needed).
 
 ------------------------------------------------------------------------------------------------------------------
-P.06 — Agent workflow and graph maintenance                                            [ ] pending
+P.06 — Agent workflow and graph maintenance                                            [x] done 2026-11-02
 ------------------------------------------------------------------------------------------------------------------
- [ ] P.06.01 Documented commands: build / refresh, query, explain, path, report / HTML.
- [ ] P.06.02 Evaluate --update, watch mode, git hooks; choose a refresh policy.
- [ ] P.06.03 Staleness guard (graph built-at commit recorded; never treated as authoritative over source).
- [ ] P.06.04 Generated outputs kept out of src/; git tracking vs ignore decided deliberately.
- [ ] P.06.05 No CI cost / mandatory generation without justification.
+ [x] P.06.01 Commands documented in CLAUDE.md (graphify section + local policy): build/refresh
+             `graphify update .`; `graphify query`, `explain`, `path` (--undirected); GRAPH_REPORT.md; graph.html.
+ [x] P.06.02 Refresh policy = MANUAL `graphify update .` (as the official CLAUDE.md rule already says after
+             code changes). Measured: cold build ~130 s on 12 workers; warm no-change run 6 s (AST cache).
+             Rejected for now:
+               - `graphify hook install`: writes 4 git hooks (post-commit, post-checkout, post-merge,
+                 post-rewrite) + a merge driver, each launching a detached full/partial rebuild. The owner's
+                 stash -> checkout main -> merge -> checkout -> pop pattern would fire several rebuilds per merge,
+                 and free RAM was 2.8 / 15.9 GB at the time (SQL Server memory-stall history). No hooks exist in
+                 .git/hooks today; nothing installed.
+               - `graphify watch`: a long-running process, same memory concern.
+             Revisit if manual refresh is forgotten in practice.
+ [x] P.06.03 Staleness guards: GRAPH_REPORT "Built from commit" (compare with `git rev-parse HEAD`, rule added
+             to CLAUDE.md); hook-guard compares the target file's mtime with graph.json and softens its nudge
+             when the graph is older (graphify cli _run_hook_guard); local policy "source is authoritative".
+ [x] P.06.04 Outputs only in graphify-out/ at repo root (nothing under src/). Decision: NOT tracked.
+             .gitignore `/graphify-out/` (graph.json 46 MB rewritten whole per build, cache ~67 MB, derivable
+             in ~2 min). .dockerignore `graphify-out/` (Dockerfile does `COPY . .`).
+ [x] P.06.05 No CI job, no pre-commit/CI generation, no dependency added to requirements*.txt / pyproject.
+             Known limitation: the WSL / Docker clones have no graphify; Claude Code sessions there would show a
+             non-blocking hook error from the .claude/settings.json hook-guard hooks. Fix if needed: `uv tool
+             install graphifyy==0.9.100` in that clone.
 
 ------------------------------------------------------------------------------------------------------------------
 P.07 — Final verification and handoff                                                 [ ] pending
@@ -256,3 +273,4 @@ LOG
 2026-11-02  P.04 code-only offline graph: 1868 .py/.js files, 30816 nodes, 0 tokens; exclusions verified.
 2026-11-02  P.04 fix: anchored .graphifyignore folders (169 code files had been hidden); graph 2037 files.
 2026-11-02  P.05 architecture findings written (graph + lint-imports + source checks); no code changed.
+2026-11-02  P.06 manual refresh policy (no git hooks/watch/CI); graphify-out/ git- and docker-ignored; CLAUDE.md commands.

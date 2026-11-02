@@ -207,3 +207,7 @@ Rules:
 Local policy (base_infrastructure — setup and decisions in `docs/development/graphify_setup_checklist.txt`):
 - The graph is a navigation aid; the source is authoritative. Before relying on a graph answer for a change, confirm it in the file it points to. A graph built before your branch's latest commits may be stale.
 - Build and refresh with code-only, offline extraction (`graphify update .`). Do not run the full `/graphify .` skill pipeline on this repository (it sends docs to an LLM) without the owner's approval.
+- `graphify-out/` is local and git-ignored. If it is missing, build it with `graphify update .` (about 2 min cold, seconds when cached). Refresh is manual: no git hooks, watch mode or CI job. Scope is set by `.graphifyignore`: code only, with no data, docs, config or secrets.
+- Before trusting a graph answer, compare the "Built from commit" line in `graphify-out/GRAPH_REPORT.md` with `git rev-parse HEAD`.
+- Commands: `graphify query "<question>"`, `graphify explain "<Name>"`, `graphify path "<A>" "<B>"` (add `--undirected` if no directed path is found). `graphify-out/GRAPH_REPORT.md` lists god nodes, import cycles and communities. `graphify-out/graph.html` is an aggregated community view.
+- Architecture findings from the graph are in `docs/development/graphify_architecture_findings.txt`.

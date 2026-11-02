@@ -75,3 +75,6 @@ test_*.py
 # Configuration files with secrets
 .env
 secrets/
+
+# Graphify knowledge graph (local developer artifact)
+graphify-out/
