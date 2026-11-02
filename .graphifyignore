@@ -2,9 +2,9 @@
 # The graph is code-only and built offline. Everything below stays out of it, in addition to .gitignore.
 
 # Virtual environments, caches, build artifacts
-.venv/
-venv/
-env/
+/.venv/
+/venv/
+/env/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -15,24 +15,25 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
-build/
-dist/
+/build/
+/dist/
 *.egg-info/
 node_modules/
 
 # Graphify's own output
-graphify-out/
+/graphify-out/
 
-# Data, market history, run outputs, model weights
-data/
-downloads/
-cache/
-results/
-reports/
-weights/
-mlruns/
-.mlruns/
-mlartifacts/
+# Data, market history, run outputs, model weights.
+# Top-level folders are anchored with '/': src/ has code packages named data/ and results/.
+/data/
+/downloads/
+/cache/
+/results/
+/reports/
+/weights/
+/mlruns/
+/.mlruns/
+/mlartifacts/
 *.csv
 *.parquet
 *.feather
@@ -86,11 +87,14 @@ secrets/
 .vscode/
 .devcontainer/
 .github/
-docker/
-docs/
-z_notes/
+/docker/
+/docs/
+/z_notes/
 *.log
 *.md
 *.rst
 *.txt
 output.txt
+
+# Code packages that an unanchored .gitignore line ('results/') would otherwise hide from the graph
+!src/application/services/misbuffet/results/

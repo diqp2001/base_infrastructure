@@ -7,7 +7,7 @@ Purpose      : give the coding agent a queryable knowledge graph of the codebase
 Rules        : one phase at a time; stop for the owner's review after each phase. [x] only when verified.
                If interrupted, resume from the first [ ] task. Record decisions, versions, commands, results
                and blockers here.
-Last updated : 2026-11-02 (P.04 done, awaiting review before P.05)
+Last updated : 2026-11-02 (P.05 done, awaiting review before P.06)
 
 Legend: [ ] pending  [x] completed and verified  [~] in progress / partial  [!] blocked
 
@@ -172,19 +172,24 @@ P.04 — Generate the initial knowledge graph                                   
              *.mdf, *.ldf, *.dump, *.sql); .env, .env.*, secrets/, .monitor/, *credentials*, keys/certs;
              config formats graphify treats as code (*.json, *.yaml, *.yml, *.toml, *.tf); .claude/, .vscode/,
              .devcontainer/, .github/, docker/, docs/, z_notes/; docs (*.md, *.rst, *.txt), *.log.
+             CORRECTION (found in P.05): the first version used unanchored folder patterns, so `data/` and
+             `results/` also hid code packages (src/application/services/data/, misbuffet/data/, project data/
+             folders, misbuffet/results/): 169 tracked .py files were missing. Fixed: top-level folders are
+             anchored (/data/, /results/, ...) and `!src/application/services/misbuffet/results/` re-includes
+             the package that .gitignore's unanchored `results/` also hides.
  [x] P.04.02 Built with: GRAPHIFY_BACKEND=none GRAPHIFY_QUERY_LOG_DISABLE=1, no API keys in env,
              `graphify update .` (AST-only path, "no LLM needed"). ~130 s, 12 workers.
              GRAPH_REPORT: "Token cost: 0 input · 0 output". Community names are hub-node names (heuristic);
              .graphify_labels.json is {} (no LLM labelling).
              First build also indexed 86 Markdown files (local heading structure, no LLM); *.md/*.rst/*.txt were
              then added to .graphifyignore and the graph rebuilt, to keep the docs default of P.04.04.
- [x] P.04.03 Final graph: 1868 source files = 1867 .py + 1 .js; src/ 1695, tests/ 159, examples/ 5, 9 root
-             scripts. Audit script over every node source_file: 0 hits for excluded dirs, .env, credentials,
+ [x] P.04.03 Graph after the fix: 2037 files = every tracked .py/.js except z_notes/ (6, excluded on purpose);
+             0 untracked files in the graph. (Before the fix: 1868 files; that figure was wrong.) Audit script over every node source_file: 0 hits for excluded dirs, .env, credentials,
              .json/.yaml/.sql/.csv/.pkl/.db/.bak/.toml; 0 absolute paths. 35 .py files yield no symbols (empty
              __init__ etc.); 8 unclassified (Dockerfile, .css, .ui, dotfiles) not in graph.
  [x] P.04.04 Decision (default kept): SQL scripts, config (JSON/YAML/TOML), docs and notes are NOT indexed.
              ORM schema IS covered as Python (src/infrastructure/models). Revisit only with owner approval.
- [x] P.04.05 Outputs in graphify-out/: graph.json 46.0 MB (30816 nodes, 69131 edges, 1001 communities,
+ [x] P.04.05 Outputs in graphify-out/: graph.json (33439 nodes, 77230 edges, 1100 communities,
              built_at_commit 6c488df9), GRAPH_REPORT.md 113 KB, graph.html 1.4 MB (aggregated community view:
              >5000 nodes), manifest.json 0.47 MB, cache/ ~67 MB. Queries work: `graphify explain PreTradeGate`
              -> pre_trade_gate.py L26 and live_stack.py L254 call, both confirmed in source.
@@ -195,21 +200,31 @@ P.04 — Generate the initial knowledge graph                                   
              restart (manual runs used %USERPROFILE%/.local/bin/graphify.exe).
 
 ------------------------------------------------------------------------------------------------------------------
-P.05 — Repository-aware architecture analysis                                          [ ] pending
+P.05 — Repository-aware architecture analysis                                          [x] done 2026-11-02
 ------------------------------------------------------------------------------------------------------------------
- [ ] P.05.01 DDD / hexagonal boundaries (compare with import-linter contracts).
- [ ] P.05.02 Domain entities and value objects.
- [ ] P.05.03 Application services and orchestration.
- [ ] P.05.04 Infrastructure adapters, SQLAlchemy models, repositories, persistence.
- [ ] P.05.05 RepositoryFactory and dependency injection.
- [ ] P.05.06 MarketDataService and MarketDataHistoryService.
- [ ] P.05.07 Misbuffet engine, brokers, orders, transactions, positions, portfolio.
- [ ] P.05.08 Factor models, dependencies and factor value resolution.
- [ ] P.05.09 Project managers and research / backtesting workflows.
- [ ] P.05.10 Flask interfaces and entry points.
- [ ] P.05.11 Findings: key nodes, god objects, cycles, cross-layer coupling, unclear boundaries, refactoring
-             candidates — graph-extracted facts kept separate from inferences; every claim backed by graph or
-             source evidence.
+ Findings: docs/development/graphify_architecture_findings.txt (F1-F39, R1-R7), each tagged [G] graph fact,
+ [S] confirmed in source, [I] inference. Analysis = read-only scripts over graph.json + lint-imports; no code
+ changed, nothing sent externally.
+ [x] P.05.01 Boundaries: domain clean; graph breaks == import-linter ignore lists (19 app->ORM modules,
+             8 infra->app, 1 app->interfaces); lint-imports 4 kept / 0 broken. Application imports domain.ports
+             in 0 files (ports only implemented by infrastructure). 1 uncontracted interfaces->infrastructure edge.
+ [x] P.05.02 Domain: 355 entity files / 470 classes; 107 class names defined in >1 file; Order/OrderStatus/
+             Symbol/Portfolio/Slice... in 3-4 parallel copies (wider form of D8).
+ [x] P.05.03 Application: largest classes QCAlgorithm 82 methods, IBTWSClient 66, FactorValueResolutionService
+             55 (2420 lines); DatabaseService imported by 42 files.
+ [x] P.05.04 Infrastructure: ORM registry cycle (78 files, by design); 4 repositories build each other via
+             lazy imports.
+ [x] P.05.05 RepositoryFactory: 220 methods, 2137 lines, imports 269 files, top betweenness; also builds the
+             IBKR broker (lazy import of broker_factory).
+ [x] P.05.06 MarketDataHistoryService imports ORM models directly (lazy); used by every STM/CSM copy.
+ [x] P.05.07 Misbuffet sub-packages depend one-way on `common`; only launcher<->engine is two-way.
+ [x] P.05.08 Factor subsystem = 8 of 10 god nodes; FactorMapper.to_domain 144 branches; 5 factor repositories
+             call application ML model providers; persistence imports FactorValueResolutionService.
+ [x] P.05.09 11 projects, none imports another; copies measured byte-for-byte (e.g. STM vs _full 7/13
+             identical files).
+ [x] P.05.10 Flask: 21 files, blueprint style; static cycle app -> routes -> backtest_controller ->
+             test_base_project -> web_interface -> app (closing edges are lazy imports).
+ [x] P.05.11 Summary + refactoring candidates R1-R7 in the findings file (none started; owner approval needed).
 
 ------------------------------------------------------------------------------------------------------------------
 P.06 — Agent workflow and graph maintenance                                            [ ] pending
@@ -239,3 +254,5 @@ LOG
 2026-11-02  P.02 uv 0.13.6 + graphifyy 0.9.100 installed as an isolated uv tool; project deps untouched.
 2026-11-02  P.03 Claude Code project skill + CLAUDE.md section + nudge-only PreToolUse hooks; local policy added.
 2026-11-02  P.04 code-only offline graph: 1868 .py/.js files, 30816 nodes, 0 tokens; exclusions verified.
+2026-11-02  P.04 fix: anchored .graphifyignore folders (169 code files had been hidden); graph 2037 files.
+2026-11-02  P.05 architecture findings written (graph + lint-imports + source checks); no code changed.
