@@ -7,7 +7,7 @@ Purpose      : give the coding agent a queryable knowledge graph of the codebase
 Rules        : one phase at a time; stop for the owner's review after each phase. [x] only when verified.
                If interrupted, resume from the first [ ] task. Record decisions, versions, commands, results
                and blockers here.
-Last updated : 2026-11-02 (P.06 done, awaiting review before P.07)
+Last updated : 2026-11-02 (P.07 done — setup complete)
 
 Legend: [ ] pending  [x] completed and verified  [~] in progress / partial  [!] blocked
 
@@ -253,16 +253,63 @@ P.06 — Agent workflow and graph maintenance                                   
              install graphifyy==0.9.100` in that clone.
 
 ------------------------------------------------------------------------------------------------------------------
-P.07 — Final verification and handoff                                                 [ ] pending
+P.07 — Final verification and handoff                                                 [x] done 2026-11-02
 ------------------------------------------------------------------------------------------------------------------
- [ ] P.07.01 Graphify installation verified.
- [ ] P.07.02 Agent integration verified.
- [ ] P.07.03 Graph generation and artifact integrity verified.
- [ ] P.07.04 Representative queries against real components.
- [ ] P.07.05 Usage instructions discoverable by the agent.
- [ ] P.07.06 Git changes reviewed (no unintended changes, no sensitive data).
- [ ] P.07.07 Checklist complete.
- [ ] P.07.08 Handoff: commands, version, config files, artifact locations, refresh, limitations, improvements.
+ [x] P.07.01 Install: `graphify --version` -> graphifyy v0.9.100; `uv tool list` -> graphifyy v0.9.100
+             (graphify, graphify-mcp); not in the project .venv (`pip show graphifyy` -> not found); no mention in
+             requirements*.txt / pyproject.toml. Skill .graphify_version = 0.9.100 (matches CLI).
+ [x] P.07.02 Agent: .claude/settings.json hooks parse as JSON. Piped sample tool calls: Grep in repo ->
+             additionalContext nudge, exit 0; Read in repo -> nudge, exit 0; Grep outside repo -> silent, exit 0.
+             The `graphify` skill is listed among the session's available skills.
+ [x] P.07.03 Artifacts: graph.json parses; 33439 nodes, 77230 edges, 2037 files = all tracked .py/.js minus
+             z_notes/; 0 excluded-path / secret / config / doc files; 0 untracked files; 0 absolute paths;
+             GRAPH_REPORT "Token cost: 0 input · 0 output". built_at_commit 6c488df9: later commits on this
+             branch changed no code, so the graph is current for src/ and tests/.
+ [x] P.07.04 Queries (each checked in source):
+               - `graphify path RepositoryFactory create_interactive_brokers_broker` -> 2 hops via
+                 .create_ibkr_client(); repository_factory.py L978 / L989 / L1001.
+               - `graphify explain PreTradeGate` -> pre_trade_gate.py L26, built in live_stack.py L254.
+               - `graphify explain MarketDataHistoryService` -> L13, ORM FactorModel use L311, 53 connections.
+               - `graphify query "PreTradeGate LiveStack InteractiveBrokersBroker"` -> correct start nodes.
+             Limitation found: a plain-English query ("how is an IBKR order checked before it is sent") is
+             keyword-matched and starts from unrelated nodes (missed PreTradeGate). Use symbol names, or
+             explain/path, for precise answers.
+ [x] P.07.05 Discoverability: root CLAUDE.md "graphify" section + local policy (commands, refresh, staleness,
+             findings pointer); .claude/CLAUDE.md -> skill; nudge hooks; this checklist.
+ [x] P.07.06 Branch diff main...HEAD: 18 files, all graphify setup/docs (.claude/, .graphifyignore, .gitignore,
+             .dockerignore, CLAUDE.md, docs/development/graphify_*). Scan for passwords/keys/tokens/account ids/
+             host names: only upstream skill text describing env-var names (no values). Personal data: local
+             install paths in P.02 only. Not committed: graphify-out/ (ignored), the owner's own
+             src/main.py and comprehensive_market_data_examples.py edits. No application code changed.
+ [x] P.07.07 Checklist complete: P.01-P.07 [x].
+ [x] P.07.08 Handoff — see HANDOFF below.
+
+------------------------------------------------------------------------------------------------------------------
+HANDOFF
+------------------------------------------------------------------------------------------------------------------
+Version      graphifyy 0.9.100 (PyPI, Apache-2.0), installed with `uv tool install graphifyy==0.9.100`
+             (uv 0.13.6, user-wide). Upgrade: `uv tool upgrade graphifyy`, then `graphify install --project`
+             to refresh .claude/skills/graphify, and review its diff (it rewrites CLAUDE.md / settings.json).
+Config       .graphifyignore            scope (code only; anchored top-level data/result folders)
+             .claude/settings.json      PreToolUse hook-guard hooks (nudge only)
+             .claude/skills/graphify/   agent skill;  .claude/CLAUDE.md -> skill
+             CLAUDE.md                  rules + local policy;  .gitignore / .dockerignore -> graphify-out/
+Artifacts    graphify-out/graph.json, GRAPH_REPORT.md, graph.html, manifest.json, cache/ (local, git-ignored)
+Build        `graphify update .`  (AST only, offline; ~130 s cold, seconds warm). Safe env for a guaranteed
+             offline run: GRAPHIFY_BACKEND=none, GRAPHIFY_QUERY_LOG_DISABLE=1, no GEMINI/GOOGLE key set.
+Use          graphify explain "<Class>" | graphify path "<A>" "<B>" [--undirected] |
+             graphify query "<symbol names>" [--budget N]; GRAPH_REPORT.md for god nodes / cycles.
+Refresh      manual after code changes; compare "Built from commit" with `git rev-parse HEAD`.
+Limitations  - Static graph: lazy and TYPE_CHECKING imports count as edges; INFERRED edges are name-based.
+             - Plain-English query is keyword-based; prefer symbol names.
+             - Docs, SQL, config not indexed (owner decision P.04.04).
+             - WSL / Docker clones lack graphify: hooks show a non-blocking error there until installed.
+             - graph.html is an aggregated community view (>5000 nodes) and loads vis-network from unpkg.
+             - The query log (~/.cache/graphify-queries.log) is on unless GRAPHIFY_QUERY_LOG_DISABLE=1.
+Improvements - Act on findings R1-R7 (docs/development/graphify_architecture_findings.txt), owner approval each.
+             - Add import-linter contract interfaces -> infrastructure (R7) — cheap, prevents new drift.
+             - Reconsider git hooks if manual refresh is forgotten (P.06.02).
+             - Optional: index SQL/config locally if schema questions become frequent (needs approval).
 
 ------------------------------------------------------------------------------------------------------------------
 LOG
@@ -274,3 +321,4 @@ LOG
 2026-11-02  P.04 fix: anchored .graphifyignore folders (169 code files had been hidden); graph 2037 files.
 2026-11-02  P.05 architecture findings written (graph + lint-imports + source checks); no code changed.
 2026-11-02  P.06 manual refresh policy (no git hooks/watch/CI); graphify-out/ git- and docker-ignored; CLAUDE.md commands.
+2026-11-02  P.07 verification + handoff; all phases complete. Branch feature/graphify-setup not merged.
