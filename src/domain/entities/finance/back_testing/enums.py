@@ -5,6 +5,10 @@ Pure domain entities following DDD principles.
 from enum import Enum, auto
 from typing import Any
 
+# One order-status model (D8 / BI-021): the back-testing entities use the persisted domain enum
+# (orders.status). Re-exported here so existing imports keep working.
+from src.domain.entities.finance.order.order import OrderStatus  # noqa: F401  (re-export)
+
 
 class Resolution(Enum):
     """Represents the resolution of market data."""
@@ -55,18 +59,6 @@ class OrderType(Enum):
     STOP_LIMIT = "stop_limit"
     MARKET_ON_OPEN = "market_on_open"
     MARKET_ON_CLOSE = "market_on_close"
-
-
-class OrderStatus(Enum):
-    """Represents the status of an order."""
-    NEW = "new"
-    SUBMITTED = "submitted"
-    PARTIALLY_FILLED = "partially_filled"
-    FILLED = "filled"
-    CANCELED = "canceled"
-    INVALID = "invalid"
-    REJECTED = "rejected"
-    NONE = "none"
 
 
 class OrderDirection(Enum):

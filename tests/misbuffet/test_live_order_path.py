@@ -335,6 +335,15 @@ class OrderStateRuleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             advances("SUBMITTED", 0, "HALF_DONE", 1)
 
+    def test_one_domain_order_status_model(self):
+        """D8: the back-testing entities use the persisted domain enum (orders.status), not a lower-case copy."""
+        from src.domain.entities.finance.back_testing.enums import OrderStatus as BackTestingStatus
+        from src.domain.entities.finance.back_testing.orders import OrderEvent
+        from src.domain.entities.finance.order.order import OrderStatus as PersistedStatus
+        self.assertIs(BackTestingStatus, PersistedStatus)
+        self.assertIs(OrderEvent().status, PersistedStatus.PENDING)
+        self.assertEqual(OrderEvent(status=PersistedStatus.FILLED).status.name, "FILLED")   # name stored in orders.status
+
 
 class TWSOrderIdTest(unittest.TestCase):
 
