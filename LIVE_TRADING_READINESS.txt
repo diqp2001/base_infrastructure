@@ -27,6 +27,14 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    marketDataType 1, real-time bid/ask/last, shortable ticks 46/89, 10-min bars current. PAPER login:
                    still 354 -> remaining step: Client Portal > Paper Trading Account > share real-time market data
                    with the paper account (one session at a time). Script: scratchpad b2_realtime_check.py.
+                   2026-11-02 16:47 ET, PAPER login DUR314497 (read-only, no order): sharing active — marketDataType 1,
+                   real-time bid/ask/last, ticks 46/89, current 10-min bars. Our pipeline then refused every price:
+                   IBTWSClient routed notice 2176 ("fractional share size rules ... trimmed", sent by the paper TWS) as a
+                   market-data error -> NOT_ENTITLED. Fixed: every notice (21xx, 10167; history_result.is_warning) is
+                   ignored for subscriptions (test_streaming_market_data). After the fix the prices are entitled and
+                   judged on content (after the close: 5/25 executable, the rest refused on spread > 50 bps — correct).
+                   Remaining: in-hours run of b2_pipeline_check (expect 25/25), then switch the STM live copy off
+                   paper_bar_prices (gate on streaming quotes) — owner go.
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
 Next actionable  : TO DO, in order:
@@ -504,7 +512,10 @@ Dependencies  P.02–P.05.
              (90002..90901), answers to any other id ignored. Test: test_trading_controls (late end of a cancelled
              snapshot). Same session: order 15544 (MTB, cancelled at the previous shutdown before any ack) closed by
              start-up recovery as CANCELLED, 0 filled; position check matched. Remaining risk: reqPositions has no
-             request id (same pattern possible for back-to-back position snapshots).
+             request id (same pattern possible for back-to-back position snapshots). RESOLVED 2026-11-02: positions
+             snapshots use reqPositionsMulti(account) with their own request ids (91002..), account refresh on its own
+             id (89001, cancelled before re-asking). Verified on paper DUR314497 (read-only): 3 snapshots of 18 rows
+             identical with reqPositions refreshes and account summaries interleaved; account values complete.
  [x] P.06.12 One full paper session 09:40–15:50 with the STM 10m live copy (morning retrain, every decision, end-of-
              day shutdown), then a restart the next morning on the same book.
              2026-10-30 on DUR314497, 11:00–15:50 (launched late: the TWS API came up at ~10:59): recovery OK at
@@ -659,3 +670,5 @@ SESSION LOG
             shared with the paper login.
 2026-11-02  D8 resolved: back-testing OrderStatus = persisted domain enum (no migration); P.03.03 done.
 2026-11-02  P.06.15 ops adopt implemented + SQLite tests; paper case pending.
+2026-11-02  Paper (read-only): positions-snapshot request ids verified + merged; B2 sharing active on paper;
+            notice 2176 no longer refuses quotes (fix + test). In-hours pipeline check pending.

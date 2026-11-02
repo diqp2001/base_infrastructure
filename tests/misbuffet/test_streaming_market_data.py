@@ -205,6 +205,9 @@ def test_the_ibkr_client_records_state_errors_receipt_and_trade_times():
     assert c.market_data[5]["last_trade_time"] == datetime.fromtimestamp(1793000000, tz=timezone.utc)
     c.error(5, 10167, "Displaying delayed market data")                   # a notice, not an error
     assert 5 not in c.market_data_errors
+    c.error(5, 2176, "Warning: Your API version does not support fractional share size rules. Please upgrade to a "
+                     "minimum version 163. Trimmed value 2824535.203603 to 2824535")   # paper login, B2
+    assert 5 not in c.market_data_errors
     c.error(5, 354, "Requested market data is not subscribed")
     assert c.market_data_errors[5][0] == 354
     c.error(777, 354, "not a market-data request")                        # other requests are untouched
