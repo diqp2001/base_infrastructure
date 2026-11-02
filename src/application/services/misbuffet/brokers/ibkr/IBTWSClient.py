@@ -17,6 +17,9 @@ CONNECTIVITY_LOST, CONNECTIVITY_RESTORED_DATA_LOST, CONNECTIVITY_RESTORED = 1100
 CONNECTIVITY_CODES = (CONNECTIVITY_LOST, CONNECTIVITY_RESTORED_DATA_LOST, CONNECTIVITY_RESTORED)
 ACCOUNT_SUMMARY_FIRST_REQ_ID = 90_002         # reqAccountSummary ids: 90_002 .. 90_901, one per snapshot
 ACCOUNT_SUMMARY_REQ_IDS = 900
+ACCOUNT_UPDATES_REQ_ID = 89_001               # request_account_summary (broker's account refresh): one subscription
+POSITIONS_FIRST_REQ_ID = 91_002               # reqPositionsMulti ids: 91_002 .. 91_901, one per positions snapshot
+POSITIONS_REQ_IDS = 900
 
 
 class IBTWSClient(EWrapper, EClient):
@@ -71,6 +74,9 @@ class IBTWSClient(EWrapper, EClient):
         self._executions_end_event = threading.Event()
         self._snapshot_lock = threading.Lock()
         self._positions_collecting = False
+        self._positions_req_id: Optional[int] = None                # the positions snapshot being collected
+        self._positions_next_id = POSITIONS_FIRST_REQ_ID
+        self._account_updates_active = False
         self._open_orders_collecting = False
         self._positions_end_event = threading.Event()
         self._open_orders_end_event = threading.Event()
@@ -292,18 +298,29 @@ class IBTWSClient(EWrapper, EClient):
         else:
             self.positions.append(position_data)
 
-        with self._snapshot_lock:
-            if self._positions_collecting:
-                self.positions_snapshot.append({
-                    **position_data,
-                    'conId': getattr(contract, 'conId', None),
-                    'localSymbol': getattr(contract, 'localSymbol', ''),
-                    'currency': getattr(contract, 'currency', ''),
-                })
-
     def positionEnd(self):
-        """End of the reqPositions initial list."""
+        """End of the reqPositions list (request_positions: the broker's own position refresh, not a snapshot)."""
+
+    def positionMulti(self, reqId: int, account: str, modelCode: str, contract: Contract, pos: float,
+                      avgCost: float):
+        """A row of a positions snapshot (reqPositionsMulti). Rows of any other request are ignored."""
         with self._snapshot_lock:
+            if not self._positions_collecting or reqId != self._positions_req_id:
+                return
+            self.positions_snapshot.append({
+                'account': account, 'symbol': contract.symbol, 'secType': contract.secType,
+                'exchange': contract.exchange, 'position': pos, 'avgCost': avgCost,
+                'conId': getattr(contract, 'conId', None),
+                'localSymbol': getattr(contract, 'localSymbol', ''),
+                'currency': getattr(contract, 'currency', ''),
+            })
+
+    def positionMultiEnd(self, reqId: int):
+        """End of a positions snapshot. The end of an earlier, timed-out request must not complete the current one
+        (same race as the account snapshots, P.06.11)."""
+        with self._snapshot_lock:
+            if reqId != self._positions_req_id:
+                return
             self._positions_collecting = False
         self._positions_end_event.set()
 
@@ -746,7 +763,13 @@ class IBTWSClient(EWrapper, EClient):
         group_name = "All"
         
         tags = "TotalCashValue,NetLiquidation,BuyingPower,DayTradesRemaining"
-        self.reqAccountSummary(1, group_name, tags)
+        # one subscription with its own id: re-requesting an active id (it was 1, never cancelled) is refused by TWS
+        # and shared ids let its answers mix with other requests
+        with self._snapshot_lock:
+            if self._account_updates_active:
+                self.cancelAccountSummary(ACCOUNT_UPDATES_REQ_ID)
+            self._account_updates_active = True
+        self.reqAccountSummary(ACCOUNT_UPDATES_REQ_ID, group_name, tags)
         self.logger.info(f"Requesting account summary with groupName: {group_name}")
 
     def request_account_values_snapshot(self, timeout: float = 10.0, req_id: Optional[int] = None,
@@ -784,24 +807,30 @@ class IBTWSClient(EWrapper, EClient):
 
         self.reqPositions()
 
-    def request_positions_snapshot(self, timeout: float = 10.0) -> bool:
-        """Fresh list of all positions into ``positions_snapshot``. True when positionEnd arrived in time."""
+    def request_positions_snapshot(self, timeout: float = 10.0, account: str = "") -> bool:
+        """Fresh list of the positions of ``account`` ("" = every managed account) into ``positions_snapshot``.
+        True when the end arrived in time. Each snapshot is its own reqPositionsMulti with its own request id: rows
+        of the broker's position refresh (reqPositions) or of an earlier snapshot never land in this one."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
         with self._snapshot_lock:
+            req_id = self._positions_next_id
+            self._positions_next_id = POSITIONS_FIRST_REQ_ID + (req_id - POSITIONS_FIRST_REQ_ID + 1) % POSITIONS_REQ_IDS
+            self._positions_req_id = req_id
             self.positions_snapshot = []
             self._positions_collecting = True
-        self._positions_end_event.clear()
-        self.reqPositions()
+            self._positions_end_event.clear()
+        self.reqPositionsMulti(req_id, account or "", "")
         complete = self._positions_end_event.wait(timeout)
         try:
-            self.cancelPositions()
+            self.cancelPositionsMulti(req_id)
         except Exception as e:
-            self.logger.warning(f"cancelPositions failed: {e}")
+            self.logger.warning(f"cancelPositionsMulti failed: {e}")
         with self._snapshot_lock:
             self._positions_collecting = False
+            self._positions_req_id = None
         if not complete:
-            self.logger.error(f"positionEnd not received within {timeout}s")
+            self.logger.error(f"positions end not received within {timeout}s")
         return complete
 
     def request_open_orders_snapshot(self, timeout: float = 10.0) -> bool:
