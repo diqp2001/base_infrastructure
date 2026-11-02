@@ -154,10 +154,11 @@ class IBTWSClient(EWrapper, EClient):
             self.historical_data_errors[reqId] = (errorCode, errorString)
             done.set()
         # P.02: an error for a market-data request belongs to that subscription (entitlement 354 / 10089 / 10090 /
-        # 10091 / 10168 / 10197, no security definition 200 ...); 10167 only says delayed data is displayed
+        # 10091 / 10168 / 10197, no security definition 200 ...); notices (21xx, 10167) do not refuse the data —
+        # e.g. 2176 "fractional share size rules ... trimmed" arrives on the paper login with real-time quotes (B2)
         if reqId in getattr(self, "market_data_subscriptions", ()) or reqId in getattr(self, "market_data", {}) \
                 or reqId in getattr(self, "tick_by_tick", {}):
-            if errorCode not in (2104, 2106, 2158, 10167, 2119):
+            if not is_warning(errorCode):
                 self.market_data_errors[reqId] = (errorCode, errorString)
         # P.06: an error for an order this client sent is an order event (e.g. 321 API read-only, 201 rejected):
         # the order ledger decides whether it rejects the order
