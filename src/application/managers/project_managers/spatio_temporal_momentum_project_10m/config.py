@@ -145,7 +145,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # P.08.04 backtest fills with costs, as a live market order: buy at the ASK, sell at the BID of the decision bar
     # (stored IBKR BID / ASK 10-minute bars, imported with the TRADES bars), plus IBKR commission. A trade without a
     # bid / ask at most max_quote_age_minutes older than the decision bar is not filled. Commission: IBKR Fixed
-    # pricing for US stocks (0.005 USD / share, min 1.00, max 1 % of trade value) — owner to confirm the plan.
+    # pricing for US stocks (0.005 USD / share, min 1.00, max 1 % of trade value). The owner's account is on IBKR's
+    # default, never changed; the paper fills of 2026-11-03 match Fixed: 1 BAC @ 49.91 -> 0.50 (the 1 % cap + fees),
+    # 300 F -> 1.5009 (0.005 / share).
     'execution_costs': {
         'fill': 'bid_ask',
         'max_quote_age_minutes': 10,

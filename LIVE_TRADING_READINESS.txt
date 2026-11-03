@@ -7,16 +7,16 @@ Last updated     : 2026-11-03
 Current phase    : P.06 / P.07 — paper trading of STM_10M_BANKS on DUR314497; live pilot waiting on owner decisions.
                    P.08 (new 2026-11-03) — engine gaps outside the live order path, from the audit in
                    docs/roadmap/misbuffet_gap_analysis.md.
-Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 2/14 done, 3 in progress (01, 02, 04). P.03 10/11 (P.03.04 order modification: cancel +
+Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 3/14 done, 2 in progress (01, 04). P.03 10/11 (P.03.04 order modification: cancel +
                    resend only). P.06 14/15 (P.06.13 first paper cash comparison at the 2026-11-04 start). P.07 7/8
                    (P.07.08 owner figures for live).
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 69 · in progress 6 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
+Task counts      : completed 70 · in progress 5 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
 Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
-                   2. Owner: start SQL Server Agent as administrator (P.08.02); subscribe to the ntfy topic
-                      (P.08.01); confirm the IBKR commission plan (P.08.04); P.07.08 live figures.
+                   2. Owner: subscribe to the ntfy topic (P.08.01); TWS API back up for the bid / ask backtest
+                      (P.08.04); P.07.08 live figures.
                    3. One STM 10m backtest with bid / ask fills (P.08.04, needs TWS API up); P.08.07 / P.08.08.
 Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
                    [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
@@ -687,7 +687,7 @@ Scope         backtesting and research, the engine beyond one live session, hist
              Remaining: owner subscribes in the ntfy app (topic in .env.windows) and confirms the test push; first
              paper session exercises start / end. Not covered: a hard kill of the process or the machine (no
              watchdog — P.08.06).
- [~] P.08.02 HIGH  Scheduled database backup + restore drill (GA-F2). Today: manual COPY_ONLY before schema changes.
+ [x] P.08.02 HIGH  Scheduled database backup + restore drill (GA-F2). Today: manual COPY_ONLY before schema changes.
              Needs: owner chooses schedule / retention (base_infra is the books' source of truth).
              Acceptance: nightly full + scheduled differential or log backups with CHECKSUM; one restore of the
              latest backup onto base_infra_test documented with its time and row counts; RUNBOOK section.
@@ -703,6 +703,8 @@ Scope         backtesting and research, the engine beyond one live session, hist
              Tests: test_backup_status (3). [!] Remaining: SQLSERVERAGENT is stopped / Manual and this session has
              no admin rights — owner runs, as administrator: Set-Service SQLSERVERAGENT -StartupType Automatic;
              Start-Service SQLSERVERAGENT. Until then the jobs do not run (ops status will show a stale log backup).
+             2026-11-03 14:09: owner approved the UAC prompt; SQLSERVERAGENT Running / Automatic. The Agent ran the
+             log job itself (sp_start_job: succeeded, executed as NT SERVICE\SQLSERVERAGENT). DONE.
  [x] P.08.03 HIGH  Corporate actions in stored prices (GA-A5). Bars are get-or-create (entity_service.py:317): after
              a split, old (unadjusted) and new (adjusted) bars mix in one series -> a false -50 % return reaches
              features, retraining and a live decision. data_normalization.py exists but is not wired.
@@ -731,7 +733,8 @@ Scope         backtesting and research, the engine beyond one live session, hist
              BID / ASK closes of the bar closed at the decision, through the frontier, max age 10 min, else no fill);
              TradeManager.fill_model (backtest only) books fill + commission in ONE transaction;
              UnifiedPortfolioManager.attach_fill_model. STM 10m: config execution_costs (IBKR Fixed 0.005 / share,
-             min 1.00, max 1 % — owner to confirm the plan; the answer given was about data fees), preload and updater
+             min 1.00, max 1 % — confirmed: owner never changed IBKR's default plan, and the paper commissions match
+             Fixed: 1 BAC @ 49.91 -> 0.5021 = 1 % cap + fees, 300 F -> 1.5009 = 0.005 / share), preload and updater
              import TRADES + BID + ASK. Found and fixed on the way: with BID / ASK series stored, three close readers
              (STMFrontierPriceReader panel, STMPriceHistoryReader, FactorValueResolutionService) would have read a BID
              or ASK close as the price -> QUOTE_SIDE_WHAT_TO_SHOW excluded unless named. IBKR check (read-only): JPM
@@ -835,3 +838,4 @@ SESSION LOG
             bid / ask backtest fills implemented and tested; remaining owner steps: SQL Agent start, ntfy
             subscription, commission plan.
 2026-11-03  P.08.05 single-instance lock for the STM live session done. Bid / ask backtest waits for the TWS API.
+2026-11-03  SQL Server Agent started (owner approved UAC): P.08.02 done. Commission plan = IBKR Fixed (paper fills).
