@@ -50,6 +50,8 @@ the controls before every order).
 | paper_bar_prices | False | real-time quotes verified on paper (B2, 2026-11-03); True prices on bars (paper only, refused on live) |
 | limits | order ≤ 1 000 sh / 5 000 USD, position ≤ 2 000 sh, account gross ≤ 31 250 USD, quote age ≤ 60 s | 1 800 s if `paper_bar_prices` is turned back on |
 | TRADING_CAPITAL | 25 000 USD | cash of the book; weights are sized on it, not on the IBKR account |
+| split_guard | tolerance 0.03 | P.08.03: a ticker whose loaded closes contain a split-ratio jump is not eligible (stm_split_guard) |
+| NTFY_TOPIC (env / `.env.windows`) | — | P.08.01: critical alerts and session start / end / crash pushed via ntfy; `ops notify-test` |
 | max_orders | 60 per 60 s | one rebalance may send an order per bank + liquidations |
 
 ## Kept apart from the 10m backtest

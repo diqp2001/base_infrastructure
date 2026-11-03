@@ -56,6 +56,7 @@ class LiveRunner(BaseBacktestRunner):
         algorithm.progress_tracker = getattr(self, "progress_tracker", None)
         algorithm.project_config = self.config
         algorithm.live_stack_factory = self.build_stack
+        algorithm.alert_notifier = getattr(self, "alert_notifier", None)
         algorithm.set_trainer(self.model_trainer)
         algorithm.set_entity_service(self.model_trainer.data_loader.financial_asset_service)
         self.algorithm_instance = algorithm

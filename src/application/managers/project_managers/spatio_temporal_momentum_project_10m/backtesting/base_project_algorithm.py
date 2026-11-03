@@ -59,6 +59,20 @@ class Algorithm(BaseProjectAlgorithm):
             )
         else:
             self.warning("No trainer / entity service injected — Spatio-Temporal Momentum cycle disabled")
+        if self.cycle is not None and self._unified_portfolio_manager and self.config.get('execution_costs'):
+            self._unified_portfolio_manager.attach_fill_model(self.fill_model(self.config['execution_costs']))
+
+    def fill_model(self, costs):
+        """P.08.04: buy at the stored ASK, sell at the stored BID of the decision bar, plus IBKR commission."""
+        from datetime import timedelta
+
+        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
+        from src.application.services.misbuffet.algorithm.fill_model import BidAskFillModel, StoredBidAskQuotes
+        minutes = self.cycle.config.bar_minutes
+        quotes = StoredBidAskQuotes(self._market_data_history_service, self.cycle.ticker_to_entity,
+                                    frequency=frequency(minutes), bar_minutes=minutes,
+                                    max_age=timedelta(minutes=costs['max_quote_age_minutes']))
+        return BidAskFillModel.from_config(costs, quotes)
 
     def on_data(self, data):
         try:

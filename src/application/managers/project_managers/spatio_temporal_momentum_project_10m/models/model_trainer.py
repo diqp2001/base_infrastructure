@@ -26,6 +26,7 @@ from src.application.managers.project_managers.spatio_temporal_momentum_project_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_model_provider import (
     SpatioTemporalMomentumModelProvider,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_split_guard import SplitGuardConfig
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_trading_cycle import (
     STMTradingCycle,
 )
@@ -56,8 +57,8 @@ class STMModelTrainer(BaseModelTrainer):
         (BacktestDataPreloadService): the engine and the cycle then find the bars locally and do not call IBKR
         during the run. Coverage per series -> <results_dir>/preload.csv."""
         service = BacktestDataPreloadService(market_data_service, log=log or self.logger.info)
-        series = [PreloadSeries(CompanyShare, t, "TRADES", self.config["bar_size_setting"])
-                  for t in self.stm_config.universe.tickers]
+        series = [PreloadSeries(CompanyShare, t, what_to_show, self.config["bar_size_setting"])
+                  for t in self.stm_config.universe.tickers for what_to_show in self.what_to_show()]
         results = service.preload(series, start=self.config["price_history_start"], end=self.config["backtest_end"])
         try:
             os.makedirs(self.config["results_dir"], exist_ok=True)
@@ -66,6 +67,11 @@ class STMModelTrainer(BaseModelTrainer):
             self.logger.warning(f"Could not write the preload report: {e}")
         updater.mark_imported()                       # the history is there: no second full import at bar 1
         return results
+
+    def what_to_show(self):
+        """IBKR bar types imported: TRADES (the prices the model reads), + BID / ASK for bid / ask fills (P.08.04)."""
+        costs = self.config.get("execution_costs") or {}
+        return ("TRADES", "BID", "ASK") if costs.get("fill") == "bid_ask" else ("TRADES",)
 
     def build_cycle(self, market_data_service, history_service, factory,
                     log=None) -> STMTradingCycle:
@@ -81,7 +87,7 @@ class STMModelTrainer(BaseModelTrainer):
             )
         updater = BarHistoryUpdater(market_data_service, self.stm_config.universe.tickers, history_start,
                                     bar_size_setting=self.config["bar_size_setting"],
-                                    bar_minutes=self.stm_config.bar_minutes)
+                                    bar_minutes=self.stm_config.bar_minutes, what_to_show=self.what_to_show())
         ticker_to_entity = updater.ensure_entities()
         if self.config.get("preload_data", False):
             self.preload(market_data_service, updater, log=log)
@@ -104,4 +110,5 @@ class STMModelTrainer(BaseModelTrainer):
             universe_id=getattr(universe, "id", None),
             gross_cap=self.config.get("gross_exposure_cap", 1.0),
             log=log or self.logger.info,
+            split_guard=SplitGuardConfig.from_config(self.config.get("split_guard")),
         )

@@ -160,12 +160,18 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
         timings_csv = os.path.join(self.results_dir, TIMINGS_FILE)
         if os.path.exists(timings_csv):
             os.remove(timings_csv)
+        notifier = self.alert_notifier()
+        self.runner.alert_notifier = notifier
         broker = self.connect_broker()
         try:
             self.progress.phase("live session (train / score / trade on each closed bar)")
+            if notifier is not None:
+                notifier.event("session started", f"decisions {start:%Y-%m-%d %H:%M} .. {end:%H:%M}")
             self.results = self.runner.run_live(config, broker, self.clock)
         except BaseException as e:
             self.progress.fail(repr(e))
+            if notifier is not None:
+                notifier.event("session CRASHED", repr(e)[:500], priority="urgent")
             raise
         finally:
             summary = summarise_step_timings(timings_csv)
@@ -176,8 +182,28 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
         self.progress.log(f"[live] ended: {self.results['reason']}, {self.results['decisions']} decision(s), "
                           f"{len(self.results['skipped_steps'])} step(s) skipped; still open: "
                           f"{(self.results['shutdown'] or {}).get('open_orders')}")
+        if notifier is not None:
+            notifier.event("session ended", f"{self.results['reason']}, {self.results['decisions']} decision(s)")
         self.progress.complete()
         return self.results
+
+    def alert_notifier(self):
+        """P.08.01: ntfy notifier over this database's trading state; None (logged) when NTFY_TOPIC is not set."""
+        from src.application.services.monitoring.alert_notifier import AlertNotifier, sender_from_env
+        sender = sender_from_env()
+        if sender is None:
+            self.logger.warning("NTFY_TOPIC not set: critical alerts are NOT pushed (dashboard only)")
+            return None
+        live = self.config['live']
+        mode = "paper" if str(live['account']).startswith("D") else "LIVE"
+
+        def state():
+            from src.infrastructure.repositories.local_repo.monitoring.monitoring_read_repository import (
+                MonitoringReadRepository,
+            )
+            factory = self.runner.algorithm_instance.repository_factory
+            return MonitoringReadRepository(factory.session.get_bind()).trading_state()
+        return AlertNotifier(sender, source=f"{live['strategy']} {mode}", state=state)
 
     def stop(self, reason: str = "stop requested") -> None:
         """Ends the run before its next step (from another thread, e.g. a dashboard or a signal handler)."""

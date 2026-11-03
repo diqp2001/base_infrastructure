@@ -9,7 +9,9 @@ step(now):
   3. read closes THROUGH THE FRONTIER — only bars closed at ``now``
   4. decision session = last session with a known close
   5. eligible assets = active universe constituents with enough history
-     known at the session (never judged on their future history)
+     known at the session (never judged on their future history); with a
+     split guard, assets whose known closes contain a split-like jump are not
+     eligible (stm_split_guard, P.08.03)
   6. retrain when due (every ``retrain_every_days``) or when the model's
      assets are no longer all eligible: train on data known at the session,
      validation = the latest ``val_days``; the new model is used from the
@@ -77,7 +79,8 @@ class STMTradingCycle:
                  retrain_every_days: int = 365, data_updater: Optional[Callable] = None,
                  universe_service=None, universe_id: Optional[int] = None,
                  gross_cap: Optional[float] = 1.0, persist: bool = True,
-                 log: Optional[Callable[[str], None]] = None, missing_asset_patience: int = 0):
+                 log: Optional[Callable[[str], None]] = None, missing_asset_patience: int = 0,
+                 split_guard=None):
         self.factory = factory
         self.config = config
         self.history_service = history_service
@@ -95,6 +98,9 @@ class STMTradingCycle:
         self.missing_asset_patience = int(missing_asset_patience)
         self._missing_steps = 0
         self._missing_note = ""
+        # P.08.03: SplitGuardConfig or None; tickers excluded for a split-like jump -> SplitJump (reported once)
+        self.split_guard = split_guard
+        self.split_excluded: Dict[str, object] = {}
 
         from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
         self.reader = STMFrontierPriceReader(history_service, frequency=frequency(config.bar_minutes),
@@ -124,6 +130,17 @@ class STMTradingCycle:
                 continue                                             # no close today (e.g. delisted)
             if int(col.notna().sum()) >= required:
                 eligible.append(ticker)
+        if self.split_guard is not None and eligible:
+            from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_split_guard import (
+                split_like_jumps,
+            )
+            jumps = split_like_jumps(closes.loc[:session], self.split_guard, tickers=eligible)
+            for ticker, jump in jumps.items():
+                if self.split_excluded.get(ticker) != jump:
+                    self.log(f"SPLIT GUARD: split-like jump {jump.describe()}: {ticker} is not eligible until its "
+                             f"price series is re-imported")
+            self.split_excluded = dict(jumps)
+            eligible = [t for t in eligible if t not in jumps]
         return eligible
 
     def _required_rows(self) -> int:

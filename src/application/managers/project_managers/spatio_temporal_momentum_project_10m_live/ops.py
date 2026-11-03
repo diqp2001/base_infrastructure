@@ -11,6 +11,7 @@ work while a session is running in another process: trading controls are read be
     ... ops resolve <discrepancy id> "<what was checked / done>"
     ... ops adopt <exec id> "<why>"         # book an external execution into the strategy's book (session STOPPED)
     ... ops cash-book <amount> "<why>"      # book a cash_drift by hand: + credit, - debit (session STOPPED)
+    ... ops notify-test                     # send a test push to the ntfy topic (NTFY_TOPIC) — the phone setup check
 
 The author of every control and resolution is the OS user (STM_OPERATOR overrides it). Controls are append-only.
 `adopt` and `cash-book` write to the book: run them only while no session is running.
@@ -54,6 +55,12 @@ def status(factory, out=print) -> None:
     if snap is not None:
         out(f"  cash {snap.taken_at:%Y-%m-%d %H:%M} UTC: IBKR {snap.broker_cash:,.2f}, book {snap.book_cash:,.2f} "
             f"{snap.currency} — {snap.note}")
+    from src.infrastructure.database.backup_status import backup_alerts, last_backups
+    backups = last_backups(factory.session)
+    if backups is not None:                                  # P.08.02
+        out(f"  backups of {backups['database']}: full {backups['full'] or 'none'}, log {backups['log'] or 'none'}")
+        for message in backup_alerts(backups, datetime.now()):
+            out(f"  BACKUP ALERT: {message}")
 
 
 def _book_portfolios(factory, symbol: str):
@@ -120,6 +127,19 @@ def cash_book(factory, amount: float, reason: str, out=print) -> int:
     return 0
 
 
+def notify_test(out=print, sender=None) -> int:
+    """P.08.01: one test push, so the owner sees the ntfy subscription works before a session needs it."""
+    from src.application.services.monitoring.alert_notifier import sender_from_env
+    sender = sender or sender_from_env()
+    if sender is None:
+        out("NTFY_TOPIC is not set (environment or .env.windows): alerts are not pushed")
+        return 1
+    ok = sender.send(f"{project_config.LIVE['strategy']}: test", "Alert delivery works (ops notify-test).",
+                     priority="default")
+    out("test push sent" if ok else "test push FAILED (see the log)")
+    return 0 if ok else 1
+
+
 def main(argv=None, factory=None, out=print) -> int:
     parser = argparse.ArgumentParser(prog="ops", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -137,7 +157,10 @@ def main(argv=None, factory=None, out=print) -> int:
     cash_cmd = sub.add_parser("cash-book")
     cash_cmd.add_argument("amount", type=float)
     cash_cmd.add_argument("reason")
+    sub.add_parser("notify-test")
     args = parser.parse_args(argv)
+    if args.command == "notify-test":
+        return notify_test(out)
 
     factory = factory or _factory()
     if args.command == "status":

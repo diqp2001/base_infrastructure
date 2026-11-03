@@ -171,6 +171,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     'pretrain_before_first_decision': True,
     'missing_asset_patience': 3,
 
+    # P.08.03: a ticker whose known closes contain a split-like jump (stored and newly imported bars on
+    # different scales after a split) is not eligible until its series is re-imported
+    'split_guard': {'tolerance': 0.03},
+
     # Factors created through Misbuffet BaseModelTrainer.create_factors
     'factors': _feature_factor_configs(),
 

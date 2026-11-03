@@ -18,8 +18,13 @@ so `ops kill` / `ops reduce-only` take effect from the next order without restar
 2. **SQL Server** `base_infra` up.
 3. **Dashboard**: `python -m src.interfaces.flask.app`, then open `http://127.0.0.1:5000/monitor/trading` (orders,
    executions, controls, alerts) and `http://127.0.0.1:5000/stm/?project=10m_live` (decisions, timings).
-4. `ops status` must show `trading: ENABLED`, no BLOCKING discrepancy, no open order.
-5. Optional, no orders: `SpatioTemporalMomentum10mLiveProjectManager().check()` — connects, resumes the book, runs
+4. `ops status` must show `trading: ENABLED`, no BLOCKING discrepancy, no open order, and no `BACKUP ALERT`
+   (backups: `docs/operations/BACKUPS.md`).
+5. **Alerts on the phone** (P.08.01): the ntfy app subscribed to the topic `NTFY_TOPIC` of `.env.windows`. A session
+   pushes its start, end and crash, and every new critical alert (trading disabled, blocking discrepancy, order
+   submission UNKNOWN / INTENT, split guard, stale backup) once. Without `NTFY_TOPIC` the session logs a warning and
+   alerts stay on the dashboard. Check the phone setup with `ops notify-test`.
+6. Optional, no orders: `SpatioTemporalMomentum10mLiveProjectManager().check()` — connects, resumes the book, runs
    start-up recovery.
 
 ## 2. Start the session (09:20 – 09:30)
@@ -82,6 +87,13 @@ The running session re-checks IBKR before its next order. Typical cases:
     `ops resolve <id> "<what was booked>"`;
   * deposit / withdrawal (not strategy money): `ops resolve <id> "<why>"` only;
   * a trade the book missed: it shows as a `position_mismatch` too — see above.
+* `split guard` (critical alert, P.08.03): a bank's stored 10-minute closes contain a jump of a split ratio (2:1,
+  3:2, 1:10 ...). It usually means a stock split: IBKR serves history adjusted to the new scale while the stored bars
+  keep the old one. That ticker is not traded and the model is retrained without it. Check the split in TWS / the news,
+  then re-import the ticker's bars: with the session STOPPED and after a COPY_ONLY backup, delete that ticker's
+  stored 10-minute `close/open/high/low/volume` factor values and let the next start's preload import them again. A
+  real crash of that size is excluded too (the safe side); it becomes eligible again once the jump leaves the loaded
+  history.
 
 ## 5. Stopping
 

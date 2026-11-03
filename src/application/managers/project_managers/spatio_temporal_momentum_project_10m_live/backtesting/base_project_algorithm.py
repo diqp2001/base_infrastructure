@@ -52,6 +52,7 @@ class Algorithm(BaseProjectAlgorithm):
         self.connection_guard = None          # LiveConnectionGuard, set by the runner (reconnect + rebuild, P.04.07)
         self.shortable: Optional[ShortableInventory] = None       # set by the runner (config live.shortable_check)
         self._last_bars: Dict[str, tuple] = {}                    # ticker -> (close, bar close time) known at the step
+        self.alert_notifier = None            # AlertNotifier, set by the runner (P.08.01: critical alerts -> ntfy)
 
     def initialize(self):
         super().initialize()
@@ -108,6 +109,8 @@ class Algorithm(BaseProjectAlgorithm):
             stack = self.connection_guard.check(self.live_stack)
             if stack is not None:
                 self.live_stack = stack
+        if self.alert_notifier is not None:
+            self.alert_notifier.check(extra=self.extra_alerts())
         if self.cycle is None or self.cycle.data_updater is None:
             return
         status = self.cycle.data_updater(step_time)
@@ -116,6 +119,21 @@ class Algorithm(BaseProjectAlgorithm):
             self.logger.warning(f"{step_time}: new bar not imported for {failed}")
         preloaded_coverage.extend(step_time)
         self._last_bars = self.latest_closed_bars(step_time)
+
+    def extra_alerts(self) -> List[str]:
+        """Critical conditions beyond the order path's: tickers the split guard excluded (P.08.03), a missing or
+        stale backup of the books database (P.08.02)."""
+        excluded = getattr(self.cycle, "split_excluded", None) or {}
+        alerts = [f"split guard: {jump.describe()} - not traded until its price series is re-imported"
+                  for jump in excluded.values()]
+        factory = getattr(self, "repository_factory", None)
+        if factory is not None:
+            from src.infrastructure.database.backup_status import backup_alerts, last_backups
+            try:
+                alerts += backup_alerts(last_backups(factory.session), datetime.now())
+            except Exception as e:
+                alerts.append(f"backup status unreadable: {e!r}"[:300])
+        return alerts
 
     def latest_closed_bars(self, step_time) -> Dict[str, tuple]:
         """{ticker: (close, bar close time)} of the newest bar stored and closed at ``step_time``, read through the

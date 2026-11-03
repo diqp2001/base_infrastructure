@@ -136,6 +136,9 @@ TRADES_ONLY_FIELDS = frozenset({"volume", "barCount", "wap"})          # IBKR re
 # never read in place of a price — only when a dependency names that subgroup explicitly
 NON_PRICE_WHAT_TO_SHOW = frozenset({D.OPTION_IMPLIED_VOLATILITY.value, D.HISTORICAL_VOLATILITY.value,
                                     D.REBATE_RATE.value, D.FEE_RATE.value, D.SCHEDULE.value})
+# one side of the book (P.08.04: bid / ask backtest fills): prices, but never read in place of a close / mark —
+# only when a reader names that subgroup explicitly
+QUOTE_SIDE_WHAT_TO_SHOW = frozenset({D.BID.value, D.ASK.value, D.BID_ASK.value})
 
 
 def is_what_to_show(subgroup: Optional[str]) -> bool:
