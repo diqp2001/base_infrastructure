@@ -90,6 +90,21 @@ def test_new_limits_net_concentration_buying_power_and_unusable_prices():
     assert [r.reason for r in results if not r.passed] == ["no usable price for AAPL (delayed)"]
 
 
+def test_above_an_exposure_limit_only_orders_that_reduce_it_pass():
+    """Prices moved or a limit was lowered: the account is already over it. De-risking must still be possible."""
+    price = PriceSnapshot(100.0, NOW)
+    short = AccountSnapshot(cash=1e9, positions={"AAPL": -300, "MSFT": 50}, gross_exposure=35_000,
+                            net_exposure=-25_000, net_liquidation=50_000)        # 100 % short of 25 000
+    limits = RiskLimits(max_net_exposure=12_500, max_gross_exposure=31_250, max_concentration=0.25,
+                        max_quote_age_seconds=None, require_cash=False)
+    assert _fails(check_order(OrderIntent("AAPL", 100), price, short, limits, NOW)) == set()    # covers: all reduce
+    every_limit = {"max_net_exposure", "max_gross_exposure", "max_concentration"}
+    assert _fails(check_order(OrderIntent("AAPL", -1), price, short, limits, NOW)) == every_limit   # adds: refused
+    # crosses to +400: |net| 45 000 > 25 000, gross 45 000 > 35 000
+    assert _fails(check_order(OrderIntent("AAPL", 700), price, short, limits, NOW)) == every_limit
+    assert _fails(check_order(OrderIntent("MSFT", -50), price, short, limits, NOW)) == {"max_net_exposure"}
+
+
 # ── gate ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 class FakeControls:

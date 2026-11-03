@@ -98,6 +98,9 @@ LIVE: Dict[str, Any] = {
         max_order_notional=5_000.0,
         max_position_quantity=2_000,
         max_gross_exposure=1.25 * TRADING_CAPITAL,     # whole IBKR account, all positions
+        # owner 2026-11-02: cap net exposure (the first paper decision was 100 % short); orders that would push
+        # |net| beyond it are refused, orders that bring it back are always allowed
+        max_net_exposure=0.5 * TRADING_CAPITAL,
         max_concentration=None,
         max_quote_age_seconds=1_800,                   # paper bars; use 60 with real-time quotes
         require_cash=True,

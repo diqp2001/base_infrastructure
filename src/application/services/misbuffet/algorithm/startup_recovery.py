@@ -22,6 +22,8 @@ connection_listeners; ``ensure`` re-runs it lazily). All broker requests are REA
                          POSITION_MISMATCH, blocking; mismatches recorded earlier and now matching are resolved
     6. verdict           trading allowed only when the broker lists were complete and no BLOCKING discrepancy is open
                          (including unresolved ones from earlier runs — the owner resolves those: ``resolve``)
+    7. cash              after a successful run, once per day: CashReconciler compares the broker's cash change with
+                         the books' and books the financing (CASH_DRIFT above its threshold, never blocking)
 
 Nothing is overwritten silently: every automatic change is a recorded discrepancy with its resolution.
 """
@@ -67,6 +69,7 @@ class RecoveryReport:
     new_discrepancies: List[Discrepancy] = field(default_factory=list)
     resolved_discrepancies: List[Discrepancy] = field(default_factory=list)
     blocking: List[Discrepancy] = field(default_factory=list)          # open blocking discrepancies after the run
+    cash: Optional[str] = None                                         # CashReconciler summary (step 7)
     error: Optional[str] = None
 
     def summary(self) -> str:
@@ -77,6 +80,8 @@ class RecoveryReport:
                  f"{len(self.orders_closed)} closed", f"{len(self.new_discrepancies)} new discrepancy(ies)"]
         if self.blocking:
             parts.append("blocking: " + "; ".join(f"{d.kind.value} {d.key}" for d in self.blocking))
+        if self.cash:
+            parts.append(self.cash)
         return f"{head}: " + ", ".join(parts)
 
 
@@ -84,7 +89,7 @@ class StartupRecovery:
 
     def __init__(self, client, ledger, discrepancies, reconciler=None,
                  managed_tickers: Optional[Callable[[], Iterable[str]]] = None, timeout: float = 10.0,
-                 clock: Callable[[], datetime] = _utcnow, logger=None):
+                 clock: Callable[[], datetime] = _utcnow, logger=None, cash_reconciler=None):
         """
         Args:
             client:          IBTWSClient-like: is_connected, request_open_orders_snapshot / open_orders_snapshot,
@@ -93,11 +98,13 @@ class StartupRecovery:
             discrepancies:   DiscrepancyPort (RepositoryFactory.trading_discrepancy_local_repo)
             reconciler:      PositionReconciler (positions strategy vs broker); None skips step 5
             managed_tickers: instruments the strategy manages (default: the reconciler's)
+            cash_reconciler: CashReconciler (step 7); None skips it
         """
         self.client = client
         self.ledger = ledger
         self.discrepancies = discrepancies
         self.reconciler = reconciler
+        self.cash_reconciler = cash_reconciler
         self.managed_tickers = managed_tickers or (reconciler.managed_tickers if reconciler is not None else None)
         self.timeout = timeout
         self.clock = clock
@@ -152,6 +159,10 @@ class StartupRecovery:
             report.finished_at = self._now()
             report.blocking = [d for d in self.discrepancies.get_open() if d.blocking] if report.error is None else []
             report.ok = report.error is None and report.lists_complete and not report.blocking
+            if report.ok and self.cash_reconciler is not None:          # the books are trustworthy: compare cash
+                check = self.cash_reconciler.check(
+                    lambda kind, key, detail, blocking: self._record(report, kind, key, detail, blocking))
+                report.cash = check.summary()
             self.last_report = report
             self._valid = report.error is None and report.lists_complete
             (self.logger.info if report.ok else self.logger.critical)(report.summary())

@@ -179,6 +179,7 @@ def test_the_stack_is_built_for_the_configured_paper_account(monkeypatch):
     assert (broker, upm, factory) == ("BROKER", "UPM", "FACTORY")
     assert cfg.account == "DUR314497" and cfg.strategy == "STM_10M_BANKS" and cfg.paper_bar_prices
     assert cfg.limits.max_order_notional == 5_000.0
+    assert cfg.limits.max_net_exposure == 12_500.0                     # P.07.08: net exposure capped at half
     stack.subscribe.assert_not_called()                     # paper: no quotes, the gate prices on bars
     assert built.call_args.kwargs["bar_prices"] == "BARS"     # ... the bars the step imported, not new IBKR requests
     assert algorithm.shortable is not None

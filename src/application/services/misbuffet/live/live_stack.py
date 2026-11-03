@@ -12,6 +12,9 @@ Wired:
     order ledger (P.03)       OrderLedger listening to the client; UPM.attach_order_ledger
     reconciler                PositionReconciler over IBKRSnapshotProvider(account); UPM.attach_reconciler
     recovery (P.04)           StartupRecovery; UPM.attach_startup_recovery
+    cash (P.04.04 / P.06.13)  CashReconciler run by the recovery once a day: broker vs book cash change, financing
+                              booked up to cash_drift_threshold, CASH_DRIFT above it (the account trades only this
+                              strategy); cash_drift_threshold=None disables it
     pre-trade gate (P.05)     controls (trading_controls) + OrderThrottle (working orders from the ledger) + limits,
                               IBKRAccountProvider; broker.attach_risk_gate
 
@@ -32,6 +35,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Iterable, Optional
 
+from src.application.services.misbuffet.algorithm.cash_reconciler import CashReconciler
 from src.application.services.misbuffet.algorithm.order_ledger import OrderLedger
 from src.application.services.misbuffet.algorithm.position_reconciler import IBKRSnapshotProvider
 from src.application.services.misbuffet.algorithm.startup_recovery import StartupRecovery
@@ -61,6 +65,7 @@ class LiveStackConfig:
     order_window_seconds: float = 60.0
     duplicate_seconds: Optional[float] = 30.0
     reconcile_max_age_seconds: float = 60.0
+    cash_drift_threshold: Optional[float] = 250.0       # largest daily cash difference booked as financing; None: off
     broker_timeout: float = 10.0
     instrument_for: Callable[[str], str] = lambda symbol: f"STK:{symbol}"
 
@@ -240,8 +245,16 @@ def build_live_stack(broker, portfolio_manager, repository_factory, config: Live
     reconciler = portfolio_manager.attach_reconciler(
         IBKRSnapshotProvider(client, account=config.account, timeout=config.broker_timeout),
         max_age_seconds=config.reconcile_max_age_seconds)
+    cash = None
+    if config.cash_drift_threshold is not None:
+        from src.application.services.misbuffet.algorithm.trade_manager import TradeManager
+        cash = CashReconciler(client, config.account, repository_factory.cash_snapshot_local_repo,
+                              TradeManager(repository_factory, logger=log),
+                              portfolio_id=lambda: getattr(portfolio_manager.get_current_portfolio(), "id", None),
+                              threshold=config.cash_drift_threshold, timeout=config.broker_timeout, logger=log)
     recovery = StartupRecovery(client, ledger, repository_factory.trading_discrepancy_local_repo,
-                               reconciler=reconciler, timeout=config.broker_timeout, logger=log)
+                               reconciler=reconciler, timeout=config.broker_timeout, logger=log,
+                               cash_reconciler=cash)
     portfolio_manager.attach_startup_recovery(recovery)
 
     controls = TradingControlsService(repository_factory.trading_control_local_repo, logger=log)

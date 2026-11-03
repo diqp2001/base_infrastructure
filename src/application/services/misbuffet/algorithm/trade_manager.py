@@ -199,6 +199,22 @@ class TradeManager:
         self._update_cash_for_trade(1 if amount > 0 else -1, abs(amount), cash_portfolio_id, when)
         return True
 
+    def cash_balance(self, cash_portfolio_id: int) -> float:
+        """The book cash of a main portfolio, read strictly: raises LookupError when the cash tree is missing."""
+        found, reason = self._cash_position(cash_portfolio_id)
+        if found is None:
+            raise LookupError(reason)
+        return float(found[2].quantity or 0)
+
+    def book_cash_adjustment(self, amount: float, cash_portfolio_id: int, when: datetime,
+                             ref_prefix: str = "FIN") -> Optional[str]:
+        """Book a cash-only entry (financing, dividends, fees: + credit, - debit), no instrument leg; the caller owns
+        the transaction. Returns the cash transaction id, None when nothing was booked."""
+        if round(amount, 2) == 0:
+            return None
+        return self._update_cash_for_trade(-1 if amount > 0 else 1, abs(amount), cash_portfolio_id, when,
+                                           ref_prefix=ref_prefix)
+
     # ------------------------------------------------------------------
     # Private mechanics
     # ------------------------------------------------------------------
@@ -544,9 +560,11 @@ class TradeManager:
         price: float,
         portfolio_id: int,
         current_time: datetime,
-    ) -> None:
+        ref_prefix: str = "CASH",
+    ) -> Optional[str]:
         """
-        Mirror the cash impact of a trade on the CurrencyPortfolio:
+        Mirror the cash impact of a trade on the CurrencyPortfolio (returns the cash transaction id, None when
+        nothing was booked):
           BUY  (order_qty > 0): SELL cash Order + Transaction, reduce Position.quantity
           SELL (order_qty < 0): BUY  cash Order + Transaction, increase Position.quantity
 
@@ -555,53 +573,13 @@ class TradeManager:
                                   → CurrencyPortfolioHolding → Position
         """
         try:
-            from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
-                CurrencyPortfolioPortfolioHoldingModel,
-            )
-            from src.infrastructure.models.finance.holding.currency_portfolio_holding import (
-                CurrencyPortfolioHoldingModel,
-            )
-            from src.infrastructure.models.finance.position import PositionModel
-
             session = self.order_repo.session
-
-            # 1. Find the CurrencyPortfolio linked to this portfolio
-            cp_link = (
-                session.query(CurrencyPortfolioPortfolioHoldingModel)
-                .filter_by(container_id=portfolio_id)
-                .first()
-            )
-            if not cp_link:
+            found, reason = self._cash_position(portfolio_id)
+            if found is None:
                 if self.logger:
-                    self.logger.warning(
-                        f"_update_cash_for_trade: no CurrencyPortfolio link for portfolio {portfolio_id}"
-                    )
-                return
-
-            currency_portfolio_id = cp_link.asset_id  # FK → currency_portfolios.id
-
-            # 2. Find the cash holding inside the CurrencyPortfolio
-            cash_holding = (
-                session.query(CurrencyPortfolioHoldingModel)
-                .filter_by(currency_portfolio_id=currency_portfolio_id)
-                .first()
-            )
-            if not cash_holding:
-                if self.logger:
-                    self.logger.warning(
-                        f"_update_cash_for_trade: no CurrencyPortfolioHolding "
-                        f"for currency_portfolio {currency_portfolio_id}"
-                    )
-                return
-
-            # 3. Find the Position linked to the cash holding
-            pos = session.query(PositionModel).filter_by(id=cash_holding.position_id).first()
-            if not pos:
-                if self.logger:
-                    self.logger.warning(
-                        f"_update_cash_for_trade: no Position for cash holding {cash_holding.id}"
-                    )
-                return
+                    self.logger.warning(f"_update_cash_for_trade: {reason}")
+                return None
+            currency_portfolio_id, cash_holding, pos = found
 
             # 4. Compute cash delta and order side
             cash_amount = round(abs(order_qty) * price, 2)        # to the cent (positions.quantity is DECIMAL)
@@ -616,7 +594,7 @@ class TradeManager:
 
             # 5. Order for cash movement (against the CurrencyPortfolio sub-portfolio)
             cash_order = self.order_repo._create_or_get(
-                external_order_id=f"CASH_{uuid.uuid4().hex[:12]}",
+                external_order_id=f"{ref_prefix}_{uuid.uuid4().hex[:12]}",
                 portfolio_id=currency_portfolio_id,
                 order_type="MARKET",
                 side=cash_side,
@@ -628,11 +606,12 @@ class TradeManager:
             )
 
             # 6. Transaction for cash movement
+            txn_id = None
             if cash_order:
                 trade_date = (
                     current_time.date() if hasattr(current_time, "date") else current_time
                 )
-                txn_id = f"CASH_TXN_{uuid.uuid4().hex[:8]}"
+                txn_id = f"{ref_prefix}_TXN_{uuid.uuid4().hex[:8]}"
                 self.transaction_repo._create_or_get(
                     transaction_id=txn_id,
                     order_id=int(cash_order.id),
@@ -662,6 +641,7 @@ class TradeManager:
                     f"TradeManager: cash {cash_side} ${cash_amount:,} "
                     f"→ new cash position = {pos.quantity:,}"
                 )
+            return txn_id
 
         except Exception as e:
             try:
@@ -671,3 +651,30 @@ class TradeManager:
             if self.logger:
                 self.logger.error(f"TradeManager._update_cash_for_trade failed: {e}")
             self._step_failed(f"cash: {e}")
+            return None
+
+    def _cash_position(self, portfolio_id: int):
+        """((currency_portfolio_id, cash holding, cash Position), None) of a main portfolio, or (None, why not).
+
+        Navigation: main portfolio → CurrencyPortfolioPortfolioHolding → CurrencyPortfolio
+                                  → CurrencyPortfolioHolding → Position
+        """
+        from src.infrastructure.models.finance.holding.currency_portfolio_holding import CurrencyPortfolioHoldingModel
+        from src.infrastructure.models.finance.holding.currency_portfolio_portfolio_holding import (
+            CurrencyPortfolioPortfolioHoldingModel,
+        )
+        from src.infrastructure.models.finance.position import PositionModel
+
+        session = self.order_repo.session
+        cp_link = session.query(CurrencyPortfolioPortfolioHoldingModel).filter_by(container_id=portfolio_id).first()
+        if not cp_link:
+            return None, f"no CurrencyPortfolio link for portfolio {portfolio_id}"
+        currency_portfolio_id = cp_link.asset_id  # FK → currency_portfolios.id
+        cash_holding = (session.query(CurrencyPortfolioHoldingModel)
+                        .filter_by(currency_portfolio_id=currency_portfolio_id).first())
+        if not cash_holding:
+            return None, f"no CurrencyPortfolioHolding for currency_portfolio {currency_portfolio_id}"
+        pos = session.query(PositionModel).filter_by(id=cash_holding.position_id).first()
+        if not pos:
+            return None, f"no Position for cash holding {cash_holding.id}"
+        return (currency_portfolio_id, cash_holding, pos), None
