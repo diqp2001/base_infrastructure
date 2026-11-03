@@ -125,7 +125,16 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
     # ------------------------------------------------------------------ check (no order)
     def check(self) -> Dict[str, Any]:
         """Connect, resume the live book, build the live stack and run start-up recovery — no order, no data
-        import, no model. Returns LiveStack.status()."""
+        import, no model. Returns LiveStack.status(). Refused while a session runs (P.08.05)."""
+        with self.session_lock("check"):
+            return self._check()
+
+    def session_lock(self, purpose: str):
+        """P.08.05: one live process per strategy (run or check); the OS releases it if the process dies."""
+        from src.application.services.misbuffet.live.session_lock import SessionLock
+        return SessionLock(os.path.join(self.results_dir, f"{self.config['live']['strategy']}.session.lock"), purpose)
+
+    def _check(self) -> Dict[str, Any]:
         broker = self.connect_broker()
         runner = self.runner
         runner.config, runner.broker = self.session_config(), broker
@@ -148,6 +157,13 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
     def run(self) -> Dict[str, Any]:
         """One session live: the next decision .. the session's last decision. Ctrl+C or clock.request_stop()
         ends it early; working orders are cancelled at the end (config live.cancel_working_on_shutdown)."""
+        lock = self.session_lock("run").acquire()            # before anything is touched: a 2nd session stops here
+        try:
+            return self._run()
+        finally:
+            lock.release()
+
+    def _run(self) -> Dict[str, Any]:
         config = self.session_config()
         start, end = config['backtest_start'], config['backtest_end']
         live = self.config['live']

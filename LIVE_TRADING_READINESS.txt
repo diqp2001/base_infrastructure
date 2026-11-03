@@ -7,17 +7,17 @@ Last updated     : 2026-11-03
 Current phase    : P.06 / P.07 — paper trading of STM_10M_BANKS on DUR314497; live pilot waiting on owner decisions.
                    P.08 (new 2026-11-03) — engine gaps outside the live order path, from the audit in
                    docs/roadmap/misbuffet_gap_analysis.md.
-Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 1/14 done, 3 in progress (01, 02, 04). P.03 10/11 (P.03.04 order modification: cancel +
+Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 2/14 done, 3 in progress (01, 02, 04). P.03 10/11 (P.03.04 order modification: cancel +
                    resend only). P.06 14/15 (P.06.13 first paper cash comparison at the 2026-11-04 start). P.07 7/8
                    (P.07.08 owner figures for live).
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 68 · in progress 6 · blocked 0 · pending 10 (counted from the task lines, 2026-11-03)
+Task counts      : completed 69 · in progress 6 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
 Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
                    2. Owner: start SQL Server Agent as administrator (P.08.02); subscribe to the ntfy topic
                       (P.08.01); confirm the IBKR commission plan (P.08.04); P.07.08 live figures.
-                   3. One STM 10m backtest with bid / ask fills (P.08.04); then P.08.05 single-instance guard.
+                   3. One STM 10m backtest with bid / ask fills (P.08.04, needs TWS API up); P.08.07 / P.08.08.
 Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
                    [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
@@ -738,9 +738,15 @@ Scope         backtesting and research, the engine beyond one live session, hist
              10-minute TRADES / BID / ASK, 57 bars each (12:20 bar: bid 336.28, last 336.29, ask 336.36).
              Tests: test_fill_model (12). Remaining: one STM 10m backtest with the BID / ASK preload, compared with
              the cost-free run; the unused BacktestingTransactionHandler / connected_market_order fill code (GA-E2).
- [ ] P.08.05 MED   Single-instance guard for a live strategy (GA-D2). Only the fixed TWS client id 31 prevents a
+ [x] P.08.05 MED   Single-instance guard for a live strategy (GA-D2). Only the fixed TWS client id 31 prevents a
              second session today. Acceptance: run() and check() take a lock per strategy (sp_getapplock or a lock
              file) and refuse to start when it is held; released on exit and on crash. Tests: second start refused.
+             2026-11-03 DONE: misbuffet/live/session_lock.py SessionLock = exclusive non-blocking OS file lock (msvcrt /
+             fcntl; the OS releases it when the process dies, so never stale), holder in <lock>.info. STM live run()
+             takes it before anything is touched (progress, broker), check() too: <results_dir>/STM_10M_BANKS.session
+             .lock. Tests: test_session_lock (3: second process refused with the holder named, crashed holder leaves
+             no lock, run / check refuse before starting). Scope: one host (the live session's); a session on another
+             machine against the same database is not covered (sp_getapplock if that ever happens).
  [ ] P.08.06 MED   Daily start and supervision (GA-D3). Start is manual (RUNBOOK §2); nothing restarts a crash.
              Needs: owner chooses Task Scheduler vs a compose service. Depends on P.08.01, P.08.05.
              Acceptance: the session starts by itself on trading days, a crash alerts (P.08.01) and is restarted at
@@ -828,3 +834,4 @@ SESSION LOG
 2026-11-03  P.08.03 split guard done; P.08.01 ntfy alerts, P.08.02 scheduled backups (+ restore drill) and P.08.04
             bid / ask backtest fills implemented and tested; remaining owner steps: SQL Agent start, ntfy
             subscription, commission plan.
+2026-11-03  P.08.05 single-instance lock for the STM live session done. Bid / ask backtest waits for the TWS API.
