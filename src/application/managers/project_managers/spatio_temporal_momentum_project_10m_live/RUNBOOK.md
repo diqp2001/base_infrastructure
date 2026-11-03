@@ -37,7 +37,9 @@ python -c "from src.application.managers.project_managers.spatio_temporal_moment
 * About 5 minutes of history import before the first decision; the first decision (09:40) retrains the model
   (~2.5 min CPU), so its orders leave around 09:43. Later decisions take 10–15 s.
 * Started later in the day, it begins at the next 10-minute step. Started after 15:50, it waits for the next session.
-* One process per day. It ends by itself after the 15:50 decision.
+* One process per day. It ends by itself after the 15:50 decision. A second `run()` or a `check()` while it runs
+  is refused ("another live session holds ...", with its pid); the lock goes away with the process, even after a
+  crash.
 
 ## 3. During the session
 
