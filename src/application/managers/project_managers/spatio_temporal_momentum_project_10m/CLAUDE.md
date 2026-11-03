@@ -94,7 +94,7 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
 * Not modelled: the overnight gap is treated as one more bar (the first bar's return includes it).
 * **Costs** (P.08.04, config `execution_costs`): engine fills buy at the stored IBKR ASK and sell at the BID of the
   decision bar (BID / ASK 10-minute bars preloaded with the TRADES bars), plus IBKR commission (Fixed: 0.005 / share,
-  min 1.00, max 1 % — owner to confirm the plan); a trade without a quote <= 10 min older than the decision bar is not
+  min 1.00, max 1 % — the owner's plan, confirmed from the paper fills); a trade without a quote <= 10 min older than the decision bar is not
   filled. BID / ASK closes are never read as prices (`QUOTE_SIDE_WHAT_TO_SHOW`). The report's cost scenarios
   (`basis_points`) still evaluate the model's signal, not the engine's book.
 * **Split guard** (P.08.03, config `split_guard`): a ticker whose loaded closes contain a split-ratio jump is not
