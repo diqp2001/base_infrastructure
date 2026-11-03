@@ -13,7 +13,7 @@ Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 9/10 
                    monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
                    P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
                    P.07 assessed 2026-10-29: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 65 · in progress 5 · blocked 0 · pending 0 (counted from the task lines, 2026-11-02)
+Task counts      : completed 67 · in progress 3 · blocked 0 · pending 0 (counted from the task lines, 2026-11-03)
 Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
@@ -33,8 +33,12 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    market-data error -> NOT_ENTITLED. Fixed: every notice (21xx, 10167; history_result.is_warning) is
                    ignored for subscriptions (test_streaming_market_data). After the fix the prices are entitled and
                    judged on content (after the close: 5/25 executable, the rest refused on spread > 50 bps — correct).
-                   Remaining: in-hours run of b2_pipeline_check (expect 25/25), then switch the STM live copy off
-                   paper_bar_prices (gate on streaming quotes) — owner go.
+                   [B2 RESOLVED 2026-11-03 10:40 ET] paper DUR314497, in hours: b2_pipeline_check 25/25 executable
+                   real-time prices, gate 50/50 allowed on 1-share buy/sell, the just-closed 10-min bar served 20 s
+                   after the boundary. STM live config switched: paper_bar_prices False, quote age 60 s.
+                   Found on the way: the paper account's base currency is CAD. TotalCashValue / NetLiquidation /
+                   BuyingPower come in CAD: the cash check now reads the USD ledger ($LEDGER:USD CashBalance) and
+                   IBKRAccountProvider converts base values to USD with IBKR's $LEDGER-ExchangeRate (no rate: fails).
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
 Next actionable  : TO DO, in order:
@@ -45,8 +49,8 @@ Next actionable  : TO DO, in order:
                       OK, restarted on the previous day's book).
                    4. [done] P.07 assessed: NOT ready for live. A live pilot needs B2 and P.07.08 owner decisions
                       (capital, limits, net cap, day-trading equity). Runbook and mid-session reconnect: done.
-                   Open gaps: P.06.13 financing booked daily since 2026-11-02 (first paper comparison pending),
-                   P.06.09 partial fill on paper (owner: force one with a large paper order, in hours). Done tonight: P.04.07 reconnect,
+                   Open gaps: P.06.13 financing booked daily since 2026-11-02 (first paper comparison at the
+                   2026-11-04 start). P.06.09 and P.06.15 verified on paper 2026-11-03. Done earlier: P.04.07 reconnect,
                    P.06.14 pre-training, P.06.05 decision -> orders.
 TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
                    (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
@@ -338,8 +342,8 @@ Design (owner choice 2026-10-28: new table trading_discrepancies) — StartupRec
  [x] P.04.03 Positions internal vs broker: PositionReconciler run by every recovery; mismatches recorded, blocking.
  [x] P.04.04 Cash, currencies, account values vs books — 2026-11-02, owner: the account trades only this strategy
              (paper DUR314497 and the future live sub-account); cash_snapshots table approved. Rule: once per UTC day,
-             after a successful recovery, CashReconciler compares the CHANGE of IBKR TotalCashValue (base currency,
-             USD only) since the previous snapshot with the change of the book cash; booked as financing within
+             after a successful recovery, CashReconciler compares the CHANGE of IBKR USD cash ($LEDGER-CashBalance of
+             $LEDGER:USD; 2026-11-03: TotalCashValue is in CAD, the paper account's base currency) since the previous snapshot with the change of the book cash; booked as financing within
              LiveStackConfig.cash_drift_threshold (250 USD), CASH_DRIFT (not blocking) above; a baseline on the first
              run or a new strategy portfolio. Other account values: NetLiquidation / BuyingPower feed the gate (P.05).
              Tests: test_cash_reconciliation (12, SQLite), contract test on SQLite + base_infra_test.
@@ -489,13 +493,20 @@ Dependencies  P.02–P.05.
                      cash, reduce-only and duplicate checks were wrong for every sell. Signed from the direction now.
                P06-6 (found while fixing P06-1) treating every non-notice code as a rejection rejected filled orders on
                      10349 "TIF set to DAY"; only an explicit list of rejection codes rejects now.
- [~] P.06.09 Paper, 2026-10-29 ~15:00 UTC: restart WHILE AN ORDER IS WORKING — process 1 placed LIMIT BUY 1 F @ 6.13
+ [x] P.06.09 Paper, 2026-10-29 ~15:00 UTC: restart WHILE AN ORDER IS WORKING — process 1 placed LIMIT BUY 1 F @ 6.13
              through TradeManager + ledger (acknowledged, perm 694374509) and exited without cancelling; process 2 on the
              same books: recovery kept it open (matched), cancel requested, IBKR Cancelled -> ledger CANCELLED, recovery
              clean. Stale price in a running session: bar 631 s old refused at max 60 s ("fresh_price"), accepted at
              1800 s. IBKR rejections observed (321, 10268). Restart with persisted books: 4 runs, no double booking.
              Not done on paper: a PARTIAL fill (paper fills small orders at once; forcing one needs a large order) —
              covered in simulation (test_order_lifecycle, test_startup_recovery). Script: scratchpad p06_restart.py.
+             2026-11-03 10:52–10:58 ET PARTIAL FILLS on paper (client 93, own SQLite books, F — not a strategy name;
+             real-time quotes price the gate): resting LIMIT BUY 3000 F @ bid -> 11 executions, 10 PARTIALLY_FILLED
+             updates, FILLED; each fill + commission booked once, book 3000 = executions, recovery clean. Partial then
+             cancel: LIMIT BUY 12000 @ bid, 102 filled in 15 s, rest cancelled -> CANCELLED with filled 102 kept, book
+             and cash exact, recovery clean. Flattened (F = 0 at IBKR). Script: scratchpad p0609_partial.py.
+             Note: cash is booked to the cent; IBKR commissions have 4 decimals (1.5009 -> 1.50): sub-cent
+             differences reach the daily cash comparison (P.06.13) and are booked there as financing.
  [x] P.06.10 First strategy wired to build_live_stack: project_managers/spatio_temporal_momentum_project_10m_live (copy
              of the 10m STM, 24 tradable US banks; own book Spatio_Temporal_Momentum_10m_Live_Portfolio, signals,
              models, results). manager.check() (no order) / manager.run() (one session, next decision .. 15:50).
@@ -544,6 +555,10 @@ Dependencies  P.02–P.05.
              snapshot; CASH_DRIFT above 250 USD; ops cash-book <amount> "<why>" books a drift by hand and moves the
              baseline (else the next comparison would book it back); ops status shows the last cash line; RUNBOOK §4.
              Remaining: the first comparison on paper (baseline at the next session start, compared the day after).
+             2026-11-03: first paper start: TotalCashValue is in CAD (paper base currency) -> the check now reads the
+             USD ledger ($LEDGER:USD CashBalance). Baseline 15:58 UTC: IBKR USD -5,274.94, book 19,808.97 (retaken
+             after the P.06.09 test trades so their ~82.60 USD cost is not booked as the strategy's financing).
+             Next: the first comparison at the 2026-11-04 start (expected: matched or a few cents of financing).
              Proposal 2026-11-02: the account is dedicated to the
              strategy, so each session start compares the CHANGE in IBKR TotalCashValue since the previous start with
              the change in book cash from booked fills / commissions; the difference is financing + dividends + fees
@@ -562,7 +577,7 @@ Dependencies  P.02–P.05.
              reused it, no retrain due at 2026-10-30 09:30, model selected. Finding: in paper session 2 two mid-day
              retrains (91 s each, decision not traded) came from a late bar of one asset — now absorbed by the
              patience. Tests: test_stm_trading_cycle (TestLiveRetrainingRules), test_stm_10m_live.
- [~] P.06.15 Adopt a manual / external execution into the strategy's book (runbook gap: a manual flatten in TWS
+ [x] P.06.15 Adopt a manual / external execution into the strategy's book (runbook gap: a manual flatten in TWS
              leaves a position_mismatch that blocks the next start). Design: `ops adopt <exec_id>` — create the
              internal order row the fill needs, book transaction + position + cash through TradeManager.book_execution
              in one atomic write, mark the execution booked, resolve the EXTERNAL_EXECUTION discrepancy with the
@@ -573,6 +588,13 @@ Dependencies  P.02–P.05.
              portfolios default to the strategy's latest order) also resolves the EXTERNAL_EXECUTION discrepancy;
              RUNBOOK §4 / §5 updated. Tests test_order_lifecycle (4, SQLite). Remaining: one real case on paper
              (manual trade in TWS on DUR314497 -> start -> ops adopt -> start: no mismatch).
+             2026-11-03 PAPER CASE DONE: BUY 1 BAC from client 45 -> start BLOCKED (position_mismatch BAC strategy 4 /
+             broker 5 + external_execution) -> ops adopt (order 17070) -> start: recovery OK, no mismatch.
+             BUG found and fixed on the way: OrderLedger._match fell back to ANY order with the same broker orderId
+             — client 45's order 1 matched an old strategy order 1 (SELL MTB), the fill was stored as MTB, unbooked,
+             and no external_execution was raised. orderIds are per client id: the fallback now only takes a row
+             without a stored client id, never one whose client id or permId contradicts the event
+             (test_startup_recovery). The mis-stored row (unbooked, no transaction) was deleted and replayed.
 Acceptance  paper uses the real OMS, persistence, reconciliation and risk paths; simulated vs paper-verified
             behaviour recorded separately.
 
@@ -694,3 +716,7 @@ SESSION LOG
 2026-11-02  Owner: account dedicated to the strategy, cash table approved, net-exposure cap, partial fill forced on
             paper. P.04.04 done, P.06.13 implemented (daily cash comparison + financing, cash_snapshots on base_infra
             after a COPY_ONLY backup), exposure limits no longer block de-risking, STM live net cap 12 500 USD.
+2026-11-03  Paper in hours: B2 resolved (25/25 real-time prices, gate 50/50, bars served at +20 s); STM live off
+            paper_bar_prices (quote age 60 s). Paper base currency CAD: cash check reads the USD ledger, the gate
+            converts base values with IBKR's exchange rate. P.06.15 ops adopt verified (BAC) + orderId/client-id
+            matching bug fixed. P.06.09 partial fills verified (11 partials; partial + cancel). Cash baseline retaken.

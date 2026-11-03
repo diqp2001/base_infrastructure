@@ -229,7 +229,8 @@ class FakeAccountClient:
                                     "localSymbol": "SPY   261218C00700000", "position": -2},
                                    {"account": "U2", "symbol": "MSFT", "secType": "STK", "position": 7}]
 
-    def request_account_values_snapshot(self, timeout=10.0):
+    def request_account_values_snapshot(self, timeout=10.0, ledger=None):
+        self.ledger = ledger
         return self.values_ok
 
     def request_positions_snapshot(self, timeout=10.0, account=""):
@@ -254,6 +255,20 @@ def test_the_ibkr_account_provider_values_one_account_and_fails_closed():
         provider()
     with pytest.raises(ValueError):
         IBKRAccountProvider(client, "", prices.get)
+
+
+def test_base_currency_account_values_are_converted_to_the_orders_currency():
+    client = FakeAccountClient()                               # the paper account's base currency is CAD
+    client.positions_snapshot = []
+    client.account_values_snapshot["U1"] = {"NetLiquidation": ("140000", "CAD"), "TotalCashValue": ("70000", "CAD"),
+                                            "BuyingPower": ("280000", "CAD")}
+    provider = IBKRAccountProvider(client, "U1", {}.get)
+    with pytest.raises(RuntimeError, match="no USD exchange rate"):   # never an assumed rate
+        provider()
+    assert client.ledger == "USD"
+    client.account_values_snapshot["U1"]["$LEDGER-ExchangeRate"] = ("1.4", "USD")    # CAD per USD
+    snap = provider()
+    assert (snap.cash, snap.net_liquidation, snap.buying_power) == pytest.approx((50_000, 100_000, 200_000))
 
 
 def test_cancel_working_orders_requests_cancels_only():
@@ -354,3 +369,22 @@ def test_a_late_end_of_a_cancelled_account_snapshot_does_not_complete_the_next_o
     assert c.request_account_values_snapshot(timeout=1)
     assert sent[0] != sent[1]
     assert c.account_values_snapshot == {"DUR314497": {"NetLiquidation": ("1000000", "USD")}}
+
+
+def test_a_snapshot_can_add_one_currencys_ledger():
+    """2026-11-03: the paper account's base currency is CAD; the USD ledger rows come with tag $LEDGER:USD."""
+    from unittest.mock import Mock
+    from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import ACCOUNT_VALUE_TAGS, IBTWSClient
+    c = IBTWSClient("127.0.0.1", 7497, 99)
+    c.is_connected = lambda: True
+    c.cancelAccountSummary = Mock()
+    sent = []
+
+    def answer(req_id, group, tags):
+        sent.append(tags)
+        c.accountSummary(req_id, "DUR314497", "$LEDGER-CashBalance", "-5141.93", "USD")
+        c.accountSummaryEnd(req_id)
+    c.reqAccountSummary = answer
+    assert c.request_account_values_snapshot(timeout=1) and c.request_account_values_snapshot(timeout=1, ledger="USD")
+    assert sent == [ACCOUNT_VALUE_TAGS, ACCOUNT_VALUE_TAGS + ",$LEDGER:USD"]
+    assert c.account_values_snapshot["DUR314497"]["$LEDGER-CashBalance"] == ("-5141.93", "USD")

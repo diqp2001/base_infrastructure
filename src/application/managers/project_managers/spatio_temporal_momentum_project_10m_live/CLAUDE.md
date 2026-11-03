@@ -47,8 +47,8 @@ the controls before every order).
 | key | default | note |
 |---|---|---|
 | account | `DUR314497` (env `STM_LIVE_ACCOUNT`) | paper; a live account also needs `IBKR_ACCOUNT_MODE=live`, `IBKR_ALLOW_LIVE=yes` |
-| paper_bar_prices | True | paper login has no US-equity quotes (B2); **must be False for a live account** (refused) |
-| limits | order ≤ 1 000 sh / 5 000 USD, position ≤ 2 000 sh, account gross ≤ 31 250 USD, quote age ≤ 1 800 s | quote age: 60 s with real-time quotes |
+| paper_bar_prices | False | real-time quotes verified on paper (B2, 2026-11-03); True prices on bars (paper only, refused on live) |
+| limits | order ≤ 1 000 sh / 5 000 USD, position ≤ 2 000 sh, account gross ≤ 31 250 USD, quote age ≤ 60 s | 1 800 s if `paper_bar_prices` is turned back on |
 | TRADING_CAPITAL | 25 000 USD | cash of the book; weights are sized on it, not on the IBKR account |
 | max_orders | 60 per 60 s | one rebalance may send an order per bank + liquidations |
 

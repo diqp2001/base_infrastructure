@@ -386,7 +386,8 @@ finds them or the owner calls `recovery.resolve(id, "what was done")`. Tests: `t
 
 **Cash vs books (P.04.04 / P.06.13, 2026-11-02).** `StartupRecovery(..., cash_reconciler=CashReconciler(...))` (wired
 by `build_live_stack`, `LiveStackConfig.cash_drift_threshold`, default 250, None = off): after a successful run, once
-per UTC day, IBKR `TotalCashValue` change vs book cash change since the previous `cash_snapshots` row (the account
+per UTC day, IBKR USD cash (`$LEDGER-CashBalance` of `$LEDGER:USD`; `TotalCashValue` is in the base currency, CAD on
+the paper account) change vs book cash change since the previous `cash_snapshots` row (the account
 trades only this strategy). Within the threshold the difference is booked as one cash-only entry
 (`TradeManager.book_cash_adjustment`, refs `FIN_…`) atomically with the snapshot; above it a non-blocking `CASH_DRIFT`
 discrepancy. `CashReconciler.book_by_hand` books a drift and moves the baseline with it (STM live: `ops cash-book`).

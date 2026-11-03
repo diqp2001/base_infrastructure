@@ -27,7 +27,7 @@ class CashSnapshot:
     account: str
     portfolio_id: int                              # the strategy's main portfolio (its CurrencyPortfolio holds the cash)
     taken_at: datetime                             # UTC naive
-    broker_cash: float                             # IBKR TotalCashValue (base currency)
+    broker_cash: float                             # IBKR $LEDGER-CashBalance in `currency`
     book_cash: float                               # book cash after this snapshot's booking
     currency: str = "USD"
     broker_change: Optional[float] = None          # since the previous snapshot; None for a baseline

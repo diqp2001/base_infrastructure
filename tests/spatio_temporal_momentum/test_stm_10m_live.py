@@ -53,7 +53,7 @@ def test_book_signals_models_and_results_are_kept_apart_from_the_backtest():
 
 def test_paper_by_default_and_no_decision_at_the_close():
     live = live_cfg.get_config()["live"]
-    assert live["account"].startswith("D") and live["paper_bar_prices"]          # paper account, bar prices
+    assert live["account"].startswith("D") and not live["paper_bar_prices"]      # paper account, real-time quotes
     assert live["client_id"] != 1                                                # data connection uses 1
     assert live_cfg.get_config()["config_interval"]["session_end"] == "15:50"
 
@@ -177,12 +177,21 @@ def test_the_stack_is_built_for_the_configured_paper_account(monkeypatch):
     assert runner.build_stack(algorithm) is stack
     broker, upm, factory, cfg = built.call_args.args
     assert (broker, upm, factory) == ("BROKER", "UPM", "FACTORY")
-    assert cfg.account == "DUR314497" and cfg.strategy == "STM_10M_BANKS" and cfg.paper_bar_prices
+    assert cfg.account == "DUR314497" and cfg.strategy == "STM_10M_BANKS" and not cfg.paper_bar_prices
     assert cfg.limits.max_order_notional == 5_000.0
     assert cfg.limits.max_net_exposure == 12_500.0                     # P.07.08: net exposure capped at half
-    stack.subscribe.assert_not_called()                     # paper: no quotes, the gate prices on bars
-    assert built.call_args.kwargs["bar_prices"] == "BARS"     # ... the bars the step imported, not new IBKR requests
+    assert cfg.limits.max_quote_age_seconds == 60
+    stack.subscribe.assert_called_once_with(["JPM"])        # B2: real-time quotes price the orders
+    assert built.call_args.kwargs["bar_prices"] is None
     assert algorithm.shortable is not None
+
+
+def test_paper_bar_prices_price_on_the_imported_bars_without_quotes(monkeypatch):
+    runner, algorithm, stack, built = _runner_with_stack(monkeypatch, recovery_ok=True)
+    monkeypatch.setitem(runner.config["live"], "paper_bar_prices", True)
+    runner.build_stack(algorithm)
+    stack.subscribe.assert_not_called()                     # no quotes, the gate prices on bars
+    assert built.call_args.kwargs["bar_prices"] == "BARS"     # ... the bars the step imported, not new IBKR requests
 
 
 def test_a_blocked_start_up_recovery_stops_the_run(monkeypatch):

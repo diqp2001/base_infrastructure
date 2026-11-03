@@ -33,8 +33,12 @@ class FakeIB:
     def is_connected(self):
         return True
 
-    def request_account_values_snapshot(self, timeout=10.0):
-        self.account_values_snapshot = {ACCOUNT: {"TotalCashValue": (str(self.cash), self.currency)}}
+    def request_account_values_snapshot(self, timeout=10.0, ledger=None):
+        assert ledger == "USD"                          # the books' currency ledger, not the base-currency total
+        values = {"TotalCashValue": ("992805.13", "CAD")}  # base currency CAD, like the paper account: ignored
+        if self.currency is not None:
+            values["$LEDGER-CashBalance"] = (str(self.cash), self.currency)
+        self.account_values_snapshot = {ACCOUNT: values}
         return self.values_complete
 
     def request_open_orders_snapshot(self, timeout=10.0):
@@ -123,6 +127,7 @@ def test_a_difference_above_the_threshold_is_a_cash_drift_not_booked(env):
 @pytest.mark.parametrize("break_it,word", [
     (lambda ib: setattr(ib, "values_complete", False), "incomplete"),
     (lambda ib: setattr(ib, "currency", "EUR"), "EUR"),
+    (lambda ib: setattr(ib, "currency", None), "no USD cash balance"),
 ])
 def test_unreadable_or_foreign_currency_broker_cash_stores_nothing(env, break_it, word):
     break_it(env.ib)

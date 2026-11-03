@@ -5,7 +5,7 @@ The account trades only this strategy (owner, 2026-11-02). Between two snapshots
 fills and commissions (booked from the broker's executions); the rest is financing — short-credit interest, borrow
 fees — dividends and fees, or a deposit / withdrawal / a trade the books missed:
 
-    difference = broker cash change (IBKR TotalCashValue) - book cash change, since the previous snapshot
+    difference = broker cash change (IBKR $LEDGER-CashBalance in the books' currency) - book cash change, since the previous snapshot
 
     first snapshot (or a new strategy portfolio)   baseline, nothing compared
     |difference| < 0.01                            matched
@@ -55,7 +55,7 @@ class CashReconciler:
             snapshots:     CashSnapshotPort (RepositoryFactory.cash_snapshot_local_repo)
             trade_manager: TradeManager (cash_balance, book_cash_adjustment, _book_atomically)
             portfolio_id:  the strategy's main portfolio id (its CurrencyPortfolio holds the book cash)
-            threshold:     largest difference booked automatically (base currency)
+            threshold:     largest difference booked automatically (in `currency`)
         """
         if not account:
             raise ValueError("CashReconciler needs the account id")
@@ -89,13 +89,14 @@ class CashReconciler:
         portfolio_id = self.portfolio_id()
         if portfolio_id is None:
             return CashCheck("failed", message="no strategy portfolio registered")
-        if not self.client.request_account_values_snapshot(timeout=self.timeout):
+        # the cash ledger of the books' currency, not TotalCashValue (base currency: CAD on the paper account)
+        if not self.client.request_account_values_snapshot(timeout=self.timeout, ledger=self.currency):
             return CashCheck("failed", message="account values incomplete (no accountSummaryEnd)")
-        raw = (self.client.account_values_snapshot.get(self.account) or {}).get("TotalCashValue")
+        raw = (self.client.account_values_snapshot.get(self.account) or {}).get("$LEDGER-CashBalance")
         if raw is None:
-            return CashCheck("failed", message=f"no TotalCashValue for {self.account}")
+            return CashCheck("failed", message=f"no {self.currency} cash balance for {self.account}")
         if raw[1] != self.currency:
-            return CashCheck("failed", message=f"TotalCashValue is in {raw[1]}, the books are in {self.currency}")
+            return CashCheck("failed", message=f"cash balance is in {raw[1]}, the books are in {self.currency}")
         broker_cash = float(raw[0])
         book_cash = self.trade_manager.cash_balance(portfolio_id)
         snap = CashSnapshot(account=self.account, portfolio_id=portfolio_id, taken_at=now, broker_cash=broker_cash,

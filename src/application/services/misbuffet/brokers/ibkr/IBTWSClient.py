@@ -20,6 +20,8 @@ ACCOUNT_SUMMARY_REQ_IDS = 900
 ACCOUNT_UPDATES_REQ_ID = 89_001               # request_account_summary (broker's account refresh): one subscription
 POSITIONS_FIRST_REQ_ID = 91_002               # reqPositionsMulti ids: 91_002 .. 91_901, one per positions snapshot
 POSITIONS_REQ_IDS = 900
+# account values of a snapshot; the totals are in the account's BASE currency (CAD on the paper account)
+ACCOUNT_VALUE_TAGS = "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,GrossPositionValue"
 
 
 class IBTWSClient(EWrapper, EClient):
@@ -774,9 +776,10 @@ class IBTWSClient(EWrapper, EClient):
         self.logger.info(f"Requesting account summary with groupName: {group_name}")
 
     def request_account_values_snapshot(self, timeout: float = 10.0, req_id: Optional[int] = None,
-                                        tags: str = "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,"
-                                                    "GrossPositionValue") -> bool:
+                                        tags: str = ACCOUNT_VALUE_TAGS, ledger: Optional[str] = None) -> bool:
         """Account values of every managed account into ``account_values_snapshot`` (P.05 risk). Read-only.
+        ``ledger`` adds one currency's ledger: rows '$LEDGER-CashBalance', '$LEDGER-ExchangeRate' (base currency per
+        unit of that currency), ... in that currency.
         Each snapshot has its own request id; answers to any other id are ignored."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
@@ -788,7 +791,7 @@ class IBTWSClient(EWrapper, EClient):
             self.account_values_snapshot = {}
             self._account_summary_collecting = True
             self._account_summary_end_event.clear()
-        self.reqAccountSummary(req_id, "All", tags)
+        self.reqAccountSummary(req_id, "All", f"{tags},$LEDGER:{ledger}" if ledger else tags)
         complete = self._account_summary_end_event.wait(timeout)
         try:
             self.cancelAccountSummary(req_id)

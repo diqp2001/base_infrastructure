@@ -9,6 +9,7 @@ StreamingPriceProvider   PriceSnapshot from the streaming quotes (P.02): only an
                          fresh, valid two-sided) can size an order; otherwise the reason refuses it.
 IBKRAccountProvider      AccountSnapshot from IBKR account values (NetLiquidation, TotalCashValue, BuyingPower) and the
                          positions snapshot, exposures valued with the price provider (a missing price fails closed).
+                         Base-currency values are converted to the orders' currency with IBKR's ledger exchange rate.
 cancel_working_orders    explicit emergency action: cancel every working order of the ledger at the broker (the status
                          changes only when the broker confirms, D4). It is never called automatically.
 """
@@ -133,7 +134,7 @@ class IBKRAccountProvider:
 
     def __init__(self, client, account: str, price_provider: Callable[[str], Optional[PriceSnapshot]],
                  multiplier_provider: Optional[Callable[[str], float]] = None,
-                 key_for: Optional[Callable[[dict], str]] = None, timeout: float = 10.0):
+                 key_for: Optional[Callable[[dict], str]] = None, timeout: float = 10.0, currency: str = "USD"):
         if not account:
             raise ValueError("IBKRAccountProvider needs the account id (several accounts may be visible)")
         self.client = client
@@ -143,9 +144,10 @@ class IBKRAccountProvider:
         self.key_for = key_for or (lambda p: p.get("symbol") if (p.get("secType") or "STK") in ("STK", "ETF")
                                    else " ".join(str(p.get("localSymbol") or "").split()))
         self.timeout = timeout
+        self.currency = currency                   # orders' (prices') currency: the account values are converted
 
     def __call__(self) -> AccountSnapshot:
-        if not self.client.request_account_values_snapshot(timeout=self.timeout):
+        if not self.client.request_account_values_snapshot(timeout=self.timeout, ledger=self.currency):
             raise RuntimeError("account values incomplete (no accountSummaryEnd)")
         if not self.client.request_positions_snapshot(timeout=self.timeout, account=self.account):
             raise RuntimeError("positions incomplete (no positionEnd)")
@@ -159,7 +161,13 @@ class IBKRAccountProvider:
                 if required:
                     raise RuntimeError(f"account value {tag} missing for {self.account}")
                 return None
-            return float(raw[0])
+            if raw[1] in ("", self.currency):
+                return float(raw[0])
+            rate = values.get("$LEDGER-ExchangeRate")      # base currency per unit of self.currency
+            if rate is None or rate[1] != self.currency or not float(rate[0]):
+                raise RuntimeError(f"account value {tag} is in {raw[1]} and no {self.currency} exchange rate "
+                                   f"for {self.account}")
+            return float(raw[0]) / float(rate[0])
 
         positions: Dict[str, float] = {}
         for p in self.client.positions_snapshot:
