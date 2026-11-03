@@ -3,6 +3,7 @@
 import json
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution, SubmissionState
+from src.domain.entities.finance.order.cash_snapshot import CashSnapshot
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
 from src.domain.entities.finance.order.trading_control import ControlMode, ControlScope, TradingControl
 from src.domain.entities.finance.order.trading_decision import TradingDecision
@@ -11,6 +12,7 @@ from src.infrastructure.models.finance.order.broker_order import (
     BrokerOrderModel,
     TradingDiscrepancyModel,
 )
+from src.infrastructure.models.finance.order.cash_snapshot import CashSnapshotModel
 from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 from src.infrastructure.models.finance.order.trading_decision import TradingDecisionModel
 
@@ -113,4 +115,24 @@ class TradingDecisionMapper:
             entity.decided_at
         orm.artifact_id, orm.note = entity.artifact_id, entity.note or None
         orm.targets = json.dumps({k: float(v) for k, v in entity.targets.items()}, sort_keys=True)
+        return orm
+
+
+_CASH_SNAPSHOT_FIELDS = ("account", "portfolio_id", "taken_at", "currency", "broker_cash", "book_cash", "broker_change",
+                         "book_change", "booked", "unexplained", "transaction_ref")
+
+
+class CashSnapshotMapper:
+
+    @staticmethod
+    def to_domain(orm: CashSnapshotModel):
+        if orm is None:
+            return None
+        return CashSnapshot(**{f: getattr(orm, f) for f in _CASH_SNAPSHOT_FIELDS}, note=orm.note or "", id=orm.id)
+
+    @staticmethod
+    def copy_to_orm(entity: CashSnapshot, orm: CashSnapshotModel) -> CashSnapshotModel:
+        for f in _CASH_SNAPSHOT_FIELDS:
+            setattr(orm, f, getattr(entity, f))
+        orm.note = entity.note or None
         return orm

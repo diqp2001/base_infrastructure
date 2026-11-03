@@ -111,6 +111,33 @@ def test_trading_controls_are_appended_and_read_back(backend):
         session.close()
 
 
+def test_cash_snapshots_are_appended_and_the_latest_read_back(backend):
+    from src.domain.entities.finance.order.cash_snapshot import CashSnapshot
+    from src.infrastructure.models.finance.order.cash_snapshot import CashSnapshotModel
+    from src.infrastructure.repositories.local_repo.finance.order.broker_order_repository import (
+        CashSnapshotRepository,
+    )
+    session = backend.session()
+    repo = CashSnapshotRepository(session)
+    try:
+        repo.add(CashSnapshot(account="contract-acct", portfolio_id=1, taken_at=NOW, broker_cash=1_000.0,
+                              book_cash=500.0, note="baseline"))
+        repo.add(CashSnapshot(account="contract-acct", portfolio_id=1, taken_at=NOW, broker_cash=1_012.5,
+                              book_cash=512.5, broker_change=12.5, book_change=0.0, booked=12.5,
+                              transaction_ref="FIN_TXN_contract"))
+        latest = repo.get_latest("contract-acct")
+        assert (latest.booked, latest.difference, latest.transaction_ref) == (12.5, 12.5, "FIN_TXN_contract")
+        assert [s.is_baseline for s in repo.get_recent("contract-acct")] == [False, True]
+        with pytest.raises(NotImplementedError):
+            repo.update(latest)
+    finally:
+        session.rollback()
+        session.query(CashSnapshotModel).filter(CashSnapshotModel.account == "contract-acct").delete(
+            synchronize_session=False)
+        session.commit()
+        session.close()
+
+
 def test_an_order_points_to_the_decision_that_sent_it(book):
     """P.06.05: trading_decisions + broker_orders.decision_id, on SQLite and on the SQL Server test database."""
     from src.domain.entities.finance.order.trading_decision import TradingDecision

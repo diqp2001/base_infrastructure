@@ -59,6 +59,11 @@ def test_the_stack_wires_ledger_reconciler_recovery_and_gate(book, monkeypatch):
     assert book.upm._reconciler is stack.reconciler and book.tm.ledger is stack.ledger
     assert stack.ledger.enqueue in client.order_listeners and stack.recovery.invalidate in client.connection_listeners
     assert client.types == [4] and stack.prices.allow_delayed
+    cash = stack.recovery.cash_reconciler                                 # P.04.04: daily cash vs books
+    assert cash.account == "DUR314497" and cash.threshold == 250.0 and cash.portfolio_id() == book.portfolio.id
+    assert build_live_stack(broker, book.upm, book.factory,
+                            config(cash_drift_threshold=None)).recovery.cash_reconciler is None
+    stack = build_live_stack(broker, book.upm, book.factory, config(allow_delayed_prices=True))
     stack.subscribe(["F"])
     assert client.requests[0][1] == "F"
     stack.controls.kill("test", "pytest")

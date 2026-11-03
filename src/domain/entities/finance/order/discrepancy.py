@@ -24,6 +24,7 @@ class DiscrepancyKind(str, Enum):
     ORDER_NOT_FOUND = "order_not_found"                # INTENT / UNKNOWN order: no working order, no execution
     ORDER_CLOSED_ON_RECOVERY = "order_closed_on_recovery"  # open internal order no longer working at the broker
     INCOMPLETE_SNAPSHOT = "incomplete_snapshot"        # the broker did not confirm the end of a list / not connected
+    CASH_DRIFT = "cash_drift"                          # broker vs book cash change above the threshold (P.04.04)
 
 
 @dataclass

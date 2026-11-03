@@ -384,6 +384,14 @@ reconciler compares positions. Everything found is a row in `trading_discrepanci
 mismatch, external execution on a managed instrument, incomplete lists) keep trading off until a later run no longer
 finds them or the owner calls `recovery.resolve(id, "what was done")`. Tests: `tests/misbuffet/test_startup_recovery.py`.
 
+**Cash vs books (P.04.04 / P.06.13, 2026-11-02).** `StartupRecovery(..., cash_reconciler=CashReconciler(...))` (wired
+by `build_live_stack`, `LiveStackConfig.cash_drift_threshold`, default 250, None = off): after a successful run, once
+per UTC day, IBKR `TotalCashValue` change vs book cash change since the previous `cash_snapshots` row (the account
+trades only this strategy). Within the threshold the difference is booked as one cash-only entry
+(`TradeManager.book_cash_adjustment`, refs `FIN_…`) atomically with the snapshot; above it a non-blocking `CASH_DRIFT`
+discrepancy. `CashReconciler.book_by_hand` books a drift and moves the baseline with it (STM live: `ops cash-book`).
+Tests: `tests/misbuffet/test_cash_reconciliation.py`.
+
 ### Trading controls and the mandatory gate (P.05, 2026-10-28)
 
 `InteractiveBrokersBroker.requires_risk_gate = True`: `BaseBroker.place_order` sends nothing to IBKR without an

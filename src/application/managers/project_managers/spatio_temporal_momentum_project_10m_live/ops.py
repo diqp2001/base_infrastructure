@@ -10,9 +10,10 @@ work while a session is running in another process: trading controls are read be
     ... ops unkill "<reason>"               # GLOBAL back to enabled
     ... ops resolve <discrepancy id> "<what was checked / done>"
     ... ops adopt <exec id> "<why>"         # book an external execution into the strategy's book (session STOPPED)
+    ... ops cash-book <amount> "<why>"      # book a cash_drift by hand: + credit, - debit (session STOPPED)
 
 The author of every control and resolution is the OS user (STM_OPERATOR overrides it). Controls are append-only.
-`adopt` is the one command that writes to the book: run it only while no session is running.
+`adopt` and `cash-book` write to the book: run them only while no session is running.
 """
 
 import argparse
@@ -49,6 +50,10 @@ def status(factory, out=print) -> None:
     for o in factory.broker_order_local_repo.get_open():
         out(f"  open order {o.order_id} {o.side} {o.requested_quantity:g} {o.symbol} {o.status} "
             f"submission {o.submission_state.value} broker id {o.broker_order_id}")
+    snap = factory.cash_snapshot_local_repo.get_latest(live['account'])
+    if snap is not None:
+        out(f"  cash {snap.taken_at:%Y-%m-%d %H:%M} UTC: IBKR {snap.broker_cash:,.2f}, book {snap.book_cash:,.2f} "
+            f"{snap.currency} — {snap.note}")
 
 
 def _book_portfolios(factory, symbol: str):
@@ -98,6 +103,23 @@ def adopt(factory, exec_id: str, reason: str, portfolio_id=None, cash_portfolio_
     return 0
 
 
+def cash_book(factory, amount: float, reason: str, out=print) -> int:
+    """P.06.13: book a cash difference the daily check left as a cash_drift (financing, dividend, fee posting above
+    the threshold); the comparison baseline moves with it. A deposit / withdrawal is not booked: resolve it."""
+    from src.application.services.misbuffet.algorithm.cash_reconciler import CashReconciler
+    from src.application.services.misbuffet.algorithm.trade_manager import TradeManager
+    cash = CashReconciler(None, project_config.LIVE['account'], factory.cash_snapshot_local_repo, TradeManager(factory),
+                          portfolio_id=lambda: None)
+    try:
+        snap = cash.book_by_hand(amount, f"{reason} ({_operator()})")
+    except (ValueError, LookupError, RuntimeError) as e:
+        out(str(e))
+        return 1
+    out(f"{snap.booked:+,.2f} {snap.currency} booked on portfolio {snap.portfolio_id} ({snap.transaction_ref}); "
+        f"book cash {snap.book_cash:,.2f}. Resolve the cash_drift discrepancy: ops resolve <id> \"<what was booked>\"")
+    return 0
+
+
 def main(argv=None, factory=None, out=print) -> int:
     parser = argparse.ArgumentParser(prog="ops", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -112,6 +134,9 @@ def main(argv=None, factory=None, out=print) -> int:
     adopt_cmd.add_argument("reason")
     adopt_cmd.add_argument("--portfolio-id", type=int)
     adopt_cmd.add_argument("--cash-portfolio-id", type=int)
+    cash_cmd = sub.add_parser("cash-book")
+    cash_cmd.add_argument("amount", type=float)
+    cash_cmd.add_argument("reason")
     args = parser.parse_args(argv)
 
     factory = factory or _factory()
@@ -120,6 +145,8 @@ def main(argv=None, factory=None, out=print) -> int:
         return 0
     if args.command == "adopt":
         return adopt(factory, args.exec_id, args.reason, args.portfolio_id, args.cash_portfolio_id, out)
+    if args.command == "cash-book":
+        return cash_book(factory, args.amount, args.reason, out)
     if args.command == "resolve":
         repo = factory.trading_discrepancy_local_repo
         d = repo.get_by_id(args.discrepancy_id)

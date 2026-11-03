@@ -14,6 +14,7 @@ from src.domain.entities.finance.order.broker_order import BrokerOrder, Executio
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
 from src.domain.ports.finance.broker_order_port import (
     BrokerOrderPort,
+    CashSnapshotPort,
     DiscrepancyPort,
     ExecutionPort,
     TradingControlPort,
@@ -24,11 +25,13 @@ from src.infrastructure.models.finance.order.broker_order import (
     BrokerOrderModel,
     TradingDiscrepancyModel,
 )
+from src.infrastructure.models.finance.order.cash_snapshot import CashSnapshotModel
 from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 from src.infrastructure.models.finance.order.trading_decision import TradingDecisionModel
 from src.infrastructure.repositories.mappers.finance.order.broker_order_mapper import (
     BrokerOrderMapper,
+    CashSnapshotMapper,
     DiscrepancyMapper,
     ExecutionMapper,
     TradingControlMapper,
@@ -183,4 +186,22 @@ class TradingDecisionRepository(_Base, TradingDecisionPort):
     def get_recent(self, strategy: str, limit: int = 50):
         rows = (self.session.query(TradingDecisionModel).filter(TradingDecisionModel.strategy == strategy)
                 .order_by(TradingDecisionModel.id.desc()).limit(limit).all())
+        return [self.mapper.to_domain(r) for r in rows]
+
+
+class CashSnapshotRepository(_Base, CashSnapshotPort):
+    """Append-only: a snapshot is what the broker and the books held when it was taken."""
+    model_class = CashSnapshotModel
+    mapper = CashSnapshotMapper
+
+    def update(self, entity):
+        raise NotImplementedError("cash snapshots are append-only")
+
+    def get_latest(self, account: str):
+        return self.mapper.to_domain(self.session.query(CashSnapshotModel).filter(CashSnapshotModel.account == account)
+                                     .order_by(CashSnapshotModel.id.desc()).first())
+
+    def get_recent(self, account: str, limit: int = 30):
+        rows = (self.session.query(CashSnapshotModel).filter(CashSnapshotModel.account == account)
+                .order_by(CashSnapshotModel.id.desc()).limit(limit).all())
         return [self.mapper.to_domain(r) for r in rows]

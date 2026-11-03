@@ -116,6 +116,7 @@ from src.infrastructure.models.finance.order.order import OrderModel
 from src.infrastructure.models.finance.order.broker_order import BrokerOrderModel, BrokerExecutionModel, TradingDiscrepancyModel
 from src.infrastructure.models.finance.order.trading_control import TradingControlModel
 from src.infrastructure.models.finance.order.trading_decision import TradingDecisionModel  # noqa: F401  (registers the table)
+from src.infrastructure.models.finance.order.cash_snapshot import CashSnapshotModel  # noqa: F401  (registers the table)
 from src.infrastructure.models.finance.transaction.transaction import TransactionModel
 
 # Backtest / model registry / time-series tables (were registered only when a repository module

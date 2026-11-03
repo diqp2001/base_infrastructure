@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from src.domain.entities.finance.order.broker_order import BrokerOrder, Execution
+from src.domain.entities.finance.order.cash_snapshot import CashSnapshot
 from src.domain.entities.finance.order.discrepancy import Discrepancy, DiscrepancyKind
 from src.domain.entities.finance.order.trading_control import TradingControl
 from src.domain.entities.finance.order.trading_decision import TradingDecision
@@ -84,6 +85,19 @@ class TradingControlPort(ABC):
 
     @abstractmethod
     def get_all(self) -> List[TradingControl]: ...
+
+
+class CashSnapshotPort(ABC):
+    """Daily cash snapshots, broker vs books (P.04.04 / P.06.13): append-only."""
+
+    @abstractmethod
+    def add(self, entity: CashSnapshot) -> CashSnapshot: ...
+
+    @abstractmethod
+    def get_latest(self, account: str) -> Optional[CashSnapshot]: ...
+
+    @abstractmethod
+    def get_recent(self, account: str, limit: int = 30) -> List[CashSnapshot]: ...
 
 
 class TradingDecisionPort(ABC):
