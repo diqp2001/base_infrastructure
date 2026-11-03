@@ -33,6 +33,7 @@ def test_buys_pay_the_ask_and_sells_receive_the_bid():
     model = BidAskFillModel.from_config(COSTS, quotes=lambda t, when: (49.98, 50.02))
     assert model("JPM", 300, 50.0, datetime(2026, 11, 3, 10)) == Fill(50.02, 1.5)
     assert model("JPM", -300, 50.0, datetime(2026, 11, 3, 10)) == Fill(49.98, 1.5)
+    assert model.summary() == {"fills": 2, "refused": 0, "commission": 3.0, "spread_cost_vs_decision_price": 12.0}
 
 
 @pytest.mark.parametrize("quote,word", [(None, "no bid / ask"), ((50.1, 50.0), "invalid"), ((0.0, 1.0), "invalid")])
