@@ -89,9 +89,9 @@ LIVE: Dict[str, Any] = {
     'host': '127.0.0.1',
     'port': 7497,
     'client_id': 31,
-    # PAPER ONLY: the paper login gets no US-equity quotes through the API (B2), so the gate prices orders on the
-    # last completed TRADES bar (~10-20 min old); the quote age limit below allows it
-    'paper_bar_prices': True,
+    # B2 verified on paper 2026-11-03 (25/25 real-time quotes): the gate prices orders on streaming quotes.
+    # True = fall back to the last completed TRADES bar (paper only; needs max_quote_age_seconds=1_800)
+    'paper_bar_prices': False,
     'allow_delayed_prices': False,
     'limits': RiskLimits(
         max_order_quantity=1_000,
@@ -102,7 +102,7 @@ LIVE: Dict[str, Any] = {
         # |net| beyond it are refused, orders that bring it back are always allowed
         max_net_exposure=0.5 * TRADING_CAPITAL,
         max_concentration=None,
-        max_quote_age_seconds=1_800,                   # paper bars; use 60 with real-time quotes
+        max_quote_age_seconds=60,                      # real-time quotes; 1_800 with paper_bar_prices
         require_cash=True,
     ),
     'max_orders': 60,                  # per window: one rebalance can send an order per bank (26) plus liquidations

@@ -74,7 +74,7 @@ The running session re-checks IBKR before its next order. Typical cases:
   database. Avoid manual trades in the strategy's 24 names.
 * `order_closed_on_recovery`: an order the book thought working was no longer at IBKR (e.g. cancelled at shutdown
   before IBKR answered); informational.
-* `cash_drift` (never blocking): the first start of each day compares IBKR's cash change (TotalCashValue) since the
+* `cash_drift` (never blocking): the first start of each day compares IBKR's USD cash change (USD ledger, not the CAD base-currency total) since the
   previous day's start with the book's. Up to 250 USD the difference is booked by itself as financing (interest,
   borrow fees, dividends; `ops status` shows the last `cash` line). Above 250 USD nothing is booked: check the IBKR
   statement, then, with the session STOPPED,

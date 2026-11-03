@@ -409,10 +409,21 @@ class OrderLedger:
                 return bo
         if broker_order_id is None or int(broker_order_id) <= 0:
             return None
-        bo = None
         if client_id is not None:
             bo = self.orders.get_by_broker_order_id(self.broker, int(broker_order_id), client_id=int(client_id))
-        return bo or self.orders.get_by_broker_order_id(self.broker, int(broker_order_id))
+            if bo is not None:
+                return bo
+        # orderIds are per client id: another client's order 1 is not ours (paper 2026-11-03: an external BUY BAC
+        # from client 45 matched an old strategy order 1). Only a row without a stored client id may match, and
+        # never when either identifier contradicts it.
+        bo = self.orders.get_by_broker_order_id(self.broker, int(broker_order_id))
+        if bo is None:
+            return None
+        if client_id is not None and bo.client_id is not None and int(bo.client_id) != int(client_id):
+            return None
+        if perm_id and bo.perm_id and int(bo.perm_id) != int(perm_id):
+            return None
+        return bo
 
     def _save(self, bo: BrokerOrder) -> BrokerOrder:
         """broker_orders row + the orders row it mirrors (status, filled quantity, average price), one transaction."""

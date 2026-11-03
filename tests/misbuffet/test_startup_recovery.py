@@ -185,6 +185,23 @@ def test_an_external_execution_on_a_managed_instrument_blocks_until_the_owner_re
     assert env.recovery.last_report.new_discrepancies == []
 
 
+def test_another_clients_order_with_our_broker_order_id_is_external(env):
+    bo = place(env, broker_id=600)                                       # our order 600 from client 7
+    env.ib.executions = [dict(execution("E1", bo.order_id, 10), order_ref="", order_id=600, client_id=7, perm_id=0)]
+    env.ib.positions = {"AAPL": 10}
+    assert env.recovery.run().ok                                         # client 7's order 600: ours, booked
+    other = dict(execution("X1", None, 1, symbol="MSFT"), order_id=600, client_id=45, perm_id=408289343)
+    env.ib.executions.append(other)                                      # paper 2026-11-03: client 45's order 600
+    env.ib.positions = {"AAPL": 10, "MSFT": 1}
+    report = env.recovery.run()
+    assert "external_execution" in kinds(report) and env.book.qty("AAPL") == 10
+    ex = env.ledger.executions.get_by_exec_id(env.ledger.broker, "X1")
+    assert ex.symbol == "MSFT" and ex.order_id is None and not ex.booked
+    assert env.ledger.match(broker_order_id=600, client_id=45) is None
+    assert env.ledger.match(broker_order_id=600, client_id=7).order_id == bo.order_id
+    assert env.ledger.match(broker_order_id=600).order_id == bo.order_id               # no client id in the event
+
+
 def test_foreign_working_orders_are_recorded_and_block_only_on_managed_instruments(env):
     env.ib.open_orders = [working(0, broker_id=50, perm=5050, symbol="TSLA", ref=False)]
     report = env.recovery.run()
