@@ -30,6 +30,7 @@ from src.application.managers.project_managers.spatio_temporal_momentum_project_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_model_provider import (
     SpatioTemporalMomentumModelProvider,
 )
+from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_split_guard import SplitGuardConfig
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_trading_cycle import (
     STMTradingCycle,
 )
@@ -121,4 +122,5 @@ class STMModelTrainer(BaseModelTrainer):
             gross_cap=self.config.get("gross_exposure_cap", 1.0),
             log=log or self.logger.info,
             missing_asset_patience=self.config.get("missing_asset_patience", 0),
+            split_guard=SplitGuardConfig.from_config(self.config.get("split_guard")),
         )

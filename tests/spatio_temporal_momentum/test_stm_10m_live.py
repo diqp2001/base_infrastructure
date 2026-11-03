@@ -387,6 +387,17 @@ def test_before_step_checks_the_connections_first():
     assert order == [("guard", "OLD")] and algorithm.live_stack == "NEW"
 
 
+def test_before_step_pushes_critical_alerts_with_the_split_guard_exclusions():
+    from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_split_guard import SplitJump
+    algorithm = Algorithm()
+    checks = []
+    algorithm.alert_notifier = SimpleNamespace(check=lambda extra=(): checks.append(list(extra)))
+    jump = SplitJump("JPM", pd.Timestamp("2026-10-30 09:30"), 2.0)
+    algorithm.cycle = SimpleNamespace(data_updater=None, split_excluded={"JPM": jump})
+    algorithm.before_step(datetime(2026, 10, 30, 9, 40))
+    assert len(checks) == 1 and "split guard: JPM" in checks[0][0]
+
+
 def test_the_live_config_pretrains_and_tolerates_late_bars():
     cfg = live_cfg.get_config()
     assert cfg["pretrain_before_first_decision"] and cfg["missing_asset_patience"] == 3

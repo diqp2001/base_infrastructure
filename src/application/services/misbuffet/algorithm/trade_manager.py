@@ -4,7 +4,9 @@ TradeManager – mechanics of the Order → Transaction → Position persistence
 Called exclusively by UnifiedPortfolioManager, which orchestrates when and what
 to trade. TradeManager only knows *how* to persist the resulting domain entities.
 
-Backtest (no order ledger): the order is booked as filled at the submission price.
+Backtest (no order ledger): the order is booked as filled at the submission price, or — with a fill model
+(fill_model.BidAskFillModel, P.08.04) — at the ask (buy) / bid (sell) with its commission booked in the same
+database transaction; an order the fill model cannot fill is not booked.
 Live (an OrderLedger attached, P.03): the order intent is stored BEFORE sending, the submission outcome after it,
 and nothing is booked at submission — fills, positions and cash move only with the broker's executions
 (OrderLedger.on_execution -> book_execution) and commissions (book_commission).
@@ -36,6 +38,7 @@ class TradeManager:
         self._order_ticket_mapping: Dict[str, Any] = {}  # QC order_id → domain order id
         self.ledger = None                  # OrderLedger: live order path (attach_ledger)
         self._submission_probe = None       # () -> the engine order of the last live submission
+        self.fill_model = None              # backtest: (ticker, qty, price, time) -> Fill (fill_model.py)
 
     def attach_ledger(self, ledger, submission_probe: Optional[Callable[[], Any]] = None) -> None:
         """Live mode: orders go through the durable ledger (intent before sending, no booking at submission).
@@ -97,6 +100,15 @@ class TradeManager:
             return self._execute_live(ticker, order_qty, price, portfolio_id, cash_portfolio_id, current_time,
                                       submit_order_fn, tag, holding_id, account_id)
 
+        commission = 0.0
+        if self.fill_model is not None:
+            fill = self.fill_model(ticker, order_qty, price, current_time)
+            if fill.price is None:
+                if self.logger:
+                    self.logger.warning(f"TradeManager: {ticker} qty={order_qty:+d} not filled — {fill.reason}")
+                return False
+            price, commission = fill.price, fill.commission
+
         # 1. Order ticket (backtest: in memory)
         ticket = submit_order_fn(ticker, order_qty, tag=tag or f"set_holdings_{ticker}")
         if not ticket:
@@ -106,7 +118,9 @@ class TradeManager:
         # of them are stored or none (a failure in the middle used to leave e.g. cash debited
         # without a position). The order is never re-sent here.
         booked = self._book_atomically(lambda: self._book(ticket, ticker, order_qty, price, portfolio_id,
-                                                          cash_portfolio_id, current_time))
+                                                          cash_portfolio_id, current_time)
+                                       and (not commission
+                                            or self.book_commission(commission, cash_portfolio_id, current_time)))
         if not booked:
             if self.logger:
                 self.logger.critical(
@@ -118,6 +132,7 @@ class TradeManager:
         if self.logger:
             self.logger.info(
                 f"TradeManager: {ticker} qty_Δ={order_qty:+d} @ ${price:.2f}"
+                + (f" + commission {commission:.2f}" if commission else "")
             )
         return True
 

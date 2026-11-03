@@ -91,8 +91,14 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
   backtest but are invisible through the frontier.
 * Training cost: retraining every day on 390 bars x 48 assets; keep `n_epochs` / early stopping in mind
   when lengthening the backtest window.
-* Not modelled: the overnight gap is treated as one more bar (the first bar's return includes it);
-  no intraday transaction costs beyond the report's cost scenarios.
+* Not modelled: the overnight gap is treated as one more bar (the first bar's return includes it).
+* **Costs** (P.08.04, config `execution_costs`): engine fills buy at the stored IBKR ASK and sell at the BID of the
+  decision bar (BID / ASK 10-minute bars preloaded with the TRADES bars), plus IBKR commission (Fixed: 0.005 / share,
+  min 1.00, max 1 % — owner to confirm the plan); a trade without a quote <= 10 min older than the decision bar is not
+  filled. BID / ASK closes are never read as prices (`QUOTE_SIDE_WHAT_TO_SHOW`). The report's cost scenarios
+  (`basis_points`) still evaluate the model's signal, not the engine's book.
+* **Split guard** (P.08.03, config `split_guard`): a ticker whose loaded closes contain a split-ratio jump is not
+  eligible (`stm_split_guard`).
 
 ## Speed: per-bar timings and the data preload
 

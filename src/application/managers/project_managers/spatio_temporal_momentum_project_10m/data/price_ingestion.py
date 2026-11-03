@@ -22,13 +22,14 @@ from src.domain.entities.finance.financial_assets.share.company_share.company_sh
 class BarHistoryUpdater:
 
     def __init__(self, market_data_service, tickers: List[str], history_start, bar_size_setting: str = "10 mins",
-                 bar_minutes: int = 10, refresh_duration: str = "1 D"):
+                 bar_minutes: int = 10, refresh_duration: str = "1 D", what_to_show=("TRADES",)):
         self.market_data_service = market_data_service
         self.tickers = list(tickers)
         self.history_start = pd.Timestamp(history_start)
         self.bar_size_setting = bar_size_setting
         self.bar_minutes = int(bar_minutes)
         self.refresh_duration = refresh_duration
+        self.what_to_show = tuple(what_to_show)        # TRADES, + BID / ASK for bid / ask backtest fills (P.08.04)
         self._imported_through: Optional[pd.Timestamp] = None
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -53,15 +54,18 @@ class BarHistoryUpdater:
         request_end = pd.Timestamp.now().floor(f"{self.bar_minutes}min").to_pydatetime()
         status = {}
         for ticker in self.tickers:
-            try:
-                result = self.market_data_service._get_point_in_time_data(
-                    ticker=ticker, entity_class=CompanyShare, point_in_time=request_end,
-                    bar_size_setting=self.bar_size_setting, duration_str=duration,
-                )
-                status[ticker] = result is not None
-            except Exception as e:
-                self.logger.warning(f"{self.bar_size_setting} bar import failed for {ticker}: {e}")
-                status[ticker] = False
+            ok = True
+            for what_to_show in self.what_to_show:
+                try:
+                    result = self.market_data_service._get_point_in_time_data(
+                        ticker=ticker, entity_class=CompanyShare, point_in_time=request_end,
+                        bar_size_setting=self.bar_size_setting, duration_str=duration, what_to_show=what_to_show,
+                    )
+                    ok = ok and result is not None
+                except Exception as e:
+                    self.logger.warning(f"{self.bar_size_setting} {what_to_show} bar import failed for {ticker}: {e}")
+                    ok = False
+            status[ticker] = ok
         return status
 
     def mark_imported(self, through=None) -> None:

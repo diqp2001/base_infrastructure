@@ -102,6 +102,12 @@ class UnifiedPortfolioManager:
             ledger, submission_probe=lambda: getattr(self._algorithm, "last_submitted_order", None))
         return ledger
 
+    def attach_fill_model(self, fill_model):
+        """Backtest fills with costs (fill_model.BidAskFillModel, P.08.04): buy at the ask, sell at the bid, plus
+        commission. Live fills always come from the broker's executions."""
+        self._trade_manager.fill_model = fill_model
+        return fill_model
+
     def attach_reconciler(self, reconciler_or_provider, **kwargs):
         """
         Gate set_holdings on a reconciliation with the broker.

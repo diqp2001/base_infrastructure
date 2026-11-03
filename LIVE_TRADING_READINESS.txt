@@ -1,20 +1,25 @@
-MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth for P.01 – P.07)
+MISBUFFET — LIVE TRADING READINESS (persistent progress file; source of truth for P.01 – P.08)
 ==========================================================================================
 
 SUMMARY
 -------
-Last updated     : 2026-11-02
-Current phase    : P.06 — Paper trading, operational monitoring and resilience (P.01–P.05 implemented; P.03 /
-                   P.05 order paths verified in simulation, P.02 / P.04 / P.05 providers also against IBKR read-only)
-Overall progress : P.01 done (8/8). P.02 done (9/9 + IBKR read-only). P.03 9/10 in simulation, 1 partial
-                   (modifications); IBKR check needs orders -> [B1]. P.04 7/8 done, 1 partial (P.04.07 streaming
-                   resubscription not orchestrated); P.04.04 cash vs books done 2026-11-02. P.05 9/9 in simulation (+ IBKR
-                   read-only account values). P.06 9/14 done (paper round trips, restart with a working order,
-                   monitoring page, shutdown, database-failure handling, first strategy wired and run on paper:
-                   P.06.10, gate account-values race P.06.11); 05 audit log, 09 partial fills partial; 12–14 pending.
-                   P.07 assessed 2026-10-29: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 67 · in progress 3 · blocked 0 · pending 0 (counted from the task lines, 2026-11-03)
-Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
+Last updated     : 2026-11-03
+Current phase    : P.06 / P.07 — paper trading of STM_10M_BANKS on DUR314497; live pilot waiting on owner decisions.
+                   P.08 (new 2026-11-03) — engine gaps outside the live order path, from the audit in
+                   docs/roadmap/misbuffet_gap_analysis.md.
+Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 1/14 done, 3 in progress (01, 02, 04). P.03 10/11 (P.03.04 order modification: cancel +
+                   resend only). P.06 14/15 (P.06.13 first paper cash comparison at the 2026-11-04 start). P.07 7/8
+                   (P.07.08 owner figures for live).
+                   Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
+                   with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
+                   P.07: ready for continued PAPER trading, NOT ready for a live pilot.
+Task counts      : completed 68 · in progress 6 · blocked 0 · pending 10 (counted from the task lines, 2026-11-03)
+Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
+                   2. Owner: start SQL Server Agent as administrator (P.08.02); subscribe to the ntfy topic
+                      (P.08.01); confirm the IBKR commission plan (P.08.04); P.07.08 live figures.
+                   3. One STM 10m backtest with bid / ask fills (P.08.04); then P.08.05 single-instance guard.
+Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
+                   [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
                    position). Live account U11494855: still NO orders.
                    [B2] US-equity quote entitlement: the account has no US-equity quote permission (BI-037: MIDPOINT
@@ -41,17 +46,6 @@ Current blockers : [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper o
                    IBKRAccountProvider converts base values to USD with IBKR's $LEDGER-ExchangeRate (no rate: fails).
                    [B3 RESOLVED 2026-10-28 17:01] TWS reconnected by the owner; P.02 IBKR check done. Alternative
                    connection: the Docker IBKR gateway service (WSL stack) — see memory project_docker_monitoring_env.
-Next actionable  : TO DO, in order:
-                   1. [done] P.06.11 account-values race fixed.
-                   2. Commit + merge P.06.10 / P.06.11 (STM 10m live copy, LiveClock, engine hooks, bar_prices,
-                      shortable check, account snapshot request ids).
-                   3. [done] P.06.12 session 11:00–15:50 clean on 2026-10-30 (30 decisions, cross-process kill
-                      OK, restarted on the previous day's book).
-                   4. [done] P.07 assessed: NOT ready for live. A live pilot needs B2 and P.07.08 owner decisions
-                      (capital, limits, net cap, day-trading equity). Runbook and mid-session reconnect: done.
-                   Open gaps: P.06.13 financing booked daily since 2026-11-02 (first paper comparison at the
-                   2026-11-04 start). P.06.09 and P.06.15 verified on paper 2026-11-03. Done earlier: P.04.07 reconnect,
-                   P.06.14 pre-training, P.06.05 decision -> orders.
 TWS note         : paper login DUR314497 on 7497; API not read-only; "Bypass Order Precautions for API Orders" on
                    (with precautions on, TWS held API orders silently until a dialog was answered — 2026-10-29).
 Account note     : the TWS session used for the read-only checks is logged into U11494855, a LIVE account (paper
@@ -672,6 +666,114 @@ Scope        the IBKR order path (P.02–P.06) and the first strategy on it, STM
 Acceptance  no positive recommendation while any critical execution, reconciliation, risk or recovery defect is open.
 
 
+P.08 — Engine gaps outside the live order path                       [~] IN PROGRESS (audit + 01–04 2026-11-03)
+------------------------------------------------------------------------------------------------
+Dependencies  none on P.03–P.07 except where stated. Evidence, status and impact per finding:
+              docs/roadmap/misbuffet_gap_analysis.md (GA-xx ids below). Ordered by priority.
+Scope         backtesting and research, the engine beyond one live session, historical market data, accounting,
+              operations. Verified and not repeated here: GA-A1 historical pacing, GA-A2 historical -> live handoff
+              (STM live), GA-E3 look-ahead, GA-F4 secrets / account guards, GA-F5 CI.
+ [~] P.08.01 HIGH  Alert delivery (GA-F1). Alerts exist (monitoring/service.trading_alerts) but are dashboard-only.
+             Needs: owner chooses the channel (e-mail / ntfy / Pushover / Telegram).
+             Acceptance: every critical alert (control DISABLED, blocking discrepancy, submission UNKNOWN / INTENT) and
+             session start / stop / crash reaches the channel once (de-duplicated); a sender failure never stops
+             trading. Tests: sender stubbed — one message per new critical alert, none for a repeat, failure logged.
+             2026-11-03 DONE IN CODE: owner chose ntfy. monitoring/alert_notifier.py (NtfySender, AlertNotifier: each
+             critical trading_alerts message + extra ones pushed once while active, again after clearing; failures
+             logged and retried, never raised). STM live: before_step checks every step (extras: split guard, stale
+             backup); run() pushes session started / ended / CRASHED. Topic NTFY_TOPIC (random, 24 hex) in the
+             git-ignored .env.windows; `ops notify-test` sent a real push (HTTP 200). Tests: test_alert_notifier (7),
+             test_stm_10m_live::test_before_step_pushes_critical_alerts_with_the_split_guard_exclusions.
+             Remaining: owner subscribes in the ntfy app (topic in .env.windows) and confirms the test push; first
+             paper session exercises start / end. Not covered: a hard kill of the process or the machine (no
+             watchdog — P.08.06).
+ [~] P.08.02 HIGH  Scheduled database backup + restore drill (GA-F2). Today: manual COPY_ONLY before schema changes.
+             Needs: owner chooses schedule / retention (base_infra is the books' source of truth).
+             Acceptance: nightly full + scheduled differential or log backups with CHECKSUM; one restore of the
+             latest backup onto base_infra_test documented with its time and row counts; RUNBOOK section.
+             Tests: restore drill record; backup job status visible on the monitor.
+             2026-11-03 DONE except the Agent service: owner chose nightly full + hourly log via SQL Agent, 14 days,
+             local folder. Jobs created in msdb (docs/operations/base_infra_backup_jobs.sql): full 02:00 (compressed,
+             CHECKSUM, RESTORE VERIFYONLY, cleanup of base_infra_scheduled\ files > 14 days — the manual COPY_ONLY
+             backups are outside it) and log hourly. Both job steps run once by hand: first scheduled full + log
+             (starts the log chain). Restore drill (docs/operations/base_infra_restore_drill.sql) into a scratch
+             database: full + 1 log in 1.1 s, row counts identical for 10 tables (orders 15 556, broker_executions
+             679, factor_values 688 496 ...), scratch dropped. Freshness: backup_status.py -> `ops status` line +
+             BACKUP ALERT, live session pushes it (P.08.01). docs/operations/BACKUPS.md (setup, restore procedure).
+             Tests: test_backup_status (3). [!] Remaining: SQLSERVERAGENT is stopped / Manual and this session has
+             no admin rights — owner runs, as administrator: Set-Service SQLSERVERAGENT -StartupType Automatic;
+             Start-Service SQLSERVERAGENT. Until then the jobs do not run (ops status will show a stale log backup).
+ [x] P.08.03 HIGH  Corporate actions in stored prices (GA-A5). Bars are get-or-create (entity_service.py:317): after
+             a split, old (unadjusted) and new (adjusted) bars mix in one series -> a false -50 % return reaches
+             features, retraining and a live decision. data_normalization.py exists but is not wired.
+             Acceptance: at each preload the stored overlap is compared with freshly requested IBKR bars; a constant
+             ratio (split) re-imports that ticker's series or excludes it from decisions until re-imported, and is
+             logged as a warning. Tests: SQLite fixture with a 2:1 split in the fresh bars -> detected, ticker
+             excluded / re-imported; identical bars -> nothing done.
+             2026-11-03 DONE (detection on the stored series, no extra IBKR request): stm_split_guard.split_like_jumps
+             flags a bar-to-bar ratio within 3 % of a split ratio (5:4 .. 50:1 and reverse); STMTradingCycle
+             (split_guard=SplitGuardConfig) drops those tickers from the eligible assets — the existing rule then
+             retrains without them (backtest) or skips trading while missing_asset_patience runs (live); reported once
+             (log) and pushed as a critical alert (P.08.01). Enabled in STM 10m and STM 10m live configs
+             (`split_guard: {tolerance: 0.03}`); other STM projects unchanged. Re-import procedure in RUNBOOK §4.
+             Real data (read-only): 1 363 bars x 25 banks, 2026-09-14 .. 10-30 -> no jump flagged (largest bar move
+             8 %). Tests: test_stm_split_guard (10). Not done: automatic re-import (deletes stored data; by hand).
+ [~] P.08.04 HIGH  Costs in the engine backtest (GA-E1, folds in GA-E2). TradeManager books backtest fills at the
+             submission price with no commission / spread / slippage (trade_manager.py:7, :108); live pays IBKR
+             commissions (0.50–2.00 per fill on paper) and half the spread. Research (stm_backtest by_cost) already
+             counts costs; the engine backtest does not.
+             Acceptance: commission per share with a minimum and half-spread / slippage bps from the project config
+             (missing config fails, no default value); commission booked like live (book_commission).
+             BacktestingTransactionHandler / connected_market_order fill code folded in or removed.
+             Tests: one buy and one sell -> cash = notional ± slippage − commission; minimum commission applied.
+             2026-11-03 DONE IN CODE (owner: buy at the ask, sell at the bid — the subscription gives BID / ASK
+             history at no extra cost): algorithm/fill_model.py (CommissionModel, BidAskFillModel, StoredBidAskQuotes =
+             BID / ASK closes of the bar closed at the decision, through the frontier, max age 10 min, else no fill);
+             TradeManager.fill_model (backtest only) books fill + commission in ONE transaction;
+             UnifiedPortfolioManager.attach_fill_model. STM 10m: config execution_costs (IBKR Fixed 0.005 / share,
+             min 1.00, max 1 % — owner to confirm the plan; the answer given was about data fees), preload and updater
+             import TRADES + BID + ASK. Found and fixed on the way: with BID / ASK series stored, three close readers
+             (STMFrontierPriceReader panel, STMPriceHistoryReader, FactorValueResolutionService) would have read a BID
+             or ASK close as the price -> QUOTE_SIDE_WHAT_TO_SHOW excluded unless named. IBKR check (read-only): JPM
+             10-minute TRADES / BID / ASK, 57 bars each (12:20 bar: bid 336.28, last 336.29, ask 336.36).
+             Tests: test_fill_model (12). Remaining: one STM 10m backtest with the BID / ASK preload, compared with
+             the cost-free run; the unused BacktestingTransactionHandler / connected_market_order fill code (GA-E2).
+ [ ] P.08.05 MED   Single-instance guard for a live strategy (GA-D2). Only the fixed TWS client id 31 prevents a
+             second session today. Acceptance: run() and check() take a lock per strategy (sp_getapplock or a lock
+             file) and refuse to start when it is held; released on exit and on crash. Tests: second start refused.
+ [ ] P.08.06 MED   Daily start and supervision (GA-D3). Start is manual (RUNBOOK §2); nothing restarts a crash.
+             Needs: owner chooses Task Scheduler vs a compose service. Depends on P.08.01, P.08.05.
+             Acceptance: the session starts by itself on trading days, a crash alerts (P.08.01) and is restarted at
+             most N times. Tests: start script on a non-trading day exits cleanly; crash path alerts.
+ [ ] P.08.07 MED   Missing-bar recovery (GA-A3). before_step extends coverage even for tickers whose import failed
+             (base_project_algorithm.py:113-117); gaps of earlier days are reported, never re-requested.
+             Acceptance: coverage extended only for imported tickers; preload re-requests gapped days.
+             Tests: failed ticker keeps its coverage end; a gapped day is requested again at preload.
+ [ ] P.08.08 MED   Bar validation at import (GA-A4). Acceptance: price > 0, low <= open/close <= high, volume >= 0;
+             a rejected bar is logged as an anomaly and never stored. Tests: each invalid case rejected.
+ [ ] P.08.09 MED   Per-position average cost, realized and unrealized P&L from stored fills (GA-C1); the
+             PositionRepository P&L stubs (position_repository.py:269-273) replaced or removed. No schema change.
+             Acceptance: P&L per name on the Trading page equals the sum over fills. Tests: buy / partial sell / add /
+             flatten sequence with known P&L.
+ [ ] P.08.10 MED   Book-currency guard (GA-C3). Until multi-currency books exist the gate refuses an instrument whose
+             contract currency differs from the book's (TradeManager writes currency_id=1, order_ledger.py:380).
+             Tests: a CAD instrument refused with the reason; USD unchanged.
+ [ ] P.08.11 MED   Run manifest for reproducibility and deployment (GA-E5, GA-F6): config, git commit + dirty flag,
+             data window, model artifact ids written to results_dir by every backtest and live session; live refuses
+             a dirty working tree. Tests: manifest written with the commit; dirty tree refused in live mode.
+ [ ] P.08.12 MED   Research / live decision parity (GA-E6): research and live STM cycles on one fixed SQLite fixture
+             decide the same weights. Tests: the parity test itself.
+ [ ] P.08.13 MED   Derivatives lifecycle (GA-C4): expiry, exercise, assignment booked from IBKR executions / position
+             changes (on_assignment is a stub that nothing calls). Needed only before a live options strategy.
+             Tests: expiry worthless, ITM exercise, assignment -> books match the broker.
+ [ ] P.08.14 LOW   Fixed mock price 100 in position reporting (GA-C2, unified_portfolio_manager.py:815-821): value
+             through the set_holdings price chain or report "no price". Tests: reported market value = qty x price.
+Not tasks (decisions or accepted): GA-D1 several strategies on one account (owner: sub-account vs allocation);
+             GA-E4 survivorship bias (documented in bank_universe.py); GA-F3 alembic unused (create_all +
+             _migrate_schema is the mechanism); GA-D4 SQL Server max memory on the live host (to check once).
+Acceptance  the HIGH items closed before a live pilot (P.07.08); MEDIUM items scheduled by the owner.
+
+
 SESSION LOG
 -----------
 2026-10-28  P.01 audit: engine, broker, IBKR client, persistence, accounting, risk, tests read; 159 existing tests
@@ -720,3 +822,9 @@ SESSION LOG
             paper_bar_prices (quote age 60 s). Paper base currency CAD: cash check reads the USD ledger, the gate
             converts base values with IBKR's exchange rate. P.06.15 ops adopt verified (BAC) + orderId/client-id
             matching bug fixed. P.06.09 partial fills verified (11 partials; partial + cancel). Cash baseline retaken.
+2026-11-03  Audit of the areas outside the live order path (backtesting / research, engine, historical data,
+            accounting, operations): docs/roadmap/misbuffet_gap_analysis.md; 14 tasks as P.08 (4 HIGH: alert
+            delivery, scheduled backups, split detection, backtest costs). Evidence tests run: 75 passed.
+2026-11-03  P.08.03 split guard done; P.08.01 ntfy alerts, P.08.02 scheduled backups (+ restore drill) and P.08.04
+            bid / ask backtest fills implemented and tested; remaining owner steps: SQL Agent start, ntfy
+            subscription, commission plan.

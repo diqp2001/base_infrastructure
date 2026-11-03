@@ -138,6 +138,20 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # validation = latest val_days, model used from the next bar
     'retrain_every_days': 1,
 
+    # P.08.03: a ticker whose known closes contain a split-like jump (stored and newly imported bars on
+    # different scales after a split) is not eligible until its series is re-imported
+    'split_guard': {'tolerance': 0.03},
+
+    # P.08.04 backtest fills with costs, as a live market order: buy at the ASK, sell at the BID of the decision bar
+    # (stored IBKR BID / ASK 10-minute bars, imported with the TRADES bars), plus IBKR commission. A trade without a
+    # bid / ask at most max_quote_age_minutes older than the decision bar is not filled. Commission: IBKR Fixed
+    # pricing for US stocks (0.005 USD / share, min 1.00, max 1 % of trade value) — owner to confirm the plan.
+    'execution_costs': {
+        'fill': 'bid_ask',
+        'max_quote_age_minutes': 10,
+        'commission': {'per_share': 0.005, 'minimum': 1.0, 'max_pct_of_value': 0.01},
+    },
+
     # Factors created through Misbuffet BaseModelTrainer.create_factors
     'factors': _feature_factor_configs(),
 
