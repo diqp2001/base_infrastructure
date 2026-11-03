@@ -7,16 +7,16 @@ Last updated     : 2026-11-03
 Current phase    : P.06 / P.07 — paper trading of STM_10M_BANKS on DUR314497; live pilot waiting on owner decisions.
                    P.08 (new 2026-11-03) — engine gaps outside the live order path, from the audit in
                    docs/roadmap/misbuffet_gap_analysis.md.
-Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 4/14 done, 1 in progress (04). P.03 10/11 (P.03.04 order modification: cancel +
+Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 5/14 done. P.03 10/11 (P.03.04 order modification: cancel +
                    resend only). P.06 14/15 (P.06.13 first paper cash comparison at the 2026-11-04 start). P.07 7/8
                    (P.07.08 owner figures for live).
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 71 · in progress 4 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
+Task counts      : completed 72 · in progress 3 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
 Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
-                   2. Owner: TWS paper login with the API up for the bid / ask backtest (P.08.04); P.07.08 live
-                      figures.
+                   2. Owner: P.07.08 live figures; decide how STM limits its turnover (P.08.04 finding: costs
+                      2.2 % of capital per week at ~24 trades per decision).
                    3. One STM 10m backtest with bid / ask fills (P.08.04, needs TWS API up); P.08.07 / P.08.08.
 Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
                    [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
@@ -720,7 +720,7 @@ Scope         backtesting and research, the engine beyond one live session, hist
              (`split_guard: {tolerance: 0.03}`); other STM projects unchanged. Re-import procedure in RUNBOOK §4.
              Real data (read-only): 1 363 bars x 25 banks, 2026-09-14 .. 10-30 -> no jump flagged (largest bar move
              8 %). Tests: test_stm_split_guard (10). Not done: automatic re-import (deletes stored data; by hand).
- [~] P.08.04 HIGH  Costs in the engine backtest (GA-E1, folds in GA-E2). TradeManager books backtest fills at the
+ [x] P.08.04 HIGH  Costs in the engine backtest (GA-E1, folds in GA-E2). TradeManager books backtest fills at the
              submission price with no commission / spread / slippage (trade_manager.py:7, :108); live pays IBKR
              commissions (0.50–2.00 per fill on paper) and half the spread. Research (stm_backtest by_cost) already
              counts costs; the engine backtest does not.
@@ -741,6 +741,15 @@ Scope         backtesting and research, the engine beyond one live session, hist
              10-minute TRADES / BID / ASK, 57 bars each (12:20 bar: bid 336.28, last 336.29, ask 336.36).
              Tests: test_fill_model (12). Remaining: one STM 10m backtest with the BID / ASK preload, compared with
              the cost-free run; the unused BacktestingTransactionHandler / connected_market_order fill code (GA-E2).
+             2026-11-03 BACKTESTS (paper login, history only; same code, same models, 195 decisions 2026-10-05 ..
+             10-09, 1 000 000 USD): WITHOUT costs 1 012 585 (+1.26 %, max DD -0.97 %); WITH bid / ask + IBKR Fixed
+             990 906 (-0.91 %, max DD -1.70 %). Gap 21 679 = the fill model's 4 622 fills: commission 7 067 + spread vs
+             decision price 14 760 (0 refused for want of a quote). Finding: ~24 trades per 10-minute decision (every
+             bank re-sized at every bar) — costs (2.2 % of capital in a week) exceed the gross gain. Next: a no-trade
+             band / minimum weight change, or a slower rebalance (strategy decision, owner). Runs:
+             results/spatio_temporal_momentum_10m_{costs,nocosts}_20261103 (portfolio_values.csv,
+             cost_run_summary.json). Fill model now counts fills / refused / commission / spread (summary()). DONE;
+             GA-E2 (unused fill code) left as a LOW refactor.
  [x] P.08.05 MED   Single-instance guard for a live strategy (GA-D2). Only the fixed TWS client id 31 prevents a
              second session today. Acceptance: run() and check() take a lock per strategy (sp_getapplock or a lock
              file) and refuse to start when it is held; released on exit and on crash. Tests: second start refused.
@@ -840,3 +849,4 @@ SESSION LOG
 2026-11-03  P.08.05 single-instance lock for the STM live session done. Bid / ask backtest waits for the TWS API.
 2026-11-03  SQL Server Agent started (owner approved UAC): P.08.02 done. Commission plan = IBKR Fixed (paper fills).
 2026-11-03  ntfy subscription confirmed by the owner: P.08.01 done.
+2026-11-03  P.08.04 done: STM 10m week with costs -0.91 % vs +1.26 % without (costs 21.8 k USD, 4 622 fills).

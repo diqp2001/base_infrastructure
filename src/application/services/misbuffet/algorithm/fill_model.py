@@ -51,6 +51,10 @@ class BidAskFillModel:
     def __init__(self, quotes: QuoteSource, commission: CommissionModel):
         self.quotes = quotes
         self.commission = commission
+        # what the costs did over a run: fills, trades refused for want of a quote, commissions, and the spread paid
+        # against the decision price (|fill - decision| x quantity)
+        self.fills = self.refused = 0
+        self.commission_total = self.spread_cost_total = 0.0
 
     @classmethod
     def from_config(cls, cfg: dict, quotes: QuoteSource) -> "BidAskFillModel":
@@ -62,12 +66,22 @@ class BidAskFillModel:
     def __call__(self, ticker: str, quantity: float, decision_price: float, when: datetime) -> Fill:
         quote = self.quotes(ticker, when)
         if quote is None:
+            self.refused += 1
             return Fill(None, reason=f"no bid / ask for {ticker} at {when}")
         bid, ask = quote
         if not (bid > 0 and ask >= bid):
+            self.refused += 1
             return Fill(None, reason=f"invalid quote for {ticker} at {when}: bid {bid}, ask {ask}")
         price = ask if quantity > 0 else bid
-        return Fill(price, self.commission(quantity, price))
+        fill = Fill(price, self.commission(quantity, price))
+        self.fills += 1
+        self.commission_total += fill.commission
+        self.spread_cost_total += abs(price - decision_price) * abs(quantity)
+        return fill
+
+    def summary(self) -> dict:
+        return {"fills": self.fills, "refused": self.refused, "commission": round(self.commission_total, 2),
+                "spread_cost_vs_decision_price": round(self.spread_cost_total, 2)}
 
 
 class StoredBidAskQuotes:
