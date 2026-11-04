@@ -11,7 +11,7 @@ any project-specific imports or logic.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from src.application.services.misbuffet.algorithm.base import QCAlgorithm
 
@@ -79,6 +79,23 @@ class BaseProjectAlgorithm(QCAlgorithm):
         self._initial_training_completed = False
 
         self.initialized = True
+
+    def attach_execution_costs(self, ticker_to_entity: Dict[str, int], bar_minutes: int):
+        """Backtest fills with costs from config['execution_costs'] (P.08.04): buy at the stored ASK, sell at the
+        stored BID of the decision bar, plus commission. Any project whose config has the section gets them; the
+        project imports the BID / ASK bars (fill_model.quote_what_to_show). Returns the fill model, or None."""
+        costs = self.config.get('execution_costs')
+        manager = getattr(self, '_unified_portfolio_manager', None)
+        if not costs or manager is None:
+            return None
+        from src.application.services.misbuffet.algorithm.fill_model import build_fill_model
+        return manager.attach_fill_model(build_fill_model(costs, self._market_data_history_service,
+                                                          ticker_to_entity, bar_minutes))
+
+    def min_weight_change(self) -> Optional[float]:
+        """config['rebalance']['min_weight_change']: no-trade band passed to set_holdings (None = trade every
+        change)."""
+        return (self.config.get('rebalance') or {}).get('min_weight_change')
 
     # ------------------------------------------------------------------
     # Portfolio and performance helpers

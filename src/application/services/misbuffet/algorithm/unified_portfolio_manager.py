@@ -1171,6 +1171,7 @@ class UnifiedPortfolioManager:
         tag: str = "",
         liquidate_unlisted: bool = True,
         max_gross_weight: Optional[float] = 1.0,
+        min_weight_change: Optional[float] = None,
     ) -> Dict[str, bool]:
         """
         Rebalance the portfolio to the given target weights.
@@ -1201,6 +1202,9 @@ class UnifiedPortfolioManager:
             liquidate_unlisted: sell held tickers missing from target_weights (scoped as above)
             max_gross_weight: refuse the whole call when the sum of |weight| targets exceeds it
                             (None = no cap). NaN / infinite targets are refused one by one.
+            min_weight_change: no-trade band — a weight-targeted ticker is not traded while its target weight
+                            is within this distance of its current weight (e.g. 0.005 = 0.5 % of the
+                            portfolio). Quantity targets and liquidations are always traded. None = no band.
 
         Returns:
             {ticker: True/False} for every ticker where an order was attempted.
@@ -1314,6 +1318,7 @@ class UnifiedPortfolioManager:
 
         sells: List[tuple] = []  # (ticker, order_qty, price, current_qty)
         buys:  List[tuple] = []
+        within_band: List[str] = []
 
         for ticker in all_tickers:
             price = self._price_from_slice(ticker, data)
@@ -1339,7 +1344,12 @@ class UnifiedPortfolioManager:
             else:
                 target_pct = target_weights.get(ticker, 0.0)
                 # one contract of an option / future is worth price × multiplier (BI-009)
-                target_qty = int(portfolio_value * target_pct / (price * self._trade_manager.contract_multiplier(ticker)))
+                multiplier = self._trade_manager.contract_multiplier(ticker)
+                target_qty = int(portfolio_value * target_pct / (price * multiplier))
+                current_pct = current_qty * price * multiplier / portfolio_value
+                if min_weight_change and ticker not in to_liquidate and                         abs(target_pct - current_pct) < min_weight_change:
+                    within_band.append(ticker)
+                    continue
             order_qty   = target_qty - current_qty
 
             if order_qty == 0:
@@ -1350,6 +1360,10 @@ class UnifiedPortfolioManager:
                 sells.append(entry)
             else:
                 buys.append(entry)
+
+        if within_band and self.logger:
+            self.logger.info(f"set_holdings: {len(within_band)} ticker(s) within the {min_weight_change:.2%} "
+                             f"no-trade band, not traded: {', '.join(sorted(within_band))}")
 
         # Execute sells first to free up cash / reduce exposure
         for ticker, order_qty, price, current_qty in sells:

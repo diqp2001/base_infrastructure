@@ -167,6 +167,39 @@ class TargetGuardTest(unittest.TestCase):
         self.assertEqual(traded(upm), {})
 
 
+class NoTradeBandTest(unittest.TestCase):
+    """min_weight_change: a weight target within the band of the current weight is not traded (100 000 USD, 100 USD
+    a share: 1 share = 0.1 % of the portfolio)."""
+
+    BAND = 0.005
+
+    def test_a_change_inside_the_band_is_not_traded_one_outside_is(self):
+        upm, _ = book_upm({"SPY": 50})                                          # 5 %
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.054}}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {})
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.046}}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {})
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.056}}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {"SPY": 6})
+
+    def test_a_new_position_opens_only_beyond_the_band(self):
+        upm, _ = book_upm()
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.004}}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {})
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": -0.006}}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {"SPY": -6})
+
+    def test_liquidations_and_quantity_targets_ignore_the_band(self):
+        upm, _ = book_upm({"SPY": 50, "XLF": 3})
+        upm.set_holdings({CompanyShare: [{"name": "SPY", "quantity": 51}]}, DATA, min_weight_change=self.BAND)
+        self.assertEqual(traded(upm), {"SPY": 1, "XLF": -3})                    # XLF unlisted: sold (0.3 %)
+
+    def test_without_a_band_every_change_is_traded(self):
+        upm, _ = book_upm({"SPY": 50})
+        upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.051}}, DATA)
+        self.assertEqual(traded(upm), {"SPY": 1})
+
+
 class PortfolioTreeSqliteTest(unittest.TestCase):
 
     def setUp(self):

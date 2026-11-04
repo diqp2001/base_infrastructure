@@ -10,6 +10,7 @@
 #   ibkr            IB Gateway (IBC + Xvfb, headless) - ghcr.io/gnzsnz/ib-gateway
 #   app             Python 3.13 dev container (VS Code attaches here; .devcontainer/)
 #   monitor         read-only monitoring website (127.0.0.1:8050), same image, hardened
+#   trader          profile "trading": daily start + supervision of the STM 10m live session (paper), P.08.06
 #
 # Startup: sqlserver healthy -> sqlserver-init done + ibkr starts -> ibkr API ready -> app.
 #          monitor only needs sqlserver: it keeps working (and shows it) when IB Gateway is down.
@@ -176,6 +177,67 @@ services:
         # service_healthy waits for a logged-in Gateway. Set IBKR_APP_START_CONDITION=service_started
         # in .env to open the dev container without IBKR credentials / while Gateway is down.
         condition: ${IBKR_APP_START_CONDITION:-service_healthy}
+
+  trader:
+    # P.08.06 daily start and supervision of the STM 10m live session (PAPER, strategy STM_10M_BANKS):
+    # supervise.py daily starts the session at 09:20 ET on NYSE trading days, restarts a crashed session at most
+    # 3 times a day and pushes every crash to the phone (ntfy, NTFY_TOPIC); restart: unless-stopped covers a crash
+    # of the supervisor itself. It SENDS ORDERS, so it never starts with a plain `docker compose up`:
+    #     docker compose --profile trading up -d trader        (then it runs every trading day by itself)
+    #     docker compose stop trader                           (the session ends cleanly before its next step)
+    # Paper only: IBKR_ACCOUNT_MODE / IBKR_ALLOW_LIVE are pinned here, NOT read from .env, so a Gateway logged
+    # into the live account makes every order refused (BI-005 guard). Going live needs an explicit change here.
+    # Book: the stack's own SQL Server (DB_* below); see the RUNBOOK before switching books.
+    profiles: ["trading"]
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: base_infrastructure-dev:py3.13
+    working_dir: /workspaces/base_infrastructure
+    command: ["python", "-m",
+              "src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.supervise",
+              "daily"]
+    init: true
+    stop_signal: SIGTERM
+    stop_grace_period: 5m          # a step in progress (retraining ~2.5 min) finishes, working orders are cancelled
+    volumes:
+      - .:/workspaces/base_infrastructure        # results/ and weights/ are written
+    networks: [backend]
+    environment:
+      PYTHONPATH: /workspaces/base_infrastructure
+      TZ: ${TIME_ZONE:-America/New_York}
+      DB_HOST: sqlserver
+      DB_PORT: "1433"
+      DB_NAME: ${DB_NAME:-base_infra}
+      DB_USER: ${DB_USER:-sa}
+      DB_PASSWORD: ${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}}
+      DB_DRIVER: ODBC Driver 18 for SQL Server
+      DB_TRUST_SERVER_CERTIFICATE: "yes"
+      IBKR_HOST: ${TRADER_IBKR_HOST:-ibkr}
+      IBKR_PORT: ${TRADER_IBKR_PORT:-4004}
+      IBKR_CLIENT_ID: ${TRADER_IBKR_CLIENT_ID:-1}     # data connection; the order connection is client 31 (config)
+      IBKR_ACCOUNT_MODE: paper
+      IBKR_ALLOW_LIVE: "no"
+      IBKR_CONNECT_RETRIES: ${IBKR_CONNECT_RETRIES:-6}
+      IBKR_CONNECT_RETRY_DELAY: ${IBKR_CONNECT_RETRY_DELAY:-10}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      ibkr:
+        # not service_healthy: a Gateway down at 09:20 is a crash the supervisor alerts and retries
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-m",
+             "src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.supervise",
+             "health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
 
   monitor:
     # Read-only monitoring website (no login): only the monitoring blueprint is served

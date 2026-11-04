@@ -186,6 +186,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     'live': LIVE,
 
+    # P.08.06 daily start and supervision (supervise.py, compose service `trader`): the session is launched at
+    # start_time (ET) on NYSE trading days; a crashed session is restarted at most max_restarts times a day,
+    # restart_delay_seconds apart, every crash alerted; never (re)started in the last no_start_before_close_minutes
+    # (after the 15:50 decision run() would wait for the next day). heartbeat_seconds: the supervisor's heartbeat
+    # file (results_dir/STM_10M_BANKS.supervisor.json) is rewritten at least this often (compose healthcheck: 3x)
+    'supervisor': {'start_time': '09:20', 'max_restarts': 3, 'restart_delay_seconds': 60,
+                   'no_start_before_close_minutes': 10, 'heartbeat_seconds': 60},
+
     'stm': {
         'universe': {
             'name': STM_UNIVERSE_NAME,

@@ -52,6 +52,7 @@ the controls before every order).
 | TRADING_CAPITAL | 25 000 USD | cash of the book; weights are sized on it, not on the IBKR account |
 | split_guard | tolerance 0.03 | P.08.03: a ticker whose loaded closes contain a split-ratio jump is not eligible (stm_split_guard) |
 | NTFY_TOPIC (env / `.env.windows`) | — | P.08.01: critical alerts and session start / end / crash pushed via ntfy; `ops notify-test` |
+| supervisor | start 09:20 ET, max 3 restarts / day, 60 s apart, none in the last 10 min | P.08.06: `supervise.py daily` (compose service `trader`, profile `trading`) |
 | max_orders | 60 per 60 s | one rebalance may send an order per bank + liquidations |
 
 ## Kept apart from the 10m backtest
