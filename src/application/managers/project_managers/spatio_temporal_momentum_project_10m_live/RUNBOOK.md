@@ -57,6 +57,9 @@ docker compose stop trader                        # ends the session cleanly bef
   the next day.
 * `supervise once` (today only, waits for 09:20) and `supervise session` (one session, as below) run it without the
   container.
+* Committed code only (P.08.11): a session refuses to start when tracked files have uncommitted changes (alert "not
+  started", no restart). Commit first; on PAPER only, `RUN_MANIFEST_ALLOW_DIRTY=yes` overrides it (recorded). Every
+  session writes `results/spatio_temporal_momentum_10m_live/run_manifest.json` (commit, config, models).
 
 **By hand** (Windows, TWS):
 

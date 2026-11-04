@@ -32,6 +32,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_report_store import progress_path
 from src.application.services.misbuffet.live.live_clock import LiveClock
 from src.application.services.timing.step_timings import summarise as summarise_step_timings
+from src.application.services.misbuffet import run_manifest
 
 DASHBOARD_URL = "http://127.0.0.1:5000/stm/?project=10m_live"      # decisions of the running session
 MONITOR_URL = "http://127.0.0.1:5000/monitor/trading"              # orders, executions, controls, discrepancies
@@ -173,6 +174,12 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
                           f"{start:%Y-%m-%d %H:%M} .. {end:%H:%M} — dashboard {DASHBOARD_URL}, orders {MONITOR_URL}")
         print(f"Live STM 10m: account {live['account']}, decisions {start} .. {end}. "
               f"Track: {DASHBOARD_URL} and {MONITOR_URL}", flush=True)
+        # P.08.11: the code that trades must be a commit (paper may override, recorded); manifest in results_dir
+        manifest = run_manifest.build_manifest(
+            "live", f"{live['strategy']} {live['account']}", self.config,
+            (self.config.get('price_history_start'), start, end))
+        run_manifest.require_clean_tree(manifest, paper=str(live['account']).startswith("D"))
+        run_manifest.write_manifest(self.results_dir, manifest)
         timings_csv = os.path.join(self.results_dir, TIMINGS_FILE)
         if os.path.exists(timings_csv):
             os.remove(timings_csv)
@@ -186,6 +193,8 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
             self.results = self.runner.run_live(config, broker, self.clock)
         except BaseException as e:
             self.progress.fail(repr(e))
+            run_manifest.finish_manifest(self.results_dir, manifest, f"failed: {e!r}"[:300],
+                                         run_manifest.models_of(getattr(self.runner, 'algorithm_instance', None)))
             if notifier is not None:
                 notifier.event("session CRASHED", repr(e)[:500], priority="urgent")
             raise
@@ -201,6 +210,8 @@ class SpatioTemporalMomentum10mLiveProjectManager(ProjectManager):
         if notifier is not None:
             notifier.event("session ended", f"{self.results['reason']}, {self.results['decisions']} decision(s)")
         self.progress.complete()
+        run_manifest.finish_manifest(self.results_dir, manifest, f"ended: {self.results['reason']}",
+                                     run_manifest.models_of(getattr(self.runner, 'algorithm_instance', None)))
         return self.results
 
     def alert_notifier(self):

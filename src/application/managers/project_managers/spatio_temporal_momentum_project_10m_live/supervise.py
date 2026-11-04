@@ -9,7 +9,8 @@ P.08.06 daily start and supervision of the STM 10m live session (compose service
                             it as a child process. SIGTERM / SIGINT end it cleanly before its next step
     ... supervise health    compose healthcheck: exit 0 while the supervisor's heartbeat is fresh
 
-Exit codes of `session`: 0 ended (normally or stopped), ALREADY_RUNNING another session holds the lock, 1 crash.
+Exit codes of `session`: 0 ended (normally or stopped), ALREADY_RUNNING another session holds the lock,
+REFUSED_DIRTY_TREE the working tree is not a clean commit (P.08.11), 1 crash.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from zoneinfo import ZoneInfo
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live import config as project_config
 from src.application.services.misbuffet.live.daily_supervisor import (
     ALREADY_RUNNING,
+    REFUSED_DIRTY_TREE,
     DailySupervisor,
     SupervisorConfig,
     heartbeat_age_seconds,
@@ -97,6 +99,7 @@ def run_session() -> int:
         SpatioTemporalMomentum10mLiveProjectManager,
     )
     from src.application.services.misbuffet.live.session_lock import SessionLockedError
+    from src.application.services.misbuffet.run_manifest import DirtyWorkingTree
     manager = SpatioTemporalMomentum10mLiveProjectManager()
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: manager.stop("stopped by the supervisor / operator"))
@@ -105,6 +108,9 @@ def run_session() -> int:
     except SessionLockedError as e:
         logger.error(str(e))
         return ALREADY_RUNNING
+    except DirtyWorkingTree as e:
+        logger.error(str(e))
+        return REFUSED_DIRTY_TREE
     return 0
 
 
