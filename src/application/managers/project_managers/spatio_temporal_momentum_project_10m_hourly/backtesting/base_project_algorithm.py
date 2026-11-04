@@ -81,7 +81,7 @@ class Algorithm(BaseProjectAlgorithm):
                     self._unified_portfolio_manager.set_holdings(
                         {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
                         data=data,
-                        min_weight_change=self.min_weight_change(),
+                        min_weight_change=self.min_weight_change(len(self.cycle.ticker_to_entity)),
                     )
             elif not result.weights:
                 self.log(f"No STM position change at {bar_time}: {result.note}")

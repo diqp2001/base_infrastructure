@@ -155,9 +155,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
 
     # No-trade band (set_holdings min_weight_change): a bank is only traded when its target weight moves more than
-    # 0.5 % of the portfolio away from its current weight. Without it the 10-minute decisions re-sized almost every
-    # bank at every bar (~24 trades / decision) and costs exceeded the gross gain (P.08.04 comparison, 2026-11-03)
-    'rebalance': {'min_weight_change': 0.005},
+    # the band away from its current weight. Without it the 10-minute decisions re-sized almost every bank at every
+    # bar (~24 trades / decision) and costs exceeded the gross gain (P.08.04 comparison, 2026-11-03). The band is
+    # scaled to the universe (owner 2026-11-04): 0.13 x the equal weight 1/N = 0.5 % for the 26 banks, 0.13 % for
+    # 100 names. An absolute band is 'min_weight_change' instead (not both).
+    'rebalance': {'min_weight_change_x_equal_weight': 0.13},
 
     # Factors created through Misbuffet BaseModelTrainer.create_factors
     'factors': _feature_factor_configs(),

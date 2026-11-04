@@ -40,6 +40,15 @@ docker compose stop trader                        # ends the session cleanly bef
 ```
 
 * The `trading` profile keeps it out of a plain `docker compose up`: it sends orders.
+* IBKR: its own Gateway `ibkr-paper` (same profile, started with it), logged into the PAPER username; the `ibkr`
+  service keeps its own login. Before the first start, in the WSL clone, replace `CHANGE_ME` in the two git-ignored
+  files (never commit them, never paste them anywhere):
+  * `secrets/ibkr_paper.env`: `TWS_USERID=<paper username>` (IBKR Account Management -> Paper Trading Account);
+  * `secrets/ibkr_paper_password.txt`: the paper password alone, one line.
+
+  One username = one session: `ibkr-paper` takes the paper session at start (`IBKR_PAPER_EXISTING_SESSION_ACTION`,
+  default `primary`), so a Windows TWS on the same paper login is disconnected. Run paper either in Docker or on
+  Windows, not both. `docker compose --profile trading logs -f ibkr-paper` shows the login.
 * Paper only: `IBKR_ACCOUNT_MODE=paper` / `IBKR_ALLOW_LIVE=no` are pinned in the service, not read from `.env`. A
   Gateway logged into the live account makes every order refused. Book = the stack's SQL Server `DB_NAME`.
 * Status: `results/spatio_temporal_momentum_10m_live/STM_10M_BANKS.supervisor.json` (state, rewritten every minute;
