@@ -29,6 +29,18 @@ The portfolio value of the engine (`results_dir`, dashboard) is the strategy's P
 report's paper tables still score each decision on the **next 10-minute bar** (the model's label), not on the
 hour the position is actually held, so compare projects on portfolio value, not on those tables.
 
+## First run (2026-11-04, 5-9 Oct 2026, 1 000 000 USD, bid / ask + IBKR Fixed)
+
+| run | end value | decisions | fills | costs |
+|---|---|---|---|---|
+| STM 10m, no band | 990 906 (-0.91 %) | 195 | 4 622 | 21 827 |
+| STM 10m, 0.5 % band | 993 594 (-0.64 %) | 195 | 2 809 | 19 266 |
+| this project (hourly) | 1 000 044 (+0.00 %) | 30 | 746 | 6 736 |
+
+Gross ~ +0.7 % (estimate: end value + costs) vs +1.26 % for STM 10m without costs. This project trained its own
+models (one retraining per day) while the STM 10m runs reused trained models, and one week is not significant.
+Copy: `results/spatio_temporal_momentum_10m_hourly_20261104/`.
+
 ## Run
 
 ```python

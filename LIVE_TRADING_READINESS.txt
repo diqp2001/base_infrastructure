@@ -17,9 +17,9 @@ Task counts      : completed 72 · in progress 4 · blocked 0 · pending 8 (coun
 Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
                    2. Owner: P.07.08 live figures; P.08.06 start the `trader` service on a stack whose IB Gateway is
                       logged into PAPER (the WSL .env is on the live login).
-                   3. Turnover (owner 2026-11-03): compare STM 10m with the 0.5 % no-trade band and the new hourly
-                      project (spatio_temporal_momentum_project_10m_hourly) against the P.08.04 costs run; P.08.07 /
-                      P.08.08.
+                   3. Turnover (owner): 2026-11-04 runs done (hourly ~0.00 % vs band -0.64 % vs 10m -0.91 % with
+                      costs, see P.08.04). Owner to choose: hourly without costs, hourly + band, a longer window;
+                      the live project is unchanged. P.08.07 / P.08.08.
 Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
                    [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
@@ -752,6 +752,16 @@ Scope         backtesting and research, the engine beyond one live session, hist
              results/spatio_temporal_momentum_10m_{costs,nocosts}_20261103 (portfolio_values.csv,
              cost_run_summary.json). Fill model now counts fills / refused / commission / spread (summary()). DONE;
              GA-E2 (unused fill code) left as a LOW refactor.
+             2026-11-04 TURNOVER RUNS (owner 2026-11-03; same window and costs, paper login, history only):
+               10m + 0.5 % band   993 594 (-0.64 %)  195 decisions  2 809 fills  commission 5 294  spread 13 972
+                                  (costs 19 266 = 1.9 %; fills -39 % but costs only -12 %: the band skips small
+                                  re-sizings, the large ones that pay the spread still trade)
+               hourly (60 min)  1 000 044 (+0.00 %)  30 decisions    746 fills  commission 1 886  spread  4 850
+                                  (costs 6 736 = 0.67 %, -69 %; gross ~ +0.7 % estimated = end value + costs, not run)
+             Caveats: the hourly project trained its own models (5 daily retrainings) while the 10m runs reused
+             trained models, so the models differ; one week only, no difference is significant. Runs:
+             results/spatio_temporal_momentum_10m_{band,hourly}_20261104. Owner decision pending: hourly without
+             costs, hourly + band, longer window; no change to the live project yet.
  [x] P.08.05 MED   Single-instance guard for a live strategy (GA-D2). Only the fixed TWS client id 31 prevents a
              second session today. Acceptance: run() and check() take a lock per strategy (sp_getapplock or a lock
              file) and refuse to start when it is held; released on exit and on crash. Tests: second start refused.
@@ -871,3 +881,5 @@ SESSION LOG
             spatio_temporal_momentum_project_10m_hourly (same model, rebalanced every 60 min, no band), fill-model
             wiring moved into the shared BaseProjectAlgorithm (attach_execution_costs). P.08.06 compose service
             `trader` + daily supervisor in code (deployment on paper Gateway pending).
+2026-11-04  Turnover runs (5-9 Oct, costs): 10m + 0.5 % band -0.64 % (costs 19.3 k), hourly +0.00 % (costs
+            6.7 k, 746 fills) vs 10m -0.91 % (21.8 k). Hourly models differ (own retraining); one week only.
