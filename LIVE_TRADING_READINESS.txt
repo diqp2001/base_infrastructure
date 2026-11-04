@@ -13,8 +13,8 @@ Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 5/14 done
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 80 · in progress 2 · blocked 0 · pending 2 (counted from the task lines, 2026-11-04)
-Next actionable  : 1. P.08.11 run manifest, P.08.12 research / live parity.
+Task counts      : completed 82 · in progress 2 · blocked 0 · pending 0 (counted from the task lines, 2026-11-04)
+Next actionable  : 1. Owner: research vs live retraining cadence (retrain_every_days 1 vs 2, patience 0 vs 3; P.08.12).
                    2. Owner: P.07.08 live figures; P.08.06 fill secrets/ibkr_paper.env + ibkr_paper_password.txt
                       (WSL clone), then `docker compose --profile trading up -d trader` (Gateway `ibkr-paper`).
                    3. Turnover (owner): 2026-11-04 runs done (hourly ~0.00 % vs band -0.64 % vs 10m -0.91 % with
@@ -839,11 +839,24 @@ Scope         backtesting and research, the engine beyond one live session, hist
              currency is not the book's, or unknown; live_stack.ContractCurrencies asks IBKR once per symbol for the
              contract the order is sent with (SMART / USD stock): no such contract (e.g. a CAD-only listing) ->
              refused. Tests: test_pre_trade_risk (CAD refused with the reason, USD unchanged, lookup cached).
- [ ] P.08.11 MED   Run manifest for reproducibility and deployment (GA-E5, GA-F6): config, git commit + dirty flag,
+ [x] P.08.11 MED   Run manifest for reproducibility and deployment (GA-E5, GA-F6): config, git commit + dirty flag,
              data window, model artifact ids written to results_dir by every backtest and live session; live refuses
              a dirty working tree. Tests: manifest written with the commit; dirty tree refused in live mode.
- [ ] P.08.12 MED   Research / live decision parity (GA-E6): research and live STM cycles on one fixed SQLite fixture
+             2026-11-04 DONE: misbuffet/run_manifest.py — results_dir/run_manifest.json (kind, project, start / end,
+             git commit + dirty flag + changed files, config + sha256 with password / secret / token / topic keys
+             redacted, data window, model artifact ids = retrained + the newest in use, outcome) and every run
+             appended to run_manifests.jsonl. Written by STM 10m and 10m hourly backtests and the STM 10m live
+             session. Live refuses a dirty or unknown tree (bytecode, graphify-out ignored; git -c safe.directory for
+             the Docker bind mount); RUN_MANIFEST_ALLOW_DIRTY=yes overrides on PAPER only (recorded). Supervisor:
+             session exit code REFUSED_DIRTY_TREE 4 -> alert "not started", no restart. Tests: test_run_manifest (5).
+ [x] P.08.12 MED   Research / live decision parity (GA-E6): research and live STM cycles on one fixed SQLite fixture
              decide the same weights. Tests: the parity test itself.
+             2026-11-04 DONE: tests/spatio_temporal_momentum/test_stm_research_live_parity.py — (1) every model /
+             decision setting of the two STM configurations identical, names and folders apart; (2) the cycle settings
+             differ only where known; (3) both cycles, each with its own settings, on one SQLite fixture with the same
+             trained model: identical weights at every decision (12 decimals). FINDING (owner): retrain_every_days
+             research 1 vs live 2, missing_asset_patience 0 vs 3 — a backtest retrains on other days than live, so
+             it does not reproduce live decisions after the first day; align them or keep (the test names them).
  [x] P.08.13 MED   Derivatives lifecycle (GA-C4): expiry, exercise, assignment booked from IBKR executions / position
              changes (on_assignment is a stub that nothing calls). Needed only before a live options strategy.
              Tests: expiry worthless, ITM exercise, assignment -> books match the broker.
@@ -932,3 +945,4 @@ SESSION LOG
 2026-11-04  Owner: P.08.07 missing-bar recovery, P.08.08 bar validation, P.08.09 P&L from fills (Trading page),
             P.08.10 currency guard, P.08.13 option lifecycle, P.08.14 real prices in reports, P.03.04 order
             modification: done.
+2026-11-04  P.08.11 run manifest (live refuses a dirty tree) and P.08.12 research / live parity done.

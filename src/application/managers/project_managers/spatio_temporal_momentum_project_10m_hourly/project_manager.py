@@ -22,6 +22,7 @@ from src.application.managers.project_managers.spatio_temporal_momentum_project_
     TIMINGS_FILE,
 )
 from src.application.services.timing.step_timings import summarise as summarise_step_timings
+from src.application.services.misbuffet import run_manifest
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_research_report import (
     build_report,
 )
@@ -77,10 +78,17 @@ class SpatioTemporalMomentum10mHourlyProjectManager(ProjectManager):
         timings_csv = os.path.join(self.results_dir, TIMINGS_FILE)
         if os.path.exists(timings_csv):
             os.remove(timings_csv)                       # one file per run: where each bar's time went
+        # P.08.11: config, commit, data window and models of this run, in results_dir
+        manifest = run_manifest.build_manifest(
+            "backtest", self.config.get('project_name', type(self).__name__), self.config,
+            (self.config.get('price_history_start'), self.config['backtest_start'], self.config['backtest_end']))
+        run_manifest.write_manifest(self.results_dir, manifest)
         try:
             results = self._run()
         except Exception as e:
             self.progress.fail(str(e))
+            run_manifest.finish_manifest(self.results_dir, manifest, f"failed: {e!r}"[:300],
+                                         run_manifest.models_of(getattr(self.runner, 'algorithm_instance', None)))
             raise
         finally:
             summary = summarise_step_timings(timings_csv)
@@ -93,6 +101,8 @@ class SpatioTemporalMomentum10mHourlyProjectManager(ProjectManager):
             self.progress.phase("Saving results")
             save_report(results['report'], self.results_dir)
             self.progress.complete(results['report'])
+        run_manifest.finish_manifest(self.results_dir, manifest, "completed",
+                                     run_manifest.models_of(getattr(self.runner, 'algorithm_instance', None)))
         return results
 
     def _run(self) -> Dict[str, Any]:

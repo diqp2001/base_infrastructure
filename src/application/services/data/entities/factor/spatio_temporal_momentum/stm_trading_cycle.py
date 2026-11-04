@@ -153,6 +153,14 @@ class STMTradingCycle:
                  if m.get("validation_end") and pd.Timestamp(m["validation_end"]) <= session]
         return max(metas, key=lambda m: pd.Timestamp(m["validation_end"])) if metas else None
 
+    def model_artifact_id(self) -> Optional[int]:
+        """Id of the newest trained artifact — the model the next decision scores with (run manifest, P.08.11)."""
+        pairs = [(i, m) for i, m in self.artifact_store.list_artifacts() if m.get("validation_end")]
+        if not pairs:
+            return None
+        newest = max(pairs, key=lambda p: pd.Timestamp(p[1]["validation_end"]))[0]
+        return getattr(newest, "id", newest)
+
     def _retrain_due(self, session: pd.Timestamp, eligible: List[str]) -> bool:
         newest = self._newest_artifact_meta(session)
         if newest is None:

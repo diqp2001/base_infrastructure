@@ -9,7 +9,9 @@ at most `max_restarts` times, and alerts (P.08.01) on every crash and when it gi
                                                is seen like an exception, and the OS releases the session lock
     exit codes                                 0 = the session ended (normally or stopped by the operator: never
                                                restarted); ALREADY_RUNNING = another session holds the lock (not
-                                               restarted, alerted once); anything else = crash -> restart
+                                               restarted, alerted once); REFUSED_DIRTY_TREE = the working tree
+                                               is not a clean commit (P.08.11: not restarted, alerted once);
+                                               anything else = crash -> restart
 
 Alerts carry no account id: the strategy name, the exit code and what happens next. Details stay in the logs.
 """
@@ -25,6 +27,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Callable, List, Optional, Tuple
 
 ALREADY_RUNNING = 3                           # session.py exit code: SessionLockedError
+REFUSED_DIRTY_TREE = 4                        # session.py exit code: run_manifest.DirtyWorkingTree (P.08.11)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +103,10 @@ class DailySupervisor:
                 self._alert("not started", "another session of this strategy is already running "
                             "(session lock): the supervisor did not start a second one", "high")
                 return DayOutcome(day, "already running", len(codes), codes)
+            if code == REFUSED_DIRTY_TREE:
+                self._alert("not started", "the working tree has uncommitted changes: a live session trades "
+                            "committed code only. Commit, then start it by hand (RUNBOOK section 2)", "high")
+                return DayOutcome(day, "refused: dirty working tree", len(codes), codes)
             restarts = len(codes) - 1
             if restarts >= self.config.max_restarts:
                 self._alert("session down for the day",
