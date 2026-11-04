@@ -169,7 +169,7 @@ def test_the_hourly_project_rebalances_every_60_minutes_with_the_same_costs_and_
     h, t = hourly.get_config(), ten.get_config()
     assert h["config_interval"] == {"custom_interval_minutes": 60, "session_start": "10:30", "session_end": "16:00"}
     assert h["execution_costs"] == t["execution_costs"] and h["stm"]["bar_minutes"] == 10
-    assert h["rebalance"]["min_weight_change"] is None and t["rebalance"]["min_weight_change"] == 0.005
+    assert h["rebalance"]["min_weight_change"] is None and t["rebalance"]["min_weight_change_x_equal_weight"] == 0.13
     for key in ("results_dir",):
         assert h[key] != t[key]
     assert h["stm"]["artifact_dir"] != t["stm"]["artifact_dir"] and h["Portfolio"]["name"] != t["Portfolio"]["name"]

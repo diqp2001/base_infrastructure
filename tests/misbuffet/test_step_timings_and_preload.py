@@ -198,7 +198,8 @@ def test_the_10m_algorithm_records_cycle_orders_and_valuation(tmp_path):
     logged = []
     algo.progress_tracker = SimpleNamespace(log=logged.append, on_step=lambda *a: None)
     algo.cycle = SimpleNamespace(step=lambda t: SimpleNamespace(retrained=False, weights={"JPM": 0.1}, note="",
-                                                               session=t, artifact_id=None))
+                                                               session=t, artifact_id=None),
+                                 ticker_to_entity={"JPM": 1})
     algo._unified_portfolio_manager = SimpleNamespace(set_holdings=lambda *a, **k: None)
     algo._update_portfolio_value = lambda data: None
     algo._update_performance_tracking = lambda data: None
@@ -281,6 +282,37 @@ def test_a_second_preload_does_not_ask_ibkr_for_stored_series():
         fake.calls.clear()
         service.preload(series, start="2026-10-05", end="2026-10-05 16:00", force=True)
         assert [c[0] for c in fake.calls] == ["JPM", "VALU", "BAC"]
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_a_gapped_day_is_requested_again_at_the_next_preload():
+    """P.08.07: the stored bars span the window but a whole trading day is missing (a failed import, not 'no
+    trade'): the next preload asks IBKR for that day only ('1 D' ending at its close), not for the whole window."""
+    from src.application.services.data.backtest_preload.backtest_data_preload_service import (
+        BacktestDataPreloadService,
+        PreloadSeries,
+    )
+    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+    factory, session, engine = make_factory()
+    try:
+        def day(d):
+            return list(pd.date_range(f"{d} 09:30", f"{d} 15:50", freq="10min"))
+        fake = _FakeImport(factory, session, {"JPM": day("2026-10-05") + day("2026-10-07")})
+        lines = []
+        service = BacktestDataPreloadService(fake, log=lines.append)
+        series = [PreloadSeries(CompanyShare, "JPM", "TRADES", "10 mins")]
+        first, = service.preload(series, start="2026-10-05", end="2026-10-07 16:00")
+        assert first.imported and first.gapped_days == ["2026-10-06"]
+        assert "STILL NO BAR on 2026-10-06" in lines[0]
+        fake.calls.clear()
+        fake.bars_by_symbol["JPM"] = day("2026-10-06")                  # what IBKR returns for the gapped day
+        again, = service.preload(series, start="2026-10-05", end="2026-10-07 16:00")
+        assert fake.calls == [("JPM", "10 mins", "1 D", "TRADES")]
+        assert again.skipped and not again.imported
+        assert again.refilled_days == ["2026-10-06"] and again.gapped_days == []
+        assert again.stored_bars == 3 * 39
     finally:
         session.close()
         engine.dispose()

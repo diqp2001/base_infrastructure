@@ -688,7 +688,8 @@ class UnifiedPortfolioManager:
                         'symbol': self._get_asset_symbol(holding.asset),
                         'quantity': holding.position.quantity,
                         'position_type': holding.position.position_type.value,
-                        'market_value': float(self._calculate_holding_market_value(holding)),
+                        'market_value': (None if (value := self._calculate_holding_market_value(holding)) is None
+                                         else float(value)),            # None = no price
                         'start_date': holding.start_date,
                         'is_active': holding.is_active()
                     }
@@ -818,18 +819,32 @@ class UnifiedPortfolioManager:
                 self.logger.error(f"âŒ Enhanced holdings retrieval failed: {e}")
             return []
 
-    def _calculate_holding_market_value(self, holding: Holding) -> Decimal:
-        """Calculate market value of a holding."""
+    def _reference_price(self, ticker: str, data=None, when=None) -> Optional[float]:
+        """The set_holdings price chain: the data slice, the algorithm's resolver, the stored mid, then market data.
+        None when none of them has a positive price."""
+        price = self._price_from_slice(ticker, data) if data is not None else None
+        if (not price or price <= 0) and hasattr(self._algorithm, "_resolve_asset_price"):
+            price = self._algorithm._resolve_asset_price(ticker)
+        if not price or price <= 0:
+            price = self._get_mid_price_from_factor_db(ticker)
+        if not price or price <= 0:
+            price = self._get_price_from_market_data(ticker, when or getattr(self._algorithm, "time", None))
+        return float(price) if price and price > 0 else None
+
+    def _calculate_holding_market_value(self, holding: Holding) -> Optional[Decimal]:
+        """quantity x price x contract multiplier through the set_holdings price chain (P.08.14: was a fixed mock
+        price of 100); None when no price is available — reported as "no price", never as a made-up value."""
         try:
-            # Simplified calculation - would use real market prices
-            quantity = holding.position.quantity
-            # Would get current market price from market data service
-            estimated_price = Decimal('100.0')  # Mock price
-            
-            return Decimal(str(quantity)) * estimated_price
-            
-        except Exception:
-            return Decimal('0')
+            symbol = self._get_asset_symbol(holding.asset)
+            price = self._reference_price(symbol)
+            if price is None:
+                return None
+            multiplier = self._trade_manager.contract_multiplier(symbol) if self._trade_manager else 1
+            return Decimal(str(holding.position.quantity)) * Decimal(str(price)) * Decimal(str(multiplier))
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"market value of holding {getattr(holding, 'id', '?')} unavailable: {e!r}")
+            return None
 
     def _has_budget_for_trade(self, order_qty: int, price: float, current_qty: int) -> bool:
         """
@@ -1321,18 +1336,8 @@ class UnifiedPortfolioManager:
         within_band: List[str] = []
 
         for ticker in all_tickers:
-            price = self._price_from_slice(ticker, data)
-            if not price or price <= 0:
-                if hasattr(self._algorithm, "_resolve_asset_price"):
-                    price = self._algorithm._resolve_asset_price(ticker)
-
-            if not price or price <= 0:
-                price = self._get_mid_price_from_factor_db(ticker)
-
-            if not price or price <= 0:
-                price = self._get_price_from_market_data(ticker, current_time)
-
-            if not price or price <= 0:
+            price = self._reference_price(ticker, data, current_time)
+            if not price:
                 if self.logger:
                     self.logger.warning(f"set_holdings: no price for {ticker}, skipping")
                 results[ticker] = False
@@ -1347,7 +1352,8 @@ class UnifiedPortfolioManager:
                 multiplier = self._trade_manager.contract_multiplier(ticker)
                 target_qty = int(portfolio_value * target_pct / (price * multiplier))
                 current_pct = current_qty * price * multiplier / portfolio_value
-                if min_weight_change and ticker not in to_liquidate and                         abs(target_pct - current_pct) < min_weight_change:
+                if (min_weight_change and ticker not in to_liquidate
+                        and abs(target_pct - current_pct) < min_weight_change):
                     within_band.append(ticker)
                     continue
             order_qty   = target_qty - current_qty

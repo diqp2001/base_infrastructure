@@ -92,10 +92,22 @@ class BaseProjectAlgorithm(QCAlgorithm):
         return manager.attach_fill_model(build_fill_model(costs, self._market_data_history_service,
                                                           ticker_to_entity, bar_minutes))
 
-    def min_weight_change(self) -> Optional[float]:
-        """config['rebalance']['min_weight_change']: no-trade band passed to set_holdings (None = trade every
-        change)."""
-        return (self.config.get('rebalance') or {}).get('min_weight_change')
+    def min_weight_change(self, n_assets: Optional[int] = None) -> Optional[float]:
+        """No-trade band passed to set_holdings (None = trade every change), from config['rebalance']:
+          min_weight_change                  absolute band, a fraction of the portfolio (0.005 = 0.5 %)
+          min_weight_change_x_equal_weight   band scaled to the universe: this fraction of the equal weight
+                                             1 / n_assets (0.13 -> 0.5 % for 26 assets, 0.13 % for 100)
+        Setting both is a configuration error."""
+        rebalance = self.config.get('rebalance') or {}
+        absolute = rebalance.get('min_weight_change')
+        relative = rebalance.get('min_weight_change_x_equal_weight')
+        if absolute is not None and relative is not None:
+            raise ValueError("rebalance: set min_weight_change OR min_weight_change_x_equal_weight, not both")
+        if relative is None:
+            return absolute
+        if not n_assets:
+            raise ValueError("rebalance.min_weight_change_x_equal_weight needs the number of assets")
+        return float(relative) / int(n_assets)
 
     # ------------------------------------------------------------------
     # Portfolio and performance helpers

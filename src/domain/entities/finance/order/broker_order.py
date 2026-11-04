@@ -168,6 +168,27 @@ class BrokerOrder:
         self.message = reason
         self.last_event_at = at
 
+    def modify(self, new_quantity: float, at: datetime, note: str = "") -> None:
+        """P.03.04: a working order's total quantity changes (IBKR: placeOrder again with the same order id). Never
+        below the filled quantity; not on a closed order or one being cancelled. The status stays as it is: the
+        broker's next status reports the change."""
+        if self.is_terminal:
+            raise ValueError(f"order {self.order_id} is already {self.status}")
+        if self.cancel_requested_at is not None:
+            raise ValueError(f"order {self.order_id} is being cancelled")
+        if self.submission_state is not SubmissionState.SUBMITTED or self.broker_order_id is None:
+            raise ValueError(f"order {self.order_id} is not working at the broker ({self.submission_state.value})")
+        new_quantity = float(new_quantity)
+        if new_quantity <= self.filled_quantity:
+            raise ValueError(f"order {self.order_id}: new quantity {new_quantity:g} must exceed the filled "
+                             f"{self.filled_quantity:g} (cancel it instead)")
+        old = self.requested_quantity
+        self.requested_quantity = new_quantity
+        self.remaining_quantity = new_quantity - self.filled_quantity
+        self.message = (f"{self.message}; " if self.message else "") + \
+            f"modified {old:g} -> {new_quantity:g}" + (f" ({note})" if note else "")
+        self.last_event_at = at
+
     def request_cancel(self, at: datetime) -> None:
         if self.is_terminal:
             raise ValueError(f"order {self.order_id} is already {self.status}")

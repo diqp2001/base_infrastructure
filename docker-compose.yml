@@ -10,6 +10,8 @@
 #   ibkr            IB Gateway (IBC + Xvfb, headless) - ghcr.io/gnzsnz/ib-gateway
 #   app             Python 3.13 dev container (VS Code attaches here; .devcontainer/)
 #   monitor         read-only monitoring website (127.0.0.1:8050), same image, hardened
+#   ibkr-paper      profile "trading": a second IB Gateway logged into the PAPER login (DUR314497), for trader;
+#                   credentials in secrets/ibkr_paper.env (TWS_USERID=...) + secrets/ibkr_paper_password.txt
 #   trader          profile "trading": daily start + supervision of the STM 10m live session (paper), P.08.06
 #
 # Startup: sqlserver healthy -> sqlserver-init done + ibkr starts -> ibkr API ready -> app.
@@ -24,12 +26,16 @@ networks:
 volumes:
   sqlserver-data:
   ibkr-settings:
+  ibkr-paper-settings:
 
 secrets:
   # IB Gateway password: a git-ignored local file (secrets/ is in .gitignore), mounted read-only
   # into the ibkr container only, at /run/secrets/ibkr_password. Never in .env or the environment.
   ibkr_password:
     file: ${IBKR_PASSWORD_FILE:-./secrets/ibkr_password.txt}
+  # PAPER login password for ibkr-paper (profile "trading"), same rules: git-ignored, one line, no quotes
+  ibkr_paper_password:
+    file: ${IBKR_PAPER_PASSWORD_FILE:-./secrets/ibkr_paper_password.txt}
 
 services:
   sqlserver:
@@ -126,6 +132,58 @@ services:
       start_period: 180s
     restart: unless-stopped
 
+  ibkr-paper-init:
+    # same as ibkr-init, for the paper Gateway's settings volume
+    profiles: ["trading"]
+    image: ghcr.io/gnzsnz/ib-gateway:${IB_GATEWAY_TAG:-stable}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c", "chown -R 1000:1000 /home/ibgateway/tws_settings && echo ibkr-paper settings volume ready"]
+    volumes:
+      - ibkr-paper-settings:/home/ibgateway/tws_settings
+    networks: [backend]
+    restart: "no"
+
+  ibkr-paper:
+    # PAPER IB Gateway for the trader (profile "trading"; the `ibkr` service stays on its own login, live today).
+    # The paper login is its own IBKR username (Account Management -> Paper Trading Account), not the live one.
+    #   secrets/ibkr_paper.env            TWS_USERID=<paper username>
+    #   secrets/ibkr_paper_password.txt   <paper password>      (both git-ignored, chmod 600)
+    # One IBKR username = one session: with "primary" this Gateway takes the paper session at start and a TWS
+    # logged into the same paper username elsewhere (Windows) is disconnected. No ports published: the trader
+    # reaches it on the Docker network (ibkr-paper:4004).
+    profiles: ["trading"]
+    image: ghcr.io/gnzsnz/ib-gateway:${IB_GATEWAY_TAG:-stable}
+    depends_on:
+      ibkr-paper-init:
+        condition: service_completed_successfully
+    env_file:
+      - path: ./secrets/ibkr_paper.env
+        required: true
+    environment:
+      TWS_PASSWORD_FILE: /run/secrets/ibkr_paper_password
+      TRADING_MODE: paper                                 # pinned: this Gateway is never live
+      READ_ONLY_API: "no"
+      TWS_SETTINGS_PATH: /home/ibgateway/tws_settings
+      TWS_ACCEPT_INCOMING: accept
+      EXISTING_SESSION_DETECTED_ACTION: ${IBKR_PAPER_EXISTING_SESSION_ACTION:-primary}
+      AUTO_RESTART_TIME: ${IBKR_AUTO_RESTART_TIME:-11:45 PM}
+      VNC_SERVER_PASSWORD: ""
+      JAVA_HEAP_SIZE: ${IBKR_JAVA_HEAP_SIZE:-1024}
+      TIME_ZONE: ${TIME_ZONE:-America/New_York}
+      TZ: ${TIME_ZONE:-America/New_York}
+    volumes:
+      - ibkr-paper-settings:/home/ibgateway/tws_settings
+    secrets:
+      - ibkr_paper_password
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4002"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 180s
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -213,7 +271,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}}
       DB_DRIVER: ODBC Driver 18 for SQL Server
       DB_TRUST_SERVER_CERTIFICATE: "yes"
-      IBKR_HOST: ${TRADER_IBKR_HOST:-ibkr}
+      IBKR_HOST: ${TRADER_IBKR_HOST:-ibkr-paper}
       IBKR_PORT: ${TRADER_IBKR_PORT:-4004}
       IBKR_CLIENT_ID: ${TRADER_IBKR_CLIENT_ID:-1}     # data connection; the order connection is client 31 (config)
       IBKR_ACCOUNT_MODE: paper
@@ -226,7 +284,7 @@ services:
         condition: service_healthy
       sqlserver-init:
         condition: service_completed_successfully
-      ibkr:
+      ibkr-paper:
         # not service_healthy: a Gateway down at 09:20 is a crash the supervisor alerts and retries
         condition: service_started
     healthcheck:

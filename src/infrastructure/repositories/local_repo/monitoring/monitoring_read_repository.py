@@ -222,7 +222,52 @@ class MonitoringReadRepository:
         return {"open_orders": open_orders, "recent_orders": recent_orders, "executions": executions,
                 "unbooked_executions": unbooked, "open_discrepancies": discrepancies,
                 "resolved_discrepancies": resolved, "controls": list(latest.values()),
-                "control_history": controls[-limit:][::-1]}
+                "control_history": controls[-limit:][::-1], "positions": self.positions_pnl()}
+
+    def positions_pnl(self) -> List[Dict[str, Any]]:
+        """P.08.09: per symbol, from every BOOKED execution in execution order: quantity, average cost, realized P&L,
+        commissions; unrealized against the newest stored close of the symbol (None without one). Stocks
+        (multiplier 1)."""
+        from src.domain.entities.finance.position_pnl import Fill, positions_pnl, signed_quantity
+        ex = BrokerExecutionModel.__table__
+        with self.engine.connect() as conn:
+            rows = conn.execute(select(ex.c.symbol, ex.c.side, ex.c.quantity, ex.c.price, ex.c.commission)
+                                .where(ex.c.booked.is_(True))
+                                .order_by(ex.c.executed_at, ex.c.id)).mappings().all()
+        fills = [Fill(r["symbol"], signed_quantity(r["side"], r["quantity"]), float(r["price"]),
+                      float(r["commission"] or 0.0)) for r in rows]
+        symbols = sorted({f.symbol for f in fills})
+        out = []
+        for p in positions_pnl(fills, self.last_closes(symbols)):
+            out.append({"symbol": p.symbol, "quantity": p.quantity, "average_cost": p.average_cost,
+                        "last_price": p.last_price, "realized_pnl": round(p.realized, 2),
+                        "unrealized_pnl": None if p.unrealized is None else round(p.unrealized, 2),
+                        "commission": round(p.commission, 2),
+                        "net_pnl": None if p.net is None else round(p.net, 2), "fills": p.fills})
+        return out
+
+    def last_closes(self, symbols: List[str]) -> Dict[str, float]:
+        """Newest stored raw 'close' (TRADES bars, any frequency) per symbol."""
+        if not symbols:
+            return {}
+        f, v, a = self.factors, self.values, self.assets
+        newest = (select(a.c.symbol, func.max(v.c.date).label("last"))
+                  .select_from(v.join(f, v.c.factor_id == f.c.id).join(a, a.c.id == v.c.entity_id))
+                  .where(f.c.name == "close", f.c.subgroup == "TRADES", f.c.source != "calculated",
+                         a.c.symbol.in_(symbols))
+                  .group_by(a.c.symbol).subquery())
+        q = (select(a.c.symbol, v.c.value)
+             .select_from(v.join(f, v.c.factor_id == f.c.id).join(a, a.c.id == v.c.entity_id)
+                          .join(newest, (newest.c.symbol == a.c.symbol) & (newest.c.last == v.c.date)))
+             .where(f.c.name == "close", f.c.subgroup == "TRADES", f.c.source != "calculated"))
+        out = {}
+        with self.engine.connect() as conn:
+            for r in conn.execute(q).mappings():
+                try:
+                    out[r["symbol"]] = float(r["value"])
+                except (TypeError, ValueError):
+                    continue
+        return out
 
     def data_sources(self) -> List[Dict[str, Any]]:
         f = self.factors

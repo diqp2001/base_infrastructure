@@ -722,13 +722,22 @@ class IBTWSClient(EWrapper, EClient):
 
         return contract
 
-    def place_order(self, contract: Contract, order: IBOrder) -> int:
-        """Place an order with TWS."""
+    def place_order(self, contract: Contract, order: IBOrder, modify_order_id: Optional[int] = None) -> int:
+        """Place an order with TWS. ``modify_order_id`` (P.03.04): send it again under that existing order id — a
+        modification of a working order this client placed; no new id is taken. The one placeOrder call site."""
         if not self.is_connected():
             raise ConnectionError("Not connected to TWS")
+        if modify_order_id is not None and modify_order_id not in self.placed_order_ids:
+            raise ValueError(f"order {modify_order_id} was not placed by this client: it cannot be modified")
         # BI-005: the account TWS is logged into must match IBKR_ACCOUNT_MODE (paper DU… vs live)
         order_account = getattr(order, "account", "")
         verify_connected_accounts(self.get_managed_accounts(), order_account if isinstance(order_account, str) else "")
+
+        if modify_order_id is not None:
+            self.placeOrder(modify_order_id, contract, order)
+            self.logger.info(f"Modified order {modify_order_id}: {contract.symbol} {order.action} "
+                             f"{order.totalQuantity}")
+            return modify_order_id
 
         order_id = self.next_order_id
         self.next_order_id += 1
@@ -742,6 +751,10 @@ class IBTWSClient(EWrapper, EClient):
         self.logger.info(f"Placed order {order_id}: {contract.symbol} {order.action} {order.totalQuantity}")
 
         return order_id
+
+    def modify_order(self, order_id: int, contract: Contract, order: IBOrder) -> int:
+        """P.03.04: change a working order this client placed (IBKR: placeOrder again with the same order id)."""
+        return self.place_order(contract, order, modify_order_id=order_id)
 
     def cancel_order(self, order_id: int) -> None:
         """Cancel an order."""

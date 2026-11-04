@@ -9,7 +9,8 @@ engine and the trading cycle find the data locally at each step and never wait o
 For each series:
   1. the entity is created / found through the engine's own path (MarketDataService._get_entity_by_ticker);
   2. unless the stored bars already span [start, end] (an earlier run loaded them: no IBKR request, ``force`` to
-     re-import), ONE import covering ``start`` .. now goes through the engine's own import path
+     re-import) — a whole trading day missing inside is requested again, one '1 D' request per day (P.08.07) —,
+     ONE import covering ``start`` .. now goes through the engine's own import path
      (MarketDataService._get_point_in_time_data -> IBKR repositories -> factor_values), so the stored series are
      exactly those the engine reads (subgroup = whatToShow, frequency = bar size);
   3. the stored bars are compared with the bars the exchange was open for (NYSE calendar) — the report says what
@@ -59,7 +60,9 @@ class PreloadResult:
     registered_factors: List[int] = field(default_factory=list)
     error: Optional[str] = None
     spans_window: bool = False          # stored bars reach from the window's first to its last expected bar
-    skipped: bool = False               # already stored: IBKR was not asked
+    gapped_days: List[str] = field(default_factory=list)    # closed trading days with no stored bar at all
+    refilled_days: List[str] = field(default_factory=list)  # gapped days requested again from IBKR
+    skipped: bool = False               # already stored: no full import
 
     @property
     def coverage_pct(self) -> float:
@@ -108,10 +111,14 @@ class BacktestDataPreloadService:
                     continue
                 result.entity_id = int(entity.id)
                 if not force:
-                    # already loaded by an earlier run: the stored bars span the window (gaps inside it are bars
-                    # IBKR does not have, e.g. no trade in a 10-minute window) -> no IBKR request
-                    self._check(result, spec, entity, start, end)
+                    # already loaded by an earlier run: the stored bars span the window (single missing bars inside
+                    # it are bars IBKR does not have, e.g. no trade in a 10-minute window) -> no full import; a
+                    # whole trading day missing is a failed import, requested again (P.08.07)
+                    self._check(result, spec, entity, start, end, request_end)
                     result.skipped = result.spans_window
+                    if result.skipped and result.gapped_days:
+                        self._refill(result, spec)
+                        self._check(result, spec, entity, start, end, request_end)
                 if not result.skipped:
                     duration = import_duration(start, request_end, spec.bar_size_setting)
                     self.market_data_service._get_point_in_time_data(
@@ -119,7 +126,7 @@ class BacktestDataPreloadService:
                         bar_size_setting=spec.bar_size_setting, duration_str=duration, what_to_show=spec.what_to_show,
                     )
                     result.imported = True
-                    self._check(result, spec, entity, start, end)
+                    self._check(result, spec, entity, start, end, request_end)
                 if register:
                     for factor_id in self._raw_factor_ids(entity):
                         preloaded_coverage.register(factor_id, result.entity_id, start.to_pydatetime(),
@@ -163,8 +170,20 @@ class BacktestDataPreloadService:
     def _series_factor_ids(self, spec: PreloadSeries, entity) -> List[int]:
         return [int(f.id) for f in self._series_factors(spec, entity) if getattr(f, "id", None) is not None]
 
-    def _check(self, result: PreloadResult, spec: PreloadSeries, entity, start, end) -> None:
-        """Stored close bars in [start, end] against the bars the exchange was open for."""
+    def _refill(self, result: PreloadResult, spec: PreloadSeries) -> None:
+        """One '1 D' request ending at each gapped day's close (P.08.07); a day still empty afterwards is reported
+        again (and requested again) at the next preload."""
+        for day in list(result.gapped_days):
+            close = pd.Timestamp(day) + pd.Timedelta(hours=16)
+            self.market_data_service._get_point_in_time_data(
+                ticker=spec.symbol, entity_class=spec.entity_class, point_in_time=close.to_pydatetime(),
+                bar_size_setting=spec.bar_size_setting, duration_str="1 D", what_to_show=spec.what_to_show,
+            )
+            result.refilled_days.append(day)
+
+    def _check(self, result: PreloadResult, spec: PreloadSeries, entity, start, end, now=None) -> None:
+        """Stored close bars in [start, end] against the bars the exchange was open for; ``gapped_days`` = trading
+        days already closed at ``now`` with no stored bar at all."""
         from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_data_coverage import (
             expected_bars,
         )
@@ -182,6 +201,10 @@ class BacktestDataPreloadService:
                 stamps.add(bar_key(pd.Timestamp(d), minutes))
         inside = sorted(s for s in stamps if s in set(grid))
         result.stored_bars = len(inside)
+        stored_days = {pd.Timestamp(s).normalize() for s in inside}
+        days = sorted({pd.Timestamp(g).normalize() for g in grid})
+        result.gapped_days = [str(d.date()) for d in days if d not in stored_days
+                              and (now is None or d + pd.Timedelta(hours=16) <= pd.Timestamp(now))]
         if stamps:
             result.first_bar, result.last_bar = str(min(stamps)), str(max(stamps))
             result.spans_window = bool(len(grid)) and min(stamps) <= grid[0] and max(stamps) >= grid[-1]
@@ -193,6 +216,10 @@ class BacktestDataPreloadService:
         if r.error:
             return f"[preload] {r.symbol} {r.what_to_show} {r.bar_size_setting}: FAILED — {r.error}"
         source = "already stored, IBKR not asked" if r.skipped else "imported"
+        if r.refilled_days:
+            source = f"already stored, gapped day(s) requested again: {', '.join(r.refilled_days)}"
+        if r.gapped_days:
+            source += f" — STILL NO BAR on {', '.join(r.gapped_days)}"
         return (f"[preload] {r.symbol} {r.what_to_show} {r.bar_size_setting}: {r.stored_bars}/{r.expected_bars} "
                 f"bars ({r.coverage_pct:.1f}%), stored {r.first_bar} .. {r.last_bar} — {source}")
 

@@ -253,6 +253,28 @@ def test_before_step_imports_the_new_bar_and_extends_the_coverage():
         preloaded_coverage.clear()
 
 
+def test_before_step_keeps_the_coverage_end_of_a_ticker_whose_import_failed():
+    """P.08.07: BAC's new bar was not imported, so BAC is not marked complete up to the step (its bar is asked for
+    again instead of being served from the 13:00 bar)."""
+    from src.application.services.data.entities.factor import preloaded_coverage
+    preloaded_coverage.clear()
+    try:
+        for entity_id in (1, 2):
+            preloaded_coverage.register(5, entity_id, datetime(2026, 10, 1), datetime(2026, 10, 29, 13, 0))
+        algorithm = Algorithm()
+        algorithm.cycle = SimpleNamespace(data_updater=Mock(return_value={"JPM": True, "BAC": False}),
+                                          reader=Mock(load_close_panel=Mock(return_value=pd.DataFrame())),
+                                          history_service=Mock(), ticker_to_entity={"JPM": 1, "BAC": 2},
+                                          config=SimpleNamespace(bar_minutes=10))
+        step = datetime(2026, 10, 29, 13, 20)
+        algorithm.before_step(step)
+        assert preloaded_coverage.covers(5, 1, step)
+        assert not preloaded_coverage.covers(5, 2, step)
+        assert preloaded_coverage.covers(5, 2, datetime(2026, 10, 29, 13, 0))
+    finally:
+        preloaded_coverage.clear()
+
+
 # ---------------------------------------------------------------- gate prices = the bars the step imported
 def test_the_gate_prices_on_the_newest_stored_bar_dated_at_its_real_close():
     algorithm = Algorithm()

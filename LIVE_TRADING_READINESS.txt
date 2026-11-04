@@ -13,10 +13,10 @@ Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 5/14 done
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 72 · in progress 4 · blocked 0 · pending 8 (counted from the task lines, 2026-11-03)
-Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
-                   2. Owner: P.07.08 live figures; P.08.06 start the `trader` service on a stack whose IB Gateway is
-                      logged into PAPER (the WSL .env is on the live login).
+Task counts      : completed 80 · in progress 2 · blocked 0 · pending 2 (counted from the task lines, 2026-11-04)
+Next actionable  : 1. P.08.11 run manifest, P.08.12 research / live parity.
+                   2. Owner: P.07.08 live figures; P.08.06 fill secrets/ibkr_paper.env + ibkr_paper_password.txt
+                      (WSL clone), then `docker compose --profile trading up -d trader` (Gateway `ibkr-paper`).
                    3. Turnover (owner): 2026-11-04 runs done (hourly ~0.00 % vs band -0.64 % vs 10m -0.91 % with
                       costs, see P.08.04). Owner to choose: hourly without costs, hourly + band, a longer window;
                       the live project is unchanged. P.08.07 / P.08.08.
@@ -268,11 +268,20 @@ sent; unique order_id) and broker_executions (one row per execId; unique (broker
              ApiCancelled -> CANCELLED, Inactive -> REJECTED; unknown strings reported, not applied) and applied only
              forward (order_state.advances). EXPIRED has no TWS status (DAY orders end as Cancelled). D8 merged
              2026-11-02: one domain OrderStatus (test_live_order_path OrderStateRuleTest.test_one_domain_order_status_model).
- [~] P.03.04 Cancellations confirmed (D4): BrokerageTransactionHandler no longer sets CANCELED on request
+ [x] P.03.04 Cancellations confirmed (D4): BrokerageTransactionHandler no longer sets CANCELED on request
              (order.cancel_requested); the IBKR broker keeps the order tracked until TWS reports Cancelled / Filled;
              OrderLedger.request_cancel records cancel_requested_at, status unchanged until the broker confirms.
              Asynchronous callbacks queued and drained (above). Modifications: not supported (IBKR broker refuses
              _update_order_impl; cancel + new order) — remains to be designed if a strategy needs it.
+             2026-11-04 DONE (owner): a working LIMIT order is modified in place — IBTWSClient.modify_order
+             (placeOrder with the SAME order id, only ids this client placed, BI-005 account check),
+             InteractiveBrokersBroker._update_order_impl (quantity / limit price, orderRef kept; a MARKET order is
+             never modified: cancel it), BaseBroker.update_order passes the gate first: PreTradeGate
+             .allows_modification judges the change against the quantity last sent (sent_quantities) — trading
+             disabled refuses any change, a smaller / price-only change needs nothing else, an increase is checked
+             alone (reduce-only, currency, risk limits) and never throttled as a duplicate. BrokerOrder.modify /
+             OrderLedger.record_modification: never below the filled quantity, not on a closed or cancelling order.
+             No strategy modifies orders today (STM sends market orders). Tests: test_order_modification (8).
  [x] P.03.05 Idempotency: statuses forward-only; executions by (broker, execId) unique — a replay is counted in
              ledger.duplicates and ignored; commissions booked once (commission_booked), early commissions wait.
  [x] P.03.06 Requested / filled / remaining / average price persisted (broker_orders) and mirrored on the orders row.
@@ -543,7 +552,7 @@ Dependencies  P.02–P.05.
              Closed by the owner 2026-10-30: the exact 09:40 start is not needed (the 11:00 start exercised the
              first decision of the day: pre-train then trade), and the session itself restarted on the previous
              day's book (positions from the 10-29 sessions, recovery OK).
- [~] P.06.13 Financing not booked: short-credit interest, borrow fees (0.25–0.41 %/yr for the banks), dividends paid on
+ [x] P.06.13 Financing not booked: short-credit interest, borrow fees (0.25–0.41 %/yr for the banks), dividends paid on
              shorts / received on longs. Book cash drifts from IBKR's; book them daily from IBKR account values
              (with P.04.04).
              2026-11-02 IMPLEMENTED (owner approved both points below; see P.04.04): the proposal as written —
@@ -555,6 +564,10 @@ Dependencies  P.02–P.05.
              USD ledger ($LEDGER:USD CashBalance). Baseline 15:58 UTC: IBKR USD -5,274.94, book 19,808.97 (retaken
              after the P.06.09 test trades so their ~82.60 USD cost is not booked as the strategy's financing).
              Next: the first comparison at the 2026-11-04 start (expected: matched or a few cents of financing).
+             2026-11-04 DONE: first comparison (check(), paper TWS, no session ran today): IBKR USD cash -5,274.94 ->
+             -5,275.30 since the 2026-11-03 15:58 UTC baseline, no fill in between -> FINANCING -0.36 USD booked,
+             book 19,808.97 -> 19,808.61; 0 discrepancies (positions match IBKR). The CAD ledger (+103 CAD MTD
+             interest on the 1,000,150 CAD paper cash) is not strategy money and is correctly ignored.
              Proposal 2026-11-02: the account is dedicated to the
              strategy, so each session start compares the CHANGE in IBKR TotalCashValue since the previous start with
              the change in book cash from booked fills / commissions; the difference is financing + dividends + fees
@@ -790,29 +803,59 @@ Scope         backtesting and research, the engine beyond one live session, hist
              pinned paper mode would refuse every order: owner logs the Gateway into paper (or keeps TWS paper on
              Windows and sets TRADER_IBKR_HOST / PORT), then `docker compose --profile trading up -d trader`. The
              service's book is the stack's SQL Server, not Windows base_infra (where the paper book is today).
- [ ] P.08.07 MED   Missing-bar recovery (GA-A3). before_step extends coverage even for tickers whose import failed
+             2026-11-04: the live username has no paper access, so the trader gets its own Gateway: compose service
+             `ibkr-paper` (+ `ibkr-paper-init`, profile `trading`, TRADING_MODE paper pinned, no published port,
+             EXISTING_SESSION primary), credentials in git-ignored secrets/ibkr_paper.env (TWS_USERID) and
+             secrets/ibkr_paper_password.txt (placeholders created in the WSL clone, chmod 600). The `ibkr` service is
+             unchanged. Owner: fill both files, update the WSL clone, `docker compose --profile trading up -d trader`.
+ [x] P.08.07 MED   Missing-bar recovery (GA-A3). before_step extends coverage even for tickers whose import failed
              (base_project_algorithm.py:113-117); gaps of earlier days are reported, never re-requested.
              Acceptance: coverage extended only for imported tickers; preload re-requests gapped days.
              Tests: failed ticker keeps its coverage end; a gapped day is requested again at preload.
- [ ] P.08.08 MED   Bar validation at import (GA-A4). Acceptance: price > 0, low <= open/close <= high, volume >= 0;
+             2026-11-04 DONE: preloaded_coverage.extend(through, entity_ids) — the live before_step extends only the
+             tickers whose bar was imported; BacktestDataPreloadService reports gapped_days (closed trading days with
+             no stored bar) and, for a series that otherwise spans the window, asks IBKR for each gapped day only
+             ('1 D' ending at its close; refilled_days; "STILL NO BAR" when IBKR has none). Tests: before_step with a
+             failed ticker, gapped day re-requested.
+ [x] P.08.08 MED   Bar validation at import (GA-A4). Acceptance: price > 0, low <= open/close <= high, volume >= 0;
              a rejected bar is logged as an anomaly and never stored. Tests: each invalid case rejected.
- [ ] P.08.09 MED   Per-position average cost, realized and unrealized P&L from stored fills (GA-C1); the
+             2026-11-04 DONE: domain factor/bar_validation.py (prices > 0 for price bars TRADES / MIDPOINT / BID /
+             ASK ..., low <= open, close <= high, TRADES volume >= 0 — IBKR's volume -1 on quote bars accepted);
+             IBKRFactorValueRepository._valid_bars filters every historical answer (the one fetch path) and logs
+             "IBKR import anomaly ... not stored". Tests: tests/unit/test_bar_validation.py (11).
+ [x] P.08.09 MED   Per-position average cost, realized and unrealized P&L from stored fills (GA-C1); the
              PositionRepository P&L stubs (position_repository.py:269-273) replaced or removed. No schema change.
              Acceptance: P&L per name on the Trading page equals the sum over fills. Tests: buy / partial sell / add /
              flatten sequence with known P&L.
- [ ] P.08.10 MED   Book-currency guard (GA-C3). Until multi-currency books exist the gate refuses an instrument whose
+             2026-11-04 DONE: domain finance/position_pnl.py (average-cost method, flips through zero, multiplier,
+             commissions apart, unrealized None without a price); MonitoringReadRepository.positions_pnl from every
+             BOOKED execution + the newest stored TRADES close -> Trading page table "Positions" (qty, avg cost,
+             last close, unrealized, realized, commission, net). PositionRepository's 0-returning P&L stubs removed.
+             Tests: tests/monitoring/test_position_pnl.py (5).
+ [x] P.08.10 MED   Book-currency guard (GA-C3). Until multi-currency books exist the gate refuses an instrument whose
              contract currency differs from the book's (TradeManager writes currency_id=1, order_ledger.py:380).
              Tests: a CAD instrument refused with the reason; USD unchanged.
+             2026-11-04 DONE: PreTradeGate(currency_provider, book_currency='USD') refuses an order whose contract
+             currency is not the book's, or unknown; live_stack.ContractCurrencies asks IBKR once per symbol for the
+             contract the order is sent with (SMART / USD stock): no such contract (e.g. a CAD-only listing) ->
+             refused. Tests: test_pre_trade_risk (CAD refused with the reason, USD unchanged, lookup cached).
  [ ] P.08.11 MED   Run manifest for reproducibility and deployment (GA-E5, GA-F6): config, git commit + dirty flag,
              data window, model artifact ids written to results_dir by every backtest and live session; live refuses
              a dirty working tree. Tests: manifest written with the commit; dirty tree refused in live mode.
  [ ] P.08.12 MED   Research / live decision parity (GA-E6): research and live STM cycles on one fixed SQLite fixture
              decide the same weights. Tests: the parity test itself.
- [ ] P.08.13 MED   Derivatives lifecycle (GA-C4): expiry, exercise, assignment booked from IBKR executions / position
+ [x] P.08.13 MED   Derivatives lifecycle (GA-C4): expiry, exercise, assignment booked from IBKR executions / position
              changes (on_assignment is a stub that nothing calls). Needed only before a live options strategy.
              Tests: expiry worthless, ITM exercise, assignment -> books match the broker.
- [ ] P.08.14 LOW   Fixed mock price 100 in position reporting (GA-C2, unified_portfolio_manager.py:815-821): value
+             2026-11-04 DONE: domain finance/option_lifecycle.py (OCC parse; for each book option past expiry and gone
+             at the broker: exercised / assigned when the broker's underlying moved by qty x multiplier in that
+             direction, else expired worthless); OptionLifecycleBooker books each event atomically (option closed at
+             0, underlying at the strike); StartupRecovery step 4b (option_lifecycle=..., before the position
+             reconciliation). Not wired for STM (no options). Tests: test_option_lifecycle (8).
+ [x] P.08.14 LOW   Fixed mock price 100 in position reporting (GA-C2, unified_portfolio_manager.py:815-821): value
              through the set_holdings price chain or report "no price". Tests: reported market value = qty x price.
+             2026-11-04 DONE: UPM._reference_price (the set_holdings chain, now shared) x contract multiplier;
+             market_value None ("no price") when no price. Tests: HoldingMarketValueTest (2).
 Not tasks (decisions or accepted): GA-D1 several strategies on one account (owner: sub-account vs allocation);
              GA-E4 survivorship bias (documented in bank_universe.py); GA-F3 alembic unused (create_all +
              _migrate_schema is the mechanism); GA-D4 SQL Server max memory on the live host (to check once).
@@ -883,3 +926,9 @@ SESSION LOG
             `trader` + daily supervisor in code (deployment on paper Gateway pending).
 2026-11-04  Turnover runs (5-9 Oct, costs): 10m + 0.5 % band -0.64 % (costs 19.3 k), hourly +0.00 % (costs
             6.7 k, 746 fills) vs 10m -0.91 % (21.8 k). Hourly models differ (own retraining); one week only.
+2026-11-04  P.06.13 done: first paper cash comparison, FINANCING -0.36 USD booked, positions match. Band scaled to the
+            universe (owner): rebalance.min_weight_change_x_equal_weight (STM 10m 0.13 x 1/N = 0.5 % for 26 banks).
+            P.08.06: paper Gateway `ibkr-paper` + secrets files for the trader.
+2026-11-04  Owner: P.08.07 missing-bar recovery, P.08.08 bar validation, P.08.09 P&L from fills (Trading page),
+            P.08.10 currency guard, P.08.13 option lifecycle, P.08.14 real prices in reports, P.03.04 order
+            modification: done.

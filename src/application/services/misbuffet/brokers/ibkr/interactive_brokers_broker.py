@@ -242,10 +242,33 @@ class InteractiveBrokersBroker(BaseBroker):
             return False
 
     def _update_order_impl(self, order: Order) -> bool:
-        """Update order with Interactive Brokers."""
-        # IB typically requires cancelling and re-placing for most updates
-        self.logger.warning("Order updates not implemented - use cancel and re-place")
-        return False
+        """P.03.04: change a working LIMIT order's quantity and / or limit price in place (same TWS order id, same
+        orderRef). A market order is not modified (it fills at once: cancel it instead); side and instrument never
+        change. The caller records it in the order ledger (OrderLedger.record_modification)."""
+        if not self.ib_connection or not self.ib_connection.is_connected():
+            return False
+        ib_order_id = next((tws_id for tws_id, pending in self.pending_orders.items() if pending.id == order.id), None)
+        if ib_order_id is None:
+            self.logger.error(f"Cannot modify order {order.id}: TWS order id not found")
+            return False
+        order_type = self._enum_name(getattr(order, "order_type", None) or getattr(order, "type", None))
+        if order_type != "LIMIT" or getattr(order, "limit_price", None) is None:
+            self.logger.error(f"Cannot modify order {order.id}: only a working LIMIT order is modified "
+                              f"({order_type}); cancel it and place a new order")
+            return False
+        try:
+            contract = self._contract_for_order(order)
+            ib_order = self.ib_connection.create_limit_order(self._order_action(order), abs(order.quantity),
+                                                             float(order.limit_price))
+            tag = getattr(order, "tag", "")
+            if tag:
+                ib_order.orderRef = str(tag)[:100]
+            self.ib_connection.modify_order(ib_order_id, contract, ib_order)
+            self.pending_orders[ib_order_id] = order
+            return True
+        except Exception as e:
+            self.logger.error(f"Error modifying order {order.id} with TWS: {e}")
+            return False
     
     def _cancel_order_impl(self, order: Order) -> bool:
         """Cancel order with Interactive Brokers."""

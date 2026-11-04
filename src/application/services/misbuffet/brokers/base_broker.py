@@ -69,6 +69,7 @@ class BaseBroker(IBrokerage, ABC):
         
         # Order and position tracking
         self.orders: Dict[int, Order] = {}
+        self.sent_quantities: Dict[int, float] = {}       # order id -> |quantity| last sent (P.03.04)
         self.holdings: Dict[Symbol, 'Holding'] = {}
         self.cash_balance: Dict[str, Decimal] = {"USD": Decimal("0")}
         
@@ -184,9 +185,10 @@ class BaseBroker(IBrokerage, ABC):
             if gate is not None and not gate.allows(order):
                 return False
 
-            # Store order
+            # Store order (and the quantity sent: a later modification is judged against it, P.03.04)
             self.orders[order.id] = order
-            
+            self.sent_quantities[order.id] = abs(float(order.quantity))
+
             # Place order with broker
             success = self._place_order_impl(order)
             if success and getattr(order, "submission_outcome", None) == "not_sent":
@@ -220,9 +222,19 @@ class BaseBroker(IBrokerage, ABC):
             return False
         
         try:
+            # P.03.04: a modification passes the shared gate too, judged against the quantity last sent (the caller
+            # may have changed the same order object in place)
+            gate = getattr(self, "risk_gate", None)
+            if gate is None and getattr(self, "requires_risk_gate", False):
+                self.logger.error(f"Order {order.id} not modified: no pre-trade risk gate attached")
+                return False
+            previous = self.sent_quantities.get(order.id, abs(float(order.quantity)))
+            if gate is not None and not gate.allows_modification(order, previous):
+                return False
             success = self._update_order_impl(order)
-            
+
             if success:
+                self.sent_quantities[order.id] = abs(float(order.quantity))
                 self.orders[order.id] = order
                 self.logger.info(f"Order updated successfully: {order.id}")
             else:
