@@ -144,6 +144,14 @@ class OrderLedger:
         bo.request_cancel(self._naive(self.clock()))
         return self._save(bo)
 
+    def record_modification(self, order_id: int, new_quantity: float, note: str = "") -> BrokerOrder:
+        """P.03.04: record a modification the broker accepted to send (quantity; a limit-price change keeps it)."""
+        bo = self.orders.get_by_order_id(order_id)
+        if bo is None:
+            raise LookupError(f"no broker order for order {order_id}")
+        bo.modify(new_quantity, self._naive(self.clock()), note)
+        return self._save(bo)
+
     def open_orders(self) -> List[BrokerOrder]:
         return self.orders.get_open()
 

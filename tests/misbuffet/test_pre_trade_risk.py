@@ -129,6 +129,39 @@ def test_a_failing_snapshot_refuses_the_order():
     assert "account summary unavailable" in g.rejections[0][1][0]
 
 
+def test_an_instrument_not_in_the_book_currency_is_refused_with_the_reason():
+    """P.08.10: the book is USD; a CAD contract (or none found) is refused, USD orders are unchanged."""
+    currencies = {"SPY": "USD", "RY": "CAD"}
+    broker = FakeBroker()
+    g = PreTradeGate(RiskLimits(max_order_quantity=50), account_provider=lambda: ACCOUNT,
+                     price_provider=lambda s: FRESH, clock=lambda: NOW, currency_provider=currencies.get)
+    broker.attach_risk_gate(g)
+    assert broker.place_order(market(10)) and len(broker.sent) == 1
+    assert broker.place_order(market(10, ticker="RY")) is False
+    assert broker.place_order(market(10, ticker="XYZ")) is False
+    assert len(broker.sent) == 1
+    assert g.rejections[0] == ("RY", ("currency: RY contract currency CAD is not the book's USD "
+                                      "(multi-currency books are not supported)",))
+    assert "unknown (no contract found)" in g.rejections[1][1][0]
+
+
+def test_contract_currencies_ask_ibkr_once_per_symbol():
+    from src.application.services.misbuffet.live.live_stack import ContractCurrencies
+
+    class Broker:
+        calls = []
+
+        def get_contract_details(self, contract, timeout=10):
+            self.calls.append(contract.symbol)
+            return {"JPM": [{"currency": "USD"}], "RY": [{"currency": "CAD"}]}.get(contract.symbol, [])
+    broker = Broker()
+    currencies = ContractCurrencies(broker)
+    assert currencies("JPM") == "USD" and currencies("JPM") == "USD"
+    assert currencies("RY") == "CAD"
+    assert currencies("NONE") is None and currencies("NONE") is None              # not cached: asked again
+    assert broker.calls == ["JPM", "RY", "NONE", "NONE"]
+
+
 def test_the_gate_uses_the_held_position_of_the_order_symbol():
     broker = FakeBroker()
     broker.attach_risk_gate(gate(RiskLimits(max_position_quantity=25)))

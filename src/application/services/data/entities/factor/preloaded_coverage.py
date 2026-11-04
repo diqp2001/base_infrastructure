@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 _lock = threading.Lock()
 _ranges: Dict[Tuple[int, int], List[Tuple[datetime, datetime]]] = {}
@@ -27,15 +27,22 @@ def covers(factor_id: int, entity_id: int, when: datetime) -> bool:
         return any(start <= when <= end for start, end in _ranges.get((int(factor_id), int(entity_id)), ()))
 
 
-def extend(through: datetime) -> int:
-    """Live: every registered series is complete up to ``through`` as well (its newly closed bars were just imported).
+def extend(through: datetime, entity_ids: Optional[Iterable[int]] = None) -> int:
+    """Live: the registered series are complete up to ``through`` as well (their newly closed bars were just
+    imported). ``entity_ids``: only those entities' series (P.08.07: a ticker whose import failed keeps its coverage
+    end, so its missing bar is still asked for instead of being served from an older stored bar); None = all.
     Returns the number of series extended."""
+    only = None if entity_ids is None else {int(e) for e in entity_ids}
+    extended = 0
     with _lock:
-        for ranges in _ranges.values():
+        for (factor_id, entity_id), ranges in _ranges.items():
+            if only is not None and entity_id not in only:
+                continue
             start = min(s for s, _ in ranges)
             if max(e for _, e in ranges) < through:
                 ranges.append((start, through))
-        return len(_ranges)
+            extended += 1
+        return extended
 
 
 def clear() -> None:

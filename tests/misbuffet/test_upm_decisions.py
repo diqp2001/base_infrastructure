@@ -199,6 +199,22 @@ class NoTradeBandTest(unittest.TestCase):
         upm.set_holdings({CompanyShare: {"name": "SPY", "weight": 0.051}}, DATA)
         self.assertEqual(traded(upm), {"SPY": 1})
 
+    def test_band_scaled_to_the_universe(self):
+        from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
+        algo = object.__new__(BaseProjectAlgorithm)
+        algo.config = {'rebalance': {'min_weight_change_x_equal_weight': 0.13}}
+        self.assertAlmostEqual(algo.min_weight_change(26), 0.005)
+        self.assertAlmostEqual(algo.min_weight_change(100), 0.0013)
+        with self.assertRaises(ValueError):
+            algo.min_weight_change()                                             # N unknown
+        algo.config = {'rebalance': {'min_weight_change': 0.005}}
+        self.assertEqual(algo.min_weight_change(100), 0.005)                    # absolute band: N ignored
+        algo.config = {'rebalance': {'min_weight_change': 0.005, 'min_weight_change_x_equal_weight': 0.13}}
+        with self.assertRaises(ValueError):
+            algo.min_weight_change(26)
+        algo.config = {}
+        self.assertIsNone(algo.min_weight_change(26))
+
 
 class PortfolioTreeSqliteTest(unittest.TestCase):
 
@@ -277,3 +293,31 @@ class PortfolioTreeSqliteTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HoldingMarketValueTest(unittest.TestCase):
+    """P.08.14: a holding's reported market value = quantity x price x multiplier from the price chain (was a fixed
+    mock price of 100); no price -> None ("no price"), never a made-up value."""
+
+    def _upm(self, price, multiplier=1):
+        from types import SimpleNamespace
+        from src.application.services.misbuffet.algorithm.unified_portfolio_manager import UnifiedPortfolioManager
+        upm = object.__new__(UnifiedPortfolioManager)
+        upm.logger = None
+        upm._get_asset_symbol = lambda asset: asset.symbol
+        upm._reference_price = lambda symbol: price
+        upm._trade_manager = SimpleNamespace(contract_multiplier=lambda symbol: multiplier)
+        return upm
+
+    @staticmethod
+    def _holding(quantity, symbol="JPM"):
+        from types import SimpleNamespace
+        return SimpleNamespace(id=1, asset=SimpleNamespace(symbol=symbol), position=SimpleNamespace(quantity=quantity))
+
+    def test_market_value_is_quantity_times_price(self):
+        self.assertEqual(float(self._upm(301.5)._calculate_holding_market_value(self._holding(-4))), -1206.0)
+        self.assertEqual(float(self._upm(2.5, multiplier=100)._calculate_holding_market_value(self._holding(3))),
+                         750.0)
+
+    def test_no_price_is_reported_as_none(self):
+        self.assertIsNone(self._upm(None)._calculate_holding_market_value(self._holding(10)))

@@ -207,6 +207,28 @@ def stock_contract(symbol: str):
     return c
 
 
+class ContractCurrencies:
+    """P.08.10: symbol -> currency of the contract an order on it is sent with (IBKR contract details of that exact
+    contract, SMART / USD for a stock), None when IBKR knows no such contract (e.g. a stock listed only in CAD).
+    Asked once per symbol and connection; a failed lookup is retried at the next order."""
+
+    def __init__(self, broker, contract_for: Callable[[str], object] = None, timeout: int = 10):
+        self.broker = broker
+        self.contract_for = contract_for or stock_contract
+        self.timeout = timeout
+        self._known: dict = {}
+
+    def __call__(self, symbol: str) -> Optional[str]:
+        if symbol not in self._known:
+            details = self.broker.get_contract_details(self.contract_for(symbol), timeout=self.timeout) or []
+            currencies = {str(d.get("currency") or "").upper() for d in details} - {""}
+            if not details:
+                return None
+            self._known[symbol] = currencies.pop() if len(currencies) == 1 else (
+                ",".join(sorted(currencies)) or None)
+        return self._known[symbol]
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -266,7 +288,9 @@ def build_live_stack(broker, portfolio_manager, repository_factory, config: Live
                                            timeout=config.broker_timeout)
     gate = PreTradeGate(config.limits, account_provider, prices, multiplier_provider=multiplier_provider,
                         clock=_utcnow, logger=log, controls=controls, account=config.account,
-                        strategy=config.strategy, throttle=throttle)
+                        strategy=config.strategy, throttle=throttle,
+                        currency_provider=ContractCurrencies(broker, timeout=config.broker_timeout),
+                        book_currency="USD")                    # TradeManager books in USD (currency_id 1)
     broker.attach_risk_gate(gate)
     log.warning(f"live stack ready: {mode} account {config.account}, strategy {config.strategy}"
                 + (" — DELAYED prices allowed (paper)" if config.allow_delayed_prices else "")

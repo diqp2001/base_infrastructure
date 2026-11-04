@@ -18,6 +18,8 @@ connection_listeners; ``ensure`` re-runs it lazily). All broker requests are REA
                          each closure is recorded (ORDER_NOT_FOUND / ORDER_CLOSED_ON_RECOVERY, not blocking)
     4. foreign activity  working broker orders and executions no internal order explains -> UNMANAGED_WORKING_ORDER /
                          EXTERNAL_EXECUTION; blocking when the instrument is one the strategy manages
+    4b. option lifecycle with an OptionLifecycleBooker (P.08.13): book options expired since the last start —
+                         expired worthless, exercised or assigned, read from the broker's positions — before step 5
     5. positions         PositionReconciler: every managed instrument's quantity must match the broker ->
                          POSITION_MISMATCH, blocking; mismatches recorded earlier and now matching are resolved
     6. verdict           trading allowed only when the broker lists were complete and no BLOCKING discrepancy is open
@@ -70,6 +72,7 @@ class RecoveryReport:
     resolved_discrepancies: List[Discrepancy] = field(default_factory=list)
     blocking: List[Discrepancy] = field(default_factory=list)          # open blocking discrepancies after the run
     cash: Optional[str] = None                                         # CashReconciler summary (step 7)
+    lifecycle: List[str] = field(default_factory=list)                 # option events booked (step 4b)
     error: Optional[str] = None
 
     def summary(self) -> str:
@@ -80,6 +83,8 @@ class RecoveryReport:
                  f"{len(self.orders_closed)} closed", f"{len(self.new_discrepancies)} new discrepancy(ies)"]
         if self.blocking:
             parts.append("blocking: " + "; ".join(f"{d.kind.value} {d.key}" for d in self.blocking))
+        if self.lifecycle:
+            parts.append("options: " + "; ".join(self.lifecycle))
         if self.cash:
             parts.append(self.cash)
         return f"{head}: " + ", ".join(parts)
@@ -89,7 +94,8 @@ class StartupRecovery:
 
     def __init__(self, client, ledger, discrepancies, reconciler=None,
                  managed_tickers: Optional[Callable[[], Iterable[str]]] = None, timeout: float = 10.0,
-                 clock: Callable[[], datetime] = _utcnow, logger=None, cash_reconciler=None):
+                 clock: Callable[[], datetime] = _utcnow, logger=None, cash_reconciler=None,
+                 option_lifecycle=None):
         """
         Args:
             client:          IBTWSClient-like: is_connected, request_open_orders_snapshot / open_orders_snapshot,
@@ -99,12 +105,14 @@ class StartupRecovery:
             reconciler:      PositionReconciler (positions strategy vs broker); None skips step 5
             managed_tickers: instruments the strategy manages (default: the reconciler's)
             cash_reconciler: CashReconciler (step 7); None skips it
+            option_lifecycle: OptionLifecycleBooker (step 4b, needs the reconciler); None skips it
         """
         self.client = client
         self.ledger = ledger
         self.discrepancies = discrepancies
         self.reconciler = reconciler
         self.cash_reconciler = cash_reconciler
+        self.option_lifecycle = option_lifecycle
         self.managed_tickers = managed_tickers or (reconciler.managed_tickers if reconciler is not None else None)
         self.timeout = timeout
         self.clock = clock
@@ -219,6 +227,8 @@ class StartupRecovery:
                          f"(broker order {ex.broker_order_id}, perm {ex.perm_id}) explained by no internal order",
                          _key(ex.symbol) in managed or not managed)
 
+        if self.reconciler is not None and self.option_lifecycle is not None:
+            self._book_option_lifecycle(report)
         if self.reconciler is not None:
             result = self.reconciler.check()
             if result.error:
@@ -236,6 +246,16 @@ class StartupRecovery:
                                "strategy and broker quantities matched on recovery")
 
     # -- helpers ---------------------------------------------------------------------------------------------------
+    def _book_option_lifecycle(self, report: RecoveryReport) -> None:
+        """Step 4b: on a complete broker snapshot only; what cannot be booked shows as a mismatch at step 5."""
+        from src.application.services.misbuffet.algorithm.option_lifecycle_booker import book_of
+        snapshot = self.reconciler.snapshot_provider()
+        if snapshot is None or not snapshot.complete:
+            return
+        book = book_of(self.reconciler.strategy_qty, self.reconciler.managed_tickers())
+        events = self.option_lifecycle.apply(book, dict(snapshot.positions), self._now().date())
+        report.lifecycle = [e.describe() for e in events]
+
     def _working_row(self, bo, rows: List[dict]) -> Optional[dict]:
         for r in rows:
             if bo.perm_id and r.get("permId") and int(r["permId"]) == int(bo.perm_id):

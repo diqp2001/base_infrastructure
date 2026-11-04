@@ -1010,6 +1010,20 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error grouping factors by symbol: {e}")
             return {}
 
+    @staticmethod
+    def _valid_bars(bars, symbol: str, what_to_show: str):
+        """P.08.08: drop the inconsistent bars of an IBKR answer before anything is stored (price <= 0, open / close
+        outside low .. high, negative TRADES volume); each one is logged as an import anomaly."""
+        if not bars:
+            return bars
+        import logging as _logging
+        from src.domain.entities.factor.bar_validation import split_valid_bars
+        valid, rejected = split_valid_bars(bars, what_to_show)
+        for bar, problems in rejected:
+            _logging.getLogger(__name__).warning(
+                f"IBKR import anomaly {symbol} {what_to_show} bar {bar.get('date')}: {'; '.join(problems)} - not stored")
+        return valid
+
     def _fetch_bulk_historical_data(self, symbol: str, target_date: datetime, asset, 
                                    what_to_show: str = "TRADES", 
                                    duration_str: str = "5 D", 
@@ -1080,7 +1094,7 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                     historical=True
                 )
                 
-                return bulk_data
+                return self._valid_bars(bulk_data, symbol, what_to_show)
             
             return None
             

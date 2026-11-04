@@ -117,7 +117,11 @@ class Algorithm(BaseProjectAlgorithm):
         failed = sorted(t for t, ok in (status or {}).items() if not ok)
         if failed:
             self.logger.warning(f"{step_time}: new bar not imported for {failed}")
-        preloaded_coverage.extend(step_time)
+        # P.08.07: only the tickers whose bar was imported are complete up to the step; a failed one keeps its
+        # coverage end, so its bar is asked for again instead of being served from an older stored bar
+        imported = {t for t, ok in (status or {}).items() if ok}
+        preloaded_coverage.extend(step_time, entity_ids=[eid for t, eid in self.cycle.ticker_to_entity.items()
+                                                         if t in imported])
         self._last_bars = self.latest_closed_bars(step_time)
 
     def extra_alerts(self) -> List[str]:

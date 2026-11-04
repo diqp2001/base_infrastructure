@@ -6,7 +6,6 @@ Symbol-based lookups are not possible directly; navigate via Holding.position_id
 """
 
 from typing import List, Optional
-from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -262,15 +261,9 @@ class PositionRepository(BaseLocalRepository, PositionPort):
         """Compatibility shim — creates a new position (symbol not stored on model)."""
         return self._create_or_get(portfolio_id=portfolio_id, quantity=quantity or 0)
 
-    # ------------------------------------------------------------------
-    # Aggregate stubs (no financial value columns on model)
-    # ------------------------------------------------------------------
-
-    def get_portfolio_value(self, portfolio_id: int) -> Decimal:
-        return Decimal('0')
-
-    def get_portfolio_unrealized_pnl(self, portfolio_id: int) -> Decimal:
-        return Decimal('0')
+    # P&L is not stored on positions (no value columns): it is computed from the booked fills
+    # (domain finance.position_pnl, monitoring Trading page, P.08.09). The former get_portfolio_value /
+    # get_portfolio_unrealized_pnl stubs returned 0 and were removed.
 
     # Standard CRUD alias
     def create(self, entity: PositionEntity) -> Optional[PositionEntity]:
