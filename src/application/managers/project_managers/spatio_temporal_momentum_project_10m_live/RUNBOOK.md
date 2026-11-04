@@ -29,6 +29,28 @@ so `ops kill` / `ops reduce-only` take effect from the next order without restar
 
 ## 2. Start the session (09:20 – 09:30)
 
+**Automatic (P.08.06, Docker):** the compose service `trader` starts the session by itself at 09:20 ET on every NYSE
+trading day (holidays and weekends skipped, early closes handled), restarts a crashed session at most 3 times a day
+(60 s apart, never in the last 10 minutes) and pushes every crash, then "session down for the day", to the phone.
+
+```
+docker compose --profile trading up -d trader     # once; it then runs every trading day (restart: unless-stopped)
+docker compose logs -f trader                     # the session's log
+docker compose stop trader                        # ends the session cleanly before its next step, no restart
+```
+
+* The `trading` profile keeps it out of a plain `docker compose up`: it sends orders.
+* Paper only: `IBKR_ACCOUNT_MODE=paper` / `IBKR_ALLOW_LIVE=no` are pinned in the service, not read from `.env`. A
+  Gateway logged into the live account makes every order refused. Book = the stack's SQL Server `DB_NAME`.
+* Status: `results/spatio_temporal_momentum_10m_live/STM_10M_BANKS.supervisor.json` (state, rewritten every minute;
+  the container is unhealthy when it is older than 3 minutes).
+* A session already running (e.g. started by hand) is not doubled: the supervisor alerts "not started" and waits for
+  the next day.
+* `supervise once` (today only, waits for 09:20) and `supervise session` (one session, as below) run it without the
+  container.
+
+**By hand** (Windows, TWS):
+
 ```
 python -c "from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_live.project_manager import SpatioTemporalMomentum10mLiveProjectManager as M; M().run()"
 ```
@@ -118,7 +140,8 @@ rebuilt`. While TWS is down, steps run without orders (`reconnect failed: no ord
 blocked after the reconnect, the session keeps running without orders until §4 is done. Verified by dropping the
 sockets; a real TWS restart has not been exercised yet — watch the first one.
 
-**Crash** (process died): start again (§2). Start-up recovery reads IBKR's open orders, today's executions and
+**Crash** (process died): under the `trader` service it is restarted by itself (§2) up to 3 times; after "session
+down for the day", or when started by hand: start again (§2). Start-up recovery reads IBKR's open orders, today's executions and
 positions, books missed fills once, and blocks on anything it cannot explain.
 
 ## 7. Reference

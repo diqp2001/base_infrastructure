@@ -96,7 +96,14 @@ results = SpatioTemporalMomentum10mProjectManager().run()   # backtest_start..ba
   decision bar (BID / ASK 10-minute bars preloaded with the TRADES bars), plus IBKR commission (Fixed: 0.005 / share,
   min 1.00, max 1 % — the owner's plan, confirmed from the paper fills); a trade without a quote <= 10 min older than the decision bar is not
   filled. BID / ASK closes are never read as prices (`QUOTE_SIDE_WHAT_TO_SHOW`). The report's cost scenarios
-  (`basis_points`) still evaluate the model's signal, not the engine's book.
+  (`basis_points`) still evaluate the model's signal, not the engine's book. Wired by the shared
+  `BaseProjectAlgorithm.attach_execution_costs` (any project with `execution_costs` gets it; bar types to import:
+  `fill_model.quote_what_to_show`).
+* **No-trade band** (config `rebalance.min_weight_change` 0.005, owner 2026-11-03): `set_holdings` does not trade a
+  bank whose target weight is within 0.5 % of the portfolio of its current weight (new positions included;
+  liquidations and quantity targets always trade). Reason: with costs the 10-minute rebalance (~24 trades per
+  decision) lost −0.91 % on 5–9 Oct vs +1.26 % without costs. The slower rebalance is tested separately in
+  `spatio_temporal_momentum_project_10m_hourly`.
 * **Split guard** (P.08.03, config `split_guard`): a ticker whose loaded closes contain a split-ratio jump is not
   eligible (`stm_split_guard`).
 

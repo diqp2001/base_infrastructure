@@ -154,6 +154,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         'commission': {'per_share': 0.005, 'minimum': 1.0, 'max_pct_of_value': 0.01},
     },
 
+    # No-trade band (set_holdings min_weight_change): a bank is only traded when its target weight moves more than
+    # 0.5 % of the portfolio away from its current weight. Without it the 10-minute decisions re-sized almost every
+    # bank at every bar (~24 trades / decision) and costs exceeded the gross gain (P.08.04 comparison, 2026-11-03)
+    'rebalance': {'min_weight_change': 0.005},
+
     # Factors created through Misbuffet BaseModelTrainer.create_factors
     'factors': _feature_factor_configs(),
 

@@ -34,6 +34,7 @@ from src.application.services.data.backtest_preload.backtest_data_preload_servic
     BacktestDataPreloadService,
     PreloadSeries,
 )
+from src.application.services.misbuffet.algorithm.fill_model import quote_what_to_show
 from src.application.services.misbuffet.engine.base_model_trainer import BaseModelTrainer
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
@@ -70,8 +71,7 @@ class STMModelTrainer(BaseModelTrainer):
 
     def what_to_show(self):
         """IBKR bar types imported: TRADES (the prices the model reads), + BID / ASK for bid / ask fills (P.08.04)."""
-        costs = self.config.get("execution_costs") or {}
-        return ("TRADES", "BID", "ASK") if costs.get("fill") == "bid_ask" else ("TRADES",)
+        return ("TRADES",) + quote_what_to_show(self.config.get("execution_costs"))
 
     def build_cycle(self, market_data_service, history_service, factory,
                     log=None) -> STMTradingCycle:

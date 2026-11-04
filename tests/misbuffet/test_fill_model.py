@@ -14,6 +14,8 @@ from src.application.services.misbuffet.algorithm.fill_model import (
     CommissionModel,
     Fill,
     StoredBidAskQuotes,
+    build_fill_model,
+    quote_what_to_show,
 )
 from src.application.services.misbuffet.data.market_data_history_service import MarketDataHistoryService
 from tests.misbuffet.sqlite_portfolio import SqlitePortfolio
@@ -138,3 +140,43 @@ def test_the_10m_backtest_imports_bid_and_ask_bars_for_its_fills():
     assert BidAskFillModel.from_config(trainer.config["execution_costs"], quotes=lambda t, w: None).commission == FIXED
     trainer.config = {**trainer.config, "execution_costs": None}
     assert trainer.what_to_show() == ("TRADES",)
+
+
+def test_any_project_with_execution_costs_gets_the_fills_from_the_shared_base_algorithm(book, history):
+    from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
+    assert quote_what_to_show(COSTS) == ("BID", "ASK") and quote_what_to_show(None) == ()
+    seed(book.session, "BID", bars(49.9))
+    seed(book.session, "ASK", bars(50.1))
+    assert build_fill_model(COSTS, history, {"JPM": 1}, BAR)("JPM", 10, 50.0, T) == Fill(50.1, 1.0)
+
+    algorithm = BaseProjectAlgorithm.__new__(BaseProjectAlgorithm)
+    attached = []
+    algorithm._unified_portfolio_manager = SimpleNamespace(attach_fill_model=lambda m: attached.append(m) or m)
+    algorithm._market_data_history_service = history
+    algorithm.config = {"execution_costs": COSTS}
+    model = algorithm.attach_execution_costs({"JPM": 1}, BAR)
+    assert attached == [model] and model.commission == FIXED and model.quotes("JPM", T) == (49.9, 50.1)
+    algorithm.config = {}
+    assert algorithm.attach_execution_costs({"JPM": 1}, BAR) is None and len(attached) == 1
+
+
+def test_the_hourly_project_rebalances_every_60_minutes_with_the_same_costs_and_no_band():
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m import config as ten
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_hourly import config as hourly
+    from src.application.managers.project_managers.spatio_temporal_momentum_project_10m_hourly.models.model_trainer import (
+        STMModelTrainer,
+    )
+    h, t = hourly.get_config(), ten.get_config()
+    assert h["config_interval"] == {"custom_interval_minutes": 60, "session_start": "10:30", "session_end": "16:00"}
+    assert h["execution_costs"] == t["execution_costs"] and h["stm"]["bar_minutes"] == 10
+    assert h["rebalance"]["min_weight_change"] is None and t["rebalance"]["min_weight_change"] == 0.005
+    for key in ("results_dir",):
+        assert h[key] != t[key]
+    assert h["stm"]["artifact_dir"] != t["stm"]["artifact_dir"] and h["Portfolio"]["name"] != t["Portfolio"]["name"]
+    s = hourly.build_stm_configuration(h)
+    assert (s.universe.name, s.signal_factor_name, s.ml_model_name_prefix) != (
+        ten.build_stm_configuration(t).universe.name, ten.build_stm_configuration(t).signal_factor_name,
+        ten.build_stm_configuration(t).ml_model_name_prefix)
+    trainer = STMModelTrainer.__new__(STMModelTrainer)
+    trainer.config = h
+    assert trainer.what_to_show() == ("TRADES", "BID", "ASK")

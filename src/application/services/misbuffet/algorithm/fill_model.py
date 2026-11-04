@@ -130,3 +130,17 @@ class StoredBidAskQuotes:
         if min(bid_bar, ask_bar) < oldest_start:
             return None
         return bid, ask
+
+
+def quote_what_to_show(costs: Optional[dict]) -> Tuple[str, ...]:
+    """IBKR bar types the fills of a project config's 'execution_costs' read, imported with its TRADES bars."""
+    return ("BID", "ASK") if (costs or {}).get("fill") == "bid_ask" else ()
+
+
+def build_fill_model(costs: dict, history_service, ticker_to_entity: Dict[str, int], bar_minutes: int,
+                     factor_type: str = "company_share_factor") -> BidAskFillModel:
+    """Project config 'execution_costs' -> BidAskFillModel on the stored BID / ASK bars of `bar_minutes` bars."""
+    quotes = StoredBidAskQuotes(history_service, ticker_to_entity, frequency=f"{int(bar_minutes)}m",
+                                bar_minutes=bar_minutes, max_age=timedelta(minutes=costs["max_quote_age_minutes"]),
+                                factor_type=factor_type)
+    return BidAskFillModel.from_config(costs, quotes)

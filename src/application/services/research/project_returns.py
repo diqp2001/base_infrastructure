@@ -118,6 +118,8 @@ PROJECT_SOURCES: List[ResultSource] = [
     ResultSource("stm:daily", "STM — daily (reference sample)", "stm", _config_dir(PM + "spatio_temporal_momentum_project.config")),
     ResultSource("stm:full", "STM — paper universe", "stm", _config_dir(PM + "spatio_temporal_momentum_project_full.config")),
     ResultSource("stm:10m", "STM — 10-minute bars", "stm", _config_dir(PM + "spatio_temporal_momentum_project_10m.config")),
+    ResultSource("stm:10m_hourly", "STM — 10-minute model, hourly rebalance", "stm",
+                 _config_dir(PM + "spatio_temporal_momentum_project_10m_hourly.config")),
     ResultSource("csm:cross_sectional", "Cross-sectional momentum — daily", "csm",
                  _config_dir(PM + "cross_sectionnal_project.config")),
     ResultSource("csm:csm_10m", "Cross-sectional momentum — 10-minute bars", "csm",

@@ -7,17 +7,19 @@ Last updated     : 2026-11-03
 Current phase    : P.06 / P.07 — paper trading of STM_10M_BANKS on DUR314497; live pilot waiting on owner decisions.
                    P.08 (new 2026-11-03) — engine gaps outside the live order path, from the audit in
                    docs/roadmap/misbuffet_gap_analysis.md.
-Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 5/14 done. P.03 10/11 (P.03.04 order modification: cancel +
+Overall progress : P.01 8/8, P.02 10/10, P.04 9/9, P.05 9/9 done. P.08 5/14 done (P.08.06 in code). P.03 10/11 (P.03.04 order modification: cancel +
                    resend only). P.06 14/15 (P.06.13 first paper cash comparison at the 2026-11-04 start). P.07 7/8
                    (P.07.08 owner figures for live).
                    Verified on paper: order round trips, partial fills (11 partials; partial + cancel), cancels, restart
                    with a working order, external-execution adopt, start-up recovery, gate on real-time quotes (B2).
                    P.07: ready for continued PAPER trading, NOT ready for a live pilot.
-Task counts      : completed 72 · in progress 3 · blocked 0 · pending 9 (counted from the task lines, 2026-11-03)
+Task counts      : completed 72 · in progress 4 · blocked 0 · pending 8 (counted from the task lines, 2026-11-03)
 Next actionable  : 1. 2026-11-04 start: first paper cash comparison (P.06.13).
-                   2. Owner: P.07.08 live figures; decide how STM limits its turnover (P.08.04 finding: costs
-                      2.2 % of capital per week at ~24 trades per decision).
-                   3. One STM 10m backtest with bid / ask fills (P.08.04, needs TWS API up); P.08.07 / P.08.08.
+                   2. Owner: P.07.08 live figures; P.08.06 start the `trader` service on a stack whose IB Gateway is
+                      logged into PAPER (the WSL .env is on the live login).
+                   3. Turnover (owner 2026-11-03): compare STM 10m with the 0.5 % no-trade band and the new hourly
+                      project (spatio_temporal_momentum_project_10m_hourly) against the P.08.04 costs run; P.08.07 /
+                      P.08.08.
 Current blockers : none open (B1 for paper, B2, B3 resolved; live account: still no orders). History:
                    [B1 RESOLVED for PAPER 2026-10-28] the owner approved paper orders to DUR314497 ("You may send
                    paper orders to DUR314497", no limits given; I keep 1-2 shares of one liquid stock and close every
@@ -759,10 +761,25 @@ Scope         backtesting and research, the engine beyond one live session, hist
              .lock. Tests: test_session_lock (3: second process refused with the holder named, crashed holder leaves
              no lock, run / check refuse before starting). Scope: one host (the live session's); a session on another
              machine against the same database is not covered (sp_getapplock if that ever happens).
- [ ] P.08.06 MED   Daily start and supervision (GA-D3). Start is manual (RUNBOOK §2); nothing restarts a crash.
+ [~] P.08.06 MED   Daily start and supervision (GA-D3). Start is manual (RUNBOOK §2); nothing restarts a crash.
              Needs: owner chooses Task Scheduler vs a compose service. Depends on P.08.01, P.08.05.
              Acceptance: the session starts by itself on trading days, a crash alerts (P.08.01) and is restarted at
              most N times. Tests: start script on a non-trading day exits cleanly; crash path alerts.
+             2026-11-03 DONE IN CODE (owner chose a compose service): misbuffet/live/daily_supervisor.py
+             (DailySupervisor: NYSE sessions, launch at config supervisor.start_time 09:20 ET, the session in a CHILD
+             process, crash -> ntfy alert + restart at most max_restarts 3 / day 60 s apart, none in the last 10 min —
+             run() started after 15:50 would wait for the next day —, exit 3 = session lock held -> alert, no
+             restart; heartbeat file + `supervise health`). STM 10m live supervise.py (daily / once / session /
+             health; SIGTERM -> manager.stop, the session ends before its next step). docker-compose.yml service
+             `trader`, profile `trading` (never started by a plain `up`), restart unless-stopped, stop grace 5 min,
+             IBKR_ACCOUNT_MODE=paper / IBKR_ALLOW_LIVE=no pinned in the service (not from .env). RUNBOOK §2 / §6.
+             Tests: test_daily_supervisor (9: Saturday -> nothing started, start at 09:20, 3 restarts then "down for
+             the day", restart that works, lock held, near-close, two-day loop, real child crash exit 7, project
+             wiring). `docker compose config` validated; `trader` absent without the profile.
+             Remaining: run it on the Docker stack. That stack's Gateway is on the LIVE login (WSL .env), so the
+             pinned paper mode would refuse every order: owner logs the Gateway into paper (or keeps TWS paper on
+             Windows and sets TRADER_IBKR_HOST / PORT), then `docker compose --profile trading up -d trader`. The
+             service's book is the stack's SQL Server, not Windows base_infra (where the paper book is today).
  [ ] P.08.07 MED   Missing-bar recovery (GA-A3). before_step extends coverage even for tickers whose import failed
              (base_project_algorithm.py:113-117); gaps of earlier days are reported, never re-requested.
              Acceptance: coverage extended only for imported tickers; preload re-requests gapped days.
@@ -850,3 +867,7 @@ SESSION LOG
 2026-11-03  SQL Server Agent started (owner approved UAC): P.08.02 done. Commission plan = IBKR Fixed (paper fills).
 2026-11-03  ntfy subscription confirmed by the owner: P.08.01 done.
 2026-11-03  P.08.04 done: STM 10m week with costs -0.91 % vs +1.26 % without (costs 21.8 k USD, 4 622 fills).
+2026-11-03  Owner: 0.5 % no-trade band (set_holdings min_weight_change, STM 10m config rebalance), new project
+            spatio_temporal_momentum_project_10m_hourly (same model, rebalanced every 60 min, no band), fill-model
+            wiring moved into the shared BaseProjectAlgorithm (attach_execution_costs). P.08.06 compose service
+            `trader` + daily supervisor in code (deployment on paper Gateway pending).
