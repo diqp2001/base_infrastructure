@@ -245,7 +245,9 @@ services:
     #     docker compose stop trader                           (the session ends cleanly before its next step)
     # Paper only: IBKR_ACCOUNT_MODE / IBKR_ALLOW_LIVE are pinned here, NOT read from .env, so a Gateway logged
     # into the live account makes every order refused (BI-005 guard). Going live needs an explicit change here.
-    # Book: the stack's own SQL Server (DB_* below); see the RUNBOOK before switching books.
+    # Book: TRADER_DB_* in .env, else the stack's own SQL Server. The paper book of STM_10M_BANKS is Windows
+    # base_infra: TRADER_DB_HOST=host.docker.internal, SQL login stm_trader (read / write, no DDL). One book per
+    # account: see the RUNBOOK before switching books.
     profiles: ["trading"]
     build:
       context: .
@@ -264,11 +266,11 @@ services:
     environment:
       PYTHONPATH: /workspaces/base_infrastructure
       TZ: ${TIME_ZONE:-America/New_York}
-      DB_HOST: sqlserver
-      DB_PORT: "1433"
-      DB_NAME: ${DB_NAME:-base_infra}
-      DB_USER: ${DB_USER:-sa}
-      DB_PASSWORD: ${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}}
+      DB_HOST: ${TRADER_DB_HOST:-sqlserver}
+      DB_PORT: ${TRADER_DB_PORT:-1433}
+      DB_NAME: ${TRADER_DB_NAME:-${DB_NAME:-base_infra}}
+      DB_USER: ${TRADER_DB_USER:-${DB_USER:-sa}}
+      DB_PASSWORD: ${TRADER_DB_PASSWORD:-${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-Dev_Only_Passw0rd!}}}
       DB_DRIVER: ODBC Driver 18 for SQL Server
       DB_TRUST_SERVER_CERTIFICATE: "yes"
       IBKR_HOST: ${TRADER_IBKR_HOST:-ibkr-paper}

@@ -814,6 +814,11 @@ Scope         backtesting and research, the engine beyond one live session, hist
              2026-11-05 09:20: the session crashed 4 times (supervisor: 3 restarts, then "down for the day"): the P.08.11
              manifest json.dumps refused the config's class key (universe {CompanyShare: [...]}). Fixed: run_manifest
              _jsonable (str keys / values) before hashing and redacting; test_run_manifest + the real live config.
+             2026-11-05 09:36 restarted: steps ran, but every order BLOCKED by the position reconciliation (the stack's
+             SQL Server book was empty, the paper account holds the Windows book's positions). Owner chose the Windows
+             book: default instance MSSQLSERVER switched to mixed mode + TCP 1433 (elevated, owner approved, service
+             restarted with its Agent), SQL login stm_trader (base_infra only, db_datareader + db_datawriter, no DDL,
+             password in the WSL .env only), compose TRADER_DB_* (trader -> host.docker.internal:1433/base_infra).
  [x] P.08.07 MED   Missing-bar recovery (GA-A3). before_step extends coverage even for tickers whose import failed
              (base_project_algorithm.py:113-117); gaps of earlier days are reported, never re-requested.
              Acceptance: coverage extended only for imported tickers; preload re-requests gapped days.
