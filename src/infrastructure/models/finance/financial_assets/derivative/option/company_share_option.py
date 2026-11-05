@@ -7,9 +7,10 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from src.infrastructure.models import ModelBase as Base
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.share_option_terms import ShareOptionTermsMixin
 
 
-class CompanyShareOptionModel(OptionsModel):
+class CompanyShareOptionModel(ShareOptionTermsMixin, OptionsModel):
     """
     SQLAlchemy ORM model for Company Share Options.
     Completely separate from src.domain entity to avoid metaclass conflicts.
@@ -17,12 +18,7 @@ class CompanyShareOptionModel(OptionsModel):
     __tablename__ = 'company_share_options'
 
     id = Column(Integer, ForeignKey("options.id"), primary_key=True)
-    exchange_id = Column(Integer, ForeignKey('exchanges.id'), nullable=False)
-    
-    # Index future option specific fields
-    strike_price = Column(Numeric(precision=15, scale=6), nullable=True)
-    multiplier = Column(Numeric(precision=10, scale=2), nullable=True, default=1.0)
-    expiry = Column(String(20), nullable=True)
+    # exchange_id, strike_price, multiplier, expiry: ShareOptionTermsMixin
     exchanges = relationship("src.infrastructure.models.finance.exchange.ExchangeModel", back_populates="company_share_options")
     company_share_option_portfolio_holdings = relationship("src.infrastructure.models.finance.holding.company_share_option_portfolio_holding.CompanyShareOptionPortfolioHoldingModel", back_populates="company_share_options") 
     

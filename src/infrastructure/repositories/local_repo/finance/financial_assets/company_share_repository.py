@@ -547,45 +547,6 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             print(f"Error creating company share for {symbol}: {str(e)}")
             return None
     
-    def _resolve_currency_id(self, iso_code: str) -> Optional[int]:
-        """Currency id for an ISO code, created through the currency repository if missing."""
-        try:
-            repo = self.factory.currency_local_repo if self.factory else None
-            currency = (repo.get_by_iso_code(iso_code) or repo._create_or_get(iso_code)) if repo else None
-            return currency.id if currency else None
-        except Exception as e:
-            print(f"Could not resolve currency {iso_code}: {e}")
-            return None
-
-    def _resolve_exchange_dependency(self, ticker: str, exchange_name: Optional[str] = None) -> int:
-        """Resolve exchange dependency for the company share."""
-        try:
-            # Use factory if available, otherwise create repository directly
-            if self.factory:
-                local_repos = self.factory.create_local_repositories()
-                exchange_repo = local_repos.get('exchange')
-                if not exchange_repo:
-                    exchange_repo = self.factory.exchange_local_repo
-            else:
-                exchange_repo = self.factory.exchange_local_repo
-            
-            exchange_name = exchange_name or self._get_default_exchange_for_ticker(ticker)
-            
-            country_id = self._resolve_country_id(None)
-            if country_id is None:
-                return None
-            exchange = exchange_repo._create_or_get(
-                name=exchange_name,
-                legal_name=f"{exchange_name} Stock Exchange",
-                country_id=country_id
-            )
-
-            return exchange.id if exchange else None
-
-        except Exception as e:
-            print(f"Error resolving exchange dependency: {str(e)}")
-            return None
-    
     def _resolve_company_dependency(self, ticker: str, company_name: Optional[str] = None, 
                                   industry_name: Optional[str] = None,
                                   country_name: Optional[str] = None) -> int:
@@ -619,16 +580,6 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
             print(f"Error resolving company dependency: {str(e)}")
             return None
 
-    def _resolve_country_id(self, country_name: Optional[str]) -> Optional[int]:
-        """A real countries row (resolved / created by name; default United States) — never a placeholder id
-        that may not exist (BI-008)."""
-        repo = getattr(self.factory, 'country_local_repo', None) if self.factory else None
-        if repo is None:
-            return None
-        country = repo._create_or_get(country_name or "United States",
-                                      iso_code=None if country_name else "US")
-        return getattr(country, 'id', None)
-
     def _resolve_industry_id(self, industry_name: Optional[str]) -> Optional[int]:
         """A real industries row (and its sector); unknown industry -> 'Unclassified', not a made-up one."""
         repo = getattr(self.factory, 'industry_local_repo', None) if self.factory else None
@@ -637,16 +588,6 @@ class CompanyShareRepository(ShareRepository,CompanySharePort):
         industry = repo._create_or_get(industry_name or "Unclassified")
         return getattr(industry, 'id', None)
     
-    def _get_default_exchange_for_ticker(self, ticker: str) -> str:
-        """Get default exchange based on ticker patterns."""
-        # Simple heuristics for common exchanges
-        if ticker in ['SPX', 'VIX', 'RUT']:
-            return 'CBOE'
-        elif len(ticker) <= 4 and ticker.isalpha():
-            return 'NASDAQ'
-        else:
-            return 'NYSE'
-
     # ----------------------------- Standard CRUD Interface -----------------------------
     def create(self, entity: CompanyShareEntity) -> CompanyShareEntity:
         """Create new company share entity in database (standard CRUD interface)"""

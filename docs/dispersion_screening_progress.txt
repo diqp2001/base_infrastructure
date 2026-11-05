@@ -1,0 +1,273 @@
+ETF DISPERSION-OPTION SCREENER — PROGRESS (persistent progress file; source of truth for P.01 – P.11)
+==========================================================================================
+
+SUMMARY
+-------
+Last updated     : 2026-11-05
+Goal             : screen equity ETFs with listed options and < 50 constituents for a potential long-dispersion /
+                   short-index-volatility trade: SHORT 1 ATM call on the ETF, LONG ATM calls on every constituent,
+                   sized by the ETF weights and scaled to be dollar-delta neutral; keep a candidate only when the ETF
+                   call bid >= the constituent calls' ask cost (executable prices). A potential dispersion trade, NOT
+                   an arbitrage (implied-vol differences, correlation, dividends, borrow, early exercise, settlement
+                   and bid/ask all sit between the payoff inequality and market prices).
+Current phase    : P.01 approved 2026-11-05 (owner answered D1 – D6). P.02 nearly done: entities, schema,
+                   issuer adapters and the first universe (75 eligible ETFs); constituent mapping with P.03.
+Task counts      : completed 1 · in progress 1 · blocked 0 · pending 9
+
+Status legend    : [ ] not started  [~] in progress  [x] completed  [!] blocked
+
+
+OWNER DECISIONS (asked 2026-11-05, answered the same day)
+--------------------------------------------------------
+D1  Holdings source = the fund issuers' daily holdings files (example given: iShares product page 297140),
+    fetched by code (research done by a sub-agent 2026-11-05, samples in the session scratchpad):
+      - iShares US: discovery JSON (all products: portfolioId, ticker, fundName, productPageUrl, aladdinAssetClass)
+        https://www.ishares.com/us/product-screener/product-screener-v3.1.jsn?dcrPath=/templatedata/config/
+        product-screener-v3/data/en/us-ishares/ishares-product-screener-backend-config&siteEntryPassthrough=true
+        holdings CSV = https://www.ishares.com + productPageUrl + /latest-holdings.csv (the old .ajax links
+        now return HTML). Header lines, "Fund Holdings as of" date, then Ticker, Name, Sector, Asset Class,
+        Market Value, Weight (%), ..., Exchange, Currency. Non-equity rows: Asset Class Cash / Cash Collateral
+        and Margins / FX / Money Market / Futures. LATEST DAY ONLY (asOfDate ignored) -> history = our own
+        daily snapshots from the first download on. A short URL without the slug is blocked (403).
+      - SPDR (State Street): https://www.ssga.com/library-content/products/fund-data/etfs/us/
+        holdings-daily-us-en-<ticker>.xlsx (sheet "holdings", as-of in row 3, header row 5, data until the
+        first blank row, disclaimer below); fund list JSON: /bin/v1/ssmp/fund/fundfinder?country=us&... (187
+        ETFs). Non-equity rows: ticker "-" (money market, US DOLLAR) and index futures.
+      - Invesco: JSON API dng-api.invesco.com/.../shareclasses/<ticker>/holdings/fund (daily, weights, security
+        type). Vanguard: monthly, lagged (not daily) -> lower priority.
+      - UK UCITS ETFs (the 297140 example) have no US-listed options: the screen covers US-listed ETFs; the UK
+        file layout is parsed anyway (different header) for completeness.
+      - No cookies / JS / rate-limit headers seen; robots.txt does not disallow these files. Downloads stay
+        polite (one file per ETF per day, cached).
+D2  ETFShare entity + base_infra schema change: APPROVED by the owner. Done 2026-11-05 (see P.02).
+D3  Owner: ShareOption is the parent, CompanyShareOption and ETFShareOption its children (no duplicated code).
+    Done 2026-11-05 (see P.02).
+D4  Fractional contracts: listed US equity / ETF options trade in WHOLE contracts only (OCC-cleared, minimum 1
+    contract; IBKR's fractional trading covers stocks / ETFs, not options). So: the executable sizing uses whole
+    contracts — N ETF calls short, each constituent rounded to whole calls, N chosen (configurable, up to a cap)
+    to keep |net dollar delta| within DELTA_TOLERANCE; the fractional sizing is kept only as the economic
+    reference. A constituent rounding to 0 contracts is reported (coverage drops), never silently dropped.
+D5  Results in results/etf_dispersion_screener/<run>/ (JSON + CSV + run manifest), no new table: owner OK.
+D6  Owner: whichever login gives the most data at no cost. IBKR market data on the API is free for instruments
+    covered by the subscriptions (owner's US equity + options streaming bundle, 2026-11-02); only "regulatory
+    snapshots" are charged (0.01 USD each). So: streaming requests (snapshot=False, cancelled once bid / ask /
+    greeks arrived) on the LIVE login, read-only, own client id, never an order connection; ~95 lines at a time.
+    To verify in P.03: the live login's lines are free while the paper trader uses its own login.
+
+
+P.01 Repository / architecture analysis                                 [x] DONE 2026-11-05
+-----------------------------------------------------------------------------------------
+Method: graphify (graph refreshed to d44f9b6e) + reading the files it pointed to.
+
+1. Exists and can be reused
+   Entities (domain, pure):
+     - CompanyShare (src/domain/entities/finance/financial_assets/share/company_share/company_share.py).
+     - Option -> CompanyShareOption (derivatives/option/company_share_option.py): strike_price, multiplier,
+       expiry, exchange_id, underlying_asset_id, option_type. Identification only; greeks live in factors.
+     - Universe + UniverseConstituent (src/domain/entities/universe/): weight, start_date, end_date per
+       constituent -> point-in-time ETF holdings with no new table.
+     - Domain option lifecycle (finance/option_lifecycle.py: OCC symbol parse), position_pnl.
+   Factors (domain entities + local/IBKR repositories, FactorMapper dispatch, factory registration):
+     - CompanyShareOption delta / gamma / vega / theta / rho / implied vol / mid price / price / value /
+       rf yield factors (factor/finance/financial_assets/derivatives/option/company_share_option/), computed
+       locally from OptionMarketInputs (S <- CompanyShareValueFactor, sigma <- implied vol factor,
+       r <- RF yield factor -> dated SOFR future).
+     - CompanyShareOptionImpliedCorrFactor: implied average correlation from portfolio IV and constituent IVs,
+       EQUAL-WEIGHT approximation today (needs the weighted form of section 19).
+     - delta_calculation/ (BS minimum-variance delta, RL hedges) — research hedging, not needed for the screen.
+   IBKR (src/application/services/misbuffet/brokers/ibkr/IBTWSClient.py and ibkr_repo/):
+     - request_market_data(req_id, contract, snapshot, generic_tick_list), request_market_data_type,
+       request_contract_details / contractDetails, request_scanner_subscription / scannerData (ETF discovery),
+       request_historical_data; tick types for option computation (10-13), OPTION_IMPLIED_VOL (24),
+       OPEN_INTEREST (22), option call volume / open interest (27, 29) in ibkr_tick_mapping.py.
+     - IBKR CompanyShareOption repository builds an OPT contract for a GIVEN strike / expiry / right / multiplier.
+     - StreamingMarketDataService (misbuffet/data/streaming_market_data.py): bid / ask / last with freshness
+       assessment (quote age, live vs delayed), max 95 lines -> reusable for MAX_QUOTE_AGE and "no stale mix".
+     - bar_validation (P.08.08 of the live checklist) for underlying bars.
+   Other:
+     - FMP service (api_service/fmp_service): quotes, profiles, screener; no ETF endpoints yet.
+     - Run manifest (misbuffet/run_manifest.py), results/ folders, Flask blueprint pattern (/stm, /csm, /spx_v2),
+       project manager pattern (config.py + project_manager.py + CLAUDE.md per project).
+     - SPX v2 project: Black-Scholes pricing model, DTE-range expiry targeting (_get_target_expiries) — pattern
+       only; project code is not shared (copy the idea into the shared layer, do not import from a project).
+
+2. Entities / services / repositories that already support the screen
+   - CompanyShareOption + its IBKR repository: the ETF ATM call and every constituent ATM call, once strike /
+     expiry are chosen.
+   - Greek / IV factor entities: diagnostics and the fallback delta (BSM from the market IV).
+   - Universe / UniverseConstituent: holdings snapshots with weights and dates.
+   - StreamingMarketDataService: executable bid / ask with timestamps and staleness checks.
+   - IBTWSClient scanner: dynamic discovery of optionable ETFs (e.g. instrument ETF.EQ.US, scan code by option
+     volume) — no hard-coded list.
+
+3. Missing
+   - ETF holdings / ETF classification source (D1): no port, no adapter; IBKR cannot provide it.
+   - ETF entity (D2).
+   - Option-chain discovery: no reqSecDefOptParams / securityDefinitionOptionParameter in IBTWSClient (expiries
+     and strikes of a symbol). Needed for ATM selection.
+   - IBKR model greeks: no tickOptionComputation callback in IBTWSClient, so IBKR's delta / gamma / vega / theta /
+     IV per quote are not captured today (tick types are mapped, the callback is not implemented).
+   - Option volume / open interest per contract via generic ticks (100, 101) on a snapshot: not wired.
+   - Pure domain math: ATM selection, weight normalisation, dollar-delta-neutral sizing, premium comparison,
+     payoff scenarios, weighted implied correlation.
+   - Historical option chains / IV: IBKR does not serve expired option contracts; P.09 needs a historical options
+     source (CBOE DataShop / ORATS / OptionMetrics class; cboe_api_service exists but its coverage is unverified).
+   - Screening application service, results persistence (D5), /dispersion UI.
+
+4. Where the implementation should live
+   domain (pure, no SQLAlchemy, no IBKR):
+     src/domain/entities/finance/dispersion/
+       value objects: EtfHoldingsSnapshot (ticker, weights, source, as_of), OptionQuote (bid, ask, mid, iv,
+       delta, gamma, vega, theta, oi, volume, quote_time, source), DispersionLeg, DispersionTrade,
+       DispersionScreenConfig (MAX_CONSTITUENTS ... MAX_QUOTE_AGE), ScreenResult (status + reject reasons).
+       functions: select_expiry / select_atm_strike, normalise_weights, size_delta_neutral, premium,
+       payoff_at_maturity, weighted_implied_correlation, opportunity_score.
+     src/domain/entities/finance/financial_assets/share/etf_share/etf_share.py   (if D2 = a)
+     src/domain/ports/finance/dispersion/: EtfUniversePort, EtfHoldingsPort, OptionChainPort, OptionQuotePort —
+       every method takes screening_date (section 22).
+   infrastructure:
+     IBTWSClient: reqSecDefOptParams + securityDefinitionOptionParameter(End), tickOptionComputation.
+     src/infrastructure/repositories/ibkr_repo/finance/dispersion/: IBKR option-chain + quote adapters, scanner
+       ETF universe adapter.
+     holdings adapter per D1 (e.g. src/infrastructure/repositories/sec_repo/ for N-PORT or fmp_repo/ for FMP).
+     ORM / mapper / repository for ETFShare (if D2 = a), FactorMapper dispatch + factory registration per
+       the existing checklists.
+   application:
+     src/application/services/dispersion/etf_dispersion_screening_service.py (orchestrates ports + domain math,
+       no API calls inside).
+     src/application/managers/project_managers/etf_dispersion_screener_project/: config.py (all section 23
+       settings), project_manager.py (run a screen, write results + run manifest), CLAUDE.md.
+   interface: src/interfaces/flask/web/ blueprint /dispersion (results table + detail view) and JSON API.
+   tests: tests/dispersion/ (domain unit tests, in-memory SQLite integration; no synthetic rows in base_infra).
+
+5. Conflicts with the current architecture
+   - "Do not create a standalone script": a project manager is the repo's unit of a project, but here it only
+     orchestrates; all logic goes to domain / application services so P.09 and a future trading project reuse it.
+   - The ETF entity needs a schema change on base_infra (owner approval + COPY_ONLY backup, rule of this repo).
+   - CompanyShareOption's name implies a company underlying; reusing it for ETF options is a naming compromise
+     (D3) — creating ETFOption would duplicate it.
+   - CompanyShareOptionImpliedCorrFactor is equal-weight; section 19 needs weights — extend it (optional weights
+     argument), do not add a second correlation factor.
+   - Greek factors compute BSM locally, while the screen must use IBKR's quoted greeks (section 7: "actual option
+     delta"). Both are kept: the quote's model delta is primary, the factor's BSM delta (from the same quote's IV)
+     is a cross-check, and a large difference is a data-quality flag.
+   - Market-data lines: one ETF with 49 constituents needs ~100 quotes (50 options + 50 underlyings); the
+     streaming service caps at 95 lines and the trader shares the paper login -> the screen uses snapshots in
+     batches on its own client id (D6), with IBKR pacing.
+   - A project folder must not import another project's code (SPX v2 pricing model): shared math goes to the
+     domain.
+
+6. Assumptions about option data to verify (in P.03, read-only, live login)
+   - The options bundle the owner subscribed (2026-11-02) serves OPRA quotes for ETF and single-stock options on
+     the API (not only TWS), real-time, and the paper login shares it.
+   - tickOptionComputation arrives on a SNAPSHOT request (model greeks need a few seconds; some contracts only
+     return bid/ask greeks).
+   - reqSecDefOptParams lists expiries and strikes per exchange / trading class; adjusted (non-standard
+     multiplier) classes after corporate actions appear as separate trading classes and must be excluded or
+     handled through the multiplier.
+   - Contract multipliers: 100 for US equity / ETF options, but deliverable-adjusted series exist -> read the
+     multiplier from the contract details, never assume 100 (section 11).
+   - US ETF and equity options are American, physically settled; early exercise (dividends) is ignored by the
+     European payoff simulation and must be named in the results.
+   - Option volume / open interest via generic ticks 100 / 101 are previous-day values for OI.
+   - Holdings weights: issuer files give market-value weights; N-PORT gives values to normalise; cash, futures
+     and swaps lines must be removed before normalising (synthetic / derivative ETFs then fail the "equities
+     only" test).
+   - Weights are value weights: the raw position per constituent is proportional to
+     w_i x ETF_price / (S_i x multiplier_i) contracts per ETF-equivalent share, not to w_i alone; the
+     delta-neutral scaling is applied on top (sections 6, 7, 11).
+   - DELTA_TOLERANCE = 0.01 is read as |net dollar delta| / ETF call dollar delta <= 1 % (the spec gives no
+     unit).
+   - Test 2 (perfectly correlated stocks -> basket ~ ETF call) holds when K_i = S_i x K_ETF / ETF_price, i.e.
+     every strike at the same moneyness; listed strike grids make it only approximate in practice.
+
+7. Proposed sequence (each phase its own review)
+   P.02  D1 / D2 decided -> EtfHoldingsPort + EtfUniversePort, holdings adapter, ETF entity (if approved),
+         Universe snapshots, filters (equity-only, leveraged / inverse / synthetic exclusion, < MAX_CONSTITUENTS,
+         stale holdings), IBKR scanner discovery of optionable ETFs. Tests 5.
+   P.03  IBTWSClient reqSecDefOptParams + tickOptionComputation + OI / volume ticks; OptionChainPort /
+         OptionQuotePort IBKR adapters; read-only verification of section 6 on the live login.
+   P.04  Domain ATM selection: expiry nearest TARGET_DTE within [MIN_DTE, MAX_DTE], same-expiration rule with
+         explicit exceptions, strike nearest S, MIN_OPTION_COVERAGE. Tests 6.
+   P.05  Domain dollar-delta-neutral sizing (fractional + whole-contract, D4), multipliers. Tests 3, 8.
+   P.06  Premium (ETF bid vs constituents' ask), net premium %, diagnostic weighted mid comparison, liquidity
+         filters, quote-age rejection. Tests 4, 7.
+   P.07  Screening service + ranking (transparent score), project manager, results + run manifest. Tests 1, 2
+         (payoff scenarios).
+   P.08  /dispersion blueprint: results table, detail view (ETF, constituents, trade, deltas, premiums), JSON API.
+   P.09  Historical screening: screening_date through every port, N-PORT holdings, historical option source (to
+         choose), weighted implied correlation.
+   P.10  Test suite consolidation (sections 24.1 – 24.8 + integration on in-memory SQLite).
+   P.11  Paper validation on DUR314497: read-only first, then (owner approval) a small paper trade of one
+         candidate to check fills against the screened prices.
+
+
+P.02 ETF universe and holdings                                          [~] IN PROGRESS 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] Entities (D2, D3): domain ShareOption(Option) with exchange_id / strike / multiplier / expiry;
+     CompanyShareOption and ETFShareOption are empty children. ETFShare(Share): symbol, currency_id, exchange_id,
+     name, issuer, asset_class, leverage_factor (negative = inverse), replication; is_leveraged / is_inverse /
+     is_synthetic. Ports ETFSharePort, ETFShareOptionPort.
+     ORM: ETFShareModel (etf_shares), ETFShareOptionModel (etf_share_options); the option terms are one mixin
+     (ShareOptionTermsMixin) used by company_share_options too (same columns, no change to that table).
+     Mappers: ShareOptionMapper (field mapping once) -> CompanyShareOptionMapper / ETFShareOptionMapper;
+     ETFShareMapper. Repositories: ShareOptionRepository (create / lookups / related entities once) ->
+     CompanyShareOptionRepository / ETFShareOptionRepository; ETFShareRepository; the currency / exchange /
+     country resolution moved from CompanyShareRepository up to ShareRepository (shared). Factory keys
+     'ETFShare', 'ETFShareOption'.
+     Fixed on the way: option _create_or_get never set start_date / exchange_id (NOT NULL columns, so it always
+     failed on a real database) and now takes strike / expiry / multiplier; an option lookup by symbol searched
+     every option type (could return an ETF option to the company-share repository).
+     Found, not fixed (outside scope): CompanyShareRepository._create_or_get(company_name=...) calls
+     CompanyShare.set_company_name, which does not exist -> creation with a company name fails.
+     Schema: etf_shares + etf_share_options created on base_infra_test, then on base_infra after the COPY_ONLY
+     backup MSSQL\Backup\base_infra_before_etf_tables_20261105.bak (VERIFYONLY valid); 83 -> 85 tables.
+     Tests: tests/dispersion/test_etf_share_entities.py (3).
+ [x] Ports EtfUniversePort / EtfHoldingsPort (src/domain/ports/finance/dispersion/), screening_date on every
+     call. Domain (src/domain/entities/finance/dispersion/): EtfListing, HoldingLine, EtfHoldingsSnapshot,
+     ConstituentWeights, DispersionScreenConfig (every setting of section 23 + holdings settings),
+     listing_rejections (asset class, leverage, inverse, synthetic, leveraged / inverse name markers),
+     prepare_constituents (equity lines only, duplicate tickers summed, equity share >= min_equity_weight,
+     2 <= n <= max_constituents, holdings age <= max_holdings_age_days, no missing weight / ticker, file weights
+     sum ~ 100 %, weights normalised to 1).
+ [x] Issuer adapters (src/infrastructure/repositories/issuer_repo/): IssuerHoldingsSource (download one file
+     at a time >= 1 s apart, archive every file as downloaded under results/etf_dispersion_screener/
+     holdings_archive/<issuer>/<TICKER>/<as_of>.<ext> + .meta.json; a past screening date reads the newest
+     archived file dated on or before it; a failed download -> None, logged). ISharesHoldingsSource (screener
+     JSON + latest-holdings.csv, US and UK layouts), SSGAHoldingsSource (fund finder JSON, asset class from the
+     fund's keywords, daily XLSX; cash / money market / futures recognised by ticker / name).
+     Invesco (JSON API, no fund list found) and Vanguard (monthly, lagged): not wired yet.
+ [x] Application service EtfUniverseService (src/application/services/dispersion/) and the project
+     src/application/managers/project_managers/etf_dispersion_screener_project/ (config.py with SCREEN,
+     project_manager.py -> results/etf_dispersion_screener/<date>/universe.json + universe.csv + run manifest,
+     CLAUDE.md).
+ [x] First real run 2026-11-05 (6 min, ~340 files): 669 ETFs listed (iShares 482, SPDR 187); 271 rejected on
+     the listing (not equity / leveraged ...), 323 on the holdings (268 over 49 constituents, 30 with a single
+     equity line = funds of funds, 23 mostly derivatives / cash, 2 lines without ticker), 0 without a file,
+     75 ELIGIBLE (7 – 49 constituents), e.g. XLE 21, XLC 22, XLB 24, SOXX 30, DIA 30, XLU 31, XLP 33, XHB 34,
+     XME 38, ITB 42, XLY 47, IHI 49, FEZ 49; many single-country iShares funds (EWS, EWP, EWZ ...).
+ [ ] Not yet: constituents of country funds are local listings (VALE3, PETR4 ...) without US options -> P.03
+     maps every constituent to an IBKR stock with listed options and applies MIN_OPTION_COVERAGE; the ETF's
+     own listed options (optionable flag) -> P.03. Snapshots into Universe / UniverseConstituent: with P.03
+     (constituents must first resolve to CompanyShare entities on IBKR).
+     Tests: tests/dispersion/test_etf_holdings.py (12: parsers US / UK / XLSX / fund lists, test 5 49 vs 50,
+     normalisation, rejections, listing rules, project run, archive history, failed download).
+
+P.03 Option-chain data                                                  [ ]
+P.04 ATM option selection                                               [ ]
+P.05 Delta-neutral sizing                                               [ ]
+P.06 Premium/opportunity calculation                                    [ ]
+P.07 Screening and ranking                                              [ ]
+P.08 Results UI/API                                                     [ ]
+P.09 Historical research                                                [ ]
+P.10 Testing                                                            [ ]
+P.11 Paper-trading validation                                           [ ]
+
+
+HISTORY
+-------
+2026-11-05  File created. P.01 repository analysis done; decisions D1 – D6 for the owner.
+2026-11-05  Owner answered D1 – D6 (issuer files, ETFShare approved, ShareOption parent, whole contracts, results
+            folder, free data). P.02: entities, ShareOption hierarchy, base_infra tables (after backup).
+2026-11-05  P.02: issuer adapters (iShares, SPDR) + archive, universe service, project manager; first run:
+            669 ETFs listed, 75 eligible (< 50 equity constituents).
