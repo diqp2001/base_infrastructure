@@ -50,7 +50,12 @@ docker compose stop trader                        # ends the session cleanly bef
   default `primary`), so a Windows TWS on the same paper login is disconnected. Run paper either in Docker or on
   Windows, not both. `docker compose --profile trading logs -f ibkr-paper` shows the login.
 * Paper only: `IBKR_ACCOUNT_MODE=paper` / `IBKR_ALLOW_LIVE=no` are pinned in the service, not read from `.env`. A
-  Gateway logged into the live account makes every order refused. Book = the stack's SQL Server `DB_NAME`.
+  Gateway logged into the live account makes every order refused.
+* Book: `TRADER_DB_*` in the WSL `.env` (git-ignored), else the stack's SQL Server. The paper book of STM_10M_BANKS
+  is Windows `base_infra`: `TRADER_DB_HOST=host.docker.internal`, `TRADER_DB_PORT=1433`, `TRADER_DB_NAME=base_infra`,
+  `TRADER_DB_USER=stm_trader` (SQL login, db_datareader + db_datawriter, no DDL), `TRADER_DB_PASSWORD`. Needs the
+  Windows default instance in mixed mode with TCP 1433 enabled (done 2026-11-05). An empty book against an account
+  with positions is refused at every order (position reconciliation BLOCKED): one book per account.
 * Status: `results/spatio_temporal_momentum_10m_live/STM_10M_BANKS.supervisor.json` (state, rewritten every minute;
   the container is unhealthy when it is older than 3 minutes).
 * A session already running (e.g. started by hand) is not doubled: the supervisor alerts "not started" and waits for
