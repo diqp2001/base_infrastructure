@@ -58,8 +58,20 @@ def git_state(root: str = REPO_ROOT) -> GitState:
     return GitState(commit=commit, dirty=bool(changed), changed_files=changed)
 
 
+def _jsonable(value):
+    """Config as plain JSON: keys and values that are not JSON (a class key such as universe {CompanyShare: [...]},
+    a date) become their str()."""
+    if isinstance(value, dict):
+        return {k if isinstance(k, str) else str(getattr(k, "__name__", k)): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
 def config_hash(config: Dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(config, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    return hashlib.sha256(json.dumps(_jsonable(config), sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def build_manifest(kind: str, project: str, config: Dict[str, Any], data_window: Iterable[Any],
@@ -69,7 +81,7 @@ def build_manifest(kind: str, project: str, config: Dict[str, Any], data_window:
         "kind": kind, "project": project, "started_at": str(started_at or datetime.now()), "finished_at": None,
         "outcome": "running", "git": asdict(git), "config_sha256": config_hash(config),
         "data_window": [str(x) for x in data_window], "models": [], "dirty_override": False,
-        "config": _redact(json.loads(json.dumps(config, default=str))),
+        "config": _redact(_jsonable(config)),
     }
 
 

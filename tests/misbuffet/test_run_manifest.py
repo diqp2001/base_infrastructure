@@ -68,6 +68,16 @@ def test_manifest_written_with_the_commit_config_window_and_models(tmp_path):
     assert len(history) == 1 and "config" not in history[0] and history[0]["models"] == [41, 45]
 
 
+def test_a_config_keyed_by_a_class_is_written(tmp_path):
+    """The live config carries universe {CompanyShare: [...]} (a class key): json.dumps alone refuses it."""
+    class CompanyShare:
+        pass
+    config = {"universe": {CompanyShare: ["JPM", "BAC"]}, "start": __import__("datetime").date(2026, 11, 5)}
+    manifest = rm.build_manifest("live", "STM", config, (), git=rm.GitState(commit="c", dirty=False))
+    assert manifest["config"]["universe"] == {"CompanyShare": ["JPM", "BAC"]}
+    assert manifest["config"]["start"] == "2026-11-05" and len(rm.config_hash(config)) == 64
+    rm.write_manifest(str(tmp_path), manifest)
+
 def test_a_dirty_tree_is_refused_in_live_mode(tmp_path, monkeypatch):
     root = _repo(tmp_path)
     clean = rm.build_manifest("live", "STM", {}, (), git=rm.git_state(root))
