@@ -273,6 +273,8 @@ from src.infrastructure.repositories.local_repo.finance.financial_assets.derivat
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.future.bond_future_repository import BondFutureRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IndexFutureOptionRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.company_share_option_repository import CompanyShareOptionRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.derivatives.option.etf_share_option_repository import ETFShareOptionRepository
+from src.infrastructure.repositories.local_repo.finance.financial_assets.etf_share_repository import ETFShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_repository import IndexRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_company_share_repository import IndexCompanyShareRepository
 from src.infrastructure.repositories.local_repo.finance.financial_assets.index_company_share_portfolio_repository import IndexCompanySharePortfolioRepository
@@ -555,12 +557,14 @@ class RepositoryFactory:
                 'BondFuture': BondFutureRepository(self.session, factory=self),
                 'IndexFutureOption': IndexFutureOptionRepository(self.session, factory=self),
                 'CompanyShareOption': CompanyShareOptionRepository(self.session, factory=self),
+                'ETFShareOption': ETFShareOptionRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionPortfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
                 'CompanyShareOptionPortfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
                 'CompanySharePortfolio': CompanySharePortfolioRepository(self.session, factory=self),
                 'CurrencyPortfolio': CurrencyPortfolioRepository(self.session, factory=self),
                 'DerivativePortfolio': DerivativePortfolioRepository(self.session, factory=self),
                 'CompanyShare': CompanyShareRepository(self.session, factory=self),
+                'ETFShare': ETFShareRepository(self.session, factory=self),
                 'CompanyShareFactor': CompanyShareFactorRepository(self.session, factory=self),
                 'CompanyShareValueFactor': CompanyShareValueFactorRepository(self.session, factory=self),
                 'CompanyShareMidPriceFactor': CompanyShareMidPriceFactorRepository(self.session, factory=self),

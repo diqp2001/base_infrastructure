@@ -1,0 +1,33 @@
+# ETF dispersion-option screener
+
+Screens US-listed equity ETFs with fewer than 50 constituents for a potential long-dispersion trade: short one ATM
+call on the ETF, long ATM calls on every constituent, weighted by the ETF weights and scaled to dollar-delta
+neutrality. It is a screen for a potential dispersion trade, not an arbitrage. The progress, decisions and plan
+are in `docs/dispersion_screening_progress.txt`.
+
+## Layout
+- **This folder** holds orchestration only. `config.py` holds every setting: `SCREEN` is a
+  `DispersionScreenConfig`, plus the data sources and folders. `project_manager.py` runs a screening date.
+- **Domain rules** (pure): `src/domain/entities/finance/dispersion/`
+  - `etf_holdings.py`: listings, holdings snapshots, constituent rules.
+  - `screen_config.py`.
+- **Ports:** `src/domain/ports/finance/dispersion/`. Every method takes the screening date.
+- **Issuer adapters:** `src/infrastructure/repositories/issuer_repo/` (iShares CSV, SPDR XLSX). Every
+  downloaded file is archived under `results/etf_dispersion_screener/holdings_archive/`. The issuers serve the
+  latest day only, so this archive is the holdings history.
+- **Services:** `src/application/services/dispersion/`.
+- **Entities:**
+  - `ETFShare` is the fund.
+  - `ETFShareOption` and `CompanyShareOption` both inherit from `ShareOption`.
+
+## Run
+```
+python -m src.application.managers.project_managers.etf_dispersion_screener_project.project_manager [YYYY-MM-DD]
+```
+Output: `results/etf_dispersion_screener/<date>/universe.json`, `universe.csv` and `run_manifest.json`.
+
+## Rules
+- Use executable bid/ask prices and whole option contracts. Fractional sizing is a reference only.
+- Never mix stale and current data. Name every exception, such as a different expiry or a missing chain.
+- Downloads are polite: one file at a time, at most one per second, once per ETF per day.
+- Tests: `tests/dispersion/`. They use inline issuer files and in-memory SQLite, and never download anything.

@@ -53,11 +53,13 @@ from src.infrastructure.models.finance.financial_assets.equity import EquityMode
 # Share-based assets (depends on exchange/company)
 from src.infrastructure.models.finance.financial_assets.share import ShareModel
 from src.infrastructure.models.finance.financial_assets.company_share import CompanyShareModel
+from src.infrastructure.models.finance.financial_assets.etf_share import ETFShareModel
 
 # Complex financial instruments
 from src.infrastructure.models.finance.financial_assets.bond import BondModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.company_share_option import CompanyShareOptionModel
+from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_option import ETFShareOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.index_future_option import IndexFutureOptionModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.future import FutureModel
 from src.infrastructure.models.finance.financial_assets.derivative.future.index_future import IndexFutureModel
@@ -181,8 +183,8 @@ __all__ = [
     'ExchangeModel', 'CompanyModel',
     'FinancialStatementModel', 'BalanceSheetModel', 'IncomeStatementModel', 'CashFlowStatementModel',
     'FinancialAssetModel', 'CurrencyModel', 'CashModel', 'CommodityModel', 'SecurityModel', 'EquityModel',
-    'ShareModel', 'CompanyShareModel', 
-    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 
+    'ShareModel', 'CompanyShareModel', 'ETFShareModel',
+    'BondModel', 'OptionsModel', 'CompanyShareOptionModel', 'ETFShareOptionModel',
     'IndexFutureOptionModel', 'FutureModel', 'IndexFutureModel','DerivativeModel',
     'ForwardContractModel', 
     'SwapModel',  'SwapLegModel',
