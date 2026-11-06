@@ -16,12 +16,28 @@
         .muted { color: #8b949e; }
         .kv td { text-align: left !important; }
         .neg { color: #f85149; } .pos { color: #3fb950; }
+        .print-only { display: none; }
+        @media print {
+            @page { size: landscape; margin: 8mm; }
+            body, .card, .card-header { background: #fff !important; color: #000 !important; }
+            .table { color: #000 !important; font-size: 0.62rem; }
+            .table td, .table th { border-color: #bbb !important; padding: 1px 3px !important; }
+            a { color: #000 !important; text-decoration: none; }
+            .no-print { display: none !important; }
+            .print-only { display: block; }
+            .reason { color: #333 !important; }
+            tr { page-break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
 <div class="container py-4">
     {% set money = '{:,.2f}' %}
-    <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a>
+    <div class="d-flex justify-content-between no-print">
+        <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a>
+        <button type="button" class="btn btn-sm btn-outline-light" onclick="window.print()">Print / PDF</button>
+    </div>
+    <div class="print-only small">ETF dispersion screen {{ day }}</div>
     <h3 class="mt-2 mb-1">{{ c.etf }} <small class="muted">{{ c.name }}</small></h3>
     <div class="muted small mb-3">Status: <b>{{ c.status }}</b>{% if c.reasons %} — {{ c.reasons }}{% endif %}</div>
 
@@ -52,6 +68,7 @@
             <tr><td>Net dollar delta</td><td>{{ money.format(c.net_dollar_delta) if c.net_dollar_delta is not none else '' }}
                 ({{ '%.2f%%'|format((c.net_delta_pct or 0) * 100) }} of the short)</td></tr>
             <tr><td>ETF call proceeds (bid)</td><td>{{ money.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td></tr>
+            <tr><td>Constituent calls at bid</td><td>{{ money.format(c.reverse_constituent_proceeds) if c.reverse_constituent_proceeds is not none else '' }}</td></tr>
             <tr><td>Constituent call cost (ask)</td><td>{{ money.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td></tr>
             <tr><td>Net premium (≥ 0 = opportunity)</td><td class="{{ 'neg' if (c.net_premium or 0) < 0 else 'pos' }}">
                 {{ money.format(c.net_premium) if c.net_premium is not none else '' }}
@@ -74,7 +91,7 @@
     <div class="card mt-3"><div class="card-header">Constituents</div><div class="card-body p-0">
     <table class="table table-sm table-hover mb-0">
         <thead><tr><th class="l">Ticker</th><th>Weight</th><th>Price</th><th>Expiry</th><th>Strike</th><th>Call bid</th>
-            <th>Call ask</th><th>Spread</th><th>IV</th><th>IV bid</th><th>IV ask</th><th>Delta</th><th>Contracts per ETF call</th><th>Dollar delta</th><th>Call cost</th>
+            <th>Call ask</th><th>Spread</th><th>IV</th><th>IV bid</th><th>IV ask</th><th>Delta</th><th>Contracts per ETF call</th><th>Dollar delta</th><th>Calls at bid</th><th>Calls at ask</th>
             <th class="l">Status / exceptions</th></tr></thead>
         <tbody>
         {% for r in c.constituent_legs %}
@@ -93,6 +110,7 @@
             <td>{{ r.delta if r.delta is not none else '' }}</td>
             <td>{{ '%.4f'|format(r.contracts) if r.contracts is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(r.dollar_delta) if r.dollar_delta is not none else '' }}</td>
+            <td>{{ '{:,.2f}'.format(r.call_proceeds_at_bid) if r.call_proceeds_at_bid is not none else '' }}</td>
             <td>{{ '{:,.2f}'.format(r.call_cost) if r.call_cost is not none else '' }}</td>
             <td class="l muted">{{ r.status if r.status != 'ok' else '' }} {{ r.exceptions }} {{ r.liquidity }}</td>
         </tr>

@@ -18,6 +18,18 @@
         .not { color: #8b949e; }
         .neg { color: #f85149; }
         .badge-warn { background: #9e6a03; }
+        .print-only { display: none; }
+        @media print {
+            @page { size: landscape; margin: 8mm; }
+            body, .card, .card-header { background: #fff !important; color: #000 !important; }
+            .table { color: #000 !important; font-size: 0.62rem; }
+            .table td, .table th { border-color: #bbb !important; padding: 1px 3px !important; }
+            a { color: #000 !important; text-decoration: none; }
+            .no-print { display: none !important; }
+            .print-only { display: block; }
+            .reason { color: #333 !important; }
+            tr { page-break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
@@ -32,8 +44,8 @@
         <div>
             <h3 class="mb-1">ETF dispersion screen <small class="text-muted">{{ day }}</small></h3>
             <div class="text-muted small">
-                Short 1 ATM ETF call, long ATM constituent calls, ETF-weighted and dollar-delta neutral in whole
-                contracts. A potential dispersion trade, not an arbitrage.
+                Short 1 ATM ETF call (sold at the bid), long ATM calls on every constituent replicating the ETF's
+                holdings (bought at the ask), same expiry. Opportunity: net premium &ge; 0. Figures per ETF call.
                 Universe: {% for k, v in universe_counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}.
                 Screen: {% for k, v in counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}.
             </div>
@@ -42,7 +54,8 @@
             <span class="badge badge-warn mt-1">research run on frozen (closing) quotes — not executable prices</span>
             {% endif %}
         </div>
-        <form method="get" class="d-flex gap-2">
+        <form method="get" class="d-flex gap-2 no-print">
+            <button type="button" class="btn btn-sm btn-outline-light text-nowrap" onclick="window.print()">Print / PDF</button>
             <select name="date" class="form-select form-select-sm" onchange="this.form.submit()">
                 {% for d in dates %}<option value="{{ d }}" {% if d == day %}selected{% endif %}>{{ d }}</option>{% endfor %}
             </select>
@@ -54,7 +67,9 @@
             <th class="l">ETF</th><th>Constituents</th><th>Coverage</th><th>DTE</th><th>ETF strike</th>
             <th>ETF call bid</th><th>ETF call ask</th><th>ETF IV</th><th>Wtd IV</th><th>Impl. corr</th>
             <th title="ETF vol implied by its call bid, constituents' by their call asks">Impl. corr (ETF bid)</th>
-            <th>Constituent call cost</th><th>ETF proceeds</th><th>Net premium</th><th>Net %</th>
+            <th title="the constituent calls valued at their bids">Constituent calls at bid</th>
+            <th title="the constituent calls valued at their asks: the strategy's cost">Constituent calls at ask</th>
+            <th>ETF proceeds</th><th>Net premium</th><th>Net %</th>
             <th title="ETF call bought at its ask, constituent calls sold at their bids">Reversed net</th>
             <th>Reversed net %</th>
             <th title="ETF vol implied by its call ask, constituents' by their call bids">Impl. corr (ETF ask)</th><th>ETF $delta</th><th>Basket $delta</th>
@@ -75,6 +90,7 @@
             <td>{{ '%.1f%%'|format(c.weighted_constituent_iv * 100) if c.weighted_constituent_iv is not none else '' }}</td>
             <td>{{ '%.2f'|format(c.implied_correlation) if c.implied_correlation is not none else '' }}</td>
             <td>{{ '%.2f'|format(c.implied_correlation_etf_bid) if c.implied_correlation_etf_bid is not none else '' }}</td>
+            <td>{{ '{:,.2f}'.format(c.reverse_constituent_proceeds) if c.reverse_constituent_proceeds is not none else '' }}</td>
             <td>{{ '{:,.2f}'.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td>
             <td>{{ '{:,.2f}'.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td>
             <td class="{{ 'neg' if c.net_premium is not none and c.net_premium < 0 else '' }}">
