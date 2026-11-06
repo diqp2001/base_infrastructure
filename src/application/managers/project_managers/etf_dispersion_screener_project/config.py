@@ -55,6 +55,11 @@ CONFIG: Dict[str, Any] = {
         'max_lines': int(os.getenv('DISPERSION_IBKR_MAX_LINES', '40')),   # the trader on the same login needs ~30
         'timeout_seconds': 12.0,
     },
+    # P.11 read-only paper validation: the best priced candidates' legs quoted again this many seconds after the
+    # screen (would the screened prices still fill?). No orders (owner, 2026-11-06). Unset = no validation.
+    'validate_after_seconds': (float(os.environ['DISPERSION_VALIDATE_AFTER_SECONDS'])
+                               if os.getenv('DISPERSION_VALIDATE_AFTER_SECONDS') else None),
+    'validate_top': int(os.getenv('DISPERSION_VALIDATE_TOP', '5')),
 }
 
 

@@ -14,7 +14,7 @@ Market data comes through OptionMarketDataPort only; nothing here knows IBKR.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -118,6 +118,29 @@ class DispersionScreeningService:
         self._strikes: Dict[tuple, Sequence[float]] = {}
 
     # ---- cached lookups ----
+    def export_lookups(self, screening_date: date) -> dict:
+        """The run's contract lookups (shares, chains, listed strikes) as JSON-able data: they do not change during
+        a day, so a market-hours run can reuse them and ask the broker for quotes only."""
+        return {
+            'screening_date': screening_date.isoformat(),
+            'underlyings': {s: (asdict(u) if u else None) for s, u in self._underlyings.items()},
+            'chains': {s: [{**asdict(c), 'expirations': [e.isoformat() for e in c.expirations]} for c in chains]
+                       for s, chains in self._chains.items()},
+            'strikes': [[u, tc, e.isoformat(), list(k)] for (u, tc, e), k in self._strikes.items()],
+        }
+
+    def import_lookups(self, data: dict, screening_date: date) -> bool:
+        """Load export_lookups data of the same screening date (another date: ignored, False)."""
+        if data.get('screening_date') != screening_date.isoformat():
+            return False
+        self._underlyings.update({s: Underlying(**u) if u else None for s, u in data['underlyings'].items()})
+        for s, chains in data['chains'].items():
+            self._chains[s] = [OptionChain(**{**c, 'expirations': tuple(date.fromisoformat(e) for e in c['expirations']),
+                                              'strikes': tuple(c['strikes'])}) for c in chains]
+        for u, tc, e, k in data['strikes']:
+            self._strikes[(u, tc, date.fromisoformat(e))] = tuple(k)
+        return True
+
     def _resolve(self, symbols: Sequence[str], screening_date: date) -> Dict[str, Optional[Underlying]]:
         missing = [s for s in symbols if s not in self._underlyings]
         if missing:

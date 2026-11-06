@@ -34,6 +34,10 @@ Output: `results/etf_dispersion_screener/<date>/universe.json`, `universe.csv` a
 With `DISPERSION_IBKR_HOST` (plus `_PORT` and `_CLIENT_ID`) set, the run also writes `candidates.json` and
 `candidates.csv`, ranked. Quotes after the close are frozen and are refused unless `DISPERSION_ALLOW_FROZEN=yes`,
 which is for diagnostics only. IBKR serves current data only, so a past date raises `HistoricalDataUnavailable`.
+Each run saves its contract lookups to `<date>/lookups.json`. A later run on the same date reuses them and
+requests quotes only. Do the heavy lookups while the STM trader (same paper gateway) is idle.
+`DISPERSION_VALIDATE_AFTER_SECONDS` turns on the P.11 fill check: the best priced candidates are re-quoted and
+written to `validation.json` and `validation.csv`. It is read-only and never sends an order.
 
 ## Rules
 - Use executable bid/ask prices and whole option contracts. Fractional sizing is a reference only.

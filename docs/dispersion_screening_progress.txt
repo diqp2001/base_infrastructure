@@ -314,8 +314,12 @@ P.07 Screening and ranking                                              [x] DONE
      ITB 93 %; country funds 0 - 52 %: local listings without US options; DIA 40 %). From KWT on the paper
      gateway stopped answering (its API port timed out at 20:28 ET; auto-restart 23:45) and the remaining 34
      (all SPDR funds) were wrongly reported "not found" -> fixed: MarketDataUnavailable / "data unavailable".
- [ ] A screen in market hours (live quotes), 2026-11-06 or later: the first real result. MIN_OPTION_COVERAGE
-     95 % may be the binding rule (owner may prefer 90 %: IDU / IAT / ITB at 93 %).
+ [x] Owner 2026-11-06: MIN_OPTION_COVERAGE = 100 % - every constituent AND the ETF need listed, usable options.
+ [x] Lookup cache: a run saves its contract lookups (shares, chains, listed strikes) in <date>/lookups.json; a
+     later run of the same date reuses them and asks the broker for quotes only. Why: the paper gateway is shared
+     with the STM trader (10-minute bars 09:20 - 16:00) and the full screen stalled it on 2026-11-05; the heavy
+     lookups run while the trader is idle, the market-hours run streams quotes only.
+ [ ] A screen in market hours (live quotes), 2026-11-06 10:00 ET: the first real result.
  [ ] Snapshots into Universe / UniverseConstituent (constituents resolved to CompanyShare on IBKR): not done.
 
 P.08 Results UI/API                                                     [x] DONE 2026-11-05
@@ -338,10 +342,19 @@ P.10 Testing                                                            [~] 2026
      vs live, a silent gateway, Flask pages, project files). No broker; no database except in-memory SQLite.
  [ ] An integration test of the IBKR adapter on recorded callbacks.
 
-P.11 Paper-trading validation                                           [ ] needs a market-hours run + owner approval
+P.11 Paper-trading validation                                           [~] READ-ONLY (owner 2026-11-06)
 -----------------------------------------------------------------------------------------
- [ ] Read-only first (screen in market hours, compare quotes with TWS); a small paper trade of one candidate on
-     DUR314497 only with the owner's explicit approval. The screener contains no order code.
+ [x] Owner 2026-11-06: P.11 read-only, no orders. Why: DUR314497 is the STM trader's account; a dispersion fill on
+     a stock STM manages (sector constituents such as XOM) would be an EXTERNAL_EXECUTION that blocks all STM
+     trading, and the cash reconciler would book up to $250 of dispersion premium as STM financing. A paper trade
+     needs a separate paper account (owner) - then a second paper gateway.
+     Cost (owner condition): streaming quotes only (no snapshots), contract details / chains free, no orders.
+ [x] Fill check (src/domain/entities/finance/dispersion/fill_check.py, PaperValidationService): DISPERSION_
+     VALIDATE_AFTER_SECONDS after the screen, every leg of the best priced candidates (DISPERSION_VALIDATE_TOP,
+     5) is quoted again; a leg would fill when the ETF bid >= the screened bid / a constituent ask <= the screened
+     ask; slippage in dollars, re-quoted net premium; only live quotes count. -> <date>/validation.json + .csv.
+     Tests: tests/dispersion/test_paper_validation.py.
+ [ ] First check: 2026-11-06 market hours (needs at least one priced candidate at 100 % coverage).
 
 
 HISTORY
@@ -354,3 +367,5 @@ HISTORY
 2026-11-05  P.03 - P.08 code done (IBKR option data, selection, sizing, premium, screen, UI/API); research
             runs after the close only; gateway stall -> MarketDataUnavailable. P.09 blocked (historical
             options source).
+2026-11-06  Owner: 100 % option coverage; P.11 read-only (no orders: DUR314497 is the STM account). Fill check
+            + lookup cache (heavy lookups while STM is idle, quotes only in market hours).

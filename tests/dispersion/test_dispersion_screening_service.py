@@ -193,3 +193,31 @@ def test_the_ibkr_adapter_raises_when_the_gateway_does_not_answer():
     md = IBKROptionMarketData(SilentClient(), today=lambda: DAY, lookup_timeout_seconds=0.05, poll_seconds=0.01)
     with pytest.raises(MarketDataUnavailable):
         md.resolve_underlyings(["XLE"], DAY)
+
+
+def test_lookups_are_reused_so_a_second_run_asks_for_quotes_only():
+    import json
+
+    class Counting(FakeMarket):
+        lookups = 0
+
+        def resolve_underlyings(self, symbols, screening_date):
+            Counting.lookups += 1
+            return super().resolve_underlyings(symbols, screening_date)
+
+        def option_chains(self, underlying, screening_date):
+            Counting.lookups += 1
+            return super().option_chains(underlying, screening_date)
+
+        def listed_strikes(self, chain, expiry, right, screening_date):
+            Counting.lookups += 1
+            return super().listed_strikes(chain, expiry, right, screening_date)
+    quotes = {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)}
+    first = DispersionScreeningService(Counting(SPOTS, quotes), DispersionScreenConfig(), now=lambda: NOW)
+    a = first.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY)[0]
+    saved = json.loads(json.dumps(first.export_lookups(DAY)))
+    Counting.lookups = 0
+    second = DispersionScreeningService(Counting(SPOTS, quotes), DispersionScreenConfig(), now=lambda: NOW)
+    assert second.import_lookups(saved, DAY) and not second.import_lookups(saved, DAY + timedelta(days=1))
+    b = second.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY)[0]
+    assert Counting.lookups == 0 and b.status == a.status == OPPORTUNITY and b.expiry == a.expiry

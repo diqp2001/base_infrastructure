@@ -25,6 +25,9 @@ from src.application.managers.project_managers.etf_dispersion_screener_project i
 from src.application.managers.project_managers.project_manager import ProjectManager
 from src.application.services.dispersion.dispersion_screening_service import Candidate, DispersionScreeningService
 from src.application.services.dispersion.etf_universe_service import EtfUniverseService, UniverseResult
+from src.application.services.dispersion.paper_validation_service import (
+    PaperValidationService, Validation, priced,
+)
 from src.application.services.misbuffet import run_manifest
 from src.infrastructure.repositories.issuer_repo.ishares_holdings_source import ISharesHoldingsSource
 from src.infrastructure.repositories.issuer_repo.ssga_holdings_source import SSGAHoldingsSource
@@ -47,6 +50,7 @@ class EtfDispersionScreenerProjectManager(ProjectManager):
         self.universe_service = EtfUniverseService(sources, self.screen)
         self.market_data = market_data
         self._client = None
+        self._sleep = time.sleep
 
     def _connect_market_data(self):
         ib = self.config.get('ibkr') or {}
@@ -64,6 +68,20 @@ class EtfDispersionScreenerProjectManager(ProjectManager):
                                                 timeout_seconds=float(ib.get('timeout_seconds', 12.0)))
         return self.market_data
 
+    def _validate(self, market_data, candidates: List[Candidate], screening_date: date, out_dir: str) -> None:
+        """P.11 read-only: re-quote the best priced candidates after validate_after_seconds (no orders)."""
+        delay = self.config.get('validate_after_seconds')
+        if delay is None or not priced(candidates):
+            return
+        print(f"validation: re-quoting in {delay:g} s", flush=True)
+        self._sleep(delay)
+        validations = PaperValidationService(market_data, require_live=not self.screen.allow_frozen_quotes).validate(
+            candidates, screening_date, top=int(self.config.get('validate_top', 5)))
+        write_validation(out_dir, validations)
+        for v in validations:
+            print(f"validation {v.etf}: {v.check.legs_filled}/{len(v.check.legs)} legs would fill, net premium "
+                  f"{v.screened_net_premium:,.2f} -> {v.requoted_net_premium}", flush=True)
+
     def run(self, screening_date: Optional[date] = None, tickers=None):
         screening_date = screening_date or date.today()
         out_dir = os.path.join(self.config['results_dir'], screening_date.isoformat())
@@ -78,13 +96,21 @@ class EtfDispersionScreenerProjectManager(ProjectManager):
             market_data = self._connect_market_data()
             if market_data is not None:
                 service = DispersionScreeningService(market_data, self.screen)
+                lookups = os.path.join(out_dir, 'lookups.json')
+                if os.path.exists(lookups):
+                    with open(lookups, encoding='utf-8') as f:
+                        if service.import_lookups(json.load(f), screening_date):
+                            print(f"lookups reused from {lookups} (quotes only)", flush=True)
                 etfs = [(e.listing.ticker, e.listing.name, e.constituents) for e in result.eligible]
                 candidates = service.screen(etfs, screening_date, progress=lambda m: print(m, flush=True))
+                with open(lookups, 'w', encoding='utf-8') as f:
+                    json.dump(service.export_lookups(screening_date), f)
                 write_candidates(out_dir, candidates)
                 counts: Dict[str, int] = {}
                 for c in candidates:
                     counts[c.status] = counts.get(c.status, 0) + 1
                 print(f"{screening_date} screen: {counts} -> {out_dir}", flush=True)
+                self._validate(market_data, candidates, screening_date, out_dir)
         except Exception as e:
             run_manifest.finish_manifest(out_dir, manifest, f"failed: {e!r}"[:300])
             raise
@@ -181,6 +207,15 @@ def write_candidates(out_dir: str, candidates: List[Candidate]) -> None:
                                   for sc in c.scenarios]}
                    for row, c in zip(rows, candidates)], f, indent=1)
     _write_csv(os.path.join(out_dir, 'candidates.csv'), rows)
+
+
+def write_validation(out_dir: str, validations: List[Validation]) -> None:
+    os.makedirs(out_dir, exist_ok=True)
+    rows = [v.row() for v in validations]
+    with open(os.path.join(out_dir, 'validation.json'), 'w', encoding='utf-8') as f:
+        json.dump(rows, f, indent=1)
+    _write_csv(os.path.join(out_dir, 'validation.csv'), [{k: v for k, v in r.items() if k != 'leg_checks'}
+                                                        for r in rows])
 
 
 def _write_csv(path: str, rows: List[Dict[str, Any]]) -> None:
