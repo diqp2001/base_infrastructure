@@ -327,7 +327,22 @@ P.07 Screening and ranking                                              [x] DONE
      lookups stop as soon as MIN_OPTION_COVERAGE can no longer be met (at 100 %: the first unusable constituent;
      the rest are "not checked", no request). A 0.2 s pause between lookups / quote batches (DISPERSION_IBKR_PAUSE_
      SECONDS).
- [ ] A screen in market hours (live quotes): the first real result.
+ [x] Market-hours run 1 (12:15 ET): the paper gateway froze again near the end. Found: stock prices judged
+     "62 s old" because the age was measured after the per-constituent strike lookups -> fixed (age judged on
+     arrival). Quote batches sent 40 subscribes + 40 cancels at once (IBKR allows ~50 messages / s) -> every
+     subscribe / cancel now 40 ms apart.
+ [x] Market-hours run 2 (13:25 - 13:39 ET, live quotes, lookups reused): the gateway kept answering (one 15 s
+     timeout: XNTK). 75 ETFs: 0 opportunities, 4 rejected (priced), 70 not screenable (37 coverage < 100 %,
+     17 no ETF options, 16 ETF call spread > 5 %), 1 data unavailable.
+       XLE  18 contracts, net premium -442 (-11.1 %), at mids -288, net delta -9.3 %, implied corr 0.61
+       XLP  20 contracts, net -658 (-13.3 %), at mids -374, net delta -18.3 %, implied corr 0.48
+       DIA  17 contracts, net -18,448 (-84.8 %), at mids -16,883, net delta -0.5 %, implied corr 0.28
+       XLU  coverage + illiquid constituent options
+     All also rejected for illiquid constituent options (spreads > 10 %). Whole-contract sizing within 20 ETF
+     contracts leaves small-weight constituents at 0 contracts (XLE: 11 of 21) and the net delta outside 1 %:
+     the smallest weights need hundreds of ETF contracts -> owner decision (size / drop small weights).
+     Economics: long single-stock calls vs a short ETF call cost premium whenever implied correlation < 1,
+     so "net premium >= 0" is rare by construction.
  [ ] Snapshots into Universe / UniverseConstituent (constituents resolved to CompanyShare on IBKR): not done.
 
 P.08 Results UI/API                                                     [x] DONE 2026-11-05
@@ -362,7 +377,12 @@ P.11 Paper-trading validation                                           [~] READ
      5) is quoted again; a leg would fill when the ETF bid >= the screened bid / a constituent ask <= the screened
      ask; slippage in dollars, re-quoted net premium; only live quotes count. -> <date>/validation.json + .csv.
      Tests: tests/dispersion/test_paper_validation.py.
- [ ] First check: 2026-11-06 market hours (needs at least one priced candidate at 100 % coverage).
+ [x] First check 2026-11-06 13:39 ET (5 min after the screen, priced candidates although rejected):
+       XLE  2 of 9 legs would still fill, re-quoted net -505 (slippage 63)
+       XLP  14 of 15 legs would fill, re-quoted net -658 (slippage 0)
+       DIA  15 of 31 legs would fill, re-quoted net -18,649 (slippage 201)
+     The screened prices do not hold for 5 minutes on most legs: an execution would need working limit
+     orders per leg, not the screened prices.
 
 
 HISTORY
@@ -377,3 +397,5 @@ HISTORY
             options source).
 2026-11-06  Owner: 100 % option coverage; P.11 read-only (no orders: DUR314497 is the STM account). Fill check
             + lookup cache (heavy lookups while STM is idle, quotes only in market hours).
+2026-11-06  STM stopped + flattened (owner). Fail-fast lookups, request / message pacing, price age on
+            arrival. First market-hours screen: 0 opportunities, XLE / XLP / DIA priced negative; fill check run.
