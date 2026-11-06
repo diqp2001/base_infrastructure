@@ -28,7 +28,7 @@ from src.domain.entities.finance.dispersion.option_data import (
     OptionChain, OptionContractSpec, OptionQuote, Underlying, UnderlyingQuote,
 )
 from src.domain.entities.finance.dispersion.option_selection import (
-    constituent_expiry, select_atm_strike, select_common_expiry, standard_chain,
+    common_expiries, constituent_expiry, select_atm_strike, select_common_expiry, standard_chain,
 )
 from src.domain.entities.finance.dispersion.quote_checks import (
     BUY, SELL, freshness_problems, option_liquidity_problems, option_quality_problems,
@@ -183,7 +183,43 @@ class DispersionScreeningService:
             out.append(candidate)
         return sorted(out, key=lambda c: c.rank_key)
 
-    def screen_etf(self, ticker: str, name: str, weights: ConstituentWeights, screening_date: date) -> Candidate:
+    def maturities(self, ticker: str, name: str, weights: ConstituentWeights, screening_date: date,
+                   progress: Callable[[str], None] = lambda m: None) -> Tuple[List[Candidate], List[str]]:
+        """The strategy priced at every expiry the ETF and all its constituents list in [MATURITIES_MIN_DTE,
+        MATURITIES_MAX_DTE] (one candidate per expiry, by date), or the reasons none can be priced."""
+        cfg = self.config
+        etf_u = self._resolve([ticker], screening_date)[ticker]
+        if etf_u is None:
+            return [], ["ETF not found as a US-listed share at the broker"]
+        etf_chain, _ = self._chain(etf_u, screening_date)
+        if etf_chain is None:
+            return [], ["the ETF has no listed options"]
+        listed = []
+        for symbol in weights.weights:
+            u = self._resolve([symbol], screening_date)[symbol]
+            chain = self._chain(u, screening_date)[0] if u is not None else None
+            if chain is None:
+                return [], [f"{symbol}: no listed options"]
+            listed.append(chain.expirations)
+        expiries = common_expiries(etf_chain.expirations, listed, screening_date, cfg.maturities_min_dte,
+                                   cfg.maturities_max_dte)
+        if not expiries:
+            return [], [f"no expiry listed by the ETF and every constituent within {cfg.maturities_min_dte}-"
+                        f"{cfg.maturities_max_dte} days"]
+        out = []
+        for expiry in expiries:
+            try:
+                c = self.screen_etf(ticker, name, weights, screening_date, expiry=expiry)
+            except MarketDataUnavailable as e:
+                c = Candidate(ticker, name, DATA_UNAVAILABLE, [f"market data unavailable: {e}"[:200]], expiry=expiry,
+                              dte=(expiry - screening_date).days)
+            progress(f"{ticker} {expiry}: {c.status} {'; '.join(c.reasons)[:100]}")
+            out.append(c)
+        return out, []
+
+    def screen_etf(self, ticker: str, name: str, weights: ConstituentWeights, screening_date: date,
+                   expiry: Optional[date] = None) -> Candidate:
+        """expiry: price at that expiry (the maturities view) instead of choosing one."""
         cfg = self.config
         c = Candidate(ticker, name, "not screenable", holdings_as_of=weights.as_of, holdings_source=weights.source,
                       screened_at=self.now())
@@ -218,8 +254,14 @@ class DispersionScreeningService:
                 r.status = "no listed options"
                 continue
             chains[r.symbol] = chain
-        c.expiry = select_common_expiry(etf_chain.expirations, [ch.expirations for ch in chains.values()],
-                                        screening_date, cfg)
+        if expiry is not None:
+            c.expiry = expiry if expiry in etf_chain.expirations else None
+            if c.expiry is None:
+                c.reasons.append(f"the ETF lists no {expiry} expiry")
+                return c
+        else:
+            c.expiry = select_common_expiry(etf_chain.expirations, [ch.expirations for ch in chains.values()],
+                                            screening_date, cfg)
         if c.expiry is None:
             c.reasons.append(f"no ETF expiry within {cfg.min_dte}-{cfg.max_dte} days")
             return c

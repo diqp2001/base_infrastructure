@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if running %}<meta http-equiv="refresh" content="10">{% endif %}
+    <title>{{ ticker }} maturities</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        a { color: #58a6ff; }
+        .card { background: #161b22; border: 1px solid #30363d; }
+        .table { font-size: 0.82rem; color: #c9d1d9; }
+        .table td, .table th { text-align: right; white-space: nowrap; border-color: #30363d; }
+        .table td.l, .table th.l { text-align: left; }
+        .reason { white-space: normal; max-width: 30rem; text-align: left !important; color: #8b949e; }
+        .opportunity { color: #3fb950; font-weight: 600; }
+        .rejected { color: #d29922; }
+        .not { color: #8b949e; }
+        .neg { color: #f85149; } .pos { color: #3fb950; }
+        .badge-warn { background: #9e6a03; }
+        .print-only { display: none; }
+        @media print {
+            @page { size: landscape; margin: 8mm; }
+            body, .card { background: #fff !important; color: #000 !important; }
+            .table { color: #000 !important; font-size: 0.62rem; }
+            .table td, .table th { border-color: #bbb !important; padding: 1px 3px !important; }
+            a { color: #000 !important; text-decoration: none; }
+            .no-print { display: none !important; }
+            .print-only { display: block; }
+            .reason { color: #333 !important; }
+            tr { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid py-4 px-4">
+    {% set money = '{:,.2f}' %}
+    <div class="d-flex justify-content-between align-items-start no-print">
+        <div>
+            <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a> ·
+            <a href="{{ url_for('dispersion.detail', ticker=ticker, date=day) }}">{{ ticker }} detail</a>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="post" action="{{ url_for('dispersion.run_maturities', ticker=ticker) }}">
+                <input type="hidden" name="date" value="{{ day }}">
+                <button type="submit" class="btn btn-sm btn-outline-info" {% if busy %}disabled{% endif %}>
+                    {% if result %}Run again{% else %}Run{% endif %}</button>
+            </form>
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="window.print()">Print / PDF</button>
+        </div>
+    </div>
+    <h3 class="mt-2 mb-1">{{ ticker }} by maturity <small class="text-muted">{{ result.name if result else '' }}</small></h3>
+    <div class="text-muted small mb-2">
+        Per short ETF call: ATM ETF call sold at the bid, ATM calls on every constituent (same expiry, replicating the
+        holdings) bought at the ask, at every expiry the ETF and all its constituents list. Opportunity: net premium &ge; 0.
+        The reversed strategy buys the ETF call at the ask and sells the constituent calls at the bid.
+    </div>
+    <div class="mb-2 no-print">
+        {% if running %}
+            <span class="badge bg-info text-dark">job {{ status.state }} since {{ status.at[11:19] }} UTC — this page refreshes every 10 s</span>
+        {% elif busy %}
+            <span class="badge bg-secondary">another ETF's job ({{ busy }}) is running: one at a time</span>
+        {% elif status and status.state == 'failed' %}
+            <span class="badge bg-danger">last job failed: {{ status.message }}</span>
+        {% elif not result %}
+            <span class="text-muted small">Not computed yet for {{ day }}: Run quotes every maturity (read-only on IBKR,
+                a few minutes).</span>
+        {% endif %}
+    </div>
+    {% if result %}
+    <div class="small text-muted mb-2">Computed {{ result.computed_at[:19] }} UTC
+        {% if result.frozen_quotes %}<span class="badge badge-warn">frozen (closing) quotes — market closed, not executable prices</span>{% endif %}
+        {% if result.reasons %}<span class="text-warning">{{ result.reasons|join('; ') }}</span>{% endif %}
+        {% set hidden = result.maturities|rejectattr('complete')|list %}
+        {% if hidden %}<div>Shown: maturities with a bid and an ask on the ETF call and on every constituent call.
+            Hidden ({{ hidden|length }}): {% for m in hidden %}{{ m.expiry }}{% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
+    </div>
+    <div class="card"><div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr>
+            <th class="l">Expiry</th><th>DTE</th><th>ETF strike</th><th>ETF call bid</th><th>ETF call ask</th>
+            <th>Constituent calls at bid</th><th>Constituent calls at ask</th><th>ETF proceeds</th>
+            <th>Net premium</th><th>Net %</th><th>Reversed net</th><th>Reversed net %</th>
+            <th>Impl. corr</th><th>Impl. corr (ETF bid)</th><th>Impl. corr (ETF ask)</th><th>ETF IV</th><th>Wtd IV</th>
+            <th title="ETF calls for the smallest constituent position to reach one whole contract">Whole-contract ETF calls</th>
+            <th class="l">Status</th><th class="l">Reasons</th>
+        </tr></thead>
+        <tbody>
+        {% for m in result.maturities if m.complete %}
+        <tr>
+            <td class="l">{{ m.expiry or '' }}</td>
+            <td>{{ m.dte if m.dte is not none else '' }}</td>
+            <td>{{ m.etf_strike if m.etf_strike is not none else '' }}</td>
+            <td>{{ m.etf_call_bid if m.etf_call_bid is not none else '' }}</td>
+            <td>{{ m.etf_call_ask if m.etf_call_ask is not none else '' }}</td>
+            <td>{{ money.format(m.reverse_constituent_proceeds) if m.reverse_constituent_proceeds is not none else '' }}</td>
+            <td>{{ money.format(m.constituent_call_cost) if m.constituent_call_cost is not none else '' }}</td>
+            <td>{{ money.format(m.etf_call_proceeds) if m.etf_call_proceeds is not none else '' }}</td>
+            <td class="{{ 'neg' if m.net_premium is not none and m.net_premium < 0 else 'pos' }}">
+                {{ money.format(m.net_premium) if m.net_premium is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(m.net_premium_pct * 100) if m.net_premium_pct is not none else '' }}</td>
+            <td class="{{ 'neg' if m.reverse_net_premium is not none and m.reverse_net_premium < 0 else 'pos' }}">
+                {{ money.format(m.reverse_net_premium) if m.reverse_net_premium is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(m.reverse_net_premium_pct * 100) if m.reverse_net_premium_pct is not none else '' }}</td>
+            <td>{{ '%.2f'|format(m.implied_correlation) if m.implied_correlation is not none else '' }}</td>
+            <td>{{ '%.2f'|format(m.implied_correlation_etf_bid) if m.implied_correlation_etf_bid is not none else '' }}</td>
+            <td>{{ '%.2f'|format(m.implied_correlation_etf_ask) if m.implied_correlation_etf_ask is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(m.etf_iv * 100) if m.etf_iv is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(m.weighted_constituent_iv * 100) if m.weighted_constituent_iv is not none else '' }}</td>
+            <td>{{ m.whole_contract_etf_calls if m.whole_contract_etf_calls is not none else '' }}</td>
+            <td class="l {{ 'opportunity' if m.status == 'opportunity' else ('rejected' if m.status == 'rejected' else 'not') }}">{{ m.status }}</td>
+            <td class="reason">{{ m.reasons }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div></div>
+    {% endif %}
+    <p class="muted small mt-2 text-muted">US equity / ETF options are American and physically settled; dividends,
+        borrow and early exercise are not in the premium comparison.</p>
+</div>
+</body>
+</html>

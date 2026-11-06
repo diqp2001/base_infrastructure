@@ -38,6 +38,17 @@ requests quotes only. Do the heavy lookups while the STM trader (same paper gate
 `DISPERSION_VALIDATE_AFTER_SECONDS` turns on the P.11 fill check: the best priced candidates are re-quoted and
 written to `validation.json` and `validation.csv`. It is read-only and never sends an order.
 
+Maturities view, per ETF:
+- The "Maturities" button on `/dispersion` opens `/dispersion/etf/<T>/maturities`. Its "Run" button starts
+  `maturities.py`, which prices the strategy at every expiry that the ETF and all its constituents list
+  (`maturities_min_dte` to `maturities_max_dte`).
+- The paper gateway publishes no port, so the job runs on its Docker network through
+  `scripts/dispersion_docker_job.sh`, launched by `job_launcher` (default `wsl -d Ubuntu -- bash`). It is
+  read-only, uses client id 79, and only one job runs at a time.
+- It writes `<date>/maturities/<T>.json` and a status file. The page shows only maturities with a bid and an ask
+  on the ETF call and on every constituent call; the others are listed as hidden.
+- After the close it uses frozen quotes and labels them so.
+
 ## Rules
 - The strategy is 1 short ATM ETF call against long ATM calls on every constituent, with the same expiry. The long
   calls copy the ETF's holdings: an ETF share holding 5 shares of A gives 5 A calls per ETF call (100 shares).

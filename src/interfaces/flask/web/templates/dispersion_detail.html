@@ -35,7 +35,10 @@
     {% set money = '{:,.2f}' %}
     <div class="d-flex justify-content-between no-print">
         <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a>
-        <button type="button" class="btn btn-sm btn-outline-light" onclick="window.print()">Print / PDF</button>
+        <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-info" href="{{ url_for('dispersion.maturities', ticker=c.etf, date=day) }}">Maturities</a>
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="window.print()">Print / PDF</button>
+        </div>
     </div>
     <div class="print-only small">ETF dispersion screen {{ day }}</div>
     <h3 class="mt-2 mb-1">{{ c.etf }} <small class="muted">{{ c.name }}</small></h3>

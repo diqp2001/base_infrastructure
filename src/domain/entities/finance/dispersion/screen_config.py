@@ -22,6 +22,8 @@ class DispersionScreenConfig:
     min_option_coverage: float = 1.0               # every constituent needs usable options (owner, 2026-11-06)
     require_same_expiration: bool = True
     max_quote_age_seconds: float = 60.0
+    maturities_min_dte: int = 1                 # the per-ETF maturities view: every common expiry in this range
+    maturities_max_dte: int = 400
     allow_frozen_quotes: bool = False         # frozen / delayed quotes (market closed): research only
     # liquidity (section 12); 0 = no minimum (no spread limit: owner 2026-11-06). Open interest unknown (None) fails a positive minimum.
     min_etf_option_volume: float = 0.0

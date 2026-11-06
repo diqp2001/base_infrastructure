@@ -397,6 +397,13 @@ OWNER RULES 2026-11-06 (replace the specification's sizing and liquidity rules)
  [x] Quotes: the ETF call needs a bid, every constituent call an ask (the other side may be missing). Spread limits
      (5 % ETF, 10 % constituents) removed; the weighted-comparison diagnostic removed (= the net premium at mids).
      Ranking: opportunities first, then net premium % of the ETF proceeds, net premium, average spread.
+ [x] Maturities view (owner 2026-11-06): per ETF, the strategy at every expiry the ETF and all its constituents
+     list (1 - 400 DTE); a page button starts a read-only job (Docker network, client 79, one at a time) that
+     writes <date>/maturities/<T>.json; the page shows only maturities with a bid and an ask on the ETF call and on
+     every constituent call. XLE 2026-11-06: 3 common expiries (2026-11-20, 2026-12-18, 2027-01-15) - weeklies are
+     missing on 6 - 21 constituents, 2027-03-19 on TPL only, June / September 2027 on TPL and APA.
+     Also: implied correlation from the ETF call bid / ask (IBKR ticks 10 / 11), the reversed strategy, the
+     constituent calls at bid and at ask, a Print / PDF button.
 
 HISTORY
 -------

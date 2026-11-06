@@ -79,6 +79,8 @@
         {% for c in candidates %}
         <tr>
             <td class="l"><a href="{{ url_for('dispersion.detail', ticker=c.etf, date=day) }}">{{ c.etf }}</a>
+                {% if c.net_premium is not none %}<a class="btn btn-outline-info py-0 px-1 ms-1 no-print" style="font-size: 0.7rem"
+                   href="{{ url_for('dispersion.maturities', ticker=c.etf, date=day) }}">Maturities</a>{% endif %}
                 <div class="text-muted small">{{ c.name[:42] }}</div></td>
             <td>{{ c.constituents }}</td>
             <td>{{ '%.0f%%'|format(c.coverage * 100) if c.coverage is not none else '' }}</td>

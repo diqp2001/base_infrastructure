@@ -1,9 +1,11 @@
 """
 /dispersion — ETF dispersion-option screener results (P.08). Read-only views of the files a screening run writes
-(results/etf_dispersion_screener/<date>/candidates.json, universe.json); runs are started outside the web app.
+(results/etf_dispersion_screener/<date>/candidates.json, universe.json); screens are started outside the web app.
+The one action: start the maturities job of one ETF (read-only on IBKR, one job at a time).
 
     /dispersion/                     latest run (or ?date=YYYY-MM-DD): ranked results table
     /dispersion/etf/<ticker>         detail of one candidate (ETF, constituents, trade, deltas, premiums)
+    /dispersion/etf/<ticker>/maturities        the strategy at every common expiry (POST .../run starts the job)
     /dispersion/api/candidates       JSON (same ?date=)
     /dispersion/api/candidates/<etf> JSON of one candidate
 """
@@ -11,11 +13,21 @@
 import json
 import os
 import re
+import subprocess
+import sys
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, jsonify, redirect, render_template, request, url_for
 
+from src.application.managers.project_managers.etf_dispersion_screener_project import config as project_config
 from src.application.managers.project_managers.etf_dispersion_screener_project.config import RESULTS_DIR
+from src.application.managers.project_managers.etf_dispersion_screener_project.maturities import (
+    maturities_dir, read_status, write_status,
+)
+
+MATURITIES_MODULE = "src.application.managers.project_managers.etf_dispersion_screener_project.maturities"
+JOB_STALE_SECONDS = 30 * 60          # a job still "running" after this is considered dead (the button works again)
 
 dispersion_bp = Blueprint("dispersion", __name__, url_prefix="/dispersion")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -108,3 +120,70 @@ def api_candidate(ticker: str):
     if candidate is None:
         abort(404)
     return jsonify({"date": day, "candidate": candidate})
+
+
+def _job_active(status: Optional[dict]) -> bool:
+    if not status or status.get("state") not in ("starting", "running"):
+        return False
+    age = (datetime.now(timezone.utc) - datetime.fromisoformat(status["at"])).total_seconds()
+    return age < JOB_STALE_SECONDS
+
+
+def _any_job_active(day: str) -> Optional[str]:
+    folder = maturities_dir(RESULTS_DIR, day)
+    if not os.path.isdir(folder):
+        return None
+    for name in os.listdir(folder):
+        if name.endswith(".status.json"):
+            ticker = name[: -len(".status.json")]
+            if _job_active(read_status(RESULTS_DIR, day, ticker)):
+                return ticker
+    return None
+
+
+def _wsl_path(path: str) -> str:
+    """A Windows path as WSL sees it: C:/x/y -> /mnt/c/x/y (the launcher runs the job script inside WSL)."""
+    drive, rest = os.path.splitdrive(os.path.abspath(path))
+    return f"/mnt/{drive[0].lower()}{rest.replace(os.sep, '/')}" if drive else path
+
+
+def _launch(ticker: str, day: str) -> None:
+    cfg = project_config.get_config()
+    log = os.path.join(maturities_dir(RESULTS_DIR, day), f"{ticker}.log")
+    convert = _wsl_path if cfg["job_launcher"][:1] == ["wsl"] else (lambda p: p)
+    command = cfg["job_launcher"] + [convert(cfg["job_script"]), convert(log), MATURITIES_MODULE, ticker, day]
+    flags = {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}         if sys.platform == "win32" else {"start_new_session": True}
+    subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **flags)
+
+
+@dispersion_bp.route("/etf/<ticker>/maturities")
+def maturities(ticker: str):
+    day = _selected_date()
+    if day is None:
+        abort(404)
+    ticker = ticker.upper()
+    if not any(c["etf"] == ticker for c in _candidates(day)):
+        abort(404)
+    try:
+        result = _load(day, os.path.join("maturities", f"{ticker}.json"))
+        result["maturities"] = [_Row(m, constituent_legs=[_Row(x) for x in m.get("constituent_legs", [])])
+                                for m in result.get("maturities", [])]
+    except (OSError, ValueError):
+        result = None
+    status = read_status(RESULTS_DIR, day, ticker)
+    return render_template("dispersion_maturities.html", day=day, ticker=ticker, result=result, status=status,
+                           running=_job_active(status), busy=_any_job_active(day))
+
+
+@dispersion_bp.route("/etf/<ticker>/maturities/run", methods=["POST"])
+def run_maturities(ticker: str):
+    day = request.form.get("date", "")
+    if not DATE.match(day) or day not in _dates():
+        abort(404)
+    ticker = ticker.upper()
+    if not any(c["etf"] == ticker for c in _candidates(day)):
+        abort(404)
+    if _any_job_active(day) is None:             # one job at a time: the gateway is shared
+        write_status(RESULTS_DIR, day, ticker, "starting")
+        _launch(ticker, day)
+    return redirect(url_for("dispersion.maturities", ticker=ticker, date=day))

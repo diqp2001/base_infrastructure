@@ -49,7 +49,12 @@ CONFIG: Dict[str, Any] = {
         'timeout_seconds': 12.0,
         # pause between two lookups / quote batches: the full screen froze the shared paper gateway (2026-11-05/06)
         'pause_seconds': float(os.getenv('DISPERSION_IBKR_PAUSE_SECONDS', '0.2')),
+        'maturities_client_id': int(os.getenv('DISPERSION_MATURITIES_CLIENT_ID', '79')),   # the maturities job
     },
+    # the /dispersion page starts a maturities job through this launcher (the paper gateway publishes no port: the
+    # job runs on its Docker network) - command prefix + script, then: <log file> <module> <args>
+    'job_launcher': os.getenv('DISPERSION_JOB_LAUNCHER', 'wsl -d Ubuntu -- bash').split(),
+    'job_script': str(BASE_PROJECT_ROOT / 'scripts' / 'dispersion_docker_job.sh'),
     # P.11 read-only paper validation: the best priced candidates' legs quoted again this many seconds after the
     # screen (would the screened prices still fill?). No orders (owner, 2026-11-06). Unset = no validation.
     'validate_after_seconds': (float(os.environ['DISPERSION_VALIDATE_AFTER_SECONDS'])

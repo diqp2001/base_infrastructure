@@ -61,6 +61,14 @@ def select_common_expiry(etf_expirations: Sequence[date], constituent_expiration
                                           abs((e - screening_date).days - config.target_dte), e))
 
 
+def common_expiries(etf_expirations: Sequence[date], constituent_expirations: Sequence[Sequence[date]],
+                    screening_date: date, min_dte: int, max_dte: int) -> List[date]:
+    """The ETF expiries in [min_dte, max_dte] that every constituent also lists (the maturities view)."""
+    listed = [set(e) for e in constituent_expirations]
+    return [e for e in sorted(etf_expirations)
+            if min_dte <= (e - screening_date).days <= max_dte and all(e in s for s in listed)]
+
+
 def constituent_expiry(expirations: Sequence[date], etf_expiry: date, screening_date: date,
                        config: DispersionScreenConfig) -> ExpiryChoice:
     """The ETF's expiry when listed; otherwise none (REQUIRE_SAME_EXPIRATION) or the nearest eligible one,
