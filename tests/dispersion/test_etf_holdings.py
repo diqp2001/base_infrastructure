@@ -178,7 +178,8 @@ class TestProjectManager:
         manager = EtfDispersionScreenerProjectManager(
             config={"results_dir": str(tmp_path / "results"), "issuers": [], "holdings_archive_dir": "",
                     "download_interval_seconds": 0}, sources=[(source, source)])
-        result = manager.run(date(2026, 11, 5))
+        result, candidates = manager.run(date(2026, 11, 5))
+        assert candidates == []                                      # no IBKR host configured: universe only
         assert result.counts() == {"eligible": 1, "listing rejected": 1}
         out = tmp_path / "results" / "2026-11-05"
         universe = json.loads((out / "universe.json").read_text(encoding="utf-8"))
@@ -194,7 +195,8 @@ class TestArchive:
         calls = []
         today = {"d": date(2026, 11, 5)}
         source = ISharesHoldingsSource(str(tmp_path), fetch=lambda url: calls.append(url) or ISHARES_US,
-                                       today=lambda: today["d"], min_interval_seconds=0)
+                                       today=lambda: today["d"], min_interval_seconds=0,
+                                       now=lambda: datetime.combine(today["d"], datetime.min.time()))
         listing = EtfListing("EWZ", "iShares MSCI Brazil ETF", "iShares", asset_class="Equity",
                              product_ref="/us/products/239612/ishares-msci-brazil-etf")
         snap = source.get_holdings(listing, date(2026, 11, 5))
@@ -202,6 +204,8 @@ class TestArchive:
         assert calls == ["https://www.ishares.com/us/products/239612/ishares-msci-brazil-etf/latest-holdings.csv"]
         assert (tmp_path / "ishares" / "EWZ" / "2026-11-04.csv").read_bytes() == ISHARES_US
 
+        source.get_holdings(listing, date(2026, 11, 5))
+        assert len(calls) == 1                                   # same day: the archived file, no second download
         today["d"] = date(2026, 12, 1)                          # a month later: history from the archive
         old = source.get_holdings(listing, date(2026, 11, 4))
         assert old.as_of == date(2026, 11, 4) and old.source.endswith("2026-11-04.csv") and len(calls) == 1

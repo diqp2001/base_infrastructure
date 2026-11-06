@@ -27,6 +27,7 @@ KNOWN_INIT = {}
 
 # Base / infrastructure classes that are not meant to be in the factory registry.
 NOT_REGISTERED_BY_DESIGN = {"BaseLocalRepository", "BaseFactorRepository", "GeographicRepository",
+                            "ShareOptionRepository",
                             "MonitoringReadRepository", "FmpRepository",
                             # duplicates used by factor_repository_registry; the factory registers
                             # local_repo.factor.{continent,country}_factor_repository
@@ -35,7 +36,9 @@ NOT_REGISTERED_BY_DESIGN = {"BaseLocalRepository", "BaseFactorRepository", "Geog
 KNOWN_UNREGISTERED = set()
 
 # Abstract-style bases: no model of their own, never used directly.
-BASE_CLASSES = {"BaseLocalRepository", "BaseFactorRepository", "GeographicRepository"}
+# Bases whose model is set by their children (CompanyShareOptionRepository / ETFShareOptionRepository): not buildable.
+MODEL_LESS_BASES = {"ShareOptionRepository"}
+BASE_CLASSES = {"BaseLocalRepository", "BaseFactorRepository", "GeographicRepository"} | MODEL_LESS_BASES
 
 # Every factor repository round-trips and is in DISCRIMINATOR_CLASS_MAP (all fixed 2026-10-13);
 # a new failure fails the suite.
@@ -87,6 +90,8 @@ class AllRepositoriesTest(unittest.TestCase):
     def test_every_repository_can_be_built(self):
         known = Known(self, KNOWN_INIT, "construction")
         for module_name, cls in self.classes:
+            if cls.__name__ in MODEL_LESS_BASES:
+                continue
             with self.subTest(repository=cls.__name__):
                 session, factory = self.db.factory()
                 try:

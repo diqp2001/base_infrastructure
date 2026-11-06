@@ -11,11 +11,17 @@ are in `docs/dispersion_screening_progress.txt`.
 - **Domain rules** (pure): `src/domain/entities/finance/dispersion/`
   - `etf_holdings.py`: listings, holdings snapshots, constituent rules.
   - `screen_config.py`.
+  - `option_data.py`, `option_selection.py` (expiry, ATM strike), `quote_checks.py`.
+  - `dispersion_trade.py`: sizing, premium, implied correlation, scenarios.
 - **Ports:** `src/domain/ports/finance/dispersion/`. Every method takes the screening date.
 - **Issuer adapters:** `src/infrastructure/repositories/issuer_repo/` (iShares CSV, SPDR XLSX). Every
   downloaded file is archived under `results/etf_dispersion_screener/holdings_archive/`. The issuers serve the
   latest day only, so this archive is the holdings history.
-- **Services:** `src/application/services/dispersion/`.
+- **IBKR option data:** `src/infrastructure/repositories/ibkr_repo/finance/dispersion/`. It is read-only, on its
+  own client id (77), and uses streaming quotes only (no snapshot fees). A gateway that does not answer raises
+  `MarketDataUnavailable`. That is never read as "not found".
+- **Services:** `src/application/services/dispersion/`: `EtfUniverseService`, `DispersionScreeningService`.
+- **UI/API:** the `/dispersion/` Flask blueprint (`dispersion_controller.py`). It reads the results files.
 - **Entities:**
   - `ETFShare` is the fund.
   - `ETFShareOption` and `CompanyShareOption` both inherit from `ShareOption`.
@@ -25,6 +31,9 @@ are in `docs/dispersion_screening_progress.txt`.
 python -m src.application.managers.project_managers.etf_dispersion_screener_project.project_manager [YYYY-MM-DD]
 ```
 Output: `results/etf_dispersion_screener/<date>/universe.json`, `universe.csv` and `run_manifest.json`.
+With `DISPERSION_IBKR_HOST` (plus `_PORT` and `_CLIENT_ID`) set, the run also writes `candidates.json` and
+`candidates.csv`, ranked. Quotes after the close are frozen and are refused unless `DISPERSION_ALLOW_FROZEN=yes`,
+which is for diagnostics only. IBKR serves current data only, so a past date raises `HistoricalDataUnavailable`.
 
 ## Rules
 - Use executable bid/ask prices and whole option contracts. Fractional sizing is a reference only.

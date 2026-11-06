@@ -25,3 +25,13 @@ class DispersionScreenConfig:
     delta_tolerance: float = 0.01
     require_same_expiration: bool = True
     max_quote_age_seconds: float = 60.0
+    allow_frozen_quotes: bool = False         # frozen / delayed quotes (market closed): research only
+    # liquidity (section 12); 0 = no minimum. Open interest unknown (None) fails a positive minimum.
+    min_etf_option_volume: float = 0.0
+    min_etf_open_interest: float = 0.0
+    min_stock_option_volume: float = 0.0
+    min_stock_open_interest: float = 0.0
+    allow_illiquid_constituents: bool = False
+    # whole-contract sizing (D4): N short ETF calls, N = 1 .. max_etf_contracts
+    max_etf_contracts: int = 20
+    require_every_constituent: bool = True    # a constituent rounding to 0 contracts makes that N unusable
