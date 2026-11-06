@@ -142,7 +142,7 @@ class DispersionScreeningService:
             self._strikes[(u, tc, date.fromisoformat(e))] = tuple(k)
         return True
 
-    def _resolve(self, symbols: Sequence[str], screening_date: date) -> Dict[str, Optional[Underlying]]:
+    def resolve(self, symbols: Sequence[str], screening_date: date) -> Dict[str, Optional[Underlying]]:
         missing = [s for s in symbols if s not in self._underlyings]
         if missing:
             self._underlyings.update(self.md.resolve_underlyings(missing, screening_date))
@@ -188,7 +188,7 @@ class DispersionScreeningService:
         """The strategy priced at every expiry the ETF and all its constituents list in [MATURITIES_MIN_DTE,
         MATURITIES_MAX_DTE] (one candidate per expiry, by date), or the reasons none can be priced."""
         cfg = self.config
-        etf_u = self._resolve([ticker], screening_date)[ticker]
+        etf_u = self.resolve([ticker], screening_date)[ticker]
         if etf_u is None:
             return [], ["ETF not found as a US-listed share at the broker"]
         etf_chain, _ = self._chain(etf_u, screening_date)
@@ -196,7 +196,7 @@ class DispersionScreeningService:
             return [], ["the ETF has no listed options"]
         listed = []
         for symbol in weights.weights:
-            u = self._resolve([symbol], screening_date)[symbol]
+            u = self.resolve([symbol], screening_date)[symbol]
             chain = self._chain(u, screening_date)[0] if u is not None else None
             if chain is None:
                 return [], [f"{symbol}: no listed options"]
@@ -224,7 +224,7 @@ class DispersionScreeningService:
         c = Candidate(ticker, name, "not screenable", holdings_as_of=weights.as_of, holdings_source=weights.source,
                       screened_at=self.now())
         # the ETF and its options first: no constituent lookup for an ETF without options
-        etf_u = self._resolve([ticker], screening_date)[ticker]
+        etf_u = self.resolve([ticker], screening_date)[ticker]
         if etf_u is None:
             c.reasons.append("ETF not found as a US-listed share at the broker")
             return c
@@ -236,7 +236,7 @@ class DispersionScreeningService:
         # constituents one at a time; the lookups stop once the coverage rule can no longer be met
         resolved: Dict[str, Underlying] = {}
         for r in self._checking(c):
-            u = self._resolve([r.symbol], screening_date)[r.symbol]
+            u = self.resolve([r.symbol], screening_date)[r.symbol]
             if u is None:
                 r.status = "not a US-listed share at the broker"
             elif (u.stock_type or "").upper() not in SHARE_TYPES:

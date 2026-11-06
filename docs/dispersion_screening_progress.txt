@@ -405,6 +405,28 @@ OWNER RULES 2026-11-06 (replace the specification's sizing and liquidity rules)
      Also: implied correlation from the ETF call bid / ask (IBKR ticks 10 / 11), the reversed strategy, the
      constituent calls at bid and at ask, a Print / PDF button.
 
+6-MONTH REALIZED PAYOFF HISTORY (owner 2026-11-06)                       [x] code; first run 2026-11-06
+-----------------------------------------------------------------------------------------
+ [x] At every trading day t of the 6 calendar months to the last completed session: the screen's trade opened at
+     the closes (K_ETF = S_ETF,t, K_i = S_i,t; contracts from replicate(); expiry = select_expiry on the monthly
+     third Fridays with TARGET_DTE / MIN_DTE / MAX_DTE, e.g. 42 DTE on 2026-11-06), held to expiry (settles on the
+     last close on or before it). DispersionPayoff = basket call payoff - ETF call payoff per short ETF call;
+     normalized = / (100 x K_ETF); return = / ETF call payoff (None when 0). Rolling as of d: opened in
+     (d - 6 months, d], settled <= d, complete; mean, median, cumulative, positive rate (and normalized).
+ [x] Data: IBKR daily TRADES closes (split-adjusted, not dividend-adjusted), cached per symbol; no option prices.
+     Membership / weights: archived holdings snapshot on or before t (point in time); before the first snapshot
+     (2026-11-05) the earliest one back-cast (its share counts valued at t) and flagged - survivorship bias until
+     the archive covers 6 months. A missing close makes an observation incomplete (excluded, never zero).
+ [x] UI: 5 columns on /dispersion (6M avg, median, cumulative, positive rate, avg normalized), "Compute 6M
+     history" job button; the ETF page: stats, cumulative chart with a zero line (matplotlib PNG), observations.
+     Tests: tests/dispersion/test_realized_history.py (the owner's 11 cases + service, job, pages).
+ [x] First run 2026-11-06 (19 min, 750 price files): 34 of 74 eligible ETFs with a history; 36 hold a share not
+     listed in the US (no IBKR US price: no history, by design); XLP incomplete throughout (VYLR has no close
+     before its listing - the back-cast membership); XLEM / XLKM / XLPM too recent (only open trades). Every one
+     of the 34 has a positive mean and most a 100 % positive rate: a basket of calls pays at least the call on
+     the basket (convexity) - this is the gross payoff, BEFORE the premium, which the live screen prices
+     negative (best SOXX -34 %). The history says how much the gap paid back, not that the trade is cheap.
+
 HISTORY
 -------
 2026-11-05  File created. P.01 repository analysis done; decisions D1 – D6 for the owner.
@@ -419,3 +441,5 @@ HISTORY
             + lookup cache (heavy lookups while STM is idle, quotes only in market hours).
 2026-11-06  STM stopped + flattened (owner). Fail-fast lookups, request / message pacing, price age on
             arrival. First market-hours screen: 0 opportunities, XLE / XLP / DIA priced negative; fill check run.
+2026-11-06  6-month realized payoff history (owner spec): realized-prices layer, job, 5 columns + ETF chart;
+            first run 34 / 74 ETFs.

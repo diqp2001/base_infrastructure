@@ -36,6 +36,8 @@ CONFIG: Dict[str, Any] = {
     'results_dir': str(RESULTS_DIR),
     # issuers' daily holdings files, archived as downloaded (the issuers serve the latest day only)
     'holdings_archive_dir': str(RESULTS_DIR / 'holdings_archive'),
+    # daily closes of the 6M realized history, one file per symbol (refetched when they do not cover the date)
+    'price_history_dir': str(RESULTS_DIR / 'price_history'),
     'issuers': ['ishares', 'ssga'],
     'download_interval_seconds': 1.0,      # one file at a time, at most one per second
     # option data (P.03): IBKR, READ-ONLY, its own client id (never an order connection). Unset host = universe only.
@@ -50,6 +52,8 @@ CONFIG: Dict[str, Any] = {
         # pause between two lookups / quote batches: the full screen froze the shared paper gateway (2026-11-05/06)
         'pause_seconds': float(os.getenv('DISPERSION_IBKR_PAUSE_SECONDS', '0.2')),
         'maturities_client_id': int(os.getenv('DISPERSION_MATURITIES_CLIENT_ID', '79')),   # the maturities job
+        'history_client_id': int(os.getenv('DISPERSION_HISTORY_CLIENT_ID', '80')),         # the 6M history job
+        'history_pause_seconds': float(os.getenv('DISPERSION_HISTORY_PAUSE_SECONDS', '1.5')),
     },
     # the /dispersion page starts a maturities job through this launcher (the paper gateway publishes no port: the
     # job runs on its Docker network) - command prefix + script, then: <log file> <module> <args>

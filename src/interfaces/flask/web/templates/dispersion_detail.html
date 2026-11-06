@@ -140,6 +140,51 @@
         ignored).</div>
     </div></div>
     {% endif %}
+    <div class="card mt-3"><div class="card-header">6-month realized payoff: basket of ATM constituent calls &minus; ATM ETF call</div>
+    <div class="card-body p-2">
+    {% if not history %}
+        <span class="muted small">Not computed for {{ day }}: "Compute 6M history" on the screen page.</span>
+    {% elif history.reasons %}
+        <span class="muted small">No history: {{ history.reasons|join('; ') }}</span>
+    {% else %}
+        <div class="muted small mb-2">Every trading day of the 6 months to {{ hstats.as_of }} opens the screen's trade at
+            the closes (ETF call and constituent calls struck at that day's close, constituent calls replicating the
+            holdings) and holds it to the screen's monthly expiry ({{ hstats.n }} completed, {{ hstats.n_open }} not yet
+            expired, {{ hstats.n_incomplete }} incomplete &mdash; excluded). Realized prices only: no option premium.
+            Holdings: {{ history.membership }}.</div>
+        <table class="table table-sm mb-2 kv" style="max-width: 46rem">
+            <tr><td>Payoff difference per ETF call: mean / median</td><td>{{ '{:+,.2f}'.format(hstats.mean) if hstats.mean is not none else '' }} /
+                {{ '{:+,.2f}'.format(hstats.median) if hstats.median is not none else '' }}</td></tr>
+            <tr><td>Cumulative</td><td>{{ '{:+,.2f}'.format(hstats.cumulative) if hstats.cumulative is not none else '' }}</td></tr>
+            <tr><td>Positive rate (basket paid more)</td><td>{{ '%.1f%%'|format(hstats.positive_rate * 100) if hstats.positive_rate is not none else '' }}</td></tr>
+            <tr><td>Normalized (/ ETF call notional): mean / median / cumulative</td><td>
+                {{ '%+.3f%%'|format(hstats.normalized_mean * 100) if hstats.normalized_mean is not none else '' }} /
+                {{ '%+.3f%%'|format(hstats.normalized_median * 100) if hstats.normalized_median is not none else '' }} /
+                {{ '%+.2f%%'|format(hstats.normalized_cumulative * 100) if hstats.normalized_cumulative is not none else '' }}</td></tr>
+            <tr><td>Mean payoff return (difference / ETF call payoff, where it paid)</td><td>{{ '%+.1f%%'|format(hstats.return_mean * 100) if hstats.return_mean is not none else 'n/a' }}</td></tr>
+            {% if hstats.problems %}<tr><td>Incomplete because</td><td>{{ hstats.problems|join('; ') }}</td></tr>{% endif %}
+        </table>
+        {% if chart %}<img src="data:image/png;base64,{{ chart }}" alt="cumulative payoff difference" style="max-width: 100%; background: #fff">{% endif %}
+        <details class="mt-2"><summary class="small">Observations ({{ history.observations|length }})</summary>
+        <table class="table table-sm mb-0">
+            <thead><tr><th class="l">Opened</th><th class="l">Expiry</th><th>DTE</th><th>ETF strike</th><th>ETF at expiry</th>
+                <th>ETF call payoff</th><th>Basket payoff</th><th>Difference</th><th>Normalized</th><th class="l">Holdings</th><th class="l">Excluded because</th></tr></thead>
+            <tbody>
+            {% for o in history.observations|reverse %}
+            <tr><td class="l">{{ o.initiated }}</td><td class="l">{{ o.expiry or '' }}</td><td>{{ o.dte if o.dte is not none else '' }}</td>
+                <td>{{ '%.2f'|format(o.etf_strike) if o.etf_strike is not none else '' }}</td>
+                <td>{{ '%.2f'|format(o.etf_settle) if o.etf_settle is not none else '' }}</td>
+                <td>{{ '{:,.2f}'.format(o.etf_payoff) if o.etf_payoff is not none else '' }}</td>
+                <td>{{ '{:,.2f}'.format(o.basket_payoff) if o.basket_payoff is not none else '' }}</td>
+                <td class="{{ 'neg' if o.dispersion_payoff is not none and o.dispersion_payoff < 0 else 'pos' }}">{{ '{:+,.2f}'.format(o.dispersion_payoff) if o.dispersion_payoff is not none else '' }}</td>
+                <td>{{ '%+.3f%%'|format(o.normalized * 100) if o.normalized is not none else '' }}</td>
+                <td class="l">{{ o.holdings_as_of }}{% if not o.point_in_time %} (back-cast){% endif %}</td>
+                <td class="l muted">{{ o.problem or '' }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table></details>
+    {% endif %}
+    </div></div>
     <p class="muted small mt-2">US equity / ETF options are American and physically settled; dividends, borrow and
         early exercise are not in the premium comparison. JSON: <a href="{{ url_for('dispersion.api_candidate', ticker=c.etf, date=day) }}">/dispersion/api/candidates/{{ c.etf }}</a></p>
 </div>

@@ -49,6 +49,18 @@ Maturities view, per ETF:
   on the ETF call and on every constituent call; the others are listed as hidden.
 - After the close it uses frozen quotes and labels them so.
 
+6-month realized payoff history (a separate layer: it never changes the live screen):
+- "Compute 6M history" on `/dispersion` starts `realized_history.py` for every eligible ETF. It is read-only and
+  uses client id 80.
+- It opens the screen's trade on every trading day of the last 6 months: the ATM ETF call and ATM constituent calls
+  struck at that day's close, weighted by `replicate()`, with the expiry from `select_expiry` on the monthly
+  expiries. It then holds the trade to that expiry.
+- It writes `<date>/history/<T>.json` and `summary.json`. The formulas are in
+  `src/domain/entities/finance/dispersion/realized_payoff.py`.
+- Prices are IBKR daily TRADES closes (split-adjusted), cached under `price_history/`.
+- Holdings come from the archived snapshots, so they are point in time from 2026-11-05 on. Before that, the earliest
+  snapshot is back-cast and flagged (survivorship).
+
 ## Rules
 - The strategy is 1 short ATM ETF call against long ATM calls on every constituent, with the same expiry. The long
   calls copy the ETF's holdings: an ETF share holding 5 shares of A gives 5 A calls per ETF call (100 shares).

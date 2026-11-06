@@ -82,7 +82,7 @@ def test_the_page_starts_one_job_at_a_time(tmp_path, monkeypatch):
     write_candidates(str(tmp_path / DAY.isoformat()), service.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY))
     monkeypatch.setattr(dispersion_controller, "RESULTS_DIR", results)
     launched = []
-    monkeypatch.setattr(dispersion_controller, "_launch", lambda ticker, day: launched.append((ticker, day)))
+    monkeypatch.setattr(dispersion_controller, "_launch", lambda log, module, *args: launched.append(args))
     app = Flask(__name__, template_folder="../../src/interfaces/flask/web/templates")
     app.register_blueprint(dispersion_controller.dispersion_bp)
     client = app.test_client()
