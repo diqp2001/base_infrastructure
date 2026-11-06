@@ -19,7 +19,7 @@ class DispersionScreenConfig:
     target_dte: int = 30
     min_dte: int = 20
     max_dte: int = 60
-    min_option_coverage: float = 0.95
+    min_option_coverage: float = 1.0               # every constituent needs usable options (owner, 2026-11-06)
     max_etf_option_spread: float = 0.05
     max_stock_option_spread: float = 0.10
     delta_tolerance: float = 0.01

@@ -87,7 +87,7 @@ def test_missing_options_below_coverage():                                      
     market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)},
                         no_options=["B"])
     c = screen(market, A=0.5, B=0.5)
-    assert c.status == "not screenable" and "option coverage 50% < 95%" in c.reasons[-1]
+    assert c.status == "not screenable" and "option coverage 50% < 100%" in c.reasons[-1]
     assert next(r for r in c.constituents if r.symbol == "B").status == "no listed options"
     relaxed = screen(market, DispersionScreenConfig(min_option_coverage=0.5), A=0.5, B=0.5)
     assert relaxed.coverage == 0.5 and any("renormalised" in r for r in relaxed.reasons)
