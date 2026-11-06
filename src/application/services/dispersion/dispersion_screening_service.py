@@ -20,7 +20,8 @@ from datetime import date, datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.domain.entities.finance.dispersion.dispersion_trade import (
-    Leg, Premium, Sizing, implied_correlation, premium, replicate, scenarios, weighted_implied_vol,
+    Leg, Premium, ReversePremium, Sizing, implied_correlation, premium, replicate, reverse_premium, scenarios,
+    weighted_implied_vol,
 )
 from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
 from src.domain.entities.finance.dispersion.option_data import (
@@ -80,7 +81,10 @@ class Candidate:
     premium: Optional[Premium] = None
     etf_iv: Optional[float] = None
     weighted_iv: Optional[float] = None
-    implied_correlation: Optional[float] = None
+    implied_correlation: Optional[float] = None     # from the broker's model volatilities
+    implied_correlation_etf_bid: Optional[float] = None   # ETF vol from its call bid, constituents' from their asks
+    implied_correlation_etf_ask: Optional[float] = None   # ETF vol from its call ask, constituents' from their bids
+    reverse: Optional[ReversePremium] = None        # the strategy reversed (information)
     vega_etf: Optional[float] = None               # dollar vega per 1 vol point of the short ETF calls (positive)
     vega_basket: Optional[float] = None
     gamma_etf: Optional[float] = None
@@ -344,18 +348,22 @@ class DispersionScreeningService:
         o = c.etf_option
         g = o.greeks
         etf = Leg(c.etf, c.etf_spot, o.contract.strike, etf_chain.multiplier, o.quote.bid, o.quote.ask, 1.0,
-                  g.delta, g.implied_vol, g.gamma, g.vega, g.theta)
+                  g.delta, g.implied_vol, g.gamma, g.vega, g.theta, g.bid_implied_vol, g.ask_implied_vol)
         usable = [r for r in c.constituents if r.status == "ok"]
         covered = sum(r.weight for r in usable)
         legs = [Leg(r.symbol, r.spot, r.strike, r.multiplier, r.option.quote.bid, r.option.quote.ask,
                     r.weight / covered, r.option.greeks.delta, r.option.greeks.implied_vol, r.option.greeks.gamma,
-                    r.option.greeks.vega, r.option.greeks.theta) for r in usable]
+                    r.option.greeks.vega, r.option.greeks.theta, r.option.greeks.bid_implied_vol,
+                    r.option.greeks.ask_implied_vol) for r in usable]
         if covered < 0.999:
             c.reasons.append(f"weights renormalised over the usable constituents ({covered:.1%} of the ETF)")
         c.sizing = replicate(etf, legs)
         c.premium = premium(etf, legs, c.sizing)
         c.etf_iv, c.weighted_iv = etf.implied_vol, weighted_implied_vol(legs)
         c.implied_correlation = implied_correlation(etf.implied_vol, legs)
+        c.implied_correlation_etf_bid = implied_correlation(etf.bid_implied_vol, legs, vol="ask_implied_vol")
+        c.implied_correlation_etf_ask = implied_correlation(etf.ask_implied_vol, legs, vol="bid_implied_vol")
+        c.reverse = reverse_premium(etf, legs, c.sizing)
         by_symbol = {leg.symbol: leg for leg in legs}
         for r in usable:
             leg, q = by_symbol[r.symbol], c.sizing.positions[r.symbol]

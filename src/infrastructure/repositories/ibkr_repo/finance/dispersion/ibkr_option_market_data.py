@@ -40,6 +40,7 @@ DELAYED_BID, DELAYED_ASK, DELAYED_LAST, DELAYED_CLOSE = 66, 67, 68, 75
 BID_SIZE, ASK_SIZE, VOLUME = 0, 3, 8
 CALL_OPEN_INTEREST, PUT_OPEN_INTEREST = 27, 28
 MODEL_GREEKS, DELAYED_MODEL_GREEKS = 13, 83
+BID_COMPUTATION, ASK_COMPUTATION = (10, 80), (11, 81)   # IBKR's model on the bid / ask price (live, delayed)
 FROZEN = 2
 
 
@@ -61,11 +62,19 @@ def _value(x, low=-math.inf, high=math.inf) -> Optional[float]:
     return x
 
 
+def _side_vol(option_ticks: dict, ticks: tuple) -> Optional[float]:
+    for tick in ticks:
+        if tick in option_ticks:
+            return _value(option_ticks[tick].get('implied_vol'), 1e-6, 20.0)
+    return None
+
+
 def greeks_from(option_ticks: dict, source_prefix: str = "IBKR") -> Greeks:
     tick = MODEL_GREEKS if MODEL_GREEKS in option_ticks else DELAYED_MODEL_GREEKS
     g = option_ticks.get(tick)
+    bid_iv, ask_iv = _side_vol(option_ticks, BID_COMPUTATION), _side_vol(option_ticks, ASK_COMPUTATION)
     if not g:
-        return Greeks(source="none")
+        return Greeks(source="none", bid_implied_vol=bid_iv, ask_implied_vol=ask_iv)
     return Greeks(
         implied_vol=_value(g.get('implied_vol'), 1e-6, 20.0),
         delta=_value(g.get('delta'), -1.0, 1.0),
@@ -75,7 +84,8 @@ def greeks_from(option_ticks: dict, source_prefix: str = "IBKR") -> Greeks:
         underlying_price=_value(g.get('underlying_price'), 1e-9),
         model_price=_value(g.get('price'), 0.0),
         greeks_time=g.get('received'),
-        source=f"{source_prefix} model ({tick})")
+        source=f"{source_prefix} model ({tick})",
+        bid_implied_vol=bid_iv, ask_implied_vol=ask_iv)
 
 
 def quote_from(data: dict, market_data_type: Optional[int], error: Optional[str]) -> Quote:
@@ -234,8 +244,12 @@ class IBKROptionMarketData(OptionMarketDataPort):
             return c
 
         def complete(data):
-            return (BID in data.get('prices', {}) and ASK in data.get('prices', {})
-                    and MODEL_GREEKS in data.get('option', {}))
+            prices, option = data.get('prices', {}), data.get('option', {})
+            # each quoted side also brings the broker's volatility for that price (ticks 10 / 11)
+            sides = [ticks for side, ticks in ((BID, BID_COMPUTATION), (ASK, ASK_COMPUTATION))
+                     if (_value(prices.get(side), 0.0) or 0) > 0]
+            return (BID in prices and ASK in prices and MODEL_GREEKS in option
+                    and all(any(t in option for t in ticks) for ticks in sides))
 
         raw = self._stream([(spec.key, contract_of(spec)) for spec in contracts], generic_ticks="100,101",
                            complete=complete)

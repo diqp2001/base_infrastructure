@@ -88,6 +88,8 @@ class Greeks:
     model_price: Optional[float] = None
     greeks_time: Optional[datetime] = None
     source: str = ""                              # e.g. "IBKR model (13)"
+    bid_implied_vol: Optional[float] = None       # the volatility the broker's model implies from the bid price
+    ask_implied_vol: Optional[float] = None       # ... from the ask price
 
     @property
     def complete(self) -> bool:

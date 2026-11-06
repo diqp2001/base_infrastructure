@@ -10,6 +10,10 @@ e.g. an ETF holding 5 shares of A and 5 of B per share: 5 A calls and 5 B calls 
 Cost (owner, 2026-11-06): the broker's prices as quoted - the ETF call sold at its bid, every constituent call
 bought at its ask - summed with those contract counts; the strategy is an opportunity when the net premium
 (ETF proceeds - constituent cost) is >= 0. Dollar delta, greeks and mids are information only.
+
+Information (owner, 2026-11-06): the reversed strategy (ETF call bought at its ask, constituent calls sold at their
+bids) and the implied correlation on each side's prices - from the broker's volatility implied by the ETF call bid
+and the constituent asks (this strategy), and by the ETF call ask and the constituent bids (reversed).
 """
 
 from __future__ import annotations
@@ -34,6 +38,8 @@ class Leg:
     gamma: Optional[float] = None
     vega: Optional[float] = None
     theta: Optional[float] = None
+    bid_implied_vol: Optional[float] = None    # the broker's volatility implied by the bid / the ask price
+    ask_implied_vol: Optional[float] = None
 
     @property
     def mid(self) -> Optional[float]:
@@ -112,11 +118,32 @@ def premium(etf: Leg, constituents: Sequence[Leg], sizing: Sizing) -> Premium:
     return Premium(proceeds, cost, net, net / proceeds if proceeds else float("-inf"), mid_net, transaction)
 
 
-def implied_correlation(etf_vol: Optional[float], constituents: Sequence[Leg]) -> Optional[float]:
+@dataclass
+class ReversePremium:
+    """The strategy reversed: the ETF calls bought at the ask, the constituent calls sold at the bid (information)."""
+    etf_call_cost: float
+    constituent_proceeds: float
+    net_premium: float               # proceeds - cost
+    net_premium_pct: float           # net / ETF call cost
+
+
+def reverse_premium(etf: Leg, constituents: Sequence[Leg], sizing: Sizing) -> Optional[ReversePremium]:
+    """None when the ETF call has no ask or a constituent call no bid."""
+    by_symbol = {c.symbol: c for c in constituents}
+    if not etf.ask or etf.ask <= 0 or any(not by_symbol[s].bid or by_symbol[s].bid <= 0 for s in sizing.positions):
+        return None
+    cost = sizing.etf_contracts * etf.multiplier * etf.ask
+    proceeds = sum(q * by_symbol[s].multiplier * by_symbol[s].bid for s, q in sizing.positions.items())
+    return ReversePremium(cost, proceeds, proceeds - cost, (proceeds - cost) / cost)
+
+
+def implied_correlation(etf_vol: Optional[float], constituents: Sequence[Leg],
+                        vol: str = "implied_vol") -> Optional[float]:
     """Weighted average implied correlation from
         sigma_etf^2 = sum w_i^2 sigma_i^2 + rho * sum_{i != j} w_i w_j sigma_i sigma_j
-    (one rho for every pair: an average, not a constant-correlation assumption about the pairs)."""
-    vols = [(c.weight, c.implied_vol) for c in constituents if c.implied_vol]
+    (one rho for every pair: an average, not a constant-correlation assumption about the pairs). vol: the
+    constituents' volatility used - the model's ('implied_vol'), or the one implied by their bid / ask price."""
+    vols = [(c.weight, getattr(c, vol)) for c in constituents if getattr(c, vol)]
     if not etf_vol or len(vols) < 2 or len(vols) != len(constituents):
         return None
     own = sum((w * s) ** 2 for w, s in vols)

@@ -76,6 +76,8 @@ def test_opportunity_when_the_etf_bid_pays_for_the_basket():
     assert c.premium.short_proceeds == pytest.approx(500.0)                      # 100 x ETF bid 5.00
     assert c.premium.long_cost == pytest.approx(1.0 * 100 * 1.25 + 0.25 * 100 * 5.0)   # at the asks
     assert c.premium.net_premium == pytest.approx(250.0) and c.sizing.whole_contract_etf_calls == 4
+    # reversed: ETF call bought at its ask 5.10, constituent calls sold at their bids
+    assert c.reverse.net_premium == pytest.approx(1.0 * 100 * 1.20 + 0.25 * 100 * 4.80 - 510.0)
     a = next(r for r in c.constituents if r.symbol == "A")
     assert a.contracts == c.sizing.positions["A"] and a.call_cost == pytest.approx(a.contracts * 100 * 1.25)
 

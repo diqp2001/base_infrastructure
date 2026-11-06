@@ -52,8 +52,12 @@
     <table class="table table-sm table-hover mb-0">
         <thead><tr>
             <th class="l">ETF</th><th>Constituents</th><th>Coverage</th><th>DTE</th><th>ETF strike</th>
-            <th>ETF call bid</th><th>ETF IV</th><th>Wtd IV</th><th>Impl. corr</th><th>Constituent call cost</th>
-            <th>ETF proceeds</th><th>Net premium</th><th>Net %</th><th>ETF $delta</th><th>Basket $delta</th>
+            <th>ETF call bid</th><th>ETF call ask</th><th>ETF IV</th><th>Wtd IV</th><th>Impl. corr</th>
+            <th title="ETF vol implied by its call bid, constituents' by their call asks">Impl. corr (ETF bid)</th>
+            <th>Constituent call cost</th><th>ETF proceeds</th><th>Net premium</th><th>Net %</th>
+            <th title="ETF call bought at its ask, constituent calls sold at their bids">Reversed net</th>
+            <th>Reversed net %</th>
+            <th title="ETF vol implied by its call ask, constituents' by their call bids">Impl. corr (ETF ask)</th><th>ETF $delta</th><th>Basket $delta</th>
             <th>Net delta</th><th>Avg spread</th><th class="l">Status</th><th class="l">Reasons</th>
         </tr></thead>
         <tbody>
@@ -66,14 +70,20 @@
             <td>{{ c.dte if c.dte is not none else '' }}</td>
             <td>{{ c.etf_strike if c.etf_strike is not none else '' }}</td>
             <td>{{ c.etf_call_bid if c.etf_call_bid is not none else '' }}</td>
+            <td>{{ c.etf_call_ask if c.etf_call_ask is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(c.etf_iv * 100) if c.etf_iv is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(c.weighted_constituent_iv * 100) if c.weighted_constituent_iv is not none else '' }}</td>
             <td>{{ '%.2f'|format(c.implied_correlation) if c.implied_correlation is not none else '' }}</td>
+            <td>{{ '%.2f'|format(c.implied_correlation_etf_bid) if c.implied_correlation_etf_bid is not none else '' }}</td>
             <td>{{ '{:,.2f}'.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td>
             <td>{{ '{:,.2f}'.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td>
             <td class="{{ 'neg' if c.net_premium is not none and c.net_premium < 0 else '' }}">
                 {{ '{:,.2f}'.format(c.net_premium) if c.net_premium is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(c.net_premium_pct * 100) if c.net_premium_pct is not none else '' }}</td>
+            <td class="{{ 'neg' if c.reverse_net_premium is not none and c.reverse_net_premium < 0 else '' }}">
+                {{ '{:,.2f}'.format(c.reverse_net_premium) if c.reverse_net_premium is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(c.reverse_net_premium_pct * 100) if c.reverse_net_premium_pct is not none else '' }}</td>
+            <td>{{ '%.2f'|format(c.implied_correlation_etf_ask) if c.implied_correlation_etf_ask is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(c.etf_dollar_delta) if c.etf_dollar_delta is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(c.basket_dollar_delta) if c.basket_dollar_delta is not none else '' }}</td>
             <td>{{ '%.2f%%'|format(c.net_delta_pct * 100) if c.net_delta_pct is not none else '' }}</td>

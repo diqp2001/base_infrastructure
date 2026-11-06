@@ -6,7 +6,8 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from src.domain.entities.finance.dispersion.dispersion_trade import (
-    Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, replicate, scenarios,
+    Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, replicate,
+    reverse_premium, scenarios,
 )
 from src.domain.entities.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionContractSpec, OptionQuote, Quote,
@@ -185,3 +186,33 @@ def test_scenarios_show_the_dispersion_effect():
         assert disp["combined"] >= market["combined"] - 1e-9                       # dispersion helps the long calls
         assert market["combined"] == pytest.approx(0.0, abs=1e-9)                  # no dispersion: offset
     assert by_name["dispersion +0%"]["combined"] > 0 and by_name["market +0%"]["pnl"] == pytest.approx(-100.0)
+
+
+def test_reversed_strategy_buys_the_etf_call_at_the_ask_and_sells_the_constituent_calls_at_the_bid():
+    etf = etf_leg(bid=6.0, ask=6.4)
+    legs = [stock("A", 0.5, bid=4.8, ask=5.0), stock("B", 0.5, bid=5.3, ask=5.5)]
+    r = reverse_premium(etf, legs, replicate(etf, legs))
+    assert r.etf_call_cost == pytest.approx(640.0)                                 # 1 x 100 x ETF ask
+    assert r.constituent_proceeds == pytest.approx(0.5 * 100 * 4.8 + 0.5 * 100 * 5.3)
+    assert r.net_premium == pytest.approx(505.0 - 640.0) and r.net_premium_pct == pytest.approx(-135.0 / 640.0)
+    assert reverse_premium(etf_leg(ask=None), legs, replicate(etf, legs)) is None
+    assert reverse_premium(etf, [stock("A", 0.5, bid=None), legs[1]], replicate(etf, legs)) is None
+
+
+def test_implied_correlation_on_each_sides_prices():
+    legs = [stock("A", 0.5, implied_vol=0.30, ask_implied_vol=0.25, bid_implied_vol=0.20),
+            stock("B", 0.5, implied_vol=0.30, ask_implied_vol=0.25, bid_implied_vol=0.20)]
+    own = 2 * (0.5 * 0.25) ** 2
+    assert implied_correlation(0.18, legs, vol="ask_implied_vol") == pytest.approx((0.0324 - own) / own)
+    own_bid = 2 * (0.5 * 0.20) ** 2
+    assert implied_correlation(0.19, legs, vol="bid_implied_vol") == pytest.approx((0.0361 - own_bid) / own_bid)
+    assert implied_correlation(0.18, [legs[0], stock("B", 0.5)], vol="ask_implied_vol") is None
+
+
+def test_the_broker_bid_and_ask_volatilities_are_read():
+    from src.infrastructure.repositories.ibkr_repo.finance.dispersion.ibkr_option_market_data import greeks_from
+    ticks = {13: {'implied_vol': 0.21, 'delta': 0.5}, 10: {'implied_vol': 0.20}, 11: {'implied_vol': 0.22}}
+    g = greeks_from(ticks)
+    assert (g.implied_vol, g.bid_implied_vol, g.ask_implied_vol) == (0.21, 0.20, 0.22)
+    delayed = greeks_from({83: {'implied_vol': 0.21}, 80: {'implied_vol': -1}, 81: {'implied_vol': 0.23}})
+    assert delayed.bid_implied_vol is None and delayed.ask_implied_vol == 0.23          # -1: not computed
