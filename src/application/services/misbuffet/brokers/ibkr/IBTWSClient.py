@@ -91,6 +91,14 @@ class IBTWSClient(EWrapper, EClient):
         
         # Contract details storage
         self.contract_details = {}
+        self.contract_details_done: set = set()      # reqIds whose contractDetailsEnd (or an error) arrived
+        self.request_errors: Dict[int, Tuple[int, str]] = {}   # contract details / option chain request errors
+        self._lookup_requests: set = set()            # reqIds of pending contract details / option chain requests
+
+        # Option chains (reqSecDefOptParams): reqId -> list of {exchange, trading_class, multiplier, expirations,
+        # strikes, underlying_con_id}; the reqId is added to option_chains_done at securityDefinitionOptionParameterEnd
+        self.option_chains: Dict[int, list] = {}
+        self.option_chains_done: set = set()
         
         # Market scanner results
         self.scanner_results = {}
@@ -162,6 +170,12 @@ class IBTWSClient(EWrapper, EClient):
                 or reqId in getattr(self, "tick_by_tick", {}):
             if not is_warning(errorCode):
                 self.market_data_errors[reqId] = (errorCode, errorString)
+        # a contract-details / option-chain request ends on an error (200 no security definition ...)
+        if reqId in getattr(self, "_lookup_requests", ()) and not is_warning(errorCode):
+            self.request_errors[reqId] = (errorCode, errorString)
+            self._lookup_requests.discard(reqId)
+            self.contract_details_done.add(reqId)
+            self.option_chains_done.add(reqId)
         # P.06: an error for an order this client sent is an order event (e.g. 321 API read-only, 201 rejected):
         # the order ledger decides whether it rejects the order
         if reqId in getattr(self, "placed_order_ids", ()):
@@ -422,6 +436,33 @@ class IBTWSClient(EWrapper, EClient):
 
         self.logger.debug(f"Generic tick update - Req {reqId}: Type {tickType} = {value}")
 
+    def tickOptionComputation(self, reqId: TickerId, tickType: int, tickAttrib: int, impliedVol: float,
+                              delta: float, optPrice: float, pvDividend: float, gamma: float, vega: float,
+                              theta: float, undPrice: float):
+        """IBKR's option model per quote side: 10 bid, 11 ask, 12 last, 13 model (80 - 83 delayed). Values IBKR
+        could not compute arrive as None or as its 'not computed' sentinels (-1, -2, huge numbers); kept raw here,
+        the market-data adapter decides what is usable."""
+        data = self.market_data.setdefault(reqId, {'prices': {}, 'sizes': {}, 'generic': {}, 'strings': {},
+                                                   'last_update': None})
+        data.setdefault('option', {})[tickType] = {
+            'implied_vol': impliedVol, 'delta': delta, 'price': optPrice, 'pv_dividend': pvDividend,
+            'gamma': gamma, 'vega': vega, 'theta': theta, 'underlying_price': undPrice,
+            'received': datetime.now(timezone.utc),
+        }
+        data['last_update'] = datetime.now().isoformat()
+
+    def securityDefinitionOptionParameter(self, reqId: int, exchange: str, underlyingConId: int,
+                                          tradingClass: str, multiplier: str, expirations, strikes):
+        """One exchange / trading class of an underlying's listed options (reqSecDefOptParams)."""
+        self.option_chains.setdefault(reqId, []).append({
+            'exchange': exchange, 'underlying_con_id': underlyingConId, 'trading_class': tradingClass,
+            'multiplier': multiplier, 'expirations': sorted(expirations), 'strikes': sorted(strikes),
+        })
+
+    def securityDefinitionOptionParameterEnd(self, reqId: int):
+        self._lookup_requests.discard(reqId)
+        self.option_chains_done.add(reqId)
+
     def tickString(self, reqId: TickerId, tickType: int, value: str):
         """Tick string callback for market data."""
         if reqId not in self.market_data:
@@ -573,7 +614,13 @@ class IBTWSClient(EWrapper, EClient):
             'valid_exchanges': contractDetails.validExchanges,
             'time_zone_id': contractDetails.timeZoneId,
             'trading_hours': contractDetails.tradingHours,
-            'liquid_hours': contractDetails.liquidHours
+            'liquid_hours': contractDetails.liquidHours,
+            'multiplier': contractDetails.contract.multiplier,
+            'last_trade_date': contractDetails.contract.lastTradeDateOrContractMonth,
+            'strike': contractDetails.contract.strike,
+            'right': contractDetails.contract.right,
+            'stock_type': getattr(contractDetails, 'stockType', ''),     # COMMON, ETF, ADR, REIT ...
+            'long_name': contractDetails.longName,
         }
         
         self.contract_details[reqId].append(contract_info)
@@ -581,6 +628,8 @@ class IBTWSClient(EWrapper, EClient):
     
     def contractDetailsEnd(self, reqId: int):
         """Contract details end callback."""
+        self._lookup_requests.discard(reqId)
+        self.contract_details_done.add(reqId)
         details_count = len(self.contract_details.get(reqId, []))
         self.logger.info(f"Contract details complete for req {reqId}: {details_count} contracts")
     
@@ -905,6 +954,17 @@ class IBTWSClient(EWrapper, EClient):
             
         self.logger.info(f"Requested market data for {contract.symbol} (req_id: {req_id}, snapshot: {snapshot}, ticks: '{generic_tick_list}')")
 
+    def request_option_chain(self, req_id: int, symbol: str, sec_type: str, con_id: int) -> None:
+        """Expirations and strikes of the options listed on an underlying (answers in option_chains[req_id], done
+        when req_id is in option_chains_done). Read-only."""
+        if not self.is_connected():
+            raise ConnectionError("Not connected to TWS")
+        self.option_chains.pop(req_id, None)
+        self.option_chains_done.discard(req_id)
+        self.request_errors.pop(req_id, None)
+        self._lookup_requests.add(req_id)
+        self.reqSecDefOptParams(req_id, symbol, "", sec_type, con_id)
+
     def request_contract_details(self, req_id: int, contract: Contract) -> None:
         """
         Request full contract details for a given contract.
@@ -918,6 +978,9 @@ class IBTWSClient(EWrapper, EClient):
 
         # Clear any previous results for this request id
         self.contract_details.pop(req_id, None)
+        self.contract_details_done.discard(req_id)
+        self.request_errors.pop(req_id, None)
+        self._lookup_requests.add(req_id)
 
         # Send request
         self.reqContractDetails(req_id, contract)

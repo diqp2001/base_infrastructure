@@ -3,8 +3,11 @@ ETF dispersion-option screener (docs/dispersion_screening_progress.txt): setting
 sources. Business logic reads them through DispersionScreenConfig, never as literals.
 """
 
+import os
 from pathlib import Path
 from typing import Any, Dict
+
+from dataclasses import replace
 
 from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
 
@@ -27,12 +30,31 @@ SCREEN = DispersionScreenConfig(
     max_quote_age_seconds=60.0,
 )
 
+# Research override for a run after the close: frozen (last) quotes are accepted, whatever their age. The run manifest
+# records the settings; never for a trading decision.
+if os.getenv('DISPERSION_ALLOW_FROZEN', '').lower() in ('1', 'yes', 'true'):
+    SCREEN = replace(SCREEN, allow_frozen_quotes=True, max_quote_age_seconds=86_400.0)
+# Diagnostic override of both spread limits (e.g. 10 = 1000 %): to exercise the sizing on closing quotes only.
+if os.getenv('DISPERSION_MAX_SPREAD_OVERRIDE'):
+    _spread = float(os.environ['DISPERSION_MAX_SPREAD_OVERRIDE'])
+    SCREEN = replace(SCREEN, max_etf_option_spread=_spread, max_stock_option_spread=_spread)
+
 CONFIG: Dict[str, Any] = {
     'results_dir': str(RESULTS_DIR),
     # issuers' daily holdings files, archived as downloaded (the issuers serve the latest day only)
     'holdings_archive_dir': str(RESULTS_DIR / 'holdings_archive'),
     'issuers': ['ishares', 'ssga'],
     'download_interval_seconds': 1.0,      # one file at a time, at most one per second
+    # option data (P.03): IBKR, READ-ONLY, its own client id (never an order connection). Unset host = universe only.
+    # Free: streaming data covered by the account's subscriptions; no regulatory snapshots. D6: any login whose
+    # subscriptions cover US equities + options (the paper login shares the live login's subscriptions).
+    'ibkr': {
+        'host': os.getenv('DISPERSION_IBKR_HOST', ''),
+        'port': int(os.getenv('DISPERSION_IBKR_PORT', '7496')),
+        'client_id': int(os.getenv('DISPERSION_IBKR_CLIENT_ID', '77')),
+        'max_lines': int(os.getenv('DISPERSION_IBKR_MAX_LINES', '40')),   # the trader on the same login needs ~30
+        'timeout_seconds': 12.0,
+    },
 }
 
 

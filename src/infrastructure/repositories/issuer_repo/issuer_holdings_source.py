@@ -41,10 +41,12 @@ class IssuerHoldingsSource(EtfUniversePort, EtfHoldingsPort):
     FILE_EXT: str = ""
 
     def __init__(self, archive_dir: str, fetch: Callable[[str], bytes] = http_get,
-                 today: Callable[[], date] = date.today, min_interval_seconds: float = 1.0):
+                 today: Callable[[], date] = date.today, min_interval_seconds: float = 1.0,
+                 now: Callable[[], datetime] = datetime.now):
         self.archive_dir = archive_dir
         self._fetch = fetch
         self._today = today
+        self._now = now
         self.min_interval_seconds = min_interval_seconds
         self._last_fetch = 0.0
         self._listings: Dict[date, List[EtfListing]] = {}
@@ -72,7 +74,7 @@ class IssuerHoldingsSource(EtfUniversePort, EtfHoldingsPort):
 
     def get_holdings(self, listing: EtfListing, screening_date: date) -> Optional[EtfHoldingsSnapshot]:
         if screening_date >= self._today():
-            snapshot = self.download(listing)
+            snapshot = self.downloaded_today(listing) or self.download(listing)
             if snapshot is not None and snapshot.as_of <= screening_date:
                 return snapshot
         return self.from_archive(listing, screening_date)
@@ -91,7 +93,7 @@ class IssuerHoldingsSource(EtfUniversePort, EtfHoldingsPort):
         url = self.holdings_url(listing)
         try:
             raw = self.fetch(url)
-            snapshot = self.parse_holdings(raw, listing, url, datetime.now())
+            snapshot = self.parse_holdings(raw, listing, url, self._now())
         except Exception as e:
             logger.warning("%s holdings of %s unavailable (%s): %s", self.ISSUER, listing.ticker, url, e)
             return None
@@ -103,6 +105,13 @@ class IssuerHoldingsSource(EtfUniversePort, EtfHoldingsPort):
             with open(path + ".meta.json", "w", encoding="utf-8") as f:
                 json.dump({"url": url, "retrieved_at": str(snapshot.retrieved_at), "as_of": str(snapshot.as_of)}, f)
         return snapshot
+
+    def downloaded_today(self, listing: EtfListing) -> Optional[EtfHoldingsSnapshot]:
+        """The newest archived file when it was downloaded today (one download per ETF per day)."""
+        snapshot = self.from_archive(listing, self._today())
+        if snapshot is not None and snapshot.retrieved_at.date() == self._today():
+            return snapshot
+        return None
 
     def from_archive(self, listing: EtfListing, screening_date: date) -> Optional[EtfHoldingsSnapshot]:
         folder = os.path.join(self.archive_dir, self.ISSUER, listing.ticker)

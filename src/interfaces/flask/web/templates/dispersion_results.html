@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Dispersion Screen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        a { color: #58a6ff; }
+        .card { background: #161b22; border: 1px solid #30363d; }
+        .table { font-size: 0.82rem; color: #c9d1d9; }
+        .table td, .table th { text-align: right; white-space: nowrap; border-color: #30363d; }
+        .table td.l, .table th.l { text-align: left; }
+        .reason { white-space: normal; max-width: 34rem; text-align: left !important; color: #8b949e; }
+        .opportunity { color: #3fb950; font-weight: 600; }
+        .rejected { color: #d29922; }
+        .not { color: #8b949e; }
+        .neg { color: #f85149; }
+        .badge-warn { background: #9e6a03; }
+    </style>
+</head>
+<body>
+<div class="container-fluid py-4 px-4">
+{% if day is none %}
+    <h3>No screening results yet</h3>
+    <p class="text-muted">Run the screener:
+        <code>python -m src.application.managers.project_managers.etf_dispersion_screener_project.project_manager</code>
+        (with <code>DISPERSION_IBKR_HOST</code> set for the option screen).</p>
+{% else %}
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <h3 class="mb-1">ETF dispersion screen <small class="text-muted">{{ day }}</small></h3>
+            <div class="text-muted small">
+                Short 1 ATM ETF call, long ATM constituent calls, ETF-weighted and dollar-delta neutral in whole
+                contracts. A potential dispersion trade, not an arbitrage.
+                Universe: {% for k, v in universe_counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}.
+                Screen: {% for k, v in counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}.
+            </div>
+            {% set screen = manifest.get('config', {}).get('screen', {}) %}
+            {% if screen.get('allow_frozen_quotes') %}
+            <span class="badge badge-warn mt-1">research run on frozen (closing) quotes — not executable prices</span>
+            {% endif %}
+        </div>
+        <form method="get" class="d-flex gap-2">
+            <select name="date" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for d in dates %}<option value="{{ d }}" {% if d == day %}selected{% endif %}>{{ d }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="card"><div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr>
+            <th class="l">ETF</th><th>Constituents</th><th>Coverage</th><th>DTE</th><th>ETF strike</th>
+            <th>ETF call bid</th><th>ETF IV</th><th>Wtd IV</th><th>Impl. corr</th><th>Constituent call cost</th>
+            <th>ETF proceeds</th><th>Net premium</th><th>Net %</th><th>ETF $delta</th><th>Basket $delta</th>
+            <th>Net delta</th><th>Avg spread</th><th class="l">Status</th><th class="l">Reasons</th>
+        </tr></thead>
+        <tbody>
+        {% for c in candidates %}
+        <tr>
+            <td class="l"><a href="{{ url_for('dispersion.detail', ticker=c.etf, date=day) }}">{{ c.etf }}</a>
+                <div class="text-muted small">{{ c.name[:42] }}</div></td>
+            <td>{{ c.constituents }}</td>
+            <td>{{ '%.0f%%'|format(c.coverage * 100) if c.coverage is not none else '' }}</td>
+            <td>{{ c.dte if c.dte is not none else '' }}</td>
+            <td>{{ c.etf_strike if c.etf_strike is not none else '' }}</td>
+            <td>{{ c.etf_call_bid if c.etf_call_bid is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(c.etf_iv * 100) if c.etf_iv is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(c.weighted_constituent_iv * 100) if c.weighted_constituent_iv is not none else '' }}</td>
+            <td>{{ '%.2f'|format(c.implied_correlation) if c.implied_correlation is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td>
+            <td class="{{ 'neg' if c.net_premium is not none and c.net_premium < 0 else '' }}">
+                {{ '{:,.0f}'.format(c.net_premium) if c.net_premium is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(c.net_premium_pct * 100) if c.net_premium_pct is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(c.etf_dollar_delta) if c.etf_dollar_delta is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(c.basket_dollar_delta) if c.basket_dollar_delta is not none else '' }}</td>
+            <td>{{ '%.2f%%'|format(c.net_delta_pct * 100) if c.net_delta_pct is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(c.liquidity_avg_spread * 100) if c.liquidity_avg_spread is not none else '' }}</td>
+            <td class="l {{ 'opportunity' if c.status == 'opportunity' else ('rejected' if c.status == 'rejected' else 'not') }}">{{ c.status }}</td>
+            <td class="reason">{{ c.reasons }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div></div>
+    <p class="text-muted small mt-2">Ranking: opportunities first, then net premium, net premium %, average bid/ask
+        spread, option coverage, transaction cost, ETF IV − weighted constituent IV. JSON:
+        <a href="{{ url_for('dispersion.api_candidates', date=day) }}">/dispersion/api/candidates</a>.</p>
+{% endif %}
+</div>
+</body>
+</html>

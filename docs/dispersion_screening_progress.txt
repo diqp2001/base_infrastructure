@@ -202,7 +202,7 @@ Method: graphify (graph refreshed to d44f9b6e) + reading the files it pointed to
          candidate to check fills against the screened prices.
 
 
-P.02 ETF universe and holdings                                          [~] IN PROGRESS 2026-11-05
+P.02 ETF universe and holdings                                          [x] DONE 2026-11-05 (snapshots -> P.07)
 -----------------------------------------------------------------------------------------
  [x] Entities (D2, D3): domain ShareOption(Option) with exchange_id / strike / multiplier / expiry;
      CompanyShareOption and ETFShareOption are empty children. ETFShare(Share): symbol, currency_id, exchange_id,
@@ -253,15 +253,95 @@ P.02 ETF universe and holdings                                          [~] IN P
      Tests: tests/dispersion/test_etf_holdings.py (12: parsers US / UK / XLSX / fund lists, test 5 49 vs 50,
      normalisation, rejections, listing rules, project run, archive history, failed download).
 
-P.03 Option-chain data                                                  [ ]
-P.04 ATM option selection                                               [ ]
-P.05 Delta-neutral sizing                                               [ ]
-P.06 Premium/opportunity calculation                                    [ ]
-P.07 Screening and ranking                                              [ ]
-P.08 Results UI/API                                                     [ ]
-P.09 Historical research                                                [ ]
-P.10 Testing                                                            [ ]
-P.11 Paper-trading validation                                           [ ]
+P.03 Option-chain data                                                  [x] DONE 2026-11-05 (code); live run pending
+-----------------------------------------------------------------------------------------
+ [x] Port OptionMarketDataPort (src/domain/ports/finance/dispersion/option_market_data_port.py): resolve
+     underlyings, option chains, listed strikes per expiry, underlying quotes, option quotes + greeks; every call
+     takes the screening date (HistoricalDataUnavailable for a past date: no silent use of current data).
+     MarketDataUnavailable = the source did not answer (timeout / lost gateway), never read as "not found".
+ [x] Domain value objects (option_data.py): Underlying, OptionChain, OptionContractSpec, Quote (two-sided, mid,
+     spread %), Greeks, OptionQuote, UnderlyingQuote.
+ [x] IBKR adapter IBKROptionMarketData (src/infrastructure/repositories/ibkr_repo/finance/dispersion/), READ-ONLY
+     on its own client id (77): reqContractDetails (US share, "BRK.B" -> "BRK B"), reqSecDefOptParams (chains),
+     contract details per expiry (strikes actually listed: a chain's strikes are the union over its expiries),
+     streaming quotes (no snapshots = no fees), at most 40 lines at a time, IBKR model greeks (tick 13 / delayed
+     83). Market data type 2 (frozen): live in market hours, last values after the close; every quote carries
+     its market data type. IBTWSClient gained tickOptionComputation, securityDefinitionOptionParameter(End),
+     request_option_chain and errors that end pending lookups.
+ [x] Free data (D6): no snapshot fees, no extra subscription. Open interest is NOT returned per option (at least
+     after hours) -> unknown; the minimum open interest defaults to 0.
+     Scripts (read-only): scripts/dispersion_ibkr_smoke.py, scripts/dispersion_ibkr_ticks.py.
+
+P.04 ATM option selection                                               [x] DONE 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] option_selection.py: standard_chain (the trading class named after the symbol, multiplier 100),
+     eligible_expiries in [MIN_DTE, MAX_DTE], select_common_expiry (the ETF expiry most constituents list = the
+     monthly; ties -> nearest TARGET_DTE; a weekly listed by the ETF only would leave the basket uncovered),
+     constituent_expiry (same expiry, else a recorded exception), select_atm_strike among listed strikes.
+
+P.05 Delta-neutral sizing                                               [x] DONE 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] dispersion_trade.py: value-weight raw positions, dollar-delta neutrality on every option's own delta,
+     size_fractional (reference) and size_whole_contracts (D4: listed options have no fractional contracts;
+     N = 1 .. max_etf_contracts, first N with |net $delta| / short $delta <= delta_tolerance and no zero leg).
+
+P.06 Premium/opportunity calculation                                    [x] DONE 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] premium: ETF calls sold at the bid vs constituent calls bought at the ask; at mids and the bid/ask cost as
+     diagnostics. Opportunity = net premium >= 0 and the whole-contract sizing within tolerance.
+     Diagnostics: weighted comparison per ETF share, weighted implied correlation, weighted IV, vega / gamma /
+     theta of both sides, notional, capital (long premium), payoff at maturity in scenarios (market +-5/10 %;
+     dispersion: the heavier half +10 % around the same average move; European, dividends ignored).
+ [x] quote_checks.py: freshness (live and frozen never mixed; frozen only with allow_frozen_quotes), quality
+     (two-sided, ask >= bid, spread limits), liquidity (volume / open interest minimums).
+
+P.07 Screening and ranking                                              [x] DONE 2026-11-05 (code); live run pending
+-----------------------------------------------------------------------------------------
+ [x] DispersionScreeningService (src/application/services/dispersion/dispersion_screening_service.py): per ETF
+     resolve -> chains -> common expiry -> ATM calls -> quotes -> checks -> MIN_OPTION_COVERAGE -> sizing ->
+     premium; every outcome kept with its reasons; transparent ranking (net premium, net %, liquidity,
+     coverage, transaction cost, IV gap). Lookups cached per run. One ETF's error never stops the screen;
+     3 ETFs in a row with MarketDataUnavailable stop the asking (status "data unavailable").
+ [x] Project manager: universe, then the screen when DISPERSION_IBKR_HOST is set -> results/
+     etf_dispersion_screener/<date>/candidates.json (with constituent legs + scenarios) + candidates.csv +
+     manifest. Env: DISPERSION_IBKR_HOST / PORT (7496) / CLIENT_ID (77) / MAX_LINES (40),
+     DISPERSION_ALLOW_FROZEN, DISPERSION_MAX_SPREAD_OVERRIDE (diagnostics only).
+ [~] Research runs 2026-11-05 AFTER THE CLOSE (frozen quotes, ibkr-paper:4004): code checks only, no verdict.
+     run 1: every ETF failed coverage (a weekly ETF expiry) -> select_common_expiry.
+     run 2: constituents covered; wide closing spreads; strikes not listed for the expiry (error 200 on XLE,
+     XLC, XLY) -> listed_strikes.
+     run 3 (spread limits relaxed): no ETF reached 95 % option coverage among the first 41 (best IDU / IAT /
+     ITB 93 %; country funds 0 - 52 %: local listings without US options; DIA 40 %). From KWT on the paper
+     gateway stopped answering (its API port timed out at 20:28 ET; auto-restart 23:45) and the remaining 34
+     (all SPDR funds) were wrongly reported "not found" -> fixed: MarketDataUnavailable / "data unavailable".
+ [ ] A screen in market hours (live quotes), 2026-11-06 or later: the first real result. MIN_OPTION_COVERAGE
+     95 % may be the binding rule (owner may prefer 90 %: IDU / IAT / ITB at 93 %).
+ [ ] Snapshots into Universe / UniverseConstituent (constituents resolved to CompanyShare on IBKR): not done.
+
+P.08 Results UI/API                                                     [x] DONE 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] Flask blueprint dispersion_bp (src/interfaces/flask/web/controllers/dispersion_controller.py): /dispersion/
+     (ranked table, ?date=YYYY-MM-DD validated), /dispersion/etf/<ticker> (trade, constituents, scenarios),
+     /dispersion/api/candidates, /dispersion/api/candidates/<ticker>. Reads the results files only.
+
+P.09 Historical research                                                [!] BLOCKED - owner decision
+-----------------------------------------------------------------------------------------
+ [!] IBKR has no historical option quotes / greeks (current chains only; expired options are gone). Holdings
+     history = our own archive from 2026-11-05 on (issuers serve the latest day only). A backtest needs a
+     historical options source (paid: e.g. ORATS, CBOE DataShop, OptionMetrics), against D6 (free). Until then
+     the port refuses past dates (HistoricalDataUnavailable); daily screens build our own history.
+
+P.10 Testing                                                            [~] 2026-11-05
+-----------------------------------------------------------------------------------------
+ [x] tests/dispersion: 42 tests (entities, holdings parsers / rules / archive, sizing, premium, implied
+     correlation, scenarios, selection, the screening service on a fake port incl. spec tests 4, 6, 7, frozen
+     vs live, a silent gateway, Flask pages, project files). No broker; no database except in-memory SQLite.
+ [ ] An integration test of the IBKR adapter on recorded callbacks.
+
+P.11 Paper-trading validation                                           [ ] needs a market-hours run + owner approval
+-----------------------------------------------------------------------------------------
+ [ ] Read-only first (screen in market hours, compare quotes with TWS); a small paper trade of one candidate on
+     DUR314497 only with the owner's explicit approval. The screener contains no order code.
 
 
 HISTORY
@@ -271,3 +351,6 @@ HISTORY
             folder, free data). P.02: entities, ShareOption hierarchy, base_infra tables (after backup).
 2026-11-05  P.02: issuer adapters (iShares, SPDR) + archive, universe service, project manager; first run:
             669 ETFs listed, 75 eligible (< 50 equity constituents).
+2026-11-05  P.03 - P.08 code done (IBKR option data, selection, sizing, premium, screen, UI/API); research
+            runs after the close only; gateway stall -> MarketDataUnavailable. P.09 blocked (historical
+            options source).

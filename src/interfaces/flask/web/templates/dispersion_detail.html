@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ c.etf }} dispersion trade</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        a { color: #58a6ff; }
+        .card { background: #161b22; border: 1px solid #30363d; }
+        .card-header { background: #21262d; border-bottom: 1px solid #30363d; font-weight: 600; }
+        .table { font-size: 0.82rem; color: #c9d1d9; }
+        .table td, .table th { text-align: right; white-space: nowrap; border-color: #30363d; }
+        .table td.l, .table th.l { text-align: left; }
+        .muted { color: #8b949e; }
+        .kv td { text-align: left !important; }
+        .neg { color: #f85149; } .pos { color: #3fb950; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    {% set money = '{:,.2f}' %}
+    <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a>
+    <h3 class="mt-2 mb-1">{{ c.etf }} <small class="muted">{{ c.name }}</small></h3>
+    <div class="muted small mb-3">Status: <b>{{ c.status }}</b>{% if c.reasons %} — {{ c.reasons }}{% endif %}</div>
+
+    <div class="row g-3">
+    <div class="col-md-6"><div class="card"><div class="card-header">ETF</div><div class="card-body p-0">
+        <table class="table table-sm mb-0 kv">
+            <tr><td>Price</td><td>{{ c.etf_spot }}</td></tr>
+            <tr><td>Constituents</td><td>{{ c.constituents }} (option coverage {{ '%.0f%%'|format((c.coverage or 0) * 100) }},
+                weight {{ '%.1f%%'|format((c.weight_coverage or 0) * 100) }})</td></tr>
+            <tr><td>Holdings</td><td>as of {{ c.holdings_as_of }} <span class="muted small">{{ c.holdings_source }}</span></td></tr>
+            <tr><td>ATM call</td><td>{{ c.expiry }} ({{ c.dte }} DTE), strike {{ c.etf_strike }}, bid {{ c.etf_call_bid }} / ask {{ c.etf_call_ask }}</td></tr>
+            <tr><td>ETF IV / weighted constituent IV</td><td>{{ '%.2f%%'|format((c.etf_iv or 0) * 100) }} / {{ '%.2f%%'|format((c.weighted_constituent_iv or 0) * 100) }}</td></tr>
+            <tr><td>Implied correlation (weighted average)</td><td>{{ c.implied_correlation }}</td></tr>
+            <tr><td>Quote time / greeks</td><td>{{ c.etf_quote_time }} · {{ c.greeks_source }}</td></tr>
+        </table>
+    </div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">Trade</div><div class="card-body p-0">
+        <table class="table table-sm mb-0 kv">
+            <tr><td>SHORT</td><td>{{ c.etf_contracts }} × {{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} call</td></tr>
+            <tr><td>LONG</td><td>constituent ATM calls (table below)</td></tr>
+            <tr><td>Total short dollar delta</td><td>{{ money.format(c.etf_dollar_delta) if c.etf_dollar_delta is not none else '' }}</td></tr>
+            <tr><td>Total long dollar delta</td><td>{{ money.format(c.basket_dollar_delta) if c.basket_dollar_delta is not none else '' }}</td></tr>
+            <tr><td>Net dollar delta</td><td>{{ money.format(c.net_dollar_delta) if c.net_dollar_delta is not none else '' }}
+                ({{ '%.2f%%'|format((c.net_delta_pct or 0) * 100) }} of the short)</td></tr>
+            <tr><td>ETF call proceeds (bid)</td><td>{{ money.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td></tr>
+            <tr><td>Constituent call cost (ask)</td><td>{{ money.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td></tr>
+            <tr><td>Net premium</td><td class="{{ 'neg' if (c.net_premium or 0) < 0 else 'pos' }}">
+                {{ money.format(c.net_premium) if c.net_premium is not none else '' }}
+                ({{ '%.1f%%'|format((c.net_premium_pct or 0) * 100) }}); at mids {{ money.format(c.mid_net_premium) if c.mid_net_premium is not none else '' }}</td></tr>
+            <tr><td>Bid/ask cost vs mids</td><td>{{ money.format(c.transaction_cost) if c.transaction_cost is not none else '' }}</td></tr>
+            <tr><td>Vega ETF / basket</td><td>{{ c.vega_etf }} / {{ c.vega_basket }}</td></tr>
+            <tr><td>Gamma ETF / basket</td><td>{{ c.gamma_etf }} / {{ c.gamma_basket }}</td></tr>
+            <tr><td>Theta ETF / basket</td><td>{{ c.theta_etf }} / {{ c.theta_basket }}</td></tr>
+            <tr><td>Notional / capital (long premium)</td><td>{{ money.format(c.notional) if c.notional is not none else '' }} / {{ money.format(c.capital_requirement) if c.capital_requirement is not none else '' }}</td></tr>
+        </table>
+    </div></div></div>
+    </div>
+
+    <div class="card mt-3"><div class="card-header">Constituents</div><div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr><th class="l">Ticker</th><th>Weight</th><th>Price</th><th>Expiry</th><th>Strike</th><th>Call bid</th>
+            <th>Call ask</th><th>Spread</th><th>IV</th><th>Delta</th><th>Contracts</th><th>Dollar delta</th><th>Call cost</th>
+            <th class="l">Status / exceptions</th></tr></thead>
+        <tbody>
+        {% for r in c.constituent_legs %}
+        <tr>
+            <td class="l">{{ r.ticker }}</td>
+            <td>{{ '%.2f%%'|format(r.weight * 100) }}</td>
+            <td>{{ r.price if r.price is not none else '' }}</td>
+            <td>{{ r.expiry or '' }}</td>
+            <td>{{ r.strike if r.strike is not none else '' }}</td>
+            <td>{{ r.call_bid if r.call_bid is not none else '' }}</td>
+            <td>{{ r.call_ask if r.call_ask is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(r.spread_pct * 100) if r.spread_pct is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(r.iv * 100) if r.iv is not none else '' }}</td>
+            <td>{{ r.delta if r.delta is not none else '' }}</td>
+            <td>{{ r.contracts if r.contracts is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(r.dollar_delta) if r.dollar_delta is not none else '' }}</td>
+            <td>{{ '{:,.0f}'.format(r.call_cost) if r.call_cost is not none else '' }}</td>
+            <td class="l muted">{{ r.status if r.status != 'ok' else '' }} {{ r.exceptions }} {{ r.liquidity }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div></div>
+    {% if c.scenarios %}
+    <div class="card mt-3"><div class="card-header">Payoff at maturity (scenarios)</div><div class="card-body p-0">
+    <table class="table table-sm mb-0">
+        <thead><tr><th class="l">Scenario</th><th>ETF price</th><th>Long calls</th><th>Short ETF call</th>
+            <th>Combined</th><th>P&amp;L after premiums</th></tr></thead>
+        <tbody>
+        {% for s in c.scenarios %}
+        <tr><td class="l">{{ s.scenario }}</td><td>{{ '%.2f'|format(s.etf_price) }}</td>
+            <td>{{ '{:,.0f}'.format(s.long_basket) }}</td><td>{{ '{:,.0f}'.format(s.short_etf) }}</td>
+            <td>{{ '{:,.0f}'.format(s.combined) }}</td>
+            <td class="{{ 'neg' if s.pnl < 0 else 'pos' }}">{{ '{:,.0f}'.format(s.pnl) }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div class="muted small p-2">market m: every constituent moves m. dispersion m: same average move, the heavier
+        half of the weight +10 %, the rest down to keep the average (European payoffs; early exercise and dividends
+        ignored).</div>
+    </div></div>
+    {% endif %}
+    <p class="muted small mt-2">US equity / ETF options are American and physically settled; dividends, borrow and
+        early exercise are not in the premium comparison. JSON: <a href="{{ url_for('dispersion.api_candidate', ticker=c.etf, date=day) }}">/dispersion/api/candidates/{{ c.etf }}</a></p>
+</div>
+</body>
+</html>

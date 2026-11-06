@@ -1,0 +1,195 @@
+"""Dispersion screener P.07: the screening service on a fake OptionMarketDataPort (no broker). Opportunity,
+premium rejection (spec test 4), option coverage (spec test 6), illiquid constituent (spec test 7), frozen quotes."""
+
+from datetime import date, datetime, timedelta, timezone
+
+import pytest
+
+from src.application.services.dispersion.dispersion_screening_service import (
+    DATA_UNAVAILABLE, MAX_CONSECUTIVE_UNAVAILABLE, OPPORTUNITY, DispersionScreeningService,
+)
+from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.entities.finance.dispersion.option_data import (
+    Greeks, OptionChain, OptionQuote, Quote, Underlying, UnderlyingQuote,
+)
+from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable, OptionMarketDataPort
+
+DAY = date(2026, 11, 5)
+NOW = datetime(2026, 11, 5, 15, 0, tzinfo=timezone.utc)
+EXPIRY = DAY + timedelta(days=29)
+
+
+class FakeMarket(OptionMarketDataPort):
+    """spots: symbol -> price; option: symbol -> (bid, ask, delta); no_options / missing: symbols."""
+
+    def __init__(self, spots, options, no_options=(), missing=(), mdt=1):
+        self.spots, self.options, self.no_options, self.missing, self.mdt = spots, options, set(no_options), set(missing), mdt
+
+    def resolve_underlyings(self, symbols, screening_date):
+        return {s: None if s in self.missing else Underlying(s, hash(s) % 10_000, "STK", "USD", "NYSE",
+                                                             "ETF" if s == "ETF" else "COMMON") for s in symbols}
+
+    def option_chains(self, underlying, screening_date):
+        if underlying.symbol in self.no_options:
+            return []
+        spot = self.spots[underlying.symbol]
+        strikes = tuple(round(spot * k, 2) for k in (0.9, 0.95, 1.0, 1.05, 1.1))
+        return [OptionChain(underlying.symbol, underlying.symbol, 100.0, (DAY + timedelta(days=8), EXPIRY), strikes)]
+
+    def listed_strikes(self, chain, expiry, right, screening_date):
+        return chain.strikes
+
+    def underlying_quotes(self, underlyings, screening_date):
+        return {u.symbol: UnderlyingQuote(u, Quote(bid=self.spots[u.symbol] - 0.01, ask=self.spots[u.symbol] + 0.01,
+                                                   quote_time=NOW, market_data_type=1)) for u in underlyings}
+
+    def option_quotes(self, contracts, screening_date):
+        out = {}
+        for spec in contracts:
+            bid, ask, delta = self.options[spec.underlying]
+            out[spec.key] = OptionQuote(spec, Quote(bid=bid, ask=ask, quote_time=NOW - timedelta(seconds=3),
+                                                    market_data_type=self.mdt),
+                                        Greeks(implied_vol=0.2, delta=delta, gamma=0.05, vega=0.1, theta=-0.05))
+        return out
+
+
+def weights(**w):
+    return ConstituentWeights("ETF", DAY, dict(w), 1.0, [], "test")
+
+
+def screen(market, config=DispersionScreenConfig(), **w):
+    service = DispersionScreeningService(market, config, now=lambda: NOW)
+    return service.screen([("ETF", "Test ETF", weights(**w))], DAY)[0]
+
+
+SPOTS = {"ETF": 100.0, "A": 50.0, "B": 200.0}
+
+
+def test_opportunity_when_the_etf_bid_pays_for_the_basket():
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.20, 1.25, 0.5), "B": (4.80, 5.0, 0.5)})
+    c = screen(market, A=0.5, B=0.5)
+    assert c.status == OPPORTUNITY and c.reasons == []
+    assert c.expiry == EXPIRY and c.dte == 29 and c.coverage == 1.0
+    assert abs(c.sizing.relative_net_delta) <= 0.01 and all(q >= 1 for q in c.sizing.positions.values())
+    assert c.premium.net_premium >= 0
+    a = next(r for r in c.constituents if r.symbol == "A")
+    assert a.contracts == c.sizing.positions["A"] and a.call_cost == pytest.approx(a.contracts * 100 * 1.25)
+
+
+def test_premium_rejection():                                                        # specification test 4
+    market = FakeMarket(SPOTS, {"ETF": (3.0, 3.1, 0.5), "A": (1.6, 1.65, 0.5), "B": (6.4, 6.6, 0.5)})
+    c = screen(market, A=0.5, B=0.5)
+    assert c.status == "rejected" and "net premium" in c.reasons[-1] and c.premium.net_premium < 0
+
+
+def test_missing_options_below_coverage():                                          # specification test 6
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)},
+                        no_options=["B"])
+    c = screen(market, A=0.5, B=0.5)
+    assert c.status == "not screenable" and "option coverage 50% < 95%" in c.reasons[-1]
+    assert next(r for r in c.constituents if r.symbol == "B").status == "no listed options"
+    relaxed = screen(market, DispersionScreenConfig(min_option_coverage=0.5), A=0.5, B=0.5)
+    assert relaxed.coverage == 0.5 and any("renormalised" in r for r in relaxed.reasons)
+
+
+def test_illiquid_constituent_rejects_the_etf():                                    # specification test 7
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.0, 1.4, 0.5), "B": (4.8, 5.0, 0.5)})
+    c = screen(market, A=0.5, B=0.5)
+    assert c.status == "rejected" and "illiquid constituent options: A" in c.reasons[0]
+    allowed = screen(market, DispersionScreenConfig(allow_illiquid_constituents=True), A=0.5, B=0.5)
+    assert allowed.status != "rejected" or "illiquid" not in " ".join(allowed.reasons)
+
+
+def test_frozen_quotes_are_not_mixed_with_live_ones():
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)}, mdt=2)
+    c = screen(market, A=0.5, B=0.5)
+    assert c.status == "not screenable" and "frozen" in c.reasons[0]
+
+
+def test_unknown_share_and_ranking():
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)}, missing=["B"])
+    c = screen(market, A=0.5, B=0.5)
+    assert next(r for r in c.constituents if r.symbol == "B").status == "not a US-listed share at the broker"
+    good = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+    service = DispersionScreeningService(good, DispersionScreenConfig(), now=lambda: NOW)
+    ranked = service.screen([("BAD", "x", weights(A=0.5, B=0.5)), ("ETF", "y", weights(A=0.5, B=0.5))], DAY)
+    assert ranked[0].etf == "ETF" and ranked[0].status == OPPORTUNITY
+
+
+def test_project_writes_the_ranked_candidates(tmp_path):
+    import json
+    from src.application.managers.project_managers.etf_dispersion_screener_project.project_manager import (
+        write_candidates,
+    )
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+    c = screen(market, A=0.5, B=0.5)
+    write_candidates(str(tmp_path), [c])
+    saved = json.loads((tmp_path / "candidates.json").read_text(encoding="utf-8"))[0]
+    assert saved["status"] == OPPORTUNITY and saved["etf_strike"] == 100.0 and saved["net_premium"] >= 0
+    assert [leg["ticker"] for leg in saved["constituent_legs"]] == ["A", "B"]
+    assert (tmp_path / "candidates.csv").read_text(encoding="utf-8").startswith("etf,name,status")
+
+
+def test_results_pages(tmp_path, monkeypatch):
+    from flask import Flask
+    from src.application.managers.project_managers.etf_dispersion_screener_project.project_manager import (
+        write_candidates,
+    )
+    from src.interfaces.flask.web.controllers import dispersion_controller
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+    write_candidates(str(tmp_path / "2026-11-05"), [screen(market, A=0.5, B=0.5)])
+    monkeypatch.setattr(dispersion_controller, "RESULTS_DIR", str(tmp_path))
+    app = Flask(__name__, template_folder="../../src/interfaces/flask/web/templates")
+    app.register_blueprint(dispersion_controller.dispersion_bp)
+    client = app.test_client()
+    page = client.get("/dispersion/")
+    assert page.status_code == 200 and b"opportunity" in page.data and b"2026-11-05" in page.data
+    detail = client.get("/dispersion/etf/ETF?date=2026-11-05")
+    assert detail.status_code == 200 and b"Constituents" in detail.data and b"Net premium" in detail.data
+    assert client.get("/dispersion/api/candidates").get_json()["candidates"][0]["etf"] == "ETF"
+    assert client.get("/dispersion/etf/NOPE").status_code == 404
+    assert client.get("/dispersion/?date=../../etc").status_code == 404
+
+
+def test_the_expiry_is_the_one_the_constituents_list():
+    class WeeklyEtf(FakeMarket):
+        def option_chains(self, underlying, screening_date):
+            chain = super().option_chains(underlying, screening_date)
+            if underlying.symbol != "ETF":
+                return chain
+            weekly = EXPIRY - timedelta(days=7)                       # nearer 30 DTE, listed by the ETF only
+            return [OptionChain("ETF", "ETF", 100.0, (weekly, EXPIRY), chain[0].strikes)]
+    market = WeeklyEtf(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+    c = screen(market, A=0.5, B=0.5)
+    assert c.expiry == EXPIRY and c.coverage == 1.0
+
+
+def test_a_silent_source_is_data_unavailable_not_not_found():
+    class Silent(FakeMarket):
+        calls = 0
+
+        def resolve_underlyings(self, symbols, screening_date):
+            Silent.calls += 1
+            raise MarketDataUnavailable("IBKR did not answer the ETF contract details request within 15 s")
+    service = DispersionScreeningService(Silent(SPOTS, {}), DispersionScreenConfig(), now=lambda: NOW)
+    etfs = [(f"E{i}", "Test", weights(A=0.5, B=0.5)) for i in range(5)]
+    out = service.screen(etfs, DAY)
+    assert [c.status for c in out] == [DATA_UNAVAILABLE] * 5
+    assert Silent.calls == MAX_CONSECUTIVE_UNAVAILABLE            # then the screen stops asking
+    assert not any("not found" in r for c in out for r in c.reasons)
+
+
+def test_the_ibkr_adapter_raises_when_the_gateway_does_not_answer():
+    from src.infrastructure.repositories.ibkr_repo.finance.dispersion.ibkr_option_market_data import (
+        IBKROptionMarketData,
+    )
+
+    class SilentClient:
+        contract_details, contract_details_done, request_errors = {}, set(), {}
+
+        def request_contract_details(self, req_id, contract):
+            pass
+    md = IBKROptionMarketData(SilentClient(), today=lambda: DAY, lookup_timeout_seconds=0.05, poll_seconds=0.01)
+    with pytest.raises(MarketDataUnavailable):
+        md.resolve_underlyings(["XLE"], DAY)
