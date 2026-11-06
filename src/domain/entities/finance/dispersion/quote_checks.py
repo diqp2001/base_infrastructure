@@ -1,7 +1,8 @@
 """
-P.06 data quality and liquidity of one option leg (pure): a usable two-sided executable quote, IBKR model greeks,
-a live (not frozen / delayed) quote no older than MAX_QUOTE_AGE, and the liquidity minimums (spread, volume, open
-interest). Returns the reasons a leg is unusable; empty = usable.
+P.06 data quality and liquidity of one option leg (pure). The price the strategy trades at must be quoted (owner,
+2026-11-06): the ETF call is sold -> it needs a bid; a constituent call is bought -> it needs an ask. The other side,
+the spread and the greeks are information only. Plus a live (not frozen / delayed) quote no older than
+MAX_QUOTE_AGE and the optional volume / open interest minimums. Returns the reasons a leg is unusable; empty = usable.
 """
 
 from __future__ import annotations
@@ -30,25 +31,27 @@ def freshness_problems(quote: Quote, now: datetime, config: DispersionScreenConf
     return problems
 
 
-def option_quality_problems(option: OptionQuote, now: datetime, config: DispersionScreenConfig) -> List[str]:
-    q, g = option.quote, option.greeks
+SELL, BUY = "sell", "buy"
+
+
+def option_quality_problems(option: OptionQuote, now: datetime, config: DispersionScreenConfig,
+                            side: str) -> List[str]:
+    """side: SELL (the ETF call: its bid is the price) or BUY (a constituent call: its ask is the price)."""
+    q = option.quote
     problems = []
-    if not q.two_sided:
-        problems.append(f"no two-sided quote (bid {q.bid}, ask {q.ask})")
-    if g.delta is None or g.delta <= 0:
-        problems.append("no model delta")
+    if side == SELL and not (q.bid is not None and q.bid > 0):
+        problems.append(f"no bid (bid {q.bid})")
+    if side == BUY and not (q.ask is not None and q.ask > 0):
+        problems.append(f"no ask (ask {q.ask})")
     problems += freshness_problems(q, now, config)
     return problems
 
 
 def option_liquidity_problems(option: OptionQuote, config: DispersionScreenConfig, is_etf: bool) -> List[str]:
     q = option.quote
-    max_spread = config.max_etf_option_spread if is_etf else config.max_stock_option_spread
     min_volume = config.min_etf_option_volume if is_etf else config.min_stock_option_volume
     min_oi = config.min_etf_open_interest if is_etf else config.min_stock_open_interest
     problems = []
-    if q.spread_pct is not None and q.spread_pct > max_spread:
-        problems.append(f"spread {q.spread_pct:.1%} > {max_spread:.0%}")
     if min_volume > 0 and (q.volume or 0) < min_volume:
         problems.append(f"volume {q.volume} < {min_volume:g}")
     if min_oi > 0 and (option.open_interest is None or option.open_interest < min_oi):

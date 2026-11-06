@@ -69,10 +69,10 @@
             <td>{{ '%.1f%%'|format(c.etf_iv * 100) if c.etf_iv is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(c.weighted_constituent_iv * 100) if c.weighted_constituent_iv is not none else '' }}</td>
             <td>{{ '%.2f'|format(c.implied_correlation) if c.implied_correlation is not none else '' }}</td>
-            <td>{{ '{:,.0f}'.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td>
-            <td>{{ '{:,.0f}'.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td>
+            <td>{{ '{:,.2f}'.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td>
+            <td>{{ '{:,.2f}'.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td>
             <td class="{{ 'neg' if c.net_premium is not none and c.net_premium < 0 else '' }}">
-                {{ '{:,.0f}'.format(c.net_premium) if c.net_premium is not none else '' }}</td>
+                {{ '{:,.2f}'.format(c.net_premium) if c.net_premium is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(c.net_premium_pct * 100) if c.net_premium_pct is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(c.etf_dollar_delta) if c.etf_dollar_delta is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(c.basket_dollar_delta) if c.basket_dollar_delta is not none else '' }}</td>

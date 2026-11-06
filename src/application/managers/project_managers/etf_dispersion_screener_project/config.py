@@ -23,9 +23,6 @@ SCREEN = DispersionScreenConfig(
     min_dte=20,
     max_dte=60,
     min_option_coverage=1.0,                       # 100 %: every constituent and the ETF need options (owner)
-    max_etf_option_spread=0.05,
-    max_stock_option_spread=0.10,
-    delta_tolerance=0.01,
     require_same_expiration=True,
     max_quote_age_seconds=60.0,
 )
@@ -34,10 +31,6 @@ SCREEN = DispersionScreenConfig(
 # records the settings; never for a trading decision.
 if os.getenv('DISPERSION_ALLOW_FROZEN', '').lower() in ('1', 'yes', 'true'):
     SCREEN = replace(SCREEN, allow_frozen_quotes=True, max_quote_age_seconds=86_400.0)
-# Diagnostic override of both spread limits (e.g. 10 = 1000 %): to exercise the sizing on closing quotes only.
-if os.getenv('DISPERSION_MAX_SPREAD_OVERRIDE'):
-    _spread = float(os.environ['DISPERSION_MAX_SPREAD_OVERRIDE'])
-    SCREEN = replace(SCREEN, max_etf_option_spread=_spread, max_stock_option_spread=_spread)
 
 CONFIG: Dict[str, Any] = {
     'results_dir': str(RESULTS_DIR),

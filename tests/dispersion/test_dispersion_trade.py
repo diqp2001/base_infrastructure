@@ -1,13 +1,12 @@
-"""Dispersion screener P.04 – P.06: selection, dollar-delta-neutral sizing, premium, payoff (specification tests 1,
-2, 3, 4, 7, 8). Pure domain: no broker, no database."""
+"""Dispersion screener P.04 – P.06: selection, holdings-replicating sizing, the strategy's cost on the broker's
+prices, payoff (specification tests 1, 2, 4, 8). Pure domain: no broker, no database."""
 
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 from src.domain.entities.finance.dispersion.dispersion_trade import (
-    Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, scenarios, size_fractional,
-    size_whole_contracts, weighted_comparison,
+    Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, replicate, scenarios,
 )
 from src.domain.entities.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionContractSpec, OptionQuote, Quote,
@@ -16,7 +15,7 @@ from src.domain.entities.finance.dispersion.option_selection import (
     constituent_expiry, select_atm_strike, select_common_expiry, select_expiry, standard_chain,
 )
 from src.domain.entities.finance.dispersion.quote_checks import (
-    freshness_problems, option_liquidity_problems, option_quality_problems,
+    BUY, SELL, freshness_problems, option_liquidity_problems, option_quality_problems,
 )
 from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
 
@@ -77,50 +76,55 @@ class TestSizing:
         # one ETF call = 100 ETF shares = 5000 USD: 2500 USD of A (12.5 sh) and of B (100 sh)
         assert raw == pytest.approx({"A": 12.5 / 100, "B": 100 / 100})
 
-    def test_delta_neutral_with_actual_deltas(self):                                 # specification test 3
-        etf = etf_leg(delta=0.52)
-        legs = [stock("A", 0.6, delta=0.55, spot=80.0), stock("B", 0.4, delta=0.40, spot=150.0)]
-        frac = size_fractional(etf, legs)
-        assert abs(frac.relative_net_delta) < 1e-12
-        whole = size_whole_contracts(etf, legs, CONFIG)
-        assert all(float(q).is_integer() and q >= 1 for q in whole.positions.values())
-        assert abs(whole.relative_net_delta) <= CONFIG.delta_tolerance
+    def test_the_etf_holding_5_shares_of_each_stock_needs_5_calls_on_each(self):     # owner's example
+        etf = etf_leg(spot=1000.0)                                         # one ETF share = 5 A + 5 B at 100
+        sizing = replicate(etf, [stock("A", 0.5), stock("B", 0.5)], etf_contracts=1)
+        assert sizing.positions == pytest.approx({"A": 5.0, "B": 5.0})   # 500 shares of each = 5 calls
+        assert sizing.whole_contract_etf_calls == 1
+
+    def test_small_holdings_are_fractions_of_a_contract(self):
+        etf = etf_leg(spot=62.0)
+        sizing = replicate(etf, [stock("XOM", 0.25, spot=166.0), stock("APA", 0.008, spot=44.5)])
+        assert sizing.positions["XOM"] == pytest.approx(100 * 0.25 * 62 / 166 / 100)     # 0.093 contract
+        assert sizing.whole_contract_etf_calls == 90                     # 90 ETF calls -> 1 APA call
 
     def test_different_multipliers(self):                                             # specification test 8
         etf = etf_leg()
-        std = size_fractional(etf, [stock("A", 1.0, multiplier=100)])
-        mini = size_fractional(etf, [stock("A", 1.0, multiplier=10)])
+        std = replicate(etf, [stock("A", 1.0, multiplier=100)])
+        mini = replicate(etf, [stock("A", 1.0, multiplier=10)])
         assert mini.positions["A"] == pytest.approx(10 * std.positions["A"])
-        assert mini.long_dollar_delta == pytest.approx(std.long_dollar_delta) == pytest.approx(std.short_dollar_delta)
+        assert mini.long_dollar_delta == pytest.approx(std.long_dollar_delta)
 
-    def test_whole_contracts_report_when_no_n_fits(self):
-        etf = etf_leg()
-        legs = [stock("A", 0.999, spot=100.0), stock("B", 0.001, spot=100.0)]        # B rounds to 0 below N=5
-        sizing = size_whole_contracts(etf, legs, DispersionScreenConfig(max_etf_contracts=3))
-        assert sizing.zero_positions == ["B"]
+    def test_dollar_delta_is_information_and_may_be_unknown(self):
+        etf = etf_leg(delta=0.52)
+        sizing = replicate(etf, [stock("A", 0.6, delta=0.55, spot=80.0), stock("B", 0.4, delta=0.40, spot=150.0)])
+        assert sizing.relative_net_delta == pytest.approx((0.6 * 0.55 + 0.4 * 0.40) / 0.52 - 1)
+        unknown = replicate(etf, [stock("A", 1.0, delta=None)])
+        assert unknown.long_dollar_delta is None and unknown.relative_net_delta is None
 
 
 class TestPremiumAndPayoff:
 
-    def test_premium_on_executable_prices(self):
+    def test_cost_is_the_etf_bid_minus_the_constituent_asks(self):
         etf = etf_leg(bid=6.0, ask=6.4)
         legs = [stock("A", 0.5, ask=5.0, bid=4.8), stock("B", 0.5, ask=5.5, bid=5.3)]
-        sizing = size_fractional(etf, legs)
-        p = premium(etf, legs, sizing)
+        p = premium(etf, legs, replicate(etf, legs))
         assert p.short_proceeds == pytest.approx(600.0)                      # 1 x 100 x bid
         assert p.long_cost == pytest.approx(0.5 * 100 * 5.0 + 0.5 * 100 * 5.5)
         assert p.net_premium == pytest.approx(600 - 525) and p.net_premium_pct == pytest.approx(75 / 600)
         assert p.transaction_cost == pytest.approx(0.2 * 100 + 0.5 * 100 * 0.1 + 0.5 * 100 * 0.1)
+        one_sided = premium(etf_leg(bid=6.0, ask=None), legs, replicate(etf, legs))
+        assert one_sided.net_premium == pytest.approx(75.0) and one_sided.mid_net_premium is None
 
     def test_etf_bid_below_constituent_cost_is_negative(self):                       # specification test 4
         etf = etf_leg(bid=4.0)
         legs = [stock("A", 0.5, ask=5.0), stock("B", 0.5, ask=5.0)]
-        assert premium(etf, legs, size_fractional(etf, legs)).net_premium < 0
+        assert premium(etf, legs, replicate(etf, legs)).net_premium < 0
 
     def test_basic_convexity(self):                                                  # specification test 1
         etf = etf_leg()
         legs = [stock("A", 0.5), stock("B", 0.5)]
-        sizing = size_fractional(etf, legs)
+        sizing = replicate(etf, legs)
         prices = {"A": 120.0, "B": 80.0}
         etf_price = etf_price_from(etf, legs, prices)
         assert etf_price == pytest.approx(100.0)
@@ -130,17 +134,14 @@ class TestPremiumAndPayoff:
     def test_perfectly_correlated_stocks(self):                                      # specification test 2
         etf = etf_leg()
         legs = [stock("A", 0.3, spot=50.0, strike=50.0), stock("B", 0.7, spot=200.0, strike=200.0)]
-        sizing = size_fractional(etf, legs)
+        sizing = replicate(etf, legs)
         for move in (0.8, 1.0, 1.1, 1.3):
             prices = {"A": 50.0 * move, "B": 200.0 * move}
             pay = payoff_at_maturity(etf, legs, sizing, etf_price_from(etf, legs, prices), prices)
             assert pay.combined == pytest.approx(0.0, abs=1e-9)
 
     def test_diagnostics(self):
-        etf = etf_leg(bid=3.9, ask=4.1, implied_vol=0.18)
         legs = [stock("A", 0.5, bid=4.9, ask=5.1, implied_vol=0.25), stock("B", 0.5, bid=4.9, ask=5.1, implied_vol=0.25)]
-        w = weighted_comparison(etf, legs)
-        assert w.weighted_constituent_call_value == pytest.approx(5.0) and w.dispersion_premium == pytest.approx(-1.0)
         rho = implied_correlation(0.18, legs)
         # 0.18^2 = 2 x 0.25^2 x 0.25^2... : (0.0324 - 0.03125) / (0.0625 - 0.03125)
         assert rho == pytest.approx((0.0324 - 0.03125) / 0.03125)
@@ -156,18 +157,19 @@ class TestQuoteChecks:
         return OptionQuote(spec, q, Greeks(delta=delta), open_interest=oi)
 
     def test_quality(self):
-        assert option_quality_problems(self.option(), self.NOW, CONFIG) == []
-        assert any("two-sided" in p for p in option_quality_problems(self.option(bid=0), self.NOW, CONFIG))
-        assert any("frozen" in p for p in option_quality_problems(self.option(mdt=2), self.NOW, CONFIG))
-        assert any("old" in p for p in option_quality_problems(self.option(age=600), self.NOW, CONFIG))
-        assert any("delta" in p for p in option_quality_problems(self.option(delta=None), self.NOW, CONFIG))
+        assert option_quality_problems(self.option(), self.NOW, CONFIG, SELL) == []
+        assert option_quality_problems(self.option(bid=0), self.NOW, CONFIG, SELL) == ["no bid (bid 0)"]
+        assert option_quality_problems(self.option(bid=0), self.NOW, CONFIG, BUY) == []        # the ask is the price
+        assert option_quality_problems(self.option(ask=None), self.NOW, CONFIG, BUY) == ["no ask (ask None)"]
+        assert option_quality_problems(self.option(delta=None), self.NOW, CONFIG, BUY) == []   # greeks: information
+        assert any("frozen" in p for p in option_quality_problems(self.option(mdt=2), self.NOW, CONFIG, BUY))
+        assert any("old" in p for p in option_quality_problems(self.option(age=600), self.NOW, CONFIG, BUY))
         assert freshness_problems(Quote(), self.NOW, CONFIG) == ["no quote time"]
 
-    def test_illiquid_constituent(self):                                             # specification test 7
-        wide = self.option(bid=1.0, ask=1.3)                                          # 26 % spread
-        assert option_liquidity_problems(wide, CONFIG, is_etf=False)
-        assert option_liquidity_problems(self.option(bid=1.0, ask=1.08), CONFIG, is_etf=True)   # > 5 % for the ETF
-        assert option_liquidity_problems(self.option(bid=1.0, ask=1.08), CONFIG, is_etf=False) == []
+    def test_no_spread_limit_only_the_optional_minimums(self):                       # specification test 7
+        wide = self.option(bid=1.0, ask=3.0)                                          # 100 % spread
+        assert option_liquidity_problems(wide, CONFIG, is_etf=False) == []
+        assert option_liquidity_problems(wide, CONFIG, is_etf=True) == []
         strict = DispersionScreenConfig(min_stock_open_interest=100)
         assert "open interest None < 100" in option_liquidity_problems(self.option(), strict, is_etf=False)
 
@@ -175,7 +177,7 @@ class TestQuoteChecks:
 def test_scenarios_show_the_dispersion_effect():
     etf = etf_leg()
     legs = [stock("A", 0.5), stock("B", 0.3, spot=50.0, strike=50.0), stock("C", 0.2, spot=20.0, strike=20.0)]
-    sizing = size_fractional(etf, legs)
+    sizing = replicate(etf, legs)
     by_name = {s["scenario"]: s for s in scenarios(etf, legs, sizing, net_premium=-100.0)}
     for m in ("-10%", "+0%", "+10%"):
         market, disp = by_name[f"market {m}"], by_name[f"dispersion {m}"]

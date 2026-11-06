@@ -1,8 +1,7 @@
 # ETF dispersion-option screener
 
 Screens US-listed equity ETFs with fewer than 50 constituents for a potential long-dispersion trade: short one ATM
-call on the ETF, long ATM calls on every constituent, weighted by the ETF weights and scaled to dollar-delta
-neutrality. It is a screen for a potential dispersion trade, not an arbitrage. The progress, decisions and plan
+call on the ETF, long ATM calls on every constituent, copying the ETF's holdings. It is a screen for a potential dispersion trade. The progress, decisions and plan
 are in `docs/dispersion_screening_progress.txt`.
 
 ## Layout
@@ -40,7 +39,13 @@ requests quotes only. Do the heavy lookups while the STM trader (same paper gate
 written to `validation.json` and `validation.csv`. It is read-only and never sends an order.
 
 ## Rules
-- Use executable bid/ask prices and whole option contracts. Fractional sizing is a reference only.
+- The strategy is 1 short ATM ETF call against long ATM calls on every constituent, with the same expiry. The long
+  calls copy the ETF's holdings: an ETF share holding 5 shares of A gives 5 A calls per ETF call (100 shares).
+  Positions are fractions of a contract; `whole_contract_etf_calls` shows the size at which every leg is whole.
+- Cost uses the broker's prices as quoted: the ETF call is sold at its bid and every constituent call is bought at its
+  ask. An opportunity is a net premium (ETF proceeds minus constituent cost) of 0 or more (owner, 2026-11-06).
+- The ETF call needs a bid and every constituent call needs an ask. There is no spread limit. Greeks, dollar delta
+  and mids are information only.
 - Never mix stale and current data. Name every exception, such as a different expiry or a missing chain.
 - Downloads are polite: one file at a time, at most one per second, once per ETF per day.
 - Tests: `tests/dispersion/`. They use inline issuer files and in-memory SQLite, and never download anything.

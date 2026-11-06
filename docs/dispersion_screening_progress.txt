@@ -385,6 +385,19 @@ P.11 Paper-trading validation                                           [~] READ
      orders per leg, not the screened prices.
 
 
+OWNER RULES 2026-11-06 (replace the specification's sizing and liquidity rules)
+-----------------------------------------------------------------------------------------
+ [x] Sizing: the long calls copy the ETF's holdings under ONE short ETF call: contracts_i = m_etf * w_i * S_etf /
+     S_i / m_i (fractions of a contract). Owner's example: an ETF share holding 5 shares of each stock -> 5 calls
+     on each per ETF call. Dollar-delta-neutral scaling, whole-contract search (max_etf_contracts,
+     delta_tolerance, require_every_constituent) removed. Shown as information: dollar delta, and
+     whole_contract_etf_calls (ETF calls for the smallest leg to reach one whole contract).
+ [x] Cost: the broker's prices as quoted, summed with those weights: ETF call bid x 100 - sum(contracts_i x 100 x
+     ask_i). Opportunity = net premium >= 0. Mids / transaction cost / greeks are information only.
+ [x] Quotes: the ETF call needs a bid, every constituent call an ask (the other side may be missing). Spread limits
+     (5 % ETF, 10 % constituents) removed; the weighted-comparison diagnostic removed (= the net premium at mids).
+     Ranking: opportunities first, then net premium % of the ETF proceeds, net premium, average spread.
+
 HISTORY
 -------
 2026-11-05  File created. P.01 repository analysis done; decisions D1 – D6 for the owner.

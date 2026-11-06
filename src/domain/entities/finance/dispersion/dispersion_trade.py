@@ -1,24 +1,22 @@
 """
-P.05 – P.06 of the dispersion screen (pure): dollar-delta-neutral sizing of the long constituent calls against the
-short ETF call, the premium comparison on executable prices, diagnostics, and the payoff at maturity.
+P.05 – P.06 of the dispersion screen (pure): the long constituent calls that replicate the ETF's holdings under
+one short ETF call, the strategy's cost on the broker's prices, diagnostics, and the payoff at maturity.
 
-Units. Weights are value weights: one ETF share holds w_i * S_etf / S_i shares of constituent i. Per short ETF call
-contract (m_etf ETF shares) the raw constituent position is m_etf * w_i * S_etf / S_i shares, i.e. that / m_i
-contracts. Neutrality is on DOLLAR delta (contracts * multiplier * delta * underlying price): every leg's delta is
-the option's own (IBKR model) delta, never an assumed 0.5.
+Sizing (owner, 2026-11-06): the long calls copy the ETF's holdings. One short ETF call covers m_etf ETF shares; one
+ETF share holds w_i * S_etf / S_i shares of constituent i (value weights), so the call on those shares is
+    contracts_i = m_etf * w_i * S_etf / S_i / m_i       (per short ETF call; a fraction of a contract)
+e.g. an ETF holding 5 shares of A and 5 of B per share: 5 A calls and 5 B calls per ETF call (100 shares each).
 
-Sizing. Fractional sizing scales the raw positions so the long dollar delta equals the short one exactly (the
-economic reference). Listed options trade in whole contracts, so the executable sizing tries N = 1 ..
-max_etf_contracts short ETF calls, rounds every constituent to whole contracts and keeps the first N whose
-|net dollar delta| / short dollar delta <= delta_tolerance (and, by default, every constituent >= 1 contract).
+Cost (owner, 2026-11-06): the broker's prices as quoted - the ETF call sold at its bid, every constituent call
+bought at its ask - summed with those contract counts; the strategy is an opportunity when the net premium
+(ETF proceeds - constituent cost) is >= 0. Dollar delta, greeks and mids are information only.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
-
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
 
 
 @dataclass(frozen=True)
@@ -28,36 +26,50 @@ class Leg:
     spot: float                      # underlying price
     strike: float
     multiplier: float
-    delta: float                     # option delta (per share)
-    bid: float
-    ask: float
+    bid: Optional[float]             # the ETF leg needs its bid (sold), a constituent leg its ask (bought)
+    ask: Optional[float]
     weight: float = 1.0              # constituent weight in the ETF (normalised); 1 for the ETF leg
+    delta: Optional[float] = None    # IBKR model greeks (information)
     implied_vol: Optional[float] = None
     gamma: Optional[float] = None
     vega: Optional[float] = None
     theta: Optional[float] = None
 
     @property
-    def mid(self) -> float:
+    def mid(self) -> Optional[float]:
+        if self.bid is None or self.ask is None or self.bid <= 0 or self.ask <= 0:
+            return None
         return (self.bid + self.ask) / 2.0
 
-    def dollar_delta(self, contracts: float) -> float:
-        return contracts * self.multiplier * self.delta * self.spot
+    def dollar_delta(self, contracts: float) -> Optional[float]:
+        return None if self.delta is None else contracts * self.multiplier * self.delta * self.spot
 
 
 @dataclass
 class Sizing:
     etf_contracts: float
-    positions: Dict[str, float]                  # constituent -> contracts (long)
-    short_dollar_delta: float                    # positive number: the short ETF call's |dollar delta|
-    long_dollar_delta: float
-    net_dollar_delta: float                      # long - short
-    whole_contracts: bool
-    zero_positions: List[str] = field(default_factory=list)
+    positions: Dict[str, float]                  # constituent -> call contracts (long), replicating the holdings
+    short_dollar_delta: Optional[float]          # positive number: the short ETF calls' |dollar delta|
+    long_dollar_delta: Optional[float]
 
     @property
-    def relative_net_delta(self) -> float:
-        return self.net_dollar_delta / self.short_dollar_delta if self.short_dollar_delta else float("inf")
+    def net_dollar_delta(self) -> Optional[float]:
+        if self.short_dollar_delta is None or self.long_dollar_delta is None:
+            return None
+        return self.long_dollar_delta - self.short_dollar_delta
+
+    @property
+    def relative_net_delta(self) -> Optional[float]:
+        net = self.net_dollar_delta
+        return None if net is None or not self.short_dollar_delta else net / self.short_dollar_delta
+
+    @property
+    def whole_contract_etf_calls(self) -> Optional[int]:
+        """ETF calls needed for the smallest constituent position to reach one whole contract (information)."""
+        smallest = min((q for q in self.positions.values() if q > 0), default=None)
+        if smallest is None:
+            return None
+        return math.ceil(self.etf_contracts / smallest - 1e-9)
 
 
 def raw_positions(etf: Leg, constituents: Sequence[Leg], etf_contracts: float = 1.0) -> Dict[str, float]:
@@ -66,77 +78,38 @@ def raw_positions(etf: Leg, constituents: Sequence[Leg], etf_contracts: float = 
     return {c.symbol: shares_per_contract * c.weight * etf.spot / c.spot / c.multiplier for c in constituents}
 
 
-def size_fractional(etf: Leg, constituents: Sequence[Leg], etf_contracts: float = 1.0) -> Sizing:
-    raw = raw_positions(etf, constituents, etf_contracts)
+def replicate(etf: Leg, constituents: Sequence[Leg], etf_contracts: float = 1.0) -> Sizing:
+    positions = raw_positions(etf, constituents, etf_contracts)
     by_symbol = {c.symbol: c for c in constituents}
-    short = abs(etf.dollar_delta(etf_contracts))
-    basket = sum(by_symbol[s].dollar_delta(q) for s, q in raw.items())
-    if basket <= 0:
-        raise ValueError("the constituent calls have no positive dollar delta")
-    ratio = short / basket
-    positions = {s: q * ratio for s, q in raw.items()}
-    long = sum(by_symbol[s].dollar_delta(q) for s, q in positions.items())
-    return Sizing(etf_contracts, positions, short, long, long - short, whole_contracts=False)
-
-
-def size_whole_contracts(etf: Leg, constituents: Sequence[Leg], config: DispersionScreenConfig) -> Sizing:
-    """First N (1 .. max_etf_contracts) whose rounded basket is delta neutral within tolerance; else the N with the
-    smallest relative net delta (the caller sees it is outside the tolerance)."""
-    by_symbol = {c.symbol: c for c in constituents}
-
-    def rank(z: Sizing):
-        return (not (z.zero_positions and config.require_every_constituent), -abs(z.relative_net_delta))
-
-    best: Optional[Sizing] = None
-    for n in range(1, config.max_etf_contracts + 1):
-        exact = size_fractional(etf, constituents, n)
-        positions = {s: float(round(q)) for s, q in exact.positions.items()}
-        zeros = [s for s, q in positions.items() if q < 1]
-        long = sum(by_symbol[s].dollar_delta(q) for s, q in positions.items())
-        sizing = Sizing(n, positions, exact.short_dollar_delta, long, long - exact.short_dollar_delta,
-                        whole_contracts=True, zero_positions=zeros)
-        usable = not (zeros and config.require_every_constituent)
-        if usable and abs(sizing.relative_net_delta) <= config.delta_tolerance:
-            return sizing
-        if best is None or rank(sizing) > rank(best):
-            best = sizing
-    return best
+    short = etf.dollar_delta(etf_contracts)
+    longs = [by_symbol[s].dollar_delta(q) for s, q in positions.items()]
+    long = None if any(x is None for x in longs) else sum(longs)
+    return Sizing(etf_contracts, positions, abs(short) if short is not None else None, long)
 
 
 @dataclass
 class Premium:
     short_proceeds: float            # ETF calls sold at the bid
     long_cost: float                 # constituent calls bought at the ask
-    net_premium: float               # proceeds - cost
+    net_premium: float               # proceeds - cost: >= 0 is an opportunity
     net_premium_pct: float           # net / proceeds
-    mid_net_premium: float           # same at mids (diagnostic)
-    transaction_cost: float          # half-spread paid on every leg vs mids
+    mid_net_premium: Optional[float]      # the same at mids, when every leg has both sides (information)
+    transaction_cost: Optional[float]     # what the bid / ask costs against mids (information)
 
 
 def premium(etf: Leg, constituents: Sequence[Leg], sizing: Sizing) -> Premium:
     by_symbol = {c.symbol: c for c in constituents}
     proceeds = sizing.etf_contracts * etf.multiplier * etf.bid
     cost = sum(q * by_symbol[s].multiplier * by_symbol[s].ask for s, q in sizing.positions.items())
-    mid_proceeds = sizing.etf_contracts * etf.multiplier * etf.mid
-    mid_cost = sum(q * by_symbol[s].multiplier * by_symbol[s].mid for s, q in sizing.positions.items())
     net = proceeds - cost
-    return Premium(proceeds, cost, net, net / proceeds if proceeds else float("-inf"), mid_proceeds - mid_cost,
-                   (mid_proceeds - proceeds) + (cost - mid_cost))
-
-
-@dataclass
-class WeightedComparison:
-    """Section 9 diagnostic (not a trade test): the ETF call vs the ETF-weighted constituent calls, per ETF share."""
-    etf_call_value: float
-    weighted_constituent_call_value: float
-    dispersion_premium: float        # etf - weighted
-    relative_premium: float          # etf / weighted - 1
-
-
-def weighted_comparison(etf: Leg, constituents: Sequence[Leg]) -> WeightedComparison:
-    weighted = sum(c.weight * etf.spot / c.spot * c.mid for c in constituents)
-    return WeightedComparison(etf.mid, weighted, etf.mid - weighted,
-                              etf.mid / weighted - 1.0 if weighted else float("inf"))
+    mids = [etf.mid] + [by_symbol[s].mid for s in sizing.positions]
+    if any(m is None for m in mids):
+        mid_net = transaction = None
+    else:
+        mid_proceeds = sizing.etf_contracts * etf.multiplier * etf.mid
+        mid_cost = sum(q * by_symbol[s].multiplier * by_symbol[s].mid for s, q in sizing.positions.items())
+        mid_net, transaction = mid_proceeds - mid_cost, (mid_proceeds - proceeds) + (cost - mid_cost)
+    return Premium(proceeds, cost, net, net / proceeds if proceeds else float("-inf"), mid_net, transaction)
 
 
 def implied_correlation(etf_vol: Optional[float], constituents: Sequence[Leg]) -> Optional[float]:

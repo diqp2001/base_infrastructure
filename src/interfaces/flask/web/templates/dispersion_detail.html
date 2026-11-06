@@ -40,15 +40,17 @@
     </div></div></div>
     <div class="col-md-6"><div class="card"><div class="card-header">Trade</div><div class="card-body p-0">
         <table class="table table-sm mb-0 kv">
-            <tr><td>SHORT</td><td>{{ c.etf_contracts }} × {{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} call</td></tr>
-            <tr><td>LONG</td><td>constituent ATM calls (table below)</td></tr>
+            <tr><td>SHORT</td><td>{{ c.etf_contracts }} × {{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} call, sold at the bid</td></tr>
+            <tr><td>LONG</td><td>constituent ATM calls replicating the ETF's holdings, bought at the ask (table below)</td></tr>
+            <tr><td>Whole contracts</td><td>{{ c.whole_contract_etf_calls if c.whole_contract_etf_calls is not none else '' }}
+                ETF calls for the smallest constituent position to reach one whole contract</td></tr>
             <tr><td>Total short dollar delta</td><td>{{ money.format(c.etf_dollar_delta) if c.etf_dollar_delta is not none else '' }}</td></tr>
             <tr><td>Total long dollar delta</td><td>{{ money.format(c.basket_dollar_delta) if c.basket_dollar_delta is not none else '' }}</td></tr>
             <tr><td>Net dollar delta</td><td>{{ money.format(c.net_dollar_delta) if c.net_dollar_delta is not none else '' }}
                 ({{ '%.2f%%'|format((c.net_delta_pct or 0) * 100) }} of the short)</td></tr>
             <tr><td>ETF call proceeds (bid)</td><td>{{ money.format(c.etf_call_proceeds) if c.etf_call_proceeds is not none else '' }}</td></tr>
             <tr><td>Constituent call cost (ask)</td><td>{{ money.format(c.constituent_call_cost) if c.constituent_call_cost is not none else '' }}</td></tr>
-            <tr><td>Net premium</td><td class="{{ 'neg' if (c.net_premium or 0) < 0 else 'pos' }}">
+            <tr><td>Net premium (≥ 0 = opportunity)</td><td class="{{ 'neg' if (c.net_premium or 0) < 0 else 'pos' }}">
                 {{ money.format(c.net_premium) if c.net_premium is not none else '' }}
                 ({{ '%.1f%%'|format((c.net_premium_pct or 0) * 100) }}); at mids {{ money.format(c.mid_net_premium) if c.mid_net_premium is not none else '' }}</td></tr>
             <tr><td>Bid/ask cost vs mids</td><td>{{ money.format(c.transaction_cost) if c.transaction_cost is not none else '' }}</td></tr>
@@ -63,7 +65,7 @@
     <div class="card mt-3"><div class="card-header">Constituents</div><div class="card-body p-0">
     <table class="table table-sm table-hover mb-0">
         <thead><tr><th class="l">Ticker</th><th>Weight</th><th>Price</th><th>Expiry</th><th>Strike</th><th>Call bid</th>
-            <th>Call ask</th><th>Spread</th><th>IV</th><th>Delta</th><th>Contracts</th><th>Dollar delta</th><th>Call cost</th>
+            <th>Call ask</th><th>Spread</th><th>IV</th><th>Delta</th><th>Contracts per ETF call</th><th>Dollar delta</th><th>Call cost</th>
             <th class="l">Status / exceptions</th></tr></thead>
         <tbody>
         {% for r in c.constituent_legs %}
@@ -78,9 +80,9 @@
             <td>{{ '%.1f%%'|format(r.spread_pct * 100) if r.spread_pct is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(r.iv * 100) if r.iv is not none else '' }}</td>
             <td>{{ r.delta if r.delta is not none else '' }}</td>
-            <td>{{ r.contracts if r.contracts is not none else '' }}</td>
+            <td>{{ '%.4f'|format(r.contracts) if r.contracts is not none else '' }}</td>
             <td>{{ '{:,.0f}'.format(r.dollar_delta) if r.dollar_delta is not none else '' }}</td>
-            <td>{{ '{:,.0f}'.format(r.call_cost) if r.call_cost is not none else '' }}</td>
+            <td>{{ '{:,.2f}'.format(r.call_cost) if r.call_cost is not none else '' }}</td>
             <td class="l muted">{{ r.status if r.status != 'ok' else '' }} {{ r.exceptions }} {{ r.liquidity }}</td>
         </tr>
         {% endfor %}

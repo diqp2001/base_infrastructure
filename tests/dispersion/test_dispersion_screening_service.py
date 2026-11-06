@@ -71,8 +71,11 @@ def test_opportunity_when_the_etf_bid_pays_for_the_basket():
     c = screen(market, A=0.5, B=0.5)
     assert c.status == OPPORTUNITY and c.reasons == []
     assert c.expiry == EXPIRY and c.dte == 29 and c.coverage == 1.0
-    assert abs(c.sizing.relative_net_delta) <= 0.01 and all(q >= 1 for q in c.sizing.positions.values())
-    assert c.premium.net_premium >= 0
+    # one ETF call = 100 ETF shares = 50 A shares (1 A call) + 12.5 B shares (0.25 B call): the holdings
+    assert c.sizing.etf_contracts == 1 and c.sizing.positions == pytest.approx({"A": 1.0, "B": 0.25})
+    assert c.premium.short_proceeds == pytest.approx(500.0)                      # 100 x ETF bid 5.00
+    assert c.premium.long_cost == pytest.approx(1.0 * 100 * 1.25 + 0.25 * 100 * 5.0)   # at the asks
+    assert c.premium.net_premium == pytest.approx(250.0) and c.sizing.whole_contract_etf_calls == 4
     a = next(r for r in c.constituents if r.symbol == "A")
     assert a.contracts == c.sizing.positions["A"] and a.call_cost == pytest.approx(a.contracts * 100 * 1.25)
 
@@ -94,12 +97,23 @@ def test_missing_options_below_coverage():                                      
     assert relaxed.coverage == 0.5 and any("renormalised" in r for r in relaxed.reasons)
 
 
-def test_illiquid_constituent_rejects_the_etf():                                    # specification test 7
-    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.0, 1.4, 0.5), "B": (4.8, 5.0, 0.5)})
-    c = screen(market, A=0.5, B=0.5)
-    assert c.status == "rejected" and "illiquid constituent options: A" in c.reasons[0]
-    allowed = screen(market, DispersionScreenConfig(allow_illiquid_constituents=True), A=0.5, B=0.5)
-    assert allowed.status != "rejected" or "illiquid" not in " ".join(allowed.reasons)
+def test_the_etf_call_needs_a_bid_and_every_constituent_call_an_ask():
+    # wide spreads and one-sided quotes on the other side are fine (owner, 2026-11-06)
+    one_sided = FakeMarket(SPOTS, {"ETF": (5.0, None, 0.5), "A": (None, 1.25, 0.5), "B": (1.0, 5.0, 0.5)})
+    c = screen(one_sided, A=0.5, B=0.5)
+    assert c.status == OPPORTUNITY and c.premium.mid_net_premium is None
+    no_bid = screen(FakeMarket(SPOTS, {"ETF": (None, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)}),
+                    A=0.5, B=0.5)
+    assert no_bid.status == "not screenable" and no_bid.reasons == ["ETF call: no bid (bid None)"]
+    no_ask = screen(FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, None, 0.5), "B": (4.8, 5.0, 0.5)}),
+                    A=0.5, B=0.5)
+    assert no_ask.status == "not screenable" and "A: no ask (ask None)" in no_ask.reasons[-1]
+
+
+def test_volume_minimum_rejects_the_etf():                                          # specification test 7
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+    c = screen(market, DispersionScreenConfig(min_stock_option_volume=10), A=0.5, B=0.5)
+    assert c.status == "rejected" and "volume / open interest minimums: A, B" in c.reasons[0]
 
 
 def test_frozen_quotes_are_not_mixed_with_live_ones():
