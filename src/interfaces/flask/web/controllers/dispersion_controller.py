@@ -43,6 +43,22 @@ def _load(day: str, name: str):
         return json.load(f)
 
 
+class _Row(dict):
+    """A results row whose missing fields read as None: a file written before a field existed still renders."""
+
+    def __missing__(self, key):
+        return None
+
+
+def _candidates(day: str) -> List[_Row]:
+    rows = []
+    for c in _load(day, "candidates.json"):
+        row = _Row(c)
+        row["constituent_legs"] = [_Row(leg) for leg in c.get("constituent_legs", [])]
+        rows.append(row)
+    return rows
+
+
 def _manifest(day: str) -> dict:
     try:
         return _load(day, "run_manifest.json")
@@ -56,7 +72,7 @@ def results():
     if day is None:
         return render_template("dispersion_results.html", day=None, dates=[], candidates=[], counts={},
                                manifest={}), 200
-    candidates = _load(day, "candidates.json")
+    candidates = _candidates(day)
     counts = {}
     for c in candidates:
         counts[c["status"]] = counts.get(c["status"], 0) + 1
@@ -73,7 +89,7 @@ def detail(ticker: str):
     day = _selected_date()
     if day is None:
         abort(404)
-    candidate = next((c for c in _load(day, "candidates.json") if c["etf"] == ticker.upper()), None)
+    candidate = next((c for c in _candidates(day) if c["etf"] == ticker.upper()), None)
     if candidate is None:
         abort(404)
     return render_template("dispersion_detail.html", day=day, c=candidate, manifest=_manifest(day))

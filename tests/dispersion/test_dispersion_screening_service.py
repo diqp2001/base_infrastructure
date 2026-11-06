@@ -167,6 +167,18 @@ def test_results_pages(tmp_path, monkeypatch):
     assert client.get("/dispersion/api/candidates").get_json()["candidates"][0]["etf"] == "ETF"
     assert client.get("/dispersion/etf/NOPE").status_code == 404
     assert client.get("/dispersion/?date=../../etc").status_code == 404
+    # a file written before newer fields existed (e.g. the reversed strategy) still renders
+    import json
+    rows = json.loads((tmp_path / "2026-11-05" / "candidates.json").read_text(encoding="utf-8"))
+    for row in rows:
+        for key in [k for k in row if k.startswith(("reverse_", "implied_correlation_etf_"))]:
+            del row[key]
+        for leg in row["constituent_legs"]:
+            leg.pop("bid_iv"), leg.pop("ask_iv")
+    (tmp_path / "2026-11-04").mkdir()
+    (tmp_path / "2026-11-04" / "candidates.json").write_text(json.dumps(rows), encoding="utf-8")
+    assert client.get("/dispersion/?date=2026-11-04").status_code == 200
+    assert client.get("/dispersion/etf/ETF?date=2026-11-04").status_code == 200
 
 
 def test_the_expiry_is_the_one_the_constituents_list():
