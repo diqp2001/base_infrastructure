@@ -14,6 +14,7 @@ Market data comes through OptionMarketDataPort only; nothing here knows IBKR.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -40,6 +41,7 @@ logger = logging.getLogger(__name__)
 OPPORTUNITY = "opportunity"
 DATA_UNAVAILABLE = "data unavailable"          # the source did not answer: no verdict on the ETF
 MAX_CONSECUTIVE_UNAVAILABLE = 3               # then the source is down: the screen stops asking
+NOT_CHECKED = "not checked"                    # the coverage rule had already failed: no broker request
 SHARE_TYPES = {"COMMON", "ADR", "REIT", "ETF", "MLP", "NY REG SHRS", "GDR", "TRACKING STK", "ROYALTY TRST", ""}
 
 
@@ -186,32 +188,31 @@ class DispersionScreeningService:
         cfg = self.config
         c = Candidate(ticker, name, "not screenable", holdings_as_of=weights.as_of, holdings_source=weights.source,
                       screened_at=self.now())
-        resolved = self._resolve([ticker] + list(weights.weights), screening_date)
-        etf_u = resolved[ticker]
+        # the ETF and its options first: no constituent lookup for an ETF without options
+        etf_u = self._resolve([ticker], screening_date)[ticker]
         if etf_u is None:
             c.reasons.append("ETF not found as a US-listed share at the broker")
             return c
-        results = {s: ConstituentResult(s, w, "ok") for s, w in weights.weights.items()}
-        for s, r in results.items():
-            u = resolved[s]
-            if u is None:
-                r.status = "not a US-listed share at the broker"
-            elif (u.stock_type or "").upper() not in SHARE_TYPES:
-                r.status = f"not a share ({u.stock_type})"
-        c.constituents = list(results.values())
-        if not self._coverage_possible(c):
-            return c
-
-        # ETF leg
         etf_chain, notes = self._chain(etf_u, screening_date)
         if etf_chain is None:
             c.reasons.append("the ETF has no listed options")
             return c
+        c.constituents = [ConstituentResult(s, w, "ok") for s, w in weights.weights.items()]
+        # constituents one at a time; the lookups stop once the coverage rule can no longer be met
+        resolved: Dict[str, Underlying] = {}
+        for r in self._checking(c):
+            u = self._resolve([r.symbol], screening_date)[r.symbol]
+            if u is None:
+                r.status = "not a US-listed share at the broker"
+            elif (u.stock_type or "").upper() not in SHARE_TYPES:
+                r.status = f"not a share ({u.stock_type})"
+            else:
+                resolved[r.symbol] = u
+        if not self._coverage_possible(c):
+            return c
         # constituent chains, then the expiry most of them share with the ETF
         chains: Dict[str, OptionChain] = {}
-        for r in c.constituents:
-            if r.status != "ok":
-                continue
+        for r in self._checking(c):
             chain, chain_notes = self._chain(resolved[r.symbol], screening_date)
             r.exceptions += [n for n in chain_notes if n != "no listed options"]
             if chain is None:
@@ -256,9 +257,7 @@ class DispersionScreeningService:
             return c
         specs = {ticker: OptionContractSpec(ticker, c.expiry, etf_strike, "C", etf_chain.multiplier,
                                             etf_chain.trading_class)}
-        for r in c.constituents:
-            if r.status != "ok":
-                continue
+        for r in self._checking(c):
             q: Optional[UnderlyingQuote] = spots.get(r.symbol)
             problems = freshness_problems(q.quote, self.now(), cfg) if q and q.price else ["no price"]
             if problems:
@@ -309,13 +308,32 @@ class DispersionScreeningService:
         self._price_trade(c, etf_chain)
         return c
 
+    def _allowed_unusable(self, c: Candidate) -> int:
+        return math.floor(len(c.constituents) * (1.0 - self.config.min_option_coverage) + 1e-9)
+
+    def _checking(self, c: Candidate):
+        """The usable constituents, one at a time, until more are unusable than MIN_OPTION_COVERAGE allows: the
+        rest are marked NOT_CHECKED and get no broker request (at 100 % the first unusable one ends the ETF)."""
+        for i, r in enumerate(c.constituents):
+            if sum(1 for x in c.constituents if x.status not in ("ok", NOT_CHECKED)) > self._allowed_unusable(c):
+                for rest in c.constituents[i:]:
+                    if rest.status == "ok":
+                        rest.status = NOT_CHECKED
+                return
+            if r.status == "ok":
+                yield r
+
     def _coverage_possible(self, c: Candidate) -> bool:
         usable = [r for r in c.constituents if r.status == "ok"]
         c.coverage = len(usable) / len(c.constituents) if c.constituents else 0.0
         c.weight_coverage = sum(r.weight for r in usable)
         if c.coverage < self.config.min_option_coverage:
-            c.reasons.append(f"option coverage {c.coverage:.0%} < {self.config.min_option_coverage:.0%} "
-                             f"({len(c.constituents) - len(usable)} of {len(c.constituents)} constituents unusable)")
+            unusable = [r for r in c.constituents if r.status not in ("ok", NOT_CHECKED)]
+            unchecked = sum(1 for r in c.constituents if r.status == NOT_CHECKED)
+            first = "; ".join(f"{r.symbol}: {r.status}" for r in unusable[:3])
+            c.reasons.append(f"option coverage below {self.config.min_option_coverage:.0%}: {len(unusable)} of "
+                             f"{len(c.constituents)} constituents unusable ({first})"
+                             + (f", {unchecked} not checked" if unchecked else ""))
             return False
         return True
 

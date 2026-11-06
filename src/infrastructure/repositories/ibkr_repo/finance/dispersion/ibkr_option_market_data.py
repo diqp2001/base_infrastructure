@@ -98,7 +98,8 @@ class IBKROptionMarketData(OptionMarketDataPort):
 
     def __init__(self, client, today: Callable[[], date] = date.today, max_lines: int = 40,
                  timeout_seconds: float = 12.0, lookup_timeout_seconds: float = 15.0,
-                 first_req_id: int = 700_000, market_data_type: int = FROZEN, poll_seconds: float = 0.1):
+                 first_req_id: int = 700_000, market_data_type: int = FROZEN, poll_seconds: float = 0.1,
+                 pause_seconds: float = 0.2):
         self.client = client
         self._today = today
         self.max_lines = max_lines
@@ -106,6 +107,8 @@ class IBKROptionMarketData(OptionMarketDataPort):
         self.lookup_timeout_seconds = lookup_timeout_seconds
         self._next_req_id = first_req_id
         self.poll_seconds = poll_seconds
+        self.pause_seconds = pause_seconds        # between two lookups / quote batches: a gentle pace for a shared gateway
+        self._last_request = 0.0
         self.market_data_type = market_data_type
         self._type_requested = False
 
@@ -127,6 +130,12 @@ class IBKROptionMarketData(OptionMarketDataPort):
             time.sleep(self.poll_seconds)
         return done()
 
+    def _pace(self) -> None:
+        wait = self._last_request + self.pause_seconds - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        self._last_request = time.monotonic()
+
     def _await_lookup(self, req: int, done: set, what: str) -> None:
         """A lookup ends with its End callback or an error; neither within the timeout = the gateway did not answer
         (raised, so a silent gateway never turns into "not found")."""
@@ -147,6 +156,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
             contract = Contract()
             contract.symbol, contract.secType, contract.exchange, contract.currency = ib_symbol(symbol), "STK", "SMART", "USD"
             req = self._req_id()
+            self._pace()
             self.client.request_contract_details(req, contract)
             self._await_lookup(req, self.client.contract_details_done, f"{symbol} contract details")
             details = [d for d in self.client.contract_details.get(req, []) if d.get('currency') == "USD"]
@@ -165,6 +175,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
     def option_chains(self, underlying: Underlying, screening_date: date) -> List[OptionChain]:
         self._check_date(screening_date)
         req = self._req_id()
+        self._pace()
         self.client.request_option_chain(req, ib_symbol(underlying.symbol), underlying.sec_type, underlying.con_id)
         self._await_lookup(req, self.client.option_chains_done, f"{underlying.symbol} option chain")
         chains = []
@@ -190,6 +201,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
         c.lastTradeDateOrContractMonth, c.right = expiry.strftime("%Y%m%d"), right
         c.tradingClass, c.multiplier = chain.trading_class, f"{chain.multiplier:g}"
         req = self._req_id()
+        self._pace()
         self.client.request_contract_details(req, c)
         self._await_lookup(req, self.client.contract_details_done, f"{chain.underlying} {expiry} strikes")
         return tuple(sorted({float(d['strike']) for d in self.client.contract_details.pop(req, [])
@@ -243,6 +255,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
         items = list(items)
         out: Dict[str, tuple] = {}
         for start in range(0, len(items), self.max_lines):
+            self._pace()
             batch = [(key, contract, self._req_id()) for key, contract in items[start:start + self.max_lines]]
             for key, contract, req in batch:
                 self.client.request_market_data(req, contract, snapshot=False, generic_tick_list=generic_ticks)

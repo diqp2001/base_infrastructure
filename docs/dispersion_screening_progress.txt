@@ -319,7 +319,15 @@ P.07 Screening and ranking                                              [x] DONE
      later run of the same date reuses them and asks the broker for quotes only. Why: the paper gateway is shared
      with the STM trader (10-minute bars 09:20 - 16:00) and the full screen stalled it on 2026-11-05; the heavy
      lookups run while the trader is idle, the market-hours run streams quotes only.
- [ ] A screen in market hours (live quotes), 2026-11-06 10:00 ET: the first real result.
+ [x] 2026-11-06 lookup run (frozen quotes): it started at 08:35, not 00:30, because the PC was in standby and that
+     suspends WSL / Docker. The gateway froze about 25 minutes in (QTOP); the 32 remaining ETFs were "data
+     unavailable". It cost the STM trader its morning; the owner then stopped STM (flattened, killed) until the
+     screener is finished.
+ [x] Load cut: the ETF and its option chain are checked first; constituents are looked up one at a time and the
+     lookups stop as soon as MIN_OPTION_COVERAGE can no longer be met (at 100 %: the first unusable constituent;
+     the rest are "not checked", no request). A 0.2 s pause between lookups / quote batches (DISPERSION_IBKR_PAUSE_
+     SECONDS).
+ [ ] A screen in market hours (live quotes): the first real result.
  [ ] Snapshots into Universe / UniverseConstituent (constituents resolved to CompanyShare on IBKR): not done.
 
 P.08 Results UI/API                                                     [x] DONE 2026-11-05

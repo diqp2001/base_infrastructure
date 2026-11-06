@@ -54,6 +54,8 @@ CONFIG: Dict[str, Any] = {
         'client_id': int(os.getenv('DISPERSION_IBKR_CLIENT_ID', '77')),
         'max_lines': int(os.getenv('DISPERSION_IBKR_MAX_LINES', '40')),   # the trader on the same login needs ~30
         'timeout_seconds': 12.0,
+        # pause between two lookups / quote batches: the full screen froze the shared paper gateway (2026-11-05/06)
+        'pause_seconds': float(os.getenv('DISPERSION_IBKR_PAUSE_SECONDS', '0.2')),
     },
     # P.11 read-only paper validation: the best priced candidates' legs quoted again this many seconds after the
     # screen (would the screened prices still fill?). No orders (owner, 2026-11-06). Unset = no validation.

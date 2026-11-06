@@ -65,7 +65,8 @@ class EtfDispersionScreenerProjectManager(ProjectManager):
             raise ConnectionError(f"IBKR {ib['host']}:{ib['port']} not available")
         time.sleep(2)
         self.market_data = IBKROptionMarketData(self._client, max_lines=int(ib.get('max_lines', 40)),
-                                                timeout_seconds=float(ib.get('timeout_seconds', 12.0)))
+                                                timeout_seconds=float(ib.get('timeout_seconds', 12.0)),
+                                                pause_seconds=float(ib.get('pause_seconds', 0.2)))
         return self.market_data
 
     def _validate(self, market_data, candidates: List[Candidate], screening_date: date, out_dir: str) -> None:

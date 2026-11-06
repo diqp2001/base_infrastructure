@@ -87,7 +87,8 @@ def test_missing_options_below_coverage():                                      
     market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)},
                         no_options=["B"])
     c = screen(market, A=0.5, B=0.5)
-    assert c.status == "not screenable" and "option coverage 50% < 100%" in c.reasons[-1]
+    assert c.status == "not screenable" and c.reasons[-1] == ("option coverage below 100%: 1 of 2 constituents "
+                                                             "unusable (B: no listed options)")
     assert next(r for r in c.constituents if r.symbol == "B").status == "no listed options"
     relaxed = screen(market, DispersionScreenConfig(min_option_coverage=0.5), A=0.5, B=0.5)
     assert relaxed.coverage == 0.5 and any("renormalised" in r for r in relaxed.reasons)
@@ -221,3 +222,21 @@ def test_lookups_are_reused_so_a_second_run_asks_for_quotes_only():
     assert second.import_lookups(saved, DAY) and not second.import_lookups(saved, DAY + timedelta(days=1))
     b = second.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY)[0]
     assert Counting.lookups == 0 and b.status == a.status == OPPORTUNITY and b.expiry == a.expiry
+
+
+def test_lookups_stop_at_the_first_unusable_constituent():
+    asked = []
+
+    class Recording(FakeMarket):
+        def resolve_underlyings(self, symbols, screening_date):
+            asked.extend(symbols)
+            return super().resolve_underlyings(symbols, screening_date)
+    spots = {"ETF": 100.0, **{s: 50.0 for s in "ABCDE"}}
+    market = Recording(spots, {s: (1.2, 1.25, 0.5) for s in spots}, missing=["B"])
+    c = screen(market, A=0.2, B=0.2, C=0.2, D=0.2, E=0.2)
+    assert asked == ["ETF", "A", "B"]                              # C, D, E never sent to the broker
+    assert [r.status for r in c.constituents][2:] == ["not checked"] * 3
+    assert "3 not checked" in c.reasons[-1]
+    asked.clear()
+    relaxed = screen(market, DispersionScreenConfig(min_option_coverage=0.8), A=0.2, B=0.2, C=0.2, D=0.2, E=0.2)
+    assert asked == ["ETF", "A", "B", "C", "D", "E"] and relaxed.coverage == 0.8   # 1 of 5 allowed at 80 %
