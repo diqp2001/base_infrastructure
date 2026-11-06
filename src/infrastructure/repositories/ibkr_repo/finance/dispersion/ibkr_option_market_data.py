@@ -99,7 +99,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
     def __init__(self, client, today: Callable[[], date] = date.today, max_lines: int = 40,
                  timeout_seconds: float = 12.0, lookup_timeout_seconds: float = 15.0,
                  first_req_id: int = 700_000, market_data_type: int = FROZEN, poll_seconds: float = 0.1,
-                 pause_seconds: float = 0.2):
+                 pause_seconds: float = 0.2, message_seconds: float = 0.04):
         self.client = client
         self._today = today
         self.max_lines = max_lines
@@ -109,6 +109,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
         self.poll_seconds = poll_seconds
         self.pause_seconds = pause_seconds        # between two lookups / quote batches: a gentle pace for a shared gateway
         self._last_request = 0.0
+        self.message_seconds = message_seconds    # between two subscribe / cancel messages: IBKR allows ~50 per s
         self.market_data_type = market_data_type
         self._type_requested = False
 
@@ -259,6 +260,7 @@ class IBKROptionMarketData(OptionMarketDataPort):
             batch = [(key, contract, self._req_id()) for key, contract in items[start:start + self.max_lines]]
             for key, contract, req in batch:
                 self.client.request_market_data(req, contract, snapshot=False, generic_tick_list=generic_ticks)
+                time.sleep(self.message_seconds)
 
             def finished():
                 return all(complete(self.client.market_data.get(req, {})) or req in self.client.market_data_errors
@@ -273,4 +275,5 @@ class IBKROptionMarketData(OptionMarketDataPort):
                     self.client.cancel_market_data(req)
                 except Exception as e:
                     logger.debug("cancel %s failed: %s", req, e)
+                time.sleep(self.message_seconds)
         return out

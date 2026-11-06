@@ -240,3 +240,25 @@ def test_lookups_stop_at_the_first_unusable_constituent():
     asked.clear()
     relaxed = screen(market, DispersionScreenConfig(min_option_coverage=0.8), A=0.2, B=0.2, C=0.2, D=0.2, E=0.2)
     assert asked == ["ETF", "A", "B", "C", "D", "E"] and relaxed.coverage == 0.8   # 1 of 5 allowed at 80 %
+
+
+def test_price_age_is_judged_when_the_quotes_arrive_not_after_the_lookups():
+    clock = iter(NOW + timedelta(seconds=40 * i) for i in range(1000))     # 40 s pass between two reads of the clock
+    market = FakeMarket(SPOTS, {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)})
+
+    class LateQuotes(FakeMarket):                                          # quotes stamped as they are served
+        def underlying_quotes(self, underlyings, screening_date):
+            t = next(clock)
+            return {u.symbol: UnderlyingQuote(u, Quote(bid=self.spots[u.symbol] - 0.01,
+                                                       ask=self.spots[u.symbol] + 0.01, quote_time=t,
+                                                       market_data_type=1)) for u in underlyings}
+
+        def option_quotes(self, contracts, screening_date):
+            t = next(clock)
+            out = super().option_quotes(contracts, screening_date)
+            return {k: OptionQuote(q.contract, Quote(bid=q.quote.bid, ask=q.quote.ask, quote_time=t,
+                                                     market_data_type=1), q.greeks) for k, q in out.items()}
+    late = LateQuotes(market.spots, market.options)
+    service = DispersionScreeningService(late, DispersionScreenConfig(), now=lambda: next(clock))
+    c = service.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY)[0]
+    assert c.status == OPPORTUNITY, c.reasons

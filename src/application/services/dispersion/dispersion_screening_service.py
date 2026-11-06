@@ -242,11 +242,12 @@ class DispersionScreeningService:
         # underlying quotes -> ATM strikes
         legs_u = [etf_u] + [resolved[r.symbol] for r in c.constituents if r.status == "ok"]
         spots = self.md.underlying_quotes(legs_u, screening_date)
+        quoted_at = self.now()                     # prices are judged as of their arrival, not after the lookups below
         etf_quote = spots.get(ticker)
         if etf_quote is None or etf_quote.price is None:
             c.reasons.append("no ETF price")
             return c
-        stale = freshness_problems(etf_quote.quote, self.now(), cfg)
+        stale = freshness_problems(etf_quote.quote, quoted_at, cfg)
         if stale:
             c.reasons.append("ETF price: " + "; ".join(stale))
             return c
@@ -257,13 +258,18 @@ class DispersionScreeningService:
             return c
         specs = {ticker: OptionContractSpec(ticker, c.expiry, etf_strike, "C", etf_chain.multiplier,
                                             etf_chain.trading_class)}
-        for r in self._checking(c):
+        for r in c.constituents:
+            if r.status != "ok":
+                continue
             q: Optional[UnderlyingQuote] = spots.get(r.symbol)
-            problems = freshness_problems(q.quote, self.now(), cfg) if q and q.price else ["no price"]
+            problems = freshness_problems(q.quote, quoted_at, cfg) if q and q.price else ["no price"]
             if problems:
                 r.status = "price: " + "; ".join(problems)
-                continue
-            r.spot = q.price
+            else:
+                r.spot = q.price
+        if not self._coverage_possible(c):
+            return c
+        for r in self._checking(c):
             r.strike = select_atm_strike(self._listed_strikes(chains[r.symbol], r.expiry, screening_date), r.spot)
             if r.strike is None:
                 r.status = f"no call listed for {r.expiry}"
@@ -275,12 +281,13 @@ class DispersionScreeningService:
 
         # option quotes
         quotes = self.md.option_quotes(list(specs.values()), screening_date)
+        options_at = self.now()
         etf_option = quotes.get(specs[ticker].key)
         if etf_option is None:
             c.reasons.append("no ETF option quote")
             return c
         c.etf_option = etf_option
-        problems = option_quality_problems(etf_option, self.now(), cfg)
+        problems = option_quality_problems(etf_option, options_at, cfg)
         problems += option_liquidity_problems(etf_option, cfg, is_etf=True)
         if problems:
             c.reasons.append("ETF call: " + "; ".join(problems))
@@ -293,7 +300,7 @@ class DispersionScreeningService:
             if r.option is None:
                 r.status = "no option quote"
                 continue
-            quality = option_quality_problems(r.option, self.now(), cfg)
+            quality = option_quality_problems(r.option, options_at, cfg)
             if quality:
                 r.status = "; ".join(quality)
                 continue
