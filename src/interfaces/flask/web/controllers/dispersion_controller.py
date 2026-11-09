@@ -22,12 +22,14 @@ from flask import Blueprint, abort, jsonify, redirect, render_template, request,
 
 from src.application.managers.project_managers.etf_dispersion_screener_project import config as project_config
 from src.application.managers.project_managers.etf_dispersion_screener_project.config import RESULTS_DIR
+from src.application.managers.project_managers.etf_dispersion_screener_project import puts as put_job
 from src.application.managers.project_managers.etf_dispersion_screener_project import realized_history
 from src.application.managers.project_managers.etf_dispersion_screener_project.maturities import (
     maturities_dir, read_status, write_status,
 )
 
 MATURITIES_MODULE = "src.application.managers.project_managers.etf_dispersion_screener_project.maturities"
+PUTS_MODULE = "src.application.managers.project_managers.etf_dispersion_screener_project.puts"
 HISTORY_MODULE = "src.application.managers.project_managers.etf_dispersion_screener_project.realized_history"
 JOB_STALE_SECONDS = 30 * 60          # a job still "running" after this is considered dead (the button works again)
 
@@ -123,7 +125,21 @@ def detail(ticker: str):
     return render_template("dispersion_detail.html", day=day, c=candidate, manifest=_manifest(day),
                            history=history, hstats=_Row((history or {}).get("stats") or {}), chart=chart,
                            replication_chart=replication_chart,
-                           ticket=order_ticket(candidate, request.args.get("calls", type=int)))
+                           ticket=order_ticket(candidate, request.args.get("calls", type=int)),
+                           **_put_context(day, ticker.upper()))
+
+
+def _put_context(day: str, ticker: str) -> dict:
+    """The put version of the trade (puts/<TICKER>.json, written by the put job) and its job status."""
+    try:
+        result = _load(day, os.path.join("puts", f"{ticker}.json"))
+        trade = _Row(result["trade"], constituent_legs=[_Row(x) for x in result["trade"].get("constituent_legs", [])])
+    except (OSError, ValueError, KeyError):
+        result, trade = None, None
+    status = put_job.read_status(RESULTS_DIR, day, ticker)
+    return {"puts": result, "put": trade, "put_status": status, "put_running": _job_active(status),
+            "put_ticket": order_ticket(trade, request.args.get("puts", type=int)) if trade else None,
+            "busy": _any_job_active(day)}
 
 
 @dispersion_bp.route("/api/candidates")
@@ -152,14 +168,15 @@ def _any_job_active(day: str) -> Optional[str]:
     """The job running for this date (one at a time: the gateway is shared): a maturities ETF or '6M history'."""
     if _job_active(realized_history.read_status(RESULTS_DIR, day)):
         return "6M history"
-    folder = maturities_dir(RESULTS_DIR, day)
-    if not os.path.isdir(folder):
-        return None
-    for name in os.listdir(folder):
-        if name.endswith(".status.json"):
-            ticker = name[: -len(".status.json")]
-            if _job_active(read_status(RESULTS_DIR, day, ticker)):
-                return ticker
+    for folder, read, label in ((maturities_dir(RESULTS_DIR, day), read_status, "{} maturities"),
+                                (put_job.puts_dir(RESULTS_DIR, day), put_job.read_status, "{} puts")):
+        if not os.path.isdir(folder):
+            continue
+        for name in os.listdir(folder):
+            if name.endswith(".status.json"):
+                ticker = name[: -len(".status.json")]
+                if _job_active(read(RESULTS_DIR, day, ticker)):
+                    return label.format(ticker)
     return None
 
 
@@ -198,6 +215,20 @@ def maturities(ticker: str):
     status = read_status(RESULTS_DIR, day, ticker)
     return render_template("dispersion_maturities.html", day=day, ticker=ticker, result=result, status=status,
                            running=_job_active(status), busy=_any_job_active(day))
+
+
+@dispersion_bp.route("/etf/<ticker>/puts/run", methods=["POST"])
+def run_puts(ticker: str):
+    day = request.form.get("date", "")
+    if not DATE.match(day) or day not in _dates():
+        abort(404)
+    ticker = ticker.upper()
+    if not any(c["etf"] == ticker for c in _candidates(day)):
+        abort(404)
+    if _any_job_active(day) is None:             # one job at a time: the gateway is shared
+        put_job.write_status(RESULTS_DIR, day, ticker, "starting")
+        _launch(os.path.join(put_job.puts_dir(RESULTS_DIR, day), f"{ticker}.log"), PUTS_MODULE, ticker, day)
+    return redirect(url_for("dispersion.detail", ticker=ticker, date=day) + "#puts")
 
 
 @dispersion_bp.route("/etf/<ticker>/maturities/run", methods=["POST"])

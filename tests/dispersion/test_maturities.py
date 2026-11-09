@@ -117,3 +117,63 @@ def test_the_order_ticket_rounds_to_whole_contracts_and_totals_at_the_ask():
     assert order_ticket(c, 10)["legs"][1]["buy"] == 6                            # the owner's own ETF call count
     c["constituent_legs"][1]["call_ask"] = None
     assert order_ticket(c)["cost"] is None and order_ticket(c)["missing"] == ["B"]   # never a silent zero
+
+
+class PutMarket(FakeMarket):
+    """FakeMarket recording the option rights it is asked for."""
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.rights = set()
+
+    def listed_strikes(self, chain, expiry, right, screening_date):
+        self.rights.add(right)
+        return super().listed_strikes(chain, expiry, right, screening_date)
+
+    def option_quotes(self, contracts, screening_date):
+        self.rights.update(c.right for c in contracts)
+        return super().option_quotes(contracts, screening_date)
+
+
+def test_the_put_trade_prices_puts_with_the_same_rule_and_the_screen_stays_on_calls():
+    from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
+    puts, calls = PutMarket(SPOTS, QUOTES), PutMarket(SPOTS, QUOTES)
+    p = DispersionScreeningService(puts, DispersionScreenConfig(), now=lambda: NOW, right="P").screen_etf(
+        "ETF", "x", weights(A=0.5, B=0.5), DAY, expiry=EXPIRY)
+    c = DispersionScreeningService(calls, DispersionScreenConfig(), now=lambda: NOW).screen_etf(
+        "ETF", "x", weights(A=0.5, B=0.5), DAY, expiry=EXPIRY)
+    assert puts.rights == {"P"} and calls.rights == {"C"}                       # default unchanged: calls
+    assert p.premium.net_premium == pytest.approx(c.premium.net_premium)        # same quotes -> same arithmetic
+
+
+def test_the_put_job_and_the_etf_page(tmp_path, monkeypatch):
+    from flask import Flask
+    from src.application.managers.project_managers.etf_dispersion_screener_project import puts
+    from src.application.managers.project_managers.etf_dispersion_screener_project.project_manager import (
+        write_candidates,
+    )
+    from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
+    from src.interfaces.flask.web.controllers import dispersion_controller
+    results = _results_dir(tmp_path)
+    day = DAY.isoformat()
+    service = DispersionScreeningService(FakeMarket(SPOTS, QUOTES), DispersionScreenConfig(), now=lambda: NOW)
+    write_candidates(str(tmp_path / day), service.screen([("ETF", "Test ETF", weights(A=0.5, B=0.5))], DAY))
+    monkeypatch.setattr(dispersion_controller, "RESULTS_DIR", results)
+    launched = []
+    monkeypatch.setattr(dispersion_controller, "_launch", lambda log, module, *args: launched.append((module, args)))
+    app = Flask(__name__, template_folder="../../src/interfaces/flask/web/templates")
+    app.register_blueprint(dispersion_controller.dispersion_bp)
+    client = app.test_client()
+    assert b"Not priced yet" in client.get(f"/dispersion/etf/ETF?date={day}").data
+    assert client.post("/dispersion/etf/ETF/puts/run", data={"date": day}).status_code == 302
+    client.post("/dispersion/etf/ETF/puts/run", data={"date": day})                      # starting: no 2nd job
+    assert launched == [(dispersion_controller.PUTS_MODULE, ("ETF", day))]
+    in_hours = datetime(2026, 11, 5, 15, 0, tzinfo=timezone.utc)
+    market = PutMarket(SPOTS, QUOTES)
+    result = puts.run("ETF", day, market_data=market, config={"results_dir": results}, now=lambda: in_hours)
+    assert market.rights == {"P"} and result["trade"]["expiry"] == str(EXPIRY) and result["trade"]["complete"]
+    assert puts.read_status(results, day, "ETF")["state"] == "done"
+    page = client.get(f"/dispersion/etf/ETF?date={day}&puts=3").data
+    assert b"short 3 ETF puts, long the constituent puts" in page and b"Total constituent puts" in page
+    assert b"Order ticket in whole contracts: short" in page and b"long the constituent calls" in page   # calls kept
+    assert puts._put_words("ETF call bid below the constituent calls' ask cost") == \
+        "ETF put bid below the constituent puts' ask cost"

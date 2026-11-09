@@ -451,3 +451,5 @@ HISTORY
 2026-11-06  6-month realized payoff history (owner spec): realized-prices layer, job, 5 columns + ETF chart;
             first run 34 / 74 ETFs.
 2026-11-09  Call-payoff replication analysis (owner spec); recomputed offline, 32 / 74 ETFs.
+2026-11-09  ETF page: order ticket in whole contracts; put strategy (short ATM ETF put, long ATM constituent puts,
+            same weights / expiry / bid-ask rule) priced by a read-only job (puts.py, client id 81).

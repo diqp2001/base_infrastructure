@@ -33,6 +33,46 @@
 <body>
 <div class="container py-4">
     {% set money = '{:,.2f}' %}
+{% macro ticket_card(t, c, right, param, other_param, other_value) %}
+    {% set word = 'call' if right == 'C' else 'put' %}{% set money = '{:,.2f}' %}
+    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
+        <span>Order ticket in whole contracts: short {{ t.etf_calls }} {{ c.etf }} {{ word }}s, long the constituent {{ word }}s</span>
+        <form method="get" class="no-print d-flex align-items-center gap-1 small">
+            <input type="hidden" name="date" value="{{ day }}">
+            {% if other_value %}<input type="hidden" name="{{ other_param }}" value="{{ other_value }}">{% endif %}
+            <label for="{{ param }}">{{ c.etf }} {{ word }}s</label>
+            <input id="{{ param }}" name="{{ param }}" type="number" min="1" step="1" value="{{ t.etf_calls }}" style="width: 5rem">
+            <button class="btn btn-sm btn-outline-secondary">Recalculate</button>
+        </form></div>
+    <div class="card-body p-0">
+    <div class="muted small p-2">Quotes of {{ c.etf_quote_time }}. {{ t.default_calls }} {{ c.etf }} {{ word }}s is the fewest that
+        gives every constituent at least one whole contract; quantities are rounded to the nearest contract (the exact
+        replication is in "Exact"). Price = the ask per share; one contract = 100 shares, so contract price = ask &times; 100.</div>
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr><th class="l">Side</th><th class="l">Option</th><th>Weight</th><th>Exact</th><th>Contracts</th>
+            <th>Price (per share)</th><th>Price per contract</th><th>Total</th></tr></thead>
+        <tbody>
+        <tr><td class="l">SELL</td><td class="l">{{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} {{ word }} (bid)</td><td></td><td></td>
+            <td><b>{{ t.etf_calls }}</b></td><td>{{ '%.2f'|format(t.etf_bid) }}</td>
+            <td>{{ money.format(t.etf_contract_price) }}</td><td class="pos">+{{ money.format(t.proceeds) }}</td></tr>
+        {% for x in t.legs %}
+        <tr><td class="l">BUY</td><td class="l">{{ x.ticker }} {{ x.expiry or '' }} {{ x.strike if x.strike is not none else '' }} {{ word }} (ask)</td>
+            <td>{{ '%.2f%%'|format(x.weight * 100) if x.weight is not none else '' }}</td>
+            <td class="muted">{{ '%.2f'|format(x.exact) }}</td><td><b>{{ x.buy }}</b></td>
+            <td>{{ '%.2f'|format(x.ask) if x.ask is not none else 'no ask' }}</td>
+            <td>{{ money.format(x.contract_price) if x.contract_price is not none else '' }}</td>
+            <td class="neg">{{ ('-' ~ money.format(x.total)) if x.total else ('0' if x.total == 0 else '') }}</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr><td class="l" colspan="4"><b>Total constituent {{ word }}s</b> ({{ t.contracts }} contracts)</td><td></td><td></td><td></td>
+            <td class="neg"><b>{{ ('-' ~ money.format(t.cost)) if t.cost is not none else 'missing asks: ' ~ t.missing|join(', ') }}</b></td></tr>
+        <tr><td class="l" colspan="7"><b>Net premium</b> (ETF {{ word }}s sold &minus; constituent {{ word }}s bought; &ge; 0 = opportunity)</td>
+            <td class="{{ 'neg' if (t.net or 0) < 0 else 'pos' }}"><b>{{ money.format(t.net) if t.net is not none else '' }}</b></td></tr>
+        </tfoot>
+    </table>
+    </div></div>
+{% endmacro %}
     <div class="d-flex justify-content-between no-print">
         <a href="{{ url_for('dispersion.results', date=day) }}">&larr; screen {{ day }}</a>
         <div class="d-flex gap-2">
@@ -91,44 +131,7 @@
     </div></div></div>
     </div>
 
-    {% if ticket %}
-    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
-        <span>Order ticket in whole contracts: short {{ ticket.etf_calls }} {{ c.etf }} calls, long the constituent calls</span>
-        <form method="get" class="no-print d-flex align-items-center gap-1 small">
-            <input type="hidden" name="date" value="{{ day }}">
-            <label for="calls">{{ c.etf }} calls</label>
-            <input id="calls" name="calls" type="number" min="1" step="1" value="{{ ticket.etf_calls }}" style="width: 5rem">
-            <button class="btn btn-sm btn-outline-secondary">Recalculate</button>
-        </form></div>
-    <div class="card-body p-0">
-    <div class="muted small p-2">Quotes of {{ c.etf_quote_time }}. {{ ticket.default_calls }} {{ c.etf }} calls is the fewest that
-        gives every constituent at least one whole contract; quantities are rounded to the nearest contract (the exact
-        replication is in "Exact"). Price = the ask per share; one contract = 100 shares, so contract price = ask &times; 100.</div>
-    <table class="table table-sm table-hover mb-0">
-        <thead><tr><th class="l">Side</th><th class="l">Option</th><th>Weight</th><th>Exact</th><th>Contracts</th>
-            <th>Price (per share)</th><th>Price per contract</th><th>Total</th></tr></thead>
-        <tbody>
-        <tr><td class="l">SELL</td><td class="l">{{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} call (bid)</td><td></td><td></td>
-            <td><b>{{ ticket.etf_calls }}</b></td><td>{{ '%.2f'|format(ticket.etf_bid) }}</td>
-            <td>{{ money.format(ticket.etf_contract_price) }}</td><td class="pos">+{{ money.format(ticket.proceeds) }}</td></tr>
-        {% for x in ticket.legs %}
-        <tr><td class="l">BUY</td><td class="l">{{ x.ticker }} {{ x.expiry or '' }} {{ x.strike if x.strike is not none else '' }} call (ask)</td>
-            <td>{{ '%.2f%%'|format(x.weight * 100) if x.weight is not none else '' }}</td>
-            <td class="muted">{{ '%.2f'|format(x.exact) }}</td><td><b>{{ x.buy }}</b></td>
-            <td>{{ '%.2f'|format(x.ask) if x.ask is not none else 'no ask' }}</td>
-            <td>{{ money.format(x.contract_price) if x.contract_price is not none else '' }}</td>
-            <td class="neg">{{ ('-' ~ money.format(x.total)) if x.total else ('0' if x.total == 0 else '') }}</td></tr>
-        {% endfor %}
-        </tbody>
-        <tfoot>
-        <tr><td class="l" colspan="4"><b>Total constituent calls</b> ({{ ticket.contracts }} contracts)</td><td></td><td></td><td></td>
-            <td class="neg"><b>{{ ('-' ~ money.format(ticket.cost)) if ticket.cost is not none else 'missing asks: ' ~ ticket.missing|join(', ') }}</b></td></tr>
-        <tr><td class="l" colspan="7"><b>Net premium</b> (ETF calls sold &minus; constituent calls bought; &ge; 0 = opportunity)</td>
-            <td class="{{ 'neg' if (ticket.net or 0) < 0 else 'pos' }}"><b>{{ money.format(ticket.net) if ticket.net is not none else '' }}</b></td></tr>
-        </tfoot>
-    </table>
-    </div></div>
-    {% endif %}
+    {% if ticket %}{{ ticket_card(ticket, c, 'C', 'calls', 'puts', request.args.get('puts')) }}{% endif %}
 
     <div class="card mt-3"><div class="card-header">Constituents</div><div class="card-body p-0">
     <table class="table table-sm table-hover mb-0">
@@ -159,6 +162,57 @@
         {% endfor %}
         </tbody>
     </table>
+    </div></div>
+
+    <div class="card mt-3" id="puts"><div class="card-header d-flex justify-content-between align-items-center">
+        <span>Put strategy: short ATM {{ c.etf }} put, long ATM constituent puts (same weights, same expiry {{ c.expiry }})</span>
+        <form method="post" action="{{ url_for('dispersion.run_puts', ticker=c.etf) }}" class="no-print">
+            <input type="hidden" name="date" value="{{ day }}">
+            <button class="btn btn-sm btn-outline-primary" {% if busy %}disabled title="{{ busy }} job running"{% endif %}>
+                {% if put %}Price the puts again{% else %}Price the puts{% endif %}</button>
+        </form></div>
+    <div class="card-body p-2">
+    {% if put_running %}<meta http-equiv="refresh" content="10">
+        <span class="badge bg-info text-dark">puts: {{ put_status.state }} {{ put_status.message }} &mdash; refreshes every 10 s</span>
+    {% elif put_status and put_status.state == 'failed' %}<span class="badge bg-danger">put job failed: {{ put_status.message }}</span>
+    {% endif %}
+    {% if not put %}
+        <div class="muted small">Not priced yet: "Price the puts" asks IBKR for the put quotes (read-only, about a minute).</div>
+    {% else %}
+        <div class="muted small mb-2">Priced {{ puts.computed_at[:16] }} UTC{% if puts.frozen_quotes %} with the last (frozen)
+            quotes &mdash; market closed{% endif %}: its own spot and ATM strikes, not the call section's quotes. Same rule as
+            the calls: ETF put sold at the bid, constituent puts bought at the ask, contracts replicating the holdings.</div>
+        <table class="table table-sm mb-2 kv" style="max-width: 46rem">
+            <tr><td>Status</td><td>{{ put.status }}{% if put.reasons %} &mdash; {{ put.reasons }}{% endif %}</td></tr>
+            <tr><td>ETF spot / put strike / expiry</td><td>{{ put.etf_spot }} / {{ put.etf_strike }} / {{ put.expiry }} ({{ put.dte }} DTE)</td></tr>
+            <tr><td>ETF put bid / ask</td><td>{{ put.etf_call_bid }} / {{ put.etf_call_ask }}</td></tr>
+            <tr><td>Per 1 ETF put: proceeds (bid) / constituent puts (ask)</td><td>{{ money.format(put.etf_call_proceeds) if put.etf_call_proceeds is not none else '' }} /
+                {{ money.format(put.constituent_call_cost) if put.constituent_call_cost is not none else '' }}</td></tr>
+            <tr><td>Net premium per ETF put (&ge; 0 = opportunity)</td><td class="{{ 'neg' if (put.net_premium or 0) < 0 else 'pos' }}">
+                {{ money.format(put.net_premium) if put.net_premium is not none else 'n/a' }}
+                {% if put.net_premium_pct is not none %}({{ '%.1f%%'|format(put.net_premium_pct * 100) }}){% endif %}</td></tr>
+            <tr><td>Reversed (ETF put bought at the ask, constituent puts sold at the bid)</td><td class="{{ 'neg' if (put.reverse_net_premium or 0) < 0 else 'pos' }}">
+                {{ money.format(put.reverse_net_premium) if put.reverse_net_premium is not none else 'n/a' }}
+                {% if put.reverse_net_premium_pct is not none %}({{ '%.1f%%'|format(put.reverse_net_premium_pct * 100) }}){% endif %}</td></tr>
+            <tr><td>Implied correlation (model / ETF bid / ETF ask)</td><td>{{ put.implied_correlation }} / {{ put.implied_correlation_etf_bid }} / {{ put.implied_correlation_etf_ask }}</td></tr>
+        </table>
+        {% if put_ticket %}{{ ticket_card(put_ticket, put, 'P', 'puts', 'calls', request.args.get('calls')) }}{% endif %}
+        <details class="mt-2"><summary class="small">Constituent puts ({{ put.constituent_legs|length }})</summary>
+        <table class="table table-sm mb-0">
+            <thead><tr><th class="l">Ticker</th><th>Weight</th><th>Price</th><th>Strike</th><th>Put bid</th><th>Put ask</th>
+                <th>IV</th><th>Delta</th><th>Contracts per ETF put</th><th class="l">Status</th></tr></thead>
+            <tbody>
+            {% for r in put.constituent_legs %}
+            <tr><td class="l">{{ r.ticker }}</td><td>{{ '%.2f%%'|format(r.weight * 100) }}</td><td>{{ r.price if r.price is not none else '' }}</td>
+                <td>{{ r.strike if r.strike is not none else '' }}</td><td>{{ r.call_bid if r.call_bid is not none else '' }}</td>
+                <td>{{ r.call_ask if r.call_ask is not none else '' }}</td>
+                <td>{{ '%.1f%%'|format(r.iv * 100) if r.iv is not none else '' }}</td><td>{{ r.delta if r.delta is not none else '' }}</td>
+                <td>{{ '%.4f'|format(r.contracts) if r.contracts is not none else '' }}</td>
+                <td class="l muted">{{ r.status if r.status != 'ok' else '' }} {{ r.exceptions }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table></details>
+    {% endif %}
     </div></div>
     {% if c.scenarios %}
     <div class="card mt-3"><div class="card-header">Payoff at maturity (scenarios)</div><div class="card-body p-0">

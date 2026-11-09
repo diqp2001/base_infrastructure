@@ -110,10 +110,13 @@ class Candidate:
 class DispersionScreeningService:
 
     def __init__(self, market_data: OptionMarketDataPort, config: DispersionScreenConfig,
-                 now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)):
+                 now: Callable[[], datetime] = lambda: datetime.now(timezone.utc), right: str = "C"):
+        """right: "C" - the screen (short ETF call, long constituent calls); "P" - the same structure with puts
+        (short ETF put, long constituent puts: same ATM strikes, sizing and bid / ask rule)."""
         self.md = market_data
         self.config = config
         self.now = now
+        self.right = right
         self._underlyings: Dict[str, Optional[Underlying]] = {}
         self._chains: Dict[str, List[OptionChain]] = {}
         self._strikes: Dict[tuple, Sequence[float]] = {}
@@ -156,7 +159,8 @@ class DispersionScreeningService:
     def _listed_strikes(self, chain: OptionChain, expiry: date, screening_date: date) -> Sequence[float]:
         key = (chain.underlying, chain.trading_class, expiry)
         if key not in self._strikes:
-            self._strikes[key] = self.md.listed_strikes(chain, expiry, "C", screening_date)
+            # one strike list per expiry: US equity / ETF calls and puts are listed on the same strikes
+            self._strikes[key] = self.md.listed_strikes(chain, expiry, self.right, screening_date)
         return self._strikes[key]
 
     # ---- screen ----
@@ -297,7 +301,7 @@ class DispersionScreeningService:
         if etf_strike is None:
             c.reasons.append(f"no ETF call listed for {c.expiry}")
             return c
-        specs = {ticker: OptionContractSpec(ticker, c.expiry, etf_strike, "C", etf_chain.multiplier,
+        specs = {ticker: OptionContractSpec(ticker, c.expiry, etf_strike, self.right, etf_chain.multiplier,
                                             etf_chain.trading_class)}
         for r in c.constituents:
             if r.status != "ok":
@@ -315,7 +319,7 @@ class DispersionScreeningService:
             if r.strike is None:
                 r.status = f"no call listed for {r.expiry}"
                 continue
-            specs[r.symbol] = OptionContractSpec(r.symbol, r.expiry, r.strike, "C", r.multiplier,
+            specs[r.symbol] = OptionContractSpec(r.symbol, r.expiry, r.strike, self.right, r.multiplier,
                                                  chains[r.symbol].trading_class)
         if not self._coverage_possible(c):
             return c

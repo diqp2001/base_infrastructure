@@ -53,6 +53,7 @@ CONFIG: Dict[str, Any] = {
         'pause_seconds': float(os.getenv('DISPERSION_IBKR_PAUSE_SECONDS', '0.2')),
         'maturities_client_id': int(os.getenv('DISPERSION_MATURITIES_CLIENT_ID', '79')),   # the maturities job
         'history_client_id': int(os.getenv('DISPERSION_HISTORY_CLIENT_ID', '80')),         # the 6M history job
+        'puts_client_id': int(os.getenv('DISPERSION_PUTS_CLIENT_ID', '81')),               # the put strategy job
         'history_pause_seconds': float(os.getenv('DISPERSION_HISTORY_PAUSE_SECONDS', '1.5')),
     },
     # the /dispersion page starts a maturities job through this launcher (the paper gateway publishes no port: the
