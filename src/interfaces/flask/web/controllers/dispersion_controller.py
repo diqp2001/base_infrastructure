@@ -122,7 +122,8 @@ def detail(ticker: str):
     replication_chart = _replication_chart(history) if history and history.get("replication_series") else None
     return render_template("dispersion_detail.html", day=day, c=candidate, manifest=_manifest(day),
                            history=history, hstats=_Row((history or {}).get("stats") or {}), chart=chart,
-                           replication_chart=replication_chart)
+                           replication_chart=replication_chart,
+                           ticket=order_ticket(candidate, request.args.get("calls", type=int)))
 
 
 @dispersion_bp.route("/api/candidates")
@@ -211,6 +212,34 @@ def run_maturities(ticker: str):
         write_status(RESULTS_DIR, day, ticker, "starting")
         _launch(os.path.join(maturities_dir(RESULTS_DIR, day), f"{ticker}.log"), MATURITIES_MODULE, ticker, day)
     return redirect(url_for("dispersion.maturities", ticker=ticker, date=day))
+
+
+def order_ticket(c: dict, etf_calls: Optional[int] = None) -> Optional[dict]:
+    """The screen's trade in whole contracts: short etf_calls ETF calls at the bid (default: the fewest that give every
+    constituent at least one whole contract), long round(contracts per ETF call x etf_calls) of each constituent call
+    at the ask. Quantities are rounded to the nearest contract, so the basket only approximates the holdings: the
+    exact (fractional) quantity is shown next to it. Prices per share; one contract = multiplier shares."""
+    n = etf_calls if etf_calls and etf_calls > 0 else c.get("whole_contract_etf_calls")
+    if not n or c.get("etf_call_bid") is None:
+        return None
+    legs, cost, missing = [], 0.0, []
+    for r in c.get("constituent_legs") or []:
+        exact = (r.get("contracts") or 0.0) * n
+        buy = round(exact)
+        m = r.get("multiplier") or 100.0
+        ask = r.get("call_ask")
+        total = None if ask is None else buy * ask * m
+        if total is None and buy:
+            missing.append(r["ticker"])
+        cost += total or 0.0
+        legs.append({"ticker": r["ticker"], "weight": r.get("weight"), "strike": r.get("strike"),
+                     "expiry": r.get("expiry"), "exact": exact, "buy": buy, "ask": ask,
+                     "contract_price": None if ask is None else ask * m, "total": total})
+    proceeds = n * c["etf_call_bid"] * 100.0
+    return {"etf_calls": n, "default_calls": c.get("whole_contract_etf_calls"), "etf_bid": c["etf_call_bid"],
+            "etf_contract_price": c["etf_call_bid"] * 100.0, "proceeds": proceeds, "legs": legs,
+            "contracts": sum(x["buy"] for x in legs), "cost": None if missing else cost,
+            "net": None if missing else proceeds - cost, "missing": missing}
 
 
 def _history_summary(day: str) -> dict:

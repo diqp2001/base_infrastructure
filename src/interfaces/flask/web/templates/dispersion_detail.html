@@ -91,6 +91,45 @@
     </div></div></div>
     </div>
 
+    {% if ticket %}
+    <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
+        <span>Order ticket in whole contracts: short {{ ticket.etf_calls }} {{ c.etf }} calls, long the constituent calls</span>
+        <form method="get" class="no-print d-flex align-items-center gap-1 small">
+            <input type="hidden" name="date" value="{{ day }}">
+            <label for="calls">{{ c.etf }} calls</label>
+            <input id="calls" name="calls" type="number" min="1" step="1" value="{{ ticket.etf_calls }}" style="width: 5rem">
+            <button class="btn btn-sm btn-outline-secondary">Recalculate</button>
+        </form></div>
+    <div class="card-body p-0">
+    <div class="muted small p-2">Quotes of {{ c.etf_quote_time }}. {{ ticket.default_calls }} {{ c.etf }} calls is the fewest that
+        gives every constituent at least one whole contract; quantities are rounded to the nearest contract (the exact
+        replication is in "Exact"). Price = the ask per share; one contract = 100 shares, so contract price = ask &times; 100.</div>
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr><th class="l">Side</th><th class="l">Option</th><th>Weight</th><th>Exact</th><th>Contracts</th>
+            <th>Price (per share)</th><th>Price per contract</th><th>Total</th></tr></thead>
+        <tbody>
+        <tr><td class="l">SELL</td><td class="l">{{ c.etf }} {{ c.expiry }} {{ c.etf_strike }} call (bid)</td><td></td><td></td>
+            <td><b>{{ ticket.etf_calls }}</b></td><td>{{ '%.2f'|format(ticket.etf_bid) }}</td>
+            <td>{{ money.format(ticket.etf_contract_price) }}</td><td class="pos">+{{ money.format(ticket.proceeds) }}</td></tr>
+        {% for x in ticket.legs %}
+        <tr><td class="l">BUY</td><td class="l">{{ x.ticker }} {{ x.expiry or '' }} {{ x.strike if x.strike is not none else '' }} call (ask)</td>
+            <td>{{ '%.2f%%'|format(x.weight * 100) if x.weight is not none else '' }}</td>
+            <td class="muted">{{ '%.2f'|format(x.exact) }}</td><td><b>{{ x.buy }}</b></td>
+            <td>{{ '%.2f'|format(x.ask) if x.ask is not none else 'no ask' }}</td>
+            <td>{{ money.format(x.contract_price) if x.contract_price is not none else '' }}</td>
+            <td class="neg">{{ ('-' ~ money.format(x.total)) if x.total else ('0' if x.total == 0 else '') }}</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr><td class="l" colspan="4"><b>Total constituent calls</b> ({{ ticket.contracts }} contracts)</td><td></td><td></td><td></td>
+            <td class="neg"><b>{{ ('-' ~ money.format(ticket.cost)) if ticket.cost is not none else 'missing asks: ' ~ ticket.missing|join(', ') }}</b></td></tr>
+        <tr><td class="l" colspan="7"><b>Net premium</b> (ETF calls sold &minus; constituent calls bought; &ge; 0 = opportunity)</td>
+            <td class="{{ 'neg' if (ticket.net or 0) < 0 else 'pos' }}"><b>{{ money.format(ticket.net) if ticket.net is not none else '' }}</b></td></tr>
+        </tfoot>
+    </table>
+    </div></div>
+    {% endif %}
+
     <div class="card mt-3"><div class="card-header">Constituents</div><div class="card-body p-0">
     <table class="table table-sm table-hover mb-0">
         <thead><tr><th class="l">Ticker</th><th>Weight</th><th>Price</th><th>Expiry</th><th>Strike</th><th>Call bid</th>

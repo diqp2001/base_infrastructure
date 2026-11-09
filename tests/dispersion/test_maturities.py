@@ -2,6 +2,8 @@
 module and its page. Fake market data, temp results folder; no broker, no Docker."""
 
 import json
+
+import pytest
 from datetime import date, datetime, timedelta, timezone
 
 from src.domain.entities.finance.dispersion.option_selection import common_expiries
@@ -101,3 +103,17 @@ def test_the_page_starts_one_job_at_a_time(tmp_path, monkeypatch):
     done = client.get(f"/dispersion/etf/ETF/maturities?date={day}")
     assert done.status_code == 200 and str(EXPIRY).encode() in done.data and b"Run again" in done.data
     assert b"Hidden" not in done.data
+
+
+def test_the_order_ticket_rounds_to_whole_contracts_and_totals_at_the_ask():
+    from src.interfaces.flask.web.controllers.dispersion_controller import order_ticket
+    c = {"whole_contract_etf_calls": 4, "etf_call_bid": 5.0, "constituent_legs": [
+        {"ticker": "A", "contracts": 0.26, "call_ask": 1.25, "multiplier": 100.0},
+        {"ticker": "B", "contracts": 0.6, "call_ask": 2.0, "multiplier": 100.0}]}
+    t = order_ticket(c)
+    assert t["etf_calls"] == 4 and t["proceeds"] == 2000.0                      # 4 x 5.00 x 100
+    assert [(x["buy"], x["contract_price"], x["total"]) for x in t["legs"]] == [(1, 125.0, 125.0), (2, 200.0, 400.0)]
+    assert t["cost"] == 525.0 and t["net"] == 1475.0 and t["legs"][0]["exact"] == pytest.approx(1.04)
+    assert order_ticket(c, 10)["legs"][1]["buy"] == 6                            # the owner's own ETF call count
+    c["constituent_legs"][1]["call_ask"] = None
+    assert order_ticket(c)["cost"] is None and order_ticket(c)["missing"] == ["B"]   # never a silent zero
