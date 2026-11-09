@@ -17,7 +17,7 @@
         .opportunity { color: #3fb950; font-weight: 600; }
         .rejected { color: #d29922; }
         .not { color: #8b949e; }
-        .neg { color: #f85149; }
+        .neg { color: #f85149; } .pos { color: #3fb950; } th.key, td.key { font-weight: 600; }
         .badge-warn { background: #9e6a03; }
         .print-only { display: none; }
         @media print {
@@ -92,6 +92,11 @@
             <th title="mean of (basket call payoff - ETF call payoff) per ETF call, completed trades opened in the last 6 months">6M avg payoff diff</th>
             <th>6M median</th><th>6M cumulative</th><th title="share of completed trades where the basket paid more">6M positive rate</th>
             <th title="mean of the payoff difference / ETF call notional (strike x 100): comparable across ETFs">6M avg normalized</th>
+            <th title="mean of max(ETF return, 0) over the screen's holding period: an ATM ETF call's payoff / strike">6M Avg ETF Call Payoff</th>
+            <th title="mean of sum_i w_i max(constituent return_i, 0): a portfolio of ATM constituent calls / ETF price (not a call on the basket)">6M Avg Basket Call Payoff</th>
+            <th class="key" title="mean of basket call payoff - ETF call payoff over the last 6 months; positive: the constituent calls paid more">6M Avg Replication Diff.</th>
+            <th>6M Median Replication Diff.</th>
+            <th title="share of completed observations where the constituent calls paid more than the ETF call">6M Positive %</th>
             <th class="l">Status</th><th class="l">Reasons</th>
         </tr></thead>
         <tbody>
@@ -132,6 +137,12 @@
             <td>{{ '{:+,.2f}'.format(h.cumulative) if h.cumulative is not none else '' }}</td>
             <td>{{ '%.1f%%'|format(h.positive_rate * 100) if h.positive_rate is not none else '' }}</td>
             <td>{{ '%+.2f%%'|format(h.normalized_mean * 100) if h.normalized_mean is not none else '' }}</td>
+            <td>{{ '%.2f%%'|format(h.etf_call_mean * 100) if h.etf_call_mean is not none else '' }}</td>
+            <td>{{ '%.2f%%'|format(h.basket_call_mean * 100) if h.basket_call_mean is not none else '' }}</td>
+            <td class="key {{ 'neg' if h.replication_mean is not none and h.replication_mean < 0 else 'pos' }}" title="{{ c.history_reasons or ((h.n ~ ' completed observations') if h.n is not none else '') }}">
+                {{ '%+.2f%%'|format(h.replication_mean * 100) if h.replication_mean is not none else '' }}</td>
+            <td class="{{ 'neg' if h.replication_median is not none and h.replication_median < 0 else '' }}">{{ '%+.2f%%'|format(h.replication_median * 100) if h.replication_median is not none else '' }}</td>
+            <td>{{ '%.1f%%'|format(h.replication_positive_rate * 100) if h.replication_positive_rate is not none else '' }}</td>
             <td class="l {{ 'opportunity' if c.status == 'opportunity' else ('rejected' if c.status == 'rejected' else 'not') }}">{{ c.status }}</td>
             <td class="reason">{{ c.reasons }}</td>
         </tr>

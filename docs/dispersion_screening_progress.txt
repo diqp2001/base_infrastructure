@@ -426,6 +426,13 @@ OWNER RULES 2026-11-06 (replace the specification's sizing and liquidity rules)
      of the 34 has a positive mean and most a 100 % positive rate: a basket of calls pays at least the call on
      the basket (convexity) - this is the gross payoff, BEFORE the premium, which the live screen prices
      negative (best SOXX -34 %). The history says how much the gap paid back, not that the trade is cheap.
+ [x] Call-payoff replication (owner 2026-11-09), same observations: ETF call = max(r_ETF, 0), basket =
+     sum_i w_i,t max(r_i, 0) (a basket of calls, not a call on the basket), difference = basket - ETF; mean ETF /
+     basket call payoff, mean / median / cumulative difference, positive / negative %. Equal to the normalized
+     payoff (replicate() sizing) - a test checks it. Columns on /dispersion + a chart (ETF, basket, difference)
+     on the ETF page. Recomputed 2026-11-09 offline (price cache + lookups.json; gateway down): 32 ETFs, 7 need a
+     live contract lookup (RBTX RING SLVP WOOD CNRG FEZ TEKX) - rerun the job once the gateway is up.
+     Fixed: the snapshot in force at the window start is now valued at its own date (history fetched from it).
 
 HISTORY
 -------
@@ -443,3 +450,4 @@ HISTORY
             arrival. First market-hours screen: 0 opportunities, XLE / XLP / DIA priced negative; fill check run.
 2026-11-06  6-month realized payoff history (owner spec): realized-prices layer, job, 5 columns + ETF chart;
             first run 34 / 74 ETFs.
+2026-11-09  Call-payoff replication analysis (owner spec); recomputed offline, 32 / 74 ETFs.

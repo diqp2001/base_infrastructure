@@ -185,6 +185,40 @@
         </table></details>
     {% endif %}
     </div></div>
+    <div class="card mt-3"><div class="card-header">6-month call-payoff replication: weighted ATM constituent calls vs the ATM ETF call (% of the start price)</div>
+    <div class="card-body p-2">
+    {% if not history or history.reasons or hstats.replication_mean is none %}
+        <span class="muted small">{% if history and history.reasons %}No history: {{ history.reasons|join('; ') }}{% elif history %}No completed observation{% if hstats.replication_mean is none and hstats.n %} &mdash; "Recompute 6M history" on the screen page{% endif %}.{% else %}Not computed for {{ day }}: "Compute 6M history" on the screen page.{% endif %}</span>
+    {% else %}
+        <div class="muted small mb-2">Same observations and holding period as above ({{ hstats.n }} completed, opened in the 6 months to
+            {{ hstats.as_of }}). Underlying closes only: ETF call = max(r<sub>ETF</sub>, 0); basket = &sum; w<sub>i,t</sub> max(r<sub>i</sub>, 0)
+            (each constituent's own call, weights at the observation date &mdash; not a call on the basket); difference = basket &minus; ETF.
+            Positive: the constituent calls paid more. Holdings: {{ history.membership }}.</div>
+        <table class="table table-sm mb-2 kv" style="max-width: 46rem">
+            <tr><td>6M avg ETF call payoff / basket call payoff</td><td>{{ '%.2f%%'|format(hstats.etf_call_mean * 100) }} / {{ '%.2f%%'|format(hstats.basket_call_mean * 100) }}</td></tr>
+            <tr><td><b>6M avg replication difference</b></td><td class="{{ 'neg' if hstats.replication_mean < 0 else 'pos' }}"><b>{{ '%+.2f%%'|format(hstats.replication_mean * 100) }}</b></td></tr>
+            <tr><td>6M median / cumulative (sum)</td><td>{{ '%+.2f%%'|format(hstats.replication_median * 100) }} / {{ '%+.1f%%'|format(hstats.replication_cumulative * 100) }}</td></tr>
+            <tr><td>Positive % (constituent calls paid more) / negative % (ETF call paid more)</td><td>
+                {{ '%.1f%%'|format(hstats.replication_positive_rate * 100) }} / {{ '%.1f%%'|format(hstats.replication_negative_rate * 100) }}</td></tr>
+        </table>
+        {% if replication_chart %}<img src="data:image/png;base64,{{ replication_chart }}" alt="call-payoff replication by observation date" style="max-width: 100%; background: #fff">{% endif %}
+        <details class="mt-2"><summary class="small">Replication observations ({{ history.observations|length }})</summary>
+        <table class="table table-sm mb-0">
+            <thead><tr><th class="l">Date</th><th class="l">Final price on</th><th>ETF return</th><th>ETF call payoff</th>
+                <th>Basket call payoff</th><th>Basket &minus; ETF</th><th class="l">Excluded because</th></tr></thead>
+            <tbody>
+            {% for o in history.observations|reverse %}
+            <tr><td class="l">{{ o.initiated }}</td><td class="l">{{ o.settled or '' }}</td>
+                <td>{{ '%+.2f%%'|format(o.etf_return * 100) if o.etf_return is not none else '' }}</td>
+                <td>{{ '%.2f%%'|format(o.etf_call_return * 100) if o.etf_call_return is not none else '' }}</td>
+                <td>{{ '%.2f%%'|format(o.basket_call_return * 100) if o.basket_call_return is not none else '' }}</td>
+                <td class="{{ 'neg' if o.replication_difference is not none and o.replication_difference < 0 else 'pos' }}">{{ '%+.2f%%'|format(o.replication_difference * 100) if o.replication_difference is not none else '' }}</td>
+                <td class="l muted">{{ o.problem or '' }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table></details>
+    {% endif %}
+    </div></div>
     <p class="muted small mt-2">US equity / ETF options are American and physically settled; dividends, borrow and
         early exercise are not in the premium comparison. JSON: <a href="{{ url_for('dispersion.api_candidate', ticker=c.etf, date=day) }}">/dispersion/api/candidates/{{ c.etf }}</a></p>
 </div>

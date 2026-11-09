@@ -231,3 +231,118 @@ def test_the_pages_show_the_6m_columns_chart_and_start_one_job(tmp_path, monkeyp
     # a maturities job is refused while the history job runs (one job at a time on the shared gateway)
     client.post("/dispersion/etf/ETF/maturities/run", data={"date": day})
     assert len(launched) == 1
+
+
+# --- call-payoff replication (owner spec 2026-11-09): sum_i w_i max(r_i, 0) - max(r_ETF, 0) ---------------------
+
+def three(etf_end=110.0, ends=None, as_of=LATER, weights=None):
+    """The owner's example: ETF 100 -> 110; A 50 % 100 -> 120, B 30 % 100 -> 90, C 20 % 100 -> 115."""
+    ends = ends or {"A": 120.0, "B": 90.0, "C": 115.0}
+    etf = path(100.0, {EXPIRY: etf_end})
+    stocks = {s: path(100.0, {EXPIRY: e}) for s, e in ends.items()}
+    return observe(START, etf, stocks, snapshot(weights or {"A": 0.5, "B": 0.3, "C": 0.2}), CONFIG, as_of)
+
+
+def test_owner_example_gives_exactly_plus_three_percent():                       # 15 (5, 6, 8)
+    o = three()
+    assert o.etf_call_return == pytest.approx(0.10)
+    assert o.basket_call_return == pytest.approx(0.5 * 0.20 + 0.3 * 0.0 + 0.2 * 0.15)    # 13 %
+    assert o.replication_difference == pytest.approx(0.03)                      # 13 % - 10 %, not 10 % - 13 %
+
+
+def test_etf_call_payoff_is_the_positive_part_of_its_return():                   # 1, 2
+    assert three(etf_end=110.0).etf_call_return == pytest.approx(0.10)
+    assert three(etf_end=95.0).etf_call_return == 0.0
+    assert three(etf_end=80.0).etf_call_return == 0.0
+
+
+def test_constituent_call_payoff_is_the_positive_part_of_its_return():            # 3, 4
+    up = three(ends={"A": 110.0, "B": 100.0, "C": 100.0}, weights={"A": 1.0 - 2e-9, "B": 1e-9, "C": 1e-9})
+    assert up.basket_call_return == pytest.approx(0.10)
+    down = three(ends={"A": 90.0, "B": 100.0, "C": 100.0}, weights={"A": 1.0 - 2e-9, "B": 1e-9, "C": 1e-9})
+    assert down.basket_call_return == 0.0
+
+
+def test_it_is_a_basket_of_calls_not_a_call_on_the_basket():                     # 7
+    from src.domain.entities.finance.dispersion.realized_payoff import basket_call_payoff
+    w, start, end = {"A": 0.5, "B": 0.5}, {"A": 100.0, "B": 100.0}, {"A": 120.0, "B": 80.0}
+    call_on_basket = max(sum(w[s] * (end[s] - start[s]) / start[s] for s in w), 0.0)
+    assert call_on_basket == 0.0 and basket_call_payoff(w, start, end) == pytest.approx(0.10)
+    o = three()
+    assert o.basket_call_return != pytest.approx(max(0.5 * 0.2 + 0.3 * -0.1 + 0.2 * 0.15, 0.0))   # 10 %, not 13 %
+
+
+def test_it_equals_the_normalized_dollar_payoff_of_the_screens_trade():
+    for o in (three(), three(etf_end=90.0), obs(100.0, 120.0, 80.0), obs(110.0, 105.0, 105.0)):
+        assert o.replication_difference == pytest.approx(o.normalized)
+
+
+def test_replication_rolling_stats_window_and_completion():                       # 9, 10, 13
+    as_of = date(2026, 11, 6)
+    old = made(date(2026, 5, 6), date(2026, 6, 19), 100.0)                       # exactly 6 months before: out
+    old.etf_return, old.basket_call_return = 0.0, 0.50
+    inside = made(date(2026, 5, 7), date(2026, 6, 19), -40.0)
+    inside.etf_return, inside.basket_call_return = 0.10, 0.06                    # -4 %
+    second = made(date(2026, 8, 3), date(2026, 9, 18), 5.0)
+    second.etf_return, second.basket_call_return = -0.05, 0.02                   # +2 %
+    settled_later = made(date(2026, 10, 1), date(2026, 11, 20), 999.0)          # final price not known at as_of
+    settled_later.etf_return, settled_later.basket_call_return = 0.0, 0.9
+    open_ = Observation(date(2026, 10, 30), date(2026, 12, 18), problem="not expired")
+    s = rolling_stats([old, inside, second, settled_later, open_], as_of)
+    assert s.window_start == date(2026, 5, 6) and s.n == 2 and s.n_open == 2
+    assert s.replication_mean == pytest.approx(-0.01) and s.replication_cumulative == pytest.approx(-0.02)
+    assert s.replication_median == pytest.approx(-0.01)
+    assert s.etf_call_mean == pytest.approx(0.05) and s.basket_call_mean == pytest.approx(0.04)
+    assert s.replication_positive_rate == 0.5 and s.replication_negative_rate == 0.5
+
+
+def test_no_later_price_changes_the_replication():                                # 13
+    before = three(as_of=EXPIRY - timedelta(days=1))
+    assert before.problem == "not expired" and before.replication_difference is None
+    etf = path(100.0, {EXPIRY: 110.0})
+    stocks = {s: path(100.0, {EXPIRY: e}) for s, e in {"A": 120.0, "B": 90.0, "C": 115.0}.items()}
+    spiked = {k: dict(v) for k, v in stocks.items()}
+    spiked["B"][LATER] = 500.0
+    snap = snapshot({"A": 0.5, "B": 0.3, "C": 0.2})
+    assert observe(START, etf, spiked, snap, CONFIG, EXPIRY).replication_difference == pytest.approx(0.03)
+
+
+def test_historical_weights_at_the_observation_date_are_used():                   # 11
+    closes = {"ETF": path(100.0, {EXPIRY: 100.0}), "A": path(100.0, {EXPIRY: 120.0}), "B": path(100.0)}
+    service = RealizedDispersionService(FakePrices(closes), resolver(), CONFIG)
+    h = service.history("ETF", [holdings(date(2026, 4, 1), {"A": 0.8, "B": 0.2}),     # in force on START
+                                holdings(date(2026, 11, 5), {"A": 0.2, "B": 0.8})], LATER)   # today's
+    o = next(o for o in h.observations if o.initiated == START)
+    assert o.holdings_as_of == date(2026, 4, 1) and o.point_in_time
+    assert o.basket_call_return == pytest.approx(0.8 * 0.20)                    # not today's 0.2 x 20 %
+    assert h.replication_series and h.replication_series[0][3] is not None
+
+
+def test_missing_constituent_data_is_excluded_not_zero():                         # 12
+    etf, a, b = path(100.0, {EXPIRY: 110.0}), path(100.0, {EXPIRY: 120.0}), path(100.0)
+    del b[EXPIRY]
+    o = observe(START, etf, {"A": a, "B": b}, snapshot({"A": 0.5, "B": 0.5}), CONFIG, LATER)
+    assert not o.complete and o.basket_call_return is None and o.replication_difference is None
+    s = rolling_stats([o], LATER)
+    assert s.n == 0 and s.n_incomplete == 1 and s.replication_mean is None
+
+
+def test_the_job_and_pages_carry_the_replication_and_leave_the_screen_untouched(tmp_path, monkeypatch):   # 14
+    from flask import Flask
+    from src.interfaces.flask.web.controllers import dispersion_controller
+    from tests.dispersion.test_dispersion_screening_service import DAY
+    test_the_history_job_leaves_the_current_screen_untouched(tmp_path)          # asserts candidates.json unchanged
+    day = DAY.isoformat()
+    saved = json.loads((tmp_path / day / "history" / "ETF.json").read_text(encoding="utf-8"))
+    assert saved["stats"]["replication_mean"] is not None and saved["replication_series"]
+    done = [o for o in saved["observations"] if o["replication_difference"] is not None]
+    assert done and all(o["etf_call_return"] is not None and o["basket_call_return"] is not None for o in done)
+    monkeypatch.setattr(dispersion_controller, "RESULTS_DIR", str(tmp_path))
+    app = Flask(__name__, template_folder="../../src/interfaces/flask/web/templates")
+    app.register_blueprint(dispersion_controller.dispersion_bp)
+    client = app.test_client()
+    page = client.get(f"/dispersion/?date={day}")
+    assert b"6M Avg Replication Diff." in page.data and b"6M avg payoff diff" in page.data
+    assert ("%+.2f%%" % (saved["stats"]["replication_mean"] * 100)).encode() in page.data
+    detail = client.get(f"/dispersion/etf/ETF?date={day}")
+    assert b"call-payoff replication" in detail.data and detail.data.count(b"data:image/png;base64,") == 2

@@ -119,8 +119,10 @@ def detail(ticker: str):
     except (OSError, ValueError):
         history = None
     chart = _history_chart(history) if history and history.get("series") else None
+    replication_chart = _replication_chart(history) if history and history.get("replication_series") else None
     return render_template("dispersion_detail.html", day=day, c=candidate, manifest=_manifest(day),
-                           history=history, hstats=_Row((history or {}).get("stats") or {}), chart=chart)
+                           history=history, hstats=_Row((history or {}).get("stats") or {}), chart=chart,
+                           replication_chart=replication_chart)
 
 
 @dispersion_bp.route("/api/candidates")
@@ -236,6 +238,37 @@ def _history_chart(history: dict) -> str:
     ax.fill_between(days, cumulative, 0.0, where=[c < 0 for c in cumulative], color="#f85149", alpha=0.15)
     ax.set_ylabel("cumulative payoff diff ($ per ETF call)")
     ax.set_xlabel("settlement day")
+    ax.grid(alpha=0.25)
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png")
+    plt.close(fig)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def _replication_chart(history: dict) -> str:
+    """ETF call payoff, basket call payoff and basket - ETF (% of the start price) by observation date (PNG, base64):
+    shows when the constituent calls paid more than the ETF call, and whether a few dates drive it."""
+    import base64
+    import io
+    from datetime import date as _date
+
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    rows = history["replication_series"]
+    days = [_date.fromisoformat(r[0]) for r in rows]
+    etf, basket, diff = ([r[k] * 100 for r in rows] for k in (1, 2, 3))
+    fig, ax = plt.subplots(figsize=(9, 3.6), dpi=110)
+    ax.bar(days, diff, width=1.0, color=["#3fb950" if v >= 0 else "#f85149" for v in diff], alpha=0.55,
+           label="basket - ETF")
+    ax.plot(days, etf, color="#8b949e", linewidth=1.1, label="ETF call payoff")
+    ax.plot(days, basket, color="#1f6feb", linewidth=1.1, label="basket call payoff")
+    ax.axhline(0.0, color="#444444", linewidth=0.9, linestyle="--")
+    ax.set_ylabel("% of the start price")
+    ax.set_xlabel("observation date (holding period start)")
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
     ax.grid(alpha=0.25)
     fig.autofmt_xdate()
     fig.tight_layout()

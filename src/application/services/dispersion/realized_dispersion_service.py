@@ -21,7 +21,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
 from src.domain.entities.finance.dispersion.option_data import Underlying
 from src.domain.entities.finance.dispersion.realized_payoff import (
-    HoldingsSnapshot, Observation, RollingStats, cumulative_series, months_before, observe, rolling_stats,
+    HoldingsSnapshot, Observation, RollingStats, cumulative_series, months_before, replication_series, observe, rolling_stats,
     shares_from_weights,
 )
 from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
@@ -38,6 +38,7 @@ class EtfHistory:
     observations: List[Observation] = field(default_factory=list)
     stats: Optional[RollingStats] = None
     series: List[Tuple[date, float, float]] = field(default_factory=list)
+    replication_series: List[Tuple[date, float, float, float]] = field(default_factory=list)
     membership: str = ""                       # how the holdings were obtained (point in time / back-cast)
     reasons: List[str] = field(default_factory=list)   # why no history (e.g. a constituent not resolvable)
 
@@ -77,6 +78,9 @@ class RealizedDispersionService:
                 out.reasons.append(f"{symbol}: not a US-listed share at the broker")
                 return out
         start = self.history_start(as_of)
+        in_force = [s.as_of for s in snapshots if s.as_of <= months_before(as_of, self.months)]
+        if in_force:                    # the snapshot in force at the window start is valued at its own date's closes
+            start = min(start, in_force[-1] - timedelta(days=7))
         etf_closes = self._closes_of(resolved[ticker], start, as_of)
         if not etf_closes:
             out.reasons.append("no ETF price history")
@@ -98,6 +102,7 @@ class RealizedDispersionService:
                                             self.config, as_of))
         out.stats = rolling_stats(out.observations, as_of, self.months)
         out.series = cumulative_series(out.observations, as_of, self.months)
+        out.replication_series = replication_series(out.observations, as_of, self.months)
         progress(f"{ticker}: {out.stats.n} completed observations, {out.stats.n_open} open, "
                  f"{out.stats.n_incomplete} incomplete")
         return out

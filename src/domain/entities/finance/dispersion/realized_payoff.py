@@ -14,6 +14,15 @@ Expiry: the screen's rule on the standard monthly expiries (third Fridays): sele
 Settlement: the close of the last trading day on or before T (an expiry on an exchange holiday settles the day
 before). No option prices, no implied volatility: realized payoffs only.
 
+Call-payoff replication (returns, no option price): over the same trade's holding period t -> T,
+    r                   = (P_T - P_t) / P_t
+    ETFCallPayoff_t     = max(r_ETF, 0)                              (an ATM call's payoff / strike)
+    BasketCallPayoff_t  = sum_i w_i,t * max(r_i, 0)                  (a portfolio of calls, NOT max(sum_i w_i r_i, 0))
+    ReplicationDiff_t   = BasketCallPayoff_t - ETFCallPayoff_t
+w_i,t = the holdings' value weights at t (weights_at). With replicate()'s sizing this equals NormalizedDispersionPayoff
+(q_i m_i (S_i,T - K_i)+ = m_etf w_i S_ETF,t (r_i)+, divided by m_etf K_ETF,t = m_etf S_ETF,t).
+Positive: the constituent calls paid more than the ETF call (favours long constituent calls / short ETF call).
+
 Rolling statistics as of a date d (no look-ahead): the observations initiated in (d - 6 calendar months, d] whose
 settlement day is <= d (completed), and that are complete (every price present). Unexpired and incomplete ones are
 counted, never included. Missing prices never become zero.
@@ -61,6 +70,16 @@ def settlement_day(closes: Closes, expiry: date) -> Optional[date]:
     return None
 
 
+def call_payoff(r: float) -> float:
+    """An ATM call's payoff per unit of strike: the positive part of the return."""
+    return max(r, 0.0)
+
+
+def basket_call_payoff(weights: Mapping[str, float], start: Mapping[str, float], end: Mapping[str, float]) -> float:
+    """sum_i w_i * max((P_i,T - P_i,t) / P_i,t, 0): each constituent's own call, weighted (not a call on the basket)."""
+    return sum(w * call_payoff((end[s] - start[s]) / start[s]) for s, w in weights.items())
+
+
 def months_before(d: date, months: int) -> date:
     year, month = divmod(d.year * 12 + d.month - 1 - months, 12)
     month += 1
@@ -104,6 +123,8 @@ class Observation:
     basket_payoff: Optional[float] = None
     holdings_as_of: Optional[date] = None
     point_in_time: bool = False
+    etf_return: Optional[float] = None             # (S_ETF,T - S_ETF,t) / S_ETF,t over the holding period
+    basket_call_return: Optional[float] = None     # sum_i w_i,t * max(r_i, 0)
     problem: Optional[str] = None     # why the observation is incomplete (excluded); None = complete
 
     @property
@@ -127,6 +148,17 @@ class Observation:
     def payoff_return(self) -> Optional[float]:
         d = self.dispersion_payoff
         return None if d is None or not self.etf_payoff else d / self.etf_payoff
+
+    @property
+    def etf_call_return(self) -> Optional[float]:
+        """ETFCallPayoff_t = max(r_ETF, 0)."""
+        return call_payoff(self.etf_return) if self.complete and self.etf_return is not None else None
+
+    @property
+    def replication_difference(self) -> Optional[float]:
+        """BasketCallPayoff_t - ETFCallPayoff_t (positive: the constituent calls paid more)."""
+        e = self.etf_call_return
+        return None if e is None or self.basket_call_return is None else self.basket_call_return - e
 
 
 
@@ -170,6 +202,8 @@ def observe(initiated: date, etf_closes: Closes, constituent_closes: Mapping[str
     pay = payoff_at_maturity(etf, legs, replicate(etf, legs), etf_closes[settled], end)
     obs.settled, obs.etf_strike, obs.etf_settle = settled, etf_closes[initiated], etf_closes[settled]
     obs.etf_payoff, obs.basket_payoff = -pay.short_etf, pay.long_basket
+    obs.etf_return = (etf_closes[settled] - etf_closes[initiated]) / etf_closes[initiated]
+    obs.basket_call_return = basket_call_payoff(weights, start, end)
     return obs
 
 
@@ -189,6 +223,13 @@ class RollingStats:
     normalized_cumulative: Optional[float] = None
     normalized_positive_rate: Optional[float] = None
     return_mean: Optional[float] = None   # mean of DispersionPayoffReturn over the observations where it exists
+    etf_call_mean: Optional[float] = None             # mean ETFCallPayoff
+    basket_call_mean: Optional[float] = None          # mean BasketCallPayoff
+    replication_mean: Optional[float] = None          # mean ReplicationDiff (the primary metric)
+    replication_median: Optional[float] = None
+    replication_cumulative: Optional[float] = None
+    replication_positive_rate: Optional[float] = None     # the constituent calls paid more
+    replication_negative_rate: Optional[float] = None     # the ETF call paid more
     problems: List[str] = field(default_factory=list)
 
 
@@ -219,6 +260,16 @@ def rolling_stats(observations: Sequence[Observation], as_of: date, months: int 
     stats.normalized_cumulative = sum(norms)
     stats.normalized_positive_rate = sum(1 for d in norms if d > 0) / len(norms)
     stats.return_mean = statistics.fmean(returns) if returns else None
+    calls = [o for o in done if o.replication_difference is not None]
+    if not calls:
+        return stats
+    replication = [o.replication_difference for o in calls]
+    stats.etf_call_mean = statistics.fmean(o.etf_call_return for o in calls)
+    stats.basket_call_mean = statistics.fmean(o.basket_call_return for o in calls)
+    stats.replication_mean, stats.replication_median = statistics.fmean(replication), statistics.median(replication)
+    stats.replication_cumulative = sum(replication)
+    stats.replication_positive_rate = sum(1 for d in replication if d > 0) / len(replication)
+    stats.replication_negative_rate = sum(1 for d in replication if d < 0) / len(replication)
     return stats
 
 
@@ -234,3 +285,12 @@ def cumulative_series(observations: Sequence[Observation], as_of: date,
         total_norm += o.normalized
         out.append((o.settled, total, total_norm))
     return out
+
+
+def replication_series(observations: Sequence[Observation], as_of: date,
+                       months: int = 6) -> List[Tuple[date, float, float, float]]:
+    """(observation date, ETFCallPayoff, BasketCallPayoff, ReplicationDiff) of the included observations: the chart
+    of the latest 6 months."""
+    return sorted((o.initiated, o.etf_call_return, o.basket_call_return, o.replication_difference)
+                  for o in in_window(observations, as_of, months)
+                  if included(o, as_of) and o.replication_difference is not None)

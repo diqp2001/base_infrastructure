@@ -85,6 +85,11 @@ def history_row(h: EtfHistory) -> Dict[str, Any]:
         "normalized_mean": r(s.normalized_mean, 6), "normalized_median": r(s.normalized_median, 6),
         "normalized_cumulative": r(s.normalized_cumulative, 6),
         "normalized_positive_rate": r(s.normalized_positive_rate), "return_mean": r(s.return_mean),
+        "etf_call_mean": r(s.etf_call_mean, 6), "basket_call_mean": r(s.basket_call_mean, 6),
+        "replication_mean": r(s.replication_mean, 6), "replication_median": r(s.replication_median, 6),
+        "replication_cumulative": r(s.replication_cumulative, 6),
+        "replication_positive_rate": r(s.replication_positive_rate),
+        "replication_negative_rate": r(s.replication_negative_rate),
         "problems": s.problems,
     }
     return {"etf": h.etf, "as_of": str(h.as_of), "membership": h.membership, "reasons": h.reasons, "stats": stats}
@@ -94,6 +99,7 @@ def write_history(folder: str, h: EtfHistory) -> None:
     os.makedirs(folder, exist_ok=True)
     row = history_row(h)
     row["series"] = [[str(d), round(c, 2), round(n, 6)] for d, c, n in h.series]
+    row["replication_series"] = [[str(d), round(e, 6), round(b, 6), round(x, 6)] for d, e, b, x in h.replication_series]
     row["observations"] = [{
         "initiated": str(o.initiated), "expiry": str(o.expiry) if o.expiry else None, "dte": o.dte,
         "settled": str(o.settled) if o.settled else None, "etf_strike": o.etf_strike, "etf_settle": o.etf_settle,
@@ -102,6 +108,10 @@ def write_history(folder: str, h: EtfHistory) -> None:
         "dispersion_payoff": None if o.dispersion_payoff is None else round(o.dispersion_payoff, 2),
         "normalized": None if o.normalized is None else round(o.normalized, 6),
         "payoff_return": None if o.payoff_return is None else round(o.payoff_return, 4),
+        "etf_return": None if o.etf_return is None else round(o.etf_return, 6),
+        "etf_call_return": None if o.etf_call_return is None else round(o.etf_call_return, 6),
+        "basket_call_return": None if o.basket_call_return is None else round(o.basket_call_return, 6),
+        "replication_difference": None if o.replication_difference is None else round(o.replication_difference, 6),
         "holdings_as_of": str(o.holdings_as_of) if o.holdings_as_of else None, "point_in_time": o.point_in_time,
         "problem": o.problem,
     } for o in h.observations]
