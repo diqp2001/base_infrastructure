@@ -7,8 +7,10 @@ Started from the ETF page (a background job) or by hand; READ-ONLY on IBKR (its 
     python -m src.application.managers.project_managers.etf_dispersion_screener_project.puts TICKER [YYYY-MM-DD]
 
 Reads results/<date>/universe.json (holdings), candidates.json (the call trade's expiry) and lookups.json; writes
-results/<date>/puts/<TICKER>.json and <TICKER>.status.json. The put quotes are the ones of the run (computed_at),
-not of the screen: after the close they are the last (frozen) quotes, labelled so.
+results/<date>/puts/<TICKER>.json and <TICKER>.status.json. The put quotes are the ones of the run (priced_on /
+computed_at), not of the screen: IBKR serves current option data only, so a past screening date is priced at today's
+quotes with that date's holdings and expiry (its contract lookups reused: same contracts, listed strikes). After the
+close they are the last (frozen) quotes, labelled so.
 """
 
 import json
@@ -21,7 +23,7 @@ from typing import Any, Dict, Optional
 
 from src.application.managers.project_managers.etf_dispersion_screener_project import config as project_config
 from src.application.managers.project_managers.etf_dispersion_screener_project.maturities import (
-    _connect as _connect_maturities, etf_weights, market_open,
+    NEW_YORK, _connect as _connect_maturities, etf_weights, market_open,
 )
 from src.application.managers.project_managers.etf_dispersion_screener_project.project_manager import (
     candidate_row, constituent_rows,
@@ -84,16 +86,19 @@ def run(ticker: str, day: str, market_data=None, config: Optional[Dict[str, Any]
     try:
         name, weights = etf_weights(results_dir, day, ticker)
         expiry = call_expiry(results_dir, day, ticker)
+        priced_on = now().astimezone(NEW_YORK).date()          # the broker's quotes are today's
         if market_data is None:
             market_data, client = _connect(config)
         service = DispersionScreeningService(market_data, screen, now=now, right="P")
         lookups = os.path.join(results_dir, day, "lookups.json")
         if os.path.exists(lookups):
             with open(lookups, encoding="utf-8") as f:
-                service.import_lookups(json.load(f), date.fromisoformat(day))
+                data = json.load(f)
+            service.import_lookups({**data, "screening_date": priced_on.isoformat()}, priced_on)
         # the screen's expiry rule picks the same maturity when the call trade has none (not screened that far)
-        candidate = service.screen_etf(ticker, name, weights, date.fromisoformat(day), expiry=expiry)
-        result = {"etf": ticker, "name": name, "screening_date": day, "computed_at": now().isoformat(),
+        candidate = service.screen_etf(ticker, name, weights, priced_on, expiry=expiry)
+        result = {"etf": ticker, "name": name, "screening_date": day, "priced_on": str(priced_on),
+                  "computed_at": now().isoformat(),
                   "frozen_quotes": frozen, "trade": put_row(candidate)}
         with open(os.path.join(puts_dir(results_dir, day), f"{ticker}.json"), "w", encoding="utf-8") as f:
             json.dump(result, f, indent=1)

@@ -179,7 +179,8 @@
     {% if not put %}
         <div class="muted small">Not priced yet: "Price the puts" asks IBKR for the put quotes (read-only, about a minute).</div>
     {% else %}
-        <div class="muted small mb-2">Priced {{ puts.computed_at[:16] }} UTC{% if puts.frozen_quotes %} with the last (frozen)
+        <div class="muted small mb-2">Priced {{ puts.computed_at[:16] }} UTC{% if puts.priced_on and puts.priced_on != day %}
+            (quotes of {{ puts.priced_on }}: IBKR serves current option data only; holdings and expiry of {{ day }}){% endif %}{% if puts.frozen_quotes %} with the last (frozen)
             quotes &mdash; market closed{% endif %}: its own spot and ATM strikes, not the call section's quotes. Same rule as
             the calls: ETF put sold at the bid, constituent puts bought at the ask, contracts replicating the holdings.</div>
         <table class="table table-sm mb-2 kv" style="max-width: 46rem">
