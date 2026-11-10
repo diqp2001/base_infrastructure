@@ -294,3 +294,82 @@ def replication_series(observations: Sequence[Observation], as_of: date,
     return sorted((o.initiated, o.etf_call_return, o.basket_call_return, o.replication_difference)
                   for o in in_window(observations, as_of, months)
                   if included(o, as_of) and o.replication_difference is not None)
+
+
+# --- fixed holding periods: consecutive, non-overlapping periods of `step` months covering the window ---------------
+
+PERIOD_STEPS = (1, 2, 3)                       # months per holding period: 6, 3 and 2 periods over 6 months
+
+
+def period_bounds(as_of: date, step: int, window_months: int = 6) -> List[Tuple[date, date]]:
+    """[(start, end)] oldest first: the last period ends at as_of, each one `step` calendar months long."""
+    ends = [months_before(as_of, k * step) for k in range(window_months // step)]
+    return sorted((months_before(e, step), e) for e in ends)
+
+
+@dataclass
+class Period:
+    start: date                       # period boundary (calendar)
+    end: date
+    start_day: Optional[date] = None  # the trading day whose close opens the trade (last close on or before start)
+    end_day: Optional[date] = None    # the trading day whose close settles it
+    etf_return: Optional[float] = None
+    basket_call_return: Optional[float] = None     # sum_i w_i,start * max(r_i, 0)
+    holdings_as_of: Optional[date] = None
+    point_in_time: bool = False
+    problem: Optional[str] = None
+
+    @property
+    def etf_call_return(self) -> Optional[float]:
+        return None if self.problem or self.etf_return is None else call_payoff(self.etf_return)
+
+    @property
+    def replication_difference(self) -> Optional[float]:
+        e = self.etf_call_return
+        return None if e is None or self.basket_call_return is None else self.basket_call_return - e
+
+
+def observe_period(start: date, end: date, etf_closes: Closes, constituent_closes: Mapping[str, Closes],
+                   snapshot: HoldingsSnapshot) -> Period:
+    """ATM ETF call vs ATM constituent calls opened at the start close and settled at the end close (no price after
+    `end`: callers pass end <= as_of). A missing close leaves the period incomplete, never zero."""
+    p = Period(start, end, holdings_as_of=snapshot.as_of, point_in_time=snapshot.point_in_time)
+    p.start_day, p.end_day = settlement_day(etf_closes, start), settlement_day(etf_closes, end)
+    if p.start_day is None or p.end_day is None or p.start_day >= p.end_day:
+        p.problem = f"no ETF close at {start if p.start_day is None else end}"
+        return p
+    first, last = {}, {}
+    for symbol in snapshot.shares:
+        a = constituent_closes.get(symbol, {}).get(p.start_day)
+        b = constituent_closes.get(symbol, {}).get(p.end_day)
+        if a is None or b is None:
+            p.problem = f"no {symbol} close on {p.start_day if a is None else p.end_day}"
+            return p
+        first[symbol], last[symbol] = a, b
+    p.etf_return = (etf_closes[p.end_day] - etf_closes[p.start_day]) / etf_closes[p.start_day]
+    p.basket_call_return = basket_call_payoff(weights_at(snapshot, first), first, last)
+    return p
+
+
+@dataclass
+class PeriodStats:
+    step: int
+    n: int                            # complete periods
+    n_incomplete: int
+    etf_call_mean: Optional[float] = None
+    basket_call_mean: Optional[float] = None
+    mean: Optional[float] = None      # mean replication difference
+    cumulative: Optional[float] = None
+    positive_rate: Optional[float] = None
+
+
+def period_stats(step: int, periods: Sequence[Period]) -> PeriodStats:
+    done = [p for p in periods if p.replication_difference is not None]
+    s = PeriodStats(step, len(done), len(periods) - len(done))
+    if done:
+        diffs = [p.replication_difference for p in done]
+        s.etf_call_mean = statistics.fmean(p.etf_call_return for p in done)
+        s.basket_call_mean = statistics.fmean(p.basket_call_return for p in done)
+        s.mean, s.cumulative = statistics.fmean(diffs), sum(diffs)
+        s.positive_rate = sum(1 for d in diffs if d > 0) / len(diffs)
+    return s

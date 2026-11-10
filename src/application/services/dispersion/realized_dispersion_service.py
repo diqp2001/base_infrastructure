@@ -21,7 +21,8 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
 from src.domain.entities.finance.dispersion.option_data import Underlying
 from src.domain.entities.finance.dispersion.realized_payoff import (
-    HoldingsSnapshot, Observation, RollingStats, cumulative_series, months_before, replication_series, observe, rolling_stats,
+    PERIOD_STEPS, HoldingsSnapshot, Observation, Period, PeriodStats, RollingStats, cumulative_series,
+    months_before, observe_period, period_bounds, period_stats, replication_series, observe, rolling_stats,
     shares_from_weights,
 )
 from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
@@ -39,6 +40,7 @@ class EtfHistory:
     stats: Optional[RollingStats] = None
     series: List[Tuple[date, float, float]] = field(default_factory=list)
     replication_series: List[Tuple[date, float, float, float]] = field(default_factory=list)
+    periods: Dict[int, Tuple[List[Period], PeriodStats]] = field(default_factory=dict)   # step (months) -> periods
     membership: str = ""                       # how the holdings were obtained (point in time / back-cast)
     reasons: List[str] = field(default_factory=list)   # why no history (e.g. a constituent not resolvable)
 
@@ -94,15 +96,24 @@ class RealizedDispersionService:
         window_start = months_before(as_of, self.months)
         out.membership = (f"holdings of {first.as_of} back-cast before that date (that day's membership and share "
                           f"counts, not the historical ones)" if window_start < first.as_of else "point in time")
-        for day in sorted(d for d in etf_closes if window_start < d <= as_of):
+        def in_force(day: date) -> HoldingsSnapshot:
             snapshot = next((s for s in reversed(held) if s.as_of <= day), None)
-            if snapshot is None:                                       # before every snapshot: back-cast the first
-                snapshot = HoldingsSnapshot(first.as_of, first.shares, point_in_time=False)
+            # before every snapshot: back-cast the first
+            return snapshot or HoldingsSnapshot(first.as_of, first.shares, point_in_time=False)
+
+        for day in sorted(d for d in etf_closes if window_start < d <= as_of):
+            snapshot = in_force(day)
             out.observations.append(observe(day, etf_closes, {s: closes[s] for s in snapshot.shares}, snapshot,
                                             self.config, as_of))
         out.stats = rolling_stats(out.observations, as_of, self.months)
         out.series = cumulative_series(out.observations, as_of, self.months)
         out.replication_series = replication_series(out.observations, as_of, self.months)
+        for step in PERIOD_STEPS:
+            periods = []
+            for a, b in period_bounds(as_of, step, self.months):
+                snapshot = in_force(a)
+                periods.append(observe_period(a, b, etf_closes, {s: closes[s] for s in snapshot.shares}, snapshot))
+            out.periods[step] = (periods, period_stats(step, periods))
         progress(f"{ticker}: {out.stats.n} completed observations, {out.stats.n_open} open, "
                  f"{out.stats.n_incomplete} incomplete")
         return out

@@ -95,10 +95,26 @@ def history_row(h: EtfHistory) -> Dict[str, Any]:
     return {"etf": h.etf, "as_of": str(h.as_of), "membership": h.membership, "reasons": h.reasons, "stats": stats}
 
 
+def _r(x, n=6):
+    return None if x is None else round(float(x), n)
+
+
 def write_history(folder: str, h: EtfHistory) -> None:
     os.makedirs(folder, exist_ok=True)
     row = history_row(h)
     row["series"] = [[str(d), round(c, 2), round(n, 6)] for d, c, n in h.series]
+    row["periods"] = {str(step): {
+        "stats": {"n": st.n, "n_incomplete": st.n_incomplete, "etf_call_mean": _r(st.etf_call_mean),
+                  "basket_call_mean": _r(st.basket_call_mean), "mean": _r(st.mean), "cumulative": _r(st.cumulative),
+                  "positive_rate": _r(st.positive_rate, 4)},
+        "periods": [{"start": str(p.start), "end": str(p.end),
+                     "start_day": str(p.start_day) if p.start_day else None,
+                     "end_day": str(p.end_day) if p.end_day else None, "etf_return": _r(p.etf_return),
+                     "etf_call_return": _r(p.etf_call_return), "basket_call_return": _r(p.basket_call_return),
+                     "replication_difference": _r(p.replication_difference),
+                     "holdings_as_of": str(p.holdings_as_of) if p.holdings_as_of else None,
+                     "point_in_time": p.point_in_time, "problem": p.problem} for p in periods],
+    } for step, (periods, st) in h.periods.items()}
     row["replication_series"] = [[str(d), round(e, 6), round(b, 6), round(x, 6)] for d, e, b, x in h.replication_series]
     row["observations"] = [{
         "initiated": str(o.initiated), "expiry": str(o.expiry) if o.expiry else None, "dte": o.dte,

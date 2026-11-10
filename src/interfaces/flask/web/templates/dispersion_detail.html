@@ -296,6 +296,41 @@
                 {{ '%.1f%%'|format(hstats.replication_positive_rate * 100) }} / {{ '%.1f%%'|format(hstats.replication_negative_rate * 100) }}</td></tr>
         </table>
         {% if replication_chart %}<img src="data:image/png;base64,{{ replication_chart }}" alt="call-payoff replication by observation date" style="max-width: 100%; background: #fff">{% endif %}
+        {% if history.periods %}
+        <div class="mt-3 mb-1"><b>Fixed holding periods over the 6 months</b> <span class="muted small">&mdash; consecutive,
+            non-overlapping periods ending {{ hstats.as_of }}: the ATM calls opened at the period's first close, settled at
+            its last close (every 1 month: 6 trades; every 2 months: 3; every 3 months: 2). Weights: the holdings in force
+            at each start.</span></div>
+        <div class="row g-2">
+        {% for step in ['1', '2', '3'] if history.periods[step] %}
+        {% set ps = history.periods[step] %}
+        <div class="col-lg-4"><table class="table table-sm mb-0">
+            <thead><tr><th class="l" colspan="4">Every {{ step }} month{{ 's' if step != '1' else '' }} ({{ ps.periods|length }} periods)</th></tr>
+                <tr><th class="l">Period</th><th>ETF call</th><th>Basket calls</th><th>Basket &minus; ETF</th></tr></thead>
+            <tbody>
+            {% for p in ps.periods %}
+            <tr title="{{ p.start_day }} &rarr; {{ p.end_day }}; holdings {{ p.holdings_as_of }}{{ ' (back-cast)' if not p.point_in_time else '' }}">
+                <td class="l">{{ p.start[5:] }} &rarr; {{ p.end[5:] }}</td>
+                {% if p.replication_difference is not none %}
+                <td>{{ '%.2f%%'|format(p.etf_call_return * 100) }}</td><td>{{ '%.2f%%'|format(p.basket_call_return * 100) }}</td>
+                <td class="{{ 'neg' if p.replication_difference < 0 else 'pos' }}">{{ '%+.2f%%'|format(p.replication_difference * 100) }}</td>
+                {% else %}<td class="muted" colspan="3">excluded: {{ p.problem }}</td>{% endif %}</tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            {% set st = ps.stats %}
+            <tr><td class="l"><b>Average</b></td><td>{{ '%.2f%%'|format(st.etf_call_mean * 100) if st.etf_call_mean is not none else '' }}</td>
+                <td>{{ '%.2f%%'|format(st.basket_call_mean * 100) if st.basket_call_mean is not none else '' }}</td>
+                <td class="{{ 'neg' if (st.mean or 0) < 0 else 'pos' }}"><b>{{ '%+.2f%%'|format(st.mean * 100) if st.mean is not none else '' }}</b></td></tr>
+            <tr><td class="l">Sum / positive</td><td colspan="2"></td>
+                <td>{{ '%+.2f%%'|format(st.cumulative * 100) if st.cumulative is not none else '' }} /
+                    {{ '%.0f%%'|format(st.positive_rate * 100) if st.positive_rate is not none else '' }}</td></tr>
+            </tfoot>
+        </table></div>
+        {% endfor %}
+        </div>
+        {% else %}<div class="muted small mt-2">Fixed 1 / 2 / 3-month periods: "Recompute 6M history" on the screen page.</div>
+        {% endif %}
         <details class="mt-2"><summary class="small">Replication observations ({{ history.observations|length }})</summary>
         <table class="table table-sm mb-0">
             <thead><tr><th class="l">Date</th><th class="l">Final price on</th><th>ETF return</th><th>ETF call payoff</th>

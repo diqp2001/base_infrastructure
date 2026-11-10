@@ -346,3 +346,40 @@ def test_the_job_and_pages_carry_the_replication_and_leave_the_screen_untouched(
     assert ("%+.2f%%" % (saved["stats"]["replication_mean"] * 100)).encode() in page.data
     detail = client.get(f"/dispersion/etf/ETF?date={day}")
     assert b"call-payoff replication" in detail.data and detail.data.count(b"data:image/png;base64,") == 2
+
+
+# --- fixed 1 / 2 / 3-month holding periods over the 6 months ----------------------------------------------------
+
+def test_period_bounds_are_consecutive_and_cover_six_months():
+    from src.domain.entities.finance.dispersion.realized_payoff import period_bounds
+    one, two, three = (period_bounds(LATER, s) for s in (1, 2, 3))
+    assert len(one) == 6 and len(two) == 3 and len(three) == 2
+    for bounds in (one, two, three):
+        assert bounds[0][0] == date(2026, 5, 6) and bounds[-1][1] == LATER
+        assert all(a[1] == b[0] for a, b in zip(bounds, bounds[1:]))         # no gap, no overlap
+    assert three == [(date(2026, 5, 6), date(2026, 8, 6)), (date(2026, 8, 6), LATER)]
+
+
+def test_a_period_uses_its_own_start_and_end_closes_and_flags_missing_data():
+    from src.domain.entities.finance.dispersion.realized_payoff import observe_period, period_stats
+    start, end = date(2026, 6, 6), date(2026, 7, 6)                            # Saturday -> Friday's close
+    etf = path(100.0, {date(2026, 7, 6): 110.0})
+    stocks = {"A": path(100.0, {date(2026, 7, 6): 120.0}), "B": path(100.0, {date(2026, 7, 6): 90.0}),
+              "C": path(100.0, {date(2026, 7, 6): 115.0})}
+    p = observe_period(start, end, etf, stocks, snapshot({"A": 0.5, "B": 0.3, "C": 0.2}))
+    assert p.start_day == date(2026, 6, 5) and p.end_day == date(2026, 7, 6)
+    assert p.etf_call_return == pytest.approx(0.10) and p.replication_difference == pytest.approx(0.03)
+    del stocks["B"][date(2026, 7, 6)]
+    gap = observe_period(start, end, etf, stocks, snapshot({"A": 0.5, "B": 0.3, "C": 0.2}))
+    assert gap.replication_difference is None and gap.problem == "no B close on 2026-07-06"
+    s = period_stats(1, [p, gap])
+    assert s.n == 1 and s.n_incomplete == 1 and s.mean == pytest.approx(0.03) and s.positive_rate == 1.0
+
+
+def test_the_service_and_job_write_the_three_period_tables(tmp_path):
+    test_the_history_job_leaves_the_current_screen_untouched(tmp_path)
+    from tests.dispersion.test_dispersion_screening_service import DAY
+    saved = json.loads((tmp_path / DAY.isoformat() / "history" / "ETF.json").read_text(encoding="utf-8"))
+    assert [len(saved["periods"][k]["periods"]) for k in ("1", "2", "3")] == [6, 3, 2]
+    assert saved["periods"]["3"]["periods"][-1]["end"] == DAY.isoformat()
+    assert saved["periods"]["1"]["stats"]["n"] == 6
