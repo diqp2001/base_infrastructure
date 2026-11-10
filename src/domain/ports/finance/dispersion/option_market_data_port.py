@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import Dict, List, Optional, Sequence
 
-from src.domain.entities.finance.dispersion.option_data import (
+from src.domain.ports.finance.dispersion.option_data import (
     OptionChain, OptionContractSpec, OptionQuote, Underlying, UnderlyingQuote,
 )
 

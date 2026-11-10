@@ -35,9 +35,11 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-from src.domain.entities.finance.dispersion.dispersion_trade import Leg, payoff_at_maturity, replicate
-from src.domain.entities.finance.dispersion.option_selection import select_expiry
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.dispersion_trade import Leg, payoff_at_maturity, replicate
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import (
+    ShareOptionFactor,
+)
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 
 Closes = Mapping[date, float]                 # trading day -> close (split-adjusted)
 SETTLEMENT_SEARCH_DAYS = 4                    # an expiry settles on the last close at most this many days before it
@@ -58,7 +60,8 @@ def third_fridays(start: date, end: date) -> List[date]:
 
 def expiry_for(initiated: date, config: DispersionScreenConfig) -> Optional[date]:
     """The screen's expiry rule at an observation date."""
-    return select_expiry(third_fridays(initiated, initiated + timedelta(days=config.max_dte)), initiated, config)
+    return ShareOptionFactor.select_expiry(third_fridays(initiated, initiated + timedelta(days=config.max_dte)),
+                                           initiated, config.target_dte, config.min_dte, config.max_dte)
 
 
 def settlement_day(closes: Closes, expiry: date) -> Optional[date]:

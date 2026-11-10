@@ -6,12 +6,11 @@ quotes, no snapshots); no order code.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, List, Optional, Sequence
 
 from src.application.services.dispersion.dispersion_screening_service import Candidate
-from src.domain.entities.finance.dispersion.fill_check import FillCheck, LegToCheck, check_leg, fill_check
 from src.domain.ports.finance.dispersion.option_market_data_port import OptionMarketDataPort
 
 
@@ -80,3 +79,86 @@ class PaperValidationService:
             out.append(Validation(c.etf, c.status, c.screened_at, self.now(), c.premium.net_premium,
                                   fill_check(checks)))
         return out
+
+
+# ---- fill check: would each leg fill at its quoted price? ----
+
+LIVE = 1                          # IBKR market data type of a live quote
+
+
+@dataclass(frozen=True)
+class LegToCheck:
+    symbol: str
+    side: str                        # "sell" (the ETF call) | "buy" (a constituent call)
+    contracts: float
+    multiplier: float
+    screened_price: float            # the bid sold / the ask bought at the screen
+
+
+@dataclass
+class LegCheck:
+    leg: LegToCheck
+    bid: Optional[float]
+    ask: Optional[float]
+    market_data_type: Optional[int]
+    problem: Optional[str] = None    # no two-sided quote / not live
+
+    @property
+    def executable_price(self) -> Optional[float]:
+        return self.bid if self.leg.side == "sell" else self.ask
+
+    @property
+    def would_fill(self) -> bool:
+        p = self.executable_price
+        if self.problem or p is None:
+            return False
+        return p >= self.leg.screened_price if self.leg.side == "sell" else p <= self.leg.screened_price
+
+    @property
+    def slippage(self) -> Optional[float]:
+        """Dollars against us vs the screened price (positive = worse)."""
+        p = self.executable_price
+        if self.problem or p is None:
+            return None
+        per_share = self.leg.screened_price - p if self.leg.side == "sell" else p - self.leg.screened_price
+        return per_share * self.leg.contracts * self.leg.multiplier
+
+
+@dataclass
+class FillCheck:
+    legs: List[LegCheck] = field(default_factory=list)
+
+    @property
+    def quoted(self) -> List[LegCheck]:
+        return [c for c in self.legs if c.problem is None]
+
+    @property
+    def complete(self) -> bool:
+        return bool(self.legs) and len(self.quoted) == len(self.legs)
+
+    @property
+    def legs_filled(self) -> int:
+        return sum(1 for c in self.legs if c.would_fill)
+
+    @property
+    def all_fill(self) -> bool:
+        return self.complete and self.legs_filled == len(self.legs)
+
+    @property
+    def slippage(self) -> Optional[float]:
+        """Total slippage; None when a leg has no usable quote (never a partial total presented as complete)."""
+        return sum(c.slippage for c in self.legs) if self.complete else None
+
+
+def check_leg(leg: LegToCheck, bid: Optional[float], ask: Optional[float], market_data_type: Optional[int],
+              require_live: bool = True) -> LegCheck:
+    problem = None
+    if bid is None or ask is None or bid <= 0 or ask <= 0 or ask < bid:
+        problem = f"no two-sided quote (bid {bid}, ask {ask})"
+    elif require_live and market_data_type != LIVE:
+        problem = f"quote not live (market data type {market_data_type})"
+    return LegCheck(leg, bid, ask, market_data_type, problem)
+
+
+def fill_check(checks: Sequence[LegCheck]) -> FillCheck:
+    return FillCheck(list(checks))

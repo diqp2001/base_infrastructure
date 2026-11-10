@@ -18,14 +18,14 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
-from src.domain.entities.finance.dispersion.option_data import Underlying
-from src.domain.entities.finance.dispersion.realized_payoff import (
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.ports.finance.dispersion.option_data import Underlying
+from src.application.services.dispersion.realized_payoff import (
     PERIOD_STEPS, HoldingsSnapshot, Observation, Period, PeriodStats, RollingStats, cumulative_series,
     months_before, observe_period, period_bounds, period_stats, replication_series, observe, rolling_stats,
     shares_from_weights,
 )
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.domain.ports.finance.dispersion.price_history_port import PriceHistoryPort
 
 logger = logging.getLogger(__name__)

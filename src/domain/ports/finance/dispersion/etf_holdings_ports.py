@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import List, Optional
 
-from src.domain.entities.finance.dispersion.etf_holdings import EtfHoldingsSnapshot, EtfListing
+from src.domain.ports.finance.dispersion.etf_holdings import EtfHoldingsSnapshot, EtfListing
 
 
 class EtfUniversePort(ABC):

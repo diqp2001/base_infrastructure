@@ -12,7 +12,7 @@ import re
 from datetime import datetime
 from typing import List
 
-from src.domain.entities.finance.dispersion.etf_holdings import EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine
+from src.domain.ports.finance.dispersion.etf_holdings import EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine
 from src.infrastructure.repositories.issuer_repo.issuer_holdings_source import IssuerHoldingsSource, clean_text, number
 
 FUND_LIST_URL = ("https://www.ssga.com/bin/v1/ssmp/fund/fundfinder?country=us&language=en&role=intermediary"

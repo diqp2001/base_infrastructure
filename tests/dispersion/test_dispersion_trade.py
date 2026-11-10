@@ -5,23 +5,48 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from src.domain.entities.finance.dispersion.dispersion_trade import (
+from src.application.services.dispersion.dispersion_trade import (
     Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, replicate,
     reverse_premium, scenarios,
 )
-from src.domain.entities.finance.dispersion.option_data import (
+from src.domain.ports.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionContractSpec, OptionQuote, Quote,
 )
-from src.domain.entities.finance.dispersion.option_selection import (
-    constituent_expiry, select_atm_strike, select_common_expiry, select_expiry, standard_chain,
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import (
+    ShareOptionFactor as R,
 )
-from src.domain.entities.finance.dispersion.quote_checks import (
-    BUY, SELL, freshness_problems, option_liquidity_problems, option_quality_problems,
-)
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 
 CONFIG = DispersionScreenConfig()
 DAY = date(2026, 11, 5)
+BUY, SELL = R.BUY, R.SELL
+select_atm_strike, standard_chain = R.select_atm_strike, R.standard_chain
+
+
+# the ShareOptionFactor rules with the screen's settings (as the screening service calls them)
+def select_expiry(expiries, day, cfg):
+    return R.select_expiry(expiries, day, cfg.target_dte, cfg.min_dte, cfg.max_dte)
+
+
+def select_common_expiry(etf, stocks, day, cfg):
+    return R.select_common_expiry(etf, stocks, day, cfg.target_dte, cfg.min_dte, cfg.max_dte)
+
+
+def constituent_expiry(expiries, etf_expiry, day, cfg):
+    return R.constituent_expiry(expiries, etf_expiry, day, cfg.require_same_expiration, cfg.min_dte, cfg.max_dte)
+
+
+def freshness_problems(quote, now, cfg):
+    return R.freshness_problems(quote, now, cfg.max_quote_age_seconds, cfg.allow_frozen_quotes)
+
+
+def option_quality_problems(option, now, cfg, side):
+    return R.quality_problems(option, now, side, cfg.max_quote_age_seconds, cfg.allow_frozen_quotes)
+
+
+def option_liquidity_problems(option, cfg, is_etf):
+    return (R.liquidity_problems(option, cfg.min_etf_option_volume, cfg.min_etf_open_interest) if is_etf
+            else R.liquidity_problems(option, cfg.min_stock_option_volume, cfg.min_stock_open_interest))
 
 
 def etf_leg(**kw):

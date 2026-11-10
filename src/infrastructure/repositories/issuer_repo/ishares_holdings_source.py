@@ -12,7 +12,7 @@ import json
 from datetime import date, datetime
 from typing import List
 
-from src.domain.entities.finance.dispersion.etf_holdings import EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine
+from src.domain.ports.finance.dispersion.etf_holdings import EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine
 from src.infrastructure.repositories.issuer_repo.issuer_holdings_source import IssuerHoldingsSource, clean_text, number
 
 BASE_URL = "https://www.ishares.com"

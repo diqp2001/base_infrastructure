@@ -7,11 +7,16 @@ are in `docs/dispersion_screening_progress.txt`.
 ## Layout
 - **This folder** holds orchestration only. `config.py` holds every setting: `SCREEN` is a
   `DispersionScreenConfig`, plus the data sources and folders. `project_manager.py` runs a screening date.
-- **Domain rules** (pure): `src/domain/entities/finance/dispersion/`
-  - `etf_holdings.py`: listings, holdings snapshots, constituent rules.
-  - `screen_config.py`.
-  - `option_data.py`, `option_selection.py` (expiry, ATM strike), `quote_checks.py`.
-  - `dispersion_trade.py`: sizing, premium, implied correlation, scenarios.
+- **Where the logic lives** (owner 2026-11-10: only domain entities under domain/entities; pricing helpers in the
+  factor classes, shared ones in a parent factor):
+  - `ShareOptionFactor` (`src/domain/entities/factor/.../derivatives/option/share_option_factor.py`): parent of the
+    share option factors - option choice (expiry, ATM strike, standard chain) and quote rules.
+  - The ports' data: `src/domain/ports/finance/dispersion/option_data.py` (chains, quotes), `etf_holdings.py`
+    (issuer listings / holdings snapshots).
+  - `src/application/services/dispersion/`: `screen_config.py` (settings), `etf_universe_service.py` (listing and
+    constituent rules), `paper_validation_service.py` (fill check), and for now `dispersion_trade.py` (sizing,
+    premium, implied correlation, scenarios) and `realized_payoff.py` - to be replaced by the ETF share option
+    factors and the dispersion factors (steps 3 and 4).
 - **Ports:** `src/domain/ports/finance/dispersion/`. Every method takes the screening date.
 - **Issuer adapters:** `src/infrastructure/repositories/issuer_repo/` (iShares CSV, SPDR XLSX). Every
   downloaded file is archived under `results/etf_dispersion_screener/holdings_archive/`. The issuers serve the
@@ -56,7 +61,7 @@ Maturities view, per ETF:
   struck at that day's close, weighted by `replicate()`, with the expiry from `select_expiry` on the monthly
   expiries. It then holds the trade to that expiry.
 - It writes `<date>/history/<T>.json` and `summary.json`. The formulas are in
-  `src/domain/entities/finance/dispersion/realized_payoff.py`.
+  `src/application/services/dispersion/realized_payoff.py`.
 - Prices are IBKR daily TRADES closes (split-adjusted), cached under `price_history/`.
 - Holdings come from the archived snapshots, so they are point in time from 2026-11-05 on. Before that, the earliest
   snapshot is back-cast and flagged (survivorship).

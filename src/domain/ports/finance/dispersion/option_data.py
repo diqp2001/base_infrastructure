@@ -1,6 +1,7 @@
 """
-Market data the dispersion screen reads: listed-option chains, option quotes with the broker's model greeks, and
-underlying quotes. Value objects only; adapters fill them, the screen never sees a broker API.
+Market data exchanged through OptionMarketDataPort / PriceHistoryPort: listed-option chains, option quotes with the
+broker's model greeks, and underlying quotes. Data carriers of the ports, not domain entities (the instruments are
+ETFShare / CompanyShare / ETFShareOption / CompanyShareOption); adapters fill them, the screen never sees a broker API.
 """
 
 from __future__ import annotations

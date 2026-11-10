@@ -8,11 +8,11 @@ import pytest
 from src.application.services.dispersion.dispersion_screening_service import (
     DATA_UNAVAILABLE, MAX_CONSECUTIVE_UNAVAILABLE, OPPORTUNITY, DispersionScreeningService,
 )
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
-from src.domain.entities.finance.dispersion.option_data import (
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.ports.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionQuote, Quote, Underlying, UnderlyingQuote,
 )
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable, OptionMarketDataPort
 
 DAY = date(2026, 11, 5)

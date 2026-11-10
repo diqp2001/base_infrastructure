@@ -3,8 +3,8 @@
 import json
 
 from src.application.services.dispersion.paper_validation_service import PaperValidationService
-from src.domain.entities.finance.dispersion.fill_check import LegToCheck, check_leg, fill_check
-from src.domain.entities.finance.dispersion.option_data import OptionQuote, Quote
+from src.application.services.dispersion.paper_validation_service import LegToCheck, check_leg, fill_check
+from src.domain.ports.finance.dispersion.option_data import OptionQuote, Quote
 from tests.dispersion.test_dispersion_screening_service import DAY, NOW, SPOTS, FakeMarket, screen
 
 SELL = LegToCheck("ETF", "sell", 2, 100, 5.0)

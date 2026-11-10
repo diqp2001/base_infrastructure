@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Optional
 
-from src.domain.entities.factor.finance.financial_assets.derivatives.option.option_factor import OptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import ShareOptionFactor
 
 
-class CompanyShareOptionFactor(OptionFactor):
+class CompanyShareOptionFactor(ShareOptionFactor):
     """Factor for options whose underlying is a company share."""
 
     def __init__(

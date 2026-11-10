@@ -1,6 +1,6 @@
 """
-ETF dispersion-option screener. Orchestration only: the rules are in src/domain/entities/finance/dispersion, the
-data behind ports (issuer adapters in src/infrastructure/repositories/issuer_repo, IBKR option data in
+ETF dispersion-option screener. Orchestration only: the option rules are in ShareOptionFactor, the pricing in
+src/application/services/dispersion (moving to the ETF share option factors), the data behind ports (issuer adapters in src/infrastructure/repositories/issuer_repo, IBKR option data in
 src/infrastructure/repositories/ibkr_repo/finance/dispersion).
 
 A run for a screening date:

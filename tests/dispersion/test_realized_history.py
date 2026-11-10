@@ -7,13 +7,13 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from src.application.services.dispersion.realized_dispersion_service import RealizedDispersionService
-from src.domain.entities.finance.dispersion.option_data import Underlying
-from src.domain.entities.finance.dispersion.realized_payoff import (
+from src.domain.ports.finance.dispersion.option_data import Underlying
+from src.application.services.dispersion.realized_payoff import (
     HoldingsSnapshot, Observation, expiry_for, observe, rolling_stats, shares_from_weights, third_fridays,
     weights_at,
 )
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.domain.ports.finance.dispersion.price_history_port import PriceHistoryPort
 
 CONFIG = DispersionScreenConfig()
@@ -264,7 +264,7 @@ def test_constituent_call_payoff_is_the_positive_part_of_its_return():          
 
 
 def test_it_is_a_basket_of_calls_not_a_call_on_the_basket():                     # 7
-    from src.domain.entities.finance.dispersion.realized_payoff import basket_call_payoff
+    from src.application.services.dispersion.realized_payoff import basket_call_payoff
     w, start, end = {"A": 0.5, "B": 0.5}, {"A": 100.0, "B": 100.0}, {"A": 120.0, "B": 80.0}
     call_on_basket = max(sum(w[s] * (end[s] - start[s]) / start[s] for s in w), 0.0)
     assert call_on_basket == 0.0 and basket_call_payoff(w, start, end) == pytest.approx(0.10)
@@ -351,7 +351,7 @@ def test_the_job_and_pages_carry_the_replication_and_leave_the_screen_untouched(
 # --- fixed 1 / 2 / 3-month holding periods over the 6 months ----------------------------------------------------
 
 def test_period_bounds_are_consecutive_and_cover_six_months():
-    from src.domain.entities.finance.dispersion.realized_payoff import period_bounds
+    from src.application.services.dispersion.realized_payoff import period_bounds
     one, two, three = (period_bounds(LATER, s) for s in (1, 2, 3))
     assert len(one) == 6 and len(two) == 3 and len(three) == 2
     for bounds in (one, two, three):
@@ -361,7 +361,7 @@ def test_period_bounds_are_consecutive_and_cover_six_months():
 
 
 def test_a_period_uses_its_own_start_and_end_closes_and_flags_missing_data():
-    from src.domain.entities.finance.dispersion.realized_payoff import observe_period, period_stats
+    from src.application.services.dispersion.realized_payoff import observe_period, period_stats
     start, end = date(2026, 6, 6), date(2026, 7, 6)                            # Saturday -> Friday's close
     etf = path(100.0, {date(2026, 7, 6): 110.0})
     stocks = {"A": path(100.0, {date(2026, 7, 6): 120.0}), "B": path(100.0, {date(2026, 7, 6): 90.0}),

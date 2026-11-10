@@ -25,7 +25,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 from ibapi.contract import Contract
 
-from src.domain.entities.finance.dispersion.option_data import (
+from src.domain.ports.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionContractSpec, OptionQuote, Quote, Underlying, UnderlyingQuote,
 )
 from src.domain.ports.finance.dispersion.option_market_data_port import (

@@ -19,21 +19,18 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from src.domain.entities.finance.dispersion.dispersion_trade import (
+from src.application.services.dispersion.dispersion_trade import (
     Leg, Premium, ReversePremium, Sizing, implied_correlation, premium, replicate, reverse_premium, scenarios,
     weighted_implied_vol,
 )
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
-from src.domain.entities.finance.dispersion.option_data import (
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.ports.finance.dispersion.option_data import (
     OptionChain, OptionContractSpec, OptionQuote, Underlying, UnderlyingQuote,
 )
-from src.domain.entities.finance.dispersion.option_selection import (
-    common_expiries, constituent_expiry, select_atm_strike, select_common_expiry, standard_chain,
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import (
+    ShareOptionFactor as Rules,
 )
-from src.domain.entities.finance.dispersion.quote_checks import (
-    BUY, SELL, freshness_problems, option_liquidity_problems, option_quality_problems,
-)
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable, OptionMarketDataPort
 
 logger = logging.getLogger(__name__)
@@ -170,10 +167,13 @@ class DispersionScreeningService:
             self._underlyings.update(self.md.resolve_underlyings(missing, screening_date))
         return {s: self._underlyings.get(s) for s in symbols}
 
+    def _stale(self, quote, now) -> List[str]:
+        return Rules.freshness_problems(quote, now, self.config.max_quote_age_seconds, self.config.allow_frozen_quotes)
+
     def _chain(self, underlying: Underlying, screening_date: date) -> Tuple[Optional[OptionChain], List[str]]:
         if underlying.symbol not in self._chains:
             self._chains[underlying.symbol] = self.md.option_chains(underlying, screening_date)
-        return standard_chain(self._chains[underlying.symbol])
+        return Rules.standard_chain(self._chains[underlying.symbol])
 
     def _listed_strikes(self, chain: OptionChain, expiry: date, screening_date: date) -> Sequence[float]:
         key = (chain.underlying, chain.trading_class, expiry)
@@ -203,7 +203,7 @@ class DispersionScreeningService:
                 out[symbol] = AtmOption(symbol, problem="not a US-listed share at the broker")
                 continue
             q = spots.get(symbol)
-            stale = freshness_problems(q.quote, quoted_at, self.config) if q and q.price else ["no price"]
+            stale = self._stale(q.quote, quoted_at) if q and q.price else ["no price"]
             if stale:
                 out[symbol] = AtmOption(symbol, problem="price: " + "; ".join(stale))
                 continue
@@ -216,7 +216,7 @@ class DispersionScreeningService:
                 expiry = min(expiries, key=lambda e: (abs((e - screening_date).days - target_days), e))
                 # the chain's strikes (no request); the expiry's own list only when that strike is not listed
                 known = self._strikes.get((chain.underlying, chain.trading_class, expiry))
-                strike = select_atm_strike(known or chain.strikes, q.price)
+                strike = Rules.select_atm_strike(known or chain.strikes, q.price)
                 unanswered = 0
             except MarketDataUnavailable as e:
                 unanswered += 1
@@ -238,7 +238,8 @@ class DispersionScreeningService:
                 continue
             try:
                 chain = self._chain(resolved[symbol], screening_date)[0]
-                strike = select_atm_strike(self._listed_strikes(chain, spec.expiry, screening_date), out[symbol].spot)
+                strike = Rules.select_atm_strike(self._listed_strikes(chain, spec.expiry, screening_date),
+                                                out[symbol].spot)
             except MarketDataUnavailable as e:
                 out[symbol].problem = f"{DATA_UNAVAILABLE}: {e}"[:160]
                 continue
@@ -273,7 +274,7 @@ class DispersionScreeningService:
                 if not a.bid or not a.ask or a.bid <= 0 or a.ask < a.bid:
                     a.problem = f"no two-sided quote (bid {a.bid}, ask {a.ask})"
                     continue
-                stale = freshness_problems(oq.quote, at, self.config)
+                stale = self._stale(oq.quote, at)
                 if stale:
                     a.problem = "option: " + "; ".join(stale)
 
@@ -319,8 +320,8 @@ class DispersionScreeningService:
             if chain is None:
                 return [], [f"{symbol}: no listed options"]
             listed.append(chain.expirations)
-        expiries = common_expiries(etf_chain.expirations, listed, screening_date, cfg.maturities_min_dte,
-                                   cfg.maturities_max_dte)
+        expiries = Rules.common_expiries(etf_chain.expirations, listed, screening_date, cfg.maturities_min_dte,
+                                         cfg.maturities_max_dte)
         if not expiries:
             return [], [f"no expiry listed by the ETF and every constituent within {cfg.maturities_min_dte}-"
                         f"{cfg.maturities_max_dte} days"]
@@ -378,8 +379,8 @@ class DispersionScreeningService:
                 c.reasons.append(f"the ETF lists no {expiry} expiry")
                 return c
         else:
-            c.expiry = select_common_expiry(etf_chain.expirations, [ch.expirations for ch in chains.values()],
-                                            screening_date, cfg)
+            c.expiry = Rules.select_common_expiry(etf_chain.expirations, [ch.expirations for ch in chains.values()],
+                                                  screening_date, cfg.target_dte, cfg.min_dte, cfg.max_dte)
         if c.expiry is None:
             c.reasons.append(f"no ETF expiry within {cfg.min_dte}-{cfg.max_dte} days")
             return c
@@ -388,7 +389,8 @@ class DispersionScreeningService:
             if r.status != "ok":
                 continue
             chain = chains[r.symbol]
-            choice = constituent_expiry(chain.expirations, c.expiry, screening_date, cfg)
+            choice = Rules.constituent_expiry(chain.expirations, c.expiry, screening_date, cfg.require_same_expiration,
+                                             cfg.min_dte, cfg.max_dte)
             if choice.exception:
                 r.exceptions.append(choice.exception)
             if choice.expiry is None:
@@ -406,12 +408,12 @@ class DispersionScreeningService:
         if etf_quote is None or etf_quote.price is None:
             c.reasons.append("no ETF price")
             return c
-        stale = freshness_problems(etf_quote.quote, quoted_at, cfg)
+        stale = self._stale(etf_quote.quote, quoted_at)
         if stale:
             c.reasons.append("ETF price: " + "; ".join(stale))
             return c
         c.etf_spot = etf_quote.price
-        etf_strike = select_atm_strike(self._listed_strikes(etf_chain, c.expiry, screening_date), c.etf_spot)
+        etf_strike = Rules.select_atm_strike(self._listed_strikes(etf_chain, c.expiry, screening_date), c.etf_spot)
         if etf_strike is None:
             c.reasons.append(f"no ETF call listed for {c.expiry}")
             return c
@@ -421,7 +423,7 @@ class DispersionScreeningService:
             if r.status != "ok":
                 continue
             q: Optional[UnderlyingQuote] = spots.get(r.symbol)
-            problems = freshness_problems(q.quote, quoted_at, cfg) if q and q.price else ["no price"]
+            problems = self._stale(q.quote, quoted_at) if q and q.price else ["no price"]
             if problems:
                 r.status = "price: " + "; ".join(problems)
             else:
@@ -429,7 +431,7 @@ class DispersionScreeningService:
         if not self._coverage_possible(c):
             return c
         for r in self._checking(c):
-            r.strike = select_atm_strike(self._listed_strikes(chains[r.symbol], r.expiry, screening_date), r.spot)
+            r.strike = Rules.select_atm_strike(self._listed_strikes(chains[r.symbol], r.expiry, screening_date), r.spot)
             if r.strike is None:
                 r.status = f"no call listed for {r.expiry}"
                 continue
@@ -446,8 +448,9 @@ class DispersionScreeningService:
             c.reasons.append("no ETF option quote")
             return c
         c.etf_option = etf_option
-        problems = option_quality_problems(etf_option, options_at, cfg, SELL)
-        problems += option_liquidity_problems(etf_option, cfg, is_etf=True)
+        problems = Rules.quality_problems(etf_option, options_at, Rules.SELL, cfg.max_quote_age_seconds,
+                                          cfg.allow_frozen_quotes)
+        problems += Rules.liquidity_problems(etf_option, cfg.min_etf_option_volume, cfg.min_etf_open_interest)
         if problems:
             c.reasons.append("ETF call: " + "; ".join(problems))
             return c
@@ -459,11 +462,12 @@ class DispersionScreeningService:
             if r.option is None:
                 r.status = "no option quote"
                 continue
-            quality = option_quality_problems(r.option, options_at, cfg, BUY)
+            quality = Rules.quality_problems(r.option, options_at, Rules.BUY, cfg.max_quote_age_seconds,
+                                             cfg.allow_frozen_quotes)
             if quality:
                 r.status = "; ".join(quality)
                 continue
-            r.liquidity = option_liquidity_problems(r.option, cfg, is_etf=False)
+            r.liquidity = Rules.liquidity_problems(r.option, cfg.min_stock_option_volume, cfg.min_stock_open_interest)
             if r.liquidity:
                 illiquid.append(r.symbol)
         if illiquid:

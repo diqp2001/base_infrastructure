@@ -26,7 +26,7 @@ from src.application.managers.project_managers.etf_dispersion_screener_project.p
     candidate_row, constituent_rows,
 )
 from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
 
 NEW_YORK = ZoneInfo("America/New_York")
 

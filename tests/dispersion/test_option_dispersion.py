@@ -277,7 +277,7 @@ def _atm_market(failing=(), unlisted=()):
 
 def test_atm_options_take_the_chain_strike_and_fall_back_to_the_expiry_list_when_it_is_not_listed():
     from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
-    from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+    from src.application.services.dispersion.screen_config import DispersionScreenConfig
     from tests.dispersion.test_dispersion_screening_service import DAY, NOW, SPOTS
     market = _atm_market(unlisted={"A"})
     out = DispersionScreeningService(market, DispersionScreenConfig(), now=lambda: NOW).atm_options(
@@ -289,7 +289,7 @@ def test_atm_options_take_the_chain_strike_and_fall_back_to_the_expiry_list_when
 
 def test_atm_options_reports_an_unanswered_lookup_per_symbol_and_stops_when_the_source_is_down():
     from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
-    from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+    from src.application.services.dispersion.screen_config import DispersionScreenConfig
     from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable
     from tests.dispersion.test_dispersion_screening_service import DAY, NOW
     out = DispersionScreeningService(_atm_market(failing={"A"}), DispersionScreenConfig(), now=lambda: NOW

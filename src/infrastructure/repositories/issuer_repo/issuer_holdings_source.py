@@ -21,7 +21,7 @@ from abc import abstractmethod
 from datetime import date, datetime
 from typing import Callable, Dict, List, Optional
 
-from src.domain.entities.finance.dispersion.etf_holdings import EtfHoldingsSnapshot, EtfListing
+from src.domain.ports.finance.dispersion.etf_holdings import EtfHoldingsSnapshot, EtfListing
 from src.domain.ports.finance.dispersion.etf_holdings_ports import EtfHoldingsPort, EtfUniversePort
 
 logger = logging.getLogger(__name__)

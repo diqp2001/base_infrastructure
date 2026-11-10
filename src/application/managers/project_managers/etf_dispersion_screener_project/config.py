@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 from dataclasses import replace
 
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 
 BASE_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 RESULTS_DIR = BASE_PROJECT_ROOT / 'results' / 'etf_dispersion_screener'

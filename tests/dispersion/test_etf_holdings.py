@@ -9,10 +9,9 @@ from datetime import date, datetime
 import openpyxl
 import pytest
 
-from src.domain.entities.finance.dispersion.etf_holdings import (
-    EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine, listing_rejections, prepare_constituents,
-)
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.application.services.dispersion.etf_universe_service import listing_rejections, prepare_constituents
+from src.domain.ports.finance.dispersion.etf_holdings import EQUITY, EtfHoldingsSnapshot, EtfListing, HoldingLine
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.infrastructure.repositories.issuer_repo.ishares_holdings_source import (
     ISharesHoldingsSource, parse_holdings_csv, parse_screener,
 )

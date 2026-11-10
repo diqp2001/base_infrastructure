@@ -10,7 +10,7 @@ import time
 from datetime import date
 
 from src.application.services.misbuffet.brokers.ibkr.IBTWSClient import IBTWSClient
-from src.domain.entities.finance.dispersion.option_data import OptionContractSpec
+from src.domain.ports.finance.dispersion.option_data import OptionContractSpec
 from src.infrastructure.repositories.ibkr_repo.finance.dispersion.ibkr_option_market_data import IBKROptionMarketData
 
 

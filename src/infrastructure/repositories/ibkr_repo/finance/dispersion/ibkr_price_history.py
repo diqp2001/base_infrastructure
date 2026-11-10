@@ -11,7 +11,7 @@ from typing import Dict
 
 from ibapi.contract import Contract
 
-from src.domain.entities.finance.dispersion.option_data import Underlying
+from src.domain.ports.finance.dispersion.option_data import Underlying
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable
 from src.domain.ports.finance.dispersion.price_history_port import PriceHistoryPort
 

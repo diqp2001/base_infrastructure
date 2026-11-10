@@ -45,7 +45,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.
 from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.etf_share_realized_dispersion_factor import (
     ETFShareRealizedDispersionFactor,
 )
-from src.domain.entities.finance.dispersion.option_data import Underlying
+from src.domain.ports.finance.dispersion.option_data import Underlying
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable
 from src.domain.ports.finance.dispersion.price_history_port import PriceHistoryPort
 

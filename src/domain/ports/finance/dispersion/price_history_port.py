@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import Dict
 
-from src.domain.entities.finance.dispersion.option_data import Underlying
+from src.domain.ports.finance.dispersion.option_data import Underlying
 
 
 class PriceHistoryPort(ABC):

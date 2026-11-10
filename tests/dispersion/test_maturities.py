@@ -6,8 +6,10 @@ import json
 import pytest
 from datetime import date, datetime, timedelta, timezone
 
-from src.domain.entities.finance.dispersion.option_selection import common_expiries
-from src.domain.entities.finance.dispersion.screen_config import DispersionScreenConfig
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import (
+    ShareOptionFactor,
+)
+from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from tests.dispersion.test_dispersion_screening_service import DAY, EXPIRY, NOW, SPOTS, FakeMarket, weights
 
 QUOTES = {"ETF": (5.0, 5.1, 0.5), "A": (1.2, 1.25, 0.5), "B": (4.8, 5.0, 0.5)}
@@ -18,8 +20,8 @@ def test_common_expiries_are_listed_by_the_etf_and_every_constituent():
     d = date(2026, 11, 6)
     etf = [d + timedelta(days=n) for n in (3, 14, 42, 133, 500)]
     stocks = [[d + timedelta(days=n) for n in (14, 42, 133)], [d + timedelta(days=n) for n in (14, 42)]]
-    assert common_expiries(etf, stocks, d, 1, 400) == [d + timedelta(days=14), d + timedelta(days=42)]
-    assert common_expiries(etf, stocks, d, 20, 400) == [d + timedelta(days=42)]
+    assert ShareOptionFactor.common_expiries(etf, stocks, d, 1, 400) == [d + timedelta(days=14), d + timedelta(days=42)]
+    assert ShareOptionFactor.common_expiries(etf, stocks, d, 20, 400) == [d + timedelta(days=42)]
 
 
 def test_the_service_prices_every_common_expiry():

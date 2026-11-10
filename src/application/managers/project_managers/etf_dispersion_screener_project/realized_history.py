@@ -21,7 +21,7 @@ from src.application.managers.project_managers.etf_dispersion_screener_project i
 from src.application.managers.project_managers.etf_dispersion_screener_project.maturities import NEW_YORK
 from src.application.services.dispersion.dispersion_screening_service import DispersionScreeningService
 from src.application.services.dispersion.realized_dispersion_service import EtfHistory, RealizedDispersionService
-from src.domain.entities.finance.dispersion.etf_holdings import ConstituentWeights
+from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable
 
 STATUS = "_status.json"
