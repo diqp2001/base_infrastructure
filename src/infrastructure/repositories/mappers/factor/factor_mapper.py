@@ -19,6 +19,9 @@ from src.domain.entities.factor.finance.financial_assets.derivatives.option.comp
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.index_future_option_factor import IndexFutureOptionFactor as IndexFutureOptionFactorEntity
 from src.domain.entities.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_factor import CompanyShareOptionPortfolioFactor as CompanyShareOptionPortfolioFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import CompanyShareFactor as CompanyShareFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.etf_share_factor import ETFShareFactor as ETFShareFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.etf_share_realized_dispersion_factor import ETFShareRealizedDispersionFactor as ETFShareRealizedDispersionFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.etf_share_implied_dispersion_factor import ETFShareImpliedDispersionFactor as ETFShareImpliedDispersionFactorEntity
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_factor import CompanySharePortfolioFactor as CompanySharePortfolioFactorEntity
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_price_return_factor import CompanySharePortfolioPriceReturnFactor
 from src.domain.entities.factor.finance.portfolio.company_share_portfolio_factor.company_share_portfolio_equal_weight_return_factor import CompanySharePortfolioEqualWeightReturnFactor
@@ -27,6 +30,7 @@ from src.domain.entities.finance.financial_assets.derivatives.option.index_futur
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_portfolio_option import CompanySharePortfolioOption
 from src.domain.entities.finance.portfolio.company_share_portfolio import CompanySharePortfolio
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.finance.financial_assets.share.etf_share.etf_share import ETFShare
 from src.domain.entities.finance.financial_assets.derivatives.future.index_future import IndexFuture
 from src.infrastructure.models.factor.factor import (
     FactorModel as Factormodel
@@ -238,6 +242,9 @@ ENTITY_FACTOR_MAPPING = {
     CompanyShare: [
         CompanyShareFactorEntity
     ],
+    ETFShare: [
+        ETFShareFactorEntity
+    ],
     IndexFutureOption: [
         IndexFutureOptionFactorEntity
     ],
@@ -297,6 +304,9 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'index_future_price_return_factor': IndexFuturePriceReturnFactorEntity,
     'future_price_return_factor': FuturePriceReturnFactorEntity,
     'company_share_factor': CompanyShareFactorEntity,
+    'etf_share_factor': ETFShareFactorEntity,
+    'etf_share_realized_dispersion_factor': ETFShareRealizedDispersionFactorEntity,
+    'etf_share_implied_dispersion_factor': ETFShareImpliedDispersionFactorEntity,
     'company_share_price_return_factor': CompanySharePriceReturnFactorEntity,
     'company_share_mid_price_factor': CompanyShareMidPriceFactorEntity,
     'company_share_value_factor': CompanyShareValueFactorEntity,
@@ -565,6 +575,12 @@ class FactorMapper:
             return FuturePriceReturnFactorEntity(**base_args)
         elif factor_type == 'company_share_factor':
             return CompanyShareFactorEntity(**base_args)
+        elif factor_type == 'etf_share_factor':
+            return ETFShareFactorEntity(**base_args)
+        elif factor_type == 'etf_share_realized_dispersion_factor':
+            return ETFShareRealizedDispersionFactorEntity(**base_args)
+        elif factor_type == 'etf_share_implied_dispersion_factor':
+            return ETFShareImpliedDispersionFactorEntity(**base_args)
         elif factor_type == 'company_share_price_return_factor':
             return CompanySharePriceReturnFactorEntity(**base_args)
         elif factor_type == 'company_share_mid_price_factor':

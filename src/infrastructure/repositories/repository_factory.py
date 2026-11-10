@@ -17,6 +17,9 @@ from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.s
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_vpt_52w_20d_lag_factor_repository import IBKRCompanyShareVpt52w20dLagFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_price_return_factor_repository import CompanySharePriceReturnFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_factor_repository import CompanyShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_factor_repository import ETFShareFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_realized_dispersion_factor_repository import ETFShareRealizedDispersionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_implied_dispersion_factor_repository import ETFShareImpliedDispersionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_avg_turnover_6m_factor_repository import CompanyShareAvgTurnover6mFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_monthly_price_range_factor_repository import CompanyShareMonthlyPriceRangeFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
@@ -566,6 +569,9 @@ class RepositoryFactory:
                 'CompanyShare': CompanyShareRepository(self.session, factory=self),
                 'ETFShare': ETFShareRepository(self.session, factory=self),
                 'CompanyShareFactor': CompanyShareFactorRepository(self.session, factory=self),
+                'ETFShareFactor': ETFShareFactorRepository(self.session, factory=self),
+                'ETFShareRealizedDispersionFactor': ETFShareRealizedDispersionFactorRepository(self.session, factory=self),
+                'ETFShareImpliedDispersionFactor': ETFShareImpliedDispersionFactorRepository(self.session, factory=self),
                 'CompanyShareValueFactor': CompanyShareValueFactorRepository(self.session, factory=self),
                 'CompanyShareMidPriceFactor': CompanyShareMidPriceFactorRepository(self.session, factory=self),
                 'CurrencyValueFactor': CurrencyValueFactorRepository(self.session, factory=self),
@@ -1956,6 +1962,21 @@ class RepositoryFactory:
     def company_share_factor_local_repo(self):
         """Get company_share_factor repository for dependency injection."""
         return self.get_local_repository('CompanyShareFactor')
+
+    @property
+    def etf_share_factor_local_repo(self):
+        """Get etf_share_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareFactor')
+
+    @property
+    def etf_share_realized_dispersion_factor_local_repo(self):
+        """Get etf_share_realized_dispersion_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareRealizedDispersionFactor')
+
+    @property
+    def etf_share_implied_dispersion_factor_local_repo(self):
+        """Get etf_share_implied_dispersion_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareImpliedDispersionFactor')
 
     @property
     def company_share_value_factor_local_repo(self):

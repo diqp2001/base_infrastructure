@@ -97,6 +97,7 @@ class Factor(ABC):
         "momentum":     {"label": "Momentum",      "description": "Momentum / trend signals"},
         "technical":    {"label": "Technical",     "description": "Technical indicator signals"},
         "volatility":   {"label": "Volatility",    "description": "Risk / volatility metrics"},
+        "dispersion":   {"label": "Dispersion",    "description": "ETF option dispersion: constituent options vs the ETF option"},
         "fundamental":  {"label": "Fundamental",   "description": "Fundamental financial data"},
         "economic":     {"label": "Economic",      "description": "Macro-economic indicators"},
         "risk":         {"label": "Risk",          "description": "Risk measures (VaR, CVaR…)"},

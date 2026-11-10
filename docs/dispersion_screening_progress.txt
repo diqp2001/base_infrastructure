@@ -453,3 +453,7 @@ HISTORY
 2026-11-09  Call-payoff replication analysis (owner spec); recomputed offline, 32 / 74 ETFs.
 2026-11-09  ETF page: order ticket in whole contracts; put strategy (short ATM ETF put, long ATM constituent puts,
             same weights / expiry / bid-ask rule) priced by a read-only job (puts.py, client id 81).
+2026-11-10  ETFShareDispersionFactor: realized call / put dispersion 1-6 months as factor values (owner: the
+            factor value table, like CompanyShare factors); per-entity / endpoint DependencySpecs, the ETF's
+            holdings as UniverseConstituent rows; job dispersion_factors.py (prices in Docker, load on base_infra).
+            IBKR option history checked: none for expired contracts, intraday bars for listed ones.

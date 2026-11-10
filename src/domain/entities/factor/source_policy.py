@@ -114,6 +114,8 @@ DEFAULT_SOURCE_POLICY = SourcePolicy(rules=(
     # MIDPOINT first: their quotes are served (OPRA) and their trades are sparse.
     SourceRule("CompanyShare", "price", ANY, _MARKS, (D.TRADES, D.MIDPOINT), fallback_allowed=True,
                note="share mark: trades first (no equity quote permission), midpoint when no trade history"),
+    SourceRule("ETFShare", "price", ANY, _MARKS, (D.TRADES, D.MIDPOINT), fallback_allowed=True,
+               note="ETF share mark: an equity like a company share - trades first"),
     SourceRule(ANY, "price", ANY, _MARKS, (D.MIDPOINT, D.TRADES), fallback_allowed=True,
                note="mark: midpoint first, trades when no quote history"),
     SourceRule(ANY, "price", ANY, (IntendedUse.EXECUTION_PRICE, IntendedUse.TRADE_STATISTICS), (D.TRADES,),

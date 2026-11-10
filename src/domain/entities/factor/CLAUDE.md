@@ -809,3 +809,45 @@ class MyFactor(CompanyShareFactor):
 
 When any input it read has no provenance, is not VALID, has another data type or is older than `max_age`, the
 service does not call `calculate()`: no value, and a warning names the input and the reasons.
+
+## ETF option dispersion factors (added 2026-11-10)
+
+Two separate factors (owner: "ETFShareDispersionFactor cannot regroup both"), each with its own formula, ORM identity,
+mapper and repository; `ETFShareDispersionFactor` (etf_share_dispersion_factor.py) is only their shared base (name
+parsing, weight normalization, coverage) - no stored series, no ORM identity:
+
+| factor | formula (per unit of each instrument's price) | inputs (factor values) |
+|---|---|---|
+| `ETFShareRealizedDispersionFactor` | sum_i w_i max(+-(S_T/S_t - 1), 0) - same for the ETF | `close` (TRADES, 1d) of the ETF and of each constituent, window start / end |
+| `ETFShareImpliedDispersionFactor` | sum_i w_i premium_i / S_i - premium_ETF / ETF | `atm_<right>_premium_<m>m` and `atm_<right>_dte_<m>m` (subgroup implied) on the ETF and each constituent |
+
+Names `<kind>_<right>_<measure>_<months>m` (kind realized | implied; right call | put; months 1..6; measures
+dispersion, etf, basket, weight_coverage, constituents, plus etf_return (realized) / max_dte_gap (implied)). A row whose
+name does not parse decodes with no parameters and no value. Implied: a constituent whose expiry is more than
+MAX_DTE_GAP (7) days from the ETF's is left out. The ATM leaf series (`atm_<right>_<premium|bid|ask|strike|moneyness|
+iv|dte>_<m>m`, on ETFShareFactor / CompanyShareFactor) come from `DispersionScreeningService.atm_options` (expiry listed
+closest to m months, strike nearest the spot within 5 %, bid / ask mid).
+
+### Resolution branch A, with two DependencySpec options added for it
+- `per_entity=True`: calculate() receives `{related entity symbol: values}` instead of one flat list (each
+  constituent's inputs stay attributed). Entities without values are left out.
+- `endpoints=True` (with an int `lookback`): the full window must exist, but only its first and last bars are passed
+  and recorded in the lineage (two inputs per instrument instead of the whole window).
+- Related entities come from the entity's repository: `ETFShareRepository.get_related_entities(etf_id, target_date)`
+  = the constituents in force (UniverseConstituent rows of the `"<SYMBOL> holdings"` investment universe).
+  When the repository also has `get_related_weights(etf_id, target_date)`, the service injects
+  `dependencies['weights'] = {symbol: weight}`.
+- A factor may define `related_as_of(target_date)`: the related entities and weights are taken as of that date
+  (realized: the start of its holding period; implied: the value's date).
+
+### Values
+Realized: stored at d + 1 day 00:00 for a trading day d (the daily bar of d is stamped at its start and closed then).
+Implied: at the quote run's time (New York). Below `MIN_WEIGHT_COVERAGE` (1.0, the owner's rule) there is no value;
+`weight_coverage` is still stored. Job: `etf_dispersion_screener_project/dispersion_factors.py`.
+
+### Infrastructure
+ORM `ETFShareFactorModel` ('etf_share_factor': the ETF's raw / leaf series), `ETFShareRealizedDispersionFactorModel`
+('etf_share_realized_dispersion_factor'), `ETFShareImpliedDispersionFactorModel` ('etf_share_implied_dispersion_factor');
+mappers / repositories under `.../share/etf_share/`; FactorMapper dispatch; `ENTITY_FACTOR_MAPPING[ETFShare] =
+[ETFShareFactor]`; factory keys `ETFShareFactor`, `ETFShareRealizedDispersionFactor`, `ETFShareImpliedDispersionFactor`;
+library `etf_share_library`; source policy rule `ETFShare` price: TRADES first; group `dispersion` in `Factor.GROUPS`.

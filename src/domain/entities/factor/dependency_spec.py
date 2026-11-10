@@ -67,6 +67,15 @@ class DependencySpec:
     # Class name of that entity when it is not the parent's class (e.g. 'Index' for the IRX T-bill yield index).
     entity_type: Optional[str] = None
 
+    # True: calculate() receives {related entity symbol: its values} instead of one flat list of every related
+    # entity's values (e.g. each constituent's closes for an ETF's dispersion). Entities without values are left out.
+    per_entity: bool = False
+
+    # With an int lookback: calculate() receives only the window's first and last closed bars (and the lineage
+    # records only those two inputs) - the window must still be complete. For factors that compare two points in
+    # time, e.g. a holding period's start and end prices.
+    endpoints: bool = False
+
     # Sentinel — use as a field value to mean "inherit from the parent factor".
     SELF: ClassVar = _SELF
 

@@ -109,6 +109,7 @@ def build(cls: type, session, factory):
 # (bar size drives the raw frequency), so the round trip passes them like real callers do.
 REQUIRED_CREATE_KWARGS = {
     "CompanyShareFactorRepository": {"group": "price", "subgroup": "ohlc", "frequency": "1d"},
+    "ETFShareFactorRepository": {"group": "price", "subgroup": "TRADES", "frequency": "1d"},
 }
 
 

@@ -53,6 +53,21 @@ class CompanyShareFactorModel(FactorModel):
         "polymorphic_identity": "company_share_factor"
     }
 
+class ETFShareFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_factor"
+    }
+
+class ETFShareRealizedDispersionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_realized_dispersion_factor"
+    }
+
+class ETFShareImpliedDispersionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_implied_dispersion_factor"
+    }
+
 class CompanySharePriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_price_return_factor"

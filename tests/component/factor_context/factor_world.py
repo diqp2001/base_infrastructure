@@ -169,6 +169,57 @@ class FactorWorld:
         self.s.commit()
         return repo.get_by_id(option.id)
 
+    def etf(self):
+        """ETF 'TEST' holding AAPL 60 % / MSFT 40 % (its holdings universe, in force since 2025-01-01) with daily
+        closes on the share bar days (created on first use)."""
+        if getattr(self, "_etf", None):
+            return self._etf
+        from src.domain.entities.finance.financial_assets.share.etf_share.etf_share import ETFShare
+        from src.domain.entities.universe.universe import Universe
+        from src.domain.entities.universe.universe_constituent import UniverseConstituent
+        from src.infrastructure.models.factor.factor import ETFShareFactorModel
+        repo = self.f.get_local_repository("ETFShare")
+        etf = repo.add(ETFShare(id=None, symbol="TEST", currency_id=self.usd.id, exchange_id=1, name="Test ETF",
+                                start_date=date(2025, 1, 1)))
+        universe = self.f.get_local_repository("InvestmentUniverse").add(Universe(
+            name=repo.holdings_universe_name("TEST"), entity_type="CompanyShare", currency_id=self.usd.id))
+        members = self.f.get_local_repository("UniverseConstituent")
+        for ticker, weight in (("AAPL", 0.6), ("MSFT", 0.4)):
+            members.add(UniverseConstituent(universe_id=universe.id, entity_id=self.share[ticker].id,
+                                            entity_type="CompanyShare", start_date=date(2025, 1, 1), weight=weight))
+        close = self._raw_factor(ETFShareFactorModel, "close", "etf_share_factor")
+        self.etf_closes = close_series(3.0)
+        for day, c in zip(self.days, self.etf_closes):
+            self.s.add(FactorValueModel(factor_id=close.id, entity_id=etf.id, entity_type="ETFShare", date=day,
+                                        value=repr(c)))
+        self.s.commit()
+        self._seed_atm_series(etf)
+        self._etf = etf
+        return etf
+
+    # the ATM option leaf series of the implied dispersion factor, at the last bar: premium per unit of price, dte
+    ATM = {"TEST": (0.030, 30.0), "AAPL": (0.045, 30.0), "MSFT": (0.040, 31.0)}
+
+    def _seed_atm_series(self, etf):
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel, ETFShareFactorModel
+        holders = {"TEST": (etf, ETFShareFactorModel, "etf_share_factor", "ETFShare"),
+                   "AAPL": (self.share["AAPL"], CompanyShareFactorModel, "company_share_factor", "CompanyShare"),
+                   "MSFT": (self.share["MSFT"], CompanyShareFactorModel, "company_share_factor", "CompanyShare")}
+        for right in ("call", "put"):
+            for symbol, (premium, dte) in self.ATM.items():
+                entity, model_cls, factor_type, entity_type = holders[symbol]
+                for field, value in (("premium", premium), ("dte", dte)):
+                    name = f"atm_{right}_{field}_1m"
+                    factor = self.s.query(model_cls).filter_by(name=name, subgroup="implied").first()
+                    if factor is None:
+                        factor = model_cls(name=name, group="price", subgroup="implied", frequency="1d",
+                                           data_type="numeric", source="ibkr", definition=name, factor_type=factor_type)
+                        self.s.add(factor)
+                        self.s.commit()
+                    self.s.add(FactorValueModel(factor_id=factor.id, entity_id=entity.id, entity_type=entity_type,
+                                                date=LAST_BAR, value=repr(value)))
+        self.s.commit()
+
     def index_family(self):
         """SPX index, its ESH6 future and a call on the future, each with 30 daily bars (created on first use)."""
         if getattr(self, "_index_family", None):
@@ -291,6 +342,8 @@ class FactorWorld:
         for prefix in ("IndexFutureOption", "IndexFuture", "Index"):
             if factor_name.startswith(prefix):
                 return self.index_family()[prefix]
+        if factor_name.startswith("ETFShare"):
+            return self.etf()
         if factor_name.startswith("Currency"):
             return self.usd
         if factor_name.startswith("BondFuture"):

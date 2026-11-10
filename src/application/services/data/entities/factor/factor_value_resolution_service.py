@@ -982,7 +982,11 @@ class FactorValueResolutionService:
                 self.logger.error("Entity ID required for dynamic dependency resolution")
                 return None
 
-            related_entities = self._get_resolution_entities(entity, entity_id, repository_type, target_date=target_date)
+            # a factor may take its related entities (and their weights) as of another date than the value's, e.g.
+            # the start of a holding period (ETFShareRealizedDispersionFactor.related_as_of)
+            related_as_of = getattr(factor_entity, 'related_as_of', None)
+            related_date = related_as_of(target_date) if callable(related_as_of) else target_date
+            related_entities = self._get_resolution_entities(entity, entity_id, repository_type, target_date=related_date)
             dependency_values = {}
 
             for dep in factor_entity.calculate_dependencies:
@@ -994,6 +998,12 @@ class FactorValueResolutionService:
                             self.logger.warning(f"DependencySpec {dep.result_key}: no entity '{dep.entity_symbol}'")
                             continue
                         targets = [benchmark]
+                    if getattr(dep, 'per_entity', False):
+                        per_entity = self._per_entity_values(dep, factor_entity, entity, targets, target_date,
+                                                             repository_type, **kwargs)
+                        dependency_values[dep.result_key] = per_entity
+                        self.logger.info(f"DependencySpec {dep.result_key}: values for {len(per_entity)} entities")
+                        continue
                     spec_values = self._resolve_dependency_spec(
                         dep, factor_entity, targets, target_date, repository_type, **kwargs
                     )
@@ -1009,12 +1019,18 @@ class FactorValueResolutionService:
                     if value is not None:
                         dependency_values[dep] = value
 
-            # A dep whose value is [] means resolution failed for that dep — treat as
+            # weights of the related entities, for factors that take per-entity values (an ETF's constituents)
+            if any(getattr(dep, 'per_entity', False) for dep in factor_entity.calculate_dependencies):
+                weights = self._related_weights(entity, entity_id, related_date)
+                if weights is not None:
+                    dependency_values['weights'] = weights
+
+            # A dep whose value is [] (or {} for a per-entity dep) means resolution failed for that dep — treat as
             # missing rather than "resolved with no data".  Only return if every dep
             # that was registered actually produced at least one value.
             non_empty = {
                 k: v for k, v in dependency_values.items()
-                if (isinstance(v, list) and len(v) > 0) or (not isinstance(v, list) and v is not None)
+                if (isinstance(v, (list, dict)) and len(v) > 0) or (not isinstance(v, (list, dict)) and v is not None)
             }
             if non_empty:
                 if len(non_empty) < len(dependency_values):
@@ -1030,6 +1046,34 @@ class FactorValueResolutionService:
 
         except Exception as e:
             self.logger.error(f"Error resolving dynamic dependencies: {e}")
+            return None
+
+    def _per_entity_values(self, spec, factor_entity, entity, targets, target_date, repository_type,
+                           **kwargs) -> Dict[str, List[float]]:
+        """A per-entity DependencySpec: {symbol (else id): values} of each related entity (the parent excluded),
+        resolved one entity at a time so the values stay attributed; entities without values are left out."""
+        out: Dict[str, List[float]] = {}
+        for target in targets:
+            if target is entity or getattr(target, 'id', None) is None:
+                continue
+            values = self._resolve_dependency_spec(spec, factor_entity, [target], target_date, repository_type,
+                                                   **kwargs)
+            if values:
+                out[str(getattr(target, 'symbol', None) or target.id)] = values
+        return out
+
+    def _related_weights(self, entity, entity_id, related_date) -> Optional[Dict[str, float]]:
+        """{related entity symbol: weight} from the entity's repository when it defines related weights (an ETF's
+        constituents), else None (nothing injected)."""
+        if self.factory is None:
+            return None
+        try:
+            repo = self.factory.get_local_repository(type(entity).__name__.removesuffix('Model'))
+            weights_of = getattr(repo, 'get_related_weights', None) if repo is not None else None
+            weights = weights_of(entity_id, target_date=related_date) if callable(weights_of) else None
+            return weights if isinstance(weights, dict) else None
+        except Exception as e:
+            self.logger.warning(f"Related weights of {type(entity).__name__} {entity_id} not available: {e}")
             return None
 
     def _entity_by_symbol(self, entity, symbol: str, entity_type: Optional[str] = None):
@@ -1312,7 +1356,8 @@ class FactorValueResolutionService:
                     # A price series, not one value: the trailing closed bars ending at the bar the
                     # single-value lookup would use (no look-ahead, same staleness rule). A series
                     # shorter than the window is missing data — never a value over a shorter window.
-                    series = self._closed_bar_series(dep_factor, related_entity, target_date, lookback)
+                    series = self._closed_bar_series(dep_factor, related_entity, target_date, lookback,
+                                                     endpoints=getattr(spec, 'endpoints', False))
                     if series:
                         values.extend(series)
                         self.logger.info(
@@ -1338,11 +1383,13 @@ class FactorValueResolutionService:
 
         return values
 
-    def _closed_bar_series(self, dep_factor, entity, target_date, lookback) -> List[float]:
+    def _closed_bar_series(self, dep_factor, entity, target_date, lookback, endpoints: bool = False) -> List[float]:
         """Trailing stored values of a raw factor at target_date, oldest first.
 
         lookback: int  — exactly that many closed bars (fewer stored -> [] : the window is not available);
                   'ytd' — the last bar of the previous year (the base) + every bar of target_date's year.
+        endpoints: with an int lookback, only the window's first and last bars (the inputs noted for the lineage
+                  are those two).
         Bars are stamped at their start; only closed bars count (see get_latest_available_bar)."""
         repo = getattr(self.factory, 'factor_value_local_repo', None) if self.factory else None
         if repo is None or not hasattr(repo, 'get_closed_bar_values'):
@@ -1365,6 +1412,8 @@ class FactorValueResolutionService:
                     dep_factor.id, entity.id, date_str, bar_seconds=bar_seconds, count=int(lookback),
                     require_current=True, entity_type=et)
                 if len(rows) == int(lookback):
+                    if endpoints and len(rows) > 2:
+                        rows = [rows[0], rows[-1]]
                     for row in rows:
                         self._note_input(row)
                     return [float(r.value) for r in rows]

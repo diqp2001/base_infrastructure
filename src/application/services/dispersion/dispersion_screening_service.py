@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 OPPORTUNITY = "opportunity"
 DATA_UNAVAILABLE = "data unavailable"          # the source did not answer: no verdict on the ETF
+UNANSWERED_IN_A_ROW = 3                        # atm_options: that many unanswered lookups in a row = the source is down
 MAX_CONSECUTIVE_UNAVAILABLE = 3               # then the source is down: the screen stops asking
 NOT_CHECKED = "not checked"                    # the coverage rule had already failed: no broker request
 SHARE_TYPES = {"COMMON", "ADR", "REIT", "ETF", "MLP", "NY REG SHRS", "GDR", "TRACKING STK", "ROYALTY TRST", ""}
@@ -60,6 +61,24 @@ class ConstituentResult:
     contracts: Optional[float] = None
     dollar_delta: Optional[float] = None
     call_cost: Optional[float] = None
+
+
+@dataclass
+class AtmOption:
+    """The ATM option of one underlying (DispersionScreeningService.atm_options); problem set when unusable."""
+    symbol: str
+    spot: Optional[float] = None
+    expiry: Optional[date] = None
+    strike: Optional[float] = None
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    iv: Optional[float] = None
+    quoted_at: Optional[datetime] = None
+    problem: Optional[str] = None
+
+    @property
+    def mid(self) -> Optional[float]:
+        return (self.bid + self.ask) / 2.0 if self.problem is None and self.bid and self.ask else None
 
 
 @dataclass
@@ -162,6 +181,101 @@ class DispersionScreeningService:
             # one strike list per expiry: US equity / ETF calls and puts are listed on the same strikes
             self._strikes[key] = self.md.listed_strikes(chain, expiry, self.right, screening_date)
         return self._strikes[key]
+
+    # ---- ATM option of each underlying (the implied dispersion factors' leaf series) ----
+    def atm_options(self, symbols: Sequence[str], target_days: int, screening_date: date,
+                    max_atm_deviation: float = 0.05, batch: int = 40) -> Dict[str, "AtmOption"]:
+        """For each symbol: the option of this service's right at the expiry listed closest to target_days ahead
+        (the same rule for an ETF and its constituents) and the strike nearest the spot, with its bid / ask quote.
+        Problems (no price, no option within max_atm_deviation of the spot, a one-sided quote, a lookup the broker
+        did not answer) are reported per symbol, never filled in; UNANSWERED_IN_A_ROW unanswered lookups in a row
+        mean the source is down (MarketDataUnavailable)."""
+        out: Dict[str, AtmOption] = {}
+        unanswered = 0
+        resolved = self.resolve(list(symbols), screening_date)
+        live = [u for u in resolved.values() if u is not None]
+        spots = self.md.underlying_quotes(live, screening_date) if live else {}
+        quoted_at = self.now()
+        specs: Dict[str, OptionContractSpec] = {}
+        for symbol in symbols:
+            u = resolved.get(symbol)
+            if u is None:
+                out[symbol] = AtmOption(symbol, problem="not a US-listed share at the broker")
+                continue
+            q = spots.get(symbol)
+            stale = freshness_problems(q.quote, quoted_at, self.config) if q and q.price else ["no price"]
+            if stale:
+                out[symbol] = AtmOption(symbol, problem="price: " + "; ".join(stale))
+                continue
+            try:
+                chain, _ = self._chain(u, screening_date)
+                expiries = [e for e in (chain.expirations if chain else ()) if e > screening_date]
+                if not expiries:
+                    out[symbol] = AtmOption(symbol, spot=q.price, problem="no listed options")
+                    continue
+                expiry = min(expiries, key=lambda e: (abs((e - screening_date).days - target_days), e))
+                # the chain's strikes (no request); the expiry's own list only when that strike is not listed
+                known = self._strikes.get((chain.underlying, chain.trading_class, expiry))
+                strike = select_atm_strike(known or chain.strikes, q.price)
+                unanswered = 0
+            except MarketDataUnavailable as e:
+                unanswered += 1
+                if unanswered >= UNANSWERED_IN_A_ROW:
+                    raise
+                out[symbol] = AtmOption(symbol, spot=q.price, problem=f"{DATA_UNAVAILABLE}: {e}"[:160])
+                continue
+            if strike is None or abs(strike / q.price - 1.0) > max_atm_deviation:
+                out[symbol] = AtmOption(symbol, spot=q.price, expiry=expiry,
+                                        problem=f"no strike within {max_atm_deviation:.0%} of the spot")
+                continue
+            out[symbol] = AtmOption(symbol, spot=q.price, expiry=expiry, strike=strike, quoted_at=quoted_at)
+            specs[symbol] = OptionContractSpec(symbol, expiry, strike, self.right, chain.multiplier,
+                                               chain.trading_class)
+        self._quote_atm(out, specs, screening_date, batch)
+        retry = {}
+        for symbol, spec in specs.items():               # strike not listed for that expiry: its own strike list
+            if out[symbol].problem != "no option quote" or (spec.underlying, spec.trading_class, spec.expiry)                     in self._strikes:
+                continue
+            try:
+                chain = self._chain(resolved[symbol], screening_date)[0]
+                strike = select_atm_strike(self._listed_strikes(chain, spec.expiry, screening_date), out[symbol].spot)
+            except MarketDataUnavailable as e:
+                out[symbol].problem = f"{DATA_UNAVAILABLE}: {e}"[:160]
+                continue
+            if strike is None or abs(strike / out[symbol].spot - 1.0) > max_atm_deviation:
+                out[symbol].problem = f"no strike within {max_atm_deviation:.0%} of the spot"
+                continue
+            out[symbol].strike, out[symbol].problem = strike, None
+            retry[symbol] = OptionContractSpec(symbol, spec.expiry, strike, self.right, spec.multiplier,
+                                               spec.trading_class)
+        self._quote_atm(out, retry, screening_date, batch)
+        return out
+
+    def _quote_atm(self, out: Dict[str, "AtmOption"], specs: Dict[str, OptionContractSpec], screening_date: date,
+                   batch: int) -> None:
+        pending = list(specs.items())
+        for i in range(0, len(pending), batch):
+            chunk = pending[i:i + batch]
+            try:
+                quotes = self.md.option_quotes([spec for _, spec in chunk], screening_date)
+            except MarketDataUnavailable as e:
+                for symbol, _ in chunk:
+                    out[symbol].problem = f"{DATA_UNAVAILABLE}: {e}"[:160]
+                continue
+            at = self.now()
+            for symbol, spec in chunk:
+                oq = quotes.get(spec.key)
+                a = out[symbol]
+                if oq is None:
+                    a.problem = "no option quote"
+                    continue
+                a.bid, a.ask, a.iv, a.quoted_at = oq.quote.bid, oq.quote.ask, oq.greeks.implied_vol, at
+                if not a.bid or not a.ask or a.bid <= 0 or a.ask < a.bid:
+                    a.problem = f"no two-sided quote (bid {a.bid}, ask {a.ask})"
+                    continue
+                stale = freshness_problems(oq.quote, at, self.config)
+                if stale:
+                    a.problem = "option: " + "; ".join(stale)
 
     # ---- screen ----
     def screen(self, etfs: Sequence[Tuple[str, str, ConstituentWeights]], screening_date: date,

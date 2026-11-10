@@ -67,6 +67,44 @@ class ETFShareRepository(ShareRepository, ETFSharePort):
         self.session.commit()
         return self._to_entity(model)
 
+    # ---- constituents: the ETF's holdings, point in time ----
+    @staticmethod
+    def holdings_universe_name(symbol: str) -> str:
+        """The Universe holding an ETF's constituents (UniverseConstituent rows: weight, start_date, end_date)."""
+        return f"{symbol.upper()} holdings"
+
+    def _holdings(self, etf_share_id: int, target_date) -> list:
+        """The UniverseConstituent rows of the ETF's holdings universe in force on target_date."""
+        etf = self.get_by_id(etf_share_id)
+        if etf is None or self.factory is None:
+            return []
+        universe = self.factory.get_local_repository('InvestmentUniverse').get_by_name(self.holdings_universe_name(etf.symbol))
+        if universe is None:
+            return []
+        day = target_date.date() if hasattr(target_date, 'date') and callable(target_date.date) else target_date
+        return self.factory.get_local_repository('UniverseConstituent').get_active_by_universe(
+            universe.id, day or date.today())
+
+    def get_related_entities(self, etf_share_id: int, target_date=None) -> list:
+        """The ETF's constituents in force on target_date (the resolution service's related entities)."""
+        out = []
+        for row in self._holdings(etf_share_id, target_date):
+            repo = self.factory.get_local_repository(row.entity_type)
+            entity = repo.get_by_id(row.entity_id) if repo is not None else None
+            if entity is not None:
+                out.append(entity)
+        return out
+
+    def get_related_weights(self, etf_share_id: int, target_date=None) -> dict:
+        """{constituent symbol: weight} of the ETF's holdings in force on target_date (not normalized)."""
+        out = {}
+        for row in self._holdings(etf_share_id, target_date):
+            repo = self.factory.get_local_repository(row.entity_type)
+            entity = repo.get_by_id(row.entity_id) if repo is not None else None
+            if entity is not None and row.weight is not None:
+                out[entity.symbol] = float(row.weight)
+        return out
+
     def _create_or_get(self, symbol: str, exchange_id: Optional[int] = None, currency: str = 'USD',
                        name: Optional[str] = None, issuer: Optional[str] = None,
                        asset_class: Optional[str] = None, leverage_factor: float = 1.0,

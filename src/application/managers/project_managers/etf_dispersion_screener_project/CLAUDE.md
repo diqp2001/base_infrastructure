@@ -72,3 +72,20 @@ Maturities view, per ETF:
 - Never mix stale and current data. Name every exception, such as a different expiry or a missing chain.
 - Downloads are polite: one file at a time, at most one per second, once per ETF per day.
 - Tests: `tests/dispersion/`. They use inline issuer files and in-memory SQLite, and never download anything.
+
+## Dispersion factor values (2026-11-10)
+Owner: dispersion as factor values in the factor value table, produced like the CompanyShare factors (no new table);
+realized and implied are two separate factors (ETFShareRealizedDispersionFactor, ETFShareImpliedDispersionFactor).
+`dispersion_factors.py`:
+- `prices <date>` (Docker, IBKR read-only, client id 80): 13 months of daily closes into the price cache.
+- `quotes <date>` (Docker, IBKR read-only, client id 80, market hours, streaming quotes - no snapshot fee): the ATM
+  call and put of every covered ETF and constituent for the expiries closest to 1..6 months ->
+  results/<date>/atm_options/<time>.json.
+- `load <date> [--tickers] [--measures] [--every N] [--no-realized] [--no-implied]` (Windows, base_infra; files only):
+  the ETFShare / CompanyShare rows, the holdings as UniverseConstituent rows (`"<SYMBOL> holdings"` investment
+  universe, each snapshot from its date; before the first snapshot back-cast and said so in the universe description),
+  the closes and the ATM series as raw factor values, then FactorValueResolutionService resolves and stores the
+  realized values (trading days of the last 6 months) and the implied values (each quote run's time).
+- An ETF with a constituent without prices (e.g. a share not listed in the US) is skipped, nothing written.
+- IBKR has no history of expired options (and listed ones only in intraday bars): the implied series starts with the
+  first quote run (2026-11-10).
