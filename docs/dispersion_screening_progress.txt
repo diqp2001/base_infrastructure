@@ -457,3 +457,8 @@ HISTORY
             factor value table, like CompanyShare factors); per-entity / endpoint DependencySpecs, the ETF's
             holdings as UniverseConstituent rows; job dispersion_factors.py (prices in Docker, load on base_infra).
             IBKR option history checked: none for expired contracts, intraday bars for listed ones.
+2026-11-10  Restructuring (owner): no non-entity modules under domain/entities; ShareOptionFactor holds the option
+            choice / quote rules. Step 3: dispersion_trade.py replaced by ETFShareOptionFactor (the strategy maths)
+            and four ETF option strategy factors (net premium, reverse premium, implied correlation, scenario
+            payoff); `strategies` step stores the screen's strategies in base_infra (option A). Scenario payoffs now
+            use the option's right (the put strategy's scenarios used the call payoff before).

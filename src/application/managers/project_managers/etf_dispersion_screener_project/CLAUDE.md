@@ -13,10 +13,13 @@ are in `docs/dispersion_screening_progress.txt`.
     share option factors - option choice (expiry, ATM strike, standard chain) and quote rules.
   - The ports' data: `src/domain/ports/finance/dispersion/option_data.py` (chains, quotes), `etf_holdings.py`
     (issuer listings / holdings snapshots).
+  - `ETFShareOptionFactor` (`.../derivatives/option/etf_share_option/etf_share_option_factor.py`): parent of the ETF
+    option factors - the strategy maths (sizing, premium, reversed premium, implied correlation, payoff, scenarios),
+    used by the screening service and by the four strategy factors (net premium, reverse premium, implied
+    correlation, scenario payoff) stored by the `strategies` step.
   - `src/application/services/dispersion/`: `screen_config.py` (settings), `etf_universe_service.py` (listing and
-    constituent rules), `paper_validation_service.py` (fill check), and for now `dispersion_trade.py` (sizing,
-    premium, implied correlation, scenarios) and `realized_payoff.py` - to be replaced by the ETF share option
-    factors and the dispersion factors (steps 3 and 4).
+    constituent rules), `paper_validation_service.py` (fill check), and for now `realized_payoff.py` - to be replaced
+    by the realized dispersion factor (step 4).
 - **Ports:** `src/domain/ports/finance/dispersion/`. Every method takes the screening date.
 - **Issuer adapters:** `src/infrastructure/repositories/issuer_repo/` (iShares CSV, SPDR XLSX). Every
   downloaded file is archived under `results/etf_dispersion_screener/holdings_archive/`. The issuers serve the
@@ -94,3 +97,8 @@ realized and implied are two separate factors (ETFShareRealizedDispersionFactor,
 - An ETF with a constituent without prices (e.g. a share not listed in the US) is skipped, nothing written.
 - IBKR has no history of expired options (and listed ones only in intraday bars): the implied series starts with the
   first quote run (2026-11-10).
+- `strategies <date> [--tickers] [--sources screen,puts,maturities] [--all-scenario-measures]` (Windows, base_infra;
+  files only - owner's option A): each strategy the screen priced (candidates.json, puts/, maturities/) becomes the
+  ETF option and constituent option entities, the legs universe `"<option symbol> legs"` (the legs the screen sized,
+  weights renormalized, in force that day), the options' quote series at the strategy's quote time, and the four ETF
+  option strategy factors resolved there (`dispersion_strategy_factors.py`). Scenario factors: P&L only by default.

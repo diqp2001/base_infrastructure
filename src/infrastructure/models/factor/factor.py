@@ -68,6 +68,31 @@ class ETFShareImpliedDispersionFactorModel(FactorModel):
         "polymorphic_identity": "etf_share_implied_dispersion_factor"
     }
 
+class ETFShareOptionFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_factor"
+    }
+
+class ETFShareOptionNetPremiumFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_net_premium_factor"
+    }
+
+class ETFShareOptionReversePremiumFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_reverse_premium_factor"
+    }
+
+class ETFShareOptionImpliedCorrelationFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_implied_correlation_factor"
+    }
+
+class ETFShareOptionScenarioPayoffFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_scenario_payoff_factor"
+    }
+
 class CompanySharePriceReturnFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_price_return_factor"

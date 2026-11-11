@@ -35,7 +35,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-from src.application.services.dispersion.dispersion_trade import Leg, payoff_at_maturity, replicate
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor import (
+    ETFShareOptionFactor as Strategy, Leg,
+)
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.share_option_factor import (
     ShareOptionFactor,
 )
@@ -202,7 +204,7 @@ def observe(initiated: date, etf_closes: Closes, constituent_closes: Mapping[str
     weights = weights_at(snapshot, start)
     etf = Leg("ETF", etf_closes[initiated], etf_closes[initiated], MULTIPLIER, None, None)
     legs = [Leg(s, start[s], start[s], MULTIPLIER, None, None, weights[s]) for s in snapshot.shares]
-    pay = payoff_at_maturity(etf, legs, replicate(etf, legs), etf_closes[settled], end)
+    pay = Strategy.payoff_at_maturity(etf, legs, Strategy.replicate(etf, legs), etf_closes[settled], end)
     obs.settled, obs.etf_strike, obs.etf_settle = settled, etf_closes[initiated], etf_closes[settled]
     obs.etf_payoff, obs.basket_payoff = -pay.short_etf, pay.long_basket
     obs.etf_return = (etf_closes[settled] - etf_closes[initiated]) / etf_closes[initiated]

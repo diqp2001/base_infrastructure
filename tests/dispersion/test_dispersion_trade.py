@@ -5,9 +5,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from src.application.services.dispersion.dispersion_trade import (
-    Leg, etf_price_from, implied_correlation, payoff_at_maturity, premium, raw_positions, replicate,
-    reverse_premium, scenarios,
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor import (
+    ETFShareOptionFactor as Strategy, Leg,
 )
 from src.domain.ports.finance.dispersion.option_data import (
     Greeks, OptionChain, OptionContractSpec, OptionQuote, Quote,
@@ -21,6 +20,10 @@ CONFIG = DispersionScreenConfig()
 DAY = date(2026, 11, 5)
 BUY, SELL = R.BUY, R.SELL
 select_atm_strike, standard_chain = R.select_atm_strike, R.standard_chain
+etf_price_from, implied_correlation, payoff_at_maturity = (Strategy.etf_price_from, Strategy.implied_correlation,
+                                                           Strategy.payoff_at_maturity)
+premium, raw_positions, replicate = Strategy.premium, Strategy.raw_positions, Strategy.replicate
+reverse_premium, scenarios = Strategy.reverse_premium, Strategy.scenarios
 
 
 # the ShareOptionFactor rules with the screen's settings (as the screening service calls them)

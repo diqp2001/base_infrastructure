@@ -11,6 +11,7 @@ from src.application.services.data.entities.factor.factor_library.finance.portfo
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.option.company_share_option_library import COMPANY_SHARE_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.company_share_library import COMPANY_SHARE_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.etf_share_library import ETF_SHARE_LIBRARY
+from src.application.services.data.entities.factor.factor_library.finance.financial_assets.etf_share_option_library import ETF_SHARE_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.option.future_index_option_library import FUTURE_INDEX_OPTION_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.index_library import INDEX_LIBRARY
 from src.application.services.data.entities.factor.factor_library.finance.financial_assets.derivatives.future.future_index_library import FUTURE_INDEX_LIBRARY
@@ -24,6 +25,7 @@ FACTOR_LIBRARY: Dict[str, Dict] = {
     "index_library": INDEX_LIBRARY,
     "company_share_library":COMPANY_SHARE_LIBRARY,
     "etf_share_library": ETF_SHARE_LIBRARY,
+    "etf_share_option_library": ETF_SHARE_OPTION_LIBRARY,
     "company_share_portfolio_library":COMPANY_SHARE_PORTFOLIO_LIBRARY,
     "company_share_option_library":COMPANY_SHARE_OPTION_LIBRARY,
     "company_share_portfolio_option_library": COMPANY_SHARE_PORTFOLIO_OPTION_LIBRARY,

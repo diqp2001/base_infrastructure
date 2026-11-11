@@ -19,9 +19,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from src.application.services.dispersion.dispersion_trade import (
-    Leg, Premium, ReversePremium, Sizing, implied_correlation, premium, replicate, reverse_premium, scenarios,
-    weighted_implied_vol,
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor import (
+    ETFShareOptionFactor as Strategy, Leg, Premium, ReversePremium, Sizing,
 )
 from src.domain.ports.finance.dispersion.etf_holdings import ConstituentWeights
 from src.domain.ports.finance.dispersion.option_data import (
@@ -512,22 +511,22 @@ class DispersionScreeningService:
         o = c.etf_option
         g = o.greeks
         etf = Leg(c.etf, c.etf_spot, o.contract.strike, etf_chain.multiplier, o.quote.bid, o.quote.ask, 1.0,
-                  g.delta, g.implied_vol, g.gamma, g.vega, g.theta, g.bid_implied_vol, g.ask_implied_vol)
+                  g.delta, g.implied_vol, g.gamma, g.vega, g.theta, g.bid_implied_vol, g.ask_implied_vol, self.right)
         usable = [r for r in c.constituents if r.status == "ok"]
         covered = sum(r.weight for r in usable)
         legs = [Leg(r.symbol, r.spot, r.strike, r.multiplier, r.option.quote.bid, r.option.quote.ask,
                     r.weight / covered, r.option.greeks.delta, r.option.greeks.implied_vol, r.option.greeks.gamma,
                     r.option.greeks.vega, r.option.greeks.theta, r.option.greeks.bid_implied_vol,
-                    r.option.greeks.ask_implied_vol) for r in usable]
+                    r.option.greeks.ask_implied_vol, self.right) for r in usable]
         if covered < 0.999:
             c.reasons.append(f"weights renormalised over the usable constituents ({covered:.1%} of the ETF)")
-        c.sizing = replicate(etf, legs)
-        c.premium = premium(etf, legs, c.sizing)
-        c.etf_iv, c.weighted_iv = etf.implied_vol, weighted_implied_vol(legs)
-        c.implied_correlation = implied_correlation(etf.implied_vol, legs)
-        c.implied_correlation_etf_bid = implied_correlation(etf.bid_implied_vol, legs, vol="ask_implied_vol")
-        c.implied_correlation_etf_ask = implied_correlation(etf.ask_implied_vol, legs, vol="bid_implied_vol")
-        c.reverse = reverse_premium(etf, legs, c.sizing)
+        c.sizing = Strategy.replicate(etf, legs)
+        c.premium = Strategy.premium(etf, legs, c.sizing)
+        c.etf_iv, c.weighted_iv = etf.implied_vol, Strategy.weighted_implied_vol(legs)
+        c.implied_correlation = Strategy.implied_correlation(etf.implied_vol, legs)
+        c.implied_correlation_etf_bid = Strategy.implied_correlation(etf.bid_implied_vol, legs, vol="ask_implied_vol")
+        c.implied_correlation_etf_ask = Strategy.implied_correlation(etf.ask_implied_vol, legs, vol="bid_implied_vol")
+        c.reverse = Strategy.reverse_premium(etf, legs, c.sizing)
         by_symbol = {leg.symbol: leg for leg in legs}
         for r in usable:
             leg, q = by_symbol[r.symbol], c.sizing.positions[r.symbol]
@@ -547,7 +546,7 @@ class DispersionScreeningService:
         c.capital_requirement = c.premium.long_cost
         spreads = [x for x in [o.quote.spread_pct] + [r.option.quote.spread_pct for r in usable] if x is not None]
         c.liquidity_score = sum(spreads) / len(spreads) if spreads else None
-        c.scenarios = scenarios(etf, legs, c.sizing, c.premium.net_premium)
+        c.scenarios = Strategy.scenarios(etf, legs, c.sizing, c.premium.net_premium)
 
         if c.status == "rejected":
             return                                       # below a liquidity minimum: priced for information only

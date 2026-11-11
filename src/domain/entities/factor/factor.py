@@ -153,6 +153,12 @@ class Factor(ABC):
         # volatility
         "realized":       {"label": "Realized",        "typical_group": "volatility"},
         "implied":        {"label": "Implied",         "typical_group": "volatility"},
+        # ETF option quotes and dispersion strategy factors
+        "quote":               {"label": "Option quote",        "typical_group": "price"},
+        "premium":             {"label": "Net premium",         "typical_group": "dispersion"},
+        "reverse_premium":     {"label": "Reverse premium",     "typical_group": "dispersion"},
+        "implied_correlation": {"label": "Implied correlation", "typical_group": "dispersion"},
+        "scenario":            {"label": "Scenario payoff",     "typical_group": "dispersion"},
         # technical / ML scores
         "signal":         {"label": "Signal",          "typical_group": "technical"},
         "indicator":      {"label": "Indicator",       "typical_group": "technical"},

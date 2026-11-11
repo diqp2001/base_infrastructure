@@ -183,6 +183,9 @@ def candidate_row(c: Candidate) -> Dict[str, Any]:
         'holdings_as_of': str(c.holdings_as_of) if c.holdings_as_of else None,
         'holdings_source': c.holdings_source,
         'etf_quote_time': str(o.quote.quote_time) if o else None, 'greeks_source': o.greeks.source if o else None,
+        'right': o.contract.right if o else None, 'etf_multiplier': o.contract.multiplier if o else None,
+        'etf_delta': _round(o.greeks.delta, 4) if o else None, 'etf_gamma': _round(o.greeks.gamma, 6) if o else None,
+        'etf_vega': _round(o.greeks.vega, 4) if o else None, 'etf_theta': _round(o.greeks.theta, 4) if o else None,
         'screened_at': str(c.screened_at) if c.screened_at else None,
     }
 
@@ -201,6 +204,8 @@ def constituent_rows(c: Candidate) -> List[Dict[str, Any]]:
             'ask_iv': _round(o.greeks.ask_implied_vol, 4) if o else None,
             'call_proceeds_at_bid': _round(r.contracts * r.multiplier * o.quote.bid, 2)
             if o and r.contracts is not None and o.quote.bid else None, 'delta': _round(o.greeks.delta, 4) if o else None,
+            'gamma': _round(o.greeks.gamma, 6) if o else None, 'vega': _round(o.greeks.vega, 4) if o else None,
+            'theta': _round(o.greeks.theta, 4) if o else None,
             'contracts': _round(r.contracts, 4), 'dollar_delta': _round(r.dollar_delta, 2), 'call_cost': _round(r.call_cost, 2),
             'spread_pct': _round(o.quote.spread_pct, 4) if o else None, 'volume': o.quote.volume if o else None,
             'open_interest': o.open_interest if o else None,

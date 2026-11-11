@@ -20,6 +20,11 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_factor_repository import ETFShareFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_realized_dispersion_factor_repository import ETFShareRealizedDispersionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_implied_dispersion_factor_repository import ETFShareImpliedDispersionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor_repository import ETFShareOptionFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_net_premium_factor_repository import ETFShareOptionNetPremiumFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_reverse_premium_factor_repository import ETFShareOptionReversePremiumFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_implied_correlation_factor_repository import ETFShareOptionImpliedCorrelationFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor_repository import ETFShareOptionScenarioPayoffFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_avg_turnover_6m_factor_repository import CompanyShareAvgTurnover6mFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_monthly_price_range_factor_repository import CompanyShareMonthlyPriceRangeFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.company_share_vpt_52w_20d_lag_factor_repository import CompanyShareVpt52w20dLagFactorRepository
@@ -572,6 +577,11 @@ class RepositoryFactory:
                 'ETFShareFactor': ETFShareFactorRepository(self.session, factory=self),
                 'ETFShareRealizedDispersionFactor': ETFShareRealizedDispersionFactorRepository(self.session, factory=self),
                 'ETFShareImpliedDispersionFactor': ETFShareImpliedDispersionFactorRepository(self.session, factory=self),
+                'ETFShareOptionFactor': ETFShareOptionFactorRepository(self.session, factory=self),
+                'ETFShareOptionNetPremiumFactor': ETFShareOptionNetPremiumFactorRepository(self.session, factory=self),
+                'ETFShareOptionReversePremiumFactor': ETFShareOptionReversePremiumFactorRepository(self.session, factory=self),
+                'ETFShareOptionImpliedCorrelationFactor': ETFShareOptionImpliedCorrelationFactorRepository(self.session, factory=self),
+                'ETFShareOptionScenarioPayoffFactor': ETFShareOptionScenarioPayoffFactorRepository(self.session, factory=self),
                 'CompanyShareValueFactor': CompanyShareValueFactorRepository(self.session, factory=self),
                 'CompanyShareMidPriceFactor': CompanyShareMidPriceFactorRepository(self.session, factory=self),
                 'CurrencyValueFactor': CurrencyValueFactorRepository(self.session, factory=self),
@@ -1977,6 +1987,31 @@ class RepositoryFactory:
     def etf_share_implied_dispersion_factor_local_repo(self):
         """Get etf_share_implied_dispersion_factor repository for dependency injection."""
         return self.get_local_repository('ETFShareImpliedDispersionFactor')
+
+    @property
+    def etf_share_option_factor_local_repo(self):
+        """Get etf_share_option_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareOptionFactor')
+
+    @property
+    def etf_share_option_net_premium_factor_local_repo(self):
+        """Get etf_share_option_net_premium_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareOptionNetPremiumFactor')
+
+    @property
+    def etf_share_option_reverse_premium_factor_local_repo(self):
+        """Get etf_share_option_reverse_premium_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareOptionReversePremiumFactor')
+
+    @property
+    def etf_share_option_implied_correlation_factor_local_repo(self):
+        """Get etf_share_option_implied_correlation_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareOptionImpliedCorrelationFactor')
+
+    @property
+    def etf_share_option_scenario_payoff_factor_local_repo(self):
+        """Get etf_share_option_scenario_payoff_factor repository for dependency injection."""
+        return self.get_local_repository('ETFShareOptionScenarioPayoffFactor')
 
     @property
     def company_share_value_factor_local_repo(self):

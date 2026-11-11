@@ -851,3 +851,32 @@ ORM `ETFShareFactorModel` ('etf_share_factor': the ETF's raw / leaf series), `ET
 mappers / repositories under `.../share/etf_share/`; FactorMapper dispatch; `ENTITY_FACTOR_MAPPING[ETFShare] =
 [ETFShareFactor]`; factory keys `ETFShareFactor`, `ETFShareRealizedDispersionFactor`, `ETFShareImpliedDispersionFactor`;
 library `etf_share_library`; source policy rule `ETFShare` price: TRADES first; group `dispersion` in `Factor.GROUPS`.
+
+## ETF option dispersion strategy factors (added 2026-11-10)
+
+Valued on the ETF option (`ETFShareOption`, the short leg) at the screen's quote time; the screen's strategy: the ETF
+option sold at its bid, the constituent options that replicate its holdings bought at their asks.
+
+- `ETFShareOptionFactor` (derivatives/option/etf_share_option/etf_share_option_factor.py, a `ShareOptionFactor`):
+  its stored rows are the option's raw quote series (group `price`, subgroup `quote`, names `QUOTE_FIELDS`: bid, ask,
+  iv, bid_iv, ask_iv, delta, gamma, vega, theta, underlying_price, strike, multiplier). The constituents' options
+  carry the same series as `CompanyShareOptionFactor` rows. It also holds the strategy maths the factors and the
+  screening service share (`Leg`, `replicate`, `premium`, `reverse_premium`, `implied_correlation`,
+  `payoff_at_maturity` - calls max(S-K,0), puts max(K-S,0) - `scenarios`).
+- `ETFShareOptionDispersionFactor`: shared base only (name `<KIND>_<measure>`, the dependency specs, the legs) - no
+  ORM identity. Four factors, each its own class / ORM identity / mapper / repository:
+
+| factor | names | value |
+|---|---|---|
+| `ETFShareOptionNetPremiumFactor` | `premium_<net, net_pct, short_proceeds, long_cost, mid_net, transaction_cost>` | ETF bid proceeds - constituent ask cost ($ per ETF option) |
+| `ETFShareOptionReversePremiumFactor` | `reverse_premium_<net, net_pct, etf_option_cost, constituent_proceeds>` | the strategy reversed |
+| `ETFShareOptionImpliedCorrelationFactor` | `implied_correlation_<model, etf_bid, etf_ask, etf_iv, weighted_iv>` | from the legs' volatilities |
+| `ETFShareOptionScenarioPayoffFactor` | `scenario_<market|dispersion>_<down10..up10>_<pnl, combined, long_basket, short_etf, etf_price>` | payoff at maturity |
+
+Inputs (branch A, per-entity): `etf_<field>` (the ETF option's quote series), `constituent_<field>` {leg option symbol:
+[value]} and `weights` from `ETFShareOptionRepository.get_related_weights`: the legs are the UniverseConstituent rows of
+the investment universe `"<option symbol> legs"` (CompanyShareOption entities, in force on the screen's day). The right
+comes from the ETF option entity's `option_type`. Every leg must have every field the factor reads, or no value.
+ORM identities `etf_share_option_factor`, `etf_share_option_net_premium_factor`, `etf_share_option_reverse_premium_factor`,
+`etf_share_option_implied_correlation_factor`, `etf_share_option_scenario_payoff_factor`; `ENTITY_FACTOR_MAPPING[ETFShareOption]
+= [ETFShareOptionFactor]`; library `etf_share_option_library`. Job: `dispersion_factors.py strategies <date>`.

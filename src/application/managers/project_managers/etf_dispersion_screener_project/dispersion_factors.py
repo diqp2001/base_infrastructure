@@ -13,6 +13,9 @@ Steps (the paper gateway is reachable from Docker only; base_infra is the Window
                    constituent for the expiries closest to 1..6 months -> results/<date>/atm_options/<time>.json
     load <date> [--tickers DIA,XLE] [--measures dispersion] [--every 1] [--no-realized] [--no-implied]
                    (Windows, base_infra; files only, no broker)
+    strategies <date> [--tickers DIA] [--sources screen,puts,maturities] [--all-scenario-measures]
+                   (Windows, base_infra; files only): the screen's strategies as ETF option factor values
+                   (dispersion_strategy_factors.py)
 
     python -m src.application.managers.project_managers.etf_dispersion_screener_project.dispersion_factors <step> ...
 
@@ -378,19 +381,31 @@ def load(day: str, tickers: Optional[Sequence[str]] = None, measures=("dispersio
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("step", choices=["prices", "quotes", "load"])
+    p.add_argument("step", choices=["prices", "quotes", "load", "strategies"])
     p.add_argument("day")
     p.add_argument("--tickers", default="")
     p.add_argument("--measures", default="dispersion", help="comma list, e.g. dispersion,etf,basket,weight_coverage")
     p.add_argument("--every", type=int, default=1, help="realized: one value every N trading days")
     p.add_argument("--no-realized", action="store_true")
     p.add_argument("--no-implied", action="store_true")
+    p.add_argument("--sources", default="", help="strategies: comma list of screen, puts, maturities")
+    p.add_argument("--all-scenario-measures", action="store_true",
+                   help="strategies: every scenario measure (default: the scenarios' P&L)")
     a = p.parse_args()
     chosen = [t for t in a.tickers.split(",") if t] or None
     if a.step == "prices":
         fetch_prices(a.day, chosen)
     elif a.step == "quotes":
         fetch_atm_options(a.day, chosen)
+    elif a.step == "strategies":
+        from src.application.managers.project_managers.etf_dispersion_screener_project.dispersion_strategy_factors import (
+            load_strategies,
+        )
+        from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor import (
+            SCENARIO_MEASURES,
+        )
+        load_strategies(a.day, chosen, [s for s in a.sources.split(",") if s] or None,
+                        SCENARIO_MEASURES if a.all_scenario_measures else ("pnl",))
     else:
         load(a.day, chosen, tuple(m for m in a.measures.split(",") if m), a.every, not a.no_realized,
              not a.no_implied)
