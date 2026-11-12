@@ -462,3 +462,6 @@ HISTORY
             and four ETF option strategy factors (net premium, reverse premium, implied correlation, scenario
             payoff); `strategies` step stores the screen's strategies in base_infra (option A). Scenario payoffs now
             use the option's right (the put strategy's scenarios used the call payoff before).
+2026-11-12  Implied quotes rerun (5570 of 8952 ATM options): no ETF at 100 % coverage -> 0 implied values. Cause: the
+            job's spot quotes go stale (>60 s) before their options are quoted, and 2119 options got no bid / ask
+            (requests cancelled - TWS 300). Fix of the quote job PAUSED by the owner (2026-11-12).
