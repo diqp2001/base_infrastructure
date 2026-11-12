@@ -68,6 +68,26 @@ class ETFShareImpliedDispersionFactorModel(FactorModel):
         "polymorphic_identity": "etf_share_implied_dispersion_factor"
     }
 
+class CompanyShareFundamentalProfitabilityFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_fundamental_profitability_factor"
+    }
+
+class CompanyShareFundamentalLeverageFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_fundamental_leverage_factor"
+    }
+
+class CompanyShareFundamentalGrowthFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_fundamental_growth_factor"
+    }
+
+class CompanyShareFundamentalValuationFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_fundamental_valuation_factor"
+    }
+
 class ETFShareOptionFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "etf_share_option_factor"

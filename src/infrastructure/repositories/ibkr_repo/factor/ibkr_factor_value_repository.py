@@ -972,7 +972,9 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
                 factor_group = getattr(factor, "group", "unknown")
                 factor_subgroup = getattr(factor, "subgroup", "")
                 frequency = getattr(factor, "frequency", "1d")
-                frequency_ibkr = factor.FREQUENCIES[frequency]["ibkr_label"]
+                frequency_ibkr = factor.FREQUENCIES.get(frequency, {}).get("ibkr_label")
+                if not frequency_ibkr:
+                    continue    # not an IBKR bar size (e.g. a fiscal quarter of a financial statement)
                 key = (symbol, factor_group, factor_subgroup, frequency_ibkr)
                 grouped[key].append(factor)
 

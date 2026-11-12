@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 
 from tests.repositories.repository_checks import (
     Database, all_repository_classes, build, discriminator_map_has, factor_repository_classes,
-    factor_round_trip, is_ibkr, quiet, repository_modules,
+    factor_round_trip, is_provider, quiet, repository_modules,
 )
 
 KNOWN_INIT = {}
@@ -107,7 +107,7 @@ class AllRepositoriesTest(unittest.TestCase):
         registered = {type(r) for r in factory.create_local_repositories().values()}
         known = Known(self, {n: "unregistered" for n in KNOWN_UNREGISTERED}, "factory registration")
         for module_name, cls in self.classes:
-            if is_ibkr(module_name) or key(module_name, cls, self.classes) in NOT_REGISTERED_BY_DESIGN \
+            if is_provider(module_name) or key(module_name, cls, self.classes) in NOT_REGISTERED_BY_DESIGN \
                     or cls.__name__ in NOT_REGISTERED_BY_DESIGN:
                 continue
             with self.subTest(repository=cls.__name__):
@@ -118,7 +118,7 @@ class AllRepositoriesTest(unittest.TestCase):
     def test_get_all_on_an_empty_database(self):
         known = Known(self, {}, "get_all()")
         for module_name, cls in self.classes:
-            if is_ibkr(module_name) or cls.__name__ in KNOWN_INIT or cls.__name__ in BASE_CLASSES:
+            if is_provider(module_name) or cls.__name__ in KNOWN_INIT or cls.__name__ in BASE_CLASSES:
                 continue
             session, factory = self.db.factory()
             repo = build(cls, session, factory)

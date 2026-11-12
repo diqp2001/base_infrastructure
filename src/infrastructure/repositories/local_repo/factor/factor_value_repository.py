@@ -375,6 +375,34 @@ class FactorValueRepository(BaseLocalRepository, FactorValuePort):
             )
             return None
 
+    def get_values_as_of(
+        self,
+        factor_id: int,
+        entity_id: int,
+        date_str: str,
+        count: int,
+        entity_type: Optional[str] = None,
+    ) -> List[FactorValue]:
+        """The ``count`` latest stored values with date <= target, oldest first (fewer when fewer are stored).
+
+        Point-in-time series (Factor.point_in_time_policy): a value is stamped at the moment it became known, so
+        every value up to the target was known at the target."""
+        try:
+            target = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            query = self.session.query(FactorValueModel).filter(
+                FactorValueModel.factor_id == factor_id,
+                FactorValueModel.entity_id == entity_id,
+                FactorValueModel.date <= target,
+            )
+            if entity_type is not None:
+                query = query.filter(FactorValueModel.entity_type == entity_type)
+            rows = query.order_by(FactorValueModel.date.desc()).limit(int(count)).all()
+            return [self._to_entity(r) for r in reversed(rows)]
+        except Exception as e:
+            print(f"Error in get_values_as_of for factor {factor_id}, entity {entity_type}:{entity_id}, "
+                  f"date {date_str}: {e}")
+            return []
+
     def get_latest_available_bar(
         self,
         factor_id: int,

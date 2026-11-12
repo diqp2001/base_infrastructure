@@ -69,6 +69,7 @@ class FactorWorld:
         self._seed_currency_rate()
         self.future = self._seed_future()
         self.option = self._seed_option()
+        self._seed_statements()
         self.service = FactorValueResolutionService(factory=self.f, logger=logging.getLogger("factor_world"))
 
     # ---- seeding ---------------------------------------------------------------------------
@@ -196,6 +197,28 @@ class FactorWorld:
         self._seed_atm_series(etf)
         self._etf = etf
         return etf
+
+    # AAPL's quarterly financial statements (FMP raw fundamental series): 8 quarters, each stamped when it was
+    # published (45 days after the quarter's end), the last one before T
+    STATEMENTS = {("income_statement", "revenue"): 1000.0, ("income_statement", "grossProfit"): 450.0,
+                  ("income_statement", "epsDiluted"): 1.5, ("cash_flow", "freeCashFlow"): 250.0,
+                  ("balance_sheet", "totalDebt"): 900.0, ("balance_sheet", "totalEquity"): 1800.0}
+
+    def _seed_statements(self):
+        from src.infrastructure.models.factor.factor import CompanyShareFactorModel
+        quarter_ends = [date(2024, 3, 31), date(2024, 6, 30), date(2024, 9, 30), date(2024, 12, 31),
+                        date(2025, 3, 31), date(2025, 6, 30), date(2025, 9, 30), date(2025, 12, 31)][:-1]
+        for (statement, name), base in self.STATEMENTS.items():
+            factor = CompanyShareFactorModel(name=name, group="fundamental", subgroup=statement, frequency="1q",
+                                             data_type="numeric", source="fmp", definition=name,
+                                             factor_type="company_share_factor")
+            self.s.add(factor)
+            self.s.commit()
+            for i, end in enumerate(quarter_ends):
+                published = datetime.combine(end + timedelta(days=45), datetime.min.time()).replace(hour=16, minute=5)
+                self.s.add(FactorValueModel(factor_id=factor.id, entity_id=self.share["AAPL"].id,
+                                            entity_type="CompanyShare", date=published, value=repr(base * (1 + 0.02 * i))))
+        self.s.commit()
 
     # the ATM option leaf series of the implied dispersion factor, at the last bar: premium per unit of price, dte
     ATM = {"TEST": (0.030, 30.0), "AAPL": (0.045, 30.0), "MSFT": (0.040, 31.0)}

@@ -127,7 +127,7 @@ class BaseFactorRepository(BaseLocalRepository[FactorEntity, FactorModel], ABC):
         valid = FactorEntity.FREQUENCIES
         if frequency in valid:
             return frequency
-        alias_map = {v["ibkr_label"]: k for k, v in valid.items()}
+        alias_map = {v["ibkr_label"]: k for k, v in valid.items() if v.get("ibkr_label")}
         normalized = alias_map.get(frequency.strip())
         if normalized:
             return normalized

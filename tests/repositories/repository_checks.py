@@ -57,6 +57,11 @@ def is_ibkr(module_name: str) -> bool:
     return ".ibkr_repo." in module_name
 
 
+def is_provider(module_name: str) -> bool:
+    """A data provider's repositories (IBKR, FMP): built on a client, not registered as local repositories."""
+    return is_ibkr(module_name) or ".fmp_repo." in module_name
+
+
 def is_local_factor(module_name: str) -> bool:
     return ".local_repo.factor." in module_name
 
@@ -96,6 +101,8 @@ def build(cls: type, session, factory):
             kwargs[name] = factory
         elif name in ("ibkr_client", "ib_client", "client", "ib_broker", "broker"):
             kwargs[name] = MagicMock(name="ibkr_client")
+        elif name == "fmp_client":
+            kwargs[name] = MagicMock(name="fmp_client")
         elif name == "engine":
             kwargs[name] = engine
         elif name in ("local_repo", "local_repository"):
@@ -161,9 +168,9 @@ def report():
     session, factory = db.factory()
     registered = {type(r) for r in factory.create_local_repositories().values()}
     for module_name, cls in all_repository_classes():
-        if not is_ibkr(module_name) and cls not in registered:
+        if not is_provider(module_name) and cls not in registered:
             print(f"UNREG {cls.__name__}")
-        if not is_ibkr(module_name):
+        if not is_provider(module_name):
             try:
                 repo = build(cls, *db.factory())
             except Exception:

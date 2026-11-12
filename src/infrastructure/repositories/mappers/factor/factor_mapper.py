@@ -24,6 +24,10 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.
 from src.domain.entities.factor.finance.financial_assets.share_factor.etf_share.etf_share_implied_dispersion_factor import ETFShareImpliedDispersionFactor as ETFShareImpliedDispersionFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor import ETFShareOptionFactor as ETFShareOptionFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_net_premium_factor import ETFShareOptionNetPremiumFactor as ETFShareOptionNetPremiumFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_profitability_factor import CompanyShareFundamentalProfitabilityFactor as CompanyShareFundamentalProfitabilityFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_leverage_factor import CompanyShareFundamentalLeverageFactor as CompanyShareFundamentalLeverageFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_growth_factor import CompanyShareFundamentalGrowthFactor as CompanyShareFundamentalGrowthFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_valuation_factor import CompanyShareFundamentalValuationFactor as CompanyShareFundamentalValuationFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_reverse_premium_factor import ETFShareOptionReversePremiumFactor as ETFShareOptionReversePremiumFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_implied_correlation_factor import ETFShareOptionImpliedCorrelationFactor as ETFShareOptionImpliedCorrelationFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor import ETFShareOptionScenarioPayoffFactor as ETFShareOptionScenarioPayoffFactorEntity
@@ -318,6 +322,10 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'etf_share_implied_dispersion_factor': ETFShareImpliedDispersionFactorEntity,
     'etf_share_option_factor': ETFShareOptionFactorEntity,
     'etf_share_option_net_premium_factor': ETFShareOptionNetPremiumFactorEntity,
+    'company_share_fundamental_profitability_factor': CompanyShareFundamentalProfitabilityFactorEntity,
+    'company_share_fundamental_leverage_factor': CompanyShareFundamentalLeverageFactorEntity,
+    'company_share_fundamental_growth_factor': CompanyShareFundamentalGrowthFactorEntity,
+    'company_share_fundamental_valuation_factor': CompanyShareFundamentalValuationFactorEntity,
     'etf_share_option_reverse_premium_factor': ETFShareOptionReversePremiumFactorEntity,
     'etf_share_option_implied_correlation_factor': ETFShareOptionImpliedCorrelationFactorEntity,
     'etf_share_option_scenario_payoff_factor': ETFShareOptionScenarioPayoffFactorEntity,
@@ -599,6 +607,14 @@ class FactorMapper:
             return ETFShareOptionFactorEntity(**base_args)
         elif factor_type == 'etf_share_option_net_premium_factor':
             return ETFShareOptionNetPremiumFactorEntity(**base_args)
+        elif factor_type == 'company_share_fundamental_profitability_factor':
+            return CompanyShareFundamentalProfitabilityFactorEntity(**base_args)
+        elif factor_type == 'company_share_fundamental_leverage_factor':
+            return CompanyShareFundamentalLeverageFactorEntity(**base_args)
+        elif factor_type == 'company_share_fundamental_growth_factor':
+            return CompanyShareFundamentalGrowthFactorEntity(**base_args)
+        elif factor_type == 'company_share_fundamental_valuation_factor':
+            return CompanyShareFundamentalValuationFactorEntity(**base_args)
         elif factor_type == 'etf_share_option_reverse_premium_factor':
             return ETFShareOptionReversePremiumFactorEntity(**base_args)
         elif factor_type == 'etf_share_option_implied_correlation_factor':

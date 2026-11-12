@@ -45,6 +45,8 @@ class FactorValueResolutionService:
         self.logger = logger or logging.getLogger(__name__)
         # factor_id -> bar availability offset in seconds (0 = not a raw bar)
         self._bar_offset_cache: Dict[int, int] = {}
+        # factor_id -> point-in-time policy {'max_age', 'max_gap'} (None = not a point-in-time series)
+        self._point_in_time_cache: Dict[int, Optional[dict]] = {}
         # BI-025 lineage: one frame per derived value being computed — its owner (factor id, entity type,
         # entity id) and the stored values read as inputs (see _note_input / _record_derived_provenance)
         self._lineage_frames: List[Dict[str, Any]] = []
@@ -412,6 +414,48 @@ class FactorValueResolutionService:
         self._bar_offset_cache[factor_id] = offset
         return offset
 
+    def _get_point_in_time_policy(self, factor_id: int) -> Optional[dict]:
+        """Point-in-time policy of a raw series (see Factor.point_in_time_policy), None for the other factors."""
+        if factor_id in self._point_in_time_cache:
+            return self._point_in_time_cache[factor_id]
+        policy = None
+        try:
+            factor_repo = getattr(self.factory, 'factor_local_repo', None) if self.factory else None
+            factor = factor_repo.get_by_id(factor_id) if factor_repo else None
+            if factor is not None and hasattr(factor, 'point_in_time_policy'):
+                policy = factor.point_in_time_policy()
+        except Exception as e:
+            self.logger.debug(f"_get_point_in_time_policy failed for factor {factor_id}: {e}")
+        self._point_in_time_cache[factor_id] = policy
+        return policy
+
+    def _values_as_of(self, factor_id: int, entity_id: int, entity_types: list, date_str: str, count: int,
+                      policy: dict) -> list:
+        """The ``count`` latest values known at date_str (oldest first) of a point-in-time series, or [] when fewer
+        are stored, the newest is older than the policy's max_age, or two neighbours are more than max_gap apart (a
+        missing period). Each value is stamped at the moment it became known, so none is a look-ahead."""
+        repo = getattr(self.factory, 'factor_value_local_repo', None) if self.factory else None
+        if repo is None or not hasattr(repo, 'get_values_as_of'):
+            return []
+        target = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+
+        def _naive(dt):
+            return dt.replace(tzinfo=None) if getattr(dt, 'tzinfo', None) else dt
+
+        for et in entity_types:
+            rows = repo.get_values_as_of(factor_id, entity_id, date_str, count, entity_type=et)
+            if not rows:
+                continue
+            stamps = [_naive(r.date) for r in rows]
+            if len(rows) < count or (target - stamps[-1]).total_seconds() > policy['max_age']:
+                return []
+            if any((b - a).total_seconds() > policy['max_gap'] for a, b in zip(stamps, stamps[1:])):
+                self.logger.warning(f"factor {factor_id} entity {et}:{entity_id} at {date_str}: a period is "
+                                    f"missing in the last {count} - no value over a broken window")
+                return []
+            return rows
+        return []
+
     @staticmethod
     def _entity_type_variants(entity_type: Optional[str]) -> list:
         """Stored entity_type spellings of one entity kind: 'X' and 'XModel' (both are in use)."""
@@ -451,6 +495,13 @@ class FactorValueResolutionService:
                 return None
 
             entity_types = self._entity_type_variants(entity_type)
+
+            # Point-in-time series (company financial statements): the latest value known at the target - stored
+            # at the moment it became public - within the policy's max_age; never an exact-date or bar match
+            policy = self._get_point_in_time_policy(factor_id)
+            if policy:
+                rows = self._values_as_of(factor_id, entity_id, entity_types, date_str, 1, policy)
+                return rows[-1] if rows else None
 
             # Raw IBKR bars are stamped with their START time, so an exact or
             # "most recent <= target" match can return a bar that is still open
@@ -1213,9 +1264,11 @@ class FactorValueResolutionService:
                     matching_factors = series
                     created = None
                 else:
+                    # a named raw series (name_in) is created under its name: a row under the class's default name
+                    # would never match the spec
                     created = dep_repo._create_or_get(
                         spec.factor_type,
-                        dep_default_name,
+                        raw_name,
                         **create_kwargs,
                     )
                 if created:
@@ -1397,6 +1450,20 @@ class FactorValueResolutionService:
         parsed = self._parse_date(target_date) if isinstance(target_date, str) else target_date
         date_str = parsed.strftime("%Y-%m-%d %H:%M:%S")
         entity_type = type(entity).__name__.removesuffix('Model')
+        policy = self._get_point_in_time_policy(dep_factor.id)
+        if policy:
+            if not isinstance(lookback, int):
+                return []
+            # the latest value first: loads the series from its provider when none is stored yet
+            if self.resolve_factor_value(factor_entity=dep_factor, entity=entity, time_date=parsed) is None:
+                return []
+            rows = self._values_as_of(dep_factor.id, entity.id, self._entity_type_variants(entity_type), date_str,
+                                      lookback, policy)
+            if endpoints and len(rows) > 2:
+                rows = [rows[0], rows[-1]]
+            for row in rows:
+                self._note_input(row)
+            return [float(r.value) for r in rows]
         bar_seconds = self._get_bar_offset_seconds(dep_factor.id)
         for et in self._entity_type_variants(entity_type):
             if lookback == 'ytd':
@@ -1538,6 +1605,15 @@ class FactorValueResolutionService:
                             entity_symbol=getattr(entity, 'symbol', ''),
                             **kwargs
                         )
+                        if fetched_value:
+                            return fetched_value
+
+                elif family == 'fmp':
+                    # Financial Modeling Prep: company financial statements (source 'fmp' series only)
+                    fmp_repo = getattr(self.factory, 'factor_value_fmp_repo', None)
+                    if fmp_repo is not None and factor_source == 'fmp' and entity is not None:
+                        fetched_value = fmp_repo._fetch_factor_value_from_fmp(
+                            factor_entity=factor_entity, entity=entity, time_date=target_date)
                         if fetched_value:
                             return fetched_value
 

@@ -36,6 +36,9 @@ class Factor(ABC):
         "1d":   {"label": "1 Day",         "seconds": 86400,    "ibkr_label": "1 day"},
         "1w":   {"label": "1 Week",        "seconds": 604800,   "ibkr_label": "1 week"},
         "1mth": {"label": "1 Month (30d)", "seconds": 2592000,  "ibkr_label": "1 month"},
+        # fiscal periods of company financial statements (not bar sizes: no IBKR label)
+        "1q":   {"label": "1 Fiscal quarter", "seconds": 7889238},
+        "1y":   {"label": "1 Fiscal year",    "seconds": 31556952},
     }
 
     # Factor names whose values are read straight from an IBKR historical bar
@@ -49,6 +52,16 @@ class Factor(ABC):
     # trading-calendar rule instead (bar_calendar.bar_is_current: a newer bar due -> fetch).
     MAX_BAR_STALENESS_SECONDS: ClassVar[float] = 4 * 86400
 
+    # Raw fundamental series (company financial statements, group 'fundamental') are stored at the moment they became
+    # public (the filing's acceptance time), not at the fiscal period's end. A value at decision time t is the latest
+    # one accepted by t (point in time), and no older than max_age; in a window of consecutive periods two neighbours
+    # are at most max_gap apart (a longer gap is a missing period). Seconds, per frequency.
+    POINT_IN_TIME_POLICY: ClassVar[dict[str, dict]] = {
+        "1q": {"max_age": 200 * 86400, "max_gap": 150 * 86400},
+        "1y": {"max_age": 400 * 86400, "max_gap": 550 * 86400},
+    }
+    POINT_IN_TIME_GROUPS: ClassVar[frozenset] = frozenset({"fundamental"})
+
     @classmethod
     def frequency_seconds(cls, frequency: Optional[str]) -> Optional[int]:
         """Length of one bar in seconds for a FREQUENCIES key, or None if unknown."""
@@ -56,6 +69,13 @@ class Factor(ABC):
             return None
         meta = cls.FREQUENCIES.get(frequency) or cls.FREQUENCIES.get(str(frequency).lower())
         return meta["seconds"] if meta else None
+
+    def point_in_time_policy(self) -> Optional[dict]:
+        """{'max_age', 'max_gap'} (seconds) for a raw series read as of a decision time (see POINT_IN_TIME_POLICY),
+        or None: calculated factors and other series use the bar / exact-date rules."""
+        if self.source == "calculated" or self.group not in self.POINT_IN_TIME_GROUPS:
+            return None
+        return self.POINT_IN_TIME_POLICY.get(self.frequency)
 
     def bar_availability_offset_seconds(self) -> int:
         """Seconds between a stored value's timestamp and the moment it is known.
@@ -159,6 +179,14 @@ class Factor(ABC):
         "reverse_premium":     {"label": "Reverse premium",     "typical_group": "dispersion"},
         "implied_correlation": {"label": "Implied correlation", "typical_group": "dispersion"},
         "scenario":            {"label": "Scenario payoff",     "typical_group": "dispersion"},
+        # company financial statements (raw provider fields) and the factors calculated from them
+        "income_statement":    {"label": "Income statement",    "typical_group": "fundamental"},
+        "balance_sheet":       {"label": "Balance sheet",       "typical_group": "fundamental"},
+        "cash_flow":           {"label": "Cash flow statement", "typical_group": "fundamental"},
+        "profitability":       {"label": "Profitability",       "typical_group": "fundamental"},
+        "leverage":            {"label": "Leverage",            "typical_group": "fundamental"},
+        "growth":              {"label": "Growth",              "typical_group": "fundamental"},
+        "valuation":           {"label": "Valuation",           "typical_group": "fundamental"},
         # technical / ML scores
         "signal":         {"label": "Signal",          "typical_group": "technical"},
         "indicator":      {"label": "Indicator",       "typical_group": "technical"},

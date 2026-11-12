@@ -880,3 +880,32 @@ comes from the ETF option entity's `option_type`. Every leg must have every fiel
 ORM identities `etf_share_option_factor`, `etf_share_option_net_premium_factor`, `etf_share_option_reverse_premium_factor`,
 `etf_share_option_implied_correlation_factor`, `etf_share_option_scenario_payoff_factor`; `ENTITY_FACTOR_MAPPING[ETFShareOption]
 = [ETFShareOptionFactor]`; library `etf_share_option_library`. Job: `dispersion_factors.py strategies <date>`.
+
+## Company financial statement factors (added 2026-11-12)
+
+Module docstring: `share_factor/company_share/fundamental/company_share_fundamental_factor.py`. Provider: FMP
+(`src/infrastructure/repositories/fmp_repo/CLAUDE.md`).
+
+- **Raw**: no class of their own - `CompanyShareFactor` series, group `fundamental`, subgroup the statement
+  (`income_statement`, `balance_sheet`, `cash_flow`), frequency `1q` (fiscal quarter) or `1y` (fiscal year), source
+  `fmp`, name = the FMP field (`STATEMENT_FIELDS`, plus the filing's data `METADATA_FIELDS`). A field in two statements
+  (netIncome, depreciationAndAmortization, inventory, accountsReceivables) is two series: the cash flow `inventory` is
+  a change, the balance sheet one a level. Fields FMP derives (grossProfit, netDebt, freeCashFlow, ...: `IDENTITIES`)
+  are stored as delivered, not recalculated (one request returns them all).
+- **Point in time**: a raw value is stamped when its filing became public (acceptance time) and read as of the
+  decision time: `Factor.point_in_time_policy()` (group `fundamental`, not calculated) -> the resolver takes the latest
+  value with date <= t (`FactorValueRepository.get_values_as_of`), none older than `max_age` (1q 200 days, 1y 400);
+  windows (`lookback`) must be consecutive periods (neighbours at most `max_gap` apart: 1q 150 days, 1y 550).
+- **Calculated** (each its own class / ORM identity / mapper / repository, group `fundamental`, subgroup = KIND,
+  frequency = the statements read, name = measure, `_ttm` on 1q = flows over 4 quarters / stocks averaged over them):
+
+| factor | names |
+|---|---|
+| `CompanyShareFundamentalProfitabilityFactor` | gross_margin, operating_margin, ebitda_margin, net_margin, fcf_margin, roe, roa, roic |
+| `CompanyShareFundamentalLeverageFactor` | debt_to_equity, net_debt_to_ebitda |
+| `CompanyShareFundamentalGrowthFactor` | `<metric>_growth` (1 period), `_growth_yoy` (1q: 4 quarters), `_growth_ttm` (1q flows) for revenue, gross_profit, ebit, ebitda, operating_income, net_income, eps (diluted), free_cash_flow, operating_cash_flow, total_assets, total_equity, total_debt |
+| `CompanyShareFundamentalValuationFactor` | earnings_yield, fcf_yield (with the daily close) |
+
+  No value on a missing input or a non-positive denominator / growth base. Statement dependencies read
+  `STATEMENT_SOURCES` (`fmp`) only. ORM identities `company_share_fundamental_<kind>_factor`; library
+  `company_share_fundamental_library` (keys `<subgroup>.<name>.<frequency>`). Tests: `tests/fmp/`.

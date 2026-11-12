@@ -22,6 +22,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.etf_share.etf_share_implied_dispersion_factor_repository import ETFShareImpliedDispersionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor_repository import ETFShareOptionFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_net_premium_factor_repository import ETFShareOptionNetPremiumFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_profitability_factor_repository import CompanyShareFundamentalProfitabilityFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_leverage_factor_repository import CompanyShareFundamentalLeverageFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_growth_factor_repository import CompanyShareFundamentalGrowthFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_valuation_factor_repository import CompanyShareFundamentalValuationFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_reverse_premium_factor_repository import ETFShareOptionReversePremiumFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_implied_correlation_factor_repository import ETFShareOptionImpliedCorrelationFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor_repository import ETFShareOptionScenarioPayoffFactorRepository
@@ -430,25 +434,34 @@ class RepositoryFactory:
     providing clean separation of concerns and making IBKR client optional.
     """
 
-    def __init__(self, session: Session, ibkr_client=None):
+    def __init__(self, session: Session, ibkr_client=None, fmp_client=None):
         """
         Initialize repository factory.
         
         Args:
             session: SQLAlchemy session for database operations
             ibkr_client: Optional Interactive Brokers API client
+            fmp_client: Optional Financial Modeling Prep client (FMPClient); create_fmp_repositories() builds one
+                from the configured key
         """
         self.session = session
         self.ibkr_client = ibkr_client
+        self.fmp_client = fmp_client
         self._local_repositories = {}
         self._ibkr_repositories = {}
+        self._fmp_repositories = {}
         # ibkr is only advertised as available when an actual client was supplied.
         # _resolve_factor_without_dependencies iterates this dict, so setting ibkr=True
         # without a client causes unnecessary IBKR lookup attempts on every resolution.
         self._available_repository_families: Dict[str, bool] = {
             'local': True,
             'ibkr': bool(ibkr_client),
+            # FMP is asked only once enabled (a client given, or create_fmp_repositories): a resolution never
+            # spends the subscription's daily requests by surprise
+            'fmp': bool(fmp_client),
         }
+        if fmp_client:
+            self.create_fmp_repositories(fmp_client)
         self.create_local_repositories()
         if ibkr_client:
             self.create_ibkr_repositories()
@@ -579,6 +592,10 @@ class RepositoryFactory:
                 'ETFShareImpliedDispersionFactor': ETFShareImpliedDispersionFactorRepository(self.session, factory=self),
                 'ETFShareOptionFactor': ETFShareOptionFactorRepository(self.session, factory=self),
                 'ETFShareOptionNetPremiumFactor': ETFShareOptionNetPremiumFactorRepository(self.session, factory=self),
+                'CompanyShareFundamentalProfitabilityFactor': CompanyShareFundamentalProfitabilityFactorRepository(self.session, factory=self),
+                'CompanyShareFundamentalLeverageFactor': CompanyShareFundamentalLeverageFactorRepository(self.session, factory=self),
+                'CompanyShareFundamentalGrowthFactor': CompanyShareFundamentalGrowthFactorRepository(self.session, factory=self),
+                'CompanyShareFundamentalValuationFactor': CompanyShareFundamentalValuationFactorRepository(self.session, factory=self),
                 'ETFShareOptionReversePremiumFactor': ETFShareOptionReversePremiumFactorRepository(self.session, factory=self),
                 'ETFShareOptionImpliedCorrelationFactor': ETFShareOptionImpliedCorrelationFactorRepository(self.session, factory=self),
                 'ETFShareOptionScenarioPayoffFactor': ETFShareOptionScenarioPayoffFactorRepository(self.session, factory=self),
@@ -1090,6 +1107,33 @@ class RepositoryFactory:
         # a repository that does not declare entity_class (e.g. IBKRIndexFactorRepository) is still registered under
         # its class name: without this the IRX (Index) import found no repository
         return repos.get(getattr(entity_class_or_key, '__name__', None))
+
+    def create_fmp_repositories(self, fmp_client=None) -> Optional[Dict[str, Any]]:
+        """Create the Financial Modeling Prep repositories and enable the 'fmp' family of the resolution service.
+        Without a client the configured key is used (FMPClient.from_environment); no key -> None, family off."""
+        from src.infrastructure.repositories.fmp_repo.factor.fmp_factor_value_repository import FMPFactorValueRepository
+        from src.infrastructure.repositories.fmp_repo.fmp_client import FMPClient
+        client = fmp_client or self.fmp_client or FMPClient.from_environment()
+        if client is None:
+            return None
+        if client is not self.fmp_client or not self._fmp_repositories:
+            self.fmp_client = client
+            factor_values = FMPFactorValueRepository(client, factory=self)
+            self._fmp_repositories = {'FactorValue': factor_values, **{
+                type(repo).__name__.removeprefix('FMP').removesuffix('Repository'): repo
+                for repo in factor_values.statements.values()}}
+        self._available_repository_families['fmp'] = True
+        return self._fmp_repositories
+
+    def get_fmp_repository(self, key: str):
+        """An FMP repository ('FactorValue', 'IncomeStatement', 'BalanceSheet', 'CashFlowStatement') once
+        create_fmp_repositories() has run, else None."""
+        return self._fmp_repositories.get(key)
+
+    @property
+    def factor_value_fmp_repo(self):
+        """FMP factor value repository (the resolution service's 'fmp' family), None until FMP is enabled."""
+        return self._fmp_repositories.get('FactorValue')
 
     def has_ibkr_client(self) -> bool:
         """Check if IBKR client is available."""
@@ -1992,6 +2036,26 @@ class RepositoryFactory:
     def etf_share_option_factor_local_repo(self):
         """Get etf_share_option_factor repository for dependency injection."""
         return self.get_local_repository('ETFShareOptionFactor')
+
+    @property
+    def company_share_fundamental_profitability_factor_local_repo(self):
+        """Get company_share_fundamental_profitability_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareFundamentalProfitabilityFactor')
+
+    @property
+    def company_share_fundamental_leverage_factor_local_repo(self):
+        """Get company_share_fundamental_leverage_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareFundamentalLeverageFactor')
+
+    @property
+    def company_share_fundamental_growth_factor_local_repo(self):
+        """Get company_share_fundamental_growth_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareFundamentalGrowthFactor')
+
+    @property
+    def company_share_fundamental_valuation_factor_local_repo(self):
+        """Get company_share_fundamental_valuation_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareFundamentalValuationFactor')
 
     @property
     def etf_share_option_net_premium_factor_local_repo(self):
